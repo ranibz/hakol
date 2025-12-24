@@ -2,11 +2,20 @@
 <html lang="he" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>תרשים זרימה דילמה - מותאם למובייל</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>מחולל הדילמות</title>
+    <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    
     <style>
         :root {
-            /* צבעים ראשיים */
+            /* צבעים */
+            --primary: #2c3e50;
+            --accent: #3498db;
+            --bg: #f0f2f5;
+            
+            /* צבעי התרשים */
             --col-problem: #8e44ad;
             --col-solution: #2980b9;
             --col-gain: #27ae60;
@@ -19,256 +28,454 @@
             --shadow-cost: #922b21;
         }
 
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: #ecf0f1;
-            display: flex;
-            justify-content: center;
-            padding: 40px;
+            font-family: 'Heebo', sans-serif;
+            background-color: var(--bg);
+            color: #333;
             margin: 0;
+            padding: 20px;
             min-height: 100vh;
-            box-sizing: border-box;
         }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        h1 { text-align: center; color: var(--primary); margin-bottom: 30px; }
+
+        /* --- תצוגת המבנה הוויזואלי (למעלה) --- */
+        .visual-guide-area {
+            background: #fff;
+            padding: 20px;
+            border-radius: 16px;
+            margin-bottom: 40px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+            border: 1px dashed #ccc;
+        }
+        
+        .visual-title {
+            text-align: center;
+            font-weight: bold;
+            color: var(--primary);
+            margin-bottom: 20px;
+            font-size: 1.1rem;
+        }
+
+        /* --- 1. עיצוב הטופס --- */
+        .form-card {
+            background: white;
+            padding: 25px;
+            border-radius: 16px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            animation: fadeIn 0.5s ease;
+        }
+
+        .input-group { margin-bottom: 20px; }
+        
+        label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: var(--primary);
+        }
+
+        input, textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-family: 'Heebo', sans-serif;
+            font-size: 1rem;
+            transition: border-color 0.3s;
+        }
+
+        input:focus, textarea:focus {
+            border-color: var(--accent);
+            outline: none;
+        }
+
+        .section-header {
+            font-size: 1.1rem;
+            color: var(--accent);
+            border-bottom: 2px solid #eee;
+            padding-bottom: 5px;
+            margin-top: 25px;
+            margin-bottom: 15px;
+            font-weight: 900;
+        }
+
+        .btn-generate {
+            background: linear-gradient(135deg, var(--primary), var(--accent));
+            color: white;
+            border: none;
+            padding: 15px;
+            width: 100%;
+            border-radius: 12px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 20px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            transition: transform 0.2s;
+        }
+
+        .btn-generate:active { transform: scale(0.98); }
+
+        /* --- 2. עיצוב התרשים (התוצאה) --- */
+        #result-area { display: none; }
 
         .flowchart {
             display: flex;
             flex-direction: column;
             align-items: center;
             width: 100%;
-            max-width: 100%;
+            padding: 20px 0;
+            background: white; /* רקע לבן ל-PDF */
+            border-radius: 16px; /* שיהיה יפה גם במסך */
+            animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
 
-        /* --- עיצוב התיבות (3D) --- */
+        /* עיצוב התיבות */
         .box {
-            padding: 15px 25px;
+            padding: 15px;
             color: white;
             border-radius: 12px;
             text-align: center;
             font-weight: bold;
             position: relative;
-            transition: all 0.1s ease;
-            width: fit-content;
-            min-width: 140px;
-            z-index: 2;
-            cursor: pointer;
-            box-shadow: 0px 6px 0px var(--shadow-color), 0px 10px 10px rgba(0,0,0,0.2);
-            transform: translateY(0);
+            min-width: 130px;
+            max-width: 100%;
+            box-shadow: 0px 5px 0px var(--shadow-color), 0px 8px 15px rgba(0,0,0,0.1);
+            margin: 5px;
+            font-size: 0.95rem;
+            word-wrap: break-word;
         }
-
-        .box:hover {
-            transform: translateY(3px);
-            box-shadow: 0px 3px 0px var(--shadow-color), 0px 6px 6px rgba(0,0,0,0.2);
-        }
-
-        /* צבעים */
-        .box-problem { background-color: var(--col-problem); --shadow-color: var(--shadow-problem); width: 320px; }
-        .box-solution { background-color: var(--col-solution); --shadow-color: var(--shadow-solution); }
-        .box-gain { background-color: var(--col-gain); --shadow-color: var(--shadow-gain); font-size: 0.9rem; }
-        .box-cost { background-color: var(--col-cost); --shadow-color: var(--shadow-cost); font-size: 0.9rem; }
 
         .sub-text {
             font-weight: normal;
-            font-size: 0.85em;
+            font-size: 0.8em;
             display: block;
-            margin-top: 5px;
+            margin-top: 4px;
             opacity: 0.9;
         }
 
-        /* --- מבנה וקווים (דסקטופ - ברירת מחדל) --- */
-        .level-1 {
+        /* צבעים */
+        .box-problem { background: var(--col-problem); --shadow-color: var(--shadow-problem); width: 90%; max-width: 400px; margin-bottom: 20px; }
+        .box-solution { background: var(--col-solution); --shadow-color: var(--shadow-solution); }
+        .box-gain { background: var(--col-gain); --shadow-color: var(--shadow-gain); font-size: 0.85rem; }
+        .box-cost { background: var(--col-cost); --shadow-color: var(--shadow-cost); font-size: 0.85rem; }
+        .box-decision { background: #34495e; --shadow-color: #2c3e50; width: 90%; max-width: 400px; margin-top: 20px; }
+
+        /* מבנה העץ (מותאם למובייל - אנכי) */
+        .chart-mobile-layout {
             display: flex;
             flex-direction: column;
-            align-items: center;
-            z-index: 5;
+            gap: 25px;
+            width: 90%; /* קצת רווח מהצדדים */
         }
 
-        .main-connector {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            width: 100%;
-            height: 60px;
-        }
-
-        .main-stem { width: 4px; height: 25px; background-color: var(--col-line); }
-        
-        /* רוחב הזרועות הגדולות בדסקטופ */
-        .main-arms {
-            width: 530px; 
-            height: 35px;
-            border-top: 4px solid var(--col-line);
-            border-left: 4px solid var(--col-line);
-            border-right: 4px solid var(--col-line);
-            border-top-left-radius: 15px;
-            border-top-right-radius: 15px;
-        }
-
-        .level-2-wrapper {
-            display: flex;
-            gap: 120px;
-            position: relative;
-            margin-top: -6px;
-        }
-
-        .branch {
+        .branch-container {
+            background: #fafafa;
+            border: 1px dashed #ccc;
+            border-radius: 15px;
+            padding: 15px;
             display: flex;
             flex-direction: column;
             align-items: center;
             position: relative;
         }
 
-        .fork-connector {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
+        .branch-label {
+            position: absolute;
+            top: -12px;
+            background: #fff;
+            padding: 0 10px;
+            color: #777;
+            font-size: 0.8rem;
+            font-weight: bold;
+            border: 1px solid #eee;
+            border-radius: 10px;
+        }
+
+        .results-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
             width: 100%;
-            height: 45px;
+            margin-top: 15px;
         }
 
-        .fork-stem { width: 4px; height: 15px; background-color: var(--col-line); }
+        .arrow-down { font-size: 24px; color: #999; margin: -5px 0; }
 
-        /* רוחב הזרועות הקטנות בדסקטופ */
-        .fork-arms {
-            width: 190px;
-            height: 30px;
-            border-top: 4px solid var(--col-line);
-            border-left: 4px solid var(--col-line);
-            border-right: 4px solid var(--col-line);
-            border-top-left-radius: 10px;
-            border-top-right-radius: 10px;
-        }
-
-        .level-3-wrapper {
+        /* כפתורים בתחתית (עריכה והורדה) */
+        .actions-bar {
             display: flex;
-            gap: 30px;
-            margin-top: -6px;
+            gap: 15px;
+            margin-top: 30px;
+            justify-content: center;
         }
 
-        /* ----------------------------------------------------------- */
-        /* --- התאמה לסמארטפון (Mobile Responsive) --- */
-        /* ----------------------------------------------------------- */
-        @media (max-width: 768px) {
-            body {
-                padding: 20px 10px; /* פחות שוליים בצדדים */
-            }
-
-            /* הקטנת כל התיבות */
-            .box {
-                min-width: 70px; /* רוחב מינימלי קטן יותר */
-                padding: 10px 5px;
-                font-size: 0.8rem; /* פונט קטן יותר */
-                border-radius: 8px;
-            }
-
-            .sub-text {
-                font-size: 0.75em;
-                line-height: 1.1;
-            }
-
-            /* התאמת תיבת הבעיה */
-            .box-problem {
-                width: auto;
-                max-width: 90%;
-                padding: 10px 20px;
-            }
-
-            /* הקטנת המרווחים בין הקומות */
-            .main-connector { height: 40px; }
-            .fork-connector { height: 30px; }
-            .main-stem { height: 15px; }
-            .fork-stem { height: 10px; }
-
-            /* --- חישוב מחדש של הקווים והרווחים למסך צר --- */
-            
-            /* צמצום הרווח בין ענף ימין לענף שמאל */
-            .level-2-wrapper {
-                gap: 15px; /* צומצם משמעותית מ-120px */
-            }
-
-            /* חישוב זרועות ראשיות חדש */
-            .main-arms {
-                width: 180px; /* מותאם לרוחב החדש של הענפים */
-                height: 25px;
-                border-width: 3px; /* קו דק יותר */
-            }
-
-            /* צמצום הרווח בין רווח למחיר */
-            .level-3-wrapper {
-                gap: 6px; /* צומצם משמעותית מ-30px */
-            }
-
-            /* חישוב זרועות קטנות חדש */
-            .fork-arms {
-                width: 82px; /* מותאם לרוחב התיבות הקטנות + הרווח ביניהן */
-                height: 20px;
-                border-width: 3px;
-                border-radius: 8px;
-            }
-            
-            .main-stem, .fork-stem { width: 3px; } /* קווים אנכיים דקים יותר */
+        .btn-action {
+            padding: 12px 25px;
+            border-radius: 50px;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border: none;
+            font-size: 1rem;
+            transition: transform 0.2s, box-shadow 0.2s;
         }
+
+        .btn-action:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+
+        .btn-edit {
+            background: white;
+            color: var(--primary);
+            border: 2px solid var(--primary);
+        }
+
+        .btn-download {
+            background: #e74c3c;
+            color: white;
+            box-shadow: 0 4px 10px rgba(231, 76, 60, 0.3);
+        }
+
+        /* כותרת להדפסה בלבד */
+        .print-title { display: none; text-align: center; color: var(--primary); margin-bottom: 20px; font-weight: 900; font-size: 2rem;}
+
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes popIn { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
+
     </style>
 </head>
 <body>
 
-    <div class="flowchart">
-        
-        <div class="level-1">
-            <div class="box box-problem">
-                בעיה (דילמה)
-                <span class="sub-text">יש כמה אפשרויות, אין תשובה אחת נכונה</span>
-            </div>
-        </div>
+    <div class="container">
+        <h1>מחולל הדילמות</h1>
 
-        <div class="main-connector">
-            <div class="main-stem"></div> 
-            <div class="main-arms"></div> 
-        </div>
-
-        <div class="level-2-wrapper">
-
-            <div class="branch">
-                <div class="box box-solution">פתרון א'</div>
+        <div class="visual-guide-area">
+            <div class="visual-title">מבנה הדילמה (להמחשה)</div>
+            
+            <div class="flowchart">
+                <div class="box box-problem" style="width: 100%; max-width: 300px;">
+                    בעיה (דילמה)
+                    <span class="sub-text">יש כמה אפשרויות, אין תשובה אחת נכונה</span>
+                </div>
                 
-                <div class="fork-connector">
-                    <div class="fork-stem"></div>
-                    <div class="fork-arms"></div>
+                <span class="material-icons-round arrow-down">arrow_downward</span>
+
+                <div class="chart-mobile-layout">
+                    <div class="branch-container">
+                        <span class="branch-label">אפשרות א'</span>
+                        <div class="box box-solution">פתרון א'</div>
+                        <div class="results-grid">
+                            <div class="box box-gain">רווח</div>
+                            <div class="box box-cost">מחיר</div>
+                        </div>
+                    </div>
+
+                    <div class="branch-container">
+                        <span class="branch-label">אפשרות ב'</span>
+                        <div class="box box-solution">פתרון ב'</div>
+                        <div class="results-grid">
+                            <div class="box box-gain">רווח</div>
+                            <div class="box box-cost">מחיר</div>
+                        </div>
+                    </div>
                 </div>
 
-                <div class="level-3-wrapper">
-                    <div class="box box-gain">
-                        רווח
-                        <span class="sub-text">מבחירה בא'</span>
+                <span class="material-icons-round arrow-down" style="margin-top:10px;">arrow_downward</span>
+
+                <div class="box box-decision" style="width: 100%; max-width: 300px;">
+                    הכרעה מנומקת
+                </div>
+            </div>
+        </div>
+
+        <div id="form-area" class="form-card">
+            
+            <div class="input-group">
+                <label>מהי הדילמה (הבעיה)?</label>
+                <textarea id="in-dilemma" rows="2" placeholder="למשל: האם לפרסם תמונה קשה לצפייה..."></textarea>
+            </div>
+
+            <div class="section-header">אפשרות א'</div>
+            <div class="input-group">
+                <label>מה הפתרון הראשון?</label>
+                <input type="text" id="in-opt-a" placeholder="למשל: לפרסם את התמונה">
+            </div>
+            <div class="input-group">
+                <label>מה נרוויח מזה?</label>
+                <input type="text" id="in-gain-a" placeholder="למשל: רייטינג גבוה, חשיפת אמת">
+            </div>
+            <div class="input-group">
+                <label>מה המחיר שנשלם?</label>
+                <input type="text" id="in-cost-a" placeholder="למשל: פגיעה במשפחות, זעזוע">
+            </div>
+
+            <div class="section-header">אפשרות ב'</div>
+            <div class="input-group">
+                <label>מה הפתרון השני?</label>
+                <input type="text" id="in-opt-b" placeholder="למשל: לא לפרסם / לטשטש">
+            </div>
+            <div class="input-group">
+                <label>מה נרוויח מזה?</label>
+                <input type="text" id="in-gain-b" placeholder="למשל: שמירה על כבוד האדם">
+            </div>
+            <div class="input-group">
+                <label>מה המחיר שנשלם?</label>
+                <input type="text" id="in-cost-b" placeholder="למשל: הסתרה מהציבור, פחות עניין">
+            </div>
+
+            <div class="section-header">הכרעה</div>
+            <div class="input-group">
+                <label>מה ההכרעה המנומקת שלך?</label>
+                <textarea id="in-decision" rows="3" placeholder="אני בוחר באפשרות... מפני ש..."></textarea>
+            </div>
+
+            <button class="btn-generate" onclick="generateChart()">
+                צור את הדילמה שלי 🪄
+            </button>
+        </div>
+
+        <div id="result-area">
+            
+            <div id="print-area" style="background: white; padding: 20px; border-radius: 16px;">
+                
+                <div class="print-title" id="pdf-title" style="display: block; text-align: center; margin-bottom: 20px;">
+                    הדילמה שלי
+                </div>
+
+                <div class="flowchart">
+                    
+                    <div class="box box-problem">
+                        <span id="out-dilemma">הדילמה תופיע כאן</span>
+                        <span class="sub-text">הבעיה המרכזית</span>
                     </div>
-                    <div class="box box-cost">
-                        מחיר
-                        <span class="sub-text">שנשלם על א'</span>
+
+                    <span class="material-icons-round arrow-down">arrow_downward</span>
+
+                    <div class="chart-mobile-layout">
+                        
+                        <div class="branch-container">
+                            <span class="branch-label">אפשרות א'</span>
+                            <div class="box box-solution" id="out-opt-a">...</div>
+                            
+                            <div class="results-grid">
+                                <div class="box box-gain">
+                                    <span class="sub-text">רווח:</span>
+                                    <span id="out-gain-a">...</span>
+                                </div>
+                                <div class="box box-cost">
+                                    <span class="sub-text">מחיר:</span>
+                                    <span id="out-cost-a">...</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="branch-container">
+                            <span class="branch-label">אפשרות ב'</span>
+                            <div class="box box-solution" id="out-opt-b">...</div>
+                            
+                            <div class="results-grid">
+                                <div class="box box-gain">
+                                    <span class="sub-text">רווח:</span>
+                                    <span id="out-gain-b">...</span>
+                                </div>
+                                <div class="box box-cost">
+                                    <span class="sub-text">מחיר:</span>
+                                    <span id="out-cost-b">...</span>
+                                </div>
+                            </div>
+                        </div>
+
                     </div>
+
+                    <span class="material-icons-round arrow-down" style="margin-top:20px;">arrow_downward</span>
+
+                    <div class="box box-decision">
+                        הכרעה אישית:
+                        <span class="sub-text" id="out-decision">...</span>
+                    </div>
+
                 </div>
             </div>
 
-            <div class="branch">
-                <div class="box box-solution">פתרון ב'</div>
-
-                <div class="fork-connector">
-                    <div class="fork-stem"></div>
-                    <div class="fork-arms"></div>
-                </div>
-
-                <div class="level-3-wrapper">
-                    <div class="box box-gain">
-                        רווח
-                        <span class="sub-text">מבחירה בב'</span>
-                    </div>
-                    <div class="box box-cost">
-                        מחיר
-                        <span class="sub-text">שנשלם על ב'</span>
-                    </div>
-                </div>
+            <div class="actions-bar">
+                <button class="btn-action btn-edit" onclick="editMode()">
+                    <span class="material-icons-round">edit</span>
+                    ערוך
+                </button>
+                
+                <button class="btn-action btn-download" onclick="downloadPDF()">
+                    <span class="material-icons-round">picture_as_pdf</span>
+                    הורד כ-PDF
+                </button>
             </div>
 
         </div>
+
     </div>
+
+    <script>
+        function generateChart() {
+            // קבלת הערכים מהטופס
+            const dilemma = document.getElementById('in-dilemma').value || "לא הוזנה דילמה";
+            const optA = document.getElementById('in-opt-a').value || "אפשרות א";
+            const gainA = document.getElementById('in-gain-a').value || "-";
+            const costA = document.getElementById('in-cost-a').value || "-";
+            const optB = document.getElementById('in-opt-b').value || "אפשרות ב";
+            const gainB = document.getElementById('in-gain-b').value || "-";
+            const costB = document.getElementById('in-cost-b').value || "-";
+            const decision = document.getElementById('in-decision').value || "טרם הוכרע";
+
+            // שיבוץ הערכים בתרשים
+            document.getElementById('out-dilemma').innerText = dilemma;
+            document.getElementById('out-opt-a').innerText = optA;
+            document.getElementById('out-gain-a').innerText = gainA;
+            document.getElementById('out-cost-a').innerText = costA;
+            document.getElementById('out-opt-b').innerText = optB;
+            document.getElementById('out-gain-b').innerText = gainB;
+            document.getElementById('out-cost-b').innerText = costB;
+            document.getElementById('out-decision').innerText = decision;
+
+            // החלפת תצוגה
+            document.getElementById('form-area').style.display = 'none';
+            document.getElementById('result-area').style.display = 'block';
+            
+            // הסתרת המבנה הוויזואלי כשיש תוצאה (כדי להתמקד בתוצר)
+            document.querySelector('.visual-guide-area').style.display = 'none';
+
+            window.scrollTo(0, 0);
+        }
+
+        function editMode() {
+            document.getElementById('result-area').style.display = 'none';
+            document.getElementById('form-area').style.display = 'block';
+            
+            // החזרת המבנה הוויזואלי
+            document.querySelector('.visual-guide-area').style.display = 'block';
+            
+            window.scrollTo(0, 0);
+        }
+
+        function downloadPDF() {
+            const element = document.getElementById('print-area');
+            const opt = {
+                margin:       [10, 10], 
+                filename:     'my_dilemma.pdf',
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2, useCORS: true }, 
+                jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
+            html2pdf().set(opt).from(element).save();
+        }
+    </script>
 
 </body>
 </html>

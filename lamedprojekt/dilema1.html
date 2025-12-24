@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>תרשים זרימה דילמה - מותאם למובייל</title>
+    <style>
+        :root {
+            /* צבעים ראשיים */
+            --col-problem: #8e44ad;
+            --col-solution: #2980b9;
+            --col-gain: #27ae60;
+            --col-cost: #c0392b;
+            --col-line: #7f8c8d;
+            
+            --shadow-problem: #6c3483;
+            --shadow-solution: #1a5276;
+            --shadow-gain: #196f3d;
+            --shadow-cost: #922b21;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #ecf0f1;
+            display: flex;
+            justify-content: center;
+            padding: 40px;
+            margin: 0;
+            min-height: 100vh;
+            box-sizing: border-box;
+        }
+
+        .flowchart {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            max-width: 100%;
+        }
+
+        /* --- עיצוב התיבות (3D) --- */
+        .box {
+            padding: 15px 25px;
+            color: white;
+            border-radius: 12px;
+            text-align: center;
+            font-weight: bold;
+            position: relative;
+            transition: all 0.1s ease;
+            width: fit-content;
+            min-width: 140px;
+            z-index: 2;
+            cursor: pointer;
+            box-shadow: 0px 6px 0px var(--shadow-color), 0px 10px 10px rgba(0,0,0,0.2);
+            transform: translateY(0);
+        }
+
+        .box:hover {
+            transform: translateY(3px);
+            box-shadow: 0px 3px 0px var(--shadow-color), 0px 6px 6px rgba(0,0,0,0.2);
+        }
+
+        /* צבעים */
+        .box-problem { background-color: var(--col-problem); --shadow-color: var(--shadow-problem); width: 320px; }
+        .box-solution { background-color: var(--col-solution); --shadow-color: var(--shadow-solution); }
+        .box-gain { background-color: var(--col-gain); --shadow-color: var(--shadow-gain); font-size: 0.9rem; }
+        .box-cost { background-color: var(--col-cost); --shadow-color: var(--shadow-cost); font-size: 0.9rem; }
+
+        .sub-text {
+            font-weight: normal;
+            font-size: 0.85em;
+            display: block;
+            margin-top: 5px;
+            opacity: 0.9;
+        }
+
+        /* --- מבנה וקווים (דסקטופ - ברירת מחדל) --- */
+        .level-1 {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            z-index: 5;
+        }
+
+        .main-connector {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            height: 60px;
+        }
+
+        .main-stem { width: 4px; height: 25px; background-color: var(--col-line); }
+        
+        /* רוחב הזרועות הגדולות בדסקטופ */
+        .main-arms {
+            width: 530px; 
+            height: 35px;
+            border-top: 4px solid var(--col-line);
+            border-left: 4px solid var(--col-line);
+            border-right: 4px solid var(--col-line);
+            border-top-left-radius: 15px;
+            border-top-right-radius: 15px;
+        }
+
+        .level-2-wrapper {
+            display: flex;
+            gap: 120px;
+            position: relative;
+            margin-top: -6px;
+        }
+
+        .branch {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+        }
+
+        .fork-connector {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 100%;
+            height: 45px;
+        }
+
+        .fork-stem { width: 4px; height: 15px; background-color: var(--col-line); }
+
+        /* רוחב הזרועות הקטנות בדסקטופ */
+        .fork-arms {
+            width: 190px;
+            height: 30px;
+            border-top: 4px solid var(--col-line);
+            border-left: 4px solid var(--col-line);
+            border-right: 4px solid var(--col-line);
+            border-top-left-radius: 10px;
+            border-top-right-radius: 10px;
+        }
+
+        .level-3-wrapper {
+            display: flex;
+            gap: 30px;
+            margin-top: -6px;
+        }
+
+        /* ----------------------------------------------------------- */
+        /* --- התאמה לסמארטפון (Mobile Responsive) --- */
+        /* ----------------------------------------------------------- */
+        @media (max-width: 768px) {
+            body {
+                padding: 20px 10px; /* פחות שוליים בצדדים */
+            }
+
+            /* הקטנת כל התיבות */
+            .box {
+                min-width: 70px; /* רוחב מינימלי קטן יותר */
+                padding: 10px 5px;
+                font-size: 0.8rem; /* פונט קטן יותר */
+                border-radius: 8px;
+            }
+
+            .sub-text {
+                font-size: 0.75em;
+                line-height: 1.1;
+            }
+
+            /* התאמת תיבת הבעיה */
+            .box-problem {
+                width: auto;
+                max-width: 90%;
+                padding: 10px 20px;
+            }
+
+            /* הקטנת המרווחים בין הקומות */
+            .main-connector { height: 40px; }
+            .fork-connector { height: 30px; }
+            .main-stem { height: 15px; }
+            .fork-stem { height: 10px; }
+
+            /* --- חישוב מחדש של הקווים והרווחים למסך צר --- */
+            
+            /* צמצום הרווח בין ענף ימין לענף שמאל */
+            .level-2-wrapper {
+                gap: 15px; /* צומצם משמעותית מ-120px */
+            }
+
+            /* חישוב זרועות ראשיות חדש */
+            .main-arms {
+                width: 180px; /* מותאם לרוחב החדש של הענפים */
+                height: 25px;
+                border-width: 3px; /* קו דק יותר */
+            }
+
+            /* צמצום הרווח בין רווח למחיר */
+            .level-3-wrapper {
+                gap: 6px; /* צומצם משמעותית מ-30px */
+            }
+
+            /* חישוב זרועות קטנות חדש */
+            .fork-arms {
+                width: 82px; /* מותאם לרוחב התיבות הקטנות + הרווח ביניהן */
+                height: 20px;
+                border-width: 3px;
+                border-radius: 8px;
+            }
+            
+            .main-stem, .fork-stem { width: 3px; } /* קווים אנכיים דקים יותר */
+        }
+    </style>
+</head>
+<body>
+
+    <div class="flowchart">
+        
+        <div class="level-1">
+            <div class="box box-problem">
+                בעיה (דילמה)
+                <span class="sub-text">יש כמה אפשרויות, אין תשובה אחת נכונה</span>
+            </div>
+        </div>
+
+        <div class="main-connector">
+            <div class="main-stem"></div> 
+            <div class="main-arms"></div> 
+        </div>
+
+        <div class="level-2-wrapper">
+
+            <div class="branch">
+                <div class="box box-solution">פתרון א'</div>
+                
+                <div class="fork-connector">
+                    <div class="fork-stem"></div>
+                    <div class="fork-arms"></div>
+                </div>
+
+                <div class="level-3-wrapper">
+                    <div class="box box-gain">
+                        רווח
+                        <span class="sub-text">מבחירה בא'</span>
+                    </div>
+                    <div class="box box-cost">
+                        מחיר
+                        <span class="sub-text">שנשלם על א'</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="branch">
+                <div class="box box-solution">פתרון ב'</div>
+
+                <div class="fork-connector">
+                    <div class="fork-stem"></div>
+                    <div class="fork-arms"></div>
+                </div>
+
+                <div class="level-3-wrapper">
+                    <div class="box box-gain">
+                        רווח
+                        <span class="sub-text">מבחירה בב'</span>
+                    </div>
+                    <div class="box box-cost">
+                        מחיר
+                        <span class="sub-text">שנשלם על ב'</span>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+</body>
+</html>
