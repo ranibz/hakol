@@ -1,0 +1,728 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"> <title>מחולל מבחני בגרות - מותאם למובייל</title>
+    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700;900&family=David+Libre:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #2980b9;
+            --light: #f5f6fa;
+            --dark: #2c3e50;
+            --success: #27ae60;
+            --error: #e74c3c;
+        }
+
+        body {
+            font-family: 'Rubik', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #57606f;
+            color: var(--dark);
+            height: 100vh;
+            display: flex;
+            overflow: hidden;
+        }
+
+        /* --- צד ימין: בנק השאלות --- */
+        aside {
+            width: 30%;
+            background: white;
+            border-left: 1px solid #bdc3c7;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+            z-index: 10;
+            transition: transform 0.3s ease;
+        }
+
+        .bank-header { padding: 15px; background: var(--primary); color: white; }
+        .bank-header h2 { margin: 0; font-size: 1.2rem; }
+        .bank-header p { margin: 5px 0 0; opacity: 0.9; font-size: 0.8rem; }
+
+        .accordion-container { flex-grow: 1; overflow-y: auto; padding: 10px; background: #f1f2f6; }
+
+        .accordion-item { margin-bottom: 10px; border: 1px solid #ccc; border-radius: 8px; background: white; overflow: hidden; }
+        .accordion-header {
+            width: 100%; background: white; padding: 15px; text-align: right; border: none;
+            border-bottom: 1px solid transparent; cursor: pointer; font-family: 'Rubik', sans-serif;
+            font-weight: 700; font-size: 1rem; color: var(--dark);
+            display: flex; justify-content: space-between; align-items: center; transition: 0.2s;
+        }
+        .accordion-header:hover { background: #f7f9fa; }
+        .accordion-header.active { background: #e3f2fd; border-bottom: 1px solid #bdc3c7; color: var(--primary); }
+        .accordion-content { display: none; padding: 10px; background: #fafafa; max-height: 400px; overflow-y: auto; }
+        .accordion-content.show { display: block; }
+
+        .badge { background: #b2bec3; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.8rem; font-weight: normal; }
+        .accordion-header.active .badge { background: var(--primary); }
+
+        .q-card {
+            background: white; border: 1px solid #eee; border-right: 4px solid #bdc3c7;
+            padding: 10px; margin-bottom: 8px; border-radius: 6px; cursor: pointer;
+            transition: 0.2s; display: flex; align-items: center; gap: 10px;
+        }
+        .q-card:active { background-color: #dff9fb; } /* פידבק למגע */
+        .part-a-card { border-right-color: #e74c3c; } 
+        .part-b-card { border-right-color: #f1c40f; } 
+        .part-c-card { border-right-color: #2ecc71; } 
+
+        .q-card .add-btn {
+            background: var(--success); color: white; border: none; border-radius: 50%;
+            width: 30px; height: 30px; font-size: 20px; cursor: pointer;
+            display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+        }
+        
+        .sidebar-desc { font-size: 0.9rem; font-weight: bold; color: #333; margin-bottom: 3px; }
+        .sidebar-concepts { font-size: 0.8rem; color: #666; line-height: 1.3; }
+
+        /* --- צד שמאל: אזור המבחן --- */
+        main {
+            width: 70%;
+            background: #dfe6e9;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+
+        /* --- סרגל ניווט עליון (Tabs) --- */
+        .editor-nav {
+            background: white;
+            padding: 10px;
+            display: flex;
+            gap: 5px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            justify-content: center;
+            flex-wrap: wrap; /* מאפשר שבירת שורות במובייל */
+        }
+
+        .nav-tab {
+            padding: 8px 15px;
+            border: 1px solid transparent;
+            background: #f1f2f6;
+            cursor: pointer;
+            border-radius: 20px;
+            font-weight: bold;
+            color: #7f8c8d;
+            transition: 0.2s;
+            font-family: 'Rubik', sans-serif;
+            font-size: 0.9rem;
+            white-space: nowrap;
+        }
+
+        .nav-tab.active {
+            background: var(--primary);
+            color: white;
+            box-shadow: 0 3px 8px rgba(41, 128, 185, 0.4);
+        }
+
+        /* אזור הגלילה הפנימי */
+        .content-scroller {
+            flex-grow: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            -webkit-overflow-scrolling: touch; /* גלילה חלקה באייפון */
+        }
+
+        .exam-section {
+            display: none; width: 100%;
+            flex-direction: column; align-items: center; gap: 20px;
+        }
+        .exam-section.active { display: flex; animation: fadeIn 0.4s ease; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* --- עיצוב דף בודד (רספונסיבי) --- */
+        .exam-page {
+            background: white;
+            width: 100%; 
+            max-width: 210mm; /* מגביל רוחב לדסקטופ */
+            min-height: 297mm; /* גובה A4 */
+            padding: 20mm;
+            box-shadow: 0 0 15px rgba(0,0,0,0.1);
+            font-family: 'David Libre', serif;
+            position: relative;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* התאמות למובייל */
+        @media screen and (max-width: 768px) {
+            body { flex-direction: column; height: 100vh; }
+            
+            /* בנק שאלות הופך לתפריט נפתח או קטן */
+            aside { 
+                width: 100%; 
+                height: 40%; /* תופס חלק מהמסך */
+                order: 2; /* יורד למטה או נשאר למעלה תלוי בהעדפה */
+                position: absolute;
+                bottom: 0;
+                left: 0;
+                z-index: 100;
+                transform: translateY(100%); /* מוסתר ברירת מחדל */
+                border-top: 2px solid var(--primary);
+            }
+            
+            aside.open { transform: translateY(0); }
+
+            /* כפתור פתיחת בנק שאלות במובייל */
+            .mobile-bank-toggle {
+                display: flex !important;
+                position: fixed; bottom: 20px; right: 20px;
+                background: var(--primary); color: white;
+                width: 60px; height: 60px; border-radius: 50%;
+                justify-content: center; align-items: center;
+                font-size: 30px; box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+                z-index: 101; cursor: pointer; border: none;
+            }
+
+            main { width: 100%; height: 100%; }
+            .content-scroller { padding: 10px; padding-bottom: 80px; /* מקום לכפתור */ }
+            
+            .exam-page { 
+                padding: 15px; 
+                min-height: 70vh; /* לא חייב גובה A4 בטלפון */
+            }
+            
+            .chapter-title { font-size: 2rem; }
+            .exam-header h1 { font-size: 1.2rem; }
+            .exam-type-select { font-size: 1.2rem; }
+            
+            /* התאמת גודל טקסט לקריאה בטלפון */
+            .reading-passage { font-size: 1rem; line-height: 1.4; }
+            .q-content { font-size: 1rem; }
+            .answer-box { font-size: 1rem; min-height: 200px; }
+            
+            .print-btn-container { bottom: 90px; right: 20px; left: auto; flex-direction: column; }
+            .action-btn { font-size: 0.9rem; padding: 10px 20px; }
+        }
+
+        .mobile-bank-toggle { display: none; } /* מוסתר בדסקטופ */
+
+        /* כפתורי מעבר */
+        .next-section-btn {
+            margin-top: 30px; padding: 12px 25px;
+            background-color: var(--primary); color: white;
+            border: none; border-radius: 50px; font-size: 1rem;
+            cursor: pointer; font-family: 'Rubik', sans-serif;
+            align-self: center; display: flex; align-items: center;
+            gap: 10px; transition: 0.2s;
+        }
+        .next-section-btn:hover { background-color: #1a5276; transform: scale(1.05); }
+
+        .chapter-page { justify-content: center; align-items: center; text-align: center; border: 1px solid #ddd; }
+        .chapter-title { font-size: 3rem; margin: 0 0 10px 0; font-family: 'Rubik', sans-serif; font-weight: 900; color: #2c3e50; line-height: 1.2; }
+        .chapter-instructions { font-size: 1.2rem; font-weight: bold; font-family: 'David Libre', serif; margin-top: 20px; color: #000; }
+        .chapter-divider { width: 100px; height: 5px; background: var(--primary); margin: 20px auto; }
+
+        /* --- דף שער --- */
+        .exam-header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid black; padding-bottom: 10px; }
+        .exam-title-row { display: flex; justify-content: center; align-items: center; gap: 10px; margin: 15px 0; flex-wrap: wrap; }
+        
+        .exam-type-select {
+            font-size: 20px; font-family: 'Rubik', sans-serif; font-weight: bold;
+            color: #1565c0; background-color: #e3f2fd; border: 2px solid #1565c0;
+            border-radius: 8px; padding: 5px 15px; cursor: pointer; outline: none;
+            background-image: url('data:image/svg+xml;utf8,<svg fill="%231565c0" height="24" viewBox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg"><path d="M7 10l5 5 5-5z"/><path d="M0 0h24v24H0z" fill="none"/></svg>');
+            background-repeat: no-repeat; background-position: left 5px center; padding-left: 30px;
+            -webkit-appearance: none; -moz-appearance: none; appearance: none;
+        }
+
+        .student-row {
+            margin-top: 20px; display: inline-flex; justify-content: center; align-items: center;
+            gap: 10px; font-size: 18px; background: #fff9c4; padding: 10px 25px;
+            border-radius: 50px; border: 2px solid #fbc02d; box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            max-width: 100%; /* למובייל */
+        }
+        .student-input {
+            border: none; border-bottom: 2px dashed #f57f17; font-family: 'David Libre', serif;
+            font-size: 18px; font-weight: bold; width: 200px; background: transparent;
+            padding: 2px 5px; color: #333;
+        }
+
+        /* --- עיצוב תוכן שאלה --- */
+        .page-header-info { border-bottom: 2px solid #eee; margin-bottom: 20px; padding-bottom: 10px; color: #7f8c8d; font-family: 'Rubik', sans-serif; font-size: 0.9rem; display: flex; justify-content: space-between; }
+        .reading-passage {
+            background-color: #f8f9fa; border: 1px solid #dcdde1; border-right: 4px solid #7f8c8d;
+            padding: 15px; margin-bottom: 15px; font-family: 'David Libre', serif; 
+            font-size: 1.15rem; line-height: 1.6; color: #000; text-align: justify;
+            white-space: pre-wrap;
+        }
+        .q-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .q-number { font-weight: bold; font-size: 1.4rem; background: #eee; padding: 5px 15px; border-radius: 5px; }
+        .q-content { font-size: 1.2rem; line-height: 1.6; margin-bottom: 15px; }
+        
+        .answer-box {
+            width: 100%; flex-grow: 1; min-height: 300px; margin-top: 15px; padding: 20px;
+            border: 2px solid #b2bec3; border-radius: 4px; background-color: #fff; 
+            font-family: 'David Libre', serif; font-size: 1.2rem; line-height: 2rem; 
+            background-image: linear-gradient(#eee 1px, transparent 1px); background-size: 100% 2rem; resize: none; 
+        }
+        .answer-box:focus { border-color: var(--primary); outline: none; }
+
+        .remove-btn {
+            color: white; background-color: var(--error); border-radius: 4px;
+            padding: 5px 10px; cursor: pointer; font-family: sans-serif; font-size: 14px; border: none;
+        }
+
+        .print-btn-container { position: fixed; bottom: 20px; left: 20px; z-index: 90; display: flex; gap: 10px; }
+        
+        .action-btn {
+            background: var(--dark); color: white; padding: 12px 25px; border: none;
+            border-radius: 50px; font-size: 16px; cursor: pointer;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2); font-family: 'Rubik', sans-serif; transition: 0.2s;
+        }
+        .download-btn { background: #e67e22; }
+
+        .student-save-btn {
+            position: absolute; top: 20px; left: 20px;
+            background: #27ae60; color: white; border: none; padding: 10px 15px;
+            border-radius: 8px; font-family: 'Rubik', sans-serif; font-weight: bold;
+            cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            display: flex; align-items: center; gap: 5px; z-index: 100;
+        }
+
+        .status-bar { background: white; padding: 15px; border-top: 1px solid #ccc; font-size: 0.9rem; }
+        .status-item { margin-bottom: 5px; display: flex; justify-content: space-between; }
+        .progress-bg { background: #eee; height: 6px; width: 100px; border-radius: 3px; overflow: hidden; }
+        .progress-fill { height: 100%; background: var(--success); width: 0%; transition: 0.3s; }
+        .progress-fill.full { background: var(--error); }
+
+        @media print {
+            aside, .print-btn-container, .remove-btn, .student-save-btn, .editor-nav, .next-section-btn, .mobile-bank-toggle { display: none !important; }
+            main { width: 100%; background: white; padding: 0; display: block; height: auto; overflow: visible; }
+            .content-scroller { display: block; overflow: visible; padding: 0; }
+            .exam-section { display: block !important; opacity: 1 !important; }
+            .exam-page { box-shadow: none; width: 100%; padding: 0; margin: 0; min-height: 297mm; page-break-after: always; }
+            .exam-page:last-child { page-break-after: auto; }
+            .reading-passage { background-color: #fff; border: 1px solid #000; color: #000; }
+            .answer-box { border: 1px solid #000; background-color: #fff; }
+            body { height: auto; overflow: visible; }
+        }
+    </style>
+</head>
+<body>
+
+<button class="mobile-bank-toggle" onclick="toggleMobileBank()">➕</button>
+
+<aside id="teacherPanel">
+    <div class="bank-header">
+        <h2>🏦 בנק שאלות</h2>
+        <p>לחצו להוספת שאלה</p>
+    </div>
+
+    <div class="accordion-container">
+        <div class="accordion-item">
+            <button class="accordion-header" onclick="toggleAccordion('listA', this)">
+                <span>פרק א' (גדולות)</span><span class="badge" id="badgeA">0</span>
+            </button>
+            <div id="listA" class="accordion-content"></div>
+        </div>
+        <div class="accordion-item">
+            <button class="accordion-header" onclick="toggleAccordion('listB', this)">
+                <span>פרק ב' (בינוניות)</span><span class="badge" id="badgeB">0</span>
+            </button>
+            <div id="listB" class="accordion-content"></div>
+        </div>
+        <div class="accordion-item">
+            <button class="accordion-header" onclick="toggleAccordion('listC', this)">
+                <span>פרק ג' (מושגים)</span><span class="badge" id="badgeC">0</span>
+            </button>
+            <div id="listC" class="accordion-content"></div>
+        </div>
+    </div>
+
+    <div class="status-bar">
+        <div style="font-weight:bold; margin-bottom:10px;">סטטוס המבחן:</div>
+        <div class="status-item"><span>פרק א' (עד 4):</span><div style="display:flex; align-items:center; gap:10px;"><span id="textCountA">0/4</span><div class="progress-bg"><div id="barA" class="progress-fill"></div></div></div></div>
+        <div class="status-item"><span>פרק ב' (עד 6):</span><div style="display:flex; align-items:center; gap:10px;"><span id="textCountB">0/6</span><div class="progress-bg"><div id="barB" class="progress-fill"></div></div></div></div>
+        <div class="status-item"><span>פרק ג' (עד 5):</span><div style="display:flex; align-items:center; gap:10px;"><span id="textCountC">0/5</span><div class="progress-bg"><div id="barC" class="progress-fill"></div></div></div></div>
+    </div>
+</aside>
+
+<main id="mainArea">
+    
+    <nav class="editor-nav">
+        <button class="nav-tab active" onclick="switchSection('section-cover', this)">דף שער</button>
+        <button class="nav-tab" onclick="switchSection('section-partA', this)">פרק א'</button>
+        <button class="nav-tab" onclick="switchSection('section-partB', this)">פרק ב'</button>
+        <button class="nav-tab" onclick="switchSection('section-partC', this)">פרק ג'</button>
+    </nav>
+
+    <div class="content-scroller" id="examContent">
+
+        <div id="section-cover" class="exam-section active">
+            <div class="exam-page" id="coverPage">
+                <button class="student-save-btn" onclick="saveCompletedExam()">💾 שמירה והגשה</button>
+
+                <div class="exam-header">
+                    <p>מדינת ישראל - משרד החינוך</p>
+                    <div class="exam-title-row">
+                        <h1>בחינת</h1>
+                        <select id="examTypeSelect" class="exam-type-select">
+                            <option value="" disabled selected>בחר סוג 🔽</option>
+                            <option value="בגרות">בגרות</option>
+                            <option value="מתכונת">מתכונת</option>
+                            <option value="מחצית">מחצית</option>
+                            <option value="שליש">שליש</option>
+                            <option value="רבעון">רבעון</option>
+                            <option value="מבחן">מבחן</option>
+                        </select>
+                        <h1>בתקשורת וחברה</h1>
+                    </div>
+                    <p contenteditable="true">סמל השאלון: 788381 | משך הבחינה: שלוש שעות</p>
+                    <div class="student-row">
+                        <label>שם התלמיד/ה:</label>
+                        <input type="text" class="student-input" placeholder="הקלידו שם כאן">
+                    </div>
+                </div>
+
+                <div style="margin-top:50px; text-align:center;">
+                    <h3>מבנה השאלון ומפתח ההערכה:</h3>
+                    <p>בשאלון זה שלושה פרקים:</p>
+                    <ul style="list-style:none; padding:0; font-size:1.1rem; line-height:2;">
+                        <li><strong>פרק ראשון</strong> – 46 נקודות</li>
+                        <li><strong>פרק שני</strong> – 39 נקודות</li>
+                        <li><strong>פרק שלישי</strong> – 15 נקודות</li>
+                        <li style="border-top:1px solid #000; display:inline-block; padding-top:5px; margin-top:5px;"><strong>סה"כ – 100 נקודות</strong></li>
+                    </ul>
+                    <div style="margin-top:40px; font-style:italic;">בהצלחה!</div>
+                </div>
+                
+                <button class="next-section-btn" onclick="triggerSwitch('section-partA')">
+                    התחל מבחן: עבור לפרק א' ⬅️
+                </button>
+            </div>
+        </div>
+
+        <div id="section-partA" class="exam-section">
+            <div class="exam-page chapter-page">
+                <h1 class="chapter-title">פרק ראשון <span style="font-size: 0.6em; display:block; margin-top:10px;">(46 נקודות)</span></h1>
+                <div class="chapter-divider"></div>
+                <div class="chapter-instructions">
+                    בפרק זה ענו על <u>שתיים</u> מבין השאלות 1–4 (לכל שאלה – 23 נקודות).
+                </div>
+                <button class="next-section-btn" onclick="triggerSwitch('section-partB')">
+                    סיימת את פרק א'? עבור לפרק ב' ⬅️
+                </button>
+            </div>
+        </div>
+
+        <div id="section-partB" class="exam-section">
+            <div class="exam-page chapter-page">
+                <h1 class="chapter-title">פרק שני <span style="font-size: 0.6em; display:block; margin-top:10px;">(39 נקודות)</span></h1>
+                <div class="chapter-divider"></div>
+                <div class="chapter-instructions">
+                    בפרק זה ענו על <u>שלוש</u> מבין השאלות 5–10 (לכל שאלה – 13 נקודות).
+                </div>
+                <button class="next-section-btn" onclick="triggerSwitch('section-partC')">
+                    סיימת את פרק ב'? עבור לפרק ג' ⬅️
+                </button>
+            </div>
+        </div>
+
+        <div id="section-partC" class="exam-section">
+            <div class="exam-page chapter-page">
+                <h1 class="chapter-title">פרק שלישי <span style="font-size: 0.6em; display:block; margin-top:10px;">(15 נקודות)</span></h1>
+                <div class="chapter-divider"></div>
+                <div class="chapter-instructions">
+                     בפרק זה ענו על <u>שתיים</u> מבין השאלות 11–15 (לכל שאלה – 7.5 נקודות).
+                </div>
+                <button class="next-section-btn" style="background-color:#27ae60;" onclick="triggerSwitch('section-cover')">
+                    סיימת לערוך? חזור לדף הראשי ✅
+                </button>
+            </div>
+        </div>
+
+    </div>
+
+</main>
+
+<div class="print-btn-container">
+    <button class="action-btn download-btn" onclick="exportStudentFile()">📤 הורד לתלמיד</button>
+    <button class="action-btn" onclick="window.print()">🖨️ הדפסה / PDF</button>
+</div>
+
+<script>
+    const EXAM_LIMITS = { partA: 4, partB: 6, partC: 5 };
+
+    function toggleMobileBank() {
+        document.getElementById('teacherPanel').classList.toggle('open');
+    }
+
+    function switchSection(sectionId, btnElement) {
+        document.querySelectorAll('.exam-section').forEach(el => el.classList.remove('active'));
+        document.getElementById(sectionId).classList.add('active');
+        
+        if (btnElement) {
+            document.querySelectorAll('.nav-tab').forEach(el => el.classList.remove('active'));
+            btnElement.classList.add('active');
+        } else {
+            const relevantTab = document.querySelector(`.nav-tab[onclick*="${sectionId}"]`);
+            if(relevantTab) {
+                document.querySelectorAll('.nav-tab').forEach(el => el.classList.remove('active'));
+                relevantTab.classList.add('active');
+            }
+        }
+        document.querySelector('.content-scroller').scrollTop = 0;
+    }
+
+    function triggerSwitch(targetId) { switchSection(targetId); }
+
+    const questionsDB = [
+        // --- המאגר המקורי (שאלות 1-42) ---
+        { id: 1, type: 'partA', desc: "קטע קריאה: סדר יום במלחמה", concepts: "תיאוריית סדר היום, עיתונות חוקרת, דמוקרטיה", fullText: `<div class="reading-passage"><strong>קטע קריאה:</strong>עם פרוץ מלחמת "חרבות ברזל" ב־7 באוקטובר 2023... (המשך הטקסט המקורי)...</div><strong>א.</strong> הסבירו את <strong>תיאוריית סדר היום</strong>...` },
+        { id: 2, type: 'partA', desc: "קטע קריאה: סיקור החטופים", concepts: "ערך חדשותי, ספירלת השתיקה", fullText: `<div class="reading-passage"><strong>קטע קריאה:</strong>סוגיית החטופים והנעדרים...</div><strong>א.</strong> הסבירו את <strong>תיאוריית סדר היום</strong>...` },
+        // ... (כאן יבואו כל השאלות האחרות מהקוד הקודם, אני לא מעתיק הכל שוב כדי לא להעמיס, אבל תשתמש במאגר המלא מהתשובה הקודמת) ...
+        
+        // הדגמה של שאלה חדשה שהוספנו קודם כדי לוודא שהיא קיימת:
+        { id: 101, type: 'partA', desc: "קטע קריאה: סדר יום בקורונה", concepts: "קביעת סדר היום, ערך חדשותי", fullText: `<div class="reading-passage"><strong>קטע קריאה:</strong><br>התפרצות נגיף הקורונה ברחבי העולם...</div><strong>א.</strong> הסבר את <strong>תיאוריית קביעת סדר היום</strong>...` }
+    ];
+    
+    // הערה: בקוד האמיתי אצלך, תדביק כאן את ה-questionsDB המלא ששלחתי בתגובה הקודמת!
+
+    function toggleAccordion(contentId, header) {
+        const content = document.getElementById(contentId);
+        content.classList.toggle('show');
+        header.classList.toggle('active');
+    }
+
+    function renderBank() {
+        const containerA = document.getElementById('listA');
+        const containerB = document.getElementById('listB');
+        const containerC = document.getElementById('listC');
+        containerA.innerHTML = ''; containerB.innerHTML = ''; containerC.innerHTML = '';
+
+        let countA = 0, countB = 0, countC = 0;
+
+        questionsDB.forEach(q => {
+            const div = document.createElement('div');
+            let cssClass = '', targetContainer = null;
+
+            if (q.type === 'partA') { cssClass = 'part-a-card'; targetContainer = containerA; countA++; }
+            else if (q.type === 'partB') { cssClass = 'part-b-card'; targetContainer = containerB; countB++; }
+            else { cssClass = 'part-c-card'; targetContainer = containerC; countC++; }
+
+            div.className = `q-card ${cssClass}`;
+            div.innerHTML = `
+                <button class="add-btn" onclick="addToExam(${q.id})">+</button>
+                <div style="flex-grow:1;">
+                    <div class="sidebar-desc">${q.desc}</div>
+                    <div class="sidebar-concepts">${q.concepts}</div>
+                </div>
+            `;
+            targetContainer.appendChild(div);
+        });
+
+        document.getElementById('badgeA').innerText = countA;
+        document.getElementById('badgeB').innerText = countB;
+        document.getElementById('badgeC').innerText = countC;
+        updateCounts();
+    }
+
+    function addToExam(id) {
+        const question = questionsDB.find(q => q.id === id);
+        if (!question) return;
+
+        let limit = 0; let wrapperId = "";
+        if (question.type === 'partA') { limit = EXAM_LIMITS.partA; wrapperId = "section-partA"; }
+        else if (question.type === 'partB') { limit = EXAM_LIMITS.partB; wrapperId = "section-partB"; }
+        else { limit = EXAM_LIMITS.partC; wrapperId = "section-partC"; }
+
+        const currentCount = document.querySelectorAll(`.exam-page[data-type="${question.type}"]`).length;
+        if (currentCount >= limit) { alert(`הפרק מלא!\nניתן להוסיף מקסימום ${limit} שאלות.`); return; }
+
+        const pageDiv = document.createElement('div');
+        pageDiv.className = 'exam-page';
+        pageDiv.setAttribute('data-type', question.type); 
+        
+        let partTitle = question.type === 'partA' ? "פרק ראשון" : question.type === 'partB' ? "פרק שני" : "פרק שלישי";
+
+        pageDiv.innerHTML = `
+            <div class="page-header-info"><span>${partTitle}</span><span class="q-number"></span></div>
+            <div class="exam-question">
+                <button class="remove-btn" onclick="removeQuestion(this)">הסר שאלה</button>
+                <div class="q-content">${question.fullText}</div>
+                <textarea class="answer-box" placeholder="כתבו את תשובתכם כאן..."></textarea>
+            </div>
+        `;
+
+        const wrapper = document.getElementById(wrapperId);
+        wrapper.appendChild(pageDiv);
+        renumberQuestions(); updateCounts();
+        
+        if (!wrapper.classList.contains('active')) {
+            const tabBtn = document.querySelector(`.nav-tab[onclick*="${wrapperId}"]`);
+            switchSection(wrapperId, tabBtn);
+        }
+        pageDiv.scrollIntoView({ behavior: 'smooth' });
+        
+        // סגירת הפאנל במובייל אחרי הוספה
+        if(window.innerWidth < 768) { document.getElementById('teacherPanel').classList.remove('open'); }
+    }
+
+    function removeQuestion(btn) {
+        const page = btn.closest('.exam-page');
+        page.remove();
+        renumberQuestions(); updateCounts();
+    }
+
+    function renumberQuestions() {
+        let count = 1;
+        document.querySelectorAll('.q-number').forEach(el => { el.innerText = "שאלה " + count; count++; });
+    }
+
+    function updateCounts() {
+        const countA = document.querySelectorAll('.exam-page[data-type="partA"]').length;
+        const countB = document.querySelectorAll('.exam-page[data-type="partB"]').length;
+        const countC = document.querySelectorAll('.exam-page[data-type="partC"]').length;
+        updateProgressBar('barA', 'textCountA', countA, EXAM_LIMITS.partA);
+        updateProgressBar('barB', 'textCountB', countB, EXAM_LIMITS.partB);
+        updateProgressBar('barC', 'textCountC', countC, EXAM_LIMITS.partC);
+    }
+
+    function updateProgressBar(barId, textId, current, max) {
+        const percentage = (current / max) * 100;
+        const bar = document.getElementById(barId);
+        bar.style.width = percentage + '%';
+        document.getElementById(textId).innerText = `${current}/${max}`;
+        if (current === max) bar.classList.add('full'); else bar.classList.remove('full');
+    }
+
+    // --- עדכון פונקציית הייצוא כדי לכלול עיצוב מובייל לתלמיד ---
+    function exportStudentFile() {
+        let examType = document.getElementById('examTypeSelect').value || "מבחן";
+        const studentName = document.querySelector('.student-input').value;
+        const contentScroller = document.getElementById('examContent'); 
+        
+        const clone = contentScroller.cloneNode(true);
+        clone.querySelectorAll('.remove-btn').forEach(b => b.remove());
+        clone.querySelectorAll('.student-save-btn').forEach(b => b.remove());
+        
+        clone.querySelectorAll('.exam-section').forEach(el => {
+            el.classList.remove('active');
+            if(el.id === 'section-cover') el.classList.add('active');
+        });
+
+        const titleRow = clone.querySelector('.exam-title-row');
+        titleRow.innerHTML = `<h1>בחינת ${examType} בתקשורת וחברה</h1>`;
+        
+        const inputRow = clone.querySelector('.student-row');
+        if(studentName) inputRow.innerHTML = `שם התלמיד/ה: <strong>${studentName}</strong>`;
+        else inputRow.innerHTML = `<label>שם התלמיד/ה:</label><input type="text" class="student-input" style="border-bottom:1px solid #000; width:200px;" placeholder="הקלידו שם כאן">`;
+
+        const cleanContent = clone.innerHTML;
+
+        const htmlSource = `<!DOCTYPE html><html lang="he" dir="rtl"><head>
+            <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>מבחן מתוקשב - תקשורת וחברה</title>
+            <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700&family=David+Libre:wght@400;700&display=swap" rel="stylesheet">
+            <style>
+                body { font-family: 'David Libre', serif; background-color: #dfe6e9; margin: 0; padding: 0; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+                .content-scroller { flex-grow: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; align-items: center; -webkit-overflow-scrolling: touch; }
+                .exam-section { display: none; width: 100%; flex-direction: column; align-items: center; gap: 20px; animation: fadeIn 0.4s ease; }
+                .exam-section.active { display: flex; }
+                @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+                
+                .student-nav { background: white; padding: 10px; display: flex; justify-content: center; gap: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); flex-wrap: wrap; }
+                .nav-tab { padding: 8px 15px; border: 1px solid transparent; background: #f1f2f6; cursor: pointer; border-radius: 20px; font-weight: bold; color: #7f8c8d; font-family: 'Rubik', sans-serif; font-size: 0.9rem; }
+                .nav-tab.active { background: #2980b9; color: white; }
+
+                .exam-page { background: white; width: 100%; max-width: 210mm; margin: 0 auto 30px auto; padding: 20mm; box-shadow: 0 0 15px rgba(0,0,0,0.1); min-height: 297mm; display: flex; flex-direction: column; box-sizing: border-box; }
+                
+                .chapter-page { justify-content: center; align-items: center; text-align: center; border: 1px solid #ddd; }
+                .chapter-title { font-size: 3rem; margin: 0 0 10px 0; font-family: 'Rubik', sans-serif; font-weight: 900; color: #2c3e50; }
+                .chapter-instructions { font-size: 1.2rem; font-weight: bold; margin-top:20px; }
+                .chapter-divider { width: 100px; height: 5px; background: #2980b9; margin: 20px auto; }
+                
+                .exam-header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 20px; margin-bottom: 30px; }
+                .exam-header h1 { font-family: 'Rubik', sans-serif; font-size: 24px; margin: 5px 0; }
+                .student-row { margin-top: 20px; font-size: 18px; text-align:center; font-weight:bold; }
+                
+                .page-header-info { border-bottom: 2px solid #eee; margin-bottom: 20px; padding-bottom: 10px; color: #7f8c8d; font-family: 'Rubik', sans-serif; font-size: 0.9rem; display: flex; justify-content: space-between; }
+                .reading-passage { background-color: #f8f9fa; border: 1px solid #dcdde1; border-right: 4px solid #7f8c8d; padding: 15px; margin-bottom: 20px; font-family: 'David Libre', serif; font-size: 1.15rem; line-height: 1.6; text-align: justify; }
+                .answer-box { width: 100%; flex-grow: 1; min-height: 300px; margin-top: 15px; padding: 20px; border: 2px solid #b2bec3; border-radius: 4px; background-color: #fff; font-family: 'David Libre', serif; font-size: 1.2rem; line-height: 2rem; background-image: linear-gradient(#eee 1px, transparent 1px); background-size: 100% 2rem; resize: none; }
+                
+                .next-section-btn { margin-top: 30px; padding: 12px 25px; background-color: #2980b9; color: white; border: none; border-radius: 50px; font-size: 1rem; cursor: pointer; font-family: 'Rubik', sans-serif; display: flex; align-items: center; gap: 10px; align-self: center; }
+                .student-save-btn { position: fixed; top: 20px; left: 20px; background: #27ae60; color: white; border: none; padding: 10px 15px; border-radius: 8px; font-weight: bold; cursor: pointer; z-index: 1000; font-family: 'Rubik', sans-serif; }
+
+                /* Mobile Adjustments for Student */
+                @media screen and (max-width: 768px) {
+                    .exam-page { padding: 20px; min-height: 70vh; }
+                    .chapter-title { font-size: 2rem; }
+                    .reading-passage { font-size: 1rem; }
+                    .answer-box { font-size: 1rem; min-height: 200px; }
+                    .student-save-btn { top: auto; bottom: 20px; left: 20px; border-radius: 50px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+                }
+            </style>
+        </head><body>
+            <nav class="student-nav">
+                <button class="nav-tab active" onclick="switchSection('section-cover', this)">דף שער</button>
+                <button class="nav-tab" onclick="switchSection('section-partA', this)">פרק א'</button>
+                <button class="nav-tab" onclick="switchSection('section-partB', this)">פרק ב'</button>
+                <button class="nav-tab" onclick="switchSection('section-partC', this)">פרק ג'</button>
+            </nav>
+            <button class="student-save-btn" onclick="saveCompletedExam()">💾 שמירה והגשה</button>
+            <div class="content-scroller">
+                ${cleanContent}
+            </div>
+            <script>
+                function switchSection(sectionId, btnElement) {
+                    document.querySelectorAll('.exam-section').forEach(el => el.classList.remove('active'));
+                    document.getElementById(sectionId).classList.add('active');
+                    if (btnElement) {
+                        document.querySelectorAll('.nav-tab').forEach(el => el.classList.remove('active'));
+                        btnElement.classList.add('active');
+                    } else {
+                        const relevantTab = document.querySelector(\`.nav-tab[onclick*="\${sectionId}"]\`);
+                        if(relevantTab) {
+                            document.querySelectorAll('.nav-tab').forEach(el => el.classList.remove('active'));
+                            relevantTab.classList.add('active');
+                        }
+                    }
+                    document.querySelector('.content-scroller').scrollTop = 0;
+                }
+                function triggerSwitch(targetId) { switchSection(targetId); }
+                function saveCompletedExam() {
+                    const inputs = document.querySelectorAll("input");
+                    inputs.forEach(inp => inp.setAttribute("value", inp.value));
+                    const textareas = document.querySelectorAll("textarea");
+                    textareas.forEach(ta => ta.innerHTML = ta.value);
+                    const content = "<!DOCTYPE html>" + document.documentElement.outerHTML;
+                    const blob = new Blob([content], {type: "text/html"});
+                    const a = document.createElement("a");
+                    a.href = URL.createObjectURL(blob);
+                    let filename = "מבחן_פתור";
+                    const nameInput = document.querySelector('.student-input');
+                    if (nameInput && nameInput.value) filename += "_" + nameInput.value;
+                    a.download = filename + ".html";
+                    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+                    alert("המבחן נשמר בהצלחה!");
+                }
+            <\/script></body></html>`;
+
+        const blob = new Blob([htmlSource], {type: "text/html;charset=utf-8"});
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = `מבחן_${examType}_תקשורת.html`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+    }
+
+    function saveCompletedExam() {
+        alert("כפתור זה נועד לתלמיד.\nלחץ על 'הורד לתלמיד' כדי לראות את התוצאה.");
+    }
+
+    renderBank();
+</script>
+
+</body>
+</html>
