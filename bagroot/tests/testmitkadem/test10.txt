@@ -1,0 +1,811 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>מחולל מבחנים - גרסה סופית מאובטחת</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@300;400;500;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            --primary: #2c3e50;
+            --secondary: #34495e;
+            --accent: #3498db;
+            --success: #27ae60;
+            --danger: #e74c3c;
+            --light: #ecf0f1;
+            --border: #bdc3c7;
+        }
+        body {
+            margin: 0;
+            font-family: 'Rubik', sans-serif;
+            height: 100vh;
+            overflow: hidden;
+            display: flex;
+            background-color: #fdfdfd;
+        }
+
+        /* --- Layout --- */
+        .container { display: flex; width: 100%; height: 100%; }
+        .col { padding: 20px; overflow-y: auto; border-left: 1px solid var(--border); display: flex; flex-direction: column; }
+        
+        /* Right Column - Editor */
+        .col-right { width: 25%; background-color: #f8f9fa; }
+        
+        /* Middle Column - Preview */
+        .col-middle { width: 55%; background-color: white; box-shadow: 0 0 15px rgba(0,0,0,0.05); z-index: 10; }
+        
+        /* Left Column - Actions */
+        .col-left { width: 20%; background-color: var(--primary); color: white; align-items: center; border-left: none; }
+
+        /* --- UI Elements --- */
+        h2, h3 { margin-top: 0; color: var(--primary); font-weight: 700; }
+        .col-left h2, .col-left h3 { color: white; }
+
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: 500; font-size: 0.95rem; }
+        
+        input[type="text"], input[type="number"], select, textarea, input[type="file"] {
+            width: 100%; padding: 10px; border: 1px solid var(--border); border-radius: 6px; box-sizing: border-box; font-family: inherit;
+        }
+        textarea { resize: vertical; }
+
+        button { cursor: pointer; padding: 10px 20px; border: none; border-radius: 6px; font-size: 1rem; transition: background 0.2s; width: 100%; font-family: 'Rubik', sans-serif; font-weight: 500; }
+        .btn-add { background-color: var(--accent); color: white; margin-top: 10px; }
+        .btn-add:hover { background-color: #2980b9; }
+
+        .btn-download { background-color: var(--success); color: white; padding: 15px; font-weight: bold; font-size: 1.1rem; margin-top: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.2); }
+        .btn-download:hover { background-color: #219150; transform: translateY(-1px); }
+
+        /* Stats Box */
+        .stats-box { margin-top: auto; background: white; padding: 15px; border-radius: 8px; border: 1px solid var(--border); box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .stat-row { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 0.9rem; }
+        .total-row { border-top: 2px solid var(--light); margin-top: 10px; padding-top: 10px; font-weight: bold; }
+
+        /* Tabs */
+        .tabs { display: flex; border-bottom: 2px solid var(--light); margin-bottom: 20px; }
+        .tab { padding: 10px 20px; cursor: pointer; color: #7f8c8d; font-weight: 500; border-bottom: 2px solid transparent; margin-bottom: -2px; }
+        .tab:hover { color: var(--accent); }
+        .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+        /* Preview Items */
+        .question-card { background: #fff; border: 1px solid var(--light); border-radius: 8px; padding: 15px; margin-bottom: 20px; position: relative; }
+        .badge { display: inline-block; padding: 3px 8px; border-radius: 12px; background: var(--light); font-size: 0.8rem; color: #666; margin-bottom: 10px; font-weight: 500; }
+        
+        .q-text { font-size: 1.1rem; margin-bottom: 15px; line-height: 1.5; white-space: pre-wrap; }
+
+        .preview-input { width: 100%; height: 80px; background: #f9f9f9; border: 1px dashed #ccc; border-radius: 4px; padding: 10px; color: #999; font-size: 0.9rem; }
+
+        /* Video Container Style */
+        .video-wrapper { position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; border-radius: 8px; margin-bottom: 15px; background: #000; }
+        .video-wrapper iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0; }
+
+        /* Delete Button */
+        .btn-delete { position: absolute; top: 10px; left: 10px; background-color: white; color: var(--danger); border: 1px solid var(--danger); padding: 4px 8px; font-size: 0.8rem; width: auto; border-radius: 4px; }
+        .btn-delete:hover { background-color: var(--danger); color: white; }
+
+        /* Student File Preview Info */
+        .file-info { text-align: center; opacity: 0.8; font-size: 0.85rem; margin-top: 10px; }
+
+        /* Part Instructions Input */
+        .part-instructions-area { font-size: 0.85rem; border: 1px solid #d6eaf8; background: #f4faff; padding: 8px; border-radius: 4px; margin-top: 5px; }
+
+        /* Preview Header */
+        #previewHeader { text-align: center; margin-bottom: 20px; }
+        #previewLogo { max-height: 80px; margin-bottom: 10px; display: none; }
+        #previewExamTitle { margin: 0; color: var(--primary); font-size: 1.8rem; }
+
+    </style>
+</head>
+<body>
+
+<div class="container">
+    
+    <div class="col col-right">
+        <h2>✏️ עריכת שאלות</h2>
+        
+        <div class="form-group" style="background: #fff; padding: 10px; border-radius: 5px; border: 1px solid #e0e0e0; margin-bottom: 15px;">
+             <label>עיצוב כותרת המבחן</label>
+             <input type="text" id="examTitleInput" placeholder="כותרת המבחן (לדוגמה: מבחן בהיסטוריה)" oninput="updateExamTitle()" style="margin-bottom: 10px;">
+             <label for="schoolLogoInput" style="font-size: 0.85rem; color: #7f8c8d;">לוגו בית הספר:</label>
+             <input type="file" id="schoolLogoInput" accept="image/*" onchange="handleLogoUpload(event)">
+        </div>
+
+        <div class="form-group" style="background: #e8f8f5; padding: 10px; border-radius: 5px; border: 1px solid #d1f2eb; margin-bottom: 15px;">
+            <label>הגדרות בחינה</label>
+            <label for="examDurationInput" style="font-weight: normal; font-size: 0.9em; margin-top: 5px;">משך הבחינה (דקות):</label>
+            <input type="number" id="examDurationInput" value="90" min="1" placeholder="לדוגמה: 90" style="margin-bottom: 10px;">
+            
+            <label for="unlockCodeInput" style="font-weight: normal; font-size: 0.9em;">קוד מורה לשחרור נעילה/בדיקה:</label>
+            <input type="text" id="unlockCodeInput" value="1234" placeholder="קוד (ברירת מחדל: 1234)">
+        </div>
+
+        <div class="form-group" style="background: #eaf2f8; padding: 10px; border-radius: 5px; border: 1px solid #d6eaf8;">
+            <label for="examInstructions">הנחיות כלליות (ראש הטופס)</label>
+            <textarea id="examInstructions" rows="3" placeholder="רשום כאן הנחיות כלליות למבחן..." oninput="updateInstructionsPreview()"></textarea>
+        </div>
+        
+        <hr style="border: 0; border-top: 1px solid #e0e0e0; margin: 20px 0;">
+
+        <div class="form-group">
+            <label for="qPart">בחר חלק לעריכה</label>
+            <select id="qPart" onchange="onPartSelectChange()">
+                <option value="A">חלק ראשון</option>
+                <option value="B">חלק שני</option>
+                <option value="C">חלק שלישי</option>
+            </select>
+            
+            <div class="part-instructions-area">
+                <label for="partInstructions" style="font-weight:normal; color:#3498db;">הנחיות ל<span id="partNameLabel">חלק ראשון</span>:</label>
+                <textarea id="partInstructions" rows="2" placeholder="למשל: ענה על 2 מתוך 3 שאלות..." oninput="savePartInstructions()"></textarea>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label for="qPoints">ניקוד לשאלה</label>
+            <input type="number" id="qPoints" value="10" min="1" max="100">
+        </div>
+
+        <div class="form-group">
+            <label for="qText">תוכן השאלה</label>
+            <textarea id="qText" rows="4" placeholder="הקלד את השאלה כאן..."></textarea>
+        </div>
+
+        <div class="form-group">
+            <label for="qVideo">קישור לסרטון (Google Drive / YouTube)</label>
+            <input type="text" id="qVideo" placeholder="הדבק קישור (למשל: drive.google.com/file/d/...)">
+            <div style="font-size: 0.75rem; color: #7f8c8d; margin-top: 3px;">עבור Drive: וודא שהקובץ משותף ("Anyone with the link").</div>
+        </div>
+
+        <button class="btn-add" onclick="addQuestion()">➕ הוסף שאלה</button>
+
+        <div class="stats-box">
+            <h3>סיכום מבחן</h3>
+            <div class="stat-row"><span>חלק ראשון:</span> <span id="countA">0</span></div>
+            <div class="stat-row"><span>חלק שני:</span> <span id="countB">0</span></div>
+            <div class="stat-row"><span>חלק שלישי:</span> <span id="countC">0</span></div>
+            <div class="stat-row total-row"><span>סה"כ ניקוד:</span> <span id="totalPoints">0</span></div>
+        </div>
+    </div>
+
+    <div class="col col-middle">
+        
+        <div id="previewHeader">
+            <img id="previewLogo" src="" alt="School Logo">
+            <h1 id="previewExamTitle">מבחן בגרות</h1>
+            <input type="text" id="studentNameInput" placeholder="שם התלמיד (לדוגמה: ישראל ישראלי)" 
+                   style="max-width: 300px; text-align: center; font-size: 1.1rem; margin-top: 10px;" oninput="updateFilenamePreview()">
+        </div>
+
+        <div id="previewInstructionsBox" style="background: #fffde7; padding: 15px; border-right: 4px solid #f1c40f; margin-bottom: 20px; display: none; white-space: pre-wrap; color: #555;"></div>
+
+        <div class="tabs">
+            <div class="tab active" onclick="setTab('A')">חלק ראשון</div>
+            <div class="tab" onclick="setTab('B')">חלק שני</div>
+            <div class="tab" onclick="setTab('C')">חלק שלישי</div>
+        </div>
+
+        <div id="questionsList">
+            <div style="text-align: center; color: #999; margin-top: 50px;">
+                אין שאלות בחלק זה עדיין.<br>הוסף שאלות מצד ימין.
+            </div>
+        </div>
+    </div>
+
+    <div class="col col-left">
+        <div style="text-align: center; margin-top: 20px;">
+            <h2>📤 סיום והפצה</h2>
+            <p>לאחר סיום עריכת המבחן, הורד את הקובץ ושלח אותו לתלמידים.</p>
+            
+            <button class="btn-download" onclick="generateAndDownload()">
+                הורד מבחן (HTML)
+            </button>
+            
+            <div class="file-info">
+                שם הקובץ שיירד:<br>
+                <strong id="filenamePreview" style="color: #ffd700;">מבחן - תלמיד.html</strong>
+            </div>
+
+            <hr style="border-color: rgba(255,255,255,0.2); width: 80%; margin: 30px auto;">
+
+            <div style="font-size: 0.9rem; text-align: right; padding: 0 10px;">
+                <strong>איך זה עובד?</strong>
+                <ol>
+                    <li>הורד את הקובץ.</li>
+                    <li>שלח לתלמיד.</li>
+                    <li>התלמיד יענה ויוריד קובץ "פתור".</li>
+                    <li>פתח את הקובץ הפתור ותן ציון.</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    // --- Data Management ---
+    const state = {
+        questions: [],
+        currentTab: 'A',
+        studentName: '',
+        examTitle: 'מבחן בגרות', // Default Title
+        logoData: null, // Stores Base64 string of the logo
+        instructions: {
+            general: '',
+            parts: {
+                A: '',
+                B: '',
+                C: ''
+            }
+        }
+    };
+
+    // --- DOM Elements ---
+    const els = {
+        qPart: document.getElementById('qPart'),
+        partInstructions: document.getElementById('partInstructions'),
+        partNameLabel: document.getElementById('partNameLabel'),
+        qPoints: document.getElementById('qPoints'),
+        qText: document.getElementById('qText'),
+        qVideo: document.getElementById('qVideo'), 
+        questionsList: document.getElementById('questionsList'),
+        countA: document.getElementById('countA'),
+        countB: document.getElementById('countB'),
+        countC: document.getElementById('countC'),
+        totalPoints: document.getElementById('totalPoints'),
+        studentNameInput: document.getElementById('studentNameInput'),
+        filenamePreview: document.getElementById('filenamePreview'),
+        tabs: document.querySelectorAll('.tab'),
+        examInstructions: document.getElementById('examInstructions'),
+        previewInstructionsBox: document.getElementById('previewInstructionsBox'),
+        examTitleInput: document.getElementById('examTitleInput'),
+        previewExamTitle: document.getElementById('previewExamTitle'),
+        previewLogo: document.getElementById('previewLogo'),
+        examDurationInput: document.getElementById('examDurationInput'),
+        unlockCodeInput: document.getElementById('unlockCodeInput')
+    };
+
+    // --- Utils ---
+    
+    // Video Embed Extractor
+    function getVideoEmbedUrl(url) {
+        if (!url) return null;
+        const driveMatch = url.match(/\/file\/d\/([a-zA-Z0-9_-]+)/) || url.match(/[?&]id=([a-zA-Z0-9_-]+)/);
+        if (driveMatch && url.includes('drive.google.com')) {
+            return `https://drive.google.com/file/d/${driveMatch[1]}/preview`;
+        }
+        const iframeMatch = url.match(/src=["'](.*?)["']/);
+        const link = iframeMatch ? iframeMatch[1] : url;
+        const ytRegExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=|shorts\/)([^#&?"]*).*/;
+        const ytMatch = link.match(ytRegExp);
+        if (ytMatch && ytMatch[2].length === 11) {
+            return `https://www.youtube-nocookie.com/embed/${ytMatch[2]}?rel=0&modestbranding=1&showinfo=0`;
+        }
+        return null;
+    }
+
+    // Simple Hash for Password Protection
+    function simpleHash(str) {
+        let hash = 0;
+        for (let i = 0; i < str.length; i++) {
+            const char = str.charCodeAt(i);
+            hash = (hash << 5) - hash + char;
+            hash |= 0; // Convert to 32bit integer
+        }
+        return hash.toString();
+    }
+
+    // --- Header & Logo Logic ---
+    function updateExamTitle() {
+        const title = els.examTitleInput.value.trim();
+        state.examTitle = title || 'מבחן בגרות';
+        els.previewExamTitle.textContent = state.examTitle;
+    }
+
+    function handleLogoUpload(event) {
+        const file = event.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                state.logoData = e.target.result; // Base64 string
+                els.previewLogo.src = state.logoData;
+                els.previewLogo.style.display = 'block';
+            };
+            reader.readAsDataURL(file);
+        }
+    }
+
+    // --- Part Selection & Instructions Logic ---
+    function onPartSelectChange() {
+        const selectedPart = els.qPart.value;
+        const partName = els.qPart.options[els.qPart.selectedIndex].text;
+        els.partNameLabel.textContent = partName;
+        els.partInstructions.value = state.instructions.parts[selectedPart] || '';
+    }
+
+    function savePartInstructions() {
+        const selectedPart = els.qPart.value;
+        state.instructions.parts[selectedPart] = els.partInstructions.value;
+    }
+
+    // --- General Functions ---
+    function addQuestion() {
+        const text = els.qText.value.trim();
+        const points = parseInt(els.qPoints.value) || 0;
+        const part = els.qPart.value;
+        const videoUrl = els.qVideo.value.trim();
+
+        if (!text) {
+            alert('אנא הכנס תוכן לשאלה');
+            return;
+        }
+
+        const question = {
+            id: Date.now(),
+            part,
+            points,
+            text,
+            videoUrl: videoUrl
+        };
+
+        state.questions.push(question);
+        
+        // Reset Inputs
+        els.qText.value = '';
+        els.qPoints.value = '10';
+        els.qVideo.value = '';
+        els.qText.focus();
+
+        updateStats();
+        renderPreview();
+    }
+    
+    function deleteQuestion(id) {
+        if(!confirm('האם אתה בטוח שברצונך למחוק שאלה זו?')) return;
+        state.questions = state.questions.filter(q => q.id !== id);
+        updateStats();
+        renderPreview();
+    }
+
+    function updateInstructionsPreview() {
+        const text = els.examInstructions.value;
+        state.instructions.general = text;
+        if (text.trim()) {
+            els.previewInstructionsBox.style.display = 'block';
+            els.previewInstructionsBox.textContent = text;
+        } else {
+            els.previewInstructionsBox.style.display = 'none';
+        }
+    }
+
+    function updateStats() {
+        const counts = { A: 0, B: 0, C: 0 };
+        let total = 0;
+        state.questions.forEach(q => {
+            counts[q.part]++;
+            total += q.points;
+        });
+        els.countA.textContent = counts.A;
+        els.countB.textContent = counts.B;
+        els.countC.textContent = counts.C;
+        els.totalPoints.textContent = total;
+    }
+
+    function setTab(part) {
+        state.currentTab = part;
+        els.tabs.forEach((t, index) => {
+            const parts = ['A', 'B', 'C'];
+            if(parts[index] === part) t.classList.add('active');
+            else t.classList.remove('active');
+        });
+        renderPreview();
+    }
+
+    function renderPreview() {
+        const filtered = state.questions.filter(q => q.part === state.currentTab);
+        if (filtered.length === 0) {
+            els.questionsList.innerHTML = `<div style="text-align: center; color: #999; margin-top: 50px;">אין שאלות בחלק זה עדיין.<br>הוסף שאלות מצד ימין.</div>`;
+            return;
+        }
+
+        els.questionsList.innerHTML = filtered.map((q, idx) => {
+            let videoHTML = '';
+            const embedSrc = getVideoEmbedUrl(q.videoUrl);
+            if (embedSrc) {
+                videoHTML = `<div class="video-wrapper"><iframe src="${embedSrc}" title="Video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe></div>`;
+            }
+
+            return `
+            <div class="question-card">
+                <button class="btn-delete" onclick="deleteQuestion(${q.id})">🗑️ הסר</button>
+                <div class="badge">שאלה ${idx + 1} • ${q.points} נקודות</div>
+                <div class="q-text">${q.text}</div>
+                ${videoHTML}
+                <div class="preview-input">תיבת טקסט לתשובת התלמיד...</div>
+            </div>`;
+        }).join('');
+    }
+
+    function updateFilenamePreview() {
+        const name = els.studentNameInput.value.trim() || 'תלמיד';
+        state.studentName = name;
+        els.filenamePreview.textContent = `${name} - מבחן.html`;
+    }
+
+    // --- Generator Logic ---
+    function generateAndDownload() {
+        const name = state.studentName || 'תלמיד';
+        const duration = els.examDurationInput.value || 90;
+        // Hash the teacher's code
+        const unlockCodePlain = els.unlockCodeInput.value || '1234';
+        const unlockCodeHash = simpleHash(unlockCodePlain);
+        
+        const htmlContent = buildStudentHTML(name, state.questions, state.instructions, state.examTitle, state.logoData, duration, unlockCodeHash);
+        
+        const blob = new Blob([htmlContent], { type: 'text/html' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${name} - מבחן.html`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+    }
+
+    function buildStudentHTML(studentName, questions, instructions, examTitle, logoData, duration, unlockCodeHash) {
+        
+        // Helper function stringified to include in generated file
+        const simpleHashFuncString = `
+        function simpleHash(str) {
+            let hash = 0;
+            for (let i = 0; i < str.length; i++) {
+                const char = str.charCodeAt(i);
+                hash = (hash << 5) - hash + char;
+                hash |= 0;
+            }
+            return hash.toString();
+        }`;
+
+        // Build questions HTML
+        let partsHTML = { A: '', B: '', C: '' };
+        
+        questions.forEach((q, idx) => {
+            const embedSrc = getVideoEmbedUrl(q.videoUrl);
+            let videoHTML = '';
+            if (embedSrc) {
+                videoHTML = `<div class="video-wrapper"><iframe src="${embedSrc}" title="Video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe></div>`;
+            }
+
+            partsHTML[q.part] += `
+            <div class="q-block">
+                <div class="q-header">
+                    <span class="q-points">(${q.points} נק')</span>
+                    <strong>שאלה:</strong>
+                </div>
+                <div class="q-content">${q.text}</div>
+                ${videoHTML}
+                <div class="answer-area">
+                    <label>תשובה:</label>
+                    <textarea class="student-ans" placeholder="כתוב את תשובתך כאן..."></textarea>
+                </div>
+                <div class="grading-area">
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <label>ניקוד:</label>
+                        <input type="number" class="grade-input" min="0" max="${q.points}" oninput="calcTotal()" disabled>
+                        <span class="grade-max">מתוך ${q.points}</span>
+                    </div>
+                    <input type="text" class="teacher-comment" placeholder="הערה מילולית..." disabled>
+                </div>
+            </div>`;
+        });
+
+        const globalInstructionsHTML = instructions.general ? `<div class="instructions-box global-instructions"><h3>הנחיות כלליות</h3><div class="instructions-text">${instructions.general}</div></div>` : '';
+        
+        const getPartInstr = (partCode) => instructions.parts[partCode] ? `<div class="part-instructions">${instructions.parts[partCode]}</div>` : '';
+        const logoHTML = logoData ? `<img src="${logoData}" alt="Logo" class="school-logo">` : '';
+
+        return `<!DOCTYPE html><html lang="he" dir="rtl"><head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>מבחן - ${studentName}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Rubik', sans-serif; background: #f4f6f7; margin: 0; padding: 20px; color: #333; -webkit-user-select: none; -moz-user-select: none; -ms-user-select: none; user-select: none; }
+        
+        #startScreen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #2c3e50; z-index: 10000; display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; }
+        #startBtn { padding: 20px 40px; font-size: 2rem; background: #27ae60; color: white; border: none; border-radius: 10px; cursor: pointer; font-family: 'Rubik', sans-serif; font-weight: 700; box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
+        #startBtn:hover { transform: scale(1.05); background: #2ecc71; }
+        
+        #timerBadge { position: fixed; top: 10px; left: 20px; background: #2c3e50; color: white; padding: 10px 20px; border-radius: 20px; font-weight: bold; font-size: 1.2rem; box-shadow: 0 2px 10px rgba(0,0,0,0.2); z-index: 5000; display: none; border: 2px solid white; }
+        #timerBadge.urgent { background: #e74c3c; animation: pulse 1s infinite; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.8; } 100% { opacity: 1; } }
+
+        #timesUpModal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(192, 57, 43, 0.95); z-index: 11000; flex-direction: column; align-items: center; justify-content: center; color: white; text-align: center; }
+
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 40px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); margin-top: 40px; }
+        .exam-header { text-align: center; margin-bottom: 20px; }
+        .school-logo { max-height: 100px; margin-bottom: 10px; }
+        h1 { margin: 0; color: #2c3e50; font-weight: 700; font-size: 2rem; }
+        
+        .student-details { background: #fff; padding: 20px; border: 2px solid #3498db; border-radius: 8px; margin-bottom: 30px; display: flex; align-items: center; gap: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .student-details label { font-size: 1.1em; font-weight: bold; color: #2c3e50; }
+        .student-details input { font-size: 1.1em; padding: 8px; border: 1px solid #bdc3c7; border-radius: 4px; flex-grow: 1; outline: none; transition: border-color 0.2s; font-family: 'Rubik', sans-serif; }
+        .student-details input:focus { border-color: #3498db; }
+
+        .instructions-box { background: #fffde7; padding: 20px; border-right: 5px solid #f1c40f; margin-bottom: 30px; border-radius: 5px; }
+        .instructions-box h3 { margin-top: 0; color: #d35400; font-size: 1.1em; margin-bottom: 5px; font-weight: 700; }
+        .instructions-text { white-space: pre-wrap; line-height: 1.5; }
+
+        .part-instructions { background-color: #e8f6f3; border-right: 4px solid #1abc9c; color: #16a085; padding: 15px; margin-bottom: 20px; border-radius: 4px; font-size: 1.05em; white-space: pre-wrap; }
+
+        .video-wrapper { position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; border-radius: 8px; margin-bottom: 20px; background: #000; }
+        .video-wrapper iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: 0; }
+
+        .tabs { display: flex; justify-content: center; margin-bottom: 30px; gap: 10px; }
+        .tab-btn { background: #ecf0f1; border: none; padding: 10px 25px; cursor: pointer; border-radius: 20px; font-weight: bold; color: #7f8c8d; transition: 0.2s; font-family: 'Rubik', sans-serif; }
+        .tab-btn.active { background: #3498db; color: white; }
+        
+        .exam-section { display: none; animation: fadeIn 0.3s; }
+        .exam-section.active { display: block; }
+        
+        .q-block { margin-bottom: 30px; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px; background: #fff; }
+        .q-header { margin-bottom: 10px; color: #2980b9; }
+        .q-points { float: left; background: #eef; padding: 2px 8px; border-radius: 4px; font-size: 0.9em; font-weight: bold; }
+        .q-content { font-size: 1.1em; margin-bottom: 15px; font-weight: 500; white-space: pre-wrap; }
+        
+        textarea { width: 100%; height: 150px; padding: 10px; border: 1px solid #ccc; border-radius: 5px; font-family: inherit; font-size: 1rem; resize: vertical; }
+        textarea:focus { border-color: #3498db; outline: none; }
+
+        .grading-area { margin-top: 15px; padding: 10px; background: #fff8e1; border: 1px solid #ffe082; border-radius: 5px; display: flex; flex-wrap: wrap; align-items: center; gap: 15px; }
+        .grade-input { width: 70px; padding: 5px; text-align: center; font-weight: bold; border: 1px solid #ccc; border-radius: 4px; font-family: 'Rubik', sans-serif; }
+        .grade-max { font-weight: bold; color: #7f8c8d; }
+        .teacher-comment { flex-grow: 1; padding: 8px; border: 1px solid #bdc3c7; border-radius: 4px; font-family: 'Rubik', sans-serif; min-width: 200px; }
+        input:disabled { background-color: #f0f0f0; cursor: not-allowed; color: #888; border-color: #ddd; }
+
+        .teacher-controls { display: none; margin-bottom: 20px; text-align: center; border-bottom: 2px dashed #ccc; padding-bottom: 15px; }
+        body[data-status="submitted"] .teacher-controls { display: block; }
+        .btn-teacher-login { background: #e67e22; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; }
+
+        .footer { text-align: center; margin-top: 40px; padding-top: 20px; border-top: 2px solid #eee; }
+        .btn-submit { background: #27ae60; color: white; border: none; padding: 15px 40px; font-size: 1.2rem; border-radius: 50px; cursor: pointer; box-shadow: 0 4px 10px rgba(39, 174, 96, 0.3); transition: transform 0.2s; font-family: 'Rubik', sans-serif; font-weight: 500; }
+        .btn-submit:hover { transform: scale(1.05); background: #219150; }
+        
+        .total-score { font-size: 1.5rem; color: #d35400; font-weight: bold; margin-top: 15px; }
+
+        #securityModal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(231, 76, 60, 0.98); z-index: 99999; flex-direction: column; align-items: center; justify-content: center; color: white; text-align: center; }
+        #securityModal h2 { font-size: 3rem; margin-bottom: 20px; color: white; border: none; }
+        #securityModal p { font-size: 1.5rem; margin-bottom: 40px; }
+        #teacherCodeInput { padding: 15px; font-size: 1.5rem; text-align: center; border-radius: 8px; border: none; margin-bottom: 20px; width: 200px; color: #333; }
+        #unlockBtn { background: white; color: #c0392b; border: none; padding: 15px 30px; font-size: 1.2rem; border-radius: 8px; cursor: pointer; font-weight: bold; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    </style></head><body oncontextmenu="return false;">
+    
+    <div id="startScreen">
+        <h1>${examTitle}</h1>
+        <p style="font-size: 1.2rem; margin-bottom: 30px;">משך הבחינה: ${duration} דקות</p>
+        <button id="startBtn" onclick="startExamTimer()">התחל בחינה</button>
+    </div>
+
+    <div id="timerBadge">זמן נותר: <span id="timerText">--:--</span></div>
+
+    <div id="timesUpModal">
+        <h2>⌛ הזמן נגמר!</h2>
+        <p>זמן הבחינה תם. עליך להגיש את המבחן כעת.</p>
+        <button class="btn-submit" onclick="submitExam()" style="background: white; color: #c0392b;">שמור והגש בחינה</button>
+    </div>
+
+    <div id="securityModal">
+        <h2>⚠️ המבחן ננעל!</h2>
+        <p>זוהתה יציאה ממסך המבחן.</p>
+        <p>יש לקרוא למורה לשחרור הנעילה.</p>
+        <input type="password" id="teacherCodeInput" placeholder="קוד מורה">
+        <br>
+        <button id="unlockBtn" onclick="unlockExam()">שחרר נעילה</button>
+    </div>
+
+    <div class="container" id="mainContainer" style="filter: blur(5px);">
+        
+        <div class="exam-header">
+            ${logoHTML}
+            <h1>${examTitle}</h1>
+        </div>
+        
+        <div class="teacher-controls">
+            <button class="btn-teacher-login" onclick="enableGrading()">🔓 כניסת מורה (למתן ציונים)</button>
+        </div>
+
+        <div class="student-details">
+            <label>שם התלמיד:</label>
+            <input type="text" id="studentNameField" value="${studentName}" placeholder="הקלד את שמך המלא כאן">
+        </div>
+
+        ${globalInstructionsHTML}
+
+        <div class="tabs">
+            <button class="tab-btn active" onclick="showPart('A')">חלק ראשון</button>
+            <button class="tab-btn" onclick="showPart('B')">חלק שני</button>
+            <button class="tab-btn" onclick="showPart('C')">חלק שלישי</button>
+        </div>
+
+        <form id="examForm">
+            <div id="part-A" class="exam-section active">
+                <h2 style="color:#7f8c8d; border-bottom:1px solid #ddd; font-weight: 500;">חלק ראשון</h2>
+                ${getPartInstr('A')}
+                ${partsHTML.A || '<p style="text-align:center">אין שאלות בחלק זה</p>'}
+            </div>
+            <div id="part-B" class="exam-section">
+                <h2 style="color:#7f8c8d; border-bottom:1px solid #ddd; font-weight: 500;">חלק שני</h2>
+                ${getPartInstr('B')}
+                ${partsHTML.B || '<p style="text-align:center">אין שאלות בחלק זה</p>'}
+            </div>
+            <div id="part-C" class="exam-section">
+                <h2 style="color:#7f8c8d; border-bottom:1px solid #ddd; font-weight: 500;">חלק שלישי</h2>
+                ${getPartInstr('C')}
+                ${partsHTML.C || '<p style="text-align:center">אין שאלות בחלק זה</p>'}
+            </div>
+        </form>
+
+        <div class="footer">
+            <div class="total-score">ציון סופי: <span id="finalScore">--</span></div>
+            <br>
+            <button class="btn-submit" onclick="submitExam()">💾 שמירה והגשה למורה</button>
+            <p style="color: #7f8c8d; font-size: 0.9em; margin-top: 10px;">לחיצה על הכפתור תוריד קובץ "מבחן פתור" אותו יש לשלוח למורה.</p>
+        </div>
+    </div>
+
+    <script>
+        ${simpleHashFuncString}
+
+        // Prevent Paste Event
+        const textareas = document.querySelectorAll('textarea');
+        textareas.forEach(ta => {
+            ta.addEventListener('paste', e => {
+                e.preventDefault();
+                alert('הדבקת טקסט אסורה!');
+            });
+        });
+
+        function showPart(partId) {
+            document.querySelectorAll('.exam-section').forEach(el => el.classList.remove('active'));
+            document.getElementById('part-' + partId).classList.add('active');
+            const btns = document.querySelectorAll('.tab-btn');
+            btns.forEach(b => b.classList.remove('active'));
+            event.target.classList.add('active');
+        }
+
+        function calcTotal() {
+            let total = 0;
+            const inputs = document.querySelectorAll('.grade-input');
+            inputs.forEach(inp => { if(inp.value) total += parseFloat(inp.value); });
+            document.getElementById('finalScore').textContent = total;
+        }
+        
+        function enableGrading() {
+            var code = prompt("הכנס קוד מורה לעריכת ציונים:");
+            if (simpleHash(code) === "${unlockCodeHash}") {
+                var inputs = document.querySelectorAll(".grade-input, .teacher-comment");
+                inputs.forEach(function(el) { el.removeAttribute("disabled"); });
+                alert("מצב עריכה הופעל בהצלחה.");
+                document.querySelector('.teacher-controls').style.display = 'none';
+                document.querySelector('.btn-submit').innerText = '💾 שמירה והחזרה לתלמיד';
+            } else {
+                alert("קוד שגוי.");
+            }
+        }
+
+        let totalTime = ${duration} * 60;
+        let examStarted = false;
+        let timerInterval;
+
+        function startExamTimer() {
+            const elem = document.documentElement;
+            if (elem.requestFullscreen) elem.requestFullscreen().catch(err => console.log(err));
+            else if (elem.webkitRequestFullscreen) elem.webkitRequestFullscreen();
+            else if (elem.msRequestFullscreen) elem.msRequestFullscreen();
+
+            document.getElementById('startScreen').style.display = 'none';
+            document.getElementById('mainContainer').style.filter = 'none';
+            document.getElementById('timerBadge').style.display = 'block';
+            
+            examStarted = true;
+
+            timerInterval = setInterval(() => {
+                totalTime--;
+                updateTimerDisplay();
+                if (totalTime === 600) document.getElementById('timerBadge').classList.add('urgent');
+                if (totalTime <= 0) {
+                    clearInterval(timerInterval);
+                    document.getElementById('timesUpModal').style.display = 'flex';
+                }
+            }, 1000);
+            
+            updateTimerDisplay();
+        }
+
+        function updateTimerDisplay() {
+            const m = Math.floor(totalTime / 60);
+            const s = totalTime % 60;
+            document.getElementById('timerText').textContent = (m < 10 ? '0' + m : m) + ':' + (s < 10 ? '0' + s : s);
+        }
+
+        function submitExam() {
+            const nameField = document.getElementById('studentNameField');
+            const studentName = nameField.value.trim() || 'תלמיד';
+            nameField.setAttribute('value', studentName);
+            
+            const textareas = document.querySelectorAll('textarea');
+            textareas.forEach(ta => { ta.innerHTML = ta.value; });
+
+            const inputs = document.querySelectorAll('input.grade-input');
+            inputs.forEach(inp => { 
+                inp.setAttribute('value', inp.value);
+                inp.setAttribute('disabled', 'true'); // Re-lock inputs for the student file
+            });
+
+            const comments = document.querySelectorAll('input.teacher-comment');
+            comments.forEach(inp => { 
+                inp.setAttribute('value', inp.value); 
+                inp.setAttribute('disabled', 'true'); // Re-lock comments for the student file
+            });
+
+            document.body.setAttribute('data-status', 'submitted');
+
+            const htmlContent = "<!DOCTYPE html>" + document.documentElement.outerHTML;
+            
+            // Optional: Re-enable inputs if teacher wants to continue editing without reloading
+            // inputs.forEach(function(el) { el.removeAttribute("disabled"); });
+            // comments.forEach(function(el) { el.removeAttribute("disabled"); });
+            
+            // Clean up status for continued editing if needed (though download triggers)
+            // document.body.removeAttribute('data-status'); 
+
+            const blob = new Blob([htmlContent], { type: 'text/html' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = "מבחן פתור - " + studentName + ".html";
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            
+            alert('הקובץ נשמר בהצלחה! אנא שלח את הקובץ: "מבחן פתור - ' + studentName + '.html" למורה שלך.');
+        }
+        
+        function checkSecurityViolation() {
+            if (!examStarted || document.body.getAttribute('data-status') === 'submitted') return;
+            document.getElementById('securityModal').style.display = 'flex';
+        }
+
+        function unlockExam() {
+            const code = document.getElementById('teacherCodeInput').value;
+            if(simpleHash(code) === "${unlockCodeHash}") {
+                document.getElementById('securityModal').style.display = 'none';
+                document.getElementById('teacherCodeInput').value = '';
+            } else {
+                alert('קוד שגוי!');
+            }
+        }
+
+        document.addEventListener('visibilitychange', function() {
+            if (document.hidden) checkSecurityViolation();
+        });
+
+        window.addEventListener('blur', function() { 
+            setTimeout(function() { 
+                if (document.activeElement && document.activeElement.tagName === 'IFRAME') return; 
+                 checkSecurityViolation(); 
+            }, 200);
+        });
+        
+        window.onload = function() { calcTotal(); };
+    <\/script></body></html>`;
+    }
+</script>
+
+</body>
+</html>

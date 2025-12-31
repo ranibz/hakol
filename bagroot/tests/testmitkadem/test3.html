@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>מחולל מבחני בגרות - גרסה מאובטחת מלאה</title>
+    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700;900&family=David+Libre:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        /* --- עיצוב ממשק מורה --- */
+        :root { --primary: #2980b9; --light: #f5f6fa; --dark: #2c3e50; --success: #27ae60; --error: #e74c3c; }
+        body { font-family: 'Rubik', sans-serif; margin: 0; padding: 0; background-color: #57606f; color: var(--dark); height: 100vh; display: flex; overflow: hidden; }
+        aside { width: 30%; background: white; border-left: 1px solid #bdc3c7; display: flex; flex-direction: column; box-shadow: 2px 0 10px rgba(0,0,0,0.1); z-index: 10; }
+        .bank-header { padding: 20px; background: var(--primary); color: white; }
+        .bank-header h2 { margin: 0; font-size: 1.4rem; }
+        .bank-header p { margin: 5px 0 0; opacity: 0.9; font-size: 0.9rem; }
+        .accordion-container { flex-grow: 1; overflow-y: auto; padding: 10px; background: #f1f2f6; }
+        .accordion-item { margin-bottom: 10px; border: 1px solid #ccc; border-radius: 8px; background: white; overflow: hidden; }
+        .accordion-header { width: 100%; background: white; padding: 15px; text-align: right; border: none; border-bottom: 1px solid transparent; cursor: pointer; font-family: 'Rubik', sans-serif; font-weight: 700; font-size: 1rem; color: var(--dark); display: flex; justify-content: space-between; align-items: center; transition: 0.2s; }
+        .accordion-header:hover { background: #f7f9fa; }
+        .accordion-header.active { background: #e3f2fd; border-bottom: 1px solid #bdc3c7; color: var(--primary); }
+        .accordion-content { display: none; padding: 10px; background: #fafafa; max-height: 500px; overflow-y: auto; }
+        .accordion-content.show { display: block; }
+        .badge { background: #b2bec3; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.8rem; font-weight: normal; }
+        .accordion-header.active .badge { background: var(--primary); }
+        .q-card { background: white; border: 1px solid #eee; border-right: 4px solid #bdc3c7; padding: 10px; margin-bottom: 8px; border-radius: 6px; cursor: pointer; transition: 0.2s; display: flex; align-items: center; gap: 10px; }
+        .q-card:hover { transform: translateX(-3px); box-shadow: 0 3px 6px rgba(0,0,0,0.05); background-color: #fffde7; }
+        .part-a-card { border-right-color: #e74c3c; } .part-b-card { border-right-color: #f1c40f; } .part-c-card { border-right-color: #2ecc71; } 
+        .q-card .add-btn { background: var(--success); color: white; border: none; border-radius: 50%; width: 28px; height: 28px; font-size: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .sidebar-desc { font-size: 0.9rem; font-weight: bold; color: #333; margin-bottom: 3px; }
+        .sidebar-concepts { font-size: 0.8rem; color: #666; line-height: 1.3; }
+        main { width: 70%; background: #dfe6e9; display: flex; flex-direction: column; position: relative; }
+        .editor-nav { background: white; padding: 10px 20px; display: flex; gap: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); justify-content: center; }
+        .nav-tab { padding: 10px 20px; border: 1px solid transparent; background: #f1f2f6; cursor: pointer; border-radius: 20px; font-weight: bold; color: #7f8c8d; transition: 0.2s; font-family: 'Rubik', sans-serif; }
+        .nav-tab:hover { background: #e3f2fd; }
+        .nav-tab.active { background: var(--primary); color: white; box-shadow: 0 3px 8px rgba(41, 128, 185, 0.4); }
+        .content-scroller { flex-grow: 1; padding: 40px; overflow-y: auto; display: flex; flex-direction: column; align-items: center; }
+        .exam-section { display: none; width: 100%; flex-direction: column; align-items: center; gap: 40px; }
+        .exam-section.active { display: flex; animation: fadeIn 0.4s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .exam-page { background: white; width: 210mm; min-height: 297mm; padding: 20mm; box-shadow: 0 0 25px rgba(0,0,0,0.1); font-family: 'David Libre', serif; position: relative; box-sizing: border-box; display: flex; flex-direction: column; }
+        .next-section-btn { margin-top: 30px; padding: 15px 30px; background-color: var(--primary); color: white; border: none; border-radius: 50px; font-size: 1.1rem; cursor: pointer; font-family: 'Rubik', sans-serif; align-self: center; display: flex; align-items: center; gap: 10px; transition: 0.2s; }
+        .next-section-btn:hover { background-color: #1a5276; transform: scale(1.05); }
+        .chapter-page { justify-content: center; align-items: center; text-align: center; border: 1px solid #ddd; }
+        .chapter-title { font-size: 3.5rem; margin: 0 0 10px 0; font-family: 'Rubik', sans-serif; font-weight: 900; color: #2d3436; line-height: 1.2; }
+        .chapter-instructions { font-size: 1.5rem; font-weight: bold; font-family: 'David Libre', serif; margin-top: 20px; color: #000; }
+        .chapter-divider { width: 100px; height: 5px; background: var(--primary); margin: 20px auto; }
+        .exam-header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid black; padding-bottom: 10px; }
+        .exam-title-row { display: flex; justify-content: center; align-items: center; gap: 10px; margin: 15px 0; }
+        .exam-header h1 { font-size: 24px; margin: 0; display: inline-block; }
+        .exam-type-select { font-size: 20px; font-family: 'Rubik', sans-serif; font-weight: bold; color: #1565c0; background-color: #e3f2fd; border: 2px solid #1565c0; border-radius: 8px; padding: 5px 15px; cursor: pointer; outline: none; transition: 0.2s; background-image: url('data:image/svg+xml;utf8,<svg fill="%231565c0" height="24" viewBox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg"><path d="M7 10l5 5 5-5z"/><path d="M0 0h24v24H0z" fill="none"/></svg>'); background-repeat: no-repeat; background-position: left 5px center; padding-left: 30px; -webkit-appearance: none; -moz-appearance: none; appearance: none; }
+        .exam-type-select:hover { background-color: #bbdefb; }
+        .student-row { margin-top: 20px; display: inline-flex; justify-content: center; align-items: center; gap: 10px; font-size: 18px; background: #fff9c4; padding: 10px 25px; border-radius: 50px; border: 2px solid #fbc02d; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        .student-input { border: none; border-bottom: 2px dashed #f57f17; font-family: 'David Libre', serif; font-size: 18px; font-weight: bold; width: 220px; background: transparent; padding: 2px 5px; color: #333; }
+        .student-input::placeholder { color: #f9a825; opacity: 0.7; font-weight: normal; }
+        .student-input:focus { outline: none; border-bottom: 2px solid #e65100; }
+        .page-header-info { border-bottom: 2px solid #eee; margin-bottom: 20px; padding-bottom: 10px; color: #7f8c8d; font-family: 'Rubik', sans-serif; font-size: 0.9rem; display: flex; justify-content: space-between; }
+        .reading-passage { background-color: #f8f9fa; border: 1px solid #dcdde1; border-right: 4px solid #7f8c8d; padding: 15px; margin-bottom: 15px; font-family: 'David Libre', serif; font-size: 1.15rem; line-height: 1.6; color: #000; text-align: justify; white-space: pre-wrap; }
+        .q-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .q-number { font-weight: bold; font-size: 1.4rem; background: #eee; padding: 5px 15px; border-radius: 5px; }
+        .q-content { font-size: 1.2rem; line-height: 1.6; margin-bottom: 15px; }
+        .answer-box { width: 100%; flex-grow: 1; min-height: 300px; margin-top: 15px; padding: 20px; border: 2px solid #b2bec3; border-radius: 4px; background-color: #fff; font-family: 'David Libre', serif; font-size: 1.2rem; line-height: 2rem; background-image: linear-gradient(#eee 1px, transparent 1px); background-size: 100% 2rem; resize: none; }
+        .answer-box:focus { border-color: var(--primary); outline: none; }
+        .remove-btn { color: white; background-color: var(--error); border-radius: 4px; padding: 5px 10px; cursor: pointer; font-family: sans-serif; font-size: 14px; border: none; transition: 0.2s; }
+        .remove-btn:hover { background-color: #c0392b; }
+        .print-btn-container { position: fixed; bottom: 20px; left: 20px; z-index: 100; display: flex; gap: 10px; align-items: flex-end;}
+        .action-btn { background: var(--dark); color: white; padding: 12px 25px; border: none; border-radius: 50px; font-size: 16px; cursor: pointer; box-shadow: 0 5px 15px rgba(0,0,0,0.2); font-family: 'Rubik', sans-serif; transition: 0.2s; }
+        .action-btn:hover { transform: translateY(-3px); box-shadow: 0 8px 20px rgba(0,0,0,0.3); }
+        .download-btn { background: #e67e22; }
+        .student-save-btn { position: absolute; top: 20px; left: 20px; background: #27ae60; color: white; border: none; padding: 10px 15px; border-radius: 8px; font-family: 'Rubik', sans-serif; font-weight: bold; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.2); display: flex; align-items: center; gap: 5px; z-index: 100; transition: 0.2s; }
+        .student-save-btn:hover { background: #219150; transform: translateY(-2px); }
+        .status-bar { background: white; padding: 15px; border-top: 1px solid #ccc; font-size: 0.9rem; }
+        .status-item { margin-bottom: 5px; display: flex; justify-content: space-between; }
+        .progress-bg { background: #eee; height: 6px; width: 100px; border-radius: 3px; overflow: hidden; }
+        .progress-fill { height: 100%; background: var(--success); width: 0%; transition: 0.3s; }
+        .progress-fill.full { background: var(--error); }
+        .teacher-code-input { padding: 10px; border: 2px solid #e67e22; border-radius: 8px; font-family: 'Rubik', sans-serif; width: 100px; text-align: center; background: white; margin-left: 10px; }
+        @media print { aside, .print-btn-container, .remove-btn, .student-save-btn, .editor-nav, .next-section-btn { display: none !important; } main { width: 100%; background: white; padding: 0; display: block; height: auto; overflow: visible; } .content-scroller { display: block; overflow: visible; padding: 0; } .exam-section { display: block !important; opacity: 1 !important; } .exam-page { box-shadow: none; width: 100%; padding: 0; margin: 0; min-height: 297mm; page-break-after: always; } .exam-page:last-child { page-break-after: auto; } .exam-type-select { border: none; background: none; appearance: none; padding: 0; font-size: 24px; color: black; font-family: 'David Libre', serif; font-weight: normal; background-image: none !important; } .student-row { background: none; border: none; box-shadow: none; padding: 0; margin-top: 10px; } .student-input { border-bottom: 1px solid #000; width: 300px; } .reading-passage { background-color: #fff; border: 1px solid #000; color: #000; } .answer-box { border: 1px solid #000; background-color: #fff; } body { height: auto; overflow: visible; } }
+    </style>
+</head>
+<body>
+
+<aside id="teacherPanel">
+    <div class="bank-header"><h2>🏦 בנק שאלות</h2><p>לחצו להוספת שאלה</p></div>
+    <div class="accordion-container">
+        <div class="accordion-item"><button class="accordion-header" onclick="toggleAccordion('listA', this)"><span>פרק א' (גדולות)</span><span class="badge" id="badgeA">0</span></button><div id="listA" class="accordion-content"></div></div>
+        <div class="accordion-item"><button class="accordion-header" onclick="toggleAccordion('listB', this)"><span>פרק ב' (בינוניות)</span><span class="badge" id="badgeB">0</span></button><div id="listB" class="accordion-content"></div></div>
+        <div class="accordion-item"><button class="accordion-header" onclick="toggleAccordion('listC', this)"><span>פרק ג' (מושגים)</span><span class="badge" id="badgeC">0</span></button><div id="listC" class="accordion-content"></div></div>
+    </div>
+    <div class="status-bar">
+        <div style="font-weight:bold; margin-bottom:10px;">סטטוס המבחן:</div>
+        <div class="status-item"><span>פרק א' (עד 4):</span><div style="display:flex; align-items:center; gap:10px;"><span id="textCountA">0/4</span><div class="progress-bg"><div id="barA" class="progress-fill"></div></div></div></div>
+        <div class="status-item"><span>פרק ב' (עד 6):</span><div style="display:flex; align-items:center; gap:10px;"><span id="textCountB">0/6</span><div class="progress-bg"><div id="barB" class="progress-fill"></div></div></div></div>
+        <div class="status-item"><span>פרק ג' (עד 5):</span><div style="display:flex; align-items:center; gap:10px;"><span id="textCountC">0/5</span><div class="progress-bg"><div id="barC" class="progress-fill"></div></div></div></div>
+    </div>
+</aside>
+
+<main id="mainArea">
+    <nav class="editor-nav">
+        <button class="nav-tab active" onclick="switchSection('section-cover', this)">דף שער</button>
+        <button class="nav-tab" onclick="switchSection('section-partA', this)">פרק א'</button>
+        <button class="nav-tab" onclick="switchSection('section-partB', this)">פרק ב'</button>
+        <button class="nav-tab" onclick="switchSection('section-partC', this)">פרק ג'</button>
+    </nav>
+    <div class="content-scroller" id="examContent">
+        <div id="section-cover" class="exam-section active">
+            <div class="exam-page" id="coverPage">
+                <button class="student-save-btn" onclick="saveCompletedExam()">💾 שמירה והגשה</button>
+                <div class="exam-header">
+                    <p>מדינת ישראל - משרד החינוך</p>
+                    <div class="exam-title-row"><h1>בחינת</h1><select id="examTypeSelect" class="exam-type-select"><option value="" disabled selected>בחר סוג 🔽</option><option value="בגרות">בגרות</option><option value="מתכונת">מתכונת</option><option value="מחצית">מחצית</option><option value="שליש">שליש</option><option value="רבעון">רבעון</option><option value="מבחן">מבחן</option></select><h1>בתקשורת וחברה</h1></div>
+                    <p contenteditable="true">סמל השאלון: 788381 | משך הבחינה: שלוש שעות</p>
+                    <div class="student-row"><label>שם התלמיד/ה:</label><input type="text" class="student-input" placeholder="הקלידו שם כאן"></div>
+                </div>
+                <div style="margin-top:50px; text-align:center;">
+                    <h3>מבנה השאלון ומפתח ההערכה:</h3>
+                    <p>בשאלון זה שלושה פרקים:</p>
+                    <ul style="list-style:none; padding:0; font-size:1.1rem; line-height:2;"><li><strong>פרק ראשון</strong> – 46 נקודות</li><li><strong>פרק שני</strong> – 39 נקודות</li><li><strong>פרק שלישי</strong> – 15 נקודות</li><li style="border-top:1px solid #000; display:inline-block; padding-top:5px; margin-top:5px;"><strong>סה"כ – 100 נקודות</strong></li></ul>
+                    <div style="margin-top:40px; font-style:italic;">בהצלחה!</div>
+                </div>
+                <button class="next-section-btn" onclick="triggerSwitch('section-partA')">התחל מבחן: עבור לפרק א' ⬅️</button>
+            </div>
+        </div>
+        <div id="section-partA" class="exam-section"><div class="exam-page chapter-page"><h1 class="chapter-title">פרק ראשון <span style="font-size: 0.6em; display:block; margin-top:10px;">(46 נקודות)</span></h1><div class="chapter-divider"></div><div class="chapter-instructions">בפרק זה ענו על <u>שתיים</u> מבין השאלות 1–4 (לכל שאלה – 23 נקודות).</div><button class="next-section-btn" onclick="triggerSwitch('section-partB')">סיימת את פרק א'? עבור לפרק ב' ⬅️</button></div></div>
+        <div id="section-partB" class="exam-section"><div class="exam-page chapter-page"><h1 class="chapter-title">פרק שני <span style="font-size: 0.6em; display:block; margin-top:10px;">(39 נקודות)</span></h1><div class="chapter-divider"></div><div class="chapter-instructions">בפרק זה ענו על <u>שלוש</u> מבין השאלות 5–10 (לכל שאלה – 13 נקודות).</div><button class="next-section-btn" onclick="triggerSwitch('section-partC')">סיימת את פרק ב'? עבור לפרק ג' ⬅️</button></div></div>
+        <div id="section-partC" class="exam-section"><div class="exam-page chapter-page"><h1 class="chapter-title">פרק שלישי <span style="font-size: 0.6em; display:block; margin-top:10px;">(15 נקודות)</span></h1><div class="chapter-divider"></div><div class="chapter-instructions">בפרק זה ענו על <u>שתיים</u> מבין השאלות 11–15 (לכל שאלה – 7.5 נקודות).</div><button class="next-section-btn" style="background-color:#27ae60;" onclick="triggerSwitch('section-cover')">סיימת לערוך? חזור לדף הראשי ✅</button></div></div>
+    </div>
+</main>
+
+<div class="print-btn-container">
+    <div><label style="display:block; font-size:0.8rem; color:#555; margin-bottom:5px;">קוד שחרור נעילה:</label><input type="text" id="teacherPass" value="1234" class="teacher-code-input"></div>
+    <button class="action-btn download-btn" onclick="exportStudentFile()">📤 הורד לתלמיד</button>
+    <button class="action-btn" onclick="window.print()">🖨️ הדפסה / PDF</button>
+</div>
+
+<script>
+    const EXAM_LIMITS = { partA: 4, partB: 6, partC: 5 };
+    function switchSection(sectionId, btnElement) {
+        document.querySelectorAll('.exam-section').forEach(el => el.classList.remove('active'));
+        document.getElementById(sectionId).classList.add('active');
+        if (btnElement) { document.querySelectorAll('.nav-tab').forEach(el => el.classList.remove('active')); btnElement.classList.add('active'); }
+        else { const relevantTab = document.querySelector(`.nav-tab[onclick*="${sectionId}"]`); if(relevantTab) { document.querySelectorAll('.nav-tab').forEach(el => el.classList.remove('active')); relevantTab.classList.add('active'); } }
+        const scroller = document.querySelector('.content-scroller'); if(scroller) scroller.scrollTop = 0;
+    }
+    function triggerSwitch(targetId) { switchSection(targetId); }
+    
+    // ============================================================
+    // בנק השאלות המלא - ללא קיצורים!
+    // ============================================================
+    const questionsDB = [
+        // --- המאגר המקורי (שאלות 1-42) ---
+        { 
+            id: 1, type: 'partA', 
+            desc: "קטע קריאה: סדר יום במלחמה",
+            concepts: "תיאוריית סדר היום, עיתונות חוקרת, דמוקרטיה",
+            fullText: `<div class="reading-passage"><strong>קטע קריאה:</strong>עם פרוץ מלחמת "חרבות ברזל" ב־7 באוקטובר 2023, השתנה לוח השידורים של ערוצי הטלוויזיה המרכזיים בישראל מן הקצה אל הקצה. החדשות שודרו 24 שעות ביממה, והתמקדו בדיווחים שוטפים מהחזית ומהעורף. תוכניות הבידור והריאליטי ירדו מהמסך, ובמקומן שודרו משדרים מיוחדים שעסקו בסיפורי גבורה, בכאב המשפחות ובגיוס תרומות לחיילים.הציבור הישראלי כולו התגייס למען החיילים והמפונים, ובכנסת ישראל עסקו הוועדות והמליאה כמעט אך ורק בנושאי המלחמה, הביטחון והסיוע האזרחי.</div><strong>א.</strong> הסבירו את <strong>תיאוריית סדר היום</strong>, והדגימו כיצד באים לידי ביטוי שלושת סדרי היום (תקשורתי, ציבורי, פוליטי) בקטע הקריאה.<br><strong>ב.</strong> הסבירו מהי <strong>עיתונות חוקרת</strong> וכתבו מהי חשיבותה במדינה דמוקרטית.<br><strong>ג.</strong> <strong>דילמה:</strong> האם יש לשדר תחקירים ביקורתיים על מחדלים בזמן מלחמה? הציגו את הדילמה (ערך מול ערך) ונמקו את עמדתכם.`
+        },
+        { 
+            id: 2, type: 'partA',
+            desc: "קטע קריאה: סיקור החטופים",
+            concepts: "ערך חדשותי, ספירלת השתיקה, זכות הציבור לדעת",
+            fullText: `<div class="reading-passage"><strong>קטע קריאה:</strong>סוגיית החטופים והנעדרים עמדה במרכז השיח הציבורי והתקשורתי בישראל חודשים ארוכים. ערוצי הטלוויזיה הציבו מסכים קבועים בפינת האולפן עם מניין הימים שחלפו מאז השבת השחורה, וכתבי החדשות סיקרו את ההפגנות ב"כיכר החטופים" בהרחבה מדי ערב. בני משפחות החטופים רואיינו בכל מהדורת חדשות, וסיפוריהם האישיים הובאו בהבלטה.</div><strong>א.</strong> הסבירו את <strong>תיאוריית סדר היום</strong>, והביאו דוגמה מן הקטע לכל אחד משלושת סדרי היום (תקשורתי, ציבורי, פוליטי).<br><strong>ב.</strong> בחרו שלושה קריטריונים לקביעת <strong>ערך חדשותי</strong>, והסבירו על פיהם מהו הערך החדשותי בסוגיית החטופים.<br><strong>ג.</strong> <strong>דילמה:</strong> האם על התקשורת לעסוק באופן נרחב ויומיומי בסוגיית החטופים, או שעליה להצניע את הסיקור כדי לא לפגוע במשא ומתן לשחרורם? נמקו את עמדתכם תוך שימוש במושג רלוונטי (כגון: זכות הציבור לדעת, ספירלת השתיקה, מסגור).`
+        },
+        { 
+            id: 3, type: 'partA',
+            desc: "קטע קריאה: פייק ניוז במלחמה",
+            concepts: "פייק ניוז, רשתות חברתיות, פוסט-אמת",
+            fullText: `<div class="reading-passage"><strong>קטע קריאה:</strong>במאמר שפרסם חוקר התקשורת פרופ' מוטי נייגר בעיצומה של המלחמה, הוא מתייחס לדילמה של הפצת מידע ברשתות חברתיות בזמן חירום: "הדילמה המרכזית היא בין מהירות לאמינות. הרצון של הציבור לדעת הכל ומיד, גורם לא אחת להפצת שמועות לא מאומתות ופייק ניוז, שעלולים לפגוע במשפחות הנפגעים ובמורל הלאומי".</div><strong>א.</strong> ציינו שני <strong>מאפיינים של רשתות חברתיות</strong> המעודדים הפצת פייק ניוז, ותארו סכנה אחת הנובעת מכך בזמן מלחמה.<br><strong>ב.</strong> הסבירו את הדילמה המוצגת בקטע באמצעות שניים מהמושגים הבאים: <strong>פוסט-אמת</strong>, <strong>אמון הציבור</strong>, <strong>רייטינג</strong>.<br><strong>ג.</strong> הציעו שתי פעולות שמשתמשים ברשתות יכולים לעשות כדי להבחין בין מידע אמין לבין פייק ניוז.`
+        },
+        { 
+            id: 4, type: 'partB',
+            desc: "קטע קריאה: קונספירציות בטלגרם",
+            concepts: "פוסט אמת, שומרי סף, רשתות חברתיות",
+            fullText: `<div class="reading-passage"><strong>קטע קריאה:</strong>מחקר אקדמי חדש שנערך באוניברסיטת חיפה מצא כי צרכני חדשות המסתמכים בעיקר על קבוצות בטלגרם ובווטסאפ, נטו להאמין יותר לתיאוריות קונספירציה (כגון תיאוריית "הבגידה מבפנים") בהשוואה לצרכני חדשות שניזונו בעיקר מערוצי הטלוויזיה הממוסדים (11, 12, 13).</div><strong>א.</strong> הסבירו את המושג <strong>פוסט אמת</strong>. הציגו שני מאפיינים של רשתות חברתיות התורמים להפצת תיאוריות קונספירציה.<br><strong>ב.</strong> מדוע צופי הטלוויזיה הממוסדת נטו פחות להאמין לתאוריות שקריות? (התייחסו בתשובתכם לתפקיד <strong>שומרי הסף</strong>).`
+        },
+        { 
+            id: 5, type: 'partB',
+            desc: "שאלה פתוחה: בריונות ברשת",
+            concepts: "בריונות ברשת, פתרונות",
+            fullText: `<strong>שאלה:</strong><br>כתבו מהי <strong>בריונות ברשת</strong>. הציעו דרך אחת כיצד בני נוער או מערכת החינוך יכולים להתמודד עם תופעת הבריונות ברשת, והסבירו מדוע לדעתכם דרך זו יעילה.`
+        },
+        { 
+            id: 6, type: 'partB',
+            desc: "קטע חזותי: מיצב שולחן השבת",
+            concepts: "אקטיביזם, גלובליזציה, כפר גלובלי",
+            fullText: `<div class="reading-passage"><strong>קטע חזותי:</strong>ב"כיכר החטופים" בתל אביב הוצב "שולחן השבת" הריק, ערוך ל-240 סועדים, כמיצג למען החטופים. תוך ימים ספורים, המיצג שוכפל והוצב בכיכרות מרכזיות ברחבי העולם - מול מגדל אייפל בפריז, בטיימס סקוור בניו יורק ובשער ברנדנבורג בברלין - וזכה לסיקור תקשורתי נרחב בעולם.</div><strong>א.</strong> מהו <strong>אקטיביזם חברתי</strong>? האם מיצב "שולחן השבת" הוא ביטוי לאקטיביזם? נמקו.<br><strong>ב.</strong> כתבו מהי <strong>גלובליזציה</strong> ומה תפקיד התקשורת בה בהקשר למיצב זה.`
+        },
+        { 
+            id: 7, type: 'partB',
+            desc: "קטע חזותי: ייצוג נשים בצה\"ל",
+            concepts: "דנוטציה/קונוטציה, חברות, ייצוג מגדרי",
+            fullText: `<div class="reading-passage"><strong>קטע חזותי:</strong> (דמיינו תמונה של לוחמות בצה"ל בתוך טנק, פניהן מלוכלכות בפיח, מחייכות ומסמנות 'וי').</div><strong>א.</strong> הסבירו את המושגים <strong>דנוטציה</strong> ו<strong>קונוטציה</strong>. נתחו את התמונה המתוארת באמצעות מושגים אלו.<br><strong>ב.</strong> הסבירו את תפקיד התקשורת ב<strong>תהליך החברות</strong> (סוציאליזציה) וכיצד הייצוג המגדרי בתמונה זו עשוי להשפיע על תפיסת הנשים בחברה הישראלית.`
+        },
+        { 
+            id: 8, type: 'partC',
+            desc: "צילום: מגזיני מול עיתונאי",
+            concepts: "צילום עיתונאי, צילום מגזיני",
+            fullText: `לפניכם שתי תמונות של אותה דמות (למשל: נועה קירל / פוליטיקאי). תמונה א' צולמה באירוע חדשותי מהשטח, ותמונה ב' צולמה בסטודיו עם תאורה מוקפדת.<br>כתבו איזו מבין התמונות היא <strong>צילום מגזיני</strong> ואיזו היא <strong>צילום עיתונאי</strong>. ציינו שני מאפיינים המבדילים בין סוגי הצילום הללו.`
+        },
+        { id: 9, type: 'partC', desc: "מושג: זהות היברידית", concepts: "גלובליזציה, זהות", fullText: `הסבירו מהי <strong>זהות היברידית</strong>, וכתבו כיצד תורמת התקשורת הגלובלית להיווצרותה.` },
+        { id: 10, type: 'partC', desc: "מושג: תיאוריות אלימות", concepts: "זיכוך, חיקוי, עולם אכזר", fullText: `בחרו שתיים מבין התיאוריות של השפעת האלימות בתקשורת (זיכוך, חיקוי, עולם אכזר) והסבירו אותן בקצרה.` },
+        { id: 11, type: 'partC', desc: "מושג: הגמוניה", concepts: "הגמוניה, תרבות", fullText: `הסבירו מהי <strong>הגמוניה אידאולוגית/תרבותית</strong>, וכתבו כיצד אמצעי התקשורת מחזקים את ההגמוניה בחברה.` },
+        { id: 12, type: 'partC', desc: "מושג: סוגי עיתונאים", concepts: "שומר סף, עיתונאי פרקליט", fullText: `הסבירו את המושגים: <strong>עיתונאי שומר סף</strong> ו<strong>עיתונאי פרקליט</strong>. עמדו על ההבדל המרכזי ביניהם.` },
+        { 
+            id: 13, type: 'partB',
+            desc: "קטע קריאה: תאגיד השידור",
+            concepts: "תקשורת ציבורית/מסחרית, פלורליזם",
+            fullText: `<div class="reading-passage"><strong>קטע קריאה:</strong>פוליטיקאים טענו כי יש לסגור את תאגיד השידור הציבורי "כאן 11" בטענה שהרייטינג שלו נמוך ושהוא עולה כסף רב למשלם המסים. מנגד, טענו אנשי התאגיד כי השידור הציבורי חיוני לדמוקרטיה כיוון שהוא מציג תכנים איכותיים ומגוונים שאין להם מקום בערוצים המסחריים.</div><strong>א.</strong> הסבירו מהי <strong>תקשורת ציבורית</strong> ומהי <strong>תקשורת מסחרית</strong> (ציינו שני הבדלים).<br><strong>ב.</strong> מהו <strong>פלורליזם</strong> וכיצד התקשורת הציבורית אמורה לעודד אותו?<br><strong>ג.</strong> <strong>דילמה:</strong> האם לדעתכם יש לקיים תקשורת ציבורית בישראל? נמקו את תשובתכם.`
+        },
+        { 
+            id: 14, type: 'partA',
+            desc: "קטע קריאה: הון-שלטון-עיתון",
+            concepts: "הון-שלטון-עיתון, חופש העיתונות",
+            fullText: `<div class="reading-passage"><strong>קטע קריאה:</strong>דיווחים בארה"ב חשפו את הקשרים ההדוקים בין המיליארדר אילון מאסק (הבעלים של רשת X) לבין דונלד טראמפ. נטען כי מאסק משתמש בפלטפורמה שלו כדי לקדם את מסריו של טראמפ ולהשתיק ביקורת נגדו, בתמורה להבטחות להקלות רגולטוריות אם טראמפ ייבחר.</div><strong>א.</strong> הסבירו את המושג <strong>יחסי הון-שלטון-עיתון</strong> והביאו דוגמה לקשר כזה מתוך הקטע. כיצד קשר זה עלול לפגוע בתפקוד התקשורת במדינה דמוקרטית?<br><strong>ב.</strong> <strong>דילמה:</strong> האם יש להטיל פיקוח הדוק על בעלי רשתות חברתיות כדי למנוע הטיה פוליטית, או שהדבר יפגע בחופש הביטוי ובזכות הקניין? נמקו.`
+        },
+        { 
+            id: 15, type: 'partA', 
+            desc: "קטע קריאה: המחאה והרפורמה", 
+            concepts: "שוק דעות, מסגור, הבניה חברתית", 
+            fullText: `<div class="reading-passage"><strong>קטע קריאה:</strong>במהלך המחאה נגד הרפורמה המשפטית/המהפכה המשטרית, מילאה התקשורת תפקיד מרכזי. ערוצים מסוימים בחרו לכנות את המהלך "רפורמה לתיקון מערכת המשפט" והתמקדו בתומכי הממשלה, בעוד ערוצים אחרים כינו אותו "הפיכה משטרית מסוכנת" ושידרו ללא הפסקה ממוקדי ההפגנות בקפלן.</div><strong>א.</strong> מהו תפקיד התקשורת בסיקור מחאות אזרחיות במדינה דמוקרטית? (התייחסו למושגים: שוק דעות פתוח, זכות הציבור לדעת).<br><strong>ב.</strong> מדוע חלק מהעיתונאים השתמשו במונח 'רפורמה' ואחרים ב'הפיכה'? הסבירו את תשובתכם באמצעות המושגים <strong>מסגור</strong> ו<strong>הבניה חברתית של המציאות</strong>.` 
+        },
+        { 
+            id: 16, type: 'partA',
+            desc: "קטע קריאה: מכתב שר התקשורת",
+            concepts: "עובדה ודעה, פלורליזם, שידור ציבורי",
+            fullText: `<div class="reading-passage"><strong>קטע קריאה:</strong>שר התקשורת שלח מכתב חריף ליו"ר תאגיד השידור הציבורי, ובו טען כי התאגיד חוטא לתפקידו ומשדר תכנים מוטים פוליטית. ארגון העיתונאים הגיב בחריפות וטען כי מדובר בניסיון פסול להלך אימים על עיתונאים ולפגוע בעצמאות השידור הציבורי.</div><strong>א.</strong> סכמו את טענות השר נגד התאגיד תוך שימוש במושגים: <strong>עובדה ודעה</strong>, <strong>פלורליזם</strong>.<br><strong>ב.</strong> הסבירו את הטענות נגד התערבות פוליטית בשידור הציבורי, ומדוע חשוב לשמור על עצמאותו.`
+        },
+        { 
+            id: 17, type: 'partA',
+            desc: "קטע קריאה: סיקור הפיגוע בדיזנגוף",
+            concepts: "אתיקה עיתונאית, ערך חדשותי",
+            fullText: `<div class="reading-passage"><strong>קטע קריאה:</strong>במהלך סיקור הפיגוע ברחוב דיזנגוף, שידרו ערוצי הטלוויזיה תמונות של לוחמי יחידות מיוחדות כשהם פרוסים בשטח, וחשפו את פניהם בשידור חי. כמו כן, הופצו שמועות לא מאומתות על מחבלים נוספים שמסתובבים באזור, דבר שיצר בהלה מיותרת בציבור.</div><strong>א.</strong> מהי <strong>אתיקה עיתונאית</strong>? הדגימו שתי הפרות של כללי האתיקה מתוך הקטע, והסבירו את ההשלכות האפשריות של הפרות אלו.<br><strong>ב.</strong> ציינו שלושה קריטריונים ל<strong>ערך חדשותי</strong> והסבירו מדוע הפיגוע בדיזנגוף זכה לסיקור תקשורתי נרחב כל כך.`
+        },
+        { 
+            id: 18, type: 'partA',
+            desc: "דילמה: סיקור טרור בשידור חי",
+            concepts: "חדשות קשות, דילמה אתית",
+            fullText: `<strong>דילמה:</strong> בעת אירוע טרור מתמשך, עורכי החדשות מתלבטים כיצד לסקר את האירוע.<br><strong>א.</strong> הסבירו את המושגים <strong>חדשות רכות</strong> ו<strong>חדשות קשות</strong>. לאיזה סוג שייך סיקור פיגוע?<br><strong>ב.</strong> הסבירו את הדילמה העיתונאית בסיקור אירוע טרור בשידור חי (למשל: זכות הציבור לדעת מול פגיעה בביטחון המדינה או ברגשות הציבור). נמקו את עמדתכם.`
+        },
+        { 
+            id: 19, type: 'partB',
+            desc: "קטע קריאה: הלווית המלכה אליזבת",
+            concepts: "אירוע מדיה, שימושים וסיפוקים",
+            fullText: `<div class="reading-passage"><strong>קטע קריאה:</strong>טקס הלוויה של המלכה אליזבת השנייה הועבר בשידור חי למיליארדי צופים ברחבי העולם, והפך למשדר הנצפה ביותר בהיסטוריה. השידור איחד צופים ממדינות שונות ומדתות שונות סביב המרקע.</div><strong>א.</strong> מהו <strong>אירוע מדיה</strong>? הביאו שתי דוגמאות מתוך הקטע לכך שהלוויה הייתה אירוע מדיה.<br><strong>ב.</strong> הסבירו את <strong>גישת השימושים והסיפוקים</strong> וציינו צורך פסיכולוגי או חברתי אחד שעליו ענה השידור עבור הצופים.`
+        },
+        { 
+            id: 20, type: 'partB',
+            desc: "קטע קריאה: תקינות פוליטית",
+            concepts: "תקינות פוליטית, שפה",
+            fullText: `<div class="reading-passage"><strong>קטע קריאה:</strong>בשנים האחרונות חל שינוי בשפה התקשורתית: במקום הביטוי "המגזר הערבי" שהיה נהוג בעבר, מקפידים עיתונאים רבים לומר "החברה הערבית". שינוי זה נובע מרצון להימנע מתיוג מכליל ולכבד את הזהות של קבוצת המיעוט.</div><strong>א.</strong> הסבירו את המושג <strong>תקינות פוליטית</strong> (Political Correctness) וכיצד היא באה לידי ביטוי בקטע.<br><strong>ב.</strong> הציגו טיעון אחד בעד שימוש בשפה תקינה פוליטית בתקשורת, וטיעון אחד נגד (ביקורת על התקינות הפוליטית).`
+        },
+        { 
+            id: 21, type: 'partB',
+            desc: "קטע קריאה: הסדרה 'דאהמר'",
+            concepts: "תיאוריות אלימות, דילמה",
+            fullText: `<div class="reading-passage"><strong>קטע קריאה:</strong>הסדרה "דאהמר" בנטפליקס, המגוללת את סיפורו של רוצח סדרתי, זכתה לפופולריות עצומה אך גם לביקורת קשה. משפחות הקורבנות טענו שהסדרה מעניקה "תהילה" לרוצח וגורמת להם סבל מחודש, בעוד שיוצרי הסדרה טענו שיש לה ערך תיעודי ואומנותי.</div><strong>א.</strong> הסבירו שתי <strong>תיאוריות של השפעת האלימות</strong> (למשל: חיקוי, זיכוך) וכתבו כיצד כל אחת מהן מסבירה את ההשפעה האפשרית של הסדרה על הצופים.<br><strong>ב.</strong> מהי הדילמה של נטפליקס בשידור תכנים המבוססים על פשעים אמיתיים מזעזעים?`
+        },
+        { 
+            id: 22, type: 'partB',
+            desc: "קטע חזותי: המפקדת",
+            concepts: "חברות, מגדר, דנוטציה/קונוטציה",
+            fullText: `<div class="reading-passage"><strong>קטע חזותי:</strong>(דמיינו תמונה מתוך הסדרה "המפקדת": מפקדת צעירה עומדת מול טירונים, מנסה להיראות סמכותית אך שפת הגוף שלה משדרת חוסר ביטחון).</div><strong>א.</strong> הסבירו את המושגים <strong>חברות (סוציאליזציה)</strong> ו<strong>מגדר</strong>. כיצד סדרה כמו "המפקדת" עשויה להשפיע על תפיסת המגדר והשירות הצבאי בקרב בני נוער?<br><strong>ב.</strong> הסבירו <strong>דנוטציה וקונוטציה</strong> ונתחו את התמונה המתוארת.`
+        },
+        { 
+            id: 23, type: 'partB',
+            desc: "קטע חזותי: מסי ורונאלדו",
+            concepts: "אושיות רשת, פניית מסר",
+            fullText: `<div class="reading-passage"><strong>קטע חזותי:</strong>לפני המונדיאל התפרסמה תמונה אייקונית באינסטגרם: ליאונל מסי וכריסטיאנו רונאלדו משחקים שחמט על מזוודה של מותג היוקרה "לואי ויטון". התמונה זכתה לעשרות מיליוני לייקים והפכה לאחת הנצפות בהיסטוריה.</div><strong>א.</strong> הסבירו את המונחים <strong>אושיות רשת</strong> ו<strong>מדיה חברתית</strong>. מדוע בחר מותג האופנה לפרסם את מוצריו דווקא באמצעות עמודי האינסטגרם של הכדורגלנים?<br><strong>ב.</strong> הסבירו <strong>פניית מסר שכלית</strong> ו<strong>פניית מסר רגשית</strong>. איזו פנייה דומיננטית יותר בפרסומת זו? נמקו.`
+        },
+        { id: 24, type: 'partC', desc: "מושג: תרבות הביטול", concepts: "תרבות הביטול, רשתות", fullText: "הסבירו את המונח <strong>תרבות הביטול</strong> (Cancel Culture), ומהי הסכנה הטמונה לאדם או לקבוצה כתוצאה ממנה." },
+        { id: 25, type: 'partC', desc: "מושג: עיתונות עצמאית", concepts: "עיתונות עצמאית, דמוקרטיה", fullText: "הסבירו מהי <strong>עיתונות עצמאית</strong>, ומה חשיבותה במדינה דמוקרטית." },
+        { id: 26, type: 'partC', desc: "מושג: סוגי עיתונאים", concepts: "שומר סף, עיתונאי פרקליט", fullText: "הסבירו את ההבדל בין <strong>עיתונאי שומר הסף</strong> ובין <strong>עיתונאי פרקליט</strong>." },
+        { id: 27, type: 'partC', desc: "מושג: תרבות צריכה", concepts: "תרבות צריכה, רשתות חברתיות", fullText: "הסבירו מהי <strong>תרבות צריכה</strong>, וכיצד הרשתות החברתיות תורמות לטיפוחה." },
+        { id: 28, type: 'partC', desc: "מושג: תיאוריית סדר היום", concepts: "סדר יום", fullText: "הסבירו את <strong>תיאוריית סדר היום</strong> ואת שלושת סוגי סדר היום המרכיבים אותה." },
+        { 
+            id: 29, type: 'partA', 
+            desc: "קטע קריאה: מסגור הפגנה", 
+            concepts: "מסגור, הבניית מציאות", 
+            fullText: `<div class="reading-passage"><strong>קטע קריאה:</strong>בסיקור הפגנה באום אל-פחם, הציג ערוץ 12 בעיקר את העימותים האלימים עם המשטרה ואת דגלי פלסטין שהונפו. לעומת זאת, ערוץ "מכאן 33" התמקד בנאומים שנישאו על הבמה ובדרישות המפגינים לטיפול בפשיעה בחברה הערבית.</div><strong>א.</strong> הסבירו מהו <strong>מסגור</strong>. כיצד כל אחד מהערוצים "מסגר" את האירוע בצורה שונה?<br><strong>ב.</strong> הסבירו סיבה אפשרית אחת להבדל במסגור, וכיצד מסגור זה משפיע על <strong>הבניית המציאות</strong> של הצופים.` 
+        },
+        { 
+            id: 30, type: 'partA',
+            desc: "קטע קריאה: ערך חדשותי",
+            concepts: "ערך חדשותי, חדשות רכות/קשות",
+            fullText: `<div class="reading-passage"><strong>קטע קריאה:</strong> (המשך לשאלה הקודמת על ההפגנה). ההפגנה פתחה את מהדורות החדשות בכל הערוצים המרכזיים ודחקה הצידה נושאים אחרים.</div><strong>א.</strong> ציינו שלושה קריטריונים ל<strong>ערך חדשותי</strong> שבאו לידי ביטוי בסיקור ההפגנה, והסבירו אותם.<br><strong>ב.</strong> הסבירו את המושגים <strong>חדשות רכות</strong> ו<strong>חדשות קשות</strong>. לאיזה סוג שייך הדיווח על ההפגנה?<br><strong>ג.</strong> מה החשיבות של מוסדות לביקורת התקשורת (כמו אתר "העין השביעית") במקרים של סיקור מוטה?` 
+        },
+        { 
+            id: 31, type: 'partA',
+            desc: "קטע קריאה: בעלות צולבת",
+            concepts: "בעלות צולבת, דמוקרטיה",
+            fullText: `<div class="reading-passage"><strong>קטע קריאה:</strong>תחקיר חשף כי מהדורת החדשות של ערוץ 12 נמנעה מלדווח על הכוונה להטיל מס על משקאות ממותקים. התברר כי החברה המרכזית למשקאות (קוקה קולה ישראל) היא אחת הבעלים של הערוץ, ולכן היה לה אינטרס כלכלי להצניע את הנושא.</div><strong>א.</strong> הסבירו את המושג <strong>בעלות צולבת</strong>. כיצד בעלות זו עלולה לפגוע בתפקוד התקשורת בדמוקרטיה? הדגימו מהקטע.<br><strong>ב.</strong> מהי הדילמה האתית של עורכי החדשות במקרה זה?`
+        },
+        { 
+            id: 32, type: 'partA',
+            desc: "קטע קריאה: פייק ניוז בקורונה",
+            concepts: "פייק ניוז, תפקידי תקשורת",
+            fullText: `<div class="reading-passage"><strong>קטע קריאה:</strong>בתקופת מגפת הקורונה הופצו ברשתות החברתיות ידיעות כזב רבות על סכנות החיסונים ועל מקור הנגיף. פייסבוק וגוגל הודיעו כי יסירו תכנים שקריים המסכנים את בריאות הציבור.</div><strong>א.</strong> מהו <strong>פייק ניוז</strong>? מה הדילמה של הרשתות החברתיות בהסרת תכנים (התנגשות בין ערכים)?<br><strong>ב.</strong> ציינו והדגימו שלושה <strong>תפקידי תקשורת</strong> (על פי המודל המבני-תפקודי) הבאים לידי ביטוי בסיקור משברים בריאותיים.`
+        },
+        { 
+            id: 33, type: 'partB',
+            desc: "קטע קריאה: משחקי הדיונון",
+            concepts: "גלובליזציה, חברות, אלימות",
+            fullText: `<div class="reading-passage"><strong>קטע קריאה:</strong>הסדרה הדרום-קוריאנית "משחקי הדיונון" שודרה בנטפליקס והפכה ללהיט עולמי. בני נוער בישראל, בארה"ב ובאירופה צפו בה וחיקו את המשחקים האלימים המופיעים בה.</div><strong>א.</strong> הסבירו את המושג <strong>גלובליזציה</strong> וכיצד היא מתבטאת בהצלחת הסדרה.<br><strong>ב.</strong> הסבירו את <strong>תהליך החברות</strong> (סוציאליזציה) והסבירו את החשש מהשפעת האלימות בסדרה על בני נוער.`
+        },
+        { 
+            id: 34, type: 'partB',
+            desc: "קטע חזותי: שוות משוות",
+            concepts: "אקטיביזם, סדר יום",
+            fullText: `<div class="reading-passage"><strong>קטע חזותי:</strong>קמפיין הרשת "שוות משוות" קרא לנשים להעלות תמונות שלהן ולכתוב על פערי השכר בינן לבין גברים. הקמפיין סחף אלפי נשים וגרם לכנסת לדון בנושא.</div><strong>א.</strong> הסבירו מהו <strong>אקטיביזם חברתי</strong> והדגימו כיצד הוא בא לידי ביטוי בקמפיין.<br><strong>ב.</strong> הסבירו את <strong>מודל קביעת סדר היום</strong>. כיצד הצליח הקמפיין לשנות את סדר היום הפוליטי?`
+        },
+        { 
+            id: 35, type: 'partB',
+            desc: "קטע קריאה: פוליטיקאים בטיקטוק",
+            concepts: "יליד/מהגר דיגיטלי, פוליטיקה חדשה",
+            fullText: `<div class="reading-passage"><strong>קטע קריאה:</strong>במערכת הבחירות האחרונה, פוליטיקאים מבוגרים רבים פתחו חשבונות טיקטוק וניסו לרקוד לצלילי טרנדים כדי לפנות לצעירים. הדבר עורר לעג בקרב בני הנוער שחשו בניתוק התרבותי.</div><strong>א.</strong> הסבירו את המושגים <strong>יליד דיגיטלי</strong> ו<strong>מהגר דיגיטלי</strong> והדגימו אותם מהקטע.<br><strong>ב.</strong> הסבירו הבדל אחד בין מדיה מסורתית למדיה דיגיטלית, ויתרון אחד שיש לפוליטיקאים בשימוש ברשתות חברתיות.`
+        },
+        { 
+            id: 36, type: 'partB',
+            desc: "קטע קריאה: תחקיר בחברה החרדית",
+            concepts: "עיתונות חוקרת, תקשורת מגזרית",
+            fullText: `<div class="reading-passage"><strong>קטע קריאה:</strong>סדרת כתבות באתר חרדי עצמאי חשפה עדויות על תקיפות מיניות שהושתקו בתוך הקהילה. העיתונות החרדית הממוסדת נמנעה מלעסוק בנושא.</div><strong>א.</strong> מהי <strong>עיתונות חוקרת</strong> ומה חשיבותה במקרה המתואר?<br><strong>ב.</strong> הסבירו מהי <strong>תקשורת מגזרית</strong> וציינו חיסרון אחד שלה עבור הצרכנים (כפי שעולה מהקטע).`
+        },
+        { 
+            id: 37, type: 'partB',
+            desc: "קטע קריאה: תיק 4000",
+            concepts: "הון-שלטון-עיתון, רשות רביעית",
+            fullText: `<div class="reading-passage"><strong>קטע קריאה:</strong>במשפט נתניהו-אלוביץ' (תיק 4000) נטען כי ראש הממשלה העניק הטבות רגולטוריות לבעלי חברת "בזק" ובתמורה קיבל סיקור אוהד באתר "וואלה" שהיה בבעלותם. עורכי האתר העידו כי הופעלו עליהם לחצים לשנות כותרות ולהסיר ידיעות שליליות.</div><strong>א.</strong> הסבירו את המושג <strong>קשרי הון-שלטון-עיתון</strong> והדגימו אותו מתוך הקטע.<br><strong>ב.</strong> הסבירו את המושג <strong>רשות רביעית</strong> וכיצד יחסים אלו פוגעים בתפקיד זה של התקשורת.`
+        },
+        { id: 38, type: 'partC', desc: "מושג: סוגי קמפיינים", concepts: "קמפיין מסחרי/חברתי", fullText: "הסבירו את ההבדל בין <strong>קמפיין פרסום מסחרי</strong> ובין <strong>קמפיין פרסום חברתי</strong>. תנו דוגמה לכל אחד." },
+        { id: 39, type: 'partC', desc: "מושג: אירוע מדיה", concepts: "אירוע מדיה", fullText: "הסבירו מהו <strong>אירוע מדיה</strong>, ציינו שניים ממאפייניו, והביאו דוגמה לאירוע מדיה." },
+        { id: 40, type: 'partC', desc: "מושג: מודל פיסק", concepts: "גישה סמיוטית, פענוח", fullText: "הסבירו את <strong>הגישה התרבותית סמיוטית (מודל פיסק)</strong> ואת שלושת סוגי הפענוח על פי מודל זה." },
+        { id: 41, type: 'partC', desc: "מושג: FOMO", concepts: "חרדת החמצה", fullText: "הסבירו את המושג <strong>חרדת החמצה (FOMO)</strong> וכיצד הרשתות החברתיות מעצימות אותה." },
+        { id: 42, type: 'partC', desc: "מושג: הכחדה סימבולית", concepts: "הכחדה סימבולית", fullText: "הסבירו את המושג <strong>הכחדה סימבולית</strong>, והביאו דוגמה לקבוצה חברתית הסובלת מכך." },
+
+        // --- קיץ 2021 (תשפ"א) ---
+        { 
+            id: 101, type: 'partA', 
+            desc: "קטע קריאה: סדר יום בקורונה",
+            concepts: "קביעת סדר היום, ערך חדשותי",
+            fullText: `<div class="reading-passage"><strong>קטע קריאה:</strong><br>התפרצות נגיף הקורונה ברחבי העולם הציבה בפני התקשורת העולמית אתגר: לדווח 24 שעות ביממה ושבעה ימים בשבוע על התפשטות המגפה. כך גם בישראל, עיתונאים בתקשורת הכתובה והמשודרת עבדו במלוא המרץ כדי לדווח על ההנחיות של משרד הבריאות, וכדי לתווך לציבור הרחב את המורכבות של המשבר שאיתו העולם מתמודד. נושאים כמו ספורט ופוליטיקה, שזכו לסיקור תקשורתי נרחב לפני המשבר, נדחקו בזמן המשבר לשוליים או נעלמו, ואת מקומם תפסו "חדשות הקורונה".</div><strong>א.</strong> הסבר את <strong>תיאוריית קביעת סדר היום</strong>. כתוב כיצד הקטע משקף את תיאוריית קביעת סדר היום. בסס את תשובתך על שתי דוגמאות מן הקטע.<br><strong>ב.</strong> ציין שני קריטריונים לקביעת <strong>ערך חדשותי</strong>, והסבר, לפי כל אחד מן הקריטריונים האלה, מדוע סיקור מגפת הקורונה היה בעל ערך חדשותי.`
+        },
+        { 
+            id: 102, type: 'partA',
+            desc: "קטע קריאה: פייסבוק וחיסונים",
+            concepts: "חופש הביטוי, פייק ניוז, דילמה",
+            fullText: `<div class="reading-passage"><strong>קטע קריאה:</strong><br>בשנה האחרונה השקיעה הרשת החברתית פייסבוק מאמצים רבים כדי לסייע בהתמודדות העולמית עם מגפת הקורונה. פייסבוק פעלה לצד ארגון הבריאות העולמי, ושיתפה פעולה עם ממשלות שונות כדי לספק מידע מהימן. היא גם הודיעה כי תפעל לקידום מידע מהימן על החיסונים נגד נגיף הקורונה כדי לעודד אנשים להתחסן. בחודש פברואר 2021, הסירה פייסבוק מן הרשת שתי קבוצות של מתנגדי חיסונים שמנו עשרות אלפי אנשים. לטענת פייסבוק, קבוצות אלו הפיצו מידע שקרי בקשר למגפה ובקשר ליעילות ולבטיחות של החיסונים.</div><strong>א.</strong> מהי הדילמה שעמדה בפני מנהלי פייסבוק בבואם להסיר את הקבוצות מן הרשת? השתמש בתשובתך במושגים <strong>חופש הביטוי</strong> ו־<strong>פייק ניוז</strong>.<br><strong>ב.</strong> האם אתה תומך בהחלטתה של חברת פייסבוק להסיר את הקבוצות מן הרשת, או מתנגד לה? נמק את תשובתך.`
+        },
+        { 
+            id: 103, type: 'partA',
+            desc: "קטע קריאה: אור-לי ברלב",
+            concepts: "עיתונאי שומר סף, עיתונאי פרקליט",
+            fullText: `<div class="reading-passage"><strong>קטע קריאה:</strong><br>אור-לי ברלב היא אקטיביסטית חברתית ועיתונאית עצמאית (שאינה עובדת מטעם שום גוף תקשורת). היא השתתפה בהפגנות נגד ראש הממשלה שהתקיימו בשנה האחרונה, ושידרה מהן באופן שוטף לרשתות החברתיות באמצעות מכשיר הטלפון הנייד שלה. בשיא הגיע מספר הצפיות לאחד ממשדרי ההפגנה שלה ללא פחות מחצי מיליון צופים. בריאיון שנערך איתה אמרה: "(...) העשייה העיתונאית שלי לא מתיימרת להיות ניטרלית, אלא ממקום שחותר לשינוי מיטיב בחברה לטובת האזרחים (...) אני עוסקת בנושאים משמעותיים שבהם תמיד הציבור נפגע בצורה מאוד קשה, ובדרך כלל התקשורת המרכזית לא מטפלת בהם בכלל או שהיא מטפלת בהם באופן מאוד מאוד שטחי (...)"</div><strong>א.</strong> הסבר את המושגים <strong>"עיתונאי שומר סף"</strong> ו־<strong>"עיתונאי פרקליט"</strong>. כתוב לאיזה מבין שני סוגי העיתונאים משתייכת אור־לי ברלב, ונמק את תשובתך.<br><strong>ב.</strong> על־פי הקטע - מהי הטענה שמעלה אור לי ברלב נגד התקשורת? בתשובתך הבא ציטוט מדבריה.`
+        },
+        { 
+            id: 104, type: 'partB',
+            desc: "קטע קריאה: מחאות והפגנות",
+            concepts: "חופש הביטוי, חדשות קשות/רכות",
+            fullText: `<div class="reading-passage"><strong>קטע קריאה:</strong><br>בשנה האחרונה התקיימו מחאות ציבוריות ברחבי ישראל, שקראו לראש הממשלה להתפטר מתפקידו. ההפגנות סוקרו בהרחבה בכל אמצעי התקשורת בישראל ועוררו שיח תקשורתי עֶר, שבו השתתפו מגוון רחב של עיתונאים מכל הקשת הפוליטית.</div><strong>א.</strong> הסבר מהו <strong>חופש הביטוי</strong> ומה חשיבותו במדינה דמוקרטית. על פי הקטע כתוב כיצד אמצעי התקשורת מממשים את חופש הביטוי בחברה הישראלית.<br><strong>ב.</strong> הסבר מהן <strong>"חדשות קשות"</strong> ומהן <strong>"חדשות רכות"</strong>. האם סיקור המחאות נגד ראש הממשלה הן "חדשות רכות" או "חדשות קשות"? נמק את תשובתך.`
+        },
+        { 
+            id: 105, type: 'partB',
+            desc: "שלט חוצות: עטיית מסכה",
+            concepts: "קמפיין מסחרי/חברתי, פניית מסר רגשית/שכלית",
+            fullText: `<div class="reading-passage"><strong>תיאור הקמפיין:</strong><br>במסגרת המאבק בנגיף הקורונה יזם משרד הבריאות קמפיין להעלאת המודעות לחשיבות שיש בעטיית מסיכה. בשלט חוצות נראה איור של שני אנשים עוטים מסכה וביניהם הכיתוב: "אם שני האנשים עוטים מסכה ההגנה עולה ל-95 אחוזים".</div><strong>א.</strong> הסבר את המושגים <strong>קמפיין פרסום מסחרי</strong> ו<strong>קמפיין פרסום חברתי (אזרחי)</strong>. לאיזה משני סוגי הקמפיין שייך השלט הזה? נמק את תשובתך.<br><strong>ב.</strong> הסבר מהי <strong>פניית מסר רגשית</strong> ומהי <strong>פניית מסר שכלית</strong>. איזו מבין שתי פניות המסר באה לידי ביטוי בשלט החוצות? נמק את תשובתך.`
+        },
+        { 
+            id: 106, type: 'partB',
+            desc: "צילום: אנשי מד\"א מתפללים",
+            concepts: "דנוטציה/קונוטציה, צילום אייקוני",
+            fullText: `<div class="reading-passage"><strong>תיאור התמונה:</strong><br>עם פרוץ מגפת הקורונה בישראל צולמו שני אנשי "מגן דוד אדום", כשהם מתפללים זה לצד זה ליד האמבולנס. אחד מהם יהודי עטוף בטלית, והשני מוסלמי כורע על שטיח תפילה. הצילום "כבש" את הרשתות החברתיות, הפך לוויראלי וזכה לאלפי שיתופים בארץ ובעולם.</div><strong>א.</strong> כתוב מהו <strong>מסר דנוטטיבי (דנוטציה)</strong> ומהו <strong>מסר קונוטטיבי (קונוטציה)</strong>. הסבר את המסר הדנוטטיבי ואת המסר הקונוטטיבי שבצילום.<br><strong>ב.</strong> כתוב מהו <strong>צילום אייקוני</strong>. האם צילום זה יכול להפוך בעתיד לצילום אייקוני? נמק את תשובתך.`
+        },
+        { 
+            id: 107, type: 'partB',
+            desc: "הזמר במסכה",
+            concepts: "גלובליזציה/גלוקליזציה, מודל פיסק",
+            fullText: `<div class="reading-passage"><strong>קטע קריאה:</strong><br>"הזמר במסכה" היא תוכנית מבוססת על פורמט בינלאומי ("The Masked Singer"). התוכנית משודרת בערוצי טלוויזיה רבים בעולם. בישראל צוות השופטים כולל דמויות מקומיות מוכרות (כמו צדי צרפתי וסטטיק ובן-אל), והתחפושות כללו סמלים מקומיים כמו פלאפל, קרמבו ותרנגול. מבקרת "הארץ" כתבה: "הרבה רעש... אפס תוכן". לעומתה, מבקר "מעריב" כתב: "לא יכולנו לבקש ריאליטי מוצלח יותר".</div><strong>א.</strong> הסבר את המושגים <strong>גלובליזציה</strong> ו<strong>גלוקליזציה</strong>. הבא דוגמה אחת מן הקטע לכל אחד מן המושגים.<br><strong>ב.</strong> הסבר את <strong>המודל התרבותי־סמיוטי (מודל פיסק)</strong>. התבסס על מודל זה, וציין ממה נובע השוני בין שתי הביקורות על התוכנית.`
+        },
+        { 
+            id: 108, type: 'partC', desc: "מושג: הון-שלטון-עיתון", concepts: "הון שלטון עיתון", fullText: `הסבר מהם <strong>"קשרי הון-שלטון עיתון"</strong> וכיצד הם עלולים לפגוע בעבודה העיתונאית.` 
+        },
+        { 
+            id: 109, type: 'partC', desc: "מושג: מהגר/יליד דיגיטלי", concepts: "פער דורי, טכנולוגיה", fullText: `הסבר מיהו <strong>"מהגר דיגיטלי"</strong> ומיהו <strong>"יליד דיגיטלי"</strong>.` 
+        },
+        { 
+            id: 110, type: 'partC', desc: "מושג: אובדן הילדות", concepts: "פוסטמן, ילדות", fullText: `הסבר את המושג <strong>אובדן הילדות</strong>.` 
+        },
+        { 
+            id: 111, type: 'partC', desc: "מושג: רשות רביעית", concepts: "דמוקרטיה, עיתונות", fullText: `הסבר את תפקידה של התקשורת כ<strong>"רשות רביעית"</strong>.` 
+        },
+        { 
+            id: 112, type: 'partC', desc: "יישום: חמשת המ\"מים", concepts: "ידיעה חדשותית", fullText: `כתוב ידיעה קצרה (עד חמישה משפטים), הקשורה בבחירות לכנסת בישראל, אשר יופיעו בה <strong>חמשת המ"מים</strong>.` 
+        },
+
+        // --- קיץ 2020 (תש"ף) ---
+        { 
+            id: 201, type: 'partA',
+            desc: "קטע קריאה: כתב האישום (תיק 4000/2000)",
+            concepts: "הון-שלטון-עיתון, רשות רביעית",
+            fullText: `<div class="reading-passage"><strong>קטע קריאה (מתוך כתב האישום):</strong><br><strong>תמצית האישום הראשון (פרשת 4000):</strong> מערכת היחסים בין הנאשם נתניהו לבני הזוג אלוביץ' התאפיינה בקשר אינטנסיבי... הנאשם נתניהו ובני משפחתו הפנו לבני הזוג אלוביץ' דרישות שונות שעניינן אופן הסיקור שלהם באתר "וואלה"... כתוצאה מכך הנחה ישועה את העורכים לשנות פרסומים באתר. במסגרת יחסי "תן וקח"... הפעיל הנאשם נתניהו את כוחו כעובד ציבור כדי לקדם נושאים שהנאשם אלוביץ' היה מעוניין בקידומם.<br><strong>תמצית האישום השני (פרשת 2000):</strong> הנאשם מוזס הציע לנאשם נתניהו שוחד... בכך שיביא לשינוי ניכר לטובה בקו ובאופן הסיקור של נתניהו ב"ידיעות אחרונות"... בתמורה לכך שנתניהו ינצל את השפעתו לקדם חקיקה שתטיל מגבלות על "ישראל היום".</div><strong>א.</strong> הסבר את המושגים <strong>"הון-שלטון עיתון"</strong> ו<strong>"רשות רביעית"</strong>.<br><strong>ב.</strong> כיצד באים לידי ביטוי קשרי הון-שלטון עיתון בכתב האישום? הבא ציטוט מתוך כתב האישום לביסוס תשובתך.<br><strong>ג.</strong> הסבר באיזה אופן קשרי הון-שלטון עיתון פוגעים בתפקוד התקשורת כ"רשות רביעית". הבא דוגמה מתוך כתב האישום.`
+        },
+        { 
+            id: 202, type: 'partA',
+            desc: "כתב האישום - המשך",
+            concepts: "ערך חדשותי, אתיקה עיתונאית",
+            fullText: `<div class="reading-passage"><strong>המשך לשאלה הקודמת (כתב האישום):</strong></div><strong>א.</strong> ציין שלושה קריטריונים לקביעת <strong>ערך חדשותי</strong>, והסבר על־פי כל אחד מן הקריטריונים האלה מדוע פרסום כתב האישום בתקשורת הוא בעל ערך חדשותי.<br><strong>ב.</strong> לאחר פרסום כתב האישום, הוגשה לבית הדין לאתיקה בקשה להשעות את מו"ל "ידיעות אחרונות".<br>1. מהם <strong>כללי האתיקה העיתונאית</strong>? ציין שני כללים מתוך תקנון האתיקה.<br>2. האם אתה תומך בבקשה להשעות את המו"ל מתפקידו? נמק את עמדתך.`
+        },
+        { 
+            id: 203, type: 'partA',
+            desc: "השוואת שערי עיתונים",
+            concepts: "עיתונות פופולרית/איכותית, חשיבות התקשורת",
+            fullText: `<div class="reading-passage"><strong>הנחיה:</strong> דמיינו את שערי העיתונים יום לאחר הגשת כתב האישום. "ישראל היום" עם כותרת המדגישה את טענת רה"מ ל"ניסיון הפיכה", ו"הארץ" עם כותרת אינפורמטיבית יבשה על סעיפי האישום.</div><strong>א.</strong> ציין שלושה הבדלים בין <strong>עיתונות פופולרית</strong> ובין <strong>עיתונות איכותית</strong>. איזה מבין שערי העיתונים מתאים יותר להגדרה של עיתונות פופולרית, ואיזה מהם מתאים יותר להגדרה של עיתונות איכותית? נמק.<br><strong>ב.</strong> הסבר מהי החשיבות שיש בפרסום כתב האישום בתקשורת עבור אזרחים בחברה דמוקרטית. בתשובתך השתמש בשני מושגים שלמדת.`
+        },
+        { 
+            id: 204, type: 'partB',
+            desc: "קטע קריאה: משבר האקלים",
+            concepts: "סדר יום, אקטיביזם חברתי",
+            fullText: `<div class="reading-passage"><strong>קטע קריאה:</strong><br>"בשנים האחרונות התקשורת העולמית מתמקדת יותר ויותר במשבר האקלים... ונדמה שהתקשורת הישראלית כמעט שלא מתייחסת אליו. לתקשורת יש תפקיד משמעותי בשינוי השיח... האיום הממשי שנשקף מההתחממות הגלובלית עדיין לא חדר לתודעה של התקשורת בישראל... הנושא הסביבתי... צריך לפתוח מהדורות חדשות ולהופיע באופן יום יומי בתקשורת." (עדי וולפסון, העין השביעית)</div><strong>א.</strong> הסבר את <strong>תיאוריית "קביעת סדר היום"</strong> וכתוב מהם שלושת סדרי היום. על־פי טענת הכותב - מהי החשיבות שיש בהעלאת הנושא על סדר היום התקשורתי בישראל?<br><strong>ב.</strong> הסבר את המונח <strong>אקטיביזם חברתי</strong>. הצע שתי פעולות מתחום התקשורת שמיועדות להעלאת המודעות למשבר האקלים.`
+        },
+        { 
+            id: 205, type: 'partB',
+            desc: "קטע קריאה: מחוז ירושלים",
+            concepts: "ז'אנר דוקומנטרי, בניות מציאות, סטריאוטיפים",
+            fullText: `<div class="reading-passage"><strong>קטע קריאה:</strong><br>"מחוז ירושלים" היא סדרה תיעודית ב"כאן 11". בפרק האחרון תועדו שוטרים חושפים נשק במרתף ביתה של משפחה ערבית. לאחר השידור נחשף כי הנשק הושתל במכוון על ידי השוטרים לצרכים טלוויזיוניים, ללא ידיעת המשפחה. נכתב בתגובה: "סדרות דוקומנטריות מתיימרות לייצג את האמת. החובה של המתעדים לתעד אמת ודאי לא התקיימה כאן".</div><strong>א.</strong> להלן שלושה ממאפייני הז'אנר התיעודי: 1. תיאור המציאות. 2. צילום בזמן אמת. 3. המשתתפים מגלמים את עצמם. בחר שניים, וכתוב כיצד הם באים לידי ביטוי בסדרה.<br><strong>ב.</strong> מדוע לדעתך בחרו יוצרי הסדרה לשתול את הנשק? השתמש בשניים מבין המושגים: <strong>רייטינג</strong>, <strong>הבנייה חברתית של המציאות</strong>, <strong>סטריאוטיפים</strong>.<br><strong>ג.</strong> כתלמיד תקשורת מהי מסקנתך על תוכניות דוקומנטריות על־פי הפרשה?`
+        },
+        { 
+            id: 206, type: 'partB',
+            desc: "קטע קריאה: המרוץ למיליון והכנסת",
+            concepts: "פרסום סמוי, שימושים וסיפוקים",
+            fullText: `<div class="reading-passage"><strong>קטע קריאה:</strong><br>העונה האחרונה של "המרוץ למיליון" נפתחה ברחבת הכנסת. עמותת "הצלחה" חשפה כי הכנסת שילמה כמיליון שקלים עבור חשיפה חיובית בתוכנית. קניית זמן השידור נועדה לשפר את תדמיתה של הכנסת בקרב הציבור. במהלך התוכנית הוזכרו אירועים מרכזיים בהיסטוריה של הכנסת וחוקים מרכזיים.</div><strong>א.</strong> הסבר מהו <strong>פרסום סמוי (תוכן שיווקי)</strong>. מה דעתך לגבי החלטתה של הכנסת לפרסם את עצמה בפרסום סמוי? נמק.<br><strong>ב.</strong> הסבר את <strong>גישת השימושים והסיפוקים</strong>. על־פי גישה זו - הסבר שתי סיבות לצפייה בתוכנית "המרוץ למיליון".`
+        },
+        { 
+            id: 207, type: 'partC', desc: "מושג: תיאוריות הומור", concepts: "הומור, עליונות, הרפיה, אי הלימה", fullText: `התיאוריות שעוסקות בהומור הן תיאוריית ההרפיה, תיאוריית אי ההלימה ותיאוריית העליונות. בחר שתי תיאוריות והסבר אותן.` 
+        },
+        { 
+            id: 208, type: 'partC', desc: "מושג: ניו מדיה vs מסורתית", concepts: "תקשורת חדשה", fullText: `ציין שני הבדלים בין <strong>תקשורת חדשה (ניו-מדיה)</strong> ובין <strong>תקשורת מסורתית</strong>.` 
+        },
+        { 
+            id: 209, type: 'partC', desc: "מושג: לוקאליזציה", concepts: "לוקאליזציה, תרבות מקומית", fullText: `הסבר מהי <strong>לוקאליזציה</strong>, ומהי החשיבות שיש ביצירת תכנים לוקאליים.` 
+        },
+
+        // --- קיץ 2019 (תשע"ט) ---
+        { 
+            id: 301, type: 'partA',
+            desc: "קטע קריאה: פרשת וואלה (תיק 4000)",
+            concepts: "דילמה מקצועית, עקרון דמוקרטי",
+            fullText: `<div class="reading-passage"><strong>קטע קריאה:</strong><br>בתוכנית "המקור" סיפרו עיתונאים שעבדו באתר "וואלה" כיצד נדרשו לסקר באופן אוהד את ראש הממשלה ולצנזר ידיעות שליליות. כתבות ביקורתיות הוסתרו, כותרות שונו, וידיעות חיוביות על רעיית רה"מ קודמו - הכול לכאורה ב"הוראה מלמעלה" של הבעלים שאול אלוביץ' שקיבל סיוע רגולטורי מרה"מ. עיתונאית לשעבר סיפרה: "היינו חבורת אנשים שנאלצה לנוע כל הזמן בין נאמנות למקום העבודה שבאמת כל כך אהבנו לבין הקשיים הבלתי אפשריים שמקום העבודה הערים עלינו".</div><strong>א.</strong> הסבר את הדילמה המקצועית של עיתונאי "וואלה". השתמש בתשובתך בשני מושגים שלמדת והסבר אותם. הבא ציטוט מהקטע.<br><strong>ב.</strong> איזה עקרון יסוד בדמוקרטיה נפגע כתוצאה מהתנהלות זו? נמק והבא ציטוט.`
+        },
+        { 
+            id: 302, type: 'partA',
+            desc: "פרשת וואלה - המשך",
+            concepts: "ערך חדשותי, עיתונות חוקרת",
+            fullText: `<div class="reading-passage"><strong>המשך לשאלה הקודמת:</strong></div><strong>א.</strong> הסבר שלושה קריטריונים לקביעת <strong>ערך חדשותי</strong>. בחר שניים מבין הקריטריונים, והסבר על־פיהם מדוע חשבו מגישי "המקור" שפרשת "וואלה" היא בעלת ערך חדשותי.<br><strong>ב.</strong> הסבר את החשיבות שיש בשידורן של תוכניות תחקירים מסוג תוכנית "המקור".`
+        },
+        { 
+            id: 303, type: 'partB',
+            desc: "קטע קריאה: בריונות רשת (המטה להגנה על ילדים)",
+            concepts: "בריונות רשת, קמפיין, חברות",
+            fullText: `<div class="reading-passage"><strong>קטע קריאה:</strong><br>המשרד לביטחון פנים השיק את "המטה הלאומי להגנה על ילדים ברשת". לרגל ההשקה, נעשה קמפיין בהשתתפות כוכבי נוער (אגם בוחבוט, איתי לוי). השיר בקמפיין מתאר מצב שבו חדרם של הילדים הפך לזירה שבה הם עלולים להיות חשופים לפגיעה. הסיסמה: "לא עוזבים ידיים גם בימים קשים".</div><strong>א.</strong> הסבר מהי <strong>"בריונות רשת"</strong>.<br><strong>ב.</strong> הסבר את המונחים <strong>קמפיין מסחרי</strong> ו<strong>קמפיין חברתי</strong>. לאיזה סוג משתייך הקמפיין בקטע? נמק.<br><strong>ג.</strong> הסבר מהו <strong>תהליך החברות</strong>. הסבר מדוע נבחרו כוכבי הילדים לככב בקמפיין.`
+        },
+        { 
+            id: 304, type: 'partB',
+            desc: "קטע קריאה: אתר המשרוקית",
+            concepts: "ערכים עיתונאיים, פייק ניוז",
+            fullText: `<div class="reading-passage"><strong>קטע קריאה:</strong><br>"המשרוקית" הוא אתר הבודק אמיתות של התבטאויות פוליטיקאים. צוות האתר בודק עובדות ומכריז אם האמירה נכונה או לא. העקרונות המנחים: דיוק, הקפדה על עובדות ושימוש במקורות אמינים.</div><strong>א.</strong> הסבר שלושה ערכים עיתונאיים. בחר אחד וכתוב כיצד הוא בא לידי ביטוי בפעילות האתר.<br><strong>ב.</strong> הגדר את המונח <strong>"פייק ניוז"</strong> ומהי הסכנה בהפצתו. הסבר את חשיבותו של אתר "המשרוקית" בעידן זה.`
+        },
+        { 
+            id: 305, type: 'partB',
+            desc: "קטע קריאה: הסדרה Upload",
+            concepts: "ייצוג, פלורליזם, דוקומנטרי",
+            fullText: `<div class="reading-passage"><strong>קטע קריאה:</strong><br>Upload היא סדרה דוקומנטרית המתמקדת ביוטיוברים מקצוות שונים של החברה: חן כלפון (דתייה), הנא זיאד (ערבייה) ומוטי טקה (יוצא אתיופיה). כל אחד מביא את סיפורו האישי והחברתי.</div><strong>א.</strong> הסבר את המונחים <strong>ייצוג</strong> ו<strong>פלורליזם</strong>. כיצד הם באים לידי ביטוי בסדרה?<br><strong>ב.</strong> תאר שני מאפיינים של הקולנוע התיעודי, והבא דוגמה לכל מאפיין מן הסדרה.`
+        },
+        { 
+            id: 306, type: 'partB',
+            desc: "קטע קריאה: קמפיין הקורנפלקס",
+            concepts: "ייצוג מגדרי, אקטיביזם",
+            fullText: `<div class="reading-passage"><strong>קטע קריאה:</strong><br>ילדה בת 8 כתבה מכתב לחברת "תלמה" ותהתה למה על אריזת הקורנפלקס יש רק תמונה של "אלופים" (עמרי כספי) ולא "אלופות". בעקבות המכתב והרעש ברשת, החלה החברה לשווק אריזות גם עם כיתוב "קורנפלקס של אלופות" ותמונות של ספורטאיות.</div><strong>א.</strong> תאר את <strong>הייצוג האופייני של נשים וגברים</strong> בספורט בתקשורת. האם הקמפיין המקורי תאם ייצוג זה?<br><strong>ב.</strong> הסבר את המונח <strong>אקטיביזם חברתי</strong> וכיצד הוא בא לידי ביטוי בקטע.<br><strong>ג.</strong> הסבר כיצד יכולים אמצעי התקשורת לקדם אקטיביזם חברתי.`
+        },
+        { 
+            id: 307, type: 'partC', desc: "ניתוח חזותי: הצנחנים בכותל", concepts: "דנוטציה, קונוטציה", fullText: `הסבר מהו <strong>מסר דנוטטיבי</strong> ומהו <strong>מסר קונוטטיבי</strong>. נתח את שני המסרים בתמונה המפורסמת של "הצנחנים בכותל המערבי" (דוד רובינגר, 1967).` 
+        },
+        { 
+            id: 308, type: 'partC', desc: "מושג: מודל פיסק", concepts: "גישה סמיוטית", fullText: `הסבר מהי <strong>הגישה התרבותית סמיוטית (מודל פיסק)</strong>.` 
+        },
+        { 
+            id: 309, type: 'partC', desc: "מושג: פרסום סמוי", concepts: "פרסום סמוי", fullText: `הסבר מהו <strong>פרסום סמוי</strong>. תאר שתי השפעות שיש לפרסום הסמוי על צרכני התקשורת.` 
+        },
+
+        // --- קיץ 2018 (תשע"ח) ---
+        { 
+            id: 401, type: 'partA',
+            desc: "קטע קריאה: חנינת אלאור אזריה",
+            concepts: "חופש הביטוי, טוקבקים, דילמה",
+            fullText: `<div class="reading-passage"><strong>קטע קריאה:</strong><br>בנובמבר 2017 החליט הנשיא ריבלין לא להעניק חנינה לחייל אלאור אזריה. ההודעה גררה תגובות רבות ברשתות. גולשים מסוימים גינו את ההחלטה בחריפות, קיללו את הנשיא וכינו אותו "בוגד". רה"מ נתניהו הגיב: "בדמוקרטיה מותר לבקר... אבל הביקורת תיעשה בצורה מכובדת".</div><strong>א.</strong> הסבר את המושג <strong>חופש הביטוי</strong> וחשיבותו. פרט שתיים מההצדקות לחופש הביטוי והבא דוגמאות מהקטע.<br><strong>ב.</strong> כדילמה של עורך אתר: האם לפרסם טוקבקים עם קללות? הצג את הערכים המתנגשים (תוך שימוש במושגים: שוק דעות פתוח, אלימות מילולית) ונמק את הכרעתך.`
+        },
+        { 
+            id: 402, type: 'partB',
+            desc: "קטע קריאה: טראמפ ופייק ניוז",
+            concepts: "פייק ניוז, ניו מדיה, ריאליטי",
+            fullText: `<div class="reading-passage"><strong>קטע קריאה:</strong><br>הנשיא טראמפ מרבה להשתמש במושג פייק ניוז. הוא פרסם בטוויטר "רשימת ערוצי פייק ניוז" והעביר אותה לאתר המפלגה שקרס מעומס. בעבר השתתף טראמפ בתוכנית הריאליטי "המתמחה" בה פיטר מתמודדים.</div><strong>א.</strong> הסבר את המונחים <strong>פייק ניוז</strong> ו<strong>ניו מדיה</strong>. כיצד הניו מדיה מסייעת לטראמפ לקדם את עמדתו?<br><strong>ב.</strong> הסבר שני סוגים של תוכניות ריאליטי. לאיזה סוג שייכת "המתמחה"?<br><strong>ג.</strong> האם לדעתך תוכניות הריאליטי משקפות את המציאות באמת? נמק.`
+        },
+        { 
+            id: 403, type: 'partB',
+            desc: "קמפיין התה (נשים מנהיגות)",
+            concepts: "קמפיין מסחרי/חברתי, ייצוג נשים",
+            fullText: `<div class="reading-passage"><strong>תיאור הקמפיין:</strong><br>בקמפיין לתה ירוק (ויסוצקי) מוצגות נשים חזקות כמו מלכת אנגליה, מישל אובמה והילארי קלינטון, כשלפיהן (פה) צבוע בצבעי התה הירוק. הסיסמה: "אני מחליטה".</div><strong>א.</strong> הסבר מהו <strong>קמפיין פרסום חברתי</strong> ומהו <strong>קמפיין מסחרי</strong>. לאיזה סוג שייך הקמפיין? נמק.<br><strong>ב.</strong> האם <strong>ייצוג הנשים</strong> בקמפיין תואם את הייצוג המקובל בפרסומות? התייחס למושג <strong>סטריאוטיפ</strong>.`
+        },
+        { 
+            id: 404, type: 'partC', desc: "מושג: צילום אייקוני", concepts: "צילום, זיכרון קולקטיבי", fullText: `הסבר מהו <strong>צילום אייקוני</strong>, והבא דוגמה לצילום מסוג זה.` 
+        },
+        { 
+            id: 405, type: 'partC', desc: "מושג: תקשורת סינכרונית", concepts: "סינכרוני/א-סינכרוני", fullText: `הסבר מהי <strong>תקשורת סינכרונית</strong> ומהי <strong>תקשורת א-סינכרונית</strong>. הבא דוגמה לכל סוג.` 
+        },
+        { 
+            id: 406, type: 'partC', desc: "מושג: תהליך חברות", concepts: "סוציאליזציה", fullText: `הסבר את המונח <strong>תהליך חברות (סוציאליזציה)</strong>, והבא דוגמה המראה את הקשר בין התקשורת לתהליך זה.` 
+        }
+    ];
+
+    function toggleAccordion(contentId, header) { const content = document.getElementById(contentId); content.classList.toggle('show'); header.classList.toggle('active'); }
+    function renderBank() {
+        const containerA = document.getElementById('listA'), containerB = document.getElementById('listB'), containerC = document.getElementById('listC');
+        containerA.innerHTML = ''; containerB.innerHTML = ''; containerC.innerHTML = '';
+        let countA = 0, countB = 0, countC = 0;
+        
+        questionsDB.forEach(q => {
+            const div = document.createElement('div');
+            let cssClass = '', targetContainer = null;
+            if (q.type === 'partA') { cssClass = 'part-a-card'; targetContainer = containerA; countA++; } else if (q.type === 'partB') { cssClass = 'part-b-card'; targetContainer = containerB; countB++; } else { cssClass = 'part-c-card'; targetContainer = containerC; countC++; }
+            div.className = `q-card ${cssClass}`;
+            div.innerHTML = `<button class="add-btn" onclick="addToExam(${q.id})">+</button><div style="flex-grow:1;"><div class="sidebar-desc">${q.desc}</div><div class="sidebar-concepts">${q.concepts}</div></div>`;
+            targetContainer.appendChild(div);
+        });
+        document.getElementById('badgeA').innerText = countA; document.getElementById('badgeB').innerText = countB; document.getElementById('badgeC').innerText = countC; updateCounts();
+    }
+    function addToExam(id) {
+        const question = questionsDB.find(q => q.id === id); if (!question) return;
+        let limit = 0, wrapperId = "";
+        if (question.type === 'partA') { limit = EXAM_LIMITS.partA; wrapperId = "section-partA"; } else if (question.type === 'partB') { limit = EXAM_LIMITS.partB; wrapperId = "section-partB"; } else { limit = EXAM_LIMITS.partC; wrapperId = "section-partC"; }
+        if (document.querySelectorAll(`.exam-page[data-type="${question.type}"]`).length >= limit) { alert(`הפרק מלא!\nניתן להוסיף מקסימום ${limit} שאלות בפרק זה.`); return; }
+        const pageDiv = document.createElement('div'); pageDiv.className = 'exam-page'; pageDiv.setAttribute('data-type', question.type);
+        let partTitle = question.type === 'partA' ? "פרק ראשון" : question.type === 'partB' ? "פרק שני" : "פרק שלישי";
+        pageDiv.innerHTML = `<div class="page-header-info"><span>${partTitle}</span><span class="q-number"></span></div><div class="exam-question"><button class="remove-btn" onclick="removeQuestion(this)">הסר שאלה</button><div class="q-content">${question.fullText}</div><textarea class="answer-box" placeholder="כתבו את תשובתכם כאן..."></textarea></div>`;
+        const wrapper = document.getElementById(wrapperId); wrapper.appendChild(pageDiv);
+        renumberQuestions(); updateCounts();
+        if (!wrapper.classList.contains('active')) { switchSection(wrapperId, document.querySelector(`.nav-tab[onclick*="${wrapperId}"]`)); }
+        pageDiv.scrollIntoView({ behavior: 'smooth' });
+    }
+    function removeQuestion(btn) { btn.closest('.exam-page').remove(); renumberQuestions(); updateCounts(); }
+    function renumberQuestions() { let count = 1; document.querySelectorAll('.q-number').forEach(el => { el.innerText = "שאלה " + count; count++; }); }
+    function updateCounts() { updateProgressBar('barA', 'textCountA', document.querySelectorAll('.exam-page[data-type="partA"]').length, EXAM_LIMITS.partA); updateProgressBar('barB', 'textCountB', document.querySelectorAll('.exam-page[data-type="partB"]').length, EXAM_LIMITS.partB); updateProgressBar('barC', 'textCountC', document.querySelectorAll('.exam-page[data-type="partC"]').length, EXAM_LIMITS.partC); }
+    function updateProgressBar(barId, textId, current, max) { const percentage = (current / max) * 100; const bar = document.getElementById(barId); bar.style.width = percentage + '%'; document.getElementById(textId).innerText = `${current}/${max}`; if (current === max) bar.classList.add('full'); else bar.classList.remove('full'); }
+
+    // --- ייצוא לקובץ תלמיד משופר (Fullscreen + Blinking Title + NoPaste) ---
+    function exportStudentFile() {
+        let examType = document.getElementById('examTypeSelect').value || "מבחן";
+        const teacherPass = document.getElementById('teacherPass').value || "1234";
+        const studentName = document.querySelector('.student-input').value;
+        const clone = document.getElementById('examContent').cloneNode(true);
+        
+        clone.querySelectorAll('.remove-btn').forEach(b => b.remove());
+        clone.querySelectorAll('.student-save-btn').forEach(b => b.remove());
+        clone.querySelectorAll('.exam-section').forEach(el => { el.classList.remove('active'); if(el.id === 'section-cover') el.classList.add('active'); });
+
+        const titleRow = clone.querySelector('.exam-title-row'); titleRow.innerHTML = `<h1>בחינת ${examType} בתקשורת וחברה</h1>`;
+        const inputRow = clone.querySelector('.student-row');
+        if(studentName) inputRow.innerHTML = `שם התלמיד/ה: <strong>${studentName}</strong>`;
+        else inputRow.innerHTML = `<label>שם התלמיד/ה:</label><input type="text" class="student-input" style="border-bottom:1px solid #000; width:250px;" placeholder="הקלידו שם כאן">`;
+
+        const cleanContent = clone.innerHTML;
+
+        const htmlSource = `<!DOCTYPE html><html lang="he" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>מבחן מתוקשב</title><link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700&family=David+Libre:wght@400;700&display=swap" rel="stylesheet"><style>
+        body { font-family: 'David Libre', serif; background-color: #dfe6e9; margin: 0; padding: 0; height: 100vh; display: flex; flex-direction: column; overflow: hidden; user-select: none; }
+        .content-scroller { flex-grow: 1; padding: 40px; overflow-y: auto; display: flex; flex-direction: column; align-items: center; }
+        .exam-section { display: none; width: 100%; flex-direction: column; align-items: center; gap: 40px; }
+        .exam-section.active { display: flex; }
+        .student-nav { background: white; padding: 10px 20px; display: flex; justify-content: center; gap: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .nav-tab { padding: 10px 20px; border: 1px solid transparent; background: #f1f2f6; cursor: pointer; border-radius: 20px; font-weight: bold; color: #7f8c8d; transition: 0.2s; font-family: 'Rubik', sans-serif; }
+        .nav-tab.active { background: #2980b9; color: white; }
+        .exam-page { background: white; max-width: 210mm; width: 100%; margin: 0 auto 30px auto; padding: 20mm; box-shadow: 0 0 15px rgba(0,0,0,0.1); position: relative; box-sizing: border-box; min-height: 297mm; display: flex; flex-direction: column; }
+        .reading-passage, .answer-box { font-family: 'David Libre', serif; font-size: 1.2rem; }
+        .reading-passage { background: #f8f9fa; border: 1px solid #ddd; padding: 15px; margin-bottom: 20px; }
+        .answer-box { border: 2px solid #ccc; padding: 15px; width: 100%; min-height: 200px; resize: none; margin-top: 15px; background: white; }
+        .next-section-btn { margin-top: 30px; padding: 15px 30px; background: #2980b9; color: white; border: none; border-radius: 50px; cursor: pointer; font-family: 'Rubik', sans-serif; display: flex; align-items: center; gap: 10px; }
+        .student-save-btn { position: fixed; top: 20px; left: 20px; background: #27ae60; color: white; border: none; padding: 12px 20px; border-radius: 30px; font-weight: bold; cursor: pointer; z-index: 1000; font-family: 'Rubik', sans-serif; }
+        
+        /* שכבות הגנה */
+        #start-overlay, #lock-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; color: white; }
+        #start-overlay { background: rgba(44, 62, 80, 0.98); }
+        #lock-overlay { background: rgba(231, 76, 60, 0.98); display: none; }
+        
+        .msg-box { background: white; padding: 40px; border-radius: 15px; color: #333; box-shadow: 0 20px 50px rgba(0,0,0,0.5); max-width: 500px; }
+        .msg-title { font-size: 2.5rem; font-family: 'Rubik', sans-serif; margin: 0 0 15px 0; font-weight: 900; }
+        .msg-text { font-size: 1.3rem; margin-bottom: 30px; line-height: 1.5; }
+        .big-btn { padding: 15px 40px; font-size: 1.5rem; border: none; border-radius: 50px; cursor: pointer; font-family: 'Rubik', sans-serif; font-weight: bold; transition: 0.2s; }
+        .start-btn { background: #2980b9; color: white; } .start-btn:hover { transform: scale(1.05); background: #3498db; }
+        .unlock-btn { background: #e74c3c; color: white; }
+
+        /* הסתרת אלמנטים בהדפסה */
+        @media print { #start-overlay, #lock-overlay, .student-nav, .student-save-btn, .next-section-btn { display: none !important; } .content-scroller { display: block; } .exam-section { display: block !important; } }
+        </style></head><body>
+
+    <nav class="student-nav">
+        <button class="nav-tab active" onclick="switchSection('section-cover', this)">דף שער</button>
+        <button class="nav-tab" onclick="switchSection('section-partA', this)">פרק א'</button>
+        <button class="nav-tab" onclick="switchSection('section-partB', this)">פרק ב'</button>
+        <button class="nav-tab" onclick="switchSection('section-partC', this)">פרק ג'</button>
+    </nav>
+
+    <div id="start-overlay">
+        <div class="msg-box">
+            <div class="msg-title" style="color:#2980b9;">🎓 בחינה מתוקשבת</div>
+            <div class="msg-text">
+                הבחינה מתבצעת ב<strong>מצב מסך מלא בלבד</strong>.<br>
+                יציאה ממסך מלא או מעבר לחלון אחר ינעלו את המבחן.
+            </div>
+            <button class="big-btn start-btn" onclick="startExamMode()">התחל בחינה</button>
+        </div>
+    </div>
+
+    <div id="lock-overlay">
+        <div class="msg-box">
+            <div class="msg-title" style="color:#c0392b;">⚠️ המבחן ננעל!</div>
+            <div class="msg-text">
+                זוהתה יציאה ממסך המבחן (או יציאה ממסך מלא).<br>
+                יש לקרוא למורה לשחרור הנעילה.
+            </div>
+            <input type="password" id="unlock-input" placeholder="קוד מורה" style="padding:10px; font-size:18px; text-align:center; border:2px solid #ddd; border-radius:8px; display:block; width:80%; margin:0 auto 20px auto;">
+            <button class="big-btn unlock-btn" onclick="tryUnlock()">שחרר נעילה</button>
+        </div>
+    </div>
+
+    <button class="student-save-btn" onclick="saveCompletedExam()">💾 שמירה והגשה למורה</button>
+    <div class="content-scroller">${cleanContent}</div>
+
+    <script>
+        const TEACHER_CODE = "${teacherPass}";
+        let examStarted = false;
+        let originalTitle = document.title;
+        let blinkInterval = null;
+
+        // מניעת הדבקה, העתקה וקליק ימני
+        document.addEventListener('contextmenu', event => event.preventDefault());
+        document.addEventListener('keydown', function(e) {
+            // ביטול קיצורי מקלדת הדבקה (Ctrl+V, Command+V)
+            if ((e.ctrlKey || e.metaKey) && (e.key === 'v' || e.key === 'V')) {
+                e.preventDefault();
+            }
+        });
+        
+        // חסימה ספציפית לתיבות הטקסט
+        const textareas = document.querySelectorAll("textarea");
+        textareas.forEach(ta => {
+            ta.onpaste = function(e) {
+                e.preventDefault();
+                alert('הדבקת טקסט אסורה בבחינה זו!');
+            }
+            ta.oncopy = function(e) { e.preventDefault(); }
+            ta.oncut = function(e) { e.preventDefault(); }
+        });
+
+        function startExamMode() {
+            const elem = document.documentElement;
+            if (elem.requestFullscreen) { elem.requestFullscreen(); }
+            else if (elem.webkitRequestFullscreen) { elem.webkitRequestFullscreen(); } // Safari
+            else if (elem.msRequestFullscreen) { elem.msRequestFullscreen(); } // IE11
+
+            document.getElementById('start-overlay').style.display = 'none';
+            examStarted = true;
+        }
+
+        // זיהוי יציאה ממסך מלא
+        document.addEventListener('fullscreenchange', checkFullscreen);
+        document.addEventListener('webkitfullscreenchange', checkFullscreen);
+
+        function checkFullscreen() {
+            if (!document.fullscreenElement && !document.webkitFullscreenElement && examStarted) {
+                lockExam();
+            }
+        }
+
+        // זיהוי מעבר לשונית
+        document.addEventListener('visibilitychange', function() {
+            if (document.hidden && examStarted) {
+                lockExam();
+                startBlinkingTitle(); // התראה מהבהבת בלשונית
+            } else {
+                stopBlinkingTitle();
+            }
+        });
+
+        // פונקציית נעילה
+        function lockExam() {
+            document.getElementById('lock-overlay').style.display = 'flex';
+        }
+
+        // כותרת מהבהבת כשהתלמיד בורח
+        function startBlinkingTitle() {
+            if(blinkInterval) return;
+            blinkInterval = setInterval(() => {
+                document.title = (document.title === "⚠️ ננעל! חזור מיד!") ? originalTitle : "⚠️ ננעל! חזור מיד!";
+            }, 1000);
+        }
+
+        function stopBlinkingTitle() {
+            clearInterval(blinkInterval);
+            blinkInterval = null;
+            document.title = originalTitle;
+        }
+
+        function tryUnlock() {
+            const input = document.getElementById('unlock-input').value;
+            if (input === TEACHER_CODE) {
+                document.getElementById('lock-overlay').style.display = 'none';
+                document.getElementById('unlock-input').value = '';
+                // ניסיון להחזיר למסך מלא
+                startExamMode();
+            } else {
+                alert('קוד שגוי!');
+            }
+        }
+
+        // פונקציות ניווט ושמירה (כמו קודם)
+        function switchSection(sectionId, btnElement) {
+            document.querySelectorAll('.exam-section').forEach(el => el.classList.remove('active'));
+            const target = document.getElementById(sectionId); if(target) target.classList.add('active');
+            document.querySelectorAll('.nav-tab').forEach(el => {
+                el.classList.remove('active');
+                if(el.getAttribute('onclick').includes(sectionId)) el.classList.add('active');
+            });
+            const scroller = document.querySelector('.content-scroller'); if(scroller) scroller.scrollTop = 0;
+        }
+        function triggerSwitch(targetId) { switchSection(targetId); }
+        function saveCompletedExam() {
+            const inputs = document.querySelectorAll("input"); inputs.forEach(inp => inp.setAttribute("value", inp.value));
+            const textareas = document.querySelectorAll("textarea"); textareas.forEach(ta => ta.innerHTML = ta.value);
+            const content = "<!DOCTYPE html>" + document.documentElement.outerHTML;
+            const blob = new Blob([content], {type: "text/html"});
+            const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
+            let filename = "מבחן_פתור";
+            const nameInput = document.querySelector('.student-input');
+            if (nameInput && nameInput.value) filename += "_" + nameInput.value;
+            a.download = filename + ".html"; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+            alert("המבחן נשמר בהצלחה!\\nהקובץ ירד למחשב שלך.");
+        }
+    <\/script></body></html>`;
+
+        const blob = new Blob([htmlSource], {type: "text/html;charset=utf-8"});
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = `מבחן_${examType}_תקשורת.html`;
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    }
+    
+    function saveCompletedExam() { alert("כפתור זה נועד לתלמיד."); }
+    renderBank();
+</script>
+</body>
+</html>
