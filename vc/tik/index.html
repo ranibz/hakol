@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>תיק הפקה דיגיטלי מלא - תקשורת</title>
+    <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;700;900&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    
+    <style>
+        :root {
+            --primary: #2563eb; --secondary: #1e293b; 
+            --y11-color: #10b981; /* ירוק לפרוייקטון */
+            --y12-color: #6366f1; /* סגול לפרויקט גמר */
+            --bg-body: #f8fafc; --bg-card: #ffffff; --text-main: #334155; --border: #e2e8f0;
+        }
+
+        body { font-family: 'Heebo', sans-serif; margin: 0; background-color: var(--bg-body); color: var(--text-main); display: flex; height: 100vh; overflow: hidden; }
+
+        /* Sidebar */
+        nav { width: 300px; background-color: var(--secondary); color: white; display: flex; flex-direction: column; padding: 20px 0; flex-shrink: 0; overflow-y: auto; }
+        .nav-header { text-align: center; padding-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 10px; }
+        .nav-item { padding: 12px 25px; cursor: pointer; transition: 0.2s; display: flex; justify-content: space-between; align-items: center; font-weight: 500; }
+        .nav-item:hover { background-color: rgba(255,255,255,0.1); }
+        .nav-item.active { background-color: var(--primary); border-right: 4px solid white; }
+        
+        .submenu { display: none; background-color: rgba(0, 0, 0, 0.3); }
+        .submenu.open { display: block; }
+        .nav-sub-item { padding: 10px 35px 10px 20px; font-size: 0.9rem; color: rgba(255,255,255,0.8); cursor: pointer; border-right: 3px solid transparent; }
+        .nav-sub-item:hover { color: white; background: rgba(255,255,255,0.05); }
+        .nav-sub-item.active { color: white; font-weight: bold; }
+
+        /* Main */
+        main { flex-grow: 1; padding: 30px; overflow-y: auto; }
+        .header-bar { background: white; padding: 15px 30px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; position: sticky; top: 0; z-index: 10; }
+        
+        /* Cards & Inputs */
+        .card { background: white; padding: 30px; border-radius: 16px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 25px; border: 1px solid var(--border); }
+        .card h2 { margin-top: 0; border-bottom: 2px solid var(--bg-body); padding-bottom: 15px; color: var(--secondary); }
+        .card h3 { color: var(--primary); margin-bottom: 15px; }
+        
+        input, textarea, select { width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid var(--border); border-radius: 8px; font-family: inherit; background: #f8fafc; box-sizing: border-box; }
+        input:focus, textarea:focus { outline: none; border-color: var(--primary); background: white; }
+        
+        /* Tables */
+        table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
+        th { text-align: right; background: #f1f5f9; padding: 12px; border-bottom: 2px solid var(--border); font-weight: bold; }
+        td { padding: 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+        
+        /* Checklists */
+        .checklist-item { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid #f1f5f9; }
+        .checklist-item input { width: 20px; height: 20px; margin: 0; }
+
+        /* Buttons */
+        .btn { padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; border: none; display: flex; align-items: center; gap: 8px; }
+        .btn-save { background: #e2e8f0; color: var(--secondary); }
+        .btn-drive { background: var(--primary); color: white; }
+
+        /* Student Tabs (3D) */
+        .branch-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 20px; margin-top: 20px; }
+        .card-3d { background: white; border: 3px solid var(--secondary); border-radius: 12px; padding: 20px; text-align: center; cursor: pointer; box-shadow: 6px 6px 0px var(--secondary); transition: 0.1s; }
+        .card-3d:active { transform: translate(4px, 4px); box-shadow: 2px 2px 0px var(--secondary); }
+        .card-3d.y11 { border-color: var(--y11-color); box-shadow: 6px 6px 0px var(--y11-color); color: var(--y11-color); }
+        .card-3d.y12 { border-color: var(--y12-color); box-shadow: 6px 6px 0px var(--y12-color); color: var(--y12-color); }
+
+        /* Sections */
+        .content-section { display: none; animation: fadeIn 0.3s; }
+        .content-section.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        .info-box { background: #eff6ff; border-right: 4px solid var(--primary); padding: 15px; border-radius: 8px; margin-bottom: 20px; font-size: 0.95rem; line-height: 1.6; }
+    </style>
+</head>
+<body>
+
+    <nav>
+        <div class="nav-header">
+            <h2><i class="fas fa-film"></i> מגמת תקשורת</h2>
+            <p>תיק הפקה שנתי</p>
+        </div>
+        <div class="nav-item active" onclick="showSection('cover-page')"><span><i class="fas fa-home"></i> דף שער</span></div>
+
+        <div class="nav-item" onclick="toggleSub('menu-y11', this)"><span><i class="fas fa-seedling"></i> פרוייקטון (י"א)</span><i class="fas fa-chevron-down"></i></div>
+        <div id="menu-y11" class="submenu">
+            <div class="nav-sub-item" onclick="showSection('y11-s1')">1. גיבוש ונושא</div>
+            <div class="nav-sub-item" onclick="showSection('y11-s2')">2. תחקיר</div>
+            <div class="nav-sub-item" onclick="showSection('y11-s3')">3. הפקה אישית</div>
+            <div class="nav-sub-item" onclick="showSection('y11-s4')">4. הכנות לאולפן</div>
+            <div class="nav-sub-item" onclick="showSection('y11-s5')">5. עריכה</div>
+            <div class="nav-sub-item" onclick="showSection('y11-s6')">6. הפצה</div>
+        </div>
+
+        <div class="nav-item" onclick="toggleSub('menu-y12', this)"><span><i class="fas fa-graduation-cap"></i> פרויקט גמר (י"ב)</span><i class="fas fa-chevron-down"></i></div>
+        <div id="menu-y12" class="submenu">
+            <div class="nav-sub-item" onclick="showSection('y12-intro')">מבוא ומטרות</div>
+            <div class="nav-sub-item" onclick="showSection('y12-sa')">א. תחקיר שטח</div>
+            <div class="nav-sub-item" onclick="showSection('y12-sb')">ב. הכנה לצילום</div>
+            <div class="nav-sub-item" onclick="showSection('y12-sc')">ג. צילום חוץ</div>
+            <div class="nav-sub-item" onclick="showSection('y12-sd')">ד. עריכת כתבה</div>
+            <div class="nav-sub-item" onclick="showSection('y12-se')">ה. אינטגרציה (Master)</div>
+            <div class="nav-sub-item" onclick="showSection('y12-sf')">ו. הפצה סופית</div>
+            <div class="nav-sub-item" onclick="showSection('y12-sg')">ז. בינה מלאכותית</div>
+        </div>
+    </nav>
+
+    <main>
+        <div class="header-bar">
+            <h1 id="page-title">דף שער</h1>
+            <div class="actions">
+                <button class="btn btn-save" onclick="saveLocal()"><i class="fas fa-save"></i> שמור</button>
+                <button class="btn btn-drive" onclick="saveToDrive()"><i class="fab fa-google-drive"></i> הגשה</button>
+            </div>
+        </div>
+
+        <div id="cover-page" class="content-section active">
+            <div class="card">
+                <h2>👥 הרכב הקבוצה</h2>
+                <p>הזינו את השמות פעם אחת - הם יסונכרנו לכל התיק.</p>
+                <input type="text" id="s1_name" placeholder="שם תלמיד 1..." oninput="syncNames()">
+                <input type="text" id="s2_name" placeholder="שם תלמיד 2..." oninput="syncNames()">
+                <input type="text" id="s3_name" placeholder="שם תלמיד 3..." oninput="syncNames()">
+                <input type="text" id="s4_name" placeholder="שם תלמיד 4..." oninput="syncNames()">
+            </div>
+            <div class="card">
+                <h2>📂 קישור לדרייב</h2>
+                <input type="text" id="drive_url" placeholder="הדביקו קישור לתיקיית Google Drive...">
+            </div>
+        </div>
+
+        <div id="y11-s1" class="content-section">
+            <div class="card" style="border-top: 5px solid var(--y11-color);">
+                <h2>🌿 שלב 1: גיבוש ונושא</h2>
+                <div class="info-box"><strong>מטרה:</strong> לגבש קבוצה סביב נושא משותף בעל ערך חברתי ותקשורתי.</div>
+                <h3>הצהרת כוונות</h3>
+                <label>נושא העל (במשפט):</label>
+                <input type="text" id="y11_topic">
+                <label>פירוט קצר:</label>
+                <textarea id="y11_desc" rows="4"></textarea>
+            </div>
+        </div>
+
+        <div id="y11-s2" class="content-section">
+            <div class="card" style="border-top: 5px solid var(--y11-color);">
+                <h2>🔍 שלב 2: תחקיר מעמיק</h2>
+                <div class="info-box"><strong>מטרה:</strong> להבין את הנושא בהקשר תקשורתי וחברתי.</div>
+                <label>סיקור תקשורתי במדיה המסורתית:</label>
+                <textarea id="y11_media_research" rows="6"></textarea>
+                <label>הקשרים רחבים (היסטוריים, חברתיים):</label>
+                <textarea id="y11_context_research" rows="6"></textarea>
+            </div>
+        </div>
+
+        <div id="y11-s3" class="content-section">
+            <div class="card" style="border-top: 5px solid var(--y11-color);">
+                <h2>🎙️ שלב 3: הפקת וידאוקאסט אישי</h2>
+                <div class="info-box">
+                    <strong>מטרה:</strong> לפתח תוצר אישי בתוך מסגרת קבוצתית. כל תלמיד יבחר תת-נושא אישי, יבצע עליו תחקיר עצמאי, יאתר מרואיין מתאים ויפיק פרק אישי ראשון.
+                    <br><strong>שלב א':</strong> בחירת תת-נושא הכולל זווית ביקורתית או דילמה.
+                </div>
+            </div>
+            <h3>בחרו את התיק האישי:</h3>
+            <div id="grid-y11-s3" class="branch-grid"></div> </div>
+
+        <div id="y11-s4" class="content-section">
+            <div class="card" style="border-top: 5px solid var(--y11-color);">
+                <h2>🎬 שלב 4: הכנות לראיון באולפן</h2>
+                <div class="info-box">
+                    <strong>מטרה:</strong> להיערך מקצועית וטכנית ליום הצילום כדי למנוע תקלות.
+                    <ul>
+                        <li>לבדוק את ציוד הצילום: מצלמות, חצובות, כרטיסי זיכרון, סוללות.</li>
+                        <li>להכין את האולפן: תאורה, כרומקי, סידור מקום ישיבה.</li>
+                        <li>לתאם עם המרואיין שעת הגעה ונושאים.</li>
+                        <li>לחלק תפקידים בצוות.</li>
+                    </ul>
+                </div>
+            </div>
+            <h3>בחרו את דף ההפקה האישי:</h3>
+            <div id="grid-y11-s4" class="branch-grid"></div>
+        </div>
+
+        <div id="y11-s5" class="content-section">
+            <div class="card" style="border-top: 5px solid var(--y11-color);">
+                <h2>🎞️ שלב 5: עריכת הפרק האישי</h2>
+                <div class="info-box">
+                    <strong>המטרה הסופית:</strong> לקיחת הראיון המלא שצולם באולפן ויצירת <strong>תקציר ראיון</strong> של החלקים החשובים והרלוונטיים לנושא. אורך כ-5 דקות.
+                    <br><strong>חומרי גלם נדרשים:</strong> שני קבצי מצלמה (מראיין, מרואיין), שני קבצי סאונד מהמיקסר, תמונות רקע לגרין סקרין.
+                </div>
+            </div>
+            <h3>בחרו את יומן העריכה האישי:</h3>
+            <div id="grid-y11-s5" class="branch-grid"></div>
+        </div>
+
+        <div id="y11-s6" class="content-section">
+            <div class="card" style="border-top: 5px solid var(--y11-color);">
+                <h2>📢 שלב 6: הפצת התוצר</h2>
+                <div class="info-box">
+                    <strong>העלאת התוצרים:</strong> בחרו פלטפורמה (YouTube/Spotify). הקפידו על שם ברור, תיאור קצר, תגיות ותמונה מייצגת (Thumbnail).
+                </div>
+                <h3>טבלת קישורים:</h3>
+                <table>
+                    <thead><tr><th>שם התלמיד</th><th>קישור לפרוייקטון</th></tr></thead>
+                    <tbody id="table-y11-s6"></tbody> </table>
+            </div>
+        </div>
+
+        <div id="y12-intro" class="content-section">
+            <div class="card" style="border-top: 5px solid var(--y12-color);">
+                <h2>📖 פרויקט הגמר – וידאוקאסט עיתונאי</h2>
+                <div class="info-box">
+                    פרויקט הגמר מהווה את השלב המסכם. מטרתו להרחיב את הפרויקטון מי"א לכתבה עיתונאית מלאה (10–15 דקות) המשלבת ראיון אולפן וכתבת שטח.
+                    <br><strong>מטרות:</strong> שילוב אישי וקבוצתי, פיתוח מיומנויות עיתונאיות, חשיבה ביקורתית והפצה מקצועית.
+                </div>
+                <h3>שלבי העבודה (י"ב):</h3>
+                <table>
+                    <tr><td><strong>שלב א:</strong> תכנון ותחקיר שטח</td><td>תכנון הכתבה המורחבת, Shot List</td></tr>
+                    <tr><td><strong>שלב ב:</strong> הכנה לצילום</td><td>ציוד, גיבויים, שאלות</td></tr>
+                    <tr><td><strong>שלב ג:</strong> צילום חוץ</td><td>ראיונות שטח, B-roll, סאונד</td></tr>
+                    <tr><td><strong>שלב ד:</strong> עריכת כתבת חוץ</td><td>כתבה עצמאית של 5 דקות</td></tr>
+                    <tr><td><strong>שלב ה:</strong> אינטגרציה (Master)</td><td>שילוב אולפן ושטח, קריינות, סגיר</td></tr>
+                    <tr><td><strong>שלב ו:</strong> הפצה</td><td>הגשה סופית</td></tr>
+                </table>
+            </div>
+        </div>
+
+        <div id="y12-sa" class="content-section">
+            <div class="card" style="border-top: 5px solid var(--y12-color);">
+                <h2>שלב א: תכנון ותחקיר מקדים</h2>
+                <div class="info-box">
+                    <strong>מטרה:</strong> להבין את הסיפור, מי מספר אותו ואיך.<br>
+                    <strong>איך לבצע:</strong> לנסח שאלת חקר, תחקיר על מקום ודמויות, הכנת Shot List ותיאום מול מצולמים.
+                </div>
+            </div>
+            <h3>תיקי תחקיר אישיים:</h3>
+            <div id="grid-y12-sa" class="branch-grid"></div>
+        </div>
+
+        <div id="y12-sb" class="content-section">
+            <div class="card" style="border-top: 5px solid var(--y12-color);">
+                <h2>שלב ב: הכנה לצילומי חוץ</h2>
+                <div class="info-box">
+                    <strong>מטרה:</strong> להגיע ליום הצילום מאורגן ומוכן טכנית.<br>
+                    <strong>ביצוע:</strong> בדיקת ציוד (מצלמות, סאונד, תאורה), הכנת גיבויים (סוללות, כרטיסים), הכנת שאלות ודפי תחקיר.
+                </div>
+            </div>
+            <h3>תיקי הכנה אישיים:</h3>
+            <div id="grid-y12-sb" class="branch-grid"></div>
+        </div>
+
+        <div id="y12-sc" class="content-section">
+            <div class="card" style="border-top: 5px solid var(--y12-color);">
+                <h2>שלב ג: צילום חוץ</h2>
+                <div class="info-box">
+                    <strong>מטרה:</strong> לאסוף חומרים איכותיים. לצלם ראיונות נקיים, B-roll ו-Nat Sound.<br>
+                    <strong>ארגון:</strong> שמירת קבצים בתיקיות מסודרות (Camera, Audio, B-roll).
+                </div>
+            </div>
+            <h3>יומני צילום אישיים:</h3>
+            <div id="grid-y12-sc" class="branch-grid"></div>
+        </div>
+
+        <div id="y12-sd" class="content-section">
+            <div class="card" style="border-top: 5px solid var(--y12-color);">
+                <h2>שלב ד: עריכת כתבת החוץ (5 דקות)</h2>
+                <div class="info-box">
+                    <strong>מטרה:</strong> לבנות כתבה עצמאית קצרה עם התחלה-אמצע-סוף.<br>
+                    <strong>ביצוע:</strong> סנכרון וידאו וסאונד, בחירת קטעים חזקים, עריכה ל-5 דקות, הוספת Lower Thirds ומוזיקה.
+                </div>
+            </div>
+            <h3>יומני עריכת שטח:</h3>
+            <div id="grid-y12-sd" class="branch-grid"></div>
+        </div>
+
+        <div id="y12-se" class="content-section">
+            <div class="card" style="border-top: 5px solid var(--y12-color);">
+                <h2>שלב ה: עריכת התוצר הסופי (Master Sequence)</h2>
+                <div class="info-box">
+                    <strong>מטרה:</strong> לשלב את הראיון המקוצר (י"א) עם כתבת השטח (י"ב) לכתבה אחת זורמת.<br>
+                    <strong>הוראות:</strong> לפתוח Master Sequence, להיעזר בתמלול, לשלב קטעי אולפן ושטח, להוסיף קריינות במעברים.
+                </div>
+            </div>
+            <h3>תיקי אינטגרציה אישיים:</h3>
+            <div id="grid-y12-se" class="branch-grid"></div>
+        </div>
+
+        <div id="y12-sf" class="content-section">
+            <div class="card" style="border-top: 5px solid var(--y12-color);">
+                <h2>📢 שלב ו: הפצת התוצר</h2>
+                <div class="info-box">
+                    הגעתם לסוף הדרך! זהו רגע של גאווה. כל תלמיד יוסיף כאן את הקישור לכתבה המוגמרת (YouTube/Spotify/אתר המגמה).
+                </div>
+                <h3>טבלת קישורים סופית:</h3>
+                <table>
+                    <thead><tr><th>שם התלמיד</th><th>קישור לפרויקט הגמר</th></tr></thead>
+                    <tbody id="table-y12-sf"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="y12-sg" class="content-section">
+            <div class="card" style="border-top: 5px solid var(--y12-color);">
+                <h2>🤖 שלב ז: שימוש בבינה מלאכותית</h2>
+                <div class="info-box">
+                    השימוש ב-AI הוא כעזר בלבד (חידוד רעיונות, השראה, ניסוח). האחריות על התוכן היא שלכם. עליכם לתעד את השימוש בכלי.
+                </div>
+            </div>
+            <h3>תיעוד שימוש אישי ב-AI:</h3>
+            <div id="grid-y12-sg" class="branch-grid"></div>
+        </div>
+
+        <div id="dynamic-student-pages"></div>
+
+    </main>
+
+    <script>
+        // --- 1. Navigation & UI Logic ---
+        function toggleSub(menuId, el) {
+            const menu = document.getElementById(menuId);
+            menu.classList.toggle('open');
+            el.querySelector('.fa-chevron-down').style.transform = menu.classList.contains('open') ? 'rotate(180deg)' : 'rotate(0deg)';
+        }
+
+        function showSection(id) {
+            document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active'));
+            const target = document.getElementById(id);
+            if(target) target.classList.add('active');
+            document.getElementById('page-title').innerText = target.querySelector('h2') ? target.querySelector('h2').innerText : 'תיק הפקה';
+            document.getElementById('main-content').scrollTop = 0;
+        }
+
+        // --- 2. Data Sync Logic ---
+        function syncNames() {
+            for(let i=1; i<=4; i++) {
+                const name = document.getElementById(`s${i}_name`).value || `תלמיד ${i}`;
+                // עדכון טקסטים בכרטיסיות
+                document.querySelectorAll(`.name-display-${i}`).forEach(el => el.innerText = name);
+                // עדכון שדות קריאה בלבד בטבלאות הפצה
+                const f1 = document.getElementById(`dist_y11_n_${i}`); if(f1) f1.value = name;
+                const f2 = document.getElementById(`dist_y12_n_${i}`); if(f2) f2.value = name;
+            }
+        }
+
+        // --- 3. Dynamic Content Generation (The "Full Content" Engine) ---
+        // This ensures NO CONTENT IS OMITTED. We generate the full HTML for 4 students based on the requested templates.
+        
+        function generateStudentPages() {
+            const container = document.getElementById('dynamic-student-pages');
+            let html = '';
+
+            for (let i = 1; i <= 4; i++) {
+                // --- י"א שלב 3: תכנון אישי ---
+                html += `
+                <div id="page-y11-s3-st${i}" class="content-section">
+                    <div class="card" style="border-top:5px solid var(--y11-color)">
+                        <h2>✍️ י"א שלב 3: תכנון אישי - <span class="name-display-${i}"></span></h2>
+                        <div class="info-box">התלמיד יבחר תת-נושא שנגזר מנושא-העל, הכולל זווית ביקורתית או דילמה.</div>
+                        <label>תת הנושא שבחרת:</label><input type="text" id="y11_s3_sub_${i}">
+                        <label>הדילמה המרכזית (ביקורתית/חברתית/ערכית):</label><textarea id="y11_s3_dil_${i}" rows="3"></textarea>
+                        <label>החיבור האישי לנושא:</label><textarea id="y11_s3_conn_${i}" rows="3"></textarea>
+                    </div>
+                    <button class="btn btn-save" onclick="showSection('y11-s3')">חזרה לתפריט</button>
+                </div>`;
+
+                // --- י"א שלב 4: הכנות לאולפן (אישי) ---
+                html += `
+                <div id="page-y11-s4-st${i}" class="content-section">
+                    <div class="card" style="border-top:5px solid var(--y11-color)">
+                        <h2>🎬 י"א שלב 4: הפקה בפועל - <span class="name-display-${i}"></span></h2>
+                        <h3>📅 ביצוע יום הצילום</h3>
+                        <table><thead><tr><th>תאריך</th><th>מקום</th><th>ציוד נדרש</th><th>משימות</th></tr></thead><tbody>
+                        <tr><td><input type="date" id="y11_s4_d_${i}"></td><td><input type="text" id="y11_s4_loc_${i}"></td><td><input type="text" id="y11_s4_eq_${i}"></td><td><input type="text" id="y11_s4_task_${i}"></td></tr>
+                        </tbody></table>
+                        <h3>👥 חלוקת תפקידים (עזרת הקבוצה)</h3>
+                        <table><thead><tr><th>תפקיד</th><th>שם</th><th>הערות</th></tr></thead><tbody>
+                        <tr><td>צלם</td><td><input type="text" id="y11_s4_r1_${i}"></td><td><input type="text" id="y11_s4_n1_${i}"></td></tr>
+                        <tr><td>סאונד</td><td><input type="text" id="y11_s4_r2_${i}"></td><td><input type="text" id="y11_s4_n2_${i}"></td></tr>
+                        <tr><td>מפיק</td><td><input type="text" id="y11_s4_r3_${i}"></td><td><input type="text" id="y11_s4_n3_${i}"></td></tr>
+                        </tbody></table>
+                        <label>סיכום שלב ההקלטה (רפלקציה אישית):</label><textarea id="y11_s4_ref_${i}" rows="4"></textarea>
+                    </div>
+                    <button class="btn btn-save" onclick="showSection('y11-s4')">חזרה לתפריט</button>
+                </div>`;
+
+                // --- י"א שלב 5: עריכה (אישי) ---
+                html += `
+                <div id="page-y11-s5-st${i}" class="content-section">
+                    <div class="card" style="border-top:5px solid var(--y11-color)">
+                        <h2>🎞️ י"א שלב 5: יומן עריכה - <span class="name-display-${i}"></span></h2>
+                        <h3>🛠️ שלבי העריכה:</h3>
+                        <div class="checklist-item"><input type="checkbox" id="y11_s5_c1_${i}"> <label>הכנסת חומרי גלם (מצלמות, סאונד, רקעים) לפרמייר</label></div>
+                        <div class="checklist-item"><input type="checkbox" id="y11_s5_c2_${i}"> <label>הכנסה לטיים ליין וסנכרון סאונד (Synchronize)</label></div>
+                        <div class="checklist-item"><input type="checkbox" id="y11_s5_c3_${i}"> <label>הפעלת כרומאקי (Ultra Key)</label></div>
+                        <div class="checklist-item"><input type="checkbox" id="y11_s5_c4_${i}"> <label>קיצור הראיון ל-5 דקות (חלקים חשובים)</label></div>
+                        <div class="checklist-item"><input type="checkbox" id="y11_s5_c5_${i}"> <label>הפעלת מולטיקאמרה (Multi-Camera)</label></div>
+                        <div class="checklist-item"><input type="checkbox" id="y11_s5_c6_${i}"> <label>חיבור וצילום פתיח וסגיר</label></div>
+                        <div class="checklist-item"><input type="checkbox" id="y11_s5_c7_${i}"> <label>אריזה (גרפיקה, כותרות)</label></div>
+                        
+                        <h3>📝 טבלת תסריט עריכה:</h3>
+                        <table><thead><tr><th>חלק</th><th>ויזואל (מה רואים?)</th><th>אודיו (מה שומעים?)</th></tr></thead><tbody>
+                        <tr><td>פתיח</td><td><textarea id="y11_s5_tv1_${i}"></textarea></td><td><textarea id="y11_s5_ta1_${i}"></textarea></td></tr>
+                        <tr><td>גוף הראיון</td><td><textarea id="y11_s5_tv2_${i}"></textarea></td><td><textarea id="y11_s5_ta2_${i}"></textarea></td></tr>
+                        <tr><td>סגיר</td><td><textarea id="y11_s5_tv3_${i}"></textarea></td><td><textarea id="y11_s5_ta3_${i}"></textarea></td></tr>
+                        </tbody></table>
+                    </div>
+                    <button class="btn btn-save" onclick="showSection('y11-s5')">חזרה לתפריט</button>
+                </div>`;
+
+                // --- י"ב שלב א: תחקיר שטח ---
+                html += `
+                <div id="page-y12-sa-st${i}" class="content-section">
+                    <div class="card" style="border-top:5px solid var(--y12-color)">
+                        <h2>🔎 י"ב שלב א': תחקיר שטח - <span class="name-display-${i}"></span></h2>
+                        <label>מה נצלם? (תיאור התופעה/אירוע/מקום):</label><textarea id="y12_sa_q1_${i}" rows="3"></textarea>
+                        <label>למה זה חשוב? (קשר לנושא הראיון ולדילמה):</label><textarea id="y12_sa_q2_${i}" rows="3"></textarea>
+                        <label>מי יופיע בכתבה? (פרטי מרואיינים, תפקיד):</label><textarea id="y12_sa_q3_${i}" rows="3"></textarea>
+                        <label>מה הסיפור? (המסר העיקרי):</label><textarea id="y12_sa_q4_${i}" rows="3"></textarea>
+                        <label>מה האתגרים? (זמן, מזג אוויר, אישורים):</label><textarea id="y12_sa_q5_${i}" rows="3"></textarea>
+                    </div>
+                    <button class="btn btn-save" onclick="showSection('y12-sa')">חזרה לתפריט</button>
+                </div>`;
+
+                // --- י"ב שלב ב: הכנה ---
+                html += `
+                <div id="page-y12-sb-st${i}" class="content-section">
+                    <div class="card" style="border-top:5px solid var(--y12-color)">
+                        <h2>🎬 י"ב שלב ב': הכנה מעשית - <span class="name-display-${i}"></span></h2>
+                        <h3>📅 לוח זמנים לצילומים</h3>
+                        <table><thead><tr><th>תאריך</th><th>מיקום</th><th>סוג צילום (ראיון/אווירה)</th><th>הערות</th></tr></thead><tbody>
+                        <tr><td><input type="date" id="y12_sb_d1_${i}"></td><td><input type="text" id="y12_sb_l1_${i}"></td><td><input type="text" id="y12_sb_t1_${i}"></td><td><input type="text" id="y12_sb_n1_${i}"></td></tr>
+                        </tbody></table>
+                        <h3>🎥 ציוד נדרש</h3>
+                        <table><thead><tr><th>פריט</th><th>פירוט</th></tr></thead><tbody>
+                        <tr><td>מצלמה</td><td><input type="text" id="y12_sb_e1_${i}"></td></tr>
+                        <tr><td>חצובה</td><td><input type="text" id="y12_sb_e2_${i}"></td></tr>
+                        <tr><td>סאונד</td><td><input type="text" id="y12_sb_e3_${i}"></td></tr>
+                        <tr><td>הערות</td><td><input type="text" id="y12_sb_e4_${i}"></td></tr>
+                        </tbody></table>
+                    </div>
+                    <button class="btn btn-save" onclick="showSection('y12-sb')">חזרה לתפריט</button>
+                </div>`;
+
+                // --- י"ב שלב ג: צילום חוץ (רפלקציה) ---
+                html += `
+                <div id="page-y12-sc-st${i}" class="content-section">
+                    <div class="card" style="border-top:5px solid var(--y12-color)">
+                        <h2>🎬 י"ב שלב ג': יומן צילום - <span class="name-display-${i}"></span></h2>
+                        <h3>👥 חלוקת תפקידים בשטח</h3>
+                        <table><thead><tr><th>תפקיד</th><th>שם התלמיד</th></tr></thead><tbody>
+                        <tr><td>במאי</td><td><input type="text" id="y12_sc_r1_${i}"></td></tr>
+                        <tr><td>צלם</td><td><input type="text" id="y12_sc_r2_${i}"></td></tr>
+                        <tr><td>מקליט</td><td><input type="text" id="y12_sc_r3_${i}"></td></tr>
+                        </tbody></table>
+                        <h3>🧠 רפלקציה על יום הצילום</h3>
+                        <label>תכנון מול ביצוע (מה קרה בפועל?):</label><textarea id="y12_sc_ref1_${i}" rows="3"></textarea>
+                        <label>קשיים ואתגרים (טכני/לוגיסטי):</label><textarea id="y12_sc_ref2_${i}" rows="3"></textarea>
+                        <label>עבודת צוות:</label><textarea id="y12_sc_ref3_${i}" rows="3"></textarea>
+                        <label>לימוד להמשך:</label><textarea id="y12_sc_ref4_${i}" rows="3"></textarea>
+                    </div>
+                    <button class="btn btn-save" onclick="showSection('y12-sc')">חזרה לתפריט</button>
+                </div>`;
+
+                // --- י"ב שלב ד: עריכת כתבה ---
+                html += `
+                <div id="page-y12-sd-st${i}" class="content-section">
+                    <div class="card" style="border-top:5px solid var(--y12-color)">
+                        <h2>🎞️ י"ב שלב ד': עריכת שטח - <span class="name-display-${i}"></span></h2>
+                        <h3>🛠️ שלבי עריכה:</h3>
+                        <div class="checklist-item"><input type="checkbox" id="y12_sd_c1_${i}"> <label>הכנסת חומרי גלם (מצלמה ראשית/משנית, סאונד, אווירה)</label></div>
+                        <div class="checklist-item"><input type="checkbox" id="y12_sd_c2_${i}"> <label>סנכרון סאונד חיצוני עם וידאו</label></div>
+                        <div class="checklist-item"><input type="checkbox" id="y12_sd_c3_${i}"> <label>סנכרון מצלמה שניה (אם יש)</label></div>
+                        <div class="checklist-item"><input type="checkbox" id="y12_sd_c4_${i}"> <label>מיון ועריכה לתוצר של כ-5 דקות</label></div>
+                        <label>הערות עריכה:</label><textarea id="y12_sd_notes_${i}" rows="4"></textarea>
+                    </div>
+                    <button class="btn btn-save" onclick="showSection('y12-sd')">חזרה לתפריט</button>
+                </div>`;
+
+                // --- י"ב שלב ה: אינטגרציה (פנייה אישית) ---
+                html += `
+                <div id="page-y12-se-st${i}" class="content-section">
+                    <div class="card" style="border-top:5px solid var(--y12-color)">
+                        <h2>🎞️ י"ב שלב ה': אינטגרציה (Master) - <span class="name-display-${i}"></span></h2>
+                        <div class="info-box">
+                            <strong>שילוב הראיון והכתבה באמצעות פרומפט:</strong><br>
+                            עליך לחבר שני חלקים שונים לנרטיב אחד. ניתן להיעזר בבוט כדי לקבל הצעה לסדר סיפור (פתיחה-גוף-סיום) בלי שהוא יערוך במקומך.
+                            זוהי חשיבה עיתונאית על רצף סיפור.
+                        </div>
+                        <h3>📝 תסריט עריכה משולב</h3>
+                        <label>פתיח לנושא הוידאוקאסט:</label><textarea id="y12_se_intro_${i}" rows="3"></textarea>
+                        <label>קריינויות רצף המקשרות בין חלקי הראיון לכתבה:</label><textarea id="y12_se_trans_${i}" rows="3"></textarea>
+                        <label>סגיר לכתבה (סיכום וטור דעה אישי):</label><textarea id="y12_se_outro_${i}" rows="3"></textarea>
+                        <div class="checklist-item"><input type="checkbox" id="y12_se_fine_${i}"> <label>ביצעתי Fine Cut ואיזון סאונד סופי</label></div>
+                    </div>
+                    <button class="btn btn-save" onclick="showSection('y12-se')">חזרה לתפריט</button>
+                </div>`;
+
+                // --- י"ב שלב ז: AI ---
+                html += `
+                <div id="page-y12-sg-st${i}" class="content-section">
+                    <div class="card" style="border-top:5px solid var(--y12-color)">
+                        <h2>🤖 י"ב שלב ז': תיעוד AI - <span class="name-display-${i}"></span></h2>
+                        <p>באיזה כלי השתמשת? (לדוגמה: ChatGPT, D-ID, Midjourney)</p>
+                        <input type="text" id="y12_ai_tool_${i}">
+                        <label>מה ביקשת מהכלי? (הנחיה/פרומפט):</label><textarea id="y12_ai_req_${i}" rows="3"></textarea>
+                        <label>מה קיבלת מהכלי? (טקסט, תמונה, תמלול):</label><textarea id="y12_ai_res_${i}" rows="3"></textarea>
+                        <label>איך זה עזר לך בתהליך? (חיסכון בזמן, השראה):</label><textarea id="y12_ai_help_${i}" rows="3"></textarea>
+                        <label>הערכה אישית (האם התוצר היה מדויק?):</label><textarea id="y12_ai_eval_${i}" rows="3"></textarea>
+                    </div>
+                    <button class="btn btn-save" onclick="showSection('y12-sg')">חזרה לתפריט</button>
+                </div>`;
+            }
+            container.innerHTML = html;
+        }
+
+        function createButtons() {
+            // יצירת הכפתורים בתפריטי הביניים
+            const grids = [
+                {id: 'grid-y11-s3', prefix: 'y11-s3', icon: 'fa-user-pen', color: 'var(--y11-color)'},
+                {id: 'grid-y11-s4', prefix: 'y11-s4', icon: 'fa-video', color: 'var(--y11-color)'},
+                {id: 'grid-y11-s5', prefix: 'y11-s5', icon: 'fa-scissors', color: 'var(--y11-color)'},
+                {id: 'grid-y12-sa', prefix: 'y12-sa', icon: 'fa-magnifying-glass', color: 'var(--y12-color)'},
+                {id: 'grid-y12-sb', prefix: 'y12-sb', icon: 'fa-toolbox', color: 'var(--y12-color)'},
+                {id: 'grid-y12-sc', prefix: 'y12-sc', icon: 'fa-camera', color: 'var(--y12-color)'},
+                {id: 'grid-y12-sd', prefix: 'y12-sd', icon: 'fa-scissors', color: 'var(--y12-color)'},
+                {id: 'grid-y12-se', prefix: 'y12-se', icon: 'fa-layer-group', color: 'var(--y12-color)'},
+                {id: 'grid-y12-sg', prefix: 'y12-sg', icon: 'fa-robot', color: 'var(--y12-color)'},
+            ];
+
+            grids.forEach(grid => {
+                const el = document.getElementById(grid.id);
+                for(let i=1; i<=4; i++) {
+                    el.innerHTML += `
+                    <div class="card-3d y${grid.color.includes('y11') ? '11' : '12'}" 
+                         style="border-color:${grid.color}; box-shadow:6px 6px 0 ${grid.color}; color:${grid.color}"
+                         onclick="showSection('page-${grid.prefix}-st${i}')">
+                        <i class="fas ${grid.icon}"></i><br>
+                        <span class="name-display-${i}">תלמיד ${i}</span>
+                    </div>`;
+                }
+            });
+
+            // טבלאות הפצה
+            let h11='', h12='';
+            for(let i=1; i<=4; i++){
+                h11 += `<tr><td><input type="text" id="dist_y11_n_${i}" readonly></td><td><input type="text" id="dist_y11_l_${i}" placeholder="לינק..."></td></tr>`;
+                h12 += `<tr><td><input type="text" id="dist_y12_n_${i}" readonly></td><td><input type="text" id="dist_y12_l_${i}" placeholder="לינק..."></td></tr>`;
+            }
+            document.getElementById('table-y11-s6').innerHTML = h11;
+            document.getElementById('table-y12-sf').innerHTML = h12;
+        }
+
+        // --- Core Functions ---
+        function saveLocal() {
+            document.querySelectorAll('input, textarea').forEach(input => {
+                if(input.id) {
+                    const val = input.type === 'checkbox' ? input.checked : input.value;
+                    localStorage.setItem(input.id, val);
+                }
+            });
+            alert('הנתונים נשמרו בדפדפן בהצלחה!');
+        }
+
+        function loadData() {
+            generateStudentPages();
+            createButtons();
+            
+            document.querySelectorAll('input, textarea').forEach(input => {
+                const saved = localStorage.getItem(input.id);
+                if (saved !== null) {
+                    if (input.type === 'checkbox') input.checked = (saved === 'true');
+                    else input.value = saved;
+                }
+            });
+            syncNames();
+        }
+
+        function saveToDrive() {
+            const driveUrl = document.getElementById('drive_url').value;
+            if(!driveUrl) { alert('נא להזין קישור לדרייב בדף השער!'); showSection('cover-page'); return; }
+            
+            // Baking values into HTML
+            document.querySelectorAll('input, textarea').forEach(input => {
+                if(input.type === 'checkbox') {
+                    if(input.checked) input.setAttribute('checked', 'checked'); else input.removeAttribute('checked');
+                } else if(input.tagName.toLowerCase() === 'textarea') {
+                    input.innerHTML = input.value;
+                } else {
+                    input.setAttribute('value', input.value);
+                }
+            });
+
+            const blob = new Blob([document.documentElement.outerHTML], {type: 'text/html'});
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = `תיק_הפקה_מלא_${new Date().toISOString().slice(0,10)}.html`;
+            link.click();
+            setTimeout(() => window.open(driveUrl, '_blank'), 1000);
+        }
+
+        window.onload = loadData;
+    </script>
+</body>
+</html>
