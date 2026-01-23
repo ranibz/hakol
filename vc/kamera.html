@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>צ'ק-ליסט עמדת צילום - אולפן וידאוקאסט</title>
+    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+
+    <style>
+        :root {
+            --primary-blue: #3b82f6;
+            --secondary-purple: #8b5cf6;
+            --accent-yellow: #f59e0b;
+            --success-green: #10b981;
+            --danger-red: #ef4444;
+            --text-dark: #1e293b;
+            --bg-pattern: #f0f7ff;
+            --card-shadow: 0 10px 25px -5px rgba(0,0,0,0.1);
+            --transition-smooth: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Rubik', sans-serif;
+            background-color: var(--bg-pattern);
+            background-image: radial-gradient(#cbd5e1 2px, transparent 2px);
+            background-size: 30px 30px;
+            color: var(--text-dark);
+            line-height: 1.6;
+            padding-bottom: 60px;
+        }
+
+        header {
+            background: linear-gradient(135deg, var(--primary-blue), var(--secondary-purple));
+            color: white; padding: 50px 20px; text-align: center;
+            border-radius: 0 0 40px 40px;
+            box-shadow: 0 10px 30px -10px rgba(59, 130, 246, 0.4);
+            margin-bottom: 30px;
+            position: relative; overflow: hidden;
+        }
+
+        h1 { font-size: 1.8rem; font-weight: 900; margin-bottom: 5px; }
+        .subtitle { font-size: 1rem; opacity: 0.95; }
+
+        .container { width: 100%; max-width: 850px; margin: 0 auto; padding: 0 15px; }
+
+        /* --- תיבות קלט עליונות --- */
+        .project-details-box {
+            background: white; border-radius: 24px; padding: 25px;
+            margin-bottom: 30px; box-shadow: var(--card-shadow);
+            display: grid; grid-template-columns: 1fr 1fr; gap: 20px;
+            border: 2px solid #e2e8f0;
+        }
+
+        .input-group { display: flex; flex-direction: column; gap: 8px; }
+        .input-group label { font-weight: 800; color: var(--primary-blue); font-size: 0.95rem; }
+        .input-group input {
+            padding: 14px 18px; border-radius: 14px; border: 2px solid #f1f5f9;
+            font-family: inherit; font-size: 1rem; transition: 0.3s; background: #f8fafc;
+        }
+        .input-group input:focus { border-color: var(--primary-blue); outline: none; background: white; box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1); }
+
+        /* --- אקורדיונים --- */
+        .step-card {
+            background: white; border-radius: 24px; margin-bottom: 20px;
+            box-shadow: var(--card-shadow); overflow: hidden; transition: var(--transition-smooth);
+            border: 1px solid rgba(0,0,0,0.05);
+        }
+
+        .step-header {
+            width: 100%; padding: 22px; display: flex; align-items: center;
+            cursor: pointer; border: none; background: none; text-align: right; font-family: inherit;
+        }
+
+        .step-badge {
+            width: 42px; height: 42px; background: linear-gradient(135deg, var(--primary-blue), var(--secondary-purple));
+            color: white; border-radius: 14px; display: flex; justify-content: center; align-items: center;
+            font-weight: 900; margin-left: 18px; flex-shrink: 0;
+            box-shadow: 0 4px 10px rgba(59, 130, 246, 0.3);
+        }
+
+        .step-title { font-size: 1.2rem; font-weight: 800; flex-grow: 1; }
+        .chevron { color: #94a3b8; transition: transform 0.4s ease; background: #f1f5f9; padding: 4px; border-radius: 50%; }
+
+        .step-content {
+            max-height: 0; overflow: hidden;
+            transition: max-height 0.6s cubic-bezier(0.4, 0, 0.2, 1); padding: 0 25px; opacity: 0;
+        }
+
+        .step-card.active .step-content { max-height: 5000px; padding-bottom: 30px; opacity: 1; }
+        .step-card.active .chevron { transform: rotate(180deg); background: var(--primary-blue); color: white; }
+
+        .info-item {
+            display: flex; align-items: flex-start; background: #f8fafc;
+            padding: 16px; border-radius: 18px; margin-bottom: 12px;
+            border-right: 5px solid var(--secondary-purple);
+        }
+        .info-icon { color: var(--secondary-purple); margin-left: 15px; font-size: 1.5rem; margin-top: 2px; }
+        .info-text { font-size: 1.05rem; color: #334155; }
+        .info-text strong { color: var(--text-dark); font-weight: 800; }
+
+        /* אקורדיון פנימי - למה לא FPS גבוה */
+        .inner-accordion { margin: 20px 0; border-radius: 18px; overflow: hidden; border: 2px solid #fef3c7; }
+        .inner-header { background: #fffbeb; padding: 15px 20px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; color: #b45309; font-weight: 800; }
+        .inner-content { background: #fffbeb; padding: 0 20px; max-height: 0; overflow: hidden; transition: 0.5s ease-in-out; }
+        .inner-accordion.open .inner-content { max-height: 2000px; padding-bottom: 20px; }
+        .inner-chevron { transition: 0.3s; }
+        .inner-accordion.open .inner-chevron { transform: rotate(180deg); }
+
+        .price-card { background: white; padding: 15px; border-radius: 12px; margin-bottom: 10px; border-right: 4px solid var(--danger-red); }
+        .price-title { font-weight: 800; color: #92400e; display: block; margin-bottom: 4px; }
+        .price-desc { font-size: 0.9rem; color: #b45309; }
+
+        /* --- הצ'ק-ליסט הסופי --- */
+        .final-checklist-container {
+            background: white; border-radius: 28px; padding: 35px; margin-top: 45px;
+            box-shadow: 0 20px 50px -15px rgba(16, 185, 129, 0.25);
+            border: 4px solid var(--success-green);
+        }
+
+        .checklist-header-info {
+            display: grid; grid-template-columns: 1fr 1fr;
+            border-bottom: 2px dashed #e2e8f0; padding-bottom: 18px; margin-bottom: 25px;
+        }
+        .checklist-header-info div { font-weight: 800; color: #64748b; font-size: 1rem; }
+        .checklist-header-info span { color: var(--text-dark); margin-right: 5px; }
+
+        .checklist-title-deco {
+            text-align: center; font-size: 1.6rem; font-weight: 900;
+            color: var(--success-green); margin-bottom: 25px; display: flex; align-items: center; justify-content: center; gap: 12px;
+        }
+
+        .checkbox-group { display: flex; flex-direction: column; gap: 12px; }
+        .custom-checkbox-label {
+            display: flex; align-items: center; cursor: pointer;
+            background: #f1fcf8; padding: 15px 20px; border-radius: 14px; transition: 0.2s;
+            border: 2px solid transparent;
+        }
+        .custom-checkbox-label:hover { background: #e6f7e1; border-color: var(--success-green); }
+        .custom-checkbox-label input { display: none; }
+        .checkmark-box {
+            width: 30px; height: 30px; background: white; border: 2px solid #cbd5e1;
+            border-radius: 10px; margin-left: 15px; display: flex; align-items: center; justify-content: center;
+            transition: 0.3s;
+        }
+        .custom-checkbox-label input:checked + .checkmark-box { background: var(--success-green); border-color: var(--success-green); box-shadow: 0 4px 10px rgba(16, 185, 129, 0.3); }
+        .checkmark-icon { color: white; font-size: 1.3rem; display: none; }
+        .custom-checkbox-label input:checked + .checkmark-box .checkmark-icon { display: block; }
+        .custom-checkbox-label input:checked ~ .checkbox-text { text-decoration: line-through; color: #94a3b8; }
+        .checkbox-text { font-weight: 700; color: var(--text-dark); font-size: 1.1rem; }
+
+        /* כפתורי פעולה */
+        .actions-bar { margin-top: 35px; display: flex; gap: 15px; flex-wrap: wrap; justify-content: center; }
+        .action-btn {
+            padding: 16px 32px; border-radius: 60px; font-weight: 800; font-size: 1.1rem;
+            display: flex; align-items: center; gap: 10px; cursor: pointer; border: none; transition: 0.3s;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        .btn-download { background: var(--primary-blue); color: white; }
+        .btn-download:hover { background: #2563eb; transform: translateY(-3px); box-shadow: 0 10px 25px rgba(37, 99, 235, 0.4); }
+        .btn-send { background: white; color: var(--primary-blue); border: 2.5px solid var(--primary-blue); }
+        .btn-send:hover { background: #eff6ff; transform: translateY(-3px); }
+
+        @media (max-width: 650px) {
+            .project-details-box, .checklist-header-info { grid-template-columns: 1fr; gap: 10px; }
+            .actions-bar { flex-direction: column; }
+            .action-btn { width: 100%; justify-content: center; }
+            .step-title { font-size: 1.05rem; }
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1><span class="material-icons-round" style="vertical-align: middle; font-size: 2.5rem;">videocam</span> עמדת צילום</h1>
+    <p class="subtitle">אולפן וידאוקאסט - מדריך הקמה וחשיפה אינטראקטיבי</p>
+</header>
+
+<div class="container">
+    
+    <div class="project-details-box">
+        <div class="input-group">
+            <label>שם הפרויקט:</label>
+            <input type="text" id="input-project" placeholder="למשל: וידאוקאסט אקטואליה..." oninput="syncInfo()">
+        </div>
+        <div class="input-group">
+            <label>שם מנהל/ת האולפן:</label>
+            <input type="text" id="input-manager" placeholder="שמכם המלא" oninput="syncInfo()">
+        </div>
+    </div>
+
+    <div class="step-card active">
+        <button class="step-header" onclick="toggleStep(this)">
+            <div class="step-badge">1</div>
+            <span class="step-title">הצבה וקומפוזיציה</span>
+            <span class="material-icons-round chevron">expand_more</span>
+        </button>
+        <div class="step-content">
+            <div class="info-item">
+                <span class="material-icons-round info-icon">cameraswitch</span>
+                <span class="info-text"><strong>שתי מצלמות:</strong> הצבת מצלמה מול המראיין ומצלמה מול המרואיין.</span>
+            </div>
+            <div class="info-item">
+                <span class="material-icons-round info-icon">person_outline</span>
+                <span class="info-text"><strong>מדיום שוט:</strong> סידור הפריים כך שכל מצלמה תצלם Medium Shot (חזה ומעלה עם מרווח ראש תקין).</span>
+            </div>
+            <div class="info-item" style="border-right-color: var(--success-green);">
+                <span class="material-icons-round info-icon" style="color: var(--success-green);">wallpaper</span>
+                <span class="info-text"><strong>מסך ירוק:</strong> סידור הפריים כך שיראו את המסך הירוק בצורה נקייה ומלאה מאחורי המצולם.</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="step-card">
+        <button class="step-header" onclick="toggleStep(this)">
+            <div class="step-badge" style="background: var(--accent-yellow);">2</div>
+            <span class="step-title">הכנה טכנית ו-White Balance</span>
+            <span class="material-icons-round chevron">expand_more</span>
+        </button>
+        <div class="step-content">
+            <div class="info-item" style="border-right-color: var(--accent-yellow);">
+                <span class="material-icons-round info-icon" style="color: var(--accent-yellow);">battery_charging_full</span>
+                <span class="info-text"><strong>בדיקת אנרגיה:</strong> ודאו סוללה טעונה ב-100% או חיבור לחשמל קבוע.</span>
+            </div>
+            <div class="info-item" style="border-right-color: var(--accent-yellow);">
+                <span class="material-icons-round info-icon" style="color: var(--accent-yellow);">sd_card</span>
+                <span class="info-text"><strong>בדיקת אחסון:</strong> ודאו שיש כרטיס זיכרון בפנים עם מספיק שטח פנוי להקלטה.</span>
+            </div>
+            <div class="info-item" style="border-right-color: var(--accent-yellow);">
+                <span class="material-icons-round info-icon" style="color: var(--accent-yellow);">settings_input_component</span>
+                <span class="info-text"><strong>הפעלה ידנית:</strong> העברת המצלמה למצב <strong>Manual (M)</strong> והעברת העדשה ל-<strong>Manual Focus</strong>.</span>
+            </div>
+            <div class="info-item" style="background: #eff6ff; border-right-color: var(--primary-blue);">
+                <span class="material-icons-round info-icon" style="color: var(--primary-blue);">wb_sunny</span>
+                <span class="info-text"><strong>White Balance (WB):</strong> הגדרה ידנית של איזון הלבן בהתאם לתאורת האולפן (לרוב 5600K). ה-WB מבטיח שהצבעים ייראו טבעיים וגוון העור לא יהיה כתום או כחול מדי.</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="step-card">
+        <button class="step-header" onclick="toggleStep(this)">
+            <div class="step-badge" style="background: var(--secondary-purple);">3</div>
+            <span class="step-title">כיול חשיפה (המשולש המקצועי)</span>
+            <span class="material-icons-round chevron">expand_more</span>
+        </button>
+        <div class="step-content">
+            <p style="margin-bottom: 15px; font-weight: 800; color: var(--secondary-purple);">סדר הפעולות לכיול חשיפה אופטימלית:</p>
+            
+            <div class="info-item" style="border-right-color: var(--secondary-purple);">
+                <span class="material-icons-round info-icon">shutter_speed</span>
+                <span class="info-text"><strong>1. מהירות תריס:</strong> קבעו על <strong>1/50</strong> (עבור 25fps) לפי חוק ה-180. אל תגעו בזה יותר!</span>
+            </div>
+            <div class="info-item" style="border-right-color: var(--secondary-purple);">
+                <span class="material-icons-round info-icon">iso</span>
+                <span class="info-text"><strong>2. ISO התחלתי:</strong> הגדירו את ה-ISO על הערך <strong>הנמוך ביותר</strong> (לרוב 100) כדי לקבל תמונה נקייה מרעש.</span>
+            </div>
+            <div class="info-item" style="border-right-color: var(--secondary-purple);">
+                <span class="material-icons-round info-icon">camera</span>
+                <span class="info-text"><strong>3. כיוון צמצם (Aperture):</strong> פתחו או סגרו את הצמצם עד שתגיעו לתאורה נכונה ומאוזנת על פני המצולם.</span>
+            </div>
+            <div class="info-item" style="background: #fff5f5; border-right-color: var(--danger-red);">
+                <span class="material-icons-round info-icon" style="color: var(--danger-red);">expand_less</span>
+                <span class="info-text"><strong>4. העלאת ISO:</strong> רק אם פתחתם את הצמצם עד הסוף ועדיין התמונה חשוכה - העלו בהדרגה את ה-ISO לתיקון סופי.</span>
+            </div>
+
+            <div class="inner-accordion">
+                <div class="inner-header" onclick="toggleInnerAccordion(this)">
+                    <span>למה לא לקבוע FPS הכי גבוה שאפשר? (הסבר מלא)</span>
+                    <span class="material-icons-round inner-chevron">expand_more</span>
+                </div>
+                <div class="inner-content">
+                    <p style="margin: 15px 0; font-weight: bold;">לכל עלייה ב-FPS יש מחיר כבד באולפן:</p>
+                    
+                    <div class="price-card">
+                        <span class="price-title">1. מחיר האור (חשיפה)</span>
+                        <span class="price-desc">לפי חוק ה-180, ב-100fps נצטרך תריס 1/200. זה אומר שנכנס <strong>פי 4 פחות אור</strong> למצלמה. התמונה תהיה חשוכה מאוד ותדרוש תאורה יקרה וחזקה.</span>
+                    </div>
+
+                    <div class="price-card">
+                        <span class="price-title">2. שטח אחסון ועיבוד</span>
+                        <span class="price-desc">צילום ב-100fps שומר 100 תמונות בכל שנייה במקום 25. <strong>שטח האחסון</strong> בכרטיס יתמלא פי 4 מהר יותר, והמחשב יתקשה מאוד (ייעצר) בזמן העריכה.</span>
+                    </div>
+
+                    <div class="price-card">
+                        <span class="price-title">3. המחיר האסתטי (Soap Opera Effect)</span>
+                        <span class="price-desc">העין רגילה לטשטוש תנועה טבעי. FPS גבוה מדי יוצר תמונה "חלקה מדי" שנראית לא טבעית, קרה ומנוכרת (כמו בשידורי חדשות או משחקי מחשב).</span>
+                    </div>
+
+                    <div class="price-card">
+                        <span class="price-title">4. סנכרון וריצודים (Flicker)</span>
+                        <span class="price-desc">בישראל החשמל עובד ב-50Hz. צילום ב-25fps מסונכרן מושלם עם האורות ומונע פסים שחורים או ריצודים מעצבנים בוידאו.</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="final-checklist-container" id="checklist-to-capture">
+        <div class="checklist-header-info">
+            <div>פרויקט: <span id="display-project" style="color:var(--primary-blue)">---</span></div>
+            <div>מנהל עמדה: <span id="display-manager" style="color:var(--primary-blue)">---</span></div>
+        </div>
+        <div class="checklist-title-deco">
+            <span class="material-icons-round">fact_check</span>
+            צ'ק-ליסט סיכום עמדת מצלמות
+        </div>
+        <div class="checkbox-group">
+            <label class="custom-checkbox-label">
+                <input type="checkbox">
+                <div class="checkmark-box"><span class="material-icons-round checkmark-icon">check</span></div>
+                <span class="checkbox-text">2 מצלמות מוצבות (מראיין/מרואיין)</span>
+            </label>
+            <label class="custom-checkbox-label">
+                <input type="checkbox">
+                <div class="checkmark-box"><span class="material-icons-round checkmark-icon">check</span></div>
+                <span class="checkbox-text">פריים Medium Shot תקין + מסך ירוק מלא</span>
+            </label>
+            <label class="custom-checkbox-label">
+                <input type="checkbox">
+                <div class="checkmark-box"><span class="material-icons-round checkmark-icon">check</span></div>
+                <span class="checkbox-text">סוללה מלאה וכרטיס זיכרון תקין</span>
+            </label>
+            <label class="custom-checkbox-label">
+                <input type="checkbox">
+                <div class="checkmark-box"><span class="material-icons-round checkmark-icon">check</span></div>
+                <span class="checkbox-text">מצב ידני (M), פוקוס ידני (MF) ו-WB מכויל</span>
+            </label>
+            <label class="custom-checkbox-label">
+                <input type="checkbox">
+                <div class="checkmark-box"><span class="material-icons-round checkmark-icon">check</span></div>
+                <span class="checkbox-text">תריס 1/50, ISO נמוך ותאורה מאוזנת עם צמצם</span>
+            </label>
+        </div>
+    </div>
+
+    <div class="actions-bar">
+        <button class="action-btn btn-download" onclick="downloadChecklist()">
+            <span class="material-icons-round">download</span>
+            הורד צ'ק-ליסט (תמונה)
+        </button>
+        <a href="mailto:?subject=צ'ק-ליסט מצלמות מוכן&body=היי, סיימתי את המשימות בעמדת המצלמות. מצורף הצ'ק-ליסט שלי (יש לצרף את התמונה שהורדת)." class="action-btn btn-send">
+            <span class="material-icons-round">send</span>
+            שלח דיווח במייל
+        </a>
+    </div>
+
+</div>
+
+<footer>
+    <p>מגמת טכנולוגיות תקשורת | וידאוקאסט 2026</p>
+</footer>
+
+<script>
+    // פונקציה לאקורדיונים הראשיים
+    function toggleStep(btn) {
+        btn.parentElement.classList.toggle('active');
+    }
+
+    // פונקציה לאקורדיון הפנימי (תיאוריה)
+    function toggleInnerAccordion(header) {
+        header.parentElement.classList.toggle('open');
+    }
+
+    // סנכרון תיבות הטקסט לצ'ק ליסט
+    function syncInfo() {
+        const proj = document.getElementById('input-project').value;
+        const manager = document.getElementById('input-manager').value;
+        document.getElementById('display-project').innerText = proj || "---";
+        document.getElementById('display-manager').innerText = manager || "---";
+    }
+
+    // פונקציית הורדת הצ'ק-ליסט כתמונה
+    function downloadChecklist() {
+        const element = document.getElementById('checklist-to-capture');
+        html2canvas(element, { scale: 3, backgroundColor: "#ffffff" }).then(canvas => {
+            const link = document.createElement('a');
+            link.download = 'Checklist_Camera_Ready.png';
+            link.href = canvas.toDataURL();
+            link.click();
+        });
+    }
+</script>
+
+</body>
+</html>
