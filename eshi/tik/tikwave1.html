@@ -413,8 +413,31 @@ textarea { resize: vertical; min-height: 80px; line-height: 1.6; }
 
         <!-- לשונית תלמידים -->
         <div id="adminStudents" class="admin-panel active">
+
+            <!-- העלאת Excel -->
             <div class="admin-card">
-                <h2>➕ הוספת תלמיד</h2>
+                <h2>📤 העלאת תלמידים מ-Excel</h2>
+                <p style="color:#666;margin-top:-10px;">העלה קובץ Excel עם עמודות: <strong>תז | שם | כיתה</strong></p>
+                <div class="excel-drop" id="excelDrop" onclick="document.getElementById('excelFile').click()">
+                    <span class="material-icons-round" style="font-size:40px;color:#aaa;display:block;margin-bottom:10px;">upload_file</span>
+                    <div style="font-size:1.1rem;font-weight:700;color:#555;">לחץ לבחירת קובץ Excel</div>
+                    <div style="color:#aaa;font-size:0.85rem;margin-top:5px;">xlsx, xls, csv</div>
+                </div>
+                <input type="file" id="excelFile" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleExcelUpload(this)">
+                <div id="excelPreview" style="display:none;">
+                    <div style="background:#f0f9ff;border:2px solid #00b894;border-radius:12px;padding:15px;margin-bottom:15px;">
+                        <div style="font-weight:700;color:#00b894;margin-bottom:10px;" id="excelSummary"></div>
+                        <div class="excel-preview" id="excelTable"></div>
+                    </div>
+                    <button class="btn-admin btn-primary" onclick="importAllStudents()" style="width:100%;padding:14px;font-size:1.05rem;">
+                        ✅ ייבוא כל התלמידים ל-Firebase
+                    </button>
+                </div>
+            </div>
+
+            <!-- הוספה ידנית -->
+            <div class="admin-card">
+                <h2>➕ הוספת תלמיד ידנית</h2>
                 <div class="admin-form">
                     <input type="text" id="newStudentId" placeholder="תעודת זהות (9 ספרות)">
                     <input type="text" id="newStudentName" placeholder="שם מלא">
@@ -476,6 +499,80 @@ textarea { resize: vertical; min-height: 80px; line-height: 1.6; }
 <div class="copy-warning" id="copyWarning">❌ העתקה חסומה!</div>
 
 <script>
+// ===== SheetJS לקריאת Excel =====
+function loadSheetJS(callback) {
+    if (window.XLSX) { callback(); return; }
+    const script = document.createElement('script');
+    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+    script.onload = callback;
+    document.head.appendChild(script);
+}
+
+let excelStudentsData = [];
+
+function handleExcelUpload(input) {
+    const file = input.files[0];
+    if (!file) return;
+    loadSheetJS(() => {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const workbook = XLSX.read(e.target.result, { type: 'binary' });
+            const sheet = workbook.Sheets[workbook.SheetNames[0]];
+            const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+            excelStudentsData = [];
+            const headers = rows[0] ? rows[0].map(h => String(h).trim()) : [];
+            let idCol = headers.findIndex(h => h.includes('תז') || h.includes('זהות') || h.toLowerCase().includes('id'));
+            let nameCol = headers.findIndex(h => h.includes('שם') || h.toLowerCase().includes('name'));
+            let classCol = headers.findIndex(h => h.includes('כיתה') || h.toLowerCase().includes('class'));
+            if (idCol === -1) idCol = 0;
+            if (nameCol === -1) nameCol = 1;
+            if (classCol === -1) classCol = 2;
+            for (let i = 1; i < rows.length; i++) {
+                const row = rows[i];
+                if (!row || row.length === 0) continue;
+                const id = String(row[idCol] || '').trim();
+                const name = String(row[nameCol] || '').trim();
+                const cls = String(row[classCol] || '').trim();
+                if (id && name) excelStudentsData.push({ id, name, class: cls });
+            }
+            showExcelPreview();
+        };
+        reader.readAsBinaryString(file);
+    });
+}
+
+function showExcelPreview() {
+    document.getElementById('excelPreview').style.display = 'block';
+    document.getElementById('excelSummary').textContent = `✅ נמצאו ${excelStudentsData.length} תלמידים – בדוק לפני ייבוא:`;
+    let html = `<table style="width:100%;border-collapse:collapse;font-size:0.9rem;">
+        <thead><tr style="background:#e0f0ff;">
+            <th style="padding:8px;border:1px solid #ddd;">תז</th>
+            <th style="padding:8px;border:1px solid #ddd;">שם</th>
+            <th style="padding:8px;border:1px solid #ddd;">כיתה</th>
+        </tr></thead><tbody>`;
+    excelStudentsData.slice(0, 10).forEach(s => {
+        html += `<tr><td style="padding:7px;border:1px solid #eee;">${s.id}</td><td style="padding:7px;border:1px solid #eee;">${s.name}</td><td style="padding:7px;border:1px solid #eee;">${s.class}</td></tr>`;
+    });
+    if (excelStudentsData.length > 10) {
+        html += `<tr><td colspan="3" style="padding:8px;text-align:center;color:#888;font-style:italic;">...ועוד ${excelStudentsData.length - 10} תלמידים נוספים</td></tr>`;
+    }
+    html += '</tbody></table>';
+    document.getElementById('excelTable').innerHTML = html;
+}
+
+function importAllStudents() {
+    if (excelStudentsData.length === 0) return;
+    const updates = {};
+    excelStudentsData.forEach(s => { updates['students/' + s.id] = { name: s.name, class: s.class }; });
+    db.ref().update(updates).then(() => {
+        alert(`✅ יובאו ${excelStudentsData.length} תלמידים בהצלחה!`);
+        document.getElementById('excelPreview').style.display = 'none';
+        document.getElementById('excelFile').value = '';
+        excelStudentsData = [];
+        loadStudentsTable();
+    }).catch(err => alert('שגיאה: ' + err.message));
+}
+
 // ===== Firebase =====
 const firebaseConfig = {
     apiKey: "AIzaSyBtjSP6XAO3jR7dnpANo62aVW3TNKghyS0",
