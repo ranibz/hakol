@@ -366,21 +366,24 @@ body{font-family:"Rubik",sans-serif;background:var(--bg);color:var(--text);min-h
       <div class="dz-hint">.xlsx / .xls / .csv</div>
     </div>
 
+    <!-- Detected columns display -->
+    <div id="xlDetectedCols" style="display:none;font-size:.8rem;color:#6d28d9;background:#ede9fe;border-radius:8px;padding:8px 12px;margin:10px 0;word-break:break-word;"></div>
+
     <div id="xlImportPanel" style="display:none;">
       <!-- Column Mapping -->
       <div class="col-map-wrap">
         <div class="cml">🗂 מיפוי עמודות — בחר איזו עמודה תואמת לכל שדה:</div>
         <div class="col-map-row">
           <label>תעודת זהות *</label>
-          <select id="xlColId"></select>
+          <select id="xlColId" onchange="xlRefreshPreview()"></select>
         </div>
         <div class="col-map-row">
           <label>שם תלמיד *</label>
-          <select id="xlColName"></select>
+          <select id="xlColName" onchange="xlRefreshPreview()"></select>
         </div>
         <div class="col-map-row">
           <label>כיתה *</label>
-          <select id="xlColClass"></select>
+          <select id="xlColClass" onchange="xlRefreshPreview()"></select>
         </div>
         <button class="btn-preview" style="margin-top:6px;" onclick="xlRefreshPreview()">🔄 עדכן תצוגה מקדימה</button>
       </div>
@@ -820,7 +823,7 @@ let xlPreviewRows=[];  // processed rows for preview
 let xlExistingIds=new Set();  // IDs already in Firebase
 
 // Smart column name detection
-const ID_HINTS=['תז','ת"ז','תעודת זהות','id','student id','studentid','מספר','tz'];
+const ID_HINTS=['תז','ת"ז','ת.ז','תז.','תעודת זהות','t.z','id','student id','studentid','מספר תלמיד','מספר','tz','mispar'];
 const NAME_HINTS=['שם','name','שם תלמיד','שם מלא','student name','fullname'];
 const CLASS_HINTS=['כיתה','class','כתה','classname'];
 
@@ -841,11 +844,20 @@ function xlPopulateSelects(headers){
   const guessId=xlGuessCol(headers,ID_HINTS);
   const guessName=xlGuessCol(headers,NAME_HINTS);
   const guessClass=xlGuessCol(headers,CLASS_HINTS);
+  // Store headers globally so we can retrieve by index
+  window._xlHeaders=headers;
   ['xlColId','xlColName','xlColClass'].forEach((selId,i)=>{
     const sel=document.getElementById(selId);
     const guess=[guessId,guessName,guessClass][i];
     sel.innerHTML=`<option value="">-- בחר עמודה --</option>`;
-    headers.forEach(h=>{sel.innerHTML+=`<option value="${escHtml(h)}" ${h===guess?"selected":""}>${escHtml(h)}</option>`;});
+    // Use index as value to avoid any encoding issues with Hebrew text
+    headers.forEach((h,idx)=>{
+      const opt=document.createElement('option');
+      opt.value=String(idx);
+      opt.textContent=h;
+      if(h===guess)opt.selected=true;
+      sel.appendChild(opt);
+    });
   });
 }
 
@@ -860,18 +872,39 @@ function xlDrop(e){
 function xlHandleFile(e){const file=e.target.files[0];if(file)xlParseFile(file);}
 
 function xlParseFile(file){
-  if(file.size>10*1024*1024){toast("⚠️ הקובץ גדול מדי (מקסימום 10MB)");return;}
+  if(file.size>15*1024*1024){toast("⚠️ הקובץ גדול מדי (מקסימום 15MB)");return;}
   const reader=new FileReader();
-  reader.onload=function(e){
+  reader.onload=function(ev){
     try{
-      const data=new Uint8Array(e.target.result);
-      const wb=XLSX.read(data,{type:'array'});
+      const data=new Uint8Array(ev.target.result);
+      const wb=XLSX.read(data,{type:'array',cellText:false});
       const ws=wb.Sheets[wb.SheetNames[0]];
-      const json=XLSX.utils.sheet_to_json(ws,{defval:""});
-      if(!json.length){toast("⚠️ הקובץ ריק או לא נתמך");return;}
-      xlRawRows=json;
-      xlHeaders=Object.keys(json[0]);
+      // Use header:1 to get raw array rows — more reliable for Hebrew headers
+      const raw=XLSX.utils.sheet_to_json(ws,{header:1,defval:""});
+      if(!raw||raw.length<2){toast("⚠️ הקובץ ריק או חסרות שורות נתונים");return;}
+      // Find first non-empty row as headers (skip blank leading rows)
+      let headerRowIdx=0;
+      for(let i=0;i<Math.min(5,raw.length);i++){
+        if(raw[i].some(c=>String(c).trim())){headerRowIdx=i;break;}
+      }
+      const headers=raw[headerRowIdx].map(h=>String(h).trim());
+      if(!headers.filter(h=>h).length){toast("⚠️ לא נמצאו כותרות עמודות");return;}
+      // Build data rows as objects
+      const dataRows=raw.slice(headerRowIdx+1).filter(r=>r.some(c=>String(c).trim()!==""));
+      xlRawRows=dataRows.map(r=>{
+        const obj={};
+        headers.forEach((h,i)=>{if(h)obj[h]=(r[i]!==undefined?r[i]:"");});
+        return obj;
+      });
+      if(!xlRawRows.length){toast("⚠️ לא נמצאו שורות נתונים");return;}
+      xlHeaders=headers.filter(h=>h);
       xlPopulateSelects(xlHeaders);
+      // Show detected columns for user
+      const colListEl=document.getElementById("xlDetectedCols");
+      if(colListEl){
+        colListEl.textContent="עמודות שזוהו: "+xlHeaders.join(" | ");
+        colListEl.style.display="block";
+      }
       // Fetch existing student IDs
       db.ref("students").once("value").then(snap=>{
         xlExistingIds=new Set();
@@ -879,35 +912,59 @@ function xlParseFile(file){
         document.getElementById("xlImportPanel").style.display="block";
         document.getElementById("xlResultBox").style.display="none";
         xlRefreshPreview();
-        document.getElementById("xlDropZone").querySelector(".dz-title").textContent=`✅ ${file.name} — ${json.length} שורות נטענו`;
+        document.getElementById("xlDropZone").querySelector(".dz-title").textContent=`✅ ${file.name} — ${xlRawRows.length} שורות נטענו`;
       });
     }catch(err){
-      toast("⚠️ שגיאה בקריאת הקובץ. וודא שהוא Excel תקין.");
+      toast("⚠️ שגיאה בקריאת הקובץ: "+err.message);
       console.error(err);
     }
   };
   reader.readAsArrayBuffer(file);
 }
 
+function xlCleanValue(val){
+  if(val===null||val===undefined)return"";
+  // Handle numbers (e.g. ID stored as number in Excel: 123456789 or 1.23e8)
+  if(typeof val==="number"){
+    // Convert to integer string if it's a whole number
+    return String(Math.round(val));
+  }
+  return String(val).trim();
+}
+
+function xlGetColName(selId){
+  const sel=document.getElementById(selId);
+  const idx=parseInt(sel.value);
+  if(isNaN(idx))return"";
+  return(window._xlHeaders&&window._xlHeaders[idx])||"";
+}
+
 function xlRefreshPreview(){
-  const colId=document.getElementById("xlColId").value;
-  const colName=document.getElementById("xlColName").value;
-  const colClass=document.getElementById("xlColClass").value;
-  if(!colId||!colName||!colClass){
+  const colIdName=xlGetColName("xlColId");
+  const colNameName=xlGetColName("xlColName");
+  const colClassName=xlGetColName("xlColClass");
+  if(!colIdName||!colNameName||!colClassName){
     document.getElementById("xlPreviewBody").innerHTML=`<tr><td colspan="5" style="text-align:center;color:var(--muted);padding:20px;">בחר את כל שלוש העמודות למעלה</td></tr>`;
     return;
   }
+  const colId=colIdName;
+  const colName=colNameName;
+  const colClass=colClassName;
   xlPreviewRows=[];
   let html="";
   xlRawRows.forEach((row,i)=>{
-    const id=String(row[colId]||"").trim();
-    const name=String(row[colName]||"").trim();
-    const cls=String(row[colClass]||"").trim();
+    const id=xlCleanValue(row[colId]);
+    const name=xlCleanValue(row[colName]);
+    const cls=xlCleanValue(row[colClass]);
     let status="new",statusLabel="חדש",rowClass="";
-    if(!id||!name||!cls){status="err";statusLabel="חסר מידע";rowClass="row-err";}
+    if(!id||!name||!cls){
+      status="err";
+      statusLabel="חסר: "+((!id?"ת\"ז ":"")+(!name?"שם ":"")+(!cls?"כיתה":"")).trim();
+      rowClass="row-err";
+    }
     else if(xlExistingIds.has(id)){status="dup";statusLabel="קיים";rowClass="row-dup";}
     xlPreviewRows.push({id,name,cls,status});
-    html+=`<tr class="${rowClass}"><td style="color:#aaa;">${i+1}</td><td>${escHtml(id)}</td><td>${escHtml(name)}</td><td>${escHtml(cls)}</td><td><span class="row-status ${status}">${statusLabel}</span></td></tr>`;
+    html+=`<tr class="${rowClass}"><td style="color:#aaa;">${i+1}</td><td>${escHtml(id)||'<span style="color:#e74c3c">ריק</span>'}</td><td>${escHtml(name)||'<span style="color:#e74c3c">ריק</span>'}</td><td>${escHtml(cls)||'<span style="color:#e74c3c">ריק</span>'}</td><td><span class="row-status ${status}">${statusLabel}</span></td></tr>`;
   });
   document.getElementById("xlPreviewBody").innerHTML=html;
   const newCount=xlPreviewRows.filter(r=>r.status==="new").length;
@@ -919,6 +976,27 @@ function xlRefreshPreview(){
   const errBadge=document.getElementById("xlBadgeErr");
   errBadge.textContent=errCount+" שגויים";errBadge.style.display=errCount?"inline-flex":"none";
   document.getElementById("xlBtnImport").disabled=newCount===0;
+  // Show first raw row for debugging if all are errors
+  if(errCount===xlRawRows.length&&xlRawRows.length>0){
+    const firstRow=xlRawRows[0];
+    const keys=Object.keys(firstRow);
+    console.log("DEBUG - First row keys:",keys);
+    console.log("DEBUG - First row values:",firstRow);
+    console.log("DEBUG - Selected cols: id="+colId+", name="+colName+", class="+colClass);
+    console.log("DEBUG - Raw values: id="+JSON.stringify(firstRow[colId])+", name="+JSON.stringify(firstRow[colName])+", class="+JSON.stringify(firstRow[colClass]));
+    // Show a warning with actual raw values
+    const rawId=firstRow[colId];
+    const rawName=firstRow[colName];
+    const rawCls=firstRow[colClass];
+    document.getElementById("xlPreviewBody").innerHTML=`
+      <tr><td colspan="5" style="background:#fff3cd;padding:14px;font-size:.82rem;color:#856404;">
+        ⚠️ כל השורות מסומנות כשגויות. ערכי השורה הראשונה הגולמיים:<br>
+        <strong>ת"ז (${colId}):</strong> ${JSON.stringify(rawId)} (סוג: ${typeof rawId})<br>
+        <strong>שם (${colName}):</strong> ${JSON.stringify(rawName)} (סוג: ${typeof rawName})<br>
+        <strong>כיתה (${colClass}):</strong> ${JSON.stringify(rawCls)} (סוג: ${typeof rawCls})<br>
+        <span style="margin-top:6px;display:block;">אם הערכים נראים נכונים — ייתכן שהם מוצגים כ-undefined, בדוק שבחרת את העמודות הנכונות.</span>
+      </td></tr>`+html;
+  }
 }
 
 async function xlDoImport(){
