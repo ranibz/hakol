@@ -294,7 +294,7 @@ body{font-family:"Rubik",sans-serif;background:var(--bg);color:var(--text);min-h
       <h2>➕ יצירת מטלה חדשה</h2>
       <div class="form-group"><label>כותרת המטלה *</label><input type="text" id="nTitle" placeholder="לדוגמה: ניתוח טקסט פרק 3"></div>
       <div class="form-group"><label>תיאור והנחיות</label><textarea id="nDesc" rows="3" placeholder="הסבר קצר על המטלה..."></textarea></div>
-      <div class="form-group"><label>כיתות (מופרדות בפסיק) *</label><input type="text" id="nClasses" placeholder="י למד א, י למד ב"></div>
+      <div class="form-group"><label>כיתות (מופרדות בפסיק) *</label><input type="text" id="nClasses" placeholder="י למד א, י למד ב"><div id="nClassesHint" style="font-size:.75rem;color:var(--primary);margin-top:4px;display:none;"></div></div>
       <div class="form-group"><label>תאריך הגשה אחרון *</label><input type="date" id="nDue"></div>
       <div class="form-group">
         <label>סוג מטלה</label>
@@ -443,12 +443,14 @@ body{font-family:"Rubik",sans-serif;background:var(--bg);color:var(--text);min-h
   </div>
   <div style="background:white;border-radius:18px;padding:24px;box-shadow:0 5px 18px rgba(0,0,0,.07);margin-bottom:20px;">
     <h2 style="font-size:1.05rem;font-weight:900;color:var(--primary);margin-bottom:16px;">➕ הוספת מורה</h2>
-    <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:10px;align-items:end;">
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr auto;gap:10px;align-items:end;">
       <div><label style="font-size:.8rem;font-weight:700;color:#555;display:block;margin-bottom:4px;">שם משתמש</label><input type="text" id="adTUser" placeholder="שם משתמש" style="width:100%;padding:10px 12px;border:2px solid #eee;border-radius:10px;font-family:inherit;font-size:.9rem;"></div>
       <div><label style="font-size:.8rem;font-weight:700;color:#555;display:block;margin-bottom:4px;">סיסמה</label><input type="text" id="adTPass" placeholder="סיסמה" style="width:100%;padding:10px 12px;border:2px solid #eee;border-radius:10px;font-family:inherit;font-size:.9rem;"></div>
       <div><label style="font-size:.8rem;font-weight:700;color:#555;display:block;margin-bottom:4px;">שם מלא</label><input type="text" id="adTName" placeholder="שם מלא" style="width:100%;padding:10px 12px;border:2px solid #eee;border-radius:10px;font-family:inherit;font-size:.9rem;"></div>
+      <div><label style="font-size:.8rem;font-weight:700;color:#555;display:block;margin-bottom:4px;">כיתות (בפסיק)</label><input type="text" id="adTClasses" placeholder="י1, י2, יא1" style="width:100%;padding:10px 12px;border:2px solid #eee;border-radius:10px;font-family:inherit;font-size:.9rem;"></div>
       <button class="btn-add" onclick="addTeacher()" style="height:42px;padding:0 20px;border-radius:10px;font-size:.88rem;">הוסף</button>
     </div>
+    <div style="margin-top:8px;font-size:.78rem;color:var(--muted);">💡 אם תשאיר כיתות ריק — המורה יראה את כל המטלות שפרסם</div>
   </div>
   <div style="background:white;border-radius:18px;padding:24px;box-shadow:0 5px 18px rgba(0,0,0,.07);margin-bottom:20px;">
     <h2 style="font-size:1.05rem;font-weight:900;color:var(--primary);margin-bottom:16px;">👥 תלמידים</h2>
@@ -456,7 +458,7 @@ body{font-family:"Rubik",sans-serif;background:var(--bg);color:var(--text);min-h
   </div>
   <div style="background:white;border-radius:18px;padding:24px;box-shadow:0 5px 18px rgba(0,0,0,.07);margin-bottom:20px;">
     <h2 style="font-size:1.05rem;font-weight:900;color:var(--primary);margin-bottom:16px;">👩‍🏫 מורים</h2>
-    <div style="overflow-x:auto;"><table class="admin-table"><thead><tr><th>שם משתמש</th><th>שם מלא</th><th>פעולות</th></tr></thead><tbody id="adTeachersBody"></tbody></table></div>
+    <div style="overflow-x:auto;"><table class="admin-table"><thead><tr><th>שם משתמש</th><th>שם מלא</th><th>כיתות</th><th>פעולות</th></tr></thead><tbody id="adTeachersBody"></tbody></table></div>
   </div>
 </div>
 </div>
@@ -503,7 +505,16 @@ function loginTeacher(){
     let found=false;
     snap.forEach(c=>{const t=c.val();if(t.username===u&&t.password===p){found=true;curUser={key:c.key,...t};curRole="teacher";
       document.getElementById("tTpName").textContent="👩‍🏫 "+t.name;
-      show("teacherScreen");renderTeacherAssignments();loadTeacherFilterClasses();}});
+      show("teacherScreen");renderTeacherAssignments();loadTeacherFilterClasses();
+      // Show allowed classes hint in new assignment form
+      const hintEl=document.getElementById("nClassesHint");
+      if(hintEl&&curUser.classes){
+        hintEl.textContent="💡 הכיתות שלך: "+curUser.classes;
+        hintEl.style.display="block";
+        // Pre-fill if empty
+        const nCls=document.getElementById("nClasses");
+        if(nCls&&!nCls.value)nCls.value=curUser.classes;
+      }}});
     if(!found)showErr("שם משתמש או סיסמה שגויים");
   });
 }
@@ -681,18 +692,42 @@ function switchTTab(tab,btn){
   if(tab==="assignments")renderTeacherAssignments();
 }
 function loadTeacherFilterClasses(){
+  const allowed=teacherAllowedClasses();
   db.ref("assignments").once("value").then(snap=>{
     const classes=new Set();
-    snap.forEach(c=>{const a=c.val();if(a.teacherId===curUser.key)(a.classes||"").split(",").forEach(cl=>classes.add(cl.trim()));});
+    snap.forEach(c=>{
+      const a=c.val();
+      if(a.teacherId===curUser.key){
+        (a.classes||"").split(",").forEach(cl=>{
+          cl=cl.trim();
+          if(cl&&(!allowed||allowed.has(cl)))classes.add(cl);
+        });
+      }
+    });
     const sel=document.getElementById("tFilterClass");sel.innerHTML='<option value="">כל הכיתות</option>';
     classes.forEach(cl=>{if(cl)sel.innerHTML+=`<option value="${cl}">${cl}</option>`;});
   });
+}
+function teacherAllowedClasses(){
+  // Returns Set of allowed classes for this teacher, or null if unrestricted
+  if(!curUser.classes)return null;
+  const cls=String(curUser.classes).split(",").map(x=>x.trim()).filter(x=>x);
+  return cls.length?new Set(cls):null;
+}
+function assignmentMatchesTeacherClasses(aClasses){
+  const allowed=teacherAllowedClasses();
+  if(!allowed)return true; // no restriction
+  const aCls=(aClasses||"").split(",").map(x=>x.trim());
+  return aCls.some(c=>allowed.has(c));
 }
 function renderTeacherAssignments(){
   const filterCls=document.getElementById("tFilterClass").value;
   db.ref("assignments").once("value").then(snap=>{
     const list=[];
-    snap.forEach(c=>{const a={id:c.key,...c.val()};if(a.teacherId===curUser.key)list.push(a);});
+    snap.forEach(c=>{
+      const a={id:c.key,...c.val()};
+      if(a.teacherId===curUser.key&&assignmentMatchesTeacherClasses(a.classes))list.push(a);
+    });
     list.sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
     const filtered=filterCls?list.filter(a=>(a.classes||"").split(",").map(x=>x.trim()).includes(filterCls)):list;
     if(!filtered.length){document.getElementById("teacherAssignmentsList").innerHTML=`<div class="empty-state"><span class="material-icons-round">assignment_add</span>לא פרסמת מטלות עדיין</div>`;return;}
@@ -785,7 +820,7 @@ function saveFeedback(subKey){
 function closeModal(){document.getElementById("subsModal").style.display="none";document.body.style.overflow="";}
 function renderTeacherOverview(){
   db.ref("assignments").once("value").then(aSnap=>{
-    const myA=[];aSnap.forEach(c=>{const a={id:c.key,...c.val()};if(a.teacherId===curUser.key)myA.push(a);});
+    const myA=[];aSnap.forEach(c=>{const a={id:c.key,...c.val()};if(a.teacherId===curUser.key&&assignmentMatchesTeacherClasses(a.classes))myA.push(a);});
     if(!myA.length){document.getElementById("teacherOverviewContent").innerHTML=`<div class="empty-state"><span class="material-icons-round">bar_chart</span>אין נתונים עדיין</div>`;return;}
     db.ref("submissions").once("value").then(sSnap=>{
       const subs=sSnap.val()||{};
@@ -807,12 +842,12 @@ function renderTeacherOverview(){
 // ===== ADMIN =====
 function loadAdminData(){
   db.ref("students").once("value").then(s=>{document.getElementById("adTotalStudents").textContent=s.numChildren();let h="";s.forEach(c=>{const st=c.val();h+=`<tr><td>${c.key}</td><td>${escHtml(st.name)}</td><td>${escHtml(st.class)}</td><td><button class="btn-sm btn-del" onclick="delStudent('${c.key}')">מחק</button></td></tr>`;});document.getElementById("adStudentsBody").innerHTML=h;});
-  db.ref("teachers").once("value").then(s=>{document.getElementById("adTotalTeachers").textContent=s.numChildren();let h="";s.forEach(c=>{const t=c.val();h+=`<tr><td>${escHtml(t.username)}</td><td>${escHtml(t.name)}</td><td><button class="btn-sm btn-del" onclick="delTeacher('${c.key}')">מחק</button></td></tr>`;});document.getElementById("adTeachersBody").innerHTML=h;});
+  db.ref("teachers").once("value").then(s=>{document.getElementById("adTotalTeachers").textContent=s.numChildren();let h="";s.forEach(c=>{const t=c.val();h+=`<tr><td>${escHtml(t.username)}</td><td>${escHtml(t.name)}</td><td>${escHtml(t.classes||"כל הכיתות")}</td><td><button class="btn-sm btn-del" onclick="delTeacher('${c.key}')">מחק</button></td></tr>`;});document.getElementById("adTeachersBody").innerHTML=h;});
   db.ref("assignments").once("value").then(s=>document.getElementById("adTotalAsgn").textContent=s.numChildren());
   db.ref("submissions").once("value").then(s=>document.getElementById("adTotalSubs").textContent=s.numChildren());
 }
 function addStudent(){const id=document.getElementById("adSId").value.trim(),name=document.getElementById("adSName").value.trim(),cls=document.getElementById("adSClass").value.trim();if(!id||!name||!cls){toast("⚠️ מלא את כל השדות");return;}db.ref("students/"+id).set({name,class:cls}).then(()=>{toast("✅ נוסף!");loadAdminData();document.getElementById("adSId").value="";document.getElementById("adSName").value="";document.getElementById("adSClass").value="";});}
-function addTeacher(){const u=document.getElementById("adTUser").value.trim(),p=document.getElementById("adTPass").value.trim(),n=document.getElementById("adTName").value.trim();if(!u||!p||!n){toast("⚠️ מלא את כל השדות");return;}db.ref("teachers/"+u).set({username:u,password:p,name:n}).then(()=>{toast("✅ נוסף!");loadAdminData();document.getElementById("adTUser").value="";document.getElementById("adTPass").value="";document.getElementById("adTName").value="";});}
+function addTeacher(){const u=document.getElementById("adTUser").value.trim(),p=document.getElementById("adTPass").value.trim(),n=document.getElementById("adTName").value.trim(),cls=document.getElementById("adTClasses").value.trim();if(!u||!p||!n){toast("⚠️ מלא שם משתמש, סיסמה ושם מלא");return;}const tData={username:u,password:p,name:n};if(cls)tData.classes=cls;db.ref("teachers/"+u).set(tData).then(()=>{toast("✅ נוסף!");loadAdminData();document.getElementById("adTUser").value="";document.getElementById("adTPass").value="";document.getElementById("adTName").value="";document.getElementById("adTClasses").value="";});}
 function delStudent(id){if(!confirm("למחוק?"))return;db.ref("students/"+id).remove().then(()=>{toast("🗑 נמחק");loadAdminData();});}
 function delTeacher(key){if(!confirm("למחוק?"))return;db.ref("teachers/"+key).remove().then(()=>{toast("🗑 נמחק");loadAdminData();});}
 
