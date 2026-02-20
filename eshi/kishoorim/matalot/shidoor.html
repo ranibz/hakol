@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>דף עבודה מסכם: האם על המדינה לממן שידור ציבורי?</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700;900&display=swap" rel="stylesheet">
+    
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+
+    <style>
+        :root {
+            /* Colors */
+            --bg-header: #f3e5f5; /* סגול בהיר */
+            --bg-part-a: #fff9c4; /* צהוב בננה בהיר */
+            --bg-part-b: #e0f7fa; /* תכלת/מנטה */
+            --bg-part-c: #fff3e0; /* כתום בהיר/אפרסק */
+            
+            --card-1: #f8bbd0; /* ורוד פסטל */
+            --card-2: #b3e5fc; /* תכלת פסטל */
+            --card-3: #b2dfdb; /* ירוק-מנטה פסטל */
+            --card-4: #ffe0b2; /* כתום פסטל */
+
+            --profit-bg: #e8f5e9; /* ירוק פסטל */
+            --price-bg: #ffebee; /* אדום פסטל */
+
+            /* Retro 3D Styles */
+            --border-thick: 2px solid #000;
+            --shadow-hard: 4px 4px 0px #000;
+        }
+
+        body {
+            font-family: 'Rubik', sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #fafafa;
+            color: #333;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        /* סגנון רטרו כללי */
+        .retro-box {
+            border: var(--border-thick);
+            box-shadow: var(--shadow-hard);
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 40px;
+            position: relative;
+        }
+
+        h1, h2, h3, h4 {
+            margin-top: 0;
+            font-weight: 800;
+        }
+
+        /* Header Section */
+        .header-section {
+            background-color: var(--bg-header);
+            text-align: center;
+        }
+
+        /* Cloud Save Status */
+        .save-status {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: #fff;
+            border: 2px solid #000;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            font-weight: bold;
+            box-shadow: 2px 2px 0px #000;
+            transition: all 0.3s ease;
+            opacity: 0; /* מוסתר בהתחלה */
+        }
+        .save-status.typing { opacity: 1; color: #f39c12; }
+        .save-status.saving { opacity: 1; color: #3498db; }
+        .save-status.saved { opacity: 1; color: #27ae60; background: #e8f5e9;}
+        .save-status.error { opacity: 1; color: #e74c3c; background: #ffebee;}
+        
+        .student-details {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 20px;
+        }
+
+        input[type="text"], input[type="email"], textarea {
+            font-family: 'Rubik', sans-serif;
+            width: 100%;
+            padding: 12px;
+            border: var(--border-thick);
+            border-radius: 8px;
+            box-shadow: 2px 2px 0px #000;
+            font-size: 1rem;
+            box-sizing: border-box;
+            outline: none;
+            transition: 0.2s;
+            resize: none;
+            overflow: hidden;
+        }
+
+        input:focus, textarea:focus {
+            box-shadow: 4px 4px 0px #000;
+            transform: translate(-2px, -2px);
+        }
+
+        .student-details input {
+            max-width: 300px;
+        }
+
+        /* Buttons */
+        .btn {
+            font-family: 'Rubik', sans-serif;
+            display: inline-block;
+            padding: 12px 24px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: #000;
+            background-color: #fff;
+            border: var(--border-thick);
+            box-shadow: var(--shadow-hard);
+            border-radius: 8px;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.1s;
+        }
+
+        .btn:active {
+            transform: translate(4px, 4px);
+            box-shadow: 0px 0px 0px #000;
+        }
+
+        .btn-link { background-color: #e0e0e0; margin-bottom: 20px;}
+        .btn-save { background-color: #ffeb3b; }
+        .btn-submit { background-color: #4caf50; }
+        .btn-glossary { background-color: #ce93d8; display: block; width: max-content; margin: 20px auto 0 auto;}
+
+        /* Sections */
+        .part-a { background-color: var(--bg-part-a); }
+        .part-b { background-color: var(--bg-part-b); }
+        .part-c { background-color: var(--bg-part-c); }
+
+        /* Concept Cards */
+        .concepts-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        @media(max-width: 768px) {
+            .concepts-grid { grid-template-columns: 1fr; }
+            .student-details { flex-direction: column; align-items: center; }
+            .save-status { position: static; display: inline-block; margin-bottom: 15px; }
+        }
+
+        .concept-card {
+            border: var(--border-thick);
+            box-shadow: var(--shadow-hard);
+            border-radius: 12px;
+            padding: 20px;
+        }
+
+        .concept-card h3 {
+            border-bottom: 2px solid rgba(0,0,0,0.2);
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+        }
+
+        .concept-card .question { margin-bottom: 15px; }
+        .concept-card label { display: block; font-weight: bold; margin-bottom: 5px; font-size: 0.95rem;}
+
+        /* Accordion */
+        .accordion {
+            border: var(--border-thick);
+            box-shadow: 2px 2px 0px #000;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            background: #fff;
+            overflow: hidden;
+        }
+        .accordion-header {
+            padding: 15px;
+            font-weight: bold;
+            cursor: pointer;
+            background-color: #f5f5f5;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .accordion-content {
+            padding: 0 15px;
+            max-height: 0;
+            transition: max-height 0.3s ease-out, padding 0.3s ease;
+            background-color: #fff;
+            font-size: 0.95rem;
+            line-height: 1.5;
+        }
+        .accordion.active .accordion-content {
+            padding: 15px;
+            max-height: 500px;
+            border-top: 2px solid #000;
+        }
+
+        /* Dilemma Tables */
+        .dilemma-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 25px;
+            border: var(--border-thick);
+            background: #fff;
+        }
+        .dilemma-table th, .dilemma-table td {
+            border: 2px solid #000;
+            padding: 15px;
+            vertical-align: top;
+            width: 50%;
+        }
+        .dilemma-table th { background-color: #eeeeee; font-size: 1.1rem; text-align: center;}
+        
+        .field-profit { background-color: var(--profit-bg); padding: 10px; border-radius: 8px; border: 2px solid #000; margin-top: 10px;}
+        .field-price { background-color: var(--price-bg); padding: 10px; border-radius: 8px; border: 2px solid #000; margin-top: 10px;}
+        
+        .field-label { font-weight: bold; margin-bottom: 8px; display: block;}
+
+        .dilemma-q { margin-bottom: 20px; }
+        .dilemma-q label { font-weight: bold; font-size: 1.1rem; display: block; margin-bottom: 8px; }
+
+        /* Footer */
+        .footer-actions {
+            text-align: center;
+            padding: 30px;
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        /* Locked State */
+        .locked input, .locked textarea {
+            background-color: #e0e0e0 !important;
+            color: #555 !important;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+
+    <div class="retro-box header-section">
+        <div id="saveStatus" class="save-status">נטען...</div>
+        <a href="#" target="_blank" class="btn btn-link">חזרה לחומר הלימוד</a>
+        <h1>דף עבודה מסכם: האם על המדינה לממן שידור ציבורי?</h1>
+        
+        <div class="student-details">
+            <input type="text" id="studentName" placeholder="שם התלמיד/ה המלא">
+            <input type="email" id="studentEmail" placeholder="כתובת אימייל">
+        </div>
+    </div>
+
+    <div class="retro-box part-a">
+        <h2>חלק א': מושגי מפתח</h2>
+        <p>הסבירו את המושגים הבאים מתוך השיעור והדגימו את יישומם בנושא השידור הציבורי.</p>
+        
+        <div class="concepts-grid">
+            <div class="concept-card" style="background-color: var(--card-1);">
+                <h3>שידור ציבורי</h3>
+                <div class="question">
+                    <label>הסבר המושג במילים שלך:</label>
+                    <textarea id="concept_1_explain" placeholder="כתבו כאן את ההסבר..."></textarea>
+                </div>
+                <div class="question">
+                    <label>כיצד המושג בא לידי ביטוי בסוגיית השידור הציבורי מול המסחרי?</label>
+                    <textarea id="concept_1_apply" placeholder="כתבו כאן את היישום..."></textarea>
+                </div>
+            </div>
+
+            <div class="concept-card" style="background-color: var(--card-2);">
+                <h3>תקשורת מסחרית</h3>
+                <div class="question">
+                    <label>הסבר המושג במילים שלך:</label>
+                    <textarea id="concept_2_explain" placeholder="כתבו כאן את ההסבר..."></textarea>
+                </div>
+                <div class="question">
+                    <label>כיצד המושג בא לידי ביטוי בסוגיית השידור הציבורי מול המסחרי?</label>
+                    <textarea id="concept_2_apply" placeholder="כתבו כאן את היישום..."></textarea>
+                </div>
+            </div>
+
+            <div class="concept-card" style="background-color: var(--card-3);">
+                <h3>הון-שלטון-עיתון</h3>
+                <div class="question">
+                    <label>הסבר המושג במילים שלך:</label>
+                    <textarea id="concept_3_explain" placeholder="כתבו כאן את ההסבר..."></textarea>
+                </div>
+                <div class="question">
+                    <label>כיצד המושג בא לידי ביטוי בסוגיית השידור הציבורי מול המסחרי?</label>
+                    <textarea id="concept_3_apply" placeholder="כתבו כאן את היישום..."></textarea>
+                </div>
+            </div>
+
+            <div class="concept-card" style="background-color: var(--card-4);">
+                <h3>חופש העיתונות</h3>
+                <div class="question">
+                    <label>הסבר המושג במילים שלך:</label>
+                    <textarea id="concept_4_explain" placeholder="כתבו כאן את ההסבר..."></textarea>
+                </div>
+                <div class="question">
+                    <label>כיצד המושג בא לידי ביטוי בסוגיית השידור הציבורי מול המסחרי?</label>
+                    <textarea id="concept_4_apply" placeholder="כתבו כאן את היישום..."></textarea>
+                </div>
+            </div>
+        </div>
+
+        <a href="https://hakolbakaf.co.il/agron/index.html" target="_blank" class="btn btn-glossary">לאגרון המושגים המלא</a>
+    </div>
+
+    <div class="retro-box part-b">
+        <h2>חלק ב': דילמה מקצועית</h2>
+        
+        <div class="accordion" onclick="toggleAccordion(this)">
+            <div class="accordion-header">
+                <span>מה ההבדל בין דילמה מקצועית לדילמה אישית?</span>
+                <span>▼</span>
+            </div>
+            <div class="accordion-content">
+                <p>דילמה תקשורתית-מקצועית היא דילמה שעומדת בפני אנשי התקשורת. אינך פועל עדיין בשדה התקשורתי ועליך לדמות את השיקולים שעומדים בפני אנשי התקשורת (האם לשדר תכנים מסוג מסוים או לא? מה היתרונות והמחירים בכל אפשרות?).</p>
+                <p>דילמה אישית היא דילמה שניצבת בפניך, בחיי היום יום שלך: האם להעביר ברשת תכנים מסוג א' או לא? מה המחירים והיתרונות בכל אפשרות? כיצד להציג את עצמך ברשת: מה היתרונות ומה המחירים בכל אפשרות וכן הלאה.</p>
+                <p>במילים אחרות, עלינו להדגיש את שיקולי הרווח והמחיר שאתה עתיד לשלם בעצמך.<br>
+                לשם כך אנו מעבירים את הדגש לעולם התוכן שלך, ומציבים אותך כאיש תקשורת שמייצר ומעביר תכנים (ולא רק צרכן פסיבי). במקום ייצוג בקולנוע, נשאל על ייצוג ברשת החברתית, בעמוד האינסטגרם שלך; במקום עידוד תופעות על ידי עיצוב על ידי אנשי תקשורת, עידוד תופעות על ידי צריכה והפצת תכנים ברשתות החברתיות וכן הלאה.</p>
+            </div>
+        </div>
+
+        <div class="dilemma-q">
+            <label>הצגת הדילמה (תיאור ההתנגשות):</label>
+            <textarea id="prof_dilemma_desc" placeholder="תארו כאן את הדילמה וההתנגשות בין הערכים..."></textarea>
+        </div>
+
+        <table class="dilemma-table">
+            <thead>
+                <tr>
+                    <th>אפשרות פעולה 1</th>
+                    <th>אפשרות פעולה 2</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>
+                        <label class="field-label">מהי הפעולה?</label>
+                        <textarea id="prof_act1_desc" placeholder="תארו את אפשרות הפעולה הראשונה..."></textarea>
+                        
+                        <div class="field-profit">
+                            <label class="field-label">רווח:</label>
+                            <textarea id="prof_act1_profit" placeholder="מהו הערך או ההישג שנרוויח מפעולה זו?"></textarea>
+                        </div>
+                        
+                        <div class="field-price">
+                            <label class="field-label">מחיר:</label>
+                            <textarea id="prof_act1_price" placeholder="על איזה ערך נאלץ לוותר או איזה נזק ייגרם?"></textarea>
+                        </div>
+                    </td>
+                    <td>
+                        <label class="field-label">מהי הפעולה?</label>
+                        <textarea id="prof_act2_desc" placeholder="תארו את אפשרות הפעולה השנייה..."></textarea>
+                        
+                        <div class="field-profit">
+                            <label class="field-label">רווח:</label>
+                            <textarea id="prof_act2_profit" placeholder="מהו הערך או ההישג שנרוויח מפעולה זו?"></textarea>
+                        </div>
+                        
+                        <div class="field-price">
+                            <label class="field-label">מחיר:</label>
+                            <textarea id="prof_act2_price" placeholder="על איזה ערך נאלץ לוותר או איזה נזק ייגרם?"></textarea>
+                        </div>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="accordion" onclick="toggleAccordion(this)">
+            <div class="accordion-header">
+                <span>מה ההבדל בין הכרעה לפתרון?</span>
+                <span>▼</span>
+            </div>
+            <div class="accordion-content">
+                <p><strong>הכרעה:</strong> הכרעת התלמידים בין הפתרונות המוצעים בדילמה שהציגו. בדרך כלל זה 'או-או': איזה מבין שני הפתרונות אני מעדיף ומדוע.</p>
+                <p><strong>פתרון:</strong> הצעת פתרון הבעיה/הנושא הקונקרטי של העבודה. רמה יותר מעשית: איזה פתרון בשטח אני מציע לבעיה שהצגתי בנושא העבודה. זה לא מחייב 'או או', אלא מאפשר לשלב 'גם וגם' או להציע פתרון יצירתי אחר.</p>
+            </div>
+        </div>
+
+        <div class="dilemma-q">
+            <label>הכרעה מנומקת:</label>
+            <textarea id="prof_decision" placeholder="באיזו משתי האפשרויות אתם בוחרים ומדוע? נמקו את בחירתכם."></textarea>
+        </div>
+        <div class="dilemma-q">
+            <label>יישום פתרון מעשי:</label>
+            <textarea id="prof_solution" placeholder="הציעו פתרון מעשי בשטח לסוגיה. אפשר לשלב בין האפשרויות או להציע פתרון יצירתי חדש."></textarea>
+        </div>
+    </div>
+
+    <div class="retro-box part-c">
+        <h2>חלק ג': דילמה אישית (עולם התוכן שלכם)</h2>
+        
+        <div class="dilemma-q">
+            <label>הצגת הדילמה (תיאור ההתנגשות מחיי היום יום שלכם ברשת):</label>
+            <textarea id="pers_dilemma_desc" placeholder="תארו כאן את הדילמה האישית וההתנגשות בין הערכים מנקודת המבט שלכם כיצרני/צרכני תוכן..."></textarea>
+        </div>
+
+        <table class="dilemma-table">
+            <thead>
+                <tr>
+                    <th>אפשרות פעולה 1</th>
+                    <th>אפשרות פעולה 2</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>
+                        <label class="field-label">מהי הפעולה (שלכם)?</label>
+                        <textarea id="pers_act1_desc" placeholder="תארו את אפשרות הפעולה הראשונה..."></textarea>
+                        
+                        <div class="field-profit">
+                            <label class="field-label">רווח אישי:</label>
+                            <textarea id="pers_act1_profit" placeholder="מהו הערך או ההישג שתרוויחו מפעולה זו?"></textarea>
+                        </div>
+                        
+                        <div class="field-price">
+                            <label class="field-label">מחיר אישי:</label>
+                            <textarea id="pers_act1_price" placeholder="על איזה ערך תאלצו לוותר או איזה נזק ייגרם לכם/לסביבתכם?"></textarea>
+                        </div>
+                    </td>
+                    <td>
+                        <label class="field-label">מהי הפעולה (שלכם)?</label>
+                        <textarea id="pers_act2_desc" placeholder="תארו את אפשרות הפעולה השנייה..."></textarea>
+                        
+                        <div class="field-profit">
+                            <label class="field-label">רווח אישי:</label>
+                            <textarea id="pers_act2_profit" placeholder="מהו הערך או ההישג שתרוויחו מפעולה זו?"></textarea>
+                        </div>
+                        
+                        <div class="field-price">
+                            <label class="field-label">מחיר אישי:</label>
+                            <textarea id="pers_act2_price" placeholder="על איזה ערך תאלצו לוותר או איזה נזק ייגרם לכם/לסביבתכם?"></textarea>
+                        </div>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+
+        <div class="accordion" onclick="toggleAccordion(this)">
+            <div class="accordion-header">
+                <span>מה ההבדל בין הכרעה לפתרון?</span>
+                <span>▼</span>
+            </div>
+            <div class="accordion-content">
+                <p><strong>הכרעה:</strong> הכרעת התלמידים בין הפתרונות המוצעים בדילמה שהציגו. בדרך כלל זה 'או-או': איזה מבין שני הפתרונות אני מעדיף ומדוע.</p>
+                <p><strong>פתרון:</strong> הצעת פתרון הבעיה/הנושא הקונקרטי של העבודה. רמה יותר מעשית: איזה פתרון בשטח אני מציע לבעיה שהצגתי בנושא העבודה. זה לא מחייב 'או או', אלא מאפשר לשלב 'גם וגם' או להציע פתרון יצירתי אחר.</p>
+            </div>
+        </div>
+
+        <div class="dilemma-q">
+            <label>הכרעה מנומקת (ברמה האישית):</label>
+            <textarea id="pers_decision" placeholder="באיזו אפשרות אתם בוחרים לפעול ברמה האישית ומדוע?"></textarea>
+        </div>
+        <div class="dilemma-q">
+            <label>יישום פתרון מעשי (ברמה האישית):</label>
+            <textarea id="pers_solution" placeholder="הציעו פתרון מעשי ליישום הדילמה בחיים האישיים שלכם (ברשתות/בצריכת תוכן)."></textarea>
+        </div>
+    </div>
+
+    <div class="footer-actions">
+        <button class="btn btn-save" onclick="manualSave()">☁️ שמירה גיבוי בענן</button>
+        <button class="btn btn-submit" onclick="submitWork()">🎓 סיום והגשה למורה (קובץ נעול)</button>
+    </div>
+
+</div>
+
+<script>
+    // ==========================================
+    // 1. הגדרות Firebase
+    // ==========================================
+    const firebaseConfig = {
+        apiKey: "AIzaSyDOlw3s8moJOTY-UcLBt6L-uQHHxrudj-I",
+        authDomain: "matalot-c5b27.firebaseapp.com",
+        databaseURL: "https://matalot-c5b27-default-rtdb.europe-west1.firebasedatabase.app",
+        projectId: "matalot-c5b27",
+    };
+    
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    // ==========================================
+    // 2. קליטת פרמטרים מה-URL
+    // ==========================================
+    const urlParams = new URLSearchParams(window.location.search);
+    const studentId = urlParams.get('studentId') || 'guest_student';
+    const assignmentId = urlParams.get('assignmentId') || 'public_broadcasting_task';
+    const studentNameFromUrl = urlParams.get('studentName') || '';
+    const studentClassFromUrl = urlParams.get('studentClass') || '';
+    
+    // מפתח השמירה הייחודי בדאטה בייס
+    const dbPath = `submissions/${studentId}_${assignmentId}/fields/`;
+
+    // אכלוס נתונים ראשוניים אם יש ב-URL
+    if (studentNameFromUrl) {
+        document.getElementById('studentName').value = studentNameFromUrl;
+    }
+
+    // ==========================================
+    // 3. לוגיקת טעינה ושמירה בענן
+    // ==========================================
+    const statusEl = document.getElementById('saveStatus');
+    let typingTimer;
+    
+    // טעינת הנתונים בפתיחת הדף
+    function loadData() {
+        db.ref(dbPath).once('value', snapshot => {
+            if (snapshot.exists()) {
+                const data = snapshot.val();
+                for (let key in data) {
+                    const el = document.getElementById(key);
+                    if (el) {
+                        el.value = data[key];
+                        // עדכון גובה התיבה אם זה textarea
+                        if (el.tagName === 'TEXTAREA') {
+                            el.style.height = 'auto';
+                            el.style.height = (el.scrollHeight) + 'px';
+                        }
+                    }
+                }
+                updateStatus('saved', '✅ נתונים נטענו');
+                setTimeout(() => { statusEl.style.opacity = '0'; }, 3000);
+            } else {
+                statusEl.style.opacity = '0';
+            }
+        });
+    }
+
+    // פונקציית שמירה ל-Firebase
+    function saveToCloud(isManual = false) {
+        updateStatus('saving', 'שומר בענן ⏳');
+        
+        let data = {};
+        document.querySelectorAll('input[type="text"], input[type="email"], textarea').forEach(el => {
+            if(el.id) {
+                data[el.id] = el.value;
+            }
+        });
+
+        // שמירת שעת העדכון
+        data.last_updated = new Date().toLocaleString('he-IL');
+
+        db.ref(dbPath).set(data)
+            .then(() => {
+                updateStatus('saved', '✅ נשמר בענן');
+                if (isManual) alert("העבודה נשמרה בהצלחה בענן!");
+                setTimeout(() => { statusEl.style.opacity = '0'; }, 3000);
+            })
+            .catch(error => {
+                updateStatus('error', '❌ שגיאה בשמירה');
+                console.error(error);
+            });
+    }
+
+    // עדכון סטטוס ב-UI
+    function updateStatus(state, text) {
+        statusEl.textContent = text;
+        statusEl.className = `save-status ${state}`;
+    }
+
+    // שמירה יזומה מהכפתור
+    function manualSave() {
+        saveToCloud(true);
+    }
+
+    // ==========================================
+    // 4. אירועי משתמש (Auto-save, Resize, Paste)
+    // ==========================================
+
+    // Auto-resize לתיבות טקסט
+    function autoResize() {
+        this.style.height = 'auto';
+        this.style.height = (this.scrollHeight) + 'px';
+    }
+
+    document.querySelectorAll('input, textarea').forEach(el => {
+        // האזנה להקלדה
+        el.addEventListener('input', function() {
+            if (this.tagName === 'TEXTAREA') autoResize.call(this);
+            
+            updateStatus('typing', 'מקליד/ה...');
+            clearTimeout(typingTimer);
+            
+            // שמירה 3 שניות אחרי הפסקת הקלדה
+            typingTimer = setTimeout(() => saveToCloud(false), 3000);
+        });
+
+        // ביטול הדבקה
+        el.addEventListener('paste', e => {
+            e.preventDefault();
+            alert('הדבקה חסומה! מטרת העבודה היא ניסוח עצמי והקלדה.');
+        });
+        
+        // התאמת גובה התחלתית
+        if (el.tagName === 'TEXTAREA') {
+            el.style.height = (el.scrollHeight) + 'px';
+        }
+    });
+
+    // שמירה אוטומטית כגיבוי כל 45 שניות
+    setInterval(() => saveToCloud(false), 45000);
+
+    // ==========================================
+    // 5. ניווט ותצוגה
+    // ==========================================
+
+    // אקורדיון מתקפל
+    function toggleAccordion(element) {
+        element.classList.toggle('active');
+        const headerArrow = element.querySelector('.accordion-header span:last-child');
+        if (element.classList.contains('active')) {
+            headerArrow.textContent = '▲';
+        } else {
+            headerArrow.textContent = '▼';
+        }
+    }
+
+    // הגשה סופית
+    function submitWork() {
+        const studentName = document.getElementById('studentName').value.trim();
+        if (!studentName) {
+            alert('חובה למלא שם תלמיד/ה לפני הגשה!');
+            document.getElementById('studentName').focus();
+            return;
+        }
+
+        if (confirm('האם אתם בטוחים שברצונכם להגיש? פעולה זו תשמור סופית ותנעל את הקובץ לעריכה.')) {
+            // נעילת הממשק
+            document.body.classList.add('locked');
+            document.querySelectorAll('input, textarea').forEach(el => {
+                el.setAttribute('disabled', 'true');
+            });
+            document.querySelector('.footer-actions').style.display = 'none';
+            
+            // הוספת סטטוס "הוגש"
+            db.ref(`submissions/${studentId}_${assignmentId}/status`).set('submitted');
+            
+            // שמירה סופית בענן
+            saveToCloud(false);
+            
+            alert('העבודה הוגשה בהצלחה ונשמרה בענן של המורה!');
+        }
+    }
+
+    // קריאה לטעינת נתונים כשהדף עולה
+    window.onload = loadData;
+
+</script>
+
+</body>
+</html>
