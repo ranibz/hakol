@@ -92,7 +92,8 @@
         .admin-actions { display: flex; gap: 10px; margin-bottom: 25px; }
         .btn-reset { background: var(--danger); color: white; border: none; padding: 12px 10px; border-radius: 10px; cursor: pointer; font-weight: bold; flex: 1; font-size: 1rem; display: flex; align-items: center; justify-content: center; gap: 8px; transition: 0.2s;}
         .btn-demo-scenario { background: #e67e22; color: white; border: none; padding: 12px 10px; border-radius: 10px; cursor: pointer; font-weight: bold; flex: 1; font-size: 1rem; display: flex; align-items: center; justify-content: center; gap: 8px; transition: 0.2s;}
-        .btn-reset:hover, .btn-demo-scenario:hover { transform: scale(0.98); }
+        .btn-reset:hover, .btn-demo-scenario:hover, .btn-export:hover { transform: scale(0.98); }
+        .btn-export { background: #2980b9; color: white; border: none; padding: 12px 10px; border-radius: 10px; cursor: pointer; font-weight: bold; flex: 1; font-size: 1rem; display: flex; align-items: center; justify-content: center; gap: 8px; transition: 0.2s;}
 
         .phone-link { color: #2980b9; text-decoration: none; font-weight: bold; background: #eaf2f8; padding: 5px 10px; border-radius: 5px; font-size: 1rem; display: inline-block;}
         .phone-link:hover { background: #3498db; color: white;}
@@ -174,12 +175,15 @@
 
         <div id="screen-admin" class="screen">
             
-            <div class="admin-actions">
+            <div class="admin-actions" style="flex-wrap: wrap;">
                 <button class="btn-reset" onclick="resetDrill()">
                     <span class="material-icons-round">restart_alt</span> איפוס תרגיל
                 </button>
                 <button class="btn-demo-scenario" onclick="generateDemoScenario()">
                     <span class="material-icons-round">shuffle</span> סימולציית מצב (דמו)
+                </button>
+                <button class="btn-export" onclick="exportMissing()">
+                    <span class="material-icons-round">download</span> ייצוא נעדרים
                 </button>
             </div>
             
@@ -601,9 +605,69 @@
             db.ref('emergency_drill/' + studentId).set(reason ? reason : null);
         }
 
+        function exportMissing() {
+            const classesMap = {};
+
+            Object.entries(allStudents).forEach(([id, student]) => {
+                const status = drillStatus[id];
+                const cls = student.class || 'ללא כיתה';
+
+                if (status !== 'present') {
+                    if (!classesMap[cls]) classesMap[cls] = [];
+                    let statusText = 'טרם אותר';
+                    if (status === 'found') statusText = 'תלמיד אותר';
+                    else if (status === 'absent_today') statusText = 'לא הגיע לביה"ס';
+                    else if (status === 'left_early') statusText = 'יצא מוקדם / רפואי';
+                    
+                    classesMap[cls].push({
+                        name: student.name,
+                        id: id,
+                        phone: student.phone || '',
+                        status: statusText
+                    });
+                }
+            });
+
+            const sortedClasses = Object.keys(classesMap).sort();
+
+            if (sortedClasses.length === 0) {
+                alert("אין נעדרים לייצוא - כל התלמידים נוכחים! 🎉");
+                return;
+            }
+
+            // יצירת נתונים לאקסל
+            const wsData = [['כיתה', 'שם התלמיד', 'ת.ז', 'טלפון', 'סטטוס']];
+            sortedClasses.forEach(cls => {
+                classesMap[cls].sort((a, b) => a.name.localeCompare(b.name));
+                classesMap[cls].forEach(s => {
+                    wsData.push([cls, s.name, s.id, s.phone, s.status]);
+                });
+            });
+
+            const wb = XLSX.utils.book_new();
+            const ws = XLSX.utils.aoa_to_sheet(wsData);
+            
+            // רוחב עמודות
+            ws['!cols'] = [
+                { wch: 10 }, { wch: 25 }, { wch: 12 }, { wch: 15 }, { wch: 20 }
+            ];
+
+            XLSX.utils.book_append_sheet(wb, ws, 'נעדרים');
+            
+            const now = new Date();
+            const dateStr = now.toLocaleDateString('he-IL').replace(/\./g, '-');
+            const timeStr = now.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' }).replace(':', '-');
+            XLSX.writeFile(wb, `נעדרים_${dateStr}_${timeStr}.xlsx`);
+        }
+
         function resetDrill() {
             const pass = prompt("הזן סיסמה לביצוע פעולה:");
             if (pass !== '1234') { alert("❌ סיסמה שגויה!"); return; }
+
+            // הצעה לייצא נעדרים לפני האיפוס
+            if (confirm("💾 האם לייצא את רשימת הנעדרים לפני האיפוס?")) {
+                exportMissing();
+            }
 
             if(confirm("⚠️ אזהרה: פעולה זו תמחק את כל נתוני הנוכחות ותאפס את המערכת. האם להמשיך?")) {
                 db.ref('emergency_drill').remove()
