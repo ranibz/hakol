@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>מערכת חירום ונוכחות - בית חינוך גליל מערבי</title>
+    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+    
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    
+    <style>
+        :root {
+            --primary: #2c3e50;
+            --success: #27ae60;
+            --danger: #c0392b;
+            --warning: #f39c12;
+            --bg: #ecf0f1;
+            --white: #ffffff;
+        }
+        
+        * { box-sizing: border-box; font-family: 'Rubik', sans-serif; -webkit-tap-highlight-color: transparent; }
+        body { margin: 0; padding: 0; background-color: var(--bg); color: #333; }
+        
+        .header { background: var(--primary); color: var(--white); padding: 15px 20px; display: flex; justify-content: center; align-items: center; position: sticky; top: 0; z-index: 100; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+        .header-titles { display: flex; flex-direction: column; align-items: center; text-align: center; }
+        .header h1 { margin: 0; font-size: 1.4rem; font-weight: 900; }
+        .header-credit { font-size: 1.05rem; font-weight: 700; color: #00cec9; margin-top: 5px; text-shadow: 1px 1px 2px rgba(0,0,0,0.3); }
+        
+        #userInfo { position: absolute; left: 15px; display: flex; align-items: center; gap: 10px; }
+        .btn-logout { background: rgba(255,255,255,0.2); border: none; color: white; padding: 8px 16px; border-radius: 20px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        .btn-logout:hover { background: rgba(255,255,255,0.35); }
+
+        @media (max-width: 600px) {
+            .header h1 { font-size: 1.15rem; }
+            .header-credit { font-size: 0.9rem; }
+            #userName { display: none; }
+            #userInfo { left: 10px; }
+        }
+
+        .container { padding: 20px; max-width: 800px; margin: 0 auto; }
+        
+        .screen { display: none; animation: fadeIn 0.3s ease; }
+        .screen.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .login-box { background: var(--white); padding: 30px; border-radius: 15px; text-align: center; box-shadow: 0 5px 15px rgba(0,0,0,0.05); margin-top: 50px; }
+        .role-btn { width: 100%; padding: 18px; margin: 10px 0; border: none; border-radius: 10px; font-size: 1.2rem; font-weight: 700; cursor: pointer; color: white; display: flex; align-items: center; justify-content: center; gap: 10px; transition: transform 0.2s; }
+        .role-btn:active { transform: scale(0.98); }
+        .btn-teacher { background: #3498db; }
+        .btn-admin { background: #9b59b6; }
+        .role-note { font-size: 0.9rem; color: #7f8c8d; margin: 0 0 10px 0; text-align: right; padding: 0 5px; line-height: 1.5; }
+
+        .class-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 15px; }
+        .class-card { background: var(--white); padding: 25px 10px; border-radius: 12px; text-align: center; cursor: pointer; font-weight: 900; font-size: 1.4rem; box-shadow: 0 3px 6px rgba(0,0,0,0.05); transition: 0.2s; color: var(--primary); border: 2px solid transparent; border-right-width: 8px;}
+        .class-card:hover, .class-card:active { background: #f8f9fa; transform: translateY(-3px); }
+
+        .student-row { display: flex; justify-content: space-between; align-items: center; background: var(--white); padding: 15px; border-radius: 10px; margin-bottom: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.02); border-right: 5px solid #bdc3c7; transition: background 0.3s; }
+        .student-row.present { border-right-color: var(--success); background: #e8f8f5; }
+        .student-info { display: flex; flex-direction: column; gap: 4px;}
+        .student-name { font-weight: 700; font-size: 1.15rem; }
+        .student-class { font-size: 0.85rem; color: #7f8c8d; }
+        
+        .btn-mark { padding: 12px 25px; border: none; border-radius: 25px; font-weight: 700; cursor: pointer; font-size: 1rem; transition: 0.3s; min-width: 120px; }
+        .btn-mark.missing { background: #f0f3f4; color: #7f8c8d; border: 1px solid #bdc3c7; }
+        .btn-mark.present { background: var(--success); color: white; box-shadow: 0 4px 15px rgba(39,174,96,0.4); }
+
+        .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
+        .stat-box { background: white; padding: 15px 10px; border-radius: 12px; text-align: center; box-shadow: 0 3px 10px rgba(0,0,0,0.05); }
+        .stat-num { font-size: 2.2rem; font-weight: 900; margin-bottom: 5px; }
+        
+        .admin-class-group { margin-bottom: 10px; }
+        .admin-class-header { background: white; padding: 18px 20px; border-radius: 10px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.05); border-right: 8px solid; transition: background 0.2s;}
+        .admin-class-header:active { background: #f0f3f4; }
+        .admin-class-body { display: none; padding: 15px 5px 5px 5px; animation: fadeIn 0.3s ease; }
+        .admin-class-body.active { display: block; }
+        
+        .status-light { display: flex; align-items: center; gap: 8px; font-weight: bold; font-size: 1rem; background: #f8f9fa; padding: 5px 12px; border-radius: 20px;}
+        .light-red { color: var(--danger); border: 1px solid #f2d7d5; }
+        .light-green { color: var(--success); border: 1px solid #d4efdf; }
+        .dot { height: 14px; width: 14px; border-radius: 50%; display: inline-block; }
+        .dot.red { background-color: var(--danger); animation: pulseRed 1.2s infinite; }
+        @keyframes pulseRed { 0% { box-shadow: 0 0 0 0 rgba(192, 57, 43, 0.7); } 70% { box-shadow: 0 0 0 8px rgba(192, 57, 43, 0); } 100% { box-shadow: 0 0 0 0 rgba(192, 57, 43, 0); } }
+
+        .admin-student-row { background: white; padding: 15px; border-radius: 10px; margin-bottom: 10px; border-right: 5px solid var(--danger); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.05);}
+        .admin-student-row.handled { border-right-color: var(--warning); opacity: 0.6; background: #fdfefe; }
+        select.status-select { padding: 8px 12px; border-radius: 8px; border: 1px solid #ccc; font-family: inherit; font-size: 0.95rem; background: #f9f9f9; font-weight: 600; width: 100%; max-width: 250px; }
+        .status-select.handled { background: #fef9e7; color: #b9770e; border-color: #f1c40f; }
+
+        .admin-actions { display: flex; gap: 10px; margin-bottom: 25px; }
+        .btn-reset { background: var(--danger); color: white; border: none; padding: 12px 10px; border-radius: 10px; cursor: pointer; font-weight: bold; flex: 1; font-size: 1rem; display: flex; align-items: center; justify-content: center; gap: 8px; transition: 0.2s;}
+        .btn-demo-scenario { background: #e67e22; color: white; border: none; padding: 12px 10px; border-radius: 10px; cursor: pointer; font-weight: bold; flex: 1; font-size: 1rem; display: flex; align-items: center; justify-content: center; gap: 8px; transition: 0.2s;}
+        .btn-reset:hover, .btn-demo-scenario:hover { transform: scale(0.98); }
+
+        .phone-link { color: #2980b9; text-decoration: none; font-weight: bold; background: #eaf2f8; padding: 5px 10px; border-radius: 5px; font-size: 1rem; display: inline-block;}
+        .phone-link:hover { background: #3498db; color: white;}
+        .btn-back { background: none; border: none; color: #3498db; font-weight: bold; font-size: 1.1rem; cursor: pointer; margin-bottom: 20px; display: flex; align-items: center; padding: 0; }
+        
+        .toggle-excel-btn { display: inline-block; margin-top: 25px; font-size: 0.9rem; color: #7f8c8d; text-decoration: underline; cursor: pointer; }
+        .excel-upload-zone { display: none; margin-top: 15px; padding: 20px; background: #f8f9fa; border: 2px dashed #bdc3c7; border-radius: 10px; text-align: center; }
+        .excel-upload-zone input[type="file"] { display: none; }
+        .btn-excel { background: #27ae60; color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 1rem; display: inline-flex; align-items: center; gap: 8px; }
+
+        .class-attendance-info { font-size: 0.85rem; font-weight: 500; color: #7f8c8d; margin-top: 4px; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <div class="header-titles">
+            <h1>🚨 חירום - בית חינוך גליל מערבי</h1>
+            <span class="header-credit">פיתוח אפליקציה - רני בן זאב</span>
+        </div>
+        <div id="userInfo" style="display:none;">
+            <span id="userName" style="font-size:0.95rem; font-weight: 500;"></span>
+            <button class="btn-logout" onclick="logout()">יציאה</button>
+        </div>
+    </div>
+
+    <div class="container">
+        
+        <div id="screen-login" class="screen active">
+            <div class="login-box">
+                <span class="material-icons-round" style="font-size: 60px; color: var(--danger); margin-bottom: 15px;">campaign</span>
+                <h2 style="margin-top: 0; font-size: 1.8rem; color: var(--primary);">מערכת דיווח נוכחות</h2>
+                <p style="color: #7f8c8d; margin-bottom: 30px; font-size: 1.1rem;">בחר את תפקידך בכוח:</p>
+                
+                <button class="role-btn btn-teacher" onclick="login('teacher')">
+                    <span class="material-icons-round">groups</span> כניסת מחנך/ת כיתה
+                </button>
+                <p class="role-note">על מחנך הכיתה להיכנס ולדווח מי מהתלמידים נוכח במקום הכינוס</p>
+                
+                <button class="role-btn btn-admin" onclick="login('admin')">
+                    <span class="material-icons-round">admin_panel_settings</span> עדכון מצב הנעדרים
+                </button>
+                <p class="role-note">לאחר סימון הנוכחות להיכנס לכאן על מנת לתת פרטים נוספים על התלמידים הנעדרים</p>
+                
+                <div class="toggle-excel-btn" onclick="document.getElementById('excelZone').style.display='block'; this.style.display='none';">
+                    ⚙️ הגדרות: עדכון מצבת תלמידים (Excel)
+                </div>
+
+                <div class="excel-upload-zone" id="excelZone">
+                    <h3 style="margin-top:0; font-size: 1.1rem; color: #555;">העלאת נתוני בית ספר</h3>
+                    <p style="font-size: 0.85rem; color: #777;">העלה קובץ Excel. המערכת תסרוק אוטומטית למציאת העמודות: ת.ז, שם התלמיד, שכבה, מקבילה, סוללרי.</p>
+                    <input type="file" id="excelFile" accept=".xlsx, .xls" onchange="handleExcelUpload(event)">
+                    <button class="btn-excel" onclick="document.getElementById('excelFile').click()">
+                        <span class="material-icons-round">upload_file</span> בחר קובץ אקסל
+                    </button>
+                    <div id="uploadStatus" style="margin-top: 10px; font-weight: bold; font-size: 0.9rem;"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="screen-teacher-lobby" class="screen">
+            <h2 style="margin-bottom: 5px; color: var(--primary); font-size: 1.5rem;">בחר כיתה לדיווח:</h2>
+            <p style="color: #7f8c8d; font-size: 1rem; margin-bottom: 25px;">יש לוודא שכל תלמיד שנמצא פיזית בנקודת הכינוס מסומן כנוכח.</p>
+            <div class="class-grid" id="classGrid"></div>
+        </div>
+
+        <div id="screen-teacher-class" class="screen">
+            <button class="btn-back" onclick="showScreen('screen-teacher-lobby')">
+                <span class="material-icons-round">arrow_forward</span> חזור לרשימת הכיתות
+            </button>
+            
+            <div style="background: white; padding: 15px 20px; border-radius: 10px; margin-bottom: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center; border-right: 8px solid var(--primary);" id="classHeaderColor">
+                <h2 id="currentClassTitle" style="margin: 0; color: var(--primary);">כיתה</h2>
+                <div style="background: #e8f8f5; color: var(--success); padding: 5px 12px; border-radius: 20px; font-weight: bold;" id="classProgress">0/0 נוכחים</div>
+            </div>
+
+            <div id="classStudentsList"></div>
+        </div>
+
+        <div id="screen-admin" class="screen">
+            
+            <div class="admin-actions">
+                <button class="btn-reset" onclick="resetDrill()">
+                    <span class="material-icons-round">restart_alt</span> איפוס תרגיל
+                </button>
+                <button class="btn-demo-scenario" onclick="generateDemoScenario()">
+                    <span class="material-icons-round">shuffle</span> סימולציית מצב (דמו)
+                </button>
+            </div>
+            
+            <div class="stats-grid">
+                <div class="stat-box" style="border-bottom: 5px solid var(--primary);">
+                    <div class="stat-num" id="statTotal" style="color: var(--primary);">0</div>
+                    <div style="font-size: 0.9rem; font-weight: 500;">סה"כ תלמידים</div>
+                </div>
+                <div class="stat-box" style="border-bottom: 5px solid var(--success);">
+                    <div class="stat-num" id="statPresent" style="color: var(--success);">0</div>
+                    <div style="font-size: 0.9rem; font-weight: 500;">דווחו בנקודה</div>
+                </div>
+                <div class="stat-box" style="border-bottom: 5px solid var(--danger); background: #fdedec;">
+                    <div class="stat-num" id="statMissing" style="color: var(--danger);">0</div>
+                    <div style="font-size: 0.9rem; font-weight: 900;">נעדרים - לחפש!</div>
+                </div>
+            </div>
+
+            <h3 style="color: var(--primary); margin-top: 30px; border-bottom: 2px solid #ccc; padding-bottom: 10px;">
+                <span class="material-icons-round" style="vertical-align: middle;">format_list_bulleted</span> פירוט לפי כיתות
+            </h3>
+            
+            <div id="adminMissingList"></div>
+        </div>
+
+    </div>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyD5YP8y_eZxqcZWnqHEC5jjsZvzLNK_MdQ",
+            authDomain: "reida-6aeb8.firebaseapp.com",
+            databaseURL: "https://reida-6aeb8-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "reida-6aeb8",
+            storageBucket: "reida-6aeb8.firebasestorage.app",
+            messagingSenderId: "1052491880659",
+            appId: "1:1052491880659:web:8310165bace19520161c26"
+        };
+        
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        let currentRole = null;
+        let allStudents = {};
+        let drillStatus = {};
+        let activeClass = null;
+        let openAdminClasses = new Set(); 
+
+        function getShichvaColor(clsName) {
+            const name = (clsName || '').trim();
+            if (name.startsWith('ז')) return '#3498db';
+            if (name.startsWith('ח')) return '#9b59b6';
+            if (name.startsWith('ט')) return '#e67e22';
+            if (name.startsWith('יא')) return '#27ae60';
+            if (name.startsWith('יב')) return '#f1c40f';
+            if (name.startsWith('י')) return '#e74c3c';
+            return '#7f8c8d';
+        }
+
+        function generateDemoScenario() {
+            if (Object.keys(allStudents).length === 0) {
+                alert("אין תלמידים במערכת! אנא העלה קובץ אקסל קודם במסך הראשי.");
+                return;
+            }
+
+            const pass = prompt("הזן סיסמה לביצוע פעולה:");
+            if (pass !== '1234') { alert("❌ סיסמה שגויה!"); return; }
+
+            if(!confirm("⚠️ פעולה זו תדרוס את נתוני הנוכחות הנוכחיים ותייצר מצב אקראי לחלוטין (נוכחים, נעדרים וחסרים). להמשיך?")) return;
+
+            let updates = {};
+            
+            Object.keys(allStudents).forEach(id => {
+                const rand = Math.random();
+                if (rand < 0.75) {
+                    updates[id] = 'present'; 
+                } else if (rand < 0.90) {
+                    // נעדר
+                } else if (rand < 0.95) {
+                    updates[id] = 'absent_today'; 
+                } else {
+                    updates[id] = 'left_early'; 
+                }
+            });
+
+            db.ref('emergency_drill').set(updates).then(() => {
+                alert("✅ הדמו הופעל! תמונת מצב אקראית נוצרה.");
+            }).catch(err => alert("שגיאה: " + err.message));
+        }
+
+        function handleExcelUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const statusDiv = document.getElementById('uploadStatus');
+            statusDiv.style.color = 'var(--primary)';
+            statusDiv.textContent = '⏳ סורק את הקובץ ומאתר נתונים...';
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const worksheet = workbook.Sheets[workbook.SheetNames[0]];
+                    const rows = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+                    let headerRowIndex = -1;
+                    let colIndices = { id: -1, name: -1, shihva: -1, classNum: -1, phone: -1 };
+
+                    for (let i = 0; i < Math.min(rows.length, 15); i++) {
+                        const row = rows[i];
+                        if (!row || row.length === 0) continue;
+
+                        let tempId = -1, tempName = -1, tempShihva = -1, tempClassNum = -1, tempPhone = -1;
+
+                        for (let j = 0; j < row.length; j++) {
+                            let cellValue = String(row[j] || '').replace(/\s+/g, '').replace(/[\u200B-\u200D\uFEFF]/g, '').toLowerCase();
+
+                            if (cellValue.includes('ת.ז') || cellValue === 'תז' || cellValue.includes('תזתלמיד') || cellValue === 'id') tempId = j;
+                            else if (cellValue.includes('שםהתלמיד') || cellValue === 'שם' || cellValue.includes('שםמלא')) tempName = j;
+                            else if (cellValue.includes('שכבה')) tempShihva = j;
+                            else if (cellValue.includes('מקבילה') || cellValue.includes('כיתה')) tempClassNum = j;
+                            else if (cellValue.includes('סוללר') || cellValue.includes('סלולר') || cellValue.includes('טלפון') || cellValue.includes('נייד')) tempPhone = j;
+                        }
+
+                        if (tempId !== -1 && tempName !== -1) {
+                            headerRowIndex = i;
+                            colIndices = { id: tempId, name: tempName, shihva: tempShihva, classNum: tempClassNum, phone: tempPhone };
+                            break;
+                        }
+                    }
+
+                    if (headerRowIndex === -1) {
+                        statusDiv.style.color = 'var(--danger)';
+                        statusDiv.textContent = '❌ שגיאה: לא מצאנו את עמודות ה-ת.ז והשם.';
+                        return;
+                    }
+
+                    let updates = {};
+                    let count = 0;
+
+                    for (let i = headerRowIndex + 1; i < rows.length; i++) {
+                        const row = rows[i];
+                        if (!row || row.length === 0) continue;
+
+                        const idVal = row[colIndices.id];
+                        const nameVal = row[colIndices.name];
+
+                        if (idVal && nameVal) {
+                            const shihvaVal = colIndices.shihva !== -1 ? (row[colIndices.shihva] || '') : '';
+                            const classNumVal = colIndices.classNum !== -1 ? (row[colIndices.classNum] || '') : '';
+                            let phoneVal = colIndices.phone !== -1 ? (row[colIndices.phone] || '') : '';
+
+                            const cls = (String(shihvaVal).trim() + ' ' + String(classNumVal).trim()).trim() || 'ללא כיתה';
+                            
+                            let finalPhone = String(phoneVal).trim();
+                            if (finalPhone.length === 9 && !finalPhone.startsWith('0')) {
+                                finalPhone = '0' + finalPhone;
+                            }
+
+                            updates[String(idVal).trim()] = {
+                                name: String(nameVal).trim(),
+                                class: cls,
+                                phone: finalPhone
+                            };
+                            count++;
+                        }
+                    }
+
+                    if (count > 0) {
+                        db.ref('students').set(updates).then(() => {
+                            statusDiv.style.color = 'var(--success)';
+                            statusDiv.textContent = `✅ נוספו/עודכנו ${count} תלמידים בהצלחה!`;
+                            setTimeout(() => { document.getElementById('excelZone').style.display='none'; document.querySelector('.toggle-excel-btn').style.display='inline-block'; }, 3000);
+                        }).catch(err => {
+                            statusDiv.style.color = 'var(--danger)';
+                            statusDiv.textContent = `❌ שגיאה בשמירה: ${err.message}`;
+                        });
+                    }
+                } catch (error) {
+                    statusDiv.style.color = 'var(--danger)';
+                    statusDiv.textContent = '❌ שגיאה פנימית בקריאת הקובץ.';
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        function showScreen(screenId) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById(screenId).classList.add('active');
+        }
+
+        function login(role) {
+            currentRole = role;
+            document.getElementById('userInfo').style.display = 'flex';
+            document.getElementById('userName').textContent = role === 'teacher' ? '👩‍🏫 ממשק מחנך' : '⚙️ עדכון מצב נעדרים';
+            
+            if (role === 'teacher') showScreen('screen-teacher-lobby');
+            if (role === 'admin') showScreen('screen-admin');
+
+            listenToDatabase();
+        }
+
+        function logout() {
+            currentRole = null;
+            activeClass = null;
+            document.getElementById('userInfo').style.display = 'none';
+            showScreen('screen-login');
+        }
+
+        function listenToDatabase() {
+            db.ref('students').on('value', snap => {
+                allStudents = snap.val() || {};
+                
+                db.ref('emergency_drill').on('value', drillSnap => {
+                    drillStatus = drillSnap.val() || {};
+                    routeDataToUI();
+                });
+            });
+        }
+
+        function routeDataToUI() {
+            if (currentRole === 'teacher') {
+                if (activeClass) openClass(activeClass);
+                else renderClassLobby();
+            } else if (currentRole === 'admin') {
+                renderAdminList();
+            }
+        }
+
+        function renderClassLobby() {
+            const grid = document.getElementById('classGrid');
+            grid.innerHTML = '';
+            
+            const classesSet = new Set();
+            Object.values(allStudents).forEach(s => {
+                if (s.class && s.class.trim() !== 'ללא כיתה') classesSet.add(s.class.trim());
+            });
+            
+            const sortedClasses = Array.from(classesSet).sort();
+            
+            if (sortedClasses.length === 0) {
+                grid.innerHTML = '<p>עדיין לא הועלו תלמידים. העלה קובץ אקסל במסך הראשי.</p>';
+                return;
+            }
+
+            sortedClasses.forEach(cls => {
+                const card = document.createElement('div');
+                card.className = 'class-card';
+                card.style.borderRightColor = getShichvaColor(cls);
+                
+                card.onclick = () => {
+                    activeClass = cls;
+                    openClass(cls);
+                };
+                grid.appendChild(card);
+
+                // חישוב נוכחות לכיתה
+                const classStudents = Object.entries(allStudents).filter(([id, s]) => s.class && s.class.trim() === cls);
+                const totalInClass = classStudents.length;
+                const presentInClass = classStudents.filter(([id]) => drillStatus[id] === 'present').length;
+
+                card.innerHTML = `
+                    <div>${cls}</div>
+                    <div class="class-attendance-info">${presentInClass}/${totalInClass} נוכחים</div>
+                `;
+            });
+        }
+
+        function openClass(className) {
+            document.getElementById('currentClassTitle').textContent = 'כיתה: ' + className;
+            document.getElementById('currentClassTitle').style.color = getShichvaColor(className);
+            document.getElementById('classHeaderColor').style.borderRightColor = getShichvaColor(className);
+            
+            const list = document.getElementById('classStudentsList');
+            list.innerHTML = '';
+
+            const classStudents = Object.entries(allStudents)
+                .filter(([id, s]) => s.class && s.class.trim() === className)
+                .sort((a, b) => a[1].name.localeCompare(b[1].name));
+
+            let presentInClass = 0;
+
+            classStudents.forEach(([id, student]) => {
+                const status = drillStatus[id] || 'missing'; 
+                const isPresent = status === 'present';
+                if (isPresent) presentInClass++;
+                
+                const row = document.createElement('div');
+                row.className = `student-row ${isPresent ? 'present' : ''}`;
+                
+                row.innerHTML = `
+                    <div class="student-info">
+                        <span class="student-name">${student.name}</span>
+                        <span class="student-class">ת"ז: ${id}</span>
+                    </div>
+                    <button class="btn-mark ${isPresent ? 'present' : 'missing'}" onclick="togglePresence('${id}', '${status}')">
+                        ${isPresent ? '✓ נוכח' : 'סמן נוכחות'}
+                    </button>
+                `;
+                list.appendChild(row);
+            });
+
+            document.getElementById('classProgress').textContent = `${presentInClass}/${classStudents.length} נוכחים`;
+            showScreen('screen-teacher-class');
+        }
+
+        function togglePresence(studentId, currentStatus) {
+            const newStatus = currentStatus === 'present' ? null : 'present';
+            db.ref('emergency_drill/' + studentId).set(newStatus);
+        }
+
+        function toggleAdminClass(cls) {
+            if (openAdminClasses.has(cls)) openAdminClasses.delete(cls);
+            else openAdminClasses.add(cls);
+            renderAdminList(); 
+        }
+
+        function renderAdminList() {
+            const list = document.getElementById('adminMissingList');
+            list.innerHTML = '';
+
+            let total = 0, presentCount = 0, unaccountedCount = 0;
+            const classesMap = {};
+
+            Object.entries(allStudents).forEach(([id, student]) => {
+                total++;
+                const status = drillStatus[id];
+                const cls = student.class || 'ללא כיתה';
+                
+                if (!classesMap[cls]) {
+                    classesMap[cls] = { total: 0, present: 0, unaccounted: 0, htmlItems: [], handledItems: [] };
+                }
+
+                classesMap[cls].total++;
+                
+                if (status === 'present') {
+                    presentCount++;
+                    classesMap[cls].present++;
+                } else {
+                    const isExcused = (status === 'absent_today' || status === 'left_early' || status === 'found');
+                    
+                    if (!isExcused) {
+                        unaccountedCount++;
+                        classesMap[cls].unaccounted++;
+                    }
+
+                    const phoneHtml = (student.phone && student.phone !== 'undefined' && student.phone.trim() !== '') ? 
+                        `<a href="tel:${student.phone}" class="phone-link">📞 ${student.phone}</a>` : 
+                        `<span style="color:#aaa; font-size:0.8rem;">אין טלפון במסד הנתונים</span>`;
+
+                    const rowHtml = `
+                        <div class="admin-student-row ${isExcused ? 'handled' : ''}">
+                            <div class="student-info">
+                                <span class="student-name">
+                                    ${student.name} 
+                                    ${!isExcused ? '<span class="search-badge">לחפש!</span>' : ''}
+                                </span>
+                                <div style="margin-top: 6px;">${phoneHtml}</div>
+                            </div>
+                            <div style="text-align: left;">
+                                <select class="status-select ${isExcused ? 'handled' : ''}" onchange="updateException('${id}', this.value)">
+                                    <option value="" ${!status ? 'selected' : ''}>-- טרם אותר בשטח --</option>
+                                    <option value="found" ${status === 'found' ? 'selected' : ''}>🟢 תלמיד אותר</option>
+                                    <option value="absent_today" ${status === 'absent_today' ? 'selected' : ''}>לא הגיע לביה"ס</option>
+                                    <option value="left_early" ${status === 'left_early' ? 'selected' : ''}>יצא מוקדם / רפואי</option>
+                                </select>
+                            </div>
+                        </div>
+                    `;
+                    
+                    if (isExcused) classesMap[cls].handledItems.push(rowHtml);
+                    else classesMap[cls].htmlItems.push(rowHtml);
+                }
+            });
+
+            document.getElementById('statTotal').textContent = total;
+            document.getElementById('statPresent').textContent = presentCount;
+            document.getElementById('statMissing').textContent = unaccountedCount;
+
+            const sortedClasses = Object.keys(classesMap).sort();
+            
+            sortedClasses.forEach(cls => {
+                const data = classesMap[cls];
+                const color = getShichvaColor(cls);
+                const isAllAccounted = data.unaccounted === 0;
+                
+                const groupDiv = document.createElement('div');
+                groupDiv.className = 'admin-class-group';
+
+                const lightHtml = isAllAccounted 
+                    ? `<div class="status-light light-green">🟢 הכל תקין</div>`
+                    : `<div class="status-light light-red"><div class="dot red"></div> ⚠️ חסרים: ${data.unaccounted}</div>`;
+
+                const isOpen = openAdminClasses.has(cls);
+
+                let bodyHtml = data.htmlItems.join('') + data.handledItems.join('');
+                if (bodyHtml === '') {
+                    bodyHtml = `<div style="text-align:center; padding:15px; background:white; border-radius:10px; color:var(--success); font-weight:bold;">כל תלמידי הכיתה נוכחים בנקודת הכינוס 👏</div>`;
+                }
+
+                groupDiv.innerHTML = `
+                    <div class="admin-class-header" style="border-right-color: ${color}" onclick="toggleAdminClass('${cls}')">
+                        <div style="display: flex; flex-direction: column; gap: 2px;">
+                            <span style="font-weight: 900; font-size: 1.3rem; color: ${color};">${cls}</span>
+                            <span style="font-size: 0.85rem; font-weight: 500; color: #7f8c8d;">נוכחים: ${data.present}/${data.total}</span>
+                        </div>
+                        ${lightHtml}
+                    </div>
+                    <div class="admin-class-body ${isOpen ? 'active' : ''}">
+                        ${bodyHtml}
+                    </div>
+                `;
+                
+                list.appendChild(groupDiv);
+            });
+        }
+
+        function updateException(studentId, reason) {
+            db.ref('emergency_drill/' + studentId).set(reason ? reason : null);
+        }
+
+        function resetDrill() {
+            const pass = prompt("הזן סיסמה לביצוע פעולה:");
+            if (pass !== '1234') { alert("❌ סיסמה שגויה!"); return; }
+
+            if(confirm("⚠️ אזהרה: פעולה זו תמחק את כל נתוני הנוכחות ותאפס את המערכת. האם להמשיך?")) {
+                db.ref('emergency_drill').remove()
+                .then(() => alert('התרגיל אופס. כל התלמידים מוגדרים כעת כנעדרים.'))
+                .catch(err => alert('שגיאה באיפוס: ' + err.message));
+            }
+        }
+        
+        document.querySelector('.btn-back').addEventListener('click', () => {
+            activeClass = null;
+        });
+
+    </script>
+</body>
+</html>
