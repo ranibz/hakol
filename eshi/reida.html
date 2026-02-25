@@ -57,7 +57,7 @@
         .class-card { background: var(--white); padding: 25px 10px; border-radius: 12px; text-align: center; cursor: pointer; font-weight: 900; font-size: 1.4rem; box-shadow: 0 3px 6px rgba(0,0,0,0.05); transition: 0.2s; color: var(--primary); border: 2px solid transparent; border-right-width: 8px;}
         .class-card:hover, .class-card:active { background: #f8f9fa; transform: translateY(-3px); }
 
-        .student-row { display: flex; justify-content: space-between; align-items: center; background: var(--white); padding: 15px; border-radius: 10px; margin-bottom: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.02); border-right: 5px solid #bdc3c7; transition: background 0.3s; }
+        .student-row { display: flex; justify-content: space-between; align-items: center; background: var(--white); padding: 15px; border-radius: 10px; margin-bottom: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.02); border-right: 5px solid #bdc3c7; transition: background 0.3s; cursor: pointer; }
         .student-row.present { border-right-color: var(--success); background: #e8f8f5; }
         .student-info { display: flex; flex-direction: column; gap: 4px;}
         .student-name { font-weight: 700; font-size: 1.15rem; }
@@ -89,7 +89,7 @@
         select.status-select { padding: 8px 12px; border-radius: 8px; border: 1px solid #ccc; font-family: inherit; font-size: 0.95rem; background: #f9f9f9; font-weight: 600; width: 100%; max-width: 250px; }
         .status-select.handled { background: #fef9e7; color: #b9770e; border-color: #f1c40f; }
 
-        .admin-actions { display: flex; gap: 10px; margin-bottom: 25px; }
+        .admin-actions { display: flex; gap: 10px; margin-bottom: 25px; flex-wrap: wrap; }
         .btn-reset { background: var(--danger); color: white; border: none; padding: 12px 10px; border-radius: 10px; cursor: pointer; font-weight: bold; flex: 1; font-size: 1rem; display: flex; align-items: center; justify-content: center; gap: 8px; transition: 0.2s;}
         .btn-demo-scenario { background: #e67e22; color: white; border: none; padding: 12px 10px; border-radius: 10px; cursor: pointer; font-weight: bold; flex: 1; font-size: 1rem; display: flex; align-items: center; justify-content: center; gap: 8px; transition: 0.2s;}
         .btn-reset:hover, .btn-demo-scenario:hover, .btn-export:hover { transform: scale(0.98); }
@@ -105,6 +105,7 @@
         .btn-excel { background: #27ae60; color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 1rem; display: inline-flex; align-items: center; gap: 8px; }
 
         .class-attendance-info { font-size: 0.85rem; font-weight: 500; color: #7f8c8d; margin-top: 4px; }
+        .search-badge { background: #c0392b; color: white; font-size: 0.75rem; padding: 2px 8px; border-radius: 10px; margin-right: 5px; }
     </style>
 </head>
 <body>
@@ -144,7 +145,7 @@
 
                 <div class="excel-upload-zone" id="excelZone">
                     <h3 style="margin-top:0; font-size: 1.1rem; color: #555;">העלאת נתוני בית ספר</h3>
-                    <p style="font-size: 0.85rem; color: #777;">העלה קובץ Excel. המערכת תסרוק אוטומטית למציאת העמודות: ת.ז, שם התלמיד, שכבה, מקבילה, סוללרי.</p>
+                    <p style="font-size: 0.85rem; color: #777;">העלה קובץ Excel. המערכת תסרוק אוטומטית למציאת העמודות: ת.ז, שם התלמיד, שכבה, מקבילה, טלפון/סלולרי.</p>
                     <input type="file" id="excelFile" accept=".xlsx, .xls" onchange="handleExcelUpload(event)">
                     <button class="btn-excel" onclick="document.getElementById('excelFile').click()">
                         <span class="material-icons-round">upload_file</span> בחר קובץ אקסל
@@ -175,7 +176,7 @@
 
         <div id="screen-admin" class="screen">
             
-            <div class="admin-actions" style="flex-wrap: wrap;">
+            <div class="admin-actions">
                 <button class="btn-reset" onclick="resetDrill()">
                     <span class="material-icons-round">restart_alt</span> איפוס תרגיל
                 </button>
@@ -247,27 +248,18 @@
                 alert("אין תלמידים במערכת! אנא העלה קובץ אקסל קודם במסך הראשי.");
                 return;
             }
-
             const pass = prompt("הזן סיסמה לביצוע פעולה:");
             if (pass !== '1234') { alert("❌ סיסמה שגויה!"); return; }
-
-            if(!confirm("⚠️ פעולה זו תדרוס את נתוני הנוכחות הנוכחיים ותייצר מצב אקראי לחלוטין (נוכחים, נעדרים וחסרים). להמשיך?")) return;
+            if(!confirm("⚠️ פעולה זו תדרוס את נתוני הנוכחות הנוכחיים ותייצר מצב אקראי לחלוטין. להמשיך?")) return;
 
             let updates = {};
-            
             Object.keys(allStudents).forEach(id => {
                 const rand = Math.random();
-                if (rand < 0.75) {
-                    updates[id] = 'present'; 
-                } else if (rand < 0.90) {
-                    // נעדר
-                } else if (rand < 0.95) {
-                    updates[id] = 'absent_today'; 
-                } else {
-                    updates[id] = 'left_early'; 
-                }
+                if (rand < 0.75) updates[id] = 'present';
+                else if (rand < 0.95) { /* נעדר - לא מוסיפים */ }
+                else if (rand < 0.98) updates[id] = 'absent_today';
+                else updates[id] = 'left_early';
             });
-
             db.ref('emergency_drill').set(updates).then(() => {
                 alert("✅ הדמו הופעל! תמונת מצב אקראית נוצרה.");
             }).catch(err => alert("שגיאה: " + err.message));
@@ -276,7 +268,6 @@
         function handleExcelUpload(event) {
             const file = event.target.files[0];
             if (!file) return;
-
             const statusDiv = document.getElementById('uploadStatus');
             statusDiv.style.color = 'var(--primary)';
             statusDiv.textContent = '⏳ סורק את הקובץ ומאתר נתונים...';
@@ -292,22 +283,21 @@
                     let headerRowIndex = -1;
                     let colIndices = { id: -1, name: -1, shihva: -1, classNum: -1, phone: -1 };
 
+                    const phoneKeywords = ['סוללר','סלולר','סלולרי','טלפון','נייד','פלאפון','פלפון','טל','phone','mobile','cel','cell','פון','טלפוןנייד','טלפוןהורה','טלפוןאם','טלפוןאב','נייד1','נייד2','טלנייד'];
+
                     for (let i = 0; i < Math.min(rows.length, 15); i++) {
                         const row = rows[i];
                         if (!row || row.length === 0) continue;
-
                         let tempId = -1, tempName = -1, tempShihva = -1, tempClassNum = -1, tempPhone = -1;
-
                         for (let j = 0; j < row.length; j++) {
-                            let cellValue = String(row[j] || '').replace(/\s+/g, '').replace(/[\u200B-\u200D\uFEFF]/g, '').toLowerCase();
-
-                            if (cellValue.includes('ת.ז') || cellValue === 'תז' || cellValue.includes('תזתלמיד') || cellValue === 'id') tempId = j;
-                            else if (cellValue.includes('שםהתלמיד') || cellValue === 'שם' || cellValue.includes('שםמלא')) tempName = j;
-                            else if (cellValue.includes('שכבה')) tempShihva = j;
-                            else if (cellValue.includes('מקבילה') || cellValue.includes('כיתה')) tempClassNum = j;
-                            else if (cellValue.includes('סוללר') || cellValue.includes('סלולר') || cellValue.includes('טלפון') || cellValue.includes('נייד')) tempPhone = j;
+                            let cellValue = String(row[j] || '').replace(/\s+/g, '').replace(/[\u200B-\u200D\uFEFF]/g, '').replace(/['"`.,:;]/g, '');
+                            let cellLower = cellValue.toLowerCase();
+                            if (cellLower.includes('תז') || cellLower.includes('ת.ז') || cellLower === 'id') tempId = j;
+                            else if (cellLower.includes('שםהתלמיד') || cellLower === 'שם' || cellLower.includes('שםמלא') || cellLower.includes('שםפרטי') || cellLower.includes('שםתלמיד')) tempName = j;
+                            else if (cellLower.includes('שכבה')) tempShihva = j;
+                            else if (cellLower.includes('מקבילה') || cellLower.includes('כיתה')) tempClassNum = j;
+                            else if (tempPhone === -1 && phoneKeywords.some(kw => cellLower.includes(kw))) tempPhone = j;
                         }
-
                         if (tempId !== -1 && tempName !== -1) {
                             headerRowIndex = i;
                             colIndices = { id: tempId, name: tempName, shihva: tempShihva, classNum: tempClassNum, phone: tempPhone };
@@ -321,45 +311,41 @@
                         return;
                     }
 
+                    let phoneColName = colIndices.phone !== -1 ? String(rows[headerRowIndex][colIndices.phone] || '') : '';
                     let updates = {};
-                    let count = 0;
+                    let count = 0, phoneCount = 0;
 
                     for (let i = headerRowIndex + 1; i < rows.length; i++) {
                         const row = rows[i];
                         if (!row || row.length === 0) continue;
-
                         const idVal = row[colIndices.id];
                         const nameVal = row[colIndices.name];
-
                         if (idVal && nameVal) {
                             const shihvaVal = colIndices.shihva !== -1 ? (row[colIndices.shihva] || '') : '';
                             const classNumVal = colIndices.classNum !== -1 ? (row[colIndices.classNum] || '') : '';
                             let phoneVal = colIndices.phone !== -1 ? (row[colIndices.phone] || '') : '';
-
                             const cls = (String(shihvaVal).trim() + ' ' + String(classNumVal).trim()).trim() || 'ללא כיתה';
-                            
-                            let finalPhone = String(phoneVal).trim();
-                            if (finalPhone.length === 9 && !finalPhone.startsWith('0')) {
-                                finalPhone = '0' + finalPhone;
-                            }
-
-                            updates[String(idVal).trim()] = {
-                                name: String(nameVal).trim(),
-                                class: cls,
-                                phone: finalPhone
-                            };
+                            let finalPhone = String(phoneVal).trim().replace(/[-\s()]/g, '');
+                            if (finalPhone.startsWith('+972')) finalPhone = '0' + finalPhone.substring(4);
+                            else if (finalPhone.startsWith('972')) finalPhone = '0' + finalPhone.substring(3);
+                            else if (finalPhone.length === 9 && !finalPhone.startsWith('0')) finalPhone = '0' + finalPhone;
+                            if (finalPhone.length >= 9) phoneCount++;
+                            updates[String(idVal).trim()] = { name: String(nameVal).trim(), class: cls, phone: finalPhone };
                             count++;
                         }
                     }
 
                     if (count > 0) {
                         db.ref('students').set(updates).then(() => {
-                            statusDiv.style.color = 'var(--success)';
-                            statusDiv.textContent = `✅ נוספו/עודכנו ${count} תלמידים בהצלחה!`;
-                            setTimeout(() => { document.getElementById('excelZone').style.display='none'; document.querySelector('.toggle-excel-btn').style.display='inline-block'; }, 3000);
+                            let phoneMsg = colIndices.phone !== -1 
+                                ? ` | עמודת טלפון: "${phoneColName}" (${phoneCount} מספרים נמצאו)`
+                                : ' | ⚠️ לא נמצאה עמודת טלפון בקובץ!';
+                            statusDiv.style.color = colIndices.phone !== -1 ? 'var(--success)' : 'var(--warning)';
+                            statusDiv.innerHTML = `✅ נוספו/עודכנו ${count} תלמידים!${phoneMsg}`;
+                            setTimeout(() => { document.getElementById('excelZone').style.display='none'; document.querySelector('.toggle-excel-btn').style.display='inline-block'; }, 5000);
                         }).catch(err => {
                             statusDiv.style.color = 'var(--danger)';
-                            statusDiv.textContent = `❌ שגיאה בשמירה: ${err.message}`;
+                            statusDiv.textContent = '❌ שגיאה בשמירה: ' + err.message;
                         });
                     }
                 } catch (error) {
@@ -379,10 +365,8 @@
             currentRole = role;
             document.getElementById('userInfo').style.display = 'flex';
             document.getElementById('userName').textContent = role === 'teacher' ? '👩‍🏫 ממשק מחנך' : '⚙️ עדכון מצב נעדרים';
-            
             if (role === 'teacher') showScreen('screen-teacher-lobby');
             if (role === 'admin') showScreen('screen-admin');
-
             listenToDatabase();
         }
 
@@ -396,7 +380,6 @@
         function listenToDatabase() {
             db.ref('students').on('value', snap => {
                 allStudents = snap.val() || {};
-                
                 db.ref('emergency_drill').on('value', drillSnap => {
                     drillStatus = drillSnap.val() || {};
                     routeDataToUI();
@@ -413,43 +396,51 @@
             }
         }
 
+        // ==========================================
+        // ממשק מחנך - לובי כיתות
+        // ==========================================
         function renderClassLobby() {
             const grid = document.getElementById('classGrid');
             grid.innerHTML = '';
-            
             const classesSet = new Set();
             Object.values(allStudents).forEach(s => {
                 if (s.class && s.class.trim() !== 'ללא כיתה') classesSet.add(s.class.trim());
             });
-            
             const sortedClasses = Array.from(classesSet).sort();
-            
             if (sortedClasses.length === 0) {
                 grid.innerHTML = '<p>עדיין לא הועלו תלמידים. העלה קובץ אקסל במסך הראשי.</p>';
                 return;
             }
-
             sortedClasses.forEach(cls => {
                 const card = document.createElement('div');
                 card.className = 'class-card';
                 card.style.borderRightColor = getShichvaColor(cls);
-                
-                card.onclick = () => {
-                    activeClass = cls;
-                    openClass(cls);
-                };
-                grid.appendChild(card);
+                card.addEventListener('click', () => { activeClass = cls; openClass(cls); });
 
-                // חישוב נוכחות לכיתה
                 const classStudents = Object.entries(allStudents).filter(([id, s]) => s.class && s.class.trim() === cls);
                 const totalInClass = classStudents.length;
                 const presentInClass = classStudents.filter(([id]) => drillStatus[id] === 'present').length;
 
-                card.innerHTML = `
-                    <div>${cls}</div>
-                    <div class="class-attendance-info">${presentInClass}/${totalInClass} נוכחים</div>
-                `;
+                const nameDiv = document.createElement('div');
+                nameDiv.textContent = cls;
+                const infoDiv = document.createElement('div');
+                infoDiv.className = 'class-attendance-info';
+                infoDiv.textContent = presentInClass + '/' + totalInClass + ' נוכחים';
+
+                card.appendChild(nameDiv);
+                card.appendChild(infoDiv);
+                grid.appendChild(card);
             });
+        }
+
+        // ==========================================
+        // ממשק מחנך - רשימת תלמידים
+        // תיקון קריטי: שימוש ב-addEventListener במקום onclick inline
+        // זה פותר את הבעיה עם שמות שמכילים גרש (') כמו אנג'ל, קוצ'רו
+        // ==========================================
+        function togglePresence(studentId, currentStatus) {
+            const newStatus = currentStatus === 'present' ? null : 'present';
+            db.ref('emergency_drill/' + studentId).set(newStatus);
         }
 
         function openClass(className) {
@@ -471,34 +462,54 @@
                 const isPresent = status === 'present';
                 if (isPresent) presentInClass++;
                 
+                // בניית שורה עם DOM API - בטוח לגמרי מתווים מיוחדים
                 const row = document.createElement('div');
-                row.className = `student-row ${isPresent ? 'present' : ''}`;
-                
-                row.innerHTML = `
-                    <div class="student-info">
-                        <span class="student-name">${student.name}</span>
-                        <span class="student-class">ת"ז: ${id}</span>
-                    </div>
-                    <button class="btn-mark ${isPresent ? 'present' : 'missing'}" onclick="togglePresence('${id}', '${status}')">
-                        ${isPresent ? '✓ נוכח' : 'סמן נוכחות'}
-                    </button>
-                `;
+                row.className = 'student-row' + (isPresent ? ' present' : '');
+
+                const infoDiv = document.createElement('div');
+                infoDiv.className = 'student-info';
+                const nameSpan = document.createElement('span');
+                nameSpan.className = 'student-name';
+                nameSpan.textContent = student.name;
+                const idSpan = document.createElement('span');
+                idSpan.className = 'student-class';
+                idSpan.textContent = 'ת"ז: ' + id;
+                infoDiv.appendChild(nameSpan);
+                infoDiv.appendChild(idSpan);
+
+                const btn = document.createElement('button');
+                btn.className = 'btn-mark ' + (isPresent ? 'present' : 'missing');
+                btn.textContent = isPresent ? '✓ נוכח' : 'סמן נוכחות';
+                btn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    togglePresence(id, status);
+                });
+
+                // לחיצה על כל השורה גם תסמן
+                row.addEventListener('click', function() {
+                    togglePresence(id, status);
+                });
+
+                row.appendChild(infoDiv);
+                row.appendChild(btn);
                 list.appendChild(row);
             });
 
-            document.getElementById('classProgress').textContent = `${presentInClass}/${classStudents.length} נוכחים`;
+            document.getElementById('classProgress').textContent = presentInClass + '/' + classStudents.length + ' נוכחים';
             showScreen('screen-teacher-class');
         }
 
-        function togglePresence(studentId, currentStatus) {
-            const newStatus = currentStatus === 'present' ? null : 'present';
-            db.ref('emergency_drill/' + studentId).set(newStatus);
-        }
-
+        // ==========================================
+        // ממשק מנהלת - גם כאן DOM API בטוח
+        // ==========================================
         function toggleAdminClass(cls) {
             if (openAdminClasses.has(cls)) openAdminClasses.delete(cls);
             else openAdminClasses.add(cls);
             renderAdminList(); 
+        }
+
+        function updateException(studentId, reason) {
+            db.ref('emergency_drill/' + studentId).set(reason ? reason : null);
         }
 
         function renderAdminList() {
@@ -512,11 +523,7 @@
                 total++;
                 const status = drillStatus[id];
                 const cls = student.class || 'ללא כיתה';
-                
-                if (!classesMap[cls]) {
-                    classesMap[cls] = { total: 0, present: 0, unaccounted: 0, htmlItems: [], handledItems: [] };
-                }
-
+                if (!classesMap[cls]) classesMap[cls] = { total: 0, present: 0, unaccounted: 0, items: [] };
                 classesMap[cls].total++;
                 
                 if (status === 'present') {
@@ -524,38 +531,8 @@
                     classesMap[cls].present++;
                 } else {
                     const isExcused = (status === 'absent_today' || status === 'left_early' || status === 'found');
-                    
-                    if (!isExcused) {
-                        unaccountedCount++;
-                        classesMap[cls].unaccounted++;
-                    }
-
-                    const phoneHtml = (student.phone && student.phone !== 'undefined' && student.phone.trim() !== '') ? 
-                        `<a href="tel:${student.phone}" class="phone-link">📞 ${student.phone}</a>` : 
-                        `<span style="color:#aaa; font-size:0.8rem;">אין טלפון במסד הנתונים</span>`;
-
-                    const rowHtml = `
-                        <div class="admin-student-row ${isExcused ? 'handled' : ''}">
-                            <div class="student-info">
-                                <span class="student-name">
-                                    ${student.name} 
-                                    ${!isExcused ? '<span class="search-badge">לחפש!</span>' : ''}
-                                </span>
-                                <div style="margin-top: 6px;">${phoneHtml}</div>
-                            </div>
-                            <div style="text-align: left;">
-                                <select class="status-select ${isExcused ? 'handled' : ''}" onchange="updateException('${id}', this.value)">
-                                    <option value="" ${!status ? 'selected' : ''}>-- טרם אותר בשטח --</option>
-                                    <option value="found" ${status === 'found' ? 'selected' : ''}>🟢 תלמיד אותר</option>
-                                    <option value="absent_today" ${status === 'absent_today' ? 'selected' : ''}>לא הגיע לביה"ס</option>
-                                    <option value="left_early" ${status === 'left_early' ? 'selected' : ''}>יצא מוקדם / רפואי</option>
-                                </select>
-                            </div>
-                        </div>
-                    `;
-                    
-                    if (isExcused) classesMap[cls].handledItems.push(rowHtml);
-                    else classesMap[cls].htmlItems.push(rowHtml);
+                    if (!isExcused) { unaccountedCount++; classesMap[cls].unaccounted++; }
+                    classesMap[cls].items.push({ id, student, status, isExcused });
                 }
             });
 
@@ -573,102 +550,170 @@
                 const groupDiv = document.createElement('div');
                 groupDiv.className = 'admin-class-group';
 
-                const lightHtml = isAllAccounted 
-                    ? `<div class="status-light light-green">🟢 הכל תקין</div>`
-                    : `<div class="status-light light-red"><div class="dot red"></div> ⚠️ חסרים: ${data.unaccounted}</div>`;
+                // Header
+                const headerDiv = document.createElement('div');
+                headerDiv.className = 'admin-class-header';
+                headerDiv.style.borderRightColor = color;
+                headerDiv.addEventListener('click', function() { toggleAdminClass(cls); });
 
-                const isOpen = openAdminClasses.has(cls);
+                const titleArea = document.createElement('div');
+                titleArea.style.cssText = 'display:flex;flex-direction:column;gap:2px;';
+                const titleSpan = document.createElement('span');
+                titleSpan.style.cssText = 'font-weight:900;font-size:1.3rem;color:' + color;
+                titleSpan.textContent = cls;
+                const countSpan = document.createElement('span');
+                countSpan.style.cssText = 'font-size:0.85rem;font-weight:500;color:#7f8c8d;';
+                countSpan.textContent = 'נוכחים: ' + data.present + '/' + data.total;
+                titleArea.appendChild(titleSpan);
+                titleArea.appendChild(countSpan);
 
-                let bodyHtml = data.htmlItems.join('') + data.handledItems.join('');
-                if (bodyHtml === '') {
-                    bodyHtml = `<div style="text-align:center; padding:15px; background:white; border-radius:10px; color:var(--success); font-weight:bold;">כל תלמידי הכיתה נוכחים בנקודת הכינוס 👏</div>`;
+                const lightDiv = document.createElement('div');
+                if (isAllAccounted) {
+                    lightDiv.className = 'status-light light-green';
+                    lightDiv.textContent = '🟢 הכל תקין';
+                } else {
+                    lightDiv.className = 'status-light light-red';
+                    lightDiv.innerHTML = '<div class="dot red"></div> ⚠️ חסרים: ' + data.unaccounted;
                 }
 
-                groupDiv.innerHTML = `
-                    <div class="admin-class-header" style="border-right-color: ${color}" onclick="toggleAdminClass('${cls}')">
-                        <div style="display: flex; flex-direction: column; gap: 2px;">
-                            <span style="font-weight: 900; font-size: 1.3rem; color: ${color};">${cls}</span>
-                            <span style="font-size: 0.85rem; font-weight: 500; color: #7f8c8d;">נוכחים: ${data.present}/${data.total}</span>
-                        </div>
-                        ${lightHtml}
-                    </div>
-                    <div class="admin-class-body ${isOpen ? 'active' : ''}">
-                        ${bodyHtml}
-                    </div>
-                `;
-                
+                headerDiv.appendChild(titleArea);
+                headerDiv.appendChild(lightDiv);
+                groupDiv.appendChild(headerDiv);
+
+                // Body
+                const bodyDiv = document.createElement('div');
+                bodyDiv.className = 'admin-class-body' + (openAdminClasses.has(cls) ? ' active' : '');
+
+                const sortedItems = [...data.items].sort((a, b) => {
+                    if (a.isExcused !== b.isExcused) return a.isExcused ? 1 : -1;
+                    return a.student.name.localeCompare(b.student.name);
+                });
+
+                if (sortedItems.length === 0) {
+                    const allOk = document.createElement('div');
+                    allOk.style.cssText = 'text-align:center;padding:15px;background:white;border-radius:10px;color:var(--success);font-weight:bold;';
+                    allOk.textContent = 'כל תלמידי הכיתה נוכחים בנקודת הכינוס 👏';
+                    bodyDiv.appendChild(allOk);
+                } else {
+                    sortedItems.forEach(item => {
+                        const { id, student, status, isExcused } = item;
+
+                        const rowDiv = document.createElement('div');
+                        rowDiv.className = 'admin-student-row' + (isExcused ? ' handled' : '');
+
+                        const infoDiv = document.createElement('div');
+                        infoDiv.className = 'student-info';
+                        
+                        const nameSpan = document.createElement('span');
+                        nameSpan.className = 'student-name';
+                        nameSpan.textContent = student.name + ' ';
+                        if (!isExcused) {
+                            const badge = document.createElement('span');
+                            badge.className = 'search-badge';
+                            badge.textContent = 'לחפש!';
+                            nameSpan.appendChild(badge);
+                        }
+
+                        const phoneDiv = document.createElement('div');
+                        phoneDiv.style.marginTop = '6px';
+                        const hasPhone = student.phone && student.phone !== 'undefined' && student.phone.trim() !== '' && student.phone.trim() !== '0';
+                        if (hasPhone) {
+                            const phoneLink = document.createElement('a');
+                            phoneLink.href = 'tel:' + student.phone;
+                            phoneLink.className = 'phone-link';
+                            phoneLink.textContent = '📞 ' + student.phone;
+                            phoneDiv.appendChild(phoneLink);
+                        } else {
+                            const noPhone = document.createElement('span');
+                            noPhone.style.cssText = 'color:#aaa;font-size:0.8rem;';
+                            noPhone.textContent = 'אין טלפון במסד הנתונים';
+                            phoneDiv.appendChild(noPhone);
+                        }
+
+                        infoDiv.appendChild(nameSpan);
+                        infoDiv.appendChild(phoneDiv);
+
+                        const selectDiv = document.createElement('div');
+                        selectDiv.style.textAlign = 'left';
+                        const select = document.createElement('select');
+                        select.className = 'status-select' + (isExcused ? ' handled' : '');
+                        
+                        const opt1 = document.createElement('option');
+                        opt1.value = ''; opt1.textContent = '-- טרם אותר בשטח --';
+                        if (!status) opt1.selected = true;
+                        
+                        const opt2 = document.createElement('option');
+                        opt2.value = 'found'; opt2.textContent = '🟢 תלמיד אותר';
+                        if (status === 'found') opt2.selected = true;
+                        
+                        const opt3 = document.createElement('option');
+                        opt3.value = 'absent_today'; opt3.textContent = 'לא הגיע לביה"ס';
+                        if (status === 'absent_today') opt3.selected = true;
+                        
+                        const opt4 = document.createElement('option');
+                        opt4.value = 'left_early'; opt4.textContent = 'יצא מוקדם / רפואי';
+                        if (status === 'left_early') opt4.selected = true;
+
+                        select.appendChild(opt1);
+                        select.appendChild(opt2);
+                        select.appendChild(opt3);
+                        select.appendChild(opt4);
+
+                        select.addEventListener('change', function() {
+                            updateException(id, this.value);
+                        });
+
+                        selectDiv.appendChild(select);
+                        rowDiv.appendChild(infoDiv);
+                        rowDiv.appendChild(selectDiv);
+                        bodyDiv.appendChild(rowDiv);
+                    });
+                }
+
+                groupDiv.appendChild(bodyDiv);
                 list.appendChild(groupDiv);
             });
         }
 
-        function updateException(studentId, reason) {
-            db.ref('emergency_drill/' + studentId).set(reason ? reason : null);
-        }
-
+        // ==========================================
+        // ייצוא נעדרים לאקסל
+        // ==========================================
         function exportMissing() {
             const classesMap = {};
-
             Object.entries(allStudents).forEach(([id, student]) => {
                 const status = drillStatus[id];
                 const cls = student.class || 'ללא כיתה';
-
                 if (status !== 'present') {
                     if (!classesMap[cls]) classesMap[cls] = [];
                     let statusText = 'טרם אותר';
                     if (status === 'found') statusText = 'תלמיד אותר';
                     else if (status === 'absent_today') statusText = 'לא הגיע לביה"ס';
                     else if (status === 'left_early') statusText = 'יצא מוקדם / רפואי';
-                    
-                    classesMap[cls].push({
-                        name: student.name,
-                        id: id,
-                        phone: student.phone || '',
-                        status: statusText
-                    });
+                    classesMap[cls].push({ name: student.name, id: id, phone: student.phone || '', status: statusText });
                 }
             });
-
             const sortedClasses = Object.keys(classesMap).sort();
+            if (sortedClasses.length === 0) { alert("אין נעדרים לייצוא - כל התלמידים נוכחים! 🎉"); return; }
 
-            if (sortedClasses.length === 0) {
-                alert("אין נעדרים לייצוא - כל התלמידים נוכחים! 🎉");
-                return;
-            }
-
-            // יצירת נתונים לאקסל
             const wsData = [['כיתה', 'שם התלמיד', 'ת.ז', 'טלפון', 'סטטוס']];
             sortedClasses.forEach(cls => {
                 classesMap[cls].sort((a, b) => a.name.localeCompare(b.name));
-                classesMap[cls].forEach(s => {
-                    wsData.push([cls, s.name, s.id, s.phone, s.status]);
-                });
+                classesMap[cls].forEach(s => wsData.push([cls, s.name, s.id, s.phone, s.status]));
             });
-
             const wb = XLSX.utils.book_new();
             const ws = XLSX.utils.aoa_to_sheet(wsData);
-            
-            // רוחב עמודות
-            ws['!cols'] = [
-                { wch: 10 }, { wch: 25 }, { wch: 12 }, { wch: 15 }, { wch: 20 }
-            ];
-
+            ws['!cols'] = [{ wch: 10 }, { wch: 25 }, { wch: 12 }, { wch: 15 }, { wch: 20 }];
             XLSX.utils.book_append_sheet(wb, ws, 'נעדרים');
-            
             const now = new Date();
             const dateStr = now.toLocaleDateString('he-IL').replace(/\./g, '-');
             const timeStr = now.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' }).replace(':', '-');
-            XLSX.writeFile(wb, `נעדרים_${dateStr}_${timeStr}.xlsx`);
+            XLSX.writeFile(wb, 'נעדרים_' + dateStr + '_' + timeStr + '.xlsx');
         }
 
         function resetDrill() {
             const pass = prompt("הזן סיסמה לביצוע פעולה:");
             if (pass !== '1234') { alert("❌ סיסמה שגויה!"); return; }
-
-            // הצעה לייצא נעדרים לפני האיפוס
-            if (confirm("💾 האם לייצא את רשימת הנעדרים לפני האיפוס?")) {
-                exportMissing();
-            }
-
+            if (confirm("💾 האם לייצא את רשימת הנעדרים לפני האיפוס?")) exportMissing();
             if(confirm("⚠️ אזהרה: פעולה זו תמחק את כל נתוני הנוכחות ותאפס את המערכת. האם להמשיך?")) {
                 db.ref('emergency_drill').remove()
                 .then(() => alert('התרגיל אופס. כל התלמידים מוגדרים כעת כנעדרים.'))
@@ -676,10 +721,7 @@
             }
         }
         
-        document.querySelector('.btn-back').addEventListener('click', () => {
-            activeClass = null;
-        });
-
+        document.querySelector('.btn-back').addEventListener('click', () => { activeClass = null; });
     </script>
 </body>
 </html>
