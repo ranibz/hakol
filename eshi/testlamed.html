@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>טופס בחינה – פרויקט למ"ד</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script type="module">
+import{initializeApp}from"https://www.gstatic.com/firebasejs/11.4.0/firebase-app.js";
+import{getDatabase,ref,set,get,onValue,remove}from"https://www.gstatic.com/firebasejs/11.4.0/firebase-database.js";
+
+const mainConfig={apiKey:"AIzaSyCePrK9vbQPd_DVApaXXglECzrA_3JSUqA",authDomain:"testlamed.firebaseapp.com",databaseURL:"https://testlamed-default-rtdb.europe-west1.firebasedatabase.app",projectId:"testlamed",storageBucket:"testlamed.firebasestorage.app",messagingSenderId:"390033059678",appId:"1:390033059678:web:5056bc3ad5bce18aeea9cf"};
+const rubricConfig={apiKey:"AIzaSyCddIvPAb56veDasZ6GH0osk2KaZBR_j2s",authDomain:"tester-2e95d.firebaseapp.com",databaseURL:"https://tester-2e95d-default-rtdb.europe-west1.firebasedatabase.app",projectId:"tester-2e95d",storageBucket:"tester-2e95d.firebasestorage.app",messagingSenderId:"661933853539",appId:"1:661933853539:web:2124884fb69c94099d2156"};
+
+const mainApp=initializeApp(mainConfig);
+const rubricApp=initializeApp(rubricConfig,"rubricApp");
+const mainDb=getDatabase(mainApp);
+const rubricDb=getDatabase(rubricApp);
+window.DB={ref:p=>ref(mainDb,p),set,get,onValue,remove,rubricRef:p=>ref(rubricDb,p)};
+window.firebaseReady=true;
+document.dispatchEvent(new Event('fb-ready'));
+</script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800;900&display=swap');
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--bg:#0c0c14;--sf:#14141f;--sf2:#1c1c2e;--sf3:#222238;--bd:#2a2a40;--t:#f0f0f5;--t2:#c8c8d8;--t3:#9898b0;--t4:#686880;--t5:#484860;--pr:#7c6cf0;--pr2:#a78bfa;--pbg:#7c6cf015;--gn:#34d399;--gbg:#34d39915;--yw:#fbbf24;--ybg:#fbbf2415;--rd:#f87171;--rbg:#f8717115;--bl:#60a5fa;--bbg:#60a5fa15}
+body{font-family:'Heebo',sans-serif;background:var(--bg);color:var(--t);min-height:100vh;direction:rtl}
+@keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.ctn{max-width:900px;margin:0 auto;padding:24px 20px}
+.ph{text-align:center;margin-bottom:32px;animation:fadeUp .5s ease-out}
+.ph .tag{font-size:12px;letter-spacing:3px;color:var(--pr);text-transform:uppercase;font-weight:600;margin-bottom:8px}
+.ph h1{font-size:28px;font-weight:800;margin-bottom:6px}.ph p{color:var(--t4);font-size:14px;line-height:1.6}
+button{font-family:inherit;cursor:pointer;transition:all .2s}
+.bp{background:linear-gradient(135deg,var(--pr),var(--pr2));color:#fff;border:none;border-radius:12px;padding:15px 28px;font-size:16px;font-weight:700;width:100%}.bp:hover{filter:brightness(1.1)}
+.bs{background:var(--sf3);color:var(--t);border:1px solid var(--bd);border-radius:10px;padding:10px 20px;font-size:14px;font-weight:600}.bs:hover{border-color:var(--pr)}
+.btn-back{background:none;border:1px solid var(--bd);color:var(--t3);border-radius:10px;padding:8px 18px;font-size:13px;font-weight:600;display:inline-flex;align-items:center;gap:6px;margin-bottom:20px}.btn-back:hover{border-color:var(--pr);color:var(--pr2)}
+label{display:block;font-size:14px;font-weight:600;color:var(--t2);margin-bottom:6px}
+textarea,input[type=text]{width:100%;background:var(--sf2);color:var(--t);border:1px solid var(--bd);border-radius:10px;padding:11px 14px;font-size:14px;font-family:inherit;resize:vertical}
+textarea:focus,input:focus{outline:none;border-color:var(--pr)}
+.hidden{display:none!important}
+.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600}
+.bg{background:var(--gbg);color:var(--gn)}.bb{background:var(--bbg);color:var(--bl)}.br{background:var(--rbg);color:var(--rd)}
+.card{background:var(--sf);border:1px solid var(--bd);border-radius:14px;padding:20px;margin-bottom:14px}
+.ia{background:var(--sf);border:2px dashed var(--bd);border-radius:14px;padding:30px;text-align:center;cursor:pointer;transition:all .3s;margin-bottom:14px}.ia:hover{border-color:var(--pr);background:var(--pbg)}
+.ist{padding:12px;border-radius:10px;margin-top:10px;font-size:13px;display:none}.ist.success{display:block;background:var(--gbg);color:var(--gn)}.ist.error{display:block;background:var(--rbg);color:var(--rd)}
+.st-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;margin-bottom:20px}
+.st-card{background:var(--sf);border:1px solid var(--bd);border-radius:12px;padding:16px;cursor:pointer;transition:all .25s;text-align:center}.st-card:hover{border-color:var(--pr);transform:scale(1.02)}
+.st-card.graded{border-color:var(--gn);background:var(--gbg)}
+.st-card .st-name{font-size:15px;font-weight:700;margin-bottom:4px}
+.st-card .st-link{font-size:11px;color:var(--bl);margin-top:2px}
+.st-card .st-score{font-size:20px;font-weight:800;font-family:'Courier New',monospace;margin-top:6px}
+.st-card .st-badge{margin-top:6px}
+.sc{background:var(--sf);border:1px solid var(--bd);border-radius:14px;padding:20px;margin-bottom:14px}
+.sch{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}.sch h3{font-size:17px}
+.sw2{font-size:13px;color:var(--t4);margin-bottom:8px}
+.cb{background:var(--sf2);border:1px solid var(--pr);border-radius:10px;padding:12px 14px;margin-bottom:14px}
+.cbt{font-size:12px;font-weight:700;color:var(--pr2);margin-bottom:6px}
+.cbi{font-size:13px;color:var(--t2);line-height:1.7;padding:2px 0;display:flex;gap:6px}.cbi::before{content:"•";color:var(--pr);flex-shrink:0}
+.sr2{display:flex;align-items:center;gap:14px;margin-bottom:10px}
+.sr2 input[type=range]{flex:1;-webkit-appearance:none;height:7px;border-radius:4px;background:var(--bd);outline:none}
+.sr2 input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:24px;height:24px;border-radius:50%;background:var(--pr);cursor:pointer;border:3px solid var(--bg)}
+.sv{min-width:55px;text-align:center;font-size:22px;font-weight:800;color:var(--pr);font-family:'Courier New',monospace}
+.ct{width:100%;border-collapse:separate;border-spacing:0;border:1px solid var(--bd);border-radius:12px;overflow:hidden;margin-bottom:20px;font-size:13px}
+.ct th{background:var(--sf2);padding:10px;font-size:12px;font-weight:700;color:var(--t3);text-align:center;border-bottom:1px solid var(--bd)}.ct th:first-child{text-align:right}
+.ct td{padding:9px 10px;text-align:center;border-bottom:1px solid var(--bd);background:var(--sf)}.ct td:first-child{text-align:right;font-weight:600}.ct tr:last-child td{border-bottom:none}
+.str{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px}
+.stc{flex:1;min-width:100px;background:var(--sf);border:1px solid var(--bd);border-radius:12px;padding:14px;text-align:center}
+.stv{font-size:22px;font-weight:800;font-family:'Courier New',monospace}.stl{font-size:11px;color:var(--t4);margin-top:4px}
+.student-header{background:linear-gradient(135deg,var(--pr),var(--pr2));border-radius:14px;padding:20px;margin-bottom:16px;text-align:center;color:#fff}
+.student-header h2{font-size:22px;font-weight:800;margin-bottom:4px}
+.student-header .sh-link a{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.2);color:#fff;padding:8px 18px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px;margin-top:8px}.student-header .sh-link a:hover{background:rgba(255,255,255,.3)}
+.edit-banner{background:var(--ybg);border:1px solid var(--yw);border-radius:10px;padding:12px 16px;margin-bottom:16px;font-size:14px;color:var(--yw);display:flex;align-items:center;gap:8px}
+.progress-bar{background:var(--sf2);border-radius:8px;height:10px;overflow:hidden;margin-bottom:8px}
+.progress-fill{height:100%;border-radius:8px;background:linear-gradient(90deg,var(--pr),var(--gn));transition:width .3s}
+.search-box{position:relative;margin-bottom:16px}.search-box input{padding-right:40px}.search-box::before{content:"🔍";position:absolute;right:14px;top:50%;transform:translateY(-50%)}
+.mo{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.75);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px}
+.mc{background:var(--bg);border:1px solid var(--bd);border-radius:20px;max-width:720px;width:100%;max-height:85vh;overflow-y:auto}
+.mh{position:sticky;top:0;background:var(--sf);padding:18px 24px;border-bottom:1px solid var(--bd);display:flex;justify-content:space-between;align-items:center;border-radius:20px 20px 0 0;z-index:1}.mh h2{font-size:20px}
+.mx{background:var(--sf2);border:1px solid var(--bd);color:var(--t);width:36px;height:36px;border-radius:10px;font-size:18px;display:flex;align-items:center;justify-content:center}
+.mb2{padding:24px}
+@media(max-width:640px){.ctn{padding:16px 12px}.ph h1{font-size:22px}.st-grid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}.ct{font-size:11px}.ct th,.ct td{padding:6px 5px}.stc{min-width:85px;padding:10px}.stv{font-size:17px}}
+</style>
+</head>
+<body>
+
+<!-- S0 LOGIN -->
+<div id="S0" class="ctn">
+<div class="ph"><div class="tag">טופס בחינה</div><h1>פרויקט למ"ד בתקשורת</h1><p>הזינו את שמכם והעלו את קובץ התלמידים</p></div>
+<div style="max-width:450px;margin:0 auto">
+<input type="text" id="exName" placeholder="שם הבוחן/ת" style="font-size:18px;padding:14px;text-align:center;margin-bottom:14px">
+<div class="ia" onclick="document.getElementById('fI').click()"><div style="font-size:40px;margin-bottom:8px">📄</div><div style="font-size:16px;font-weight:700">העלאת קובץ אקסל</div><div style="font-size:13px;color:var(--t4);margin-top:4px">שם תלמיד + קישור לעבודה</div></div>
+<input type="file" id="fI" accept=".xlsx,.csv" style="display:none" onchange="handleFile(this.files[0])">
+<div class="ist" id="fS"></div>
+<div id="studPrev" style="margin-top:8px"></div>
+<button class="bp" style="margin-top:16px" onclick="startExam()">כניסה →</button>
+<div id="loadMsg" style="margin-top:14px;text-align:center;font-size:13px;color:var(--t4)"></div>
+</div></div>
+
+<!-- S1 STUDENT LIST -->
+<div id="S1" class="ctn hidden">
+<button class="btn-back" onclick="show('S0')">→ יציאה</button>
+<div class="ph"><div class="tag" id="exTag"></div><h1>בחרו תלמיד/ה</h1></div>
+<div id="examProgress"></div>
+<div class="search-box"><input type="text" id="stSearch" placeholder="     חיפוש..." oninput="filterStudents()"></div>
+<div id="stGrid" class="st-grid"></div>
+<div style="margin-top:20px;display:flex;gap:12px;flex-wrap:wrap">
+<button class="bs" style="flex:1;border-color:var(--gn);color:var(--gn)" onclick="exportXlsx()">📥 ייצוא אקסל</button>
+<button class="bs" style="flex:1" onclick="expClip()">📋 העתק</button>
+<button class="bs" style="flex:1" onclick="showSummary()">📊 סיכום</button>
+</div></div>
+
+<!-- S2 SCORING -->
+<div id="S2" class="ctn hidden">
+<button class="btn-back" onclick="if(confirm('לצאת בלי לשמור?'))backToList()">→ חזרה לרשימה</button>
+<div id="studentHdr"></div>
+<div id="editBanner"></div>
+<div id="scC"></div>
+<div style="margin-top:16px;margin-bottom:16px"><h3 style="font-size:16px;margin-bottom:8px">💬 הערות כלליות</h3><textarea id="genNotes" rows="4" placeholder="הערות כלליות..."></textarea></div>
+<div style="display:flex;gap:12px">
+<button class="bp" style="flex:3" onclick="submitGrade()">שמור ציון ✓</button>
+<button class="bs" style="flex:1" onclick="showRubricModal()">📋 מחוון</button>
+</div></div>
+
+<!-- S3 SUCCESS -->
+<div id="S3" class="ctn hidden">
+<div style="text-align:center;padding:60px;animation:fadeUp .5s ease-out">
+<div style="font-size:64px;margin-bottom:16px">✅</div>
+<h1 style="font-size:28px;margin-bottom:10px" id="successMsg"></h1>
+<p style="color:var(--t4)" id="successSub"></p>
+<button class="bp" style="margin-top:24px;max-width:300px" onclick="backToList()">← תלמיד/ה הבא/ה</button>
+</div></div>
+
+<!-- S4 SUMMARY -->
+<div id="S4" class="ctn hidden">
+<button class="btn-back" onclick="backToList()">→ חזרה</button>
+<div class="ph"><div class="tag">סיכום</div><h1 id="sumTitle"></h1></div>
+<div class="str" id="sumStats"></div>
+<div class="card"><h3 style="margin-bottom:14px">📊 התפלגות</h3><canvas id="distC"></canvas></div>
+<div id="sumTable"></div>
+<div style="margin-top:16px;display:flex;gap:12px">
+<button class="bs" style="flex:1;border-color:var(--gn);color:var(--gn)" onclick="exportXlsx()">📥 אקסל</button>
+<button class="bs" style="flex:1" onclick="expClip()">📋 העתק</button>
+</div></div>
+
+<!-- S5 NO RUBRIC -->
+<div id="S5" class="ctn hidden">
+<button class="btn-back" onclick="show('S0')">→ חזרה</button>
+<div style="text-align:center;padding:60px"><div style="font-size:64px;margin-bottom:16px">⚠️</div><h1 style="font-size:24px">לא נמצא מחוון</h1><p style="color:var(--t4);margin-top:10px">המנחה צריך להגדיר מחוון בכלי הכיול קודם.</p></div></div>
+
+<!-- MODAL -->
+<div id="modal" class="mo hidden" onclick="if(event.target===this)closeModal()"><div class="mc"><div class="mh"><h2>📋 המחוון</h2><button class="mx" onclick="closeModal()">✕</button></div><div class="mb2" id="mBody"></div></div></div>
+
+<script>
+const COL=['#7c6cf0','#34d399','#fbbf24','#f87171','#60a5fa','#f472b6','#a78bfa','#fb923c'];
+let R=[],STUDENTS=[],GRADES={},EXAMINER='',currentStudent=null,distChart=null;
+
+function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+function show(id){['S0','S1','S2','S3','S4','S5'].forEach(s=>document.getElementById(s).classList.toggle('hidden',s!==id));window.scrollTo(0,0)}
+function safeKey(s){return(s||'').replace(/[\.\#\$\/\[\]\s]/g,'_')}
+
+async function dbSet(p,d){await DB.set(DB.ref(p),d)}
+async function dbGet(p){const s=await DB.get(DB.ref(p));return s.exists()?s.val():null}
+async function rubricGet(p){const s=await DB.get(DB.rubricRef(p));return s.exists()?s.val():null}
+
+// Init — load rubric from tester calibration
+async function initApp(){
+  const cfg=await rubricGet('config');
+  if(cfg&&cfg.rubric){
+    R=cfg.rubric;
+    document.getElementById('loadMsg').innerHTML='<span class="badge bg">✓ מחוון נטען</span> '+R.length+' נושאים · '+R.reduce((a,b)=>a+b.max,0)+' נק׳';
+  }else{
+    document.getElementById('loadMsg').innerHTML='<span class="badge br">⚠️ מחוון לא נמצא</span>';
+  }
+}
+if(window.firebaseReady)initApp();else document.addEventListener('fb-ready',initApp);
+
+// File upload
+async function handleFile(file){
+  if(!file)return;
+  try{
+    const d=await file.arrayBuffer();const wb=XLSX.read(d);const ws=wb.Sheets[wb.SheetNames[0]];
+    const rows=XLSX.utils.sheet_to_json(ws,{header:1});const students=[];
+    let nameCol=-1,linkCol=-1,startRow=0;
+    for(let r=0;r<Math.min(10,rows.length);r++){
+      const row=(rows[r]||[]).map(c=>String(c||'').trim());
+      for(let c=0;c<row.length;c++){const v=row[c];if(/שם/.test(v))nameCol=c;if(/קישור|לינק|link|עבודה|url/i.test(v))linkCol=c}
+      if(nameCol>=0){startRow=r+1;break}
+    }
+    if(nameCol<0){nameCol=0;startRow=0;for(let c=1;c<(rows[0]||[]).length;c++){if(String(rows[Math.min(1,rows.length-1)]?.[c]||'').includes('http')){linkCol=c;break}}}
+    for(let r=startRow;r<rows.length;r++){
+      const row=rows[r]||[];const name=String(row[nameCol]||'').trim();
+      let link=linkCol>=0?String(row[linkCol]||'').trim():'';
+      if(!link){for(let c=0;c<row.length;c++){if(String(row[c]||'').includes('http')){link=String(row[c]).trim();break}}}
+      if(name.length>=2&&!/^שם/.test(name))students.push({name,link});
+    }
+    if(!students.length){shSt('fS','לא זוהו תלמידים','error');return}
+    STUDENTS=students;
+    shSt('fS','✓ '+students.length+' תלמידים','success');
+    document.getElementById('studPrev').innerHTML='<div style="background:var(--sf2);border:1px solid var(--bd);border-radius:10px;padding:10px;font-size:13px;color:var(--t2);max-height:120px;overflow-y:auto">'+students.map(s=>'<div style="padding:2px 0">'+esc(s.name)+(s.link?' <span style="color:var(--bl)">🔗</span>':'')+'</div>').join('')+'</div>';
+  }catch(e){shSt('fS','שגיאה','error')}
+}
+function shSt(id,m,t){const e=document.getElementById(id);e.textContent=m;e.className='ist '+t}
+
+// Start
+async function startExam(){
+  const name=document.getElementById('exName').value.trim();
+  if(!name){alert('נא שם');return}
+  if(!R.length){show('S5');return}
+  EXAMINER=name;
+  const existing=await dbGet('examiners/'+safeKey(name));
+  if(existing){
+    if(existing.students&&!STUDENTS.length)STUDENTS=existing.students;
+    if(existing.grades)GRADES=existing.grades;else GRADES={};
+  }
+  if(!STUDENTS.length){alert('נא להעלות קובץ תלמידים');return}
+  await dbSet('examiners/'+safeKey(name)+'/students',STUDENTS);
+  document.getElementById('exTag').textContent='בוחן/ת: '+name;
+  renderStudGrid();show('S1');
+}
+
+// Student grid
+function renderStudGrid(){
+  const total=STUDENTS.length,graded=STUDENTS.filter(s=>GRADES[safeKey(s.name)]).length;
+  const mt=R.reduce((a,b)=>a+b.max,0);
+  document.getElementById('examProgress').innerHTML='<div style="display:flex;justify-content:space-between;font-size:13px;color:var(--t4);margin-bottom:6px"><span>'+graded+'/'+total+' נבחנו</span><span>'+(total?Math.round(graded/total*100):0)+'%</span></div><div class="progress-bar"><div class="progress-fill" style="width:'+(total?Math.round(graded/total*100):0)+'%"></div></div>';
+  const q=(document.getElementById('stSearch')?.value||'').trim().toLowerCase();
+  let h='';
+  STUDENTS.forEach((s,idx)=>{
+    if(q&&!s.name.toLowerCase().includes(q))return;
+    const g=GRADES[safeKey(s.name)];let tot=0;
+    if(g&&g.sections)R.forEach((r,i)=>{tot+=((g.sections[i]||{}).score||0)*r.max/100});
+    tot=Math.round(tot*10)/10;
+    h+='<div class="st-card'+(g?' graded':'')+'" onclick="openStudent('+idx+')"><div class="st-name">'+esc(s.name)+'</div>'+(s.link?'<div class="st-link">🔗 עבודה</div>':'')+(g?'<div class="st-score" style="color:var(--gn)">'+tot+'/'+mt+'</div><div class="st-badge"><span class="badge bg">✓</span></div>':'<div class="st-badge" style="margin-top:10px"><span class="badge bb">ממתין</span></div>')+'</div>';
+  });
+  document.getElementById('stGrid').innerHTML=h||'<div style="text-align:center;color:var(--t4);padding:30px">אין תוצאות</div>';
+}
+function filterStudents(){renderStudGrid()}
+function backToList(){renderStudGrid();show('S1')}
+
+// Scoring
+async function openStudent(idx){
+  const s=STUDENTS[idx];currentStudent=s;
+  const k=safeKey(s.name);const existing=GRADES[k]||null;const isEdit=!!existing;
+  const mt=R.reduce((a,b)=>a+b.max,0);
+  let hdr='<div class="student-header"><h2>'+esc(s.name)+'</h2>';
+  if(s.link)hdr+='<div class="sh-link"><a href="'+esc(s.link)+'" target="_blank">🔗 פתח עבודה</a></div>';
+  hdr+='</div>';
+  document.getElementById('studentHdr').innerHTML=hdr;
+  document.getElementById('editBanner').innerHTML=isEdit?'<div class="edit-banner">✏️ עריכת ציון קיים</div>':'';
+  document.getElementById('scC').innerHTML=R.map((r,i)=>{
+    const prev=isEdit&&existing.sections?existing.sections[i]:null;
+    const sc=prev?prev.score:50;const nt=prev?prev.note||'':'';
+    return'<div class="sc" style="animation:fadeUp .4s ease-out '+(i*.06)+'s both"><div class="sch"><h3 style="color:'+COL[i%COL.length]+'">'+esc(r.name)+'</h3><div class="sv" id="v'+i+'">'+sc+'</div></div><div class="sw2">משקל: '+r.max+' / '+mt+'</div>'+(r.criteria&&r.criteria.length?'<div class="cb"><div class="cbt">📋 דרישות:</div>'+r.criteria.map(c=>'<div class="cbi">'+esc(c)+'</div>').join('')+'</div>':'')+'<div class="sr2"><span style="font-size:12px;color:var(--t5)">0</span><input type="range" min="0" max="100" step="1" value="'+sc+'" id="r'+i+'" oninput="updSl('+i+')"><span style="font-size:12px;color:var(--t5)">100</span></div><div style="text-align:left;font-size:13px;color:var(--t4);margin-bottom:12px">משוקלל: <strong id="w'+i+'">'+(sc*r.max/100).toFixed(1)+'</strong>/'+r.max+'</div><label>הערה:</label><textarea id="n'+i+'" rows="3" placeholder="הערות...">'+esc(nt)+'</textarea></div>'}).join('');
+  document.getElementById('genNotes').value=isEdit&&existing.notes?existing.notes:'';
+  show('S2');
+}
+function updSl(i){const v=document.getElementById('r'+i).value;document.getElementById('v'+i).textContent=v;document.getElementById('w'+i).textContent=(v*R[i].max/100).toFixed(1)}
+
+async function submitGrade(){
+  const secs=[];R.forEach((_,i)=>{secs.push({score:+document.getElementById('r'+i).value,note:document.getElementById('n'+i).value.trim()})});
+  const notes=document.getElementById('genNotes').value.trim();
+  const k=safeKey(currentStudent.name);
+  const gd={sections:secs,notes,ts:new Date().toISOString()};
+  GRADES[k]=gd;
+  await dbSet('examiners/'+safeKey(EXAMINER)+'/grades/'+k,gd);
+  const mt=R.reduce((a,b)=>a+b.max,0);let tot=0;R.forEach((r,i)=>{tot+=secs[i].score*r.max/100});
+  document.getElementById('successMsg').textContent='✓ '+currentStudent.name+' — '+Math.round(tot*10)/10+'/'+mt;
+  const graded=STUDENTS.filter(s=>GRADES[safeKey(s.name)]).length;
+  document.getElementById('successSub').textContent=graded+'/'+STUDENTS.length+' נבחנו';
+  show('S3');
+}
+
+// Rubric modal
+function showRubricModal(){
+  const mt=R.reduce((a,b)=>a+b.max,0);
+  document.getElementById('mBody').innerHTML='<div style="text-align:center;margin-bottom:20px;padding:14px;background:var(--sf);border-radius:12px;border:1px solid var(--bd)"><span style="color:var(--t3)">סה"כ:</span> <span style="font-size:28px;font-weight:800;color:var(--pr);font-family:monospace">'+mt+'</span></div>'+R.map((r,i)=>'<div style="margin-bottom:12px"><div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-radius:10px;background:'+COL[i%COL.length]+'18;border:1px solid '+COL[i%COL.length]+'40"><span style="font-weight:700;color:'+COL[i%COL.length]+'">'+esc(r.name)+'</span><span style="background:var(--pbg);color:var(--pr2);padding:4px 14px;border-radius:20px;font-weight:800;font-family:monospace">'+r.max+'</span></div>'+(r.criteria&&r.criteria.length?'<div style="padding:10px 16px;border:1px solid var(--bd);border-top:none;border-radius:0 0 10px 10px;background:var(--sf)">'+r.criteria.map(c=>'<div style="font-size:13px;color:var(--t2);line-height:1.7;display:flex;gap:6px"><span style="color:var(--pr)">✦</span>'+esc(c)+'</div>').join('')+'</div>':'')+'</div>').join('');
+  document.getElementById('modal').classList.remove('hidden');
+}
+function closeModal(){document.getElementById('modal').classList.add('hidden')}
+
+// Summary
+function showSummary(){
+  const mt=R.reduce((a,b)=>a+b.max,0);const tots=[];
+  STUDENTS.forEach(s=>{const g=GRADES[safeKey(s.name)];if(!g)return;let sm=0;R.forEach((r,i)=>{sm+=((g.sections||[])[i]?.score||0)*r.max/100});tots.push(Math.round(sm*10)/10)});
+  const avg=tots.length?(tots.reduce((a,b)=>a+b,0)/tots.length).toFixed(1):'—';
+  const mx=tots.length?Math.max(...tots).toFixed(1):'—';const mn=tots.length?Math.min(...tots).toFixed(1):'—';
+  const graded=STUDENTS.filter(s=>GRADES[safeKey(s.name)]).length;
+  document.getElementById('sumTitle').textContent='סיכום — '+EXAMINER;
+  document.getElementById('sumStats').innerHTML='<div class="stc"><div class="stv" style="color:var(--pr)">'+avg+'</div><div class="stl">ממוצע ('+mt+')</div></div><div class="stc"><div class="stv" style="color:var(--gn)">'+mx+'</div><div class="stl">גבוה</div></div><div class="stc"><div class="stv" style="color:var(--rd)">'+mn+'</div><div class="stl">נמוך</div></div><div class="stc"><div class="stv" style="color:var(--pr2)">'+graded+'/'+STUDENTS.length+'</div><div class="stl">נבחנו</div></div>';
+  if(tots.length){
+    const bins=[0,0,0,0,0];tots.forEach(t=>{const p=t/mt*100;if(p>=90)bins[4]++;else if(p>=80)bins[3]++;else if(p>=70)bins[2]++;else if(p>=55)bins[1]++;else bins[0]++});
+    if(distChart)distChart.destroy();
+    distChart=new Chart(document.getElementById('distC'),{type:'bar',data:{labels:['0-54','55-69','70-79','80-89','90-100'],datasets:[{data:bins,backgroundColor:['#f87171','#fbbf24','#60a5fa','#34d399','#7c6cf0'],borderRadius:8,barPercentage:.7}]},options:{responsive:true,scales:{y:{beginAtZero:true,ticks:{stepSize:1,color:'#686880'},grid:{color:'#2a2a4040'}},x:{grid:{display:false},ticks:{color:'#c8c8d8',font:{family:'Heebo'}}}},plugins:{legend:{display:false}}}});
+  }
+  let h='<table class="ct"><thead><tr><th>שם</th>';R.forEach(r=>{h+='<th>'+esc(r.name)+'<br><span style="font-size:10px">('+r.max+')</span></th>'});h+='<th>סה"כ ('+mt+')</th></tr></thead><tbody>';
+  STUDENTS.forEach(s=>{const g=GRADES[safeKey(s.name)];h+='<tr><td>'+esc(s.name)+'</td>';if(!g){R.forEach(()=>{h+='<td style="color:var(--t5)">—</td>'});h+='<td style="color:var(--t5)">—</td></tr>';return}let sm=0;R.forEach((r,i)=>{const sc=(g.sections||[])[i]?.score||0;const w=Math.round(sc*r.max/100*10)/10;sm+=w;h+='<td>'+sc+'<br><span style="font-size:10px;color:var(--t4)">('+w+'/'+r.max+')</span></td>'});h+='<td style="font-weight:800">'+Math.round(sm*10)/10+'</td></tr>'});
+  h+='</tbody></table>';document.getElementById('sumTable').innerHTML=h;show('S4');
+}
+
+// Export
+function exportXlsx(){
+  const mt=R.reduce((a,b)=>a+b.max,0);const hdr=['שם'];R.forEach(r=>hdr.push(r.name+' ('+r.max+')'));hdr.push('סה"כ ('+mt+')','הערות');
+  const rows=[hdr];
+  STUDENTS.forEach(s=>{const g=GRADES[safeKey(s.name)];const row=[s.name];if(!g){R.forEach(()=>row.push(''));row.push('','');rows.push(row);return}let sm=0;R.forEach((r,i)=>{const sc=(g.sections||[])[i]?.score||0;const w=Math.round(sc*r.max/100*10)/10;sm+=w;row.push(w)});row.push(Math.round(sm*10)/10);let notes='';R.forEach((r,i)=>{const n=(g.sections||[])[i]?.note;if(n)notes+=r.name+': '+n+' | '});if(g.notes)notes+='כללי: '+g.notes;row.push(notes);rows.push(row)});
+  const ws=XLSX.utils.aoa_to_sheet(rows);ws['!cols']=hdr.map((_,i)=>({wch:i===0?20:i===hdr.length-1?40:12}));
+  const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'ציונים');
+  XLSX.writeFile(wb,'ציונים_'+EXAMINER+'_'+new Date().toLocaleDateString('he-IL').replace(/\./g,'-')+'.xlsx');
+}
+function expClip(){
+  const mt=R.reduce((a,b)=>a+b.max,0);let t='=== ציונים — '+EXAMINER+' ===\n\n';
+  STUDENTS.forEach(s=>{const g=GRADES[safeKey(s.name)];if(!g){t+=s.name+' — טרם נבחן\n\n';return}let sm=0;t+=s.name+'\n';R.forEach((r,i)=>{const sc=(g.sections||[])[i]?.score||0;const w=Math.round(sc*r.max/100*10)/10;sm+=w;t+='  '+r.name+': '+w+'/'+r.max+((g.sections||[])[i]?.note?' — '+g.sections[i].note:'')+'\n'});t+='  סה"כ: '+Math.round(sm*10)/10+'/'+mt+'\n';if(g.notes)t+='  הערות: '+g.notes+'\n';t+='\n'});
+  navigator.clipboard.writeText(t).then(()=>alert('הועתק!'));
+}
+</script>
+</body>
+</html>
