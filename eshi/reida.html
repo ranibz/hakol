@@ -68,6 +68,11 @@
         .btn-mark.present { background: var(--success); color: white; box-shadow: 0 4px 15px rgba(39,174,96,0.4); }
 
         .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
+        .stats-grid-2col { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin-bottom: 20px; }
+        .unreported-box { background: white; padding: 15px; border-radius: 12px; box-shadow: 0 3px 10px rgba(0,0,0,0.05); margin-bottom: 20px; border-right: 5px solid var(--warning); }
+        .unreported-box h4 { margin: 0 0 10px 0; color: var(--warning); font-size: 1rem; }
+        .unreported-classes { display: flex; flex-wrap: wrap; gap: 8px; }
+        .unreported-chip { background: #fef9e7; color: #b9770e; padding: 6px 14px; border-radius: 20px; font-weight: 700; font-size: 0.95rem; border: 1px solid #f1c40f; }
         .stat-box { background: white; padding: 15px 10px; border-radius: 12px; text-align: center; box-shadow: 0 3px 10px rgba(0,0,0,0.05); }
         .stat-num { font-size: 2.2rem; font-weight: 900; margin-bottom: 5px; }
         
@@ -201,6 +206,22 @@
                     <div class="stat-num" id="statMissing" style="color: var(--danger);">0</div>
                     <div style="font-size: 0.9rem; font-weight: 900;">נעדרים - לחפש!</div>
                 </div>
+            </div>
+
+            <div class="stats-grid-2col">
+                <div class="stat-box" style="border-bottom: 5px solid #3498db;">
+                    <div class="stat-num" id="statBeinayim" style="color: #3498db; font-size: 1.6rem;">0/0</div>
+                    <div style="font-size: 0.9rem; font-weight: 600;">חטיבת ביניים (ז-ט)</div>
+                    <div style="font-size: 0.8rem; color: #7f8c8d;" id="statBeinayimDetail">דווחו</div>
+                </div>
+                <div class="stat-box" style="border-bottom: 5px solid #e74c3c;">
+                    <div class="stat-num" id="statElyonah" style="color: #e74c3c; font-size: 1.6rem;">0/0</div>
+                    <div style="font-size: 0.9rem; font-weight: 600;">חטיבה עליונה (י-יב)</div>
+                    <div style="font-size: 0.8rem; color: #7f8c8d;" id="statElyonahDetail">דווחו</div>
+                </div>
+            </div>
+
+            <div id="unreportedSection" style="display:none;">
             </div>
 
             <h3 style="color: var(--primary); margin-top: 30px; border-bottom: 2px solid #ccc; padding-bottom: 10px;">
@@ -540,7 +561,61 @@
             document.getElementById('statPresent').textContent = presentCount;
             document.getElementById('statMissing').textContent = unaccountedCount;
 
+            // חישוב חטיבת ביניים (ז, ח, ט) וחטיבה עליונה (י, יא, יב)
+            let beinayimTotal = 0, beinayimPresent = 0;
+            let elyonahTotal = 0, elyonahPresent = 0;
+            const unreportedClasses = [];
+
             const sortedClasses = Object.keys(classesMap).sort();
+
+            sortedClasses.forEach(cls => {
+                const data = classesMap[cls];
+                const name = cls.trim();
+                const isBeinayim = name.startsWith('ז') || name.startsWith('ח') || name.startsWith('ט');
+                const isElyonah = name.startsWith('י'); // י, יא, יב
+
+                if (isBeinayim) {
+                    beinayimTotal += data.total;
+                    beinayimPresent += data.present;
+                } else if (isElyonah) {
+                    elyonahTotal += data.total;
+                    elyonahPresent += data.present;
+                }
+
+                // כיתות שלא דווח בהן אף תלמיד
+                if (data.present === 0 && data.total > 0) {
+                    unreportedClasses.push(cls);
+                }
+            });
+
+            document.getElementById('statBeinayim').textContent = beinayimPresent + '/' + beinayimTotal;
+            document.getElementById('statBeinayimDetail').textContent = 'דווחו ' + beinayimPresent + ' מתוך ' + beinayimTotal;
+            document.getElementById('statElyonah').textContent = elyonahPresent + '/' + elyonahTotal;
+            document.getElementById('statElyonahDetail').textContent = 'דווחו ' + elyonahPresent + ' מתוך ' + elyonahTotal;
+
+            // כיתות שלא דווחו כלל
+            const unreportedSection = document.getElementById('unreportedSection');
+            if (unreportedClasses.length > 0) {
+                unreportedSection.style.display = 'block';
+                unreportedSection.innerHTML = '';
+                const box = document.createElement('div');
+                box.className = 'unreported-box';
+                const title = document.createElement('h4');
+                title.innerHTML = '⚠️ כיתות שטרם דווחו (' + unreportedClasses.length + '):';
+                box.appendChild(title);
+                const chipsDiv = document.createElement('div');
+                chipsDiv.className = 'unreported-classes';
+                unreportedClasses.forEach(cls => {
+                    const chip = document.createElement('span');
+                    chip.className = 'unreported-chip';
+                    chip.textContent = cls;
+                    chipsDiv.appendChild(chip);
+                });
+                box.appendChild(chipsDiv);
+                unreportedSection.appendChild(box);
+            } else {
+                unreportedSection.style.display = 'none';
+            }
             
             sortedClasses.forEach(cls => {
                 const data = classesMap[cls];
