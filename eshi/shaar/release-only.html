@@ -140,6 +140,38 @@
   <div id="toast" class="toast hidden"></div>
   <div id="studentModal" class="modal-overlay hidden"></div>
 
+  <!-- ═══ AUTH SCREENS ═══ -->
+  <!-- Register: pick a name -->
+  <div id="registerScreen" class="hidden" style="display:none;align-items:center;justify-content:center;min-height:100vh;padding:24px">
+    <div style="text-align:center;max-width:420px;width:100%">
+      <div style="font-size:48px;margin-bottom:16px">🎓</div>
+      <div style="font-size:20px;font-weight:700;margin-bottom:6px;color:var(--t1)">שחרור תלמידים</div>
+      <div style="color:var(--t2);font-size:13px;margin-bottom:24px">בחר/י את שמך לרישום מכשיר זה</div>
+      <input type="text" id="regSearch" placeholder="🔍 חיפוש שם..." oninput="renderRegNames()" style="width:100%;padding:12px 16px;border-radius:12px;border:1px solid var(--border);background:var(--card);color:var(--t1);font-size:14px;font-family:Rubik,sans-serif;margin-bottom:12px;outline:none;direction:rtl">
+      <div id="regNameList" style="display:flex;flex-direction:column;gap:8px;max-height:300px;overflow-y:auto"></div>
+    </div>
+  </div>
+
+  <!-- Pending: waiting for admin -->
+  <div id="pendingScreen" class="hidden" style="display:none;align-items:center;justify-content:center;min-height:100vh;padding:24px">
+    <div style="text-align:center;max-width:420px;background:var(--card);border:1px solid var(--border);border-radius:20px;padding:40px 28px">
+      <div style="font-size:48px;margin-bottom:16px">⏳</div>
+      <div style="font-size:18px;font-weight:700;margin-bottom:8px;color:var(--t1)">ממתין לאישור מנהל</div>
+      <div id="pendingNameDisplay" style="display:inline-block;background:rgba(0,212,255,0.08);border:1px solid rgba(0,212,255,0.15);border-radius:10px;padding:8px 16px;font-weight:600;font-size:14px;margin:12px 0;color:var(--blue)"></div>
+      <div style="color:var(--t2);font-size:14px;line-height:1.6;margin-bottom:20px">המכשיר נרשם בהצלחה.<br>פנה למנהל המערכת כדי לאשר.<br>הדף יתעדכן אוטומטית.</div>
+      <button onclick="resetReg()" style="padding:10px 20px;border-radius:10px;border:1px solid rgba(255,82,82,0.3);background:rgba(255,82,82,0.1);color:var(--red);cursor:pointer;font-size:13px;font-family:Rubik,sans-serif">🔄 ביטול ורישום מחדש</button>
+    </div>
+  </div>
+
+  <!-- Blocked: all names taken -->
+  <div id="blockedScreen" class="hidden" style="display:none;align-items:center;justify-content:center;min-height:100vh;padding:24px">
+    <div style="text-align:center;max-width:420px;background:var(--card);border:1px solid var(--border);border-radius:20px;padding:40px 28px">
+      <div style="font-size:48px;margin-bottom:16px">🔒</div>
+      <div style="font-size:18px;font-weight:700;margin-bottom:12px;color:var(--t1)">גישה חסומה</div>
+      <div style="color:var(--t2);font-size:14px;line-height:1.6">כל המורשים כבר רשומים.<br>נא לפנות למנהל המערכת.</div>
+    </div>
+  </div>
+
   <div id="mainContent" class="hidden">
   <div class="header">
     <div class="header-logo"><div class="logo-icon">📋</div><div><h1>שחרור תלמידים</h1><p>מחנך / מזכירות</p></div></div>
@@ -532,37 +564,147 @@
     function formatTime(i){return new Date(i).toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'});}
     function showToast(m,t){var e=document.getElementById('toast');e.className='toast toast-'+t;e.textContent=m;e.classList.remove('hidden');setTimeout(function(){e.classList.add('hidden');},3000);}
 
-    // ─── Device Auth: standalone release page ───
-    var deviceId=localStorage.getItem('gate_device_id')||'';
+    // ─── Device Auth with inline registration ───
+    function getDeviceId(){
+      var id=localStorage.getItem('gate_device_id');
+      if(!id){id='dev_'+Date.now()+'_'+Math.random().toString(36).substr(2,8);localStorage.setItem('gate_device_id',id);}
+      return id;
+    }
+    var deviceId=getDeviceId();
     var currentUser='';
     var startTab='form';
+    var authorizedNames=[];
+    var allDevices={};
+    var authUsersRef2=db.ref('school_gate/authorized_users');
+    var devicesRef2=db.ref('school_gate/devices');
 
-    function verifyAndInit(){
-      if(!deviceId){
-        showBlockedScreen('מכשיר לא רשום. יש לרשום את המכשיר דרך דף הכניסה הראשי.');
+    // Load authorized users
+    authUsersRef2.on('value',function(s){
+      var data=s.val()||{};
+      authorizedNames=[];
+      Object.values(data).forEach(function(u){
+        var name=typeof u==='string'?u:u.name;
+        if(name)authorizedNames.push(name);
+      });
+      authorizedNames.sort(function(a,b){return a.localeCompare(b,'he');});
+    });
+
+    // Load all devices
+    devicesRef2.on('value',function(s){allDevices=s.val()||{};});
+
+    function getTakenNames(){
+      var taken=[];
+      Object.values(allDevices).forEach(function(d){
+        if(d.status==='approved'||d.status==='pending')taken.push(d.userName);
+      });
+      return taken;
+    }
+
+    function hideAllScreens(){
+      document.getElementById('registerScreen').style.display='none';
+      document.getElementById('pendingScreen').style.display='none';
+      document.getElementById('blockedScreen').style.display='none';
+      document.getElementById('mainContent').classList.add('hidden');
+    }
+
+    // Listen for device status in real-time
+    devicesRef2.child(deviceId).on('value',function(snap){
+      var device=snap.val();
+      hideAllScreens();
+
+      if(!device){
+        // Not registered — check if names available
+        var taken=getTakenNames();
+        var available=authorizedNames.filter(function(n){return taken.indexOf(n)<0;});
+        if(available.length===0&&authorizedNames.length>0){
+          document.getElementById('blockedScreen').style.display='flex';
+        } else {
+          document.getElementById('registerScreen').style.display='flex';
+          renderRegNames();
+        }
+      } else if(device.status==='pending'){
+        document.getElementById('pendingNameDisplay').textContent='👤 '+device.userName;
+        document.getElementById('pendingScreen').style.display='flex';
+      } else if(device.status==='approved'){
+        currentUser=device.userName||'';
+        var userBadge=document.getElementById('userBadgeArea');
+        if(!userBadge){
+          userBadge=document.createElement('div');
+          userBadge.id='userBadgeArea';
+          userBadge.style.cssText='display:flex;align-items:center;gap:8px;padding:6px 14px;border-radius:10px;background:rgba(0,212,255,0.08);border:1px solid rgba(0,212,255,0.15);font-size:12px;color:var(--blue)';
+          document.querySelector('.header-controls').insertBefore(userBadge,document.querySelector('.connection'));
+        }
+        userBadge.innerHTML='👤 '+currentUser;
+        document.getElementById('mainContent').classList.remove('hidden');
+        devicesRef2.child(deviceId).child('lastSeen').set(new Date().toISOString());
+      }
+    });
+
+    // Wait for both data sources before first check
+    var dataReady=0;
+    function checkReady(){
+      dataReady++;
+      if(dataReady>=2){
+        // Re-trigger device check
+        devicesRef2.child(deviceId).once('value',function(snap){
+          var device=snap.val();
+          if(!device){
+            hideAllScreens();
+            var taken=getTakenNames();
+            var available=authorizedNames.filter(function(n){return taken.indexOf(n)<0;});
+            if(available.length===0&&authorizedNames.length>0){
+              document.getElementById('blockedScreen').style.display='flex';
+            } else {
+              document.getElementById('registerScreen').style.display='flex';
+              renderRegNames();
+            }
+          }
+        });
+      }
+    }
+    authUsersRef2.once('value',function(){checkReady();});
+    devicesRef2.once('value',function(){checkReady();});
+
+    function renderRegNames(){
+      var search=(document.getElementById('regSearch')||{}).value||'';
+      var list=document.getElementById('regNameList');
+      var taken=getTakenNames();
+      var filtered=authorizedNames.filter(function(n){return n.includes(search)&&taken.indexOf(n)<0;});
+      list.innerHTML='';
+      if(filtered.length===0){
+        if(authorizedNames.length>0){
+          list.innerHTML='<div style="color:var(--t3);padding:24px;font-size:14px">כל המורשים כבר רשומים. נא לפנות למנהל.</div>';
+        } else {
+          list.innerHTML='<div style="color:var(--t3);padding:24px;font-size:14px">אין מורשים במערכת. פנה למנהל.</div>';
+        }
         return;
       }
-      db.ref('school_gate/devices/'+deviceId).once('value',function(snap){
-        var device=snap.val();
-        if(!device||device.status!=='approved'){
-          showBlockedScreen('מכשיר לא מאושר. פנה למנהל המערכת.');
-          return;
-        }
-        currentUser=device.userName||'';
-        var userBadge=document.createElement('div');
-        userBadge.style.cssText='display:flex;align-items:center;gap:8px;padding:6px 14px;border-radius:10px;background:rgba(0,212,255,0.08);border:1px solid rgba(0,212,255,0.15);font-size:12px;color:var(--blue)';
-        userBadge.innerHTML='👤 '+currentUser;
-        document.querySelector('.header-controls').insertBefore(userBadge,document.querySelector('.connection'));
-        document.getElementById('mainContent').classList.remove('hidden');
-        db.ref('school_gate/devices/'+deviceId+'/lastSeen').set(new Date().toISOString());
+      filtered.forEach(function(name){
+        var btn=document.createElement('div');
+        btn.style.cssText='padding:14px 16px;border-radius:12px;border:1.5px solid var(--border);background:var(--card);color:var(--t1);cursor:pointer;font-size:15px;font-weight:500;font-family:Rubik,sans-serif;text-align:right;display:flex;align-items:center;gap:10px;transition:all .2s';
+        btn.innerHTML='<span style="width:36px;height:36px;border-radius:50%;background:linear-gradient(135deg,#00e676,#1de9b6);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:#fff;flex-shrink:0">'+name[0]+'</span>'+name;
+        btn.addEventListener('click',function(){registerThisDevice(name);});
+        btn.addEventListener('mouseenter',function(){btn.style.borderColor='rgba(0,230,118,0.3)';});
+        btn.addEventListener('mouseleave',function(){btn.style.borderColor='var(--border)';});
+        list.appendChild(btn);
       });
     }
 
-    function showBlockedScreen(msg){
-      document.body.innerHTML='<div style="display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:Rubik,sans-serif;direction:rtl;background:#0a0e1a;color:#eef2ff"><div style="text-align:center;max-width:400px;padding:40px"><div style="font-size:48px;margin-bottom:16px">🔒</div><div style="font-size:18px;font-weight:700;margin-bottom:12px">גישה חסומה</div><div style="color:#8892b0;font-size:14px;line-height:1.6">'+msg+'</div></div></div>';
+    function registerThisDevice(name){
+      var ua=navigator.userAgent||'';
+      devicesRef2.child(deviceId).set({
+        userName:name,
+        status:'pending',
+        deviceType:ua.indexOf('Mobile')>=0?'📱 נייד':'💻 מחשב',
+        registeredAt:new Date().toISOString(),
+        lastSeen:new Date().toISOString()
+      });
     }
 
-    verifyAndInit();
+    function resetReg(){
+      if(!confirm('לבטל רישום ולהתחיל מחדש?'))return;
+      devicesRef2.child(deviceId).remove();
+    }
   </script>
 </body>
 </html>
