@@ -532,48 +532,34 @@
     function formatTime(i){return new Date(i).toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'});}
     function showToast(m,t){var e=document.getElementById('toast');e.className='toast toast-'+t;e.textContent=m;e.classList.remove('hidden');setTimeout(function(){e.classList.add('hidden');},3000);}
 
-    // ─── Device Auth: verify device is approved ───
-    var currentUser=localStorage.getItem('gate_user')||'';
-    var startTab=localStorage.getItem('gate_tab')||'form';
+    // ─── Device Auth: standalone release page ───
     var deviceId=localStorage.getItem('gate_device_id')||'';
-    var guestOpen=localStorage.getItem('gate_guest_open')==='true';
+    var currentUser='';
+    var startTab='form';
 
     function verifyAndInit(){
-      // Guest tab is open to everyone — no auth needed
-      if(guestOpen&&startTab==='guest'){
-        localStorage.removeItem('gate_guest_open');
-        currentUser=currentUser||'אורח';
-        document.getElementById('mainContent').classList.remove('hidden');
-        showTab('guest');
-        // Hide release and history tabs — guest-only mode
-        document.getElementById('tabForm').style.display='none';
-        document.getElementById('tabHistory').style.display='none';
+      if(!deviceId){
+        showBlockedScreen('מכשיר לא רשום. יש לרשום את המכשיר דרך דף הכניסה הראשי.');
         return;
       }
-
-      if(!deviceId||!currentUser){window.location.href='index.html';return;}
       db.ref('school_gate/devices/'+deviceId).once('value',function(snap){
         var device=snap.val();
         if(!device||device.status!=='approved'){
-          localStorage.removeItem('gate_user');
-          alert('מכשיר לא מאושר. פנה למנהל.');
-          window.location.href='index.html';
+          showBlockedScreen('מכשיר לא מאושר. פנה למנהל המערכת.');
           return;
         }
+        currentUser=device.userName||'';
         var userBadge=document.createElement('div');
         userBadge.style.cssText='display:flex;align-items:center;gap:8px;padding:6px 14px;border-radius:10px;background:rgba(0,212,255,0.08);border:1px solid rgba(0,212,255,0.15);font-size:12px;color:var(--blue)';
-        userBadge.innerHTML='👤 '+currentUser+'<button style="background:none;border:none;color:var(--t3);cursor:pointer;font-size:11px;margin-right:6px" onclick="logoutUser()">יציאה</button>';
+        userBadge.innerHTML='👤 '+currentUser;
         document.querySelector('.header-controls').insertBefore(userBadge,document.querySelector('.connection'));
         document.getElementById('mainContent').classList.remove('hidden');
-        if(startTab==='guest')showTab('guest');
         db.ref('school_gate/devices/'+deviceId+'/lastSeen').set(new Date().toISOString());
       });
     }
 
-    function logoutUser(){
-      localStorage.removeItem('gate_user');
-      localStorage.removeItem('gate_tab');
-      window.location.href='index.html';
+    function showBlockedScreen(msg){
+      document.body.innerHTML='<div style="display:flex;align-items:center;justify-content:center;min-height:100vh;font-family:Rubik,sans-serif;direction:rtl;background:#0a0e1a;color:#eef2ff"><div style="text-align:center;max-width:400px;padding:40px"><div style="font-size:48px;margin-bottom:16px">🔒</div><div style="font-size:18px;font-weight:700;margin-bottom:12px">גישה חסומה</div><div style="color:#8892b0;font-size:14px;line-height:1.6">'+msg+'</div></div></div>';
     }
 
     verifyAndInit();
