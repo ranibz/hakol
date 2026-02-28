@@ -437,22 +437,89 @@ function renderTeacher(){
 }
 
 function renderTeacherView(){
-  const subCards=S.submissions.length?S.submissions.map(sub=>{
-    const mainNews=sub.slotAssignments?.main?S.allNews.find(n=>n.id===sub.slotAssignments.main):null;
-    return`<div class="sub-card">
-      <h4>👤 ${esc(sub.studentName)}</h4>
-      <div class="sub-meta">הוגש: ${sub.timestamp?new Date(sub.timestamp).toLocaleString("he-IL"):""} • תבנית: ${LAYOUTS[sub.layout]?.name||""}</div>
-      ${mainNews?`<div style="font-size:.82rem;color:var(--accent);font-weight:700;margin-bottom:6px">ידיעה ראשית: ${esc(mainNews.headline)}</div>`:''}
-      <div style="font-size:.8rem;color:#666;margin-bottom:4px">ידיעות שנבחרו: ${(sub.selectedIds||[]).map(id=>{const n=S.allNews.find(x=>x.id===id);return n?n.category:id}).join(', ')}</div>
-      ${sub.justifications?Object.entries(sub.justifications).filter(([k,v])=>v&&!k.startsWith('reject')).map(([k,v])=>`<div style="font-size:.78rem;margin-top:4px;padding:4px 8px;background:#f9f9f5;border-radius:4px"><strong>${k==='main'?'ראשית':k}:</strong> ${esc(v)}</div>`).join(''):''}
-    </div>`}).join(""):`<div style="text-align:center;padding:30px;color:var(--muted)"><div style="font-size:2rem;margin-bottom:8px">📭</div><h3>עדיין אין הגשות</h3><p>כשתלמידים ישלחו את העבודה, ההגשות יופיעו כאן</p></div>`;
-
-  return`<div class="container" style="max-width:800px;margin-top:25px">
+  if(!S.submissions.length) return`<div class="container" style="max-width:900px;margin-top:25px">
     <button class="btn btn-muted" data-action="goto-landing" style="margin-bottom:14px;font-size:.8rem">→ חזרה</button>
-    <div class="info-box">
-      <h2>📊 הגשות תלמידים — ${esc(S.teacherName)}</h2>
-      <p>${S.submissions.length} הגשות התקבלו • <button class="btn btn-dark" data-action="refresh-subs" style="padding:5px 12px;font-size:.78rem">🔄 רענן</button></p>
-    </div>
+    <div class="info-box"><h2>📊 הגשות תלמידים — ${esc(S.teacherName)}</h2><p>0 הגשות • <button class="btn btn-dark" data-action="refresh-subs" style="padding:5px 12px;font-size:.78rem">🔄 רענן</button></p></div>
+    <div style="text-align:center;padding:40px;color:var(--muted)"><div style="font-size:2.5rem;margin-bottom:8px">📭</div><h3>עדיין אין הגשות</h3><p style="font-size:.88rem">כשתלמידים ישלחו את העבודה, ההגשות יופיעו כאן. לחץ "רענן" לבדוק.</p></div></div>`;
+
+  // Build summary comparison
+  const newsPopularity=S.allNews.map(n=>{
+    const selCount=S.submissions.filter(s=>(s.selectedIds||[]).includes(n.id)).length;
+    const mainCount=S.submissions.filter(s=>{const sa=s.slotAssignments||{};return Object.entries(sa).some(([k,v])=>{const slot=LAYOUTS[s.layout]?.slots?.find(sl=>sl.id===k);return slot?.isMain&&v===n.id})}).length;
+    return{news:n,selCount,mainCount,pct:Math.round(selCount/S.submissions.length*100)};
+  }).sort((a,b)=>b.selCount-a.selCount);
+
+  const comparisonHtml=`<div class="info-box" style="margin-bottom:16px">
+    <h3 style="font-family:var(--fd);margin-bottom:10px">📊 השוואה כיתתית — פופולריות הידיעות</h3>
+    ${newsPopularity.map(p=>{const col=CC[p.news.category]||"#666";return`<div style="margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:2px"><span><span style="color:${col};font-weight:700">${p.news.category}</span> ${esc(p.news.headline.substring(0,50))}${p.news.headline.length>50?'...':''}</span><span style="color:#888">${p.mainCount>0?`<span style="color:var(--accent);font-weight:700">${p.mainCount}× ראשית</span> • `:''}${p.selCount}/${S.submissions.length} (${p.pct}%)</span></div>
+      <div style="height:5px;background:#f0f0f0;border-radius:3px;overflow:hidden"><div style="height:100%;width:${p.pct}%;background:${p.mainCount>0?'var(--accent)':'#3498db'};border-radius:3px;transition:width .4s"></div></div>
+    </div>`}).join("")}
+  </div>`;
+
+  // Build full cards per student
+  const subCards=S.submissions.map(sub=>{
+    const L=LAYOUTS[sub.layout]||LAYOUTS.classic;
+
+    // Mini newspaper grid
+    const miniGrid=L.slots.map(slot=>{
+      const nid=(sub.slotAssignments||{})[slot.id];const news=nid?S.allNews.find(n=>n.id===nid):null;
+      if(!news)return'';const col=CC[news.category]||"#666";const ci=S.allNews.indexOf(news)%10;const isM=slot.isMain;
+      const st=`grid-column:${slot.x}/span ${slot.w};grid-row:${slot.y}/span ${slot.h};`;
+      return`<div class="final-slot font-${slot.font} news-bg-${ci}" style="${st};padding:5px 4px">
+        <span style="font-size:.58rem;font-weight:700;color:${col};font-family:var(--fu)">${news.category}</span>
+        <h3 class="news-headline" style="font-size:${isM?'1rem':slot.w>=3?'.82rem':'.7rem'}">${esc(news.headline)}</h3>
+        ${isM?`<p style="font-size:.68rem;color:#666;line-height:1.3;margin-top:2px">${esc(news.subtitle)}</p>`:''}
+      </div>`;
+    }).join("");
+
+    // Justifications
+    const justHtml=L.slots.map(slot=>{
+      const nid=(sub.slotAssignments||{})[slot.id];const news=nid?S.allNews.find(n=>n.id===nid):null;
+      const text=(sub.justifications||{})[slot.id];
+      if(!news||!text)return'';const col=CC[news.category]||"#666";
+      return`<div style="margin-bottom:6px;padding:6px 10px;background:#f9f9f5;border-radius:5px;border-right:3px solid ${slot.isMain?'var(--accent)':'var(--slate)'}">
+        <div style="font-size:.76rem;display:flex;gap:5px;align-items:center;margin-bottom:2px"><span class="slot-tag ${slot.isMain?'main':'other'}" style="font-size:.62rem;padding:1px 6px">${slot.label}</span><strong style="font-family:var(--fd);font-size:.8rem">${esc(news.headline)}</strong></div>
+        <p style="font-size:.78rem;color:#555;line-height:1.55">${esc(text)}</p>
+      </div>`;
+    }).join("");
+
+    // Rejected justifications
+    const rejHtml=(sub.selectedIds||[]).length?S.allNews.filter(n=>!(sub.selectedIds||[]).includes(n.id)).map(n=>{
+      const text=(sub.justifications||{})[`reject-${n.id}`];if(!text)return'';
+      return`<div style="margin-bottom:4px;padding:5px 8px;background:#fffaf0;border-radius:4px;font-size:.76rem"><strong style="font-family:var(--fd)">${esc(n.headline)}</strong><p style="color:#888;margin-top:1px;line-height:1.45">${esc(text)}</p></div>`;
+    }).join(""):'';
+
+    // Ratings table
+    const ratingsHtml=sub.ratings?`<details style="margin-top:8px"><summary style="font-size:.8rem;font-weight:700;font-family:var(--fu);cursor:pointer;color:var(--slate)">📊 טבלת דירוגים</summary>
+      <table class="ratings-table" style="margin-top:6px"><thead><tr><th style="text-align:right">ידיעה</th>${CRITERIA.map(c=>`<th title="${c.desc}">${c.icon}</th>`).join('')}<th>ממוצע</th></tr></thead><tbody>
+      ${S.allNews.map(n=>{const r=sub.ratings?.[n.id]||{};const vals=CRITERIA.map(c=>r[c.key]||0).filter(v=>v>0);const avg=vals.length?(vals.reduce((a,b)=>a+b,0)/vals.length):0;const inP=(sub.selectedIds||[]).includes(n.id);
+        return`<tr style="background:${inP?'#f8fff8':'#fff'}"><td style="text-align:right;font-size:.72rem;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${inP?'✅':''} ${esc(n.headline.substring(0,30))}</td>${CRITERIA.map(c=>`<td style="color:#b8860b;font-size:.75rem">${r[c.key]||'-'}</td>`).join('')}<td style="font-weight:700;color:#b8860b;font-size:.75rem">${avg.toFixed(1)}</td></tr>`}).join('')}
+      </tbody></table></details>`:'';
+
+    return`<div class="sub-card" style="padding:18px;margin-bottom:18px">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;flex-wrap:wrap;gap:6px">
+        <h4 style="font-family:var(--fd);font-size:1.1rem">👤 ${esc(sub.studentName)}</h4>
+        <div class="sub-meta" style="font-size:.76rem;color:var(--muted)">הוגש: ${sub.timestamp?new Date(sub.timestamp).toLocaleString("he-IL"):""} • תבנית: ${L.name} • עיתון: ${esc(sub.newspaperName||'')}</div>
+      </div>
+      <div style="background:var(--pbr);border:1.5px solid var(--ink);border-radius:3px;padding:14px;margin-bottom:12px">
+        <div style="text-align:center;border-bottom:2px double var(--ink);padding-bottom:8px;margin-bottom:10px">
+          <div style="font-size:.62rem;color:var(--muted);font-family:var(--fu)">${hDate()}</div>
+          <h2 style="font-family:var(--fd);font-size:1.5rem;font-weight:900;margin:2px 0">${esc(sub.newspaperName||'הידיעות')}</h2>
+          <div style="font-size:.6rem;color:var(--muted);font-family:var(--fu)">עורך/ת: ${esc(sub.studentName)}</div>
+        </div>
+        <div class="newspaper-grid" style="grid-template-columns:${L.cols};grid-template-rows:${L.rows}">${miniGrid}</div>
+      </div>
+      <div style="margin-bottom:8px"><h4 style="font-size:.88rem;font-family:var(--fu);margin-bottom:6px">📝 נימוקים — ידיעות שנבחרו</h4>${justHtml||'<p style="color:#aaa;font-size:.8rem">לא נכתבו נימוקים</p>'}</div>
+      ${rejHtml?`<div style="margin-bottom:8px"><h4 style="font-size:.85rem;font-family:var(--fu);color:#c07000;margin-bottom:6px">🤔 ידיעות שלא נבחרו</h4>${rejHtml}</div>`:''}
+      ${ratingsHtml}
+    </div>`;
+  }).join("");
+
+  return`<div class="container" style="max-width:900px;margin-top:25px">
+    <button class="btn btn-muted" data-action="goto-landing" style="margin-bottom:14px;font-size:.8rem">→ חזרה</button>
+    <div class="info-box"><h2>📊 הגשות תלמידים — ${esc(S.teacherName)}</h2><p>${S.submissions.length} הגשות התקבלו • <button class="btn btn-dark" data-action="refresh-subs" style="padding:5px 12px;font-size:.78rem">🔄 רענן</button></p></div>
+    ${comparisonHtml}
     ${subCards}
   </div>`;
 }
