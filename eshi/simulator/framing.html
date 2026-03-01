@@ -1,0 +1,586 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>אותו אירוע, סיפור אחר — סימולציית מיסגור תקשורתי</title>
+<link href="https://fonts.googleapis.com/css2?family=David+Libre:wght@400;500;700&family=Frank+Ruhl+Libre:wght@300;400;500;700;900&family=Noto+Sans+Hebrew:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<style>
+:root{--ink:#1a1410;--paper:#f8f5ef;--pbr:#fefcf7;--accent:#6366f1;--accent-dk:#4f46e5;--slate:#2c3e50;--muted:#8a8070;--border:#d4cfc5;--bl:#e8e4dc;--fd:'Frank Ruhl Libre','David Libre',serif;--fb:'David Libre','Noto Sans Hebrew',serif;--fu:'Noto Sans Hebrew','David Libre',sans-serif;--r:8px;--rl:12px}
+*{margin:0;padding:0;box-sizing:border-box}html{scroll-behavior:smooth}body{font-family:var(--fb);background:var(--paper);color:var(--ink);min-height:100vh;line-height:1.6}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes slideUp{from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:translateY(0)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.landing{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px;text-align:center;background:linear-gradient(180deg,#f8f5ef,#ece6db)}
+.landing-logo{font-size:4rem;margin-bottom:10px}
+.landing h1{font-family:var(--fd);font-size:2.2rem;font-weight:900;margin-bottom:2px}
+.landing .tagline{font-size:1rem;color:var(--muted);margin-bottom:4px}
+.landing .credit{font-size:.78rem;color:#b0a898;margin-bottom:28px}
+.landing-card{background:#fff;border-radius:16px;padding:26px 24px;max-width:480px;width:92%;border:2px solid var(--bl);box-shadow:0 4px 20px rgba(0,0,0,.08);text-align:right}
+.landing-card .ci{font-size:2rem;margin-bottom:5px;text-align:center}
+.landing-card h2{font-family:var(--fd);font-size:1.1rem;margin-bottom:5px;text-align:center}
+.landing-card p{font-size:.81rem;color:var(--muted);line-height:1.7;margin-bottom:10px}
+.landing-card ol{font-size:.78rem;color:#666;line-height:1.8;padding-right:18px;margin-bottom:10px}
+.lbtn{display:block;width:100%;padding:11px;font-size:.93rem;font-family:var(--fu);font-weight:700;border:none;border-radius:var(--r);cursor:pointer;text-align:center;background:var(--slate);color:#fff;transition:all .25s}.lbtn:hover{background:#1a2a3a}
+.landing-hint{font-size:.76rem;color:#aaa;margin-top:7px;text-align:center}
+.landing-footer{margin-top:28px;font-size:.72rem;color:#c0b8a8}
+
+.modal-overlay{position:fixed;inset:0;background:rgba(20,16,10,.75);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;z-index:1000;animation:fadeIn .3s}
+.modal-card{background:var(--pbr);border-radius:16px;padding:28px 30px;box-shadow:0 24px 80px rgba(0,0,0,.35);max-width:520px;width:92%;animation:slideUp .4s;text-align:right}
+.modal-card h2{font-family:var(--fd);font-size:1.25rem;font-weight:900;margin-bottom:3px;text-align:center}
+.modal-sub{color:var(--muted);font-size:.82rem;margin-bottom:14px;text-align:center;line-height:1.6}
+.modal-card label{display:block;font-size:.81rem;font-weight:700;font-family:var(--fu);margin-bottom:3px;margin-top:8px}
+.modal-input{width:100%;padding:9px 12px;font-size:.9rem;border:2px solid var(--border);border-radius:var(--r);font-family:var(--fb);outline:none;background:#fff}.modal-input:focus{border-color:var(--accent)}
+.modal-btn{width:100%;padding:10px;font-size:.92rem;font-family:var(--fu);font-weight:700;border:none;border-radius:var(--r);cursor:pointer;margin-top:9px}.modal-btn.primary{background:var(--accent);color:#fff}.modal-btn.primary:hover{background:var(--accent-dk)}.modal-btn:disabled{background:var(--border);color:#999;cursor:default}
+
+.instructions-box{background:#f5f0ff;border:1px solid #e0d4f5;border-radius:var(--rl);padding:13px 18px;margin-bottom:14px}
+.instructions-box h3{font-size:.9rem;color:#6366f1;margin-bottom:3px;font-family:var(--fu)}
+.instructions-box ol{font-size:.79rem;color:#666;line-height:1.8;padding-right:18px}
+.instructions-box p{font-size:.79rem;color:#888;line-height:1.6;margin-top:4px}
+
+.app-header{background:var(--ink);color:var(--pbr);padding:0 18px;height:50px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:100;box-shadow:0 2px 16px rgba(0,0,0,.25)}
+.header-brand{display:flex;align-items:center;gap:9px}
+.header-brand .logo{font-size:1.15rem}.header-brand h1{font-family:var(--fd);font-size:.98rem;font-weight:700}.header-brand .meta{font-size:.64rem;opacity:.5}
+.phase-indicators{display:flex;gap:3px}
+.phase-pill{padding:3px 9px;border-radius:20px;font-size:.67rem;font-weight:600;font-family:var(--fu);background:rgba(255,255,255,.08);color:rgba(255,255,255,.3);transition:all .3s;white-space:nowrap}
+.phase-pill.active{background:var(--accent);color:#fff}.phase-pill.done{background:rgba(255,255,255,.15);color:rgba(255,255,255,.6)}
+
+.container{max-width:900px;margin:0 auto;padding:20px 18px}
+.info-box{background:#fff;border-radius:var(--rl);padding:15px 20px;margin-bottom:14px;border:1px solid var(--bl)}
+.info-box h2{font-family:var(--fd);font-size:1.12rem;margin-bottom:3px}.info-box p{color:var(--muted);font-size:.82rem;line-height:1.7}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:9px 20px;border-radius:var(--r);font-size:.85rem;font-weight:700;font-family:var(--fu);border:none;cursor:pointer;transition:all .25s}.btn:active{transform:scale(.97)}
+.btn-accent{background:var(--accent);color:#fff}.btn-accent:hover{background:var(--accent-dk)}
+.btn-dark{background:var(--slate);color:#fff}.btn-dark:hover{background:#1a2a3a}
+.btn-muted{background:#b0a898;color:#fff}.btn-muted:hover{background:#9a9080}
+.btn-center{display:flex;justify-content:center;gap:12px;margin-top:20px;flex-wrap:wrap}
+
+/* Link */
+.link-result{margin-top:12px;padding:12px;background:#f0f5ff;border:2px solid #6366f1;border-radius:var(--r);animation:slideUp .3s}
+.link-result h3{font-size:.86rem;color:#4f46e5;margin-bottom:4px;font-family:var(--fu);text-align:center}
+.link-url{width:100%;padding:7px;background:#fff;border:1px solid #c7d2fe;border-radius:6px;font-family:monospace;font-size:.66rem;direction:ltr;text-align:left;word-break:break-all;margin-bottom:5px;resize:none;min-height:40px;outline:none}
+.link-actions{display:flex;gap:7px}
+.link-actions button{flex:1;padding:7px;font-family:var(--fu);font-weight:600;font-size:.8rem;border:none;border-radius:6px;cursor:pointer}
+.copy-btn{background:#6366f1;color:#fff}.copy-btn:hover{background:#4f46e5}
+.new-btn{background:#3498db;color:#fff}.new-btn:hover{background:#2980b9}
+.np-item{padding:6px;border-bottom:1px solid #f0f0f0;font-size:.78rem}.np-item:last-child{border:none}.np-item strong{font-family:var(--fd);font-size:.83rem}
+
+/* Fact file */
+.fact-file{background:#fff;border:2px solid var(--accent);border-radius:var(--rl);padding:20px;margin-bottom:16px;position:relative}
+.fact-file::before{content:'📋 תיק עובדות';position:absolute;top:-11px;right:14px;background:var(--accent);color:#fff;padding:2px 12px;border-radius:20px;font-size:.74rem;font-weight:700;font-family:var(--fu)}
+.fact-file h3{font-family:var(--fd);font-size:1.1rem;margin:6px 0 8px}
+.fact-file .context{font-size:.79rem;color:var(--muted);margin-bottom:10px;padding:6px 10px;background:#faf9f5;border-radius:6px}
+.fact-list{list-style:none;padding:0}
+.fact-list li{padding:5px 10px;margin-bottom:3px;background:#f8f7f3;border-radius:5px;font-size:.82rem;line-height:1.55;border-right:3px solid var(--accent)}
+
+/* Topic cards */
+.topic-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px;margin-bottom:14px}
+.topic-card{background:#fff;border:2px solid var(--bl);border-radius:10px;padding:14px;cursor:pointer;transition:all .25s;position:relative;overflow:hidden}
+.topic-card:hover{border-color:#c0b8a8;box-shadow:0 3px 10px rgba(0,0,0,.08);transform:translateY(-2px)}
+.topic-card.selected{border-color:var(--accent);background:#f5f0ff;box-shadow:0 0 0 1px var(--accent)}
+.topic-card .topic-icon{font-size:1.6rem;margin-bottom:4px;text-align:center}
+.topic-card .topic-name{font-family:var(--fu);font-size:.88rem;font-weight:700;text-align:center;margin-bottom:4px}
+.topic-card .topic-facts{font-size:.72rem;color:var(--muted);text-align:center}
+.topic-card .check{position:absolute;top:5px;left:5px;background:var(--accent);color:#fff;border-radius:50%;width:18px;height:18px;font-size:.55rem;display:flex;align-items:center;justify-content:center}
+
+/* Framing options */
+.framing-options{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+.framing-card{background:#fff;border:2px solid var(--bl);border-radius:10px;padding:14px;cursor:pointer;transition:all .25s;position:relative}
+.framing-card:hover{border-color:#c0b8a8;box-shadow:0 3px 10px rgba(0,0,0,.08)}
+.framing-card.selected{border-width:3px}
+.framing-card .fc-label{font-size:.72rem;font-weight:700;font-family:var(--fu);padding:2px 10px;border-radius:20px;color:#fff;display:inline-block;margin-bottom:6px}
+.framing-card h3{font-family:var(--fd);font-size:1rem;font-weight:800;line-height:1.3;margin-bottom:3px}
+.framing-card .fc-sub{font-size:.8rem;color:#666;line-height:1.4}
+.framing-card .check{position:absolute;top:5px;left:5px;color:#fff;border-radius:50%;width:20px;height:20px;font-size:.6rem;display:flex;align-items:center;justify-content:center}
+
+/* Justify textarea */
+.justify-box{background:#fff;border-radius:var(--rl);padding:16px 20px;margin-bottom:14px;border:1px solid var(--bl)}
+.justify-box h3{font-family:var(--fd);font-size:1rem;margin-bottom:6px}
+.justify-box p{font-size:.82rem;color:var(--muted);margin-bottom:6px}
+.justify-textarea{width:100%;padding:9px 12px;border:1px solid var(--border);border-radius:var(--r);font-family:var(--fb);font-size:.86rem;line-height:1.7;resize:vertical;outline:none;min-height:70px}.justify-textarea:focus{border-color:var(--accent)}
+
+/* Write article */
+.write-panel{background:#fff;border:2px solid var(--bl);border-radius:var(--rl);padding:18px;margin-bottom:14px}
+.write-panel label{display:block;font-size:.81rem;font-weight:700;font-family:var(--fu);margin:8px 0 3px;color:var(--slate)}
+.write-input{width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:var(--r);font-family:var(--fd);font-weight:700;font-size:1rem;outline:none}.write-input:focus{border-color:var(--accent)}
+.write-textarea{width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:var(--r);font-family:var(--fb);font-size:.86rem;line-height:1.7;resize:vertical;outline:none;min-height:90px}.write-textarea:focus{border-color:var(--accent)}
+.relevant-facts{background:#f5f0ff;border:1px solid #e0d4f5;border-radius:var(--r);padding:10px 14px;margin-bottom:10px}
+.relevant-facts h4{font-size:.82rem;font-family:var(--fu);color:var(--accent);margin-bottom:5px}
+.relevant-facts li{font-size:.8rem;line-height:1.55;margin-bottom:2px;list-style:disc;margin-right:16px}
+
+/* Preview / Result */
+.result-newspaper{background:var(--pbr);border:2px solid var(--ink);border-radius:3px;padding:24px;box-shadow:0 8px 30px rgba(0,0,0,.15);margin-bottom:16px}
+.result-newspaper .rn-header{text-align:center;border-bottom:3px double var(--ink);padding-bottom:10px;margin-bottom:14px}
+.result-newspaper .rn-header h1{font-family:var(--fd);font-size:1.8rem;font-weight:900;line-height:1.2;margin-bottom:3px}
+.result-newspaper .rn-header .rn-sub{font-size:.88rem;color:#555;line-height:1.4}
+.result-newspaper .rn-body{font-size:.88rem;line-height:1.7;text-align:justify}
+.result-newspaper .rn-byline{font-size:.72rem;color:var(--muted);font-family:var(--fu);margin-top:10px;text-align:left;border-top:1px solid var(--border);padding-top:6px}
+
+.decision-trail{background:#fff;border-radius:var(--rl);padding:16px 20px;border:1px solid var(--bl);margin-bottom:14px}
+.decision-trail h3{font-family:var(--fd);font-size:1rem;margin-bottom:10px}
+.dt-step{padding:8px 12px;margin-bottom:6px;border-radius:6px;border-right:3px solid var(--accent);background:#faf9f5}
+.dt-step .dt-q{font-size:.78rem;color:var(--accent);font-weight:700;font-family:var(--fu)}
+.dt-step .dt-a{font-size:.84rem;font-weight:600;margin-top:1px}
+.dt-step .dt-why{font-size:.8rem;color:#666;margin-top:2px;line-height:1.5}
+
+/* Teacher sub card */
+.sub-card{background:#fff;border:1px solid var(--bl);border-radius:var(--rl);padding:16px;margin-bottom:14px}
+.sub-card h4{font-family:var(--fd);font-size:1.02rem;margin-bottom:4px}
+.sub-meta{font-size:.74rem;color:var(--muted);margin-bottom:8px}
+
+/* Frame colors */
+.fc-economic{background:#f59e0b;border-color:#f59e0b}.fc-social{background:#ec4899;border-color:#ec4899}
+.fc-environmental{background:#22c55e;border-color:#22c55e}.fc-security{background:#ef4444;border-color:#ef4444}
+.fc-human{background:#f97316;border-color:#f97316}.fc-political{background:#8b5cf6;border-color:#8b5cf6}
+.fc-tech{background:#0ea5e9;border-color:#0ea5e9}.fc-health{background:#e11d48;border-color:#e11d48}
+
+@media print{.app-header,.info-box,.instructions-box,.btn,.btn-center,.decision-trail,.credit-bar{display:none!important}body{background:#fff}.result-newspaper{box-shadow:none;border:1px solid #000}}
+.credit-bar{background:linear-gradient(135deg,#6366f108,#ec489908);border:1px solid #e0d4f5;border-radius:20px;padding:4px 16px;font-size:.72rem;color:#6366f1;font-family:var(--fu);font-weight:500;text-align:center;margin-bottom:10px}
+@media(max-width:768px){.framing-options{grid-template-columns:1fr}.topic-grid{grid-template-columns:1fr 1fr}.container{padding:12px 10px}.phase-indicators{display:none}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+// ============ FIREBASE ============
+const firebaseConfig={apiKey:"AIzaSyCh8TMjXeatpegwaJGOiT64VU0cXeWMwLA",authDomain:"newspaper-editor.firebaseapp.com",databaseURL:"https://newspaper-editor-default-rtdb.europe-west1.firebasedatabase.app",projectId:"newspaper-editor",storageBucket:"newspaper-editor.firebasestorage.app",messagingSenderId:"1056483646622",appId:"1:1056483646622:web:1afdb41dbcfacff9106f8f"};
+let db;try{firebase.initializeApp(firebaseConfig);db=firebase.database()}catch(e){console.warn(e)}
+
+const FRAME_META={
+  economic:{name:"כלכלי",icon:"💰",color:"#f59e0b",desc:"עלות, תועלת, רווח, הפסד"},
+  social:{name:"חברתי",icon:"👥",color:"#ec4899",desc:"צדק, שוויון, קהילה, פערים"},
+  environmental:{name:"סביבתי",icon:"🌿",color:"#22c55e",desc:"טבע, זיהום, קיימות"},
+  security:{name:"ביטחוני",icon:"🛡️",color:"#ef4444",desc:"איום, הגנה, סיכון"},
+  human:{name:"עניין אנושי",icon:"❤️",color:"#f97316",desc:"סיפור אישי, רגש, גורל"},
+  political:{name:"פוליטי",icon:"🏛️",color:"#8b5cf6",desc:"מאבק כוח, אינטרסים"},
+  tech:{name:"טכנולוגי",icon:"💻",color:"#0ea5e9",desc:"חדשנות, שינוי טכנולוגי"},
+  health:{name:"בריאותי",icon:"🏥",color:"#e11d48",desc:"בריאות, סיכון רפואי"},
+};
+const getFrame=id=>FRAME_META[id]||{name:id,icon:"📄",color:"#888",desc:""};
+
+const TOPIC_ICONS={"כלכלה":"💰","חברה":"👥","סביבה":"🌿","ביטחון":"🛡️","פוליטיקה":"🏛️","טכנולוגיה":"💻","בריאות":"🏥","אנשים":"❤️","חינוך":"📚","עבודה":"👷","דיור":"🏠","תחבורה":"🚇","פרטיות":"🔒","משפט":"⚖️"};
+
+// ============ EVENTS DATABASE ============
+const ALL_EVENTS=[
+{
+  id:1,title:"הקמת 3 שכונות חדשות בפריפריה",
+  context:"הממשלה אישרה תוכנית בנייה גדולה בדרום הארץ",
+  topics:{
+    "כלכלה":["תקציב של 2 מיליארד ₪ לפרויקט","צפי ליצירת 3,000 מקומות עבודה","40% מהדירות במחיר למשתכן"],
+    "חברה":["8,000 יחידות דיור ייבנו","120 חקלאים יפונו מאדמותיהם","ראש העיר: 'הזדמנות היסטורית לנגב'"],
+    "סביבה":["השטח הוא בית גידול של 3 מיני ציפורים מוגנות","ארגוני סביבה הגישו עתירה לבג\"ץ","שטח פתוח בנגב ייהפך לאזור בנוי"],
+    "פוליטיקה":["הממשלה אישרה את התוכנית לקראת בחירות","ראש העיר הצהיר תמיכה","ארגוני סביבה הגישו עתירה לבג\"ץ"]
+  },
+  framings:[
+    {id:"economic",headline:"2 מיליארד ₪ לפריפריה: מנוע צמיחה או בזבוז?",subtitle:"3,000 מקומות עבודה חדשים צפויים — אבל המחיר כבד"},
+    {id:"social",headline:"8,000 משפחות יקבלו בית — 120 חקלאים יאבדו את שלהם",subtitle:"תוכנית הדיור החדשה מבטיחה פתרון — אבל לא לכולם"},
+    {id:"environmental",headline:"בית גידול של מינים מוגנים ייהרס לטובת שכונות",subtitle:"ארגוני סביבה נלחמים בבג\"ץ נגד בנייה בנגב"},
+    {id:"political",headline:"שכונות לקראת בחירות? הממשלה מאשרת תוכנית ענק",subtitle:"ראש העיר מריע, האופוזיציה מאשימה בפופוליזם"}
+  ]
+},
+{
+  id:2,title:"מפעל טכנולוגיה בינלאומי נפתח בגליל",
+  context:"חברת טכנולוגיה רב-לאומית הקימה מפעל ייצור בצפון",
+  topics:{
+    "כלכלה":["השקעה של 800 מיליון דולר","500 עובדים, משכורת ממוצעת 25,000 ₪","הטבות מס ל-10 שנים מהמדינה"],
+    "סביבה":["המפעל יפלוט 200 טון פסולת כימית בשנה","מערכת סינון בעלות 50 מיליון ₪","3 בתי ספר במרחק פחות מק\"מ"],
+    "בריאות":["תושבים חוששים לבריאות הילדים","3 בתי ספר סמוכים למפעל","פסולת כימית עלולה לגרום לנזק בריאותי"],
+    "חברה":["70% מהעובדים יהיו מהאזור","ראש המועצה: 'יום חג לגליל'","תושבים הגישו התנגדות"]
+  },
+  framings:[
+    {id:"economic",headline:"800 מיליון דולר נשפכים לגליל: תחייה כלכלית",subtitle:"500 מקומות עבודה עם משכורות כפולות מהממוצע"},
+    {id:"environmental",headline:"200 טון פסולת כימית בשנה: המחיר האמיתי של ההשקעה",subtitle:"מפעל חדש מאיים על הסביבה — מטרים מבתי ספר"},
+    {id:"health",headline:"ילדים לומדים 800 מטר ממפעל כימיקלים חדש",subtitle:"הורים דורשים בדיקות — החברה מבטיחה סינון"},
+    {id:"social",headline:"הגליל מתעורר: 500 משפחות יוכלו להתפרנס בכבוד",subtitle:"אבל לא כולם שמחים — תושבים מוחים נגד הזיהום"}
+  ]
+},
+{
+  id:3,title:"בינה מלאכותית מחליפה 200 עובדים בחברת ביטוח",
+  context:"חברת ביטוח מובילה הודיעה על מעבר למערכת AI",
+  topics:{
+    "טכנולוגיה":["מערכת AI תטפל ב-80% מהפניות","זמן המתנה ירד מ-12 דקות ל-30 שניות","חברות נוספות צפויות לאמץ טכנולוגיה דומה"],
+    "עבודה":["200 עובדי שירות לקוחות פוטרו","גיל ממוצע של המפוטרים: 48","מענק הסתגלות ל-6 חודשים בלבד"],
+    "כלכלה":["חיסכון של 60 מיליון ₪ בשנה","ההסתדרות מאיימת בשביתה","המנכ\"ל: 'מי שלא ישתנה — ייעלם'"],
+    "אנשים":["גיל ממוצע 48, קשה למצוא עבודה חדשה","45% מהלקוחות מעדיפים נציג אנושי","מענק ל-6 חודשים — ואז מה?"]
+  },
+  framings:[
+    {id:"tech",headline:"מהפכה: AI מטפל ב-80% מהפניות תוך 30 שניות",subtitle:"חברת ביטוח הופכת לחלוצה — לקוחות כבר נהנים"},
+    {id:"social",headline:"200 עובדים בני 48+ זרקו לרחוב — רובוט מחליף אותם",subtitle:"ההסתדרות מאיימת בשביתה, המנכ\"ל: 'זה העתיד'"},
+    {id:"economic",headline:"60 מיליון ₪ חיסכון: המהלך שמשנה את ענף הביטוח",subtitle:"אחרי חברה אחת — כל השוק צפוי ללכת בעקבותיה"},
+    {id:"human",headline:"יוסי, בן 52, פוטר אחרי 20 שנה — רובוט לקח את מקומו",subtitle:"'קיבלתי מענק ל-6 חודשים. ואז מה?'"}
+  ]
+},
+{
+  id:4,title:"שריפה גדולה במפעל כימיקלים בחיפה",
+  context:"שריפה פרצה במפעל בתעשייה הפטרוכימית במפרץ חיפה",
+  topics:{
+    "סביבה":["ענן עשן שחור כיסה את חיפה 6 שעות","חומרים מסרטנים נמצאו במרחק 2 ק\"מ","זהו האירוע השלישי במפעל ב-5 שנים"],
+    "בריאות":["15 עובדים פונו, 3 אושפזו","משרד הבריאות הורה לסגור חלונות","תושבת: 'הילדים שלי משתעלים כל לילה'"],
+    "כלכלה":["המפעל מעסיק 800 עובדים","נקנס 2 מיליון ₪ באירוע קודם","העירייה דורשת סגירה, בעלים מתנגדים"],
+    "אנשים":["3 עובדים אושפזו עם שאיפת עשן","תושבת נווה שאנן: 'הילדים משתעלים'","שריפה ב-3 בלילה הפתיעה תושבים"]
+  },
+  framings:[
+    {id:"environmental",headline:"פעם שלישית: מפעל הכימיקלים שוב מרעיל את חיפה",subtitle:"חומרים מסרטנים במרחק 2 ק\"מ — והמפעל ממשיך לפעול"},
+    {id:"health",headline:"ילדי חיפה בסכנה: ענן רעלים כיסה את העיר 6 שעות",subtitle:"תושבת: 'הילדים שלי משתעלים כל לילה'"},
+    {id:"economic",headline:"800 מקומות עבודה מול בריאות הציבור: הדילמה של חיפה",subtitle:"סגירת המפעל תפגע בכלכלת האזור — אבל מה המחיר?"},
+    {id:"human",headline:"'ב-3 בלילה הילדים התעוררו בבהלה': השריפה שמחזירה את הפחד",subtitle:"משפחות נווה שאנן חיות בפחד מתמיד — ואף אחד לא עוזר"}
+  ]
+},
+{
+  id:5,title:"חוק חדש: מצלמות זיהוי פנים ברחובות",
+  context:"הכנסת אישרה חוק להתקנת מצלמות חכמות במרחב הציבורי",
+  topics:{
+    "ביטחון":["צפי לירידה של 40% בפשיעה","המערכת תזהה מבוקשים בזמן אמת","62% מהציבור תומכים"],
+    "פרטיות":["ארגוני זכויות אדם: 'מדינת מעקב'","הנתונים יישמרו 7 שנים","אין פיקוח על מי צופה במצלמות"],
+    "טכנולוגיה":["10,000 מצלמות זיהוי פנים","המערכת טועה ב-15% בזיהוי כהי עור","בסין מערכת דומה שימשה לדיכוי"],
+    "חברה":["טעויות זיהוי פוגעות באוכלוסיות מוחלשות","28% מהציבור מתנגדים","עלות: 500 מיליון ₪ מכספי הציבור"]
+  },
+  framings:[
+    {id:"security",headline:"המלחמה בפשע: 10,000 מצלמות חכמות יזהו פושעים ברחוב",subtitle:"המשטרה מבטיחה ירידה דרמטית בפשיעה"},
+    {id:"political",headline:"האח הגדול כבר כאן: ישראל הופכת למדינת מעקב",subtitle:"7 שנים של מעקב — ואף אחד לא מפקח על המשטרה"},
+    {id:"tech",headline:"המצלמה שטועה ב-15%: זיהוי פנים שמפלה כהי עור",subtitle:"טכנולוגיה פגומה, בלי ביקורת — מה יכול להשתבש?"},
+    {id:"social",headline:"מצלמות לעשירים, מעקב לעניים: מי באמת ייפגע?",subtitle:"ארגוני זכויות: 'אוכלוסיות מוחלשות ישלמו את המחיר'"}
+  ]
+},
+{
+  id:6,title:"חברת תרופות מסרבת להוזיל תרופה מצילת חיים",
+  context:"ויכוח ציבורי סביב מחיר תרופה חדשה לסרטן",
+  topics:{
+    "בריאות":["התרופה מאריכה חיים ב-3 שנים","300 חולים זקוקים ולא יכולים לשלם","בהודו גרסה גנרית ב-5,000 ₪ לחודש"],
+    "כלכלה":["מחיר: 80,000 ₪ לחודש","עלות ייצור: 3,000 ₪","החברה השקיעה 2 מיליארד ₪ ב-15 שנות מחקר"],
+    "אנשים":["משפחה מוכרת את הבית כדי לשלם","300 חולים ממתינים","המנכ\"ל: 'בלי רווח אין מחקר עתידי'"],
+    "פוליטיקה":["78% מהציבור תומכים בכפיית הוזלה","משרד הבריאות דורש הכללה בסל","החברה מסרבת — ומי יכריח?"]
+  },
+  framings:[
+    {id:"health",headline:"300 חולי סרטן ימותו — כי אין להם 80,000 ₪ בחודש",subtitle:"תרופה קיימת, מצילה חיים — אבל רק למי שיכול לשלם"},
+    {id:"economic",headline:"עלות ייצור 3,000 ₪, מחיר 80,000 ₪: הרווח שהורג",subtitle:"מי באמת משלם על 15 שנות מחקר?"},
+    {id:"human",headline:"'אנחנו מוכרים את הבית': המשפחה שנלחמת בסרטן ובחברת תרופות",subtitle:"כשתרופה מצילת חיים הופכת לגזר דין כלכלי"},
+    {id:"political",headline:"הכנסת מול חברת התרופות: מי יכריח את ההוזלה?",subtitle:"78% מהציבור דורשים — אבל הלובי חזק יותר"}
+  ]
+},
+{
+  id:7,title:"רשת מזון פיטרה 1,000 קופאיות והחליפה בקופות אוטומטיות",
+  context:"רשת סופרמרקטים גדולה עברה לאוטומציה מלאה",
+  topics:{
+    "עבודה":["1,000 קופאים פוטרו","רוב המפוטרים: נשים 45-60 ללא תואר","הכשרה הוצעה ל-200 בלבד"],
+    "טכנולוגיה":["60 קופות אוטומטיות בכל סניף","לקוחות מבוגרים מתקשים בתפעול","3 רשתות נוספות יעקבו"],
+    "כלכלה":["חיסכון של 150 מיליון ₪ בשנה","מחירים ירדו 3%","55% מהצרכנים מרוצים"],
+    "אנשים":["נשים בנות 50+ בלי סיכוי לעבודה חדשה","ההסתדרות: 'גזר דין למשפחות'","הכשרה ל-200 מתוך 1,000"]
+  },
+  framings:[
+    {id:"economic",headline:"מחירים ירדו 3%: האוטומציה שחוסכת לצרכנים מיליונים",subtitle:"הקופה האוטומטית מנצחת — והלקוחות נהנים"},
+    {id:"social",headline:"1,000 נשים בנות 50+ נזרקו לרחוב — רובוט עושה את עבודתן",subtitle:"הכשרה? רק ל-200. והשאר?"},
+    {id:"human",headline:"'בגיל 55 אף אחד לא ייקח אותי': הקופאית שהרובוט החליף",subtitle:"אחרי 20 שנה בקופה, מרים מחפשת עבודה — ולא מוצאת"},
+    {id:"tech",headline:"סופרמרקט בלי בני אדם: כך נראה העתיד של הקניות",subtitle:"60 קופות אוטומטיות, אפס תור — אבל מה עם סבתא?"}
+  ]
+},
+{
+  id:8,title:'דליפת מסמכים: מנכ"ל חברה ממשלתית מרוויח 300,000 ₪',
+  context:"חשיפה עיתונאית של שכר בכירים בחברות ממשלתיות",
+  topics:{
+    "כלכלה":["שכר 300,000 ₪ כולל בונוסים","החברה הפסידה 800 מיליון ₪","שכר ממוצע במשק: 12,500 ₪ — פי 24 פחות"],
+    "חברה":["300 עובדי קבלן מרוויחים מינימום","עובדים זוטרים ללא העלאה 3 שנים","בדנמרק פער מקסימלי פי 6"],
+    "פוליטיקה":["ח\"כ: 'שוד כספי ציבור'","הדירקטוריון אישר כדין","ועד עובדים דורש העלאה"],
+    "אנשים":["300 עובדי קבלן עם שכר מינימום","פער של פי 24 בשכר","העובדים הזוטרים מרגישים מושפלים"]
+  },
+  framings:[
+    {id:"economic",headline:"300,000 ₪ בחודש — בחברה שמפסידה 800 מיליון",subtitle:"איך מנכ\"ל מקבל בונוס כשהחברה שוקעת?"},
+    {id:"social",headline:"פי 24 מהעובד הקטן: השכר שחושף את פערי ישראל",subtitle:"300 עובדי קבלן מרוויחים מינימום — והמנכ\"ל 300 אלף"},
+    {id:"political",headline:"'שוד ציבורי': הכנסת דורשת חקירה על שכר המנכ\"לים",subtitle:"מי מפקח? מי מאשר? ולמה אף אחד לא עוצר את זה?"},
+    {id:"human",headline:"'אני עובד 10 שעות ביום וחי באוברדראפט — והוא מקבל 300 אלף'",subtitle:"עובד הקבלן מול המנכ\"ל: שני עולמות באותה חברה"}
+  ]
+}
+];
+
+function pickRandomEvent(){return ALL_EVENTS[Math.floor(Math.random()*ALL_EVENTS.length)]}
+// ============ STATE ============
+const S={
+  mode:"landing",studentName:"",teacherName:"",sessionId:"",
+  event:null,
+  selectedTopic:null,     // chosen topic string
+  topicReason:"",         // why they chose this topic
+  selectedFraming:null,   // index into event.framings
+  framingReason:"",       // why they chose this framing
+  articleSubtitle:"",     // student writes subtitle
+  articleBody:"",         // student writes body
+  submissions:[],
+};
+
+const esc=s=>{const d=document.createElement('div');d.textContent=s;return d.innerHTML};
+function encodeToHash(data){try{return btoa(unescape(encodeURIComponent(JSON.stringify(data))))}catch(e){return""}}
+function decodeFromHash(hash){try{return JSON.parse(decodeURIComponent(escape(atob(hash))))}catch(e){return null}}
+function getBaseUrl(){return window.location.href.split('#')[0]}
+function checkUrl(){const h=window.location.hash.substring(1);if(h&&h.length>10){const d=decodeFromHash(h);if(d&&d.event&&d.session)return d}return null}
+function saveToFirebase(data){if(!db||!S.sessionId)return Promise.resolve();const key=S.studentName.replace(/[.#$/[\]]/g,'_');return db.ref(`framing2/${S.sessionId}/submissions/${key}`).set(data).catch(e=>console.warn(e))}
+function loadSubmissions(){if(!db||!S.sessionId)return Promise.resolve([]);return db.ref(`framing2/${S.sessionId}/submissions`).once('value').then(snap=>{const v=snap.val();return v?Object.values(v):[]}).catch(()=>[])}
+
+function render(){
+  document.getElementById("app").innerHTML=
+    S.mode==="landing"?renderLanding():
+    S.mode==="teacher"?renderTeacher():
+    S.mode==="teacher-view"?renderTeacherView():
+    S.mode==="student-name"?renderStudentName():
+    renderApp();
+  attachEvents();
+}
+
+function renderLanding(){
+  return`<div class="landing">
+    <div class="landing-logo">🔀</div><h1>אותו אירוע, סיפור אחר</h1>
+    <div class="tagline">סימולציית מיסגור תקשורתי</div>
+    <div class="credit">פיתוח: רני בן זאב</div>
+    <div class="landing-card">
+      <div class="ci">👨‍🏫</div><h2>אזור מורה</h2>
+      <p>צור תרגיל לכיתה: אירוע אקראי מהמאגר, כל התלמידים יעבדו על אותו אירוע ויבחרו מסגור שונה.</p>
+      <ol><li>הזן שם → צור תרגיל</li><li>שלח קישור לתלמידים</li><li>צפה בהגשות והשווה בכיתה</li></ol>
+      <button class="lbtn" data-action="goto-teacher">יצירת תרגיל לכיתה →</button>
+      <p class="landing-hint">💡 התלמידים מקבלים קישור ישיר</p>
+    </div>
+    <div class="landing-footer">סימולציית מיסגור תקשורתי • תקשורת וחברה</div>
+  </div>`;
+}
+
+function renderTeacher(){
+  const hasEv=!!S.event;
+  const preview=hasEv?`<div style="margin-top:12px;background:#fff;border-radius:var(--rl);padding:14px;border:1px solid var(--bl)">
+    <h3 style="font-family:var(--fd);font-size:1rem;margin-bottom:4px">📋 ${esc(S.event.title)}</h3>
+    <p style="font-size:.8rem;color:var(--muted);margin-bottom:8px">${esc(S.event.context)}</p>
+    <div style="font-size:.78rem;color:#666"><strong>נושאים:</strong> ${Object.keys(S.event.topics).join(', ')}</div>
+    <div style="font-size:.78rem;color:#666;margin-top:3px"><strong>מסגורים:</strong> ${S.event.framings.map(f=>'<span style="background:'+getFrame(f.id).color+'15;color:'+getFrame(f.id).color+';padding:1px 8px;border-radius:10px;font-size:.72rem;margin-left:3px">'+getFrame(f.id).name+'</span>').join('')}</div>
+  </div>`:"";
+  const sLink=S.sessionId?getBaseUrl()+"#"+encodeToHash({event:S.event,teacher:S.teacherName,session:S.sessionId}):"";
+  const tLink=S.sessionId?getBaseUrl()+"#"+encodeToHash({teacherView:true,teacher:S.teacherName,session:S.sessionId,event:S.event}):"";
+  const linkHtml=S.sessionId?`<div class="link-result"><h3>✅ מוכן!</h3>
+    <p style="font-size:.76rem;color:#555;text-align:center;margin-bottom:4px"><strong>לתלמידים:</strong></p><textarea class="link-url" id="studentLink" readonly>${sLink}</textarea><div class="link-actions"><button class="copy-btn" data-action="copy-student-link">📋 העתק</button></div>
+    <p style="font-size:.76rem;color:#555;text-align:center;margin:7px 0 3px"><strong>למורה:</strong></p><textarea class="link-url" id="teacherLink" readonly>${tLink}</textarea><div class="link-actions"><button class="copy-btn" data-action="copy-teacher-link">📋 העתק</button><button class="new-btn" data-action="regenerate">🔄 אירוע אחר</button></div>
+  </div>`:"";
+  return`<div class="container" style="max-width:620px;margin-top:22px">
+    <div class="credit-bar">פיתוח הסימולציה: רני בן זאב</div>
+    <button class="btn btn-muted" data-action="goto-landing" style="margin-bottom:10px;font-size:.78rem">→ חזרה</button>
+    <div class="info-box"><h2>👨‍🏫 יצירת תרגיל מיסגור</h2><p>הזן שם, צור אירוע, שלח קישור לכיתה.</p></div>
+    <div style="background:#fff;border-radius:var(--rl);padding:14px 18px;border:1px solid var(--bl)">
+      <label style="font-size:.81rem;font-weight:700;font-family:var(--fu);display:block;margin-bottom:3px">שם המורה</label>
+      <input type="text" class="modal-input" id="teacherNameInput" placeholder="למשל: יוסי כהן" value="${esc(S.teacherName)}" style="text-align:center;font-family:var(--fd);font-weight:700;margin-bottom:7px">
+      <button class="modal-btn primary" data-action="generate-event">🎲 צור תרגיל</button>
+    </div>${preview}${linkHtml}
+  </div>`;
+}
+
+function renderTeacherView(){
+  if(!S.submissions.length)return`<div class="container" style="max-width:900px;margin-top:22px">
+    <div class="credit-bar">פיתוח הסימולציה: רני בן זאב</div>
+    <button class="btn btn-muted" data-action="goto-landing" style="margin-bottom:10px;font-size:.78rem">→ חזרה</button>
+    <div class="info-box"><h2>📊 הגשות — ${esc(S.teacherName)}</h2><p>0 הגשות • <button class="btn btn-dark" data-action="refresh-subs" style="padding:4px 9px;font-size:.74rem">🔄 רענן</button></p></div>
+    <div style="text-align:center;padding:30px;color:var(--muted)"><div style="font-size:2.2rem;margin-bottom:5px">📭</div><h3>עדיין אין הגשות</h3></div></div>`;
+
+  // Topic popularity
+  const topicCounts={};S.submissions.forEach(s=>{if(s.selectedTopic)topicCounts[s.selectedTopic]=(topicCounts[s.selectedTopic]||0)+1});
+  // Framing popularity
+  const frameCounts={};S.submissions.forEach(s=>{const fr=S.event?.framings?.[s.selectedFraming];if(fr)frameCounts[fr.id]=(frameCounts[fr.id]||0)+1});
+
+  const topicBar=Object.entries(topicCounts).sort((a,b)=>b[1]-a[1]).map(([t,c])=>{const pct=Math.round(c/S.submissions.length*100);return`<div style="margin-bottom:5px"><div style="display:flex;justify-content:space-between;font-size:.8rem"><span>${TOPIC_ICONS[t]||'📄'} ${t}</span><span style="color:#888">${c} (${pct}%)</span></div><div style="height:4px;background:#f0f0f0;border-radius:3px"><div style="height:100%;width:${pct}%;background:var(--accent);border-radius:3px"></div></div></div>`}).join("");
+
+  const frameBar=Object.entries(frameCounts).sort((a,b)=>b[1]-a[1]).map(([fid,c])=>{const f=getFrame(fid);const pct=Math.round(c/S.submissions.length*100);return`<div style="margin-bottom:5px"><div style="display:flex;justify-content:space-between;font-size:.8rem"><span>${f.icon} ${f.name}</span><span style="color:#888">${c} (${pct}%)</span></div><div style="height:4px;background:#f0f0f0;border-radius:3px"><div style="height:100%;width:${pct}%;background:${f.color};border-radius:3px"></div></div></div>`}).join("");
+
+  // All headlines
+  const headlinesHtml=S.submissions.map(sub=>{
+    const fr=S.event?.framings?.[sub.selectedFraming];if(!fr)return'';const f=getFrame(fr.id);
+    return`<div style="padding:6px 0;border-bottom:1px solid #f5f5f0;display:flex;gap:7px;align-items:flex-start">
+      <span style="background:${f.color};color:#fff;padding:1px 7px;border-radius:10px;font-size:.66rem;font-family:var(--fu);white-space:nowrap">${f.name}</span>
+      <div><strong style="font-family:var(--fd);font-size:.86rem">${esc(fr.headline)}</strong><span style="font-size:.7rem;color:#aaa;margin-right:6px">— ${esc(sub.studentName)}</span></div>
+    </div>`;
+  }).join("");
+
+  // Full submissions
+  const subCards=S.submissions.map(sub=>{
+    const fr=S.event?.framings?.[sub.selectedFraming];const f=fr?getFrame(fr.id):{name:'',icon:'',color:'#888'};
+    return`<div class="sub-card">
+      <h4>👤 ${esc(sub.studentName)}</h4>
+      <div class="sub-meta">${sub.timestamp?new Date(sub.timestamp).toLocaleString("he-IL"):''}</div>
+      <div style="margin-bottom:8px">
+        <div style="font-size:.8rem;margin-bottom:3px"><strong>נושא שנבחר:</strong> ${TOPIC_ICONS[sub.selectedTopic]||''} ${esc(sub.selectedTopic||'')}</div>
+        <div style="font-size:.78rem;color:#666;background:#faf9f5;padding:4px 8px;border-radius:4px;border-right:3px solid var(--accent)">${esc(sub.topicReason||'')}</div>
+      </div>
+      <div style="margin-bottom:8px">
+        <div style="font-size:.8rem;margin-bottom:3px"><strong>מסגור:</strong> <span style="background:${f.color};color:#fff;padding:1px 7px;border-radius:10px;font-size:.7rem">${f.icon} ${f.name}</span></div>
+        <div style="font-size:.78rem;color:#666;background:#faf9f5;padding:4px 8px;border-radius:4px;border-right:3px solid ${f.color}">${esc(sub.framingReason||'')}</div>
+      </div>
+      ${fr?`<div style="background:var(--pbr);border:1.5px solid var(--ink);border-radius:3px;padding:14px;margin-top:6px">
+        <div style="text-align:center;border-bottom:2px double var(--ink);padding-bottom:7px;margin-bottom:9px">
+          <h3 style="font-family:var(--fd);font-size:1.15rem;font-weight:900;line-height:1.2">${esc(fr.headline)}</h3>
+          <p style="font-size:.82rem;color:#555">${esc(sub.articleSubtitle||fr.subtitle)}</p>
+        </div>
+        <p style="font-size:.84rem;line-height:1.65;text-align:justify">${esc(sub.articleBody||'')}</p>
+        <div style="font-size:.68rem;color:var(--muted);margin-top:7px;text-align:left;border-top:1px solid var(--border);padding-top:4px">כתב/ה: ${esc(sub.studentName)}</div>
+      </div>`:''}
+    </div>`;
+  }).join("");
+
+  return`<div class="container" style="max-width:900px;margin-top:22px">
+    <div class="credit-bar">פיתוח הסימולציה: רני בן זאב</div>
+    <button class="btn btn-muted" data-action="goto-landing" style="margin-bottom:10px;font-size:.78rem">→ חזרה</button>
+    <div class="info-box"><h2>📊 הגשות — ${esc(S.teacherName)}</h2><p>אירוע: <strong>${esc(S.event?.title||'')}</strong> • ${S.submissions.length} הגשות • <button class="btn btn-dark" data-action="refresh-subs" style="padding:4px 9px;font-size:.74rem">🔄 רענן</button></p></div>
+    <div class="info-box"><h3 style="font-family:var(--fd);margin-bottom:6px">📊 נושאים שנבחרו</h3>${topicBar}</div>
+    <div class="info-box"><h3 style="font-family:var(--fd);margin-bottom:6px">🔀 מסגורים שנבחרו</h3>${frameBar}</div>
+    <div class="info-box"><h3 style="font-family:var(--fd);margin-bottom:8px">📰 כותרות — אותו אירוע!</h3>${headlinesHtml}</div>
+    ${subCards}
+  </div>`;
+}
+
+function renderStudentName(){
+  return`<div class="modal-overlay"><div class="modal-card" style="text-align:center">
+    <div style="font-size:2.6rem;margin-bottom:4px">🔀</div>
+    <h2>אותו אירוע, סיפור אחר</h2>
+    <div class="modal-sub">סימולציית מיסגור תקשורתי<br><span style="font-size:.72rem;color:#b0a898">פיתוח: רני בן זאב${S.teacherName?' • מורה: '+esc(S.teacherName):''}</span></div>
+    <div class="instructions-box" style="text-align:right;margin-bottom:10px"><h3>📋 מה עושים?</h3>
+      <ol><li>קראו "תיק עובדות" — אירוע עם נתונים יבשים</li><li>בחרו נושא שחשוב לכם מתוך העובדות</li><li>ראו 4 כותרות שונות — כל אחת ממסגרת את האירוע אחרת</li><li>בחרו כותרת, כתבו כתבה קצרה</li><li>שלחו למורה</li></ol>
+    </div>
+    <label style="text-align:right;font-size:.81rem;font-weight:700;font-family:var(--fu);display:block">השם שלך</label>
+    <input type="text" class="modal-input" id="nameInput" placeholder="שם מלא..." style="text-align:center;font-family:var(--fd);font-weight:700" autofocus>
+    <button class="modal-btn primary" id="startBtn" disabled data-action="start-exercise">התחל/י ←</button>
+  </div></div>`;
+}
+
+function renderApp(){return renderHeader()+renderPhase()}
+function renderHeader(){
+  const phases=[{id:"facts",l:"① עובדות"},{id:"topic",l:"② נושא"},{id:"framing",l:"③ מסגור"},{id:"write",l:"④ כתיבה"},{id:"preview",l:"⑤ שליחה"}];
+  const order=["facts","topic","framing","write","preview"];const ci=order.indexOf(S.mode);
+  const pills=phases.map(p=>{const i=order.indexOf(p.id);let c="phase-pill";if(p.id===S.mode)c+=" active";else if(i<ci)c+=" done";return`<div class="${c}">${p.l}</div>`}).join("");
+  return`<div class="app-header"><div class="header-brand"><span class="logo">🔀</span><div><h1>אותו אירוע, סיפור אחר</h1><div class="meta">${esc(S.studentName)}</div></div></div><div class="phase-indicators">${pills}</div></div><div class="credit-bar">פיתוח הסימולציה: רני בן זאב</div>`;
+}
+function renderPhase(){switch(S.mode){case"facts":return renderFacts();case"topic":return renderTopic();case"framing":return renderFraming();case"write":return renderWrite();case"preview":return renderPreview();default:return""}}
+
+function renderFacts(){
+  const ev=S.event;const allFacts=Object.entries(ev.topics).map(([t,facts])=>facts).flat();
+  return`<div class="container">
+    <div class="info-box"><h2>שלב 1: קראו את תיק העובדות</h2><p>לפניכם אירוע עם עובדות יבשות בלבד. קראו בעיון — בשלב הבא תבחרו על מה להתמקד.</p></div>
+    <div class="fact-file"><h3>${esc(ev.title)}</h3><div class="context">${esc(ev.context)}</div>
+      <ul class="fact-list">${allFacts.map(f=>`<li>${esc(f)}</li>`).join("")}</ul>
+    </div>
+    <div class="btn-center"><button class="btn btn-accent" data-action="goto-topic">הבנתי, ממשיך ←</button></div>
+  </div>`;
+}
+
+function renderTopic(){
+  const ev=S.event;const topics=Object.keys(ev.topics);
+  const cards=topics.map(t=>{const sel=S.selectedTopic===t;const icon=TOPIC_ICONS[t]||'📄';const facts=ev.topics[t];
+    return`<div class="topic-card ${sel?'selected':''}" data-action="select-topic" data-topic="${esc(t)}">
+      ${sel?'<div class="check">✓</div>':''}
+      <div class="topic-icon">${icon}</div>
+      <div class="topic-name">${esc(t)}</div>
+      <div class="topic-facts">${facts.length} עובדות</div>
+    </div>`;
+  }).join("");
+  const factsPreview=S.selectedTopic?`<div class="relevant-facts" style="margin-top:12px"><h4>${TOPIC_ICONS[S.selectedTopic]||''} עובדות בנושא "${S.selectedTopic}":</h4><ul>${S.event.topics[S.selectedTopic].map(f=>`<li>${esc(f)}</li>`).join("")}</ul></div>`:'';
+  const justifyHtml=S.selectedTopic?`<div class="justify-box"><h3>🤔 מדוע בחרת בנושא "${S.selectedTopic}"?</h3><p>הסבר/י למה נושא זה חשוב יותר מהאחרים לדעתך.</p><textarea class="justify-textarea" id="topicReasonInput" placeholder="כתוב/י כאן...">${esc(S.topicReason)}</textarea></div>`:'';
+  return`<div class="container">
+    <div class="info-box"><h2>שלב 2: בחרו נושא</h2><p>העובדות מחולקות לנושאים. <strong>על מה הייתם מתמקדים בכתבה?</strong> בחרו את הנושא שהכי חשוב לדעתכם.</p></div>
+    <div class="topic-grid">${cards}</div>
+    ${factsPreview}${justifyHtml}
+    ${S.selectedTopic&&S.topicReason.length>5?'<div class="btn-center"><button class="btn btn-accent" data-action="goto-framing">המשך לבחירת מסגור ←</button></div>':''}
+    <div class="btn-center"><button class="btn btn-muted" data-action="goto-facts">→ חזרה</button></div>
+  </div>`;
+}
+
+function renderFraming(){
+  const ev=S.event;const topicFacts=ev.topics[S.selectedTopic]||[];
+  const options=ev.framings.map((fr,i)=>{const f=getFrame(fr.id);const sel=S.selectedFraming===i;
+    return`<div class="framing-card ${sel?'selected':''}" data-action="select-framing" data-idx="${i}" style="${sel?'border-color:'+f.color+';background:'+f.color+'08':''}">
+      ${sel?`<div class="check" style="background:${f.color}">✓</div>`:''}
+      <div class="fc-label" style="background:${f.color}">${f.icon} ${f.name}</div>
+      <h3>${esc(fr.headline)}</h3>
+      <div class="fc-sub">${esc(fr.subtitle)}</div>
+    </div>`;
+  }).join("");
+  const justifyHtml=S.selectedFraming!==null?`<div class="justify-box"><h3>🤔 מדוע בחרת במסגור הזה?</h3><p>הסבר/י: למה הכותרת הזו מייצגת את הסיפור הכי טוב לדעתך?</p><textarea class="justify-textarea" id="framingReasonInput" placeholder="כתוב/י...">${esc(S.framingReason)}</textarea></div>`:'';
+  return`<div class="container">
+    <div class="info-box"><h2>שלב 3: בחרו מסגור (כותרת)</h2><p>אותן עובדות — 4 כותרות שונות! כל אחת ממסגרת את האירוע מזווית אחרת. <strong>איזו כותרת הייתם שמים בדף הראשון?</strong></p></div>
+    <div class="relevant-facts"><h4>${TOPIC_ICONS[S.selectedTopic]||''} העובדות שבחרת להתמקד בהן:</h4><ul>${topicFacts.map(f=>`<li>${esc(f)}</li>`).join("")}</ul></div>
+    <div class="framing-options">${options}</div>
+    ${justifyHtml}
+    ${S.selectedFraming!==null&&S.framingReason.length>5?'<div class="btn-center"><button class="btn btn-accent" data-action="goto-write">המשך לכתיבה ←</button></div>':''}
+    <div class="btn-center"><button class="btn btn-muted" data-action="goto-topic">→ חזרה</button></div>
+  </div>`;
+}
+
+function renderWrite(){
+  const fr=S.event.framings[S.selectedFraming];const f=getFrame(fr.id);const topicFacts=S.event.topics[S.selectedTopic]||[];
+  return`<div class="container">
+    <div class="info-box"><h2>שלב 4: כתיבת הכתבה</h2><p>כתוב/י כתבה קצרה לפי המסגור שבחרת. הכותרת כבר נבחרה — עכשיו כתוב/י כותרת משנה ואת גוף הכתבה.</p></div>
+    <div class="relevant-facts"><h4>${TOPIC_ICONS[S.selectedTopic]||''} העובדות שלך:</h4><ul>${topicFacts.map(f=>`<li>${esc(f)}</li>`).join("")}</ul></div>
+    <div class="write-panel">
+      <div style="text-align:center;margin-bottom:10px">
+        <span class="fc-label" style="background:${f.color};display:inline-block;padding:3px 14px;border-radius:20px;font-size:.78rem;font-family:var(--fu);color:#fff">${f.icon} מסגור ${f.name}</span>
+      </div>
+      <div style="background:var(--pbr);border:1px solid var(--ink);border-radius:3px;padding:12px;margin-bottom:10px;text-align:center">
+        <h3 style="font-family:var(--fd);font-size:1.15rem;font-weight:900;line-height:1.25">${esc(fr.headline)}</h3>
+      </div>
+      <label>כותרת משנה</label>
+      <input type="text" class="write-input" id="subtitleInput" value="${esc(S.articleSubtitle)}" placeholder="כתוב/י כותרת משנה...">
+      <label>גוף הכתבה</label>
+      <textarea class="write-textarea" id="bodyInput" placeholder="כתוב/י את הכתבה... השתמש/י בעובדות שבחרת.">${esc(S.articleBody)}</textarea>
+    </div>
+    <div class="btn-center"><button class="btn btn-muted" data-action="goto-framing">→ חזרה</button><button class="btn btn-accent" data-action="goto-preview">צפייה ושליחה ←</button></div>
+  </div>`;
+}
+
+function renderPreview(){
+  const fr=S.event.framings[S.selectedFraming];const f=getFrame(fr.id);
+  return`<div class="container">
+    <div style="background:#fff;border-radius:var(--rl);padding:12px 18px;margin-bottom:14px;border:1px solid var(--bl);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+      <div><h2 style="font-family:var(--fd);font-size:1.08rem">📰 הכתבה שלי</h2><p style="font-size:.78rem;color:var(--muted)">${esc(S.studentName)} • ${esc(S.event.title)}</p></div>
+      <div style="display:flex;gap:6px"><button class="btn btn-muted" data-action="goto-write" style="padding:6px 11px;font-size:.78rem">→ חזרה</button><button class="btn btn-dark" data-action="submit-work" style="padding:6px 11px;font-size:.78rem">📤 שלח למורה</button><button class="btn btn-accent" data-action="print" style="padding:6px 11px;font-size:.78rem">🖨️</button></div>
+    </div>
+    <div class="result-newspaper">
+      <div class="rn-header">
+        <span style="background:${f.color};color:#fff;padding:2px 12px;border-radius:20px;font-size:.72rem;font-family:var(--fu)">${f.icon} ${f.name}</span>
+        <h1>${esc(fr.headline)}</h1>
+        <div class="rn-sub">${esc(S.articleSubtitle||fr.subtitle)}</div>
+      </div>
+      <div class="rn-body">${esc(S.articleBody).replace(/\n/g,'<br>')}</div>
+      <div class="rn-byline">כתב/ה: ${esc(S.studentName)}</div>
+    </div>
+    <div class="decision-trail"><h3>🗺️ מסלול ההחלטות שלי</h3>
+      <div class="dt-step"><div class="dt-q">נושא שבחרתי:</div><div class="dt-a">${TOPIC_ICONS[S.selectedTopic]||''} ${esc(S.selectedTopic||'')}</div><div class="dt-why">${esc(S.topicReason)}</div></div>
+      <div class="dt-step" style="border-right-color:${f.color}"><div class="dt-q">מסגור שבחרתי:</div><div class="dt-a">${f.icon} ${f.name} — ${esc(fr.headline)}</div><div class="dt-why">${esc(S.framingReason)}</div></div>
+    </div>
+  </div>`;
+}
+
+// ============ EVENTS ============
+function attachEvents(){
+  const ni=document.getElementById("nameInput"),sb=document.getElementById("startBtn");
+  if(ni&&sb){ni.addEventListener("input",()=>{sb.disabled=!ni.value.trim()});ni.addEventListener("keydown",e=>{if(e.key==="Enter"&&ni.value.trim()){S.studentName=ni.value.trim();S.mode="facts";render()}});sb.addEventListener("click",()=>{if(ni.value.trim()){S.studentName=ni.value.trim();S.mode="facts";render()}});ni.focus()}
+  const ti=document.getElementById("teacherNameInput");if(ti)ti.addEventListener("input",()=>{S.teacherName=ti.value});
+  const tri=document.getElementById("topicReasonInput");if(tri)tri.addEventListener("input",()=>{S.topicReason=tri.value});
+  const fri=document.getElementById("framingReasonInput");if(fri)fri.addEventListener("input",()=>{S.framingReason=fri.value});
+  const si=document.getElementById("subtitleInput");if(si)si.addEventListener("input",()=>{S.articleSubtitle=si.value});
+  const bi=document.getElementById("bodyInput");if(bi)bi.addEventListener("input",()=>{S.articleBody=bi.value});
+  document.removeEventListener("click",handleAction);document.addEventListener("click",handleAction);
+}
+
+async function handleAction(e){
+  const el=e.target.closest("[data-action]");if(!el)return;const a=el.dataset.action;
+  if(a==="select-topic"){S.selectedTopic=el.dataset.topic;S.selectedFraming=null;S.framingReason="";render();return}
+  if(a==="select-framing"){S.selectedFraming=parseInt(el.dataset.idx);render();return}
+  if(a==="goto-landing"){S.mode="landing";render();return}
+  if(a==="goto-teacher"){S.mode="teacher";render();return}
+  if(a==="generate-event"){if(!S.teacherName.trim()){alert("הזן שם");return}S.event=pickRandomEvent();S.sessionId='fr2_'+Date.now().toString(36)+Math.random().toString(36).substr(2,4);render();return}
+  if(a==="regenerate"){S.event=pickRandomEvent();S.sessionId='fr2_'+Date.now().toString(36)+Math.random().toString(36).substr(2,4);render();return}
+  if(a==="copy-student-link"||a==="copy-teacher-link"){const id=a.includes("student")?"studentLink":"teacherLink";const ta=document.getElementById(id);if(ta){ta.select();try{await navigator.clipboard.writeText(ta.value)}catch(x){document.execCommand("copy")}el.textContent="✅ הועתק!";setTimeout(()=>{el.textContent="📋 העתק"},1800)}return}
+  if(a==="submit-work"){const data={studentName:S.studentName,timestamp:new Date().toISOString(),selectedTopic:S.selectedTopic,topicReason:S.topicReason,selectedFraming:S.selectedFraming,framingReason:S.framingReason,articleSubtitle:S.articleSubtitle,articleBody:S.articleBody,eventId:S.event.id};await saveToFirebase(data);el.textContent="✅ נשלח!";el.style.background="#22c55e";setTimeout(()=>{el.textContent="📤 שלח למורה";el.style.background=""},2500);return}
+  if(a==="refresh-subs"){S.submissions=await loadSubmissions();render();return}
+  if(a==="print"){window.print();return}
+  const nav={"goto-facts":"facts","goto-topic":"topic","goto-framing":"framing","goto-write":"write","goto-preview":"preview","start-exercise":"facts"};
+  if(nav[a]){S.mode=nav[a];render();window.scrollTo(0,0)}
+}
+
+const urlData=checkUrl();
+if(urlData){
+  if(urlData.teacherView){S.teacherName=urlData.teacher;S.sessionId=urlData.session;S.event=urlData.event;S.mode="teacher-view";loadSubmissions().then(subs=>{S.submissions=subs;render()})}
+  else{S.event=urlData.event;S.teacherName=urlData.teacher;S.sessionId=urlData.session;S.mode="student-name"}
+}
+render();
+</script></body></html>
