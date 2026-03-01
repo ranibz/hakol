@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>סדר היום — סימולציית סדר יום תקשורתי</title>
+<link href="https://fonts.googleapis.com/css2?family=David+Libre:wght@400;500;700&family=Frank+Ruhl+Libre:wght@300;400;500;700;900&family=Noto+Sans+Hebrew:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<style>
+:root{--ink:#1a1410;--paper:#f8f5ef;--pbr:#fefcf7;--accent:#dc2626;--accent-dk:#b91c1c;--slate:#2c3e50;--muted:#8a8070;--border:#d4cfc5;--bl:#e8e4dc;--pol:#8b5cf6;--med:#2563eb;--pub:#16a34a;--fd:'Frank Ruhl Libre','David Libre',serif;--fb:'David Libre','Noto Sans Hebrew',serif;--fu:'Noto Sans Hebrew','David Libre',sans-serif;--r:8px;--rl:12px}
+*{margin:0;padding:0;box-sizing:border-box}html{scroll-behavior:smooth}body{font-family:var(--fb);background:var(--paper);color:var(--ink);min-height:100vh;line-height:1.6}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes slideUp{from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:translateY(0)}}
+
+.landing{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px;text-align:center;background:linear-gradient(180deg,#f8f5ef,#ece6db)}
+.landing-logo{font-size:4rem;margin-bottom:10px}
+.landing h1{font-family:var(--fd);font-size:2.2rem;font-weight:900;margin-bottom:2px}
+.landing .tagline{font-size:1rem;color:var(--muted);margin-bottom:4px}
+.landing .credit{font-size:.78rem;color:#b0a898;margin-bottom:28px}
+.landing-card{background:#fff;border-radius:16px;padding:26px 24px;max-width:480px;width:92%;border:2px solid var(--bl);box-shadow:0 4px 20px rgba(0,0,0,.08);text-align:right}
+.landing-card .ci{font-size:2rem;margin-bottom:5px;text-align:center}
+.landing-card h2{font-family:var(--fd);font-size:1.1rem;margin-bottom:5px;text-align:center}
+.landing-card p{font-size:.81rem;color:var(--muted);line-height:1.7;margin-bottom:10px}
+.landing-card ol{font-size:.78rem;color:#666;line-height:1.8;padding-right:18px;margin-bottom:10px}
+.lbtn{display:block;width:100%;padding:11px;font-size:.93rem;font-family:var(--fu);font-weight:700;border:none;border-radius:var(--r);cursor:pointer;text-align:center;background:var(--slate);color:#fff;transition:all .25s}.lbtn:hover{background:#1a2a3a}
+.landing-hint{font-size:.76rem;color:#aaa;margin-top:7px;text-align:center}
+.landing-footer{margin-top:28px;font-size:.72rem;color:#c0b8a8}
+
+.modal-overlay{position:fixed;inset:0;background:rgba(20,16,10,.75);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;z-index:1000;animation:fadeIn .3s}
+.modal-card{background:var(--pbr);border-radius:16px;padding:28px 30px;box-shadow:0 24px 80px rgba(0,0,0,.35);max-width:540px;width:92%;animation:slideUp .4s;text-align:right}
+.modal-card h2{font-family:var(--fd);font-size:1.25rem;font-weight:900;margin-bottom:3px;text-align:center}
+.modal-sub{color:var(--muted);font-size:.82rem;margin-bottom:14px;text-align:center;line-height:1.6}
+.modal-input{width:100%;padding:9px 12px;font-size:.9rem;border:2px solid var(--border);border-radius:var(--r);font-family:var(--fb);outline:none;background:#fff}.modal-input:focus{border-color:var(--accent)}
+.modal-btn{width:100%;padding:10px;font-size:.92rem;font-family:var(--fu);font-weight:700;border:none;border-radius:var(--r);cursor:pointer;margin-top:9px}.modal-btn.primary{background:var(--accent);color:#fff}.modal-btn.primary:hover{background:var(--accent-dk)}.modal-btn:disabled{background:var(--border);color:#999;cursor:default}
+.credit-bar{background:linear-gradient(135deg,#dc262608,#2563eb08);border:1px solid #fecaca;border-radius:20px;padding:4px 16px;font-size:.72rem;color:var(--accent);font-family:var(--fu);font-weight:500;text-align:center;margin-bottom:10px}
+
+.app-header{background:var(--ink);color:var(--pbr);padding:0 18px;height:50px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:100;box-shadow:0 2px 16px rgba(0,0,0,.25)}
+.header-brand{display:flex;align-items:center;gap:9px}
+.header-brand .logo{font-size:1.15rem}.header-brand h1{font-family:var(--fd);font-size:.98rem;font-weight:700}.header-brand .meta{font-size:.64rem;opacity:.5}
+.phase-indicators{display:flex;gap:3px}
+.phase-pill{padding:3px 9px;border-radius:20px;font-size:.67rem;font-weight:600;font-family:var(--fu);background:rgba(255,255,255,.08);color:rgba(255,255,255,.3);transition:all .3s;white-space:nowrap}
+.phase-pill.active{background:var(--accent);color:#fff}.phase-pill.done{background:rgba(255,255,255,.15);color:rgba(255,255,255,.6)}
+
+.container{max-width:960px;margin:0 auto;padding:20px 18px}
+.info-box{background:#fff;border-radius:var(--rl);padding:15px 20px;margin-bottom:14px;border:1px solid var(--bl)}
+.info-box h2{font-family:var(--fd);font-size:1.12rem;margin-bottom:3px}.info-box p{color:var(--muted);font-size:.82rem;line-height:1.7}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:9px 20px;border-radius:var(--r);font-size:.85rem;font-weight:700;font-family:var(--fu);border:none;cursor:pointer;transition:all .25s}.btn:active{transform:scale(.97)}
+.btn-accent{background:var(--accent);color:#fff}.btn-accent:hover{background:var(--accent-dk)}
+.btn-dark{background:var(--slate);color:#fff}.btn-dark:hover{background:#1a2a3a}
+.btn-muted{background:#b0a898;color:#fff}.btn-muted:hover{background:#9a9080}
+.btn-center{display:flex;justify-content:center;gap:12px;margin-top:20px;flex-wrap:wrap}
+
+/* Theory accordion */
+.theory-accordion{background:#fff;border:1px solid var(--bl);border-radius:var(--rl);margin-bottom:14px;overflow:hidden}
+.theory-toggle{width:100%;display:flex;justify-content:space-between;align-items:center;padding:12px 18px;cursor:pointer;background:#fff;border:none;font-family:var(--fu);font-size:.88rem;font-weight:700;color:var(--accent);transition:background .2s}
+.theory-toggle:hover{background:#fef2f2}
+.theory-toggle .chevron{transition:transform .3s;font-size:.8rem}
+.theory-accordion.open .theory-toggle .chevron{transform:rotate(180deg)}
+.theory-body{max-height:0;overflow:hidden;transition:max-height .4s ease,padding .3s;padding:0 18px}
+.theory-accordion.open .theory-body{max-height:2000px;padding:0 18px 16px}
+.theory-body h4{font-family:var(--fd);font-size:.92rem;margin:10px 0 4px}
+.theory-body p,.theory-body li{font-size:.8rem;color:#555;line-height:1.7}
+.theory-body ul{padding-right:18px;margin-bottom:6px}
+.theory-body .highlight{background:#fef2f2;border-right:3px solid var(--accent);padding:6px 12px;border-radius:0 6px 6px 0;margin:6px 0;font-size:.8rem;font-weight:600;color:var(--accent-dk)}
+
+/* Link */
+.link-result{margin-top:12px;padding:12px;background:#fef2f2;border:2px solid var(--accent);border-radius:var(--r);animation:slideUp .3s}
+.link-result h3{font-size:.86rem;color:var(--accent-dk);margin-bottom:4px;font-family:var(--fu);text-align:center}
+.link-url{width:100%;padding:7px;background:#fff;border:1px solid #fecaca;border-radius:6px;font-family:monospace;font-size:.66rem;direction:ltr;text-align:left;word-break:break-all;margin-bottom:5px;resize:none;min-height:40px;outline:none}
+.link-actions{display:flex;gap:7px}
+.link-actions button{flex:1;padding:7px;font-family:var(--fu);font-weight:600;font-size:.8rem;border:none;border-radius:6px;cursor:pointer}
+.copy-btn{background:var(--accent);color:#fff}.copy-btn:hover{background:var(--accent-dk)}
+.new-btn{background:#3498db;color:#fff}.new-btn:hover{background:#2980b9}
+.np-item{padding:5px;border-bottom:1px solid #f0f0f0;font-size:.76rem}.np-item:last-child{border:none}
+
+/* 3 Inbox columns */
+.inbox-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:14px}
+.inbox-col{border-radius:var(--rl);padding:14px;border:2px solid;min-height:200px}
+.inbox-col.pol{background:#f5f3ff;border-color:#c4b5fd}.inbox-col.med{background:#eff6ff;border-color:#bfdbfe}.inbox-col.pub{background:#f0fdf4;border-color:#bbf7d0}
+.inbox-header{display:flex;align-items:center;gap:6px;margin-bottom:10px;padding-bottom:6px;border-bottom:1px solid rgba(0,0,0,.06)}
+.inbox-header .ih-icon{font-size:1.3rem}
+.inbox-header .ih-title{font-family:var(--fu);font-size:.85rem;font-weight:700}
+.inbox-header .ih-count{background:rgba(0,0,0,.06);padding:1px 8px;border-radius:10px;font-size:.66rem;font-family:var(--fu);font-weight:600}
+.inbox-header.pol .ih-title{color:var(--pol)}.inbox-header.med .ih-title{color:var(--med)}.inbox-header.pub .ih-title{color:var(--pub)}
+
+.inbox-item{background:#fff;border-radius:6px;padding:8px 10px;margin-bottom:6px;cursor:pointer;border:2px solid transparent;transition:all .2s;position:relative}
+.inbox-item:hover{box-shadow:0 2px 8px rgba(0,0,0,.08);transform:translateY(-1px)}
+.inbox-item.selected{border-color:var(--accent);background:#fef8f8}
+.inbox-item.disabled{opacity:.3;cursor:not-allowed;pointer-events:none}
+.inbox-item .ii-from{font-size:.68rem;font-weight:600;font-family:var(--fu);margin-bottom:2px}
+.inbox-item .ii-from.pol{color:var(--pol)}.inbox-item .ii-from.med{color:var(--med)}.inbox-item .ii-from.pub{color:var(--pub)}
+.inbox-item h4{font-family:var(--fd);font-size:.84rem;font-weight:700;line-height:1.3}
+.inbox-item .ii-sub{font-size:.72rem;color:#666;line-height:1.35;margin-top:1px}
+.inbox-item .ii-pressure{font-size:.66rem;font-style:italic;color:#999;margin-top:3px;padding-top:3px;border-top:1px dashed #eee}
+.inbox-item .ni-rank{position:absolute;top:5px;left:5px;background:var(--accent);color:#fff;border-radius:50%;width:20px;height:20px;font-size:.62rem;font-weight:700;display:flex;align-items:center;justify-content:center;font-family:var(--fu)}
+
+.counter-badge{display:inline-block;margin-top:10px;padding:5px 15px;border-radius:20px;font-size:.82rem;font-weight:700;font-family:var(--fu)}
+.counter-badge.inc{background:#fff8e8;color:#d4950a}.counter-badge.ok{background:#e8f8e8;color:#1e8a3e}
+
+/* Homepage slots */
+.hp-frame{background:#fff;border:2px solid var(--ink);border-radius:3px;padding:16px;box-shadow:0 6px 24px rgba(0,0,0,.12);margin-bottom:14px}
+.hp-header{text-align:center;border-bottom:3px double var(--ink);padding-bottom:8px;margin-bottom:12px}
+.hp-header h2{font-family:var(--fd);font-size:1.5rem;font-weight:900}
+.hp-header .hp-date{font-size:.64rem;color:var(--muted);font-family:var(--fu)}
+.hp-slot{border:2px dashed var(--border);border-radius:4px;padding:8px;min-height:40px;transition:all .25s;position:relative;margin-bottom:6px;cursor:pointer}
+.hp-slot.drag-over{border-color:var(--accent);background:#fef8f8}
+.hp-slot.filled{border:1px solid #ddd;background:#fafaf5;cursor:default}
+.hp-slot .slot-label{text-align:center;color:#ccc;font-size:.76rem;font-family:var(--fu);font-weight:600}
+.hp-slot .remove-btn{position:absolute;top:3px;left:3px;background:var(--accent);color:#fff;border:none;border-radius:50%;width:18px;height:18px;font-size:.55rem;cursor:pointer;display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity .2s}
+.hp-slot:hover .remove-btn{opacity:1}
+.hp-slot .filled-origin{font-size:.6rem;font-weight:600;font-family:var(--fu);padding:1px 6px;border-radius:8px;color:#fff;display:inline-block;margin-bottom:2px}
+.hp-slot .filled-headline{font-family:var(--fd);font-weight:800;line-height:1.2;margin-bottom:1px}
+.hp-slot .filled-sub{font-size:.72rem;color:#555;line-height:1.3}
+.hp-slot.main-slot .filled-headline{font-size:1.25rem}
+.hp-slot.sec-slot .filled-headline{font-size:.92rem}
+.hp-slot.small-slot .filled-headline{font-size:.78rem}
+
+/* Justify */
+.justify-card{background:#fff;border-radius:var(--rl);padding:14px 18px;margin-bottom:9px;border:1px solid var(--bl)}
+.justify-card h4{font-family:var(--fd);font-size:.88rem;margin-bottom:4px}
+.justify-textarea{width:100%;padding:8px 11px;border:1px solid var(--border);border-radius:var(--r);font-family:var(--fb);font-size:.84rem;line-height:1.7;resize:vertical;outline:none;min-height:55px}.justify-textarea:focus{border-color:var(--accent)}
+
+/* Reveal */
+.impact-box{background:#fff;border:2px solid var(--med);border-radius:var(--rl);padding:18px;margin-bottom:14px;position:relative}
+.impact-box::before{content:'💡 התובנה';position:absolute;top:-11px;right:14px;background:var(--med);color:#fff;padding:2px 12px;border-radius:20px;font-size:.74rem;font-weight:700;font-family:var(--fu)}
+.impact-box h3{font-family:var(--fd);font-size:1rem;margin:6px 0 8px}
+.origin-bar{display:flex;gap:6px;margin-bottom:8px;flex-wrap:wrap}
+.origin-chip{padding:5px 14px;border-radius:20px;font-size:.82rem;font-weight:700;font-family:var(--fu);color:#fff}
+.origin-chip.pol{background:var(--pol)}.origin-chip.med{background:var(--med)}.origin-chip.pub{background:var(--pub)}
+
+/* Teacher */
+.sub-card{background:#fff;border:1px solid var(--bl);border-radius:var(--rl);padding:16px;margin-bottom:14px}
+.sub-card h4{font-family:var(--fd);font-size:1.02rem;margin-bottom:4px}
+.sub-meta{font-size:.74rem;color:var(--muted);margin-bottom:8px}
+.mini-hp{background:var(--pbr);border:1.5px solid var(--ink);border-radius:3px;padding:8px;margin-bottom:8px}
+.mini-hp .mh-item{padding:3px 6px;margin-bottom:2px;border-radius:3px;font-size:.76rem}
+.mini-hp .mh-main{background:#fef2f2;font-family:var(--fd);font-weight:700;font-size:.85rem}
+.mini-hp .mh-sec{background:#f5f5f0;font-family:var(--fd);font-weight:600}
+.mini-hp .mh-small{background:#fafaf8;font-size:.72rem}
+
+.instructions-box{background:#fef2f2;border:1px solid #fecaca;border-radius:var(--rl);padding:13px 18px;margin-bottom:14px}
+.instructions-box h3{font-size:.9rem;color:var(--accent);margin-bottom:3px;font-family:var(--fu)}
+.instructions-box ol{font-size:.79rem;color:#666;line-height:1.8;padding-right:18px}
+
+@media print{.app-header,.info-box,.instructions-box,.btn,.btn-center,.credit-bar,.theory-accordion{display:none!important}body{background:#fff}}
+@media(max-width:768px){.inbox-grid{grid-template-columns:1fr}.container{padding:12px 10px}.phase-indicators{display:none}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+// ============ FIREBASE ============
+const firebaseConfig={apiKey:"AIzaSyCh8TMjXeatpegwaJGOiT64VU0cXeWMwLA",authDomain:"newspaper-editor.firebaseapp.com",databaseURL:"https://newspaper-editor-default-rtdb.europe-west1.firebasedatabase.app",projectId:"newspaper-editor",storageBucket:"newspaper-editor.firebasestorage.app",messagingSenderId:"1056483646622",appId:"1:1056483646622:web:1afdb41dbcfacff9106f8f"};
+let db;try{firebase.initializeApp(firebaseConfig);db=firebase.database()}catch(e){console.warn(e)}
+
+const THEORY_HTML=`
+<h4>מהו סדר יום תקשורתי?</h4>
+<p>תיאוריה הטוענת שלתקשורת ההמונים השפעה רבה והיא קובעת מהן הסוגיות החשובות שמעסיקות את הציבור. ככל שהתקשורת תבליט נושא מסוים, כך הוא ייתפס כחשוב יותר.</p>
+<div class="highlight">💡 התקשורת לא אומרת לנו <strong>מה</strong> לחשוב — אלא <strong>על מה</strong> לחשוב.</div>
+<h4>שלושת סדרי היום משפיעים זה על זה:</h4>
+<ul>
+  <li><strong>🏛️ סדר יום פוליטי:</strong> פוליטיקאים, מפלגות, גורמים ממסדיים, בעלי הון, יועצי תקשורת ויח"צנים — שמתמרנים את התקשורת למטרותיהם</li>
+  <li><strong>📺 סדר יום תקשורתי:</strong> התקשורת על שלל סוגיה — חושפת מידע, מפרסמת פעולות שלטון, נותנת במה, מדגישה או מסתירה נושאים מתוך אג'נדה ותפיסת עולם</li>
+  <li><strong>👥 סדר יום ציבורי:</strong> הציבור — רשתות חברתיות, הפגנות, ארגונים, עצומות, ביקורת על השלטון</li>
+</ul>
+<h4>רעיונות מרכזיים:</h4>
+<ul>
+  <li>הנושאים החשובים מופיעים <strong>בשער העיתון ובתחילת החדשות</strong>, זוכים לכותרות גדולות, הרבה צבע, ותופסים הרבה מקום</li>
+  <li>תשומת הלב הציבורית מניעה מוסדות פוליטיים <strong>לטפל</strong> בנושאים שעולים לסדר היום</li>
+  <li>נושאים שלא מסוקרים — <strong>כאילו לא קרו</strong></li>
+  <li>אופי הדיון בתקשורת משפיע על הלך הרוח ועמדות הציבור</li>
+  <li>בבחירות — פוליטיקאים שמופיעים בתקשורת זוכים בחשיפה ואהדה</li>
+</ul>`;
+
+const OC={political:{icon:"🏛️",label:"סדר יום פוליטי",color:"#8b5cf6",cls:"pol"},media:{icon:"📺",label:"סדר יום תקשורתי",color:"#2563eb",cls:"med"},public:{icon:"👥",label:"סדר יום ציבורי",color:"#16a34a",cls:"pub"}};
+
+// ============ NEWS POOLS ============
+const ALL_POOLS=[
+{
+  id:1,name:"בוקר חדשותי א'",
+  news:[
+    // === POLITICAL INBOX ===
+    {id:1,origin:"political",from:"דובר ראש הממשלה",headline:"ראש הממשלה יכריז הערב על רפורמה בשוק הדיור",subtitle:"הודעה רשמית צפויה ב-20:00",pressure:"\"חשוב מאוד שזה יהיה כותרת ראשית. ראש הממשלה מצפה לכיסוי נרחב.\""},
+    {id:2,origin:"political",from:"דוברת משרד הביטחון",headline:"צה\"ל חשף מנהרת טרור חדשה בגבול הצפון",subtitle:"המנהרה חצתה מתחת לקו הגבול",pressure:"\"נושא ביטחון לאומי ברמה הגבוהה ביותר. מצפים לסיקור מלא.\""},
+    {id:3,origin:"political",from:"יועץ תקשורת — מפלגת האופוזיציה",headline:"ח\"כ מהאופוזיציה: 'שר האוצר חייב להתפטר'",subtitle:"בעקבות חשד לניגוד עניינים",pressure:"\"מגיע לנו כותרת. הציבור חייב לדעת על השחיתות.\""},
+    {id:4,origin:"political",from:"דוברת משרד החינוך",headline:"שרת החינוך מציגה תוכנית חדשה נגד אלימות בבתי ספר",subtitle:"תקציב של 200 מיליון ₪",pressure:"\"השרה השקיעה בזה חודשים. נודה לכם על סיקור בולט.\""},
+    {id:5,origin:"political",from:"יח\"צן של בעל הון",headline:"טייקון ישראלי תורם 50 מיליון ₪ לבית חולים בפריפריה",subtitle:"'אני מחזיר לחברה', אמר",pressure:"\"התורם מבקש ראיון ראשי ותמונה גדולה. יש לנו מודעות אצלכם.\""},
+    {id:6,origin:"political",from:"דובר ביטוח לאומי",headline:"ביטוח לאומי: קצבת הזקנה תעלה ב-5% מינואר",subtitle:"עלייה של 300 ₪ לחודש",pressure:"\"פרסום חשוב. 800,000 אזרחים ייהנו מזה.\""},
+    // === MEDIA INBOX ===
+    {id:7,origin:"media",from:"כתב חקירות",headline:"חקירה: חברת תרופות מכרה תרופות פגות תוקף לקשישים",subtitle:"מסמכים חושפים: 3 שנים של הונאה",pressure:"חקירה של 6 חודשים. ראיות מוצקות."},
+    {id:8,origin:"media",from:"כתב שטח — צפון",headline:"שריפה גדולה בגליל: 3 יישובים פונו",subtitle:"12 צוותי כיבוי בזירה, 2 פצועים",pressure:"אירוע שוטף — חייבים לדווח."},
+    {id:9,origin:"media",from:"כתבת כלכלה",headline:"הבורסה קרסה: ירידות של 7% במדד ת\"א 35",subtitle:"הסיבה: חשש ממיתון עולמי",pressure:"ארוע כלכלי חריג, משפיע על כולם."},
+    {id:10,origin:"media",from:"כתב משפט",headline:"בית המשפט זיכה חשוד ברצח אחרי 12 שנה בכלא",subtitle:"'חיי נהרסו', אמר בבכי",pressure:"סיפור אנושי מטלטל, ראיות DNA חדשות."},
+    {id:11,origin:"media",from:"כתבת חינוך",headline:"מחקר: 40% מתלמידי ישראל לא מבינים טקסט בסיסי",subtitle:"ישראל במקום 35 מ-40 במדינות OECD",pressure:"דו\"ח חשוב שמצביע על כשל חינוכי."},
+    {id:12,origin:"media",from:"עורך חדשות חוץ",headline:"רעידת אדמה קטלנית ביפן: מאות הרוגים",subtitle:"מגניטודה 7.8, צונאמי פגע בחופים",pressure:"אירוע בינלאומי חמור."},
+    // === PUBLIC INBOX ===
+    {id:13,origin:"public",from:"טרנד בטוויטר (#יוקר_המחיה)",headline:"הפגנת ענק בת\"א: 80,000 נגד יוקר המחיה",subtitle:"'אנחנו לא מגיעים לסוף החודש'",pressure:"100,000 שיתופים בשעה. כל הרשתות מדברות על זה."},
+    {id:14,origin:"public",from:"עצומה — 50,000 חתימות",headline:"הורים דורשים: חינוך חינם מגיל 0",subtitle:"עצומה שהגיעה ל-50,000 חתימות ביומיים",pressure:"50,000 חתימות. הנושא רותח ברשתות."},
+    {id:15,origin:"public",from:"סרטון ויראלי — 2M צפיות",headline:"סרטון: שוטר מכה צעיר בהפגנה — 2 מיליון צפיות",subtitle:"המשטרה פתחה בחקירה פנימית",pressure:"הסרטון בכל מקום. אי אפשר להתעלם."},
+    {id:16,origin:"public",from:"ארגון 'אדם טבע ודין'",headline:"דו\"ח: מפרץ חיפה — ריכוז מזהמים 10 פעמים מהמותר",subtitle:"תושבים: 'ילדינו חולים'",pressure:"הארגון פרסם מסיבת עיתונאים. תושבים מאיימים בתביעה."},
+    {id:17,origin:"public",from:"קבוצת פייסבוק — 200K חברים",headline:"מחאת נכים: 'הקצבה לא מספיקה לחיות בכבוד'",subtitle:"חסמו צמתים ברחבי הארץ",pressure:"קבוצה של 200,000 חברים. הנושא לא יורד מהרשתות."},
+    {id:18,origin:"public",from:"ציוץ ויראלי",headline:"נערה בת 14 פרסמה מכתב: 'המורה הצילה לי את החיים'",subtitle:"סיפור מרגש שהפך ויראלי",pressure:"500K לייקים. אנשים בוכים ומשתפים."},
+  ]
+}
+];
+
+function pickRandomPool(){return ALL_POOLS[Math.floor(Math.random()*ALL_POOLS.length)]}
+// ============ STATE ============
+const S={mode:"landing",studentName:"",teacherName:"",sessionId:"",pool:null,selectedIds:[],slotAssignments:{},justifications:{},rejectedReason:"",awarenessAnswer:"",submissions:[]};
+const SLOTS=[{id:"main",label:"כותרת ראשית",cls:"main-slot"},{id:"sec1",label:"משנית עליונה",cls:"sec-slot"},{id:"sec2",label:"משנית תחתונה",cls:"sec-slot"},{id:"small1",label:"ידיעה קטנה 1",cls:"small-slot"},{id:"small2",label:"ידיעה קטנה 2",cls:"small-slot"}];
+const esc=s=>{const d=document.createElement('div');d.textContent=s;return d.innerHTML};
+const hDate=()=>new Date().toLocaleDateString("he-IL",{weekday:"long",year:"numeric",month:"long",day:"numeric"});
+const getN=id=>S.pool?.news?.find(n=>n.id===id);
+const selNews=()=>S.selectedIds.map(id=>getN(id)).filter(Boolean);
+const assIds=()=>new Set(Object.values(S.slotAssignments));
+const allFilled=()=>SLOTS.every(s=>S.slotAssignments[s.id]);
+function encodeToHash(d){try{return btoa(unescape(encodeURIComponent(JSON.stringify(d))))}catch(e){return""}}
+function decodeFromHash(h){try{return JSON.parse(decodeURIComponent(escape(atob(h))))}catch(e){return null}}
+function getBaseUrl(){return window.location.href.split('#')[0]}
+function checkUrl(){const h=window.location.hash.substring(1);if(h&&h.length>10){const d=decodeFromHash(h);if(d&&d.pool&&d.session)return d}return null}
+function saveToFirebase(data){if(!db||!S.sessionId)return Promise.resolve();const key=S.studentName.replace(/[.#$/[\]]/g,'_');return db.ref(`agenda2/${S.sessionId}/submissions/${key}`).set(data).catch(e=>console.warn(e))}
+function loadSubmissions(){if(!db||!S.sessionId)return Promise.resolve([]);return db.ref(`agenda2/${S.sessionId}/submissions`).once('value').then(snap=>{const v=snap.val();return v?Object.values(v):[]}).catch(()=>[])}
+
+function render(){document.getElementById("app").innerHTML=S.mode==="landing"?renderLanding():S.mode==="teacher"?renderTeacher():S.mode==="teacher-view"?renderTeacherView():S.mode==="student-name"?renderStudentName():renderApp();attachEvents()}
+
+function renderTheory(){return`<div class="theory-accordion" id="theoryAcc"><button class="theory-toggle" onclick="document.getElementById('theoryAcc').classList.toggle('open')"><span>📖 מהו סדר יום תקשורתי? (הגדרה מתכנית הלימודים)</span><span class="chevron">▼</span></button><div class="theory-body">${THEORY_HTML}</div></div>`}
+
+function renderLanding(){return`<div class="landing"><div class="landing-logo">📋</div><h1>סדר היום</h1><div class="tagline">מי קובע על מה נחשוב? סימולציית סדר יום תקשורתי</div><div class="credit">פיתוח הסימולציה: רני בן זאב</div><div class="landing-card"><div class="ci">👨‍🏫</div><h2>אזור מורה</h2><p>כל תלמיד יקבל 18 ידיעות מ-3 תיבות לחץ: פוליטי, תקשורתי, ציבורי. הוא יבחר 5 ויסדר אותן בדף הבית — ההשוואה הכיתתית תחשוף למי "נכנעתם".</p><ol><li>הזן שם → צור תרגיל</li><li>שלח קישור לתלמידים</li><li>צפה בהגשות והשווה</li></ol><button class="lbtn" data-action="goto-teacher">יצירת תרגיל לכיתה →</button><p class="landing-hint">💡 התלמידים מקבלים קישור ישיר</p></div><div class="landing-footer">סימולציית סדר יום תקשורתי • תקשורת וחברה</div></div>`}
+
+function renderTeacher(){const has=!!S.pool;
+  const prev=has?`<div style="margin-top:10px;background:#fff;border-radius:var(--rl);padding:10px;border:1px solid var(--bl);max-height:180px;overflow-y:auto">${S.pool.news.map(n=>`<div class="np-item"><span style="color:${OC[n.origin].color};font-weight:600;font-size:.68rem">${OC[n.origin].icon}</span> <strong style="font-size:.78rem">${esc(n.headline)}</strong></div>`).join("")}</div>`:"";
+  const sL=S.sessionId?getBaseUrl()+"#"+encodeToHash({pool:S.pool,teacher:S.teacherName,session:S.sessionId}):"";
+  const tL=S.sessionId?getBaseUrl()+"#"+encodeToHash({teacherView:true,teacher:S.teacherName,session:S.sessionId,pool:S.pool}):"";
+  const lH=S.sessionId?`<div class="link-result"><h3>✅ מוכן!</h3><p style="font-size:.76rem;color:#555;text-align:center;margin-bottom:4px"><strong>לתלמידים:</strong></p><textarea class="link-url" id="studentLink" readonly>${sL}</textarea><div class="link-actions"><button class="copy-btn" data-action="copy-student-link">📋 העתק</button></div><p style="font-size:.76rem;color:#555;text-align:center;margin:6px 0 3px"><strong>למורה:</strong></p><textarea class="link-url" id="teacherLink" readonly>${tL}</textarea><div class="link-actions"><button class="copy-btn" data-action="copy-teacher-link">📋 העתק</button><button class="new-btn" data-action="regenerate">🔄 יום אחר</button></div></div>`:"";
+  return`<div class="container" style="max-width:620px;margin-top:22px"><div class="credit-bar">פיתוח הסימולציה: רני בן זאב</div><button class="btn btn-muted" data-action="goto-landing" style="margin-bottom:10px;font-size:.78rem">→ חזרה</button><div class="info-box"><h2>👨‍🏫 יצירת תרגיל סדר יום</h2><p>18 ידיעות מ-3 תיבות לחץ. כל תלמיד יבחר 5 ויסדר בדף הבית.</p></div><div style="background:#fff;border-radius:var(--rl);padding:14px 18px;border:1px solid var(--bl)"><label style="font-size:.81rem;font-weight:700;font-family:var(--fu);display:block;margin-bottom:3px">שם המורה</label><input type="text" class="modal-input" id="teacherNameInput" value="${esc(S.teacherName)}" style="text-align:center;font-family:var(--fd);font-weight:700;margin-bottom:7px"><button class="modal-btn primary" data-action="generate-pool">🎲 צור בוקר חדשותי</button></div>${prev}${lH}</div>`}
+
+function renderStudentName(){return`<div class="modal-overlay"><div class="modal-card" style="text-align:center"><div style="font-size:2.6rem;margin-bottom:4px">📋</div><h2>סדר היום</h2><div class="modal-sub">מי קובע על מה נחשוב?<br><span style="font-size:.72rem;color:#b0a898">פיתוח הסימולציה: רני בן זאב${S.teacherName?' • מורה: '+esc(S.teacherName):''}</span></div><div class="instructions-box" style="text-align:right;margin-bottom:10px"><h3>📋 מה עושים?</h3><ol><li>תקבלו 3 "תיבות דואר" עם ידיעות — כל תיבה ממקור אחר</li><li>תבחרו 5 ידיעות לדף הבית של אתר החדשות שלכם</li><li>תסדרו: מה ראשי, מה קטן</li><li>תסבירו את ההחלטות שלכם</li><li>תגלו: למי "נכנעתם"?</li></ol></div><label style="text-align:right;font-size:.81rem;font-weight:700;font-family:var(--fu);display:block">השם שלך</label><input type="text" class="modal-input" id="nameInput" placeholder="שם מלא..." style="text-align:center;font-family:var(--fd);font-weight:700" autofocus><button class="modal-btn primary" id="startBtn" disabled data-action="start-exercise">התחל/י ←</button></div></div>`}
+
+function renderApp(){return renderHeader()+renderPhase()}
+function renderHeader(){const phases=[{id:"inbox",l:"① תיבות"},{id:"select",l:"② בחירה"},{id:"arrange",l:"③ סידור"},{id:"justify",l:"④ נימוקים"},{id:"reveal",l:"⑤ חשיפה"}];const order=["inbox","select","arrange","justify","reveal"];const ci=order.indexOf(S.mode);const pills=phases.map(p=>{const i=order.indexOf(p.id);let c="phase-pill";if(p.id===S.mode)c+=" active";else if(i<ci)c+=" done";return`<div class="${c}">${p.l}</div>`}).join("");return`<div class="app-header"><div class="header-brand"><span class="logo">📋</span><div><h1>סדר היום</h1><div class="meta">${esc(S.studentName)}</div></div></div><div class="phase-indicators">${pills}</div></div><div class="container"><div class="credit-bar">פיתוח הסימולציה: רני בן זאב</div></div>`}
+function renderPhase(){switch(S.mode){case"inbox":return renderInbox();case"select":return renderSelect();case"arrange":return renderArrange();case"justify":return renderJustify();case"reveal":return renderReveal();default:return""}}
+
+function renderInbox(){
+  const groups={political:[],media:[],public:[]};S.pool.news.forEach(n=>groups[n.origin]?.push(n));
+  const renderCol=(key)=>{const o=OC[key];const items=groups[key]||[];return`<div class="inbox-col ${o.cls}"><div class="inbox-header ${o.cls}"><span class="ih-icon">${o.icon}</span><span class="ih-title">${o.label}</span><span class="ih-count">${items.length}</span></div>${items.map(n=>`<div class="inbox-item"><div class="ii-from ${o.cls}">${esc(n.from)}</div><h4>${esc(n.headline)}</h4><div class="ii-sub">${esc(n.subtitle)}</div><div class="ii-pressure">"${esc(n.pressure)}"</div></div>`).join("")}</div>`};
+  return`<div class="container">${renderTheory()}<div class="info-box"><h2>שלב 1: הכירו את התיבות</h2><p>אתם עורכי אתר חדשות. הגעתם לעבודה בבוקר ומחכות לכם <strong>3 תיבות דואר</strong> עם ידיעות. שימו לב: <strong>כל תיבה מייצגת סדר יום אחר</strong> — ולכל שולח יש אינטרס שהידיעה שלו תופיע.</p><p style="margin-top:4px">🏛️ <strong style="color:var(--pol)">פוליטי</strong> — פוליטיקאים ויח"צנים דוחפים נושאים &nbsp; 📺 <strong style="color:var(--med)">תקשורתי</strong> — הכתבים שלכם הביאו מהשטח &nbsp; 👥 <strong style="color:var(--pub)">ציבורי</strong> — מה שהציבור מדבר עליו</p></div><div class="inbox-grid">${renderCol("political")}${renderCol("media")}${renderCol("public")}</div><div class="btn-center"><button class="btn btn-accent" data-action="goto-select">קראתי הכל, ממשיך לבחירה ←</button></div></div>`}
+
+function renderSelect(){
+  const cnt=S.selectedIds.length;
+  const groups={political:[],media:[],public:[]};S.pool.news.forEach(n=>groups[n.origin]?.push(n));
+  const renderCol=(key)=>{const o=OC[key];const items=groups[key]||[];return`<div class="inbox-col ${o.cls}"><div class="inbox-header ${o.cls}"><span class="ih-icon">${o.icon}</span><span class="ih-title">${o.label}</span></div>${items.map(n=>{const sel=S.selectedIds.includes(n.id);const dis=cnt>=5&&!sel;const rank=sel?S.selectedIds.indexOf(n.id)+1:0;return`<div class="inbox-item ${sel?'selected':''} ${dis?'disabled':''}" data-action="toggle-select" data-id="${n.id}">${rank?`<div class="ni-rank">${rank}</div>`:''}<div class="ii-from ${o.cls}">${esc(n.from)}</div><h4>${esc(n.headline)}</h4><div class="ii-sub">${esc(n.subtitle)}</div></div>`}).join("")}</div>`};
+  return`<div class="container">${renderTheory()}<div class="info-box"><h2>שלב 2: בחרו 5 ידיעות לדף הבית</h2><p>מתוך 18 ידיעות מ-3 תיבות — רק 5 ייכנסו. <strong>מה שתבחרו = מה שהציבור ידע. מה שלא = לא קרה.</strong></p><p style="margin-top:3px">חשבו: אתם בוחרים כי זה <strong>באמת חשוב</strong>, או כי מישהו <strong>לחץ עליכם</strong>?</p><div class="counter-badge ${cnt===5?'ok':'inc'}">נבחרו ${cnt} מתוך 5</div></div><div class="inbox-grid">${renderCol("political")}${renderCol("media")}${renderCol("public")}</div>${cnt===5?'<div class="btn-center"><button class="btn btn-accent" data-action="goto-arrange">המשך לסידור ←</button></div>':''}<div class="btn-center"><button class="btn btn-muted" data-action="goto-inbox">→ חזרה</button></div></div>`}
+
+function renderArrange(){
+  const unass=selNews().filter(n=>!assIds().has(n.id));
+  const sidebar=unass.map(n=>{const o=OC[n.origin];return`<div class="drag-item" draggable="true" data-news-id="${n.id}" style="border-right-color:${o.color}"><div style="font-size:.64rem;font-weight:600;color:${o.color};font-family:var(--fu)">${o.icon} ${o.label}</div><h4 style="font-family:var(--fd);font-size:.78rem;font-weight:700;line-height:1.25">${esc(n.headline)}</h4></div>`}).join("");
+  const placed=selNews().filter(n=>assIds().has(n.id));
+  const placedSidebar=placed.map(n=>`<div class="drag-item placed" style="border-right-color:#ccc"><h4 style="font-family:var(--fd);font-size:.72rem;color:#aaa;font-weight:400">${esc(n.headline)}</h4></div>`).join("");
+  const slotsHtml=SLOTS.map(slot=>{const nid=S.slotAssignments[slot.id];const news=nid?getN(nid):null;
+    if(news){const o=OC[news.origin];return`<div class="hp-slot filled ${slot.cls}" data-slot-id="${slot.id}"><button class="remove-btn" data-action="remove-slot" data-slot="${slot.id}">✕</button><div class="filled-origin" style="background:${o.color}">${o.icon} ${o.label}</div><div class="filled-headline">${esc(news.headline)}</div><div class="filled-sub">${esc(news.subtitle)}</div></div>`}
+    return`<div class="hp-slot ${slot.cls}" data-slot-id="${slot.id}" data-action="drop-zone"><div class="slot-label">${slot.label}</div></div>`}).join("");
+  return`<div class="container"><div class="info-box"><h2>שלב 3: סדרו את דף הבית</h2><p>גררו ידיעות למשבצות. <strong>ככל שהידיעה בולטת יותר — היא נתפסת כחשובה יותר.</strong></p></div><div style="display:flex;gap:14px;flex-wrap:wrap"><div style="flex:0 0 220px"><div style="background:#fff;border-radius:10px;padding:8px;border:1px solid var(--bl)"><label style="font-size:.78rem;font-weight:700;font-family:var(--fu);display:block;margin-bottom:4px">ידיעות (${unass.length} לשיבוץ)</label>${sidebar||'<div style="text-align:center;color:#aaa;font-size:.74rem;padding:6px">✅ הכל שובץ</div>'}${placedSidebar}</div></div><div style="flex:1;min-width:0"><div class="hp-frame"><div class="hp-header"><div class="hp-date">${hDate()}</div><h2>דף הבית</h2></div>${slotsHtml}</div></div></div>${allFilled()?'<div class="btn-center"><button class="btn btn-accent" data-action="goto-justify">המשך לנימוקים ←</button></div>':''}<div class="btn-center"><button class="btn btn-muted" data-action="goto-select">→ חזרה</button></div></div>`}
+
+function renderJustify(){
+  const mainN=getN(S.slotAssignments.main);
+  const cards=SLOTS.map(slot=>{const news=getN(S.slotAssignments[slot.id]);if(!news)return'';const o=OC[news.origin];return`<div class="justify-card"><div style="display:flex;gap:5px;align-items:center;margin-bottom:3px"><span style="background:${o.color};color:#fff;padding:1px 8px;border-radius:10px;font-size:.68rem;font-family:var(--fu)">${slot.label}</span><span style="font-size:.68rem;color:${o.color};font-weight:600">${o.icon} ${o.label}</span></div><h4>${esc(news.headline)}</h4><div style="font-size:.72rem;color:#999;font-style:italic;margin-bottom:4px">שולח: ${esc(news.from)}${news.pressure?' — "'+esc(news.pressure)+'"':''}</div><textarea class="justify-textarea" data-jk="${slot.id}" placeholder="${slot.id==='main'?'למה זו הכותרת הראשית? האם בחרת כי זה חשוב או כי מישהו לחץ?':'למה הידיעה הזו בדף הבית?'}">${esc(S.justifications[slot.id]||'')}</textarea></div>`}).join("");
+  const rejCount=S.pool.news.length-5;
+  return`<div class="container">${renderTheory()}<div class="info-box"><h2>שלב 4: נמקו את ההחלטות</h2><p>עכשיו הסבירו — <strong>למה בחרתם מה שבחרתם?</strong> שימו לב לשאלה: בחרתם כי זה באמת חשוב, או כי מישהו דחף?</p></div>${cards}<div style="background:#fffaf0;border:1px solid #f0e0c0;border-radius:var(--rl);padding:14px 18px;margin-bottom:14px"><h3 style="font-size:.9rem;color:#c07000;font-family:var(--fu);margin-bottom:6px">🤔 ${rejCount} ידיעות נשארו בחוץ — הציבור לא יידע עליהן</h3><textarea class="justify-textarea" id="rejectedReasonInput" placeholder="הסבירו: מה נשאר בחוץ ולמה? מי ייפגע מכך שהציבור לא ידע?">${esc(S.rejectedReason)}</textarea></div><div class="btn-center"><button class="btn btn-muted" data-action="goto-arrange">→ חזרה</button><button class="btn btn-accent" data-action="goto-reveal">חשיפה ושליחה ←</button></div></div>`}
+
+function renderReveal(){
+  const originCount={political:0,media:0,public:0};selNews().forEach(n=>{originCount[n.origin]++});
+  const mainN=getN(S.slotAssignments.main);const mainO=mainN?OC[mainN.origin]:null;
+  const chips=Object.entries(originCount).map(([k,c])=>{const o=OC[k];return`<div class="origin-chip ${o.cls}">${o.icon} ${o.label}: ${c}</div>`}).join("");
+  const dominant=Object.entries(originCount).sort((a,b)=>b[1]-a[1])[0];const domO=OC[dominant[0]];
+  const hpPreview=SLOTS.map(slot=>{const news=getN(S.slotAssignments[slot.id]);if(!news)return'';const o=OC[news.origin];return`<div class="hp-slot filled ${slot.cls}"><div class="filled-origin" style="background:${o.color}">${o.icon} ${o.label}</div><div class="filled-headline">${esc(news.headline)}</div><div class="filled-sub">${esc(news.subtitle)}</div></div>`}).join("");
+  return`<div class="container"><div style="background:#fff;border-radius:var(--rl);padding:12px 18px;margin-bottom:14px;border:1px solid var(--bl);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px"><div><h2 style="font-family:var(--fd);font-size:1.08rem">📋 דף הבית שלי</h2><p style="font-size:.78rem;color:var(--muted)">${esc(S.studentName)}</p></div><div style="display:flex;gap:6px"><button class="btn btn-muted" data-action="goto-justify" style="padding:6px 11px;font-size:.78rem">→ חזרה</button><button class="btn btn-dark" data-action="submit-work" style="padding:6px 11px;font-size:.78rem">📤 שלח</button><button class="btn btn-accent" data-action="print" style="padding:6px 11px;font-size:.78rem">🖨️</button></div></div>
+    <div class="hp-frame"><div class="hp-header"><div class="hp-date">${hDate()}</div><h2>דף הבית</h2></div>${hpPreview}</div>
+    <div class="impact-box"><h3>מי קבע את סדר היום שלך?</h3><p style="font-size:.82rem;color:#555;margin-bottom:8px">מתוך 5 ידיעות שבחרת:</p><div class="origin-bar">${chips}</div>
+    ${mainO?`<p style="font-size:.84rem;margin-top:8px"><strong>הכותרת הראשית שלך הגיעה מ:</strong> <span style="color:${mainO.color};font-weight:700">${mainO.icon} ${mainO.label}</span></p>`:''}
+    <p style="font-size:.84rem;margin-top:6px"><strong>סדר היום הדומיננטי:</strong> <span style="color:${domO.color};font-weight:700">${domO.icon} ${domO.label} (${dominant[1]} מתוך 5)</span></p>
+    <div style="margin-top:10px;padding:10px 14px;background:#fef2f2;border-radius:8px;font-size:.84rem"><strong>🤔 שאלה לחשיבה:</strong> האם בחרת את הידיעות כי הן <strong>באמת חשובות</strong>, או כי מישהו <strong>רצה שתבחר אותן</strong>? האם הלחץ של השולח השפיע עליך?</div></div>
+    <div class="info-box"><h3 style="font-family:var(--fd);margin-bottom:6px">📝 הנימוקים שלי</h3>${SLOTS.map(slot=>{const news=getN(S.slotAssignments[slot.id]);const j=S.justifications[slot.id];if(!news||!j)return'';const o=OC[news.origin];return`<div style="margin-bottom:5px;padding:5px 10px;background:#faf9f5;border-radius:5px;border-right:3px solid ${o.color}"><strong style="font-size:.82rem">${slot.label}: ${esc(news.headline)}</strong><p style="font-size:.8rem;color:#666;margin-top:1px">${esc(j)}</p></div>`}).join("")}${S.rejectedReason?`<div style="margin-top:6px;padding:5px 10px;background:#fffaf0;border-radius:5px;border-right:3px solid #f59e0b"><strong style="font-size:.82rem">מה נשאר בחוץ:</strong><p style="font-size:.8rem;color:#666;margin-top:1px">${esc(S.rejectedReason)}</p></div>`:''}</div></div>`}
+
+// ============ TEACHER VIEW ============
+function renderTeacherView(){
+  if(!S.submissions.length)return`<div class="container" style="max-width:900px;margin-top:22px"><div class="credit-bar">פיתוח הסימולציה: רני בן זאב</div><button class="btn btn-muted" data-action="goto-landing" style="margin-bottom:10px;font-size:.78rem">→ חזרה</button><div class="info-box"><h2>📊 הגשות — ${esc(S.teacherName)}</h2><p>0 הגשות • <button class="btn btn-dark" data-action="refresh-subs" style="padding:4px 9px;font-size:.74rem">🔄 רענן</button></p></div><div style="text-align:center;padding:30px;color:var(--muted)">📭 <h3>עדיין אין הגשות</h3></div></div>`;
+
+  // Origin distribution across class
+  const classOrigins={political:0,media:0,public:0};let totalPicks=0;
+  S.submissions.forEach(sub=>{(sub.selectedIds||[]).forEach(id=>{const n=S.pool.news.find(x=>x.id===id);if(n){classOrigins[n.origin]++;totalPicks++}})});
+  const originBars=Object.entries(OC).map(([k,o])=>{const cnt=classOrigins[k];const pct=totalPicks?Math.round(cnt/totalPicks*100):0;return`<div style="margin-bottom:6px"><div style="display:flex;justify-content:space-between;font-size:.8rem"><span style="color:${o.color};font-weight:600">${o.icon} ${o.label}</span><span>${cnt} בחירות (${pct}%)</span></div><div style="height:5px;background:#f0f0f0;border-radius:3px"><div style="height:100%;width:${pct}%;background:${o.color};border-radius:3px"></div></div></div>`}).join("");
+
+  // News popularity
+  const newsPop={};S.pool.news.forEach(n=>{newsPop[n.id]={news:n,count:0,mainCount:0}});
+  S.submissions.forEach(sub=>{(sub.selectedIds||[]).forEach(id=>{if(newsPop[id])newsPop[id].count++});if((sub.slotAssignments||{}).main&&newsPop[(sub.slotAssignments||{}).main])newsPop[(sub.slotAssignments||{}).main].mainCount++});
+  const sorted=Object.values(newsPop).sort((a,b)=>b.count-a.count);
+  const popHtml=sorted.filter(p=>p.count>0).map(p=>{const pct=Math.round(p.count/S.submissions.length*100);const o=OC[p.news.origin];return`<div style="margin-bottom:4px"><div style="display:flex;justify-content:space-between;font-size:.76rem"><span>${o.icon} <span style="color:${o.color}">${esc(p.news.headline.substring(0,40))}${p.news.headline.length>40?'...':''}</span></span><span style="color:#888">${p.mainCount>0?`<span style="color:var(--accent);font-weight:700">${p.mainCount}× ראשית</span> • `:''}${p.count}/${S.submissions.length}</span></div><div style="height:3px;background:#f0f0f0;border-radius:3px"><div style="height:100%;width:${pct}%;background:${o.color};border-radius:3px"></div></div></div>`}).join("");
+  const invisible=sorted.filter(p=>p.count===0);
+  const invisHtml=invisible.length?`<div class="info-box" style="background:#fffaf0;border-color:#f0e0c0"><h3 style="font-family:var(--fd);color:#c07000;margin-bottom:4px">👻 ידיעות שאף אחד לא בחר</h3>${invisible.map(p=>{const o=OC[p.news.origin];return`<div style="font-size:.78rem;margin-bottom:2px;color:#888">${o.icon} ${esc(p.news.headline)}</div>`}).join("")}</div>`:'';
+
+  const subCards=S.submissions.map(sub=>{
+    const sa=sub.slotAssignments||{};const oc={political:0,media:0,public:0};
+    (sub.selectedIds||[]).forEach(id=>{const n=S.pool.news.find(x=>x.id===id);if(n)oc[n.origin]++});
+    const miniHp=SLOTS.map(slot=>{const nid=sa[slot.id];const news=nid?S.pool.news.find(n=>n.id===nid):null;if(!news)return'';const o=OC[news.origin];return`<div class="mh-item ${slot.id==='main'?'mh-main':slot.cls==='sec-slot'?'mh-sec':'mh-small'}"><span style="color:${o.color};font-size:.62rem;font-weight:600">${o.icon}</span> ${esc(news.headline)}</div>`}).join("");
+    const justHtml=SLOTS.map(slot=>{const nid=sa[slot.id];const news=nid?S.pool.news.find(n=>n.id===nid):null;const j=(sub.justifications||{})[slot.id];if(!news||!j)return'';const o=OC[news.origin];return`<div style="font-size:.76rem;padding:3px 8px;background:#faf9f5;border-radius:4px;margin-bottom:2px;border-right:2px solid ${o.color}"><strong>${slot.label}:</strong> ${esc(j)}</div>`}).join("");
+    const dom=Object.entries(oc).sort((a,b)=>b[1]-a[1])[0];const domO=OC[dom[0]];
+    return`<div class="sub-card"><div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:4px"><h4>👤 ${esc(sub.studentName)}</h4><span style="background:${domO.color};color:#fff;padding:1px 8px;border-radius:10px;font-size:.68rem;font-family:var(--fu)">דומיננטי: ${domO.icon} ${domO.label}</span></div><div class="sub-meta">${sub.timestamp?new Date(sub.timestamp).toLocaleString("he-IL"):''} • 🏛️${oc.political} 📺${oc.media} 👥${oc.public}</div><div class="mini-hp">${miniHp}</div>${justHtml}${sub.rejectedReason?`<div style="font-size:.74rem;padding:3px 8px;background:#fffaf0;border-radius:4px;border-right:2px solid #f59e0b"><strong>בחוץ:</strong> ${esc(sub.rejectedReason)}</div>`:''}</div>`}).join("");
+
+  return`<div class="container" style="max-width:900px;margin-top:22px"><div class="credit-bar">פיתוח הסימולציה: רני בן זאב</div><button class="btn btn-muted" data-action="goto-landing" style="margin-bottom:10px;font-size:.78rem">→ חזרה</button><div class="info-box"><h2>📊 הגשות — ${esc(S.teacherName)}</h2><p>${S.submissions.length} הגשות • <button class="btn btn-dark" data-action="refresh-subs" style="padding:4px 9px;font-size:.74rem">🔄 רענן</button></p></div>
+    <div class="info-box"><h3 style="font-family:var(--fd);margin-bottom:6px">🏛️📺👥 מי קבע את סדר היום של הכיתה?</h3>${originBars}</div>
+    <div class="info-box"><h3 style="font-family:var(--fd);margin-bottom:6px">📊 פופולריות הידיעות</h3>${popHtml}</div>${invisHtml}${subCards}</div>`}
+
+// ============ EVENTS ============
+function attachEvents(){
+  const ni=document.getElementById("nameInput"),sb=document.getElementById("startBtn");
+  if(ni&&sb){ni.addEventListener("input",()=>{sb.disabled=!ni.value.trim()});ni.addEventListener("keydown",e=>{if(e.key==="Enter"&&ni.value.trim()){S.studentName=ni.value.trim();S.mode="inbox";render()}});sb.addEventListener("click",()=>{if(ni.value.trim()){S.studentName=ni.value.trim();S.mode="inbox";render()}});ni.focus()}
+  const ti=document.getElementById("teacherNameInput");if(ti)ti.addEventListener("input",()=>{S.teacherName=ti.value});
+  const ri=document.getElementById("rejectedReasonInput");if(ri)ri.addEventListener("input",()=>{S.rejectedReason=ri.value});
+  document.querySelectorAll(".justify-textarea[data-jk]").forEach(t=>t.addEventListener("input",()=>{S.justifications[t.dataset.jk]=t.value}));
+  // Drag
+  document.querySelectorAll(".drag-item:not(.placed)").forEach(item=>{item.addEventListener("dragstart",e=>{e.dataTransfer.setData("text/plain",item.dataset.newsId);item.style.opacity=".5"});item.addEventListener("dragend",()=>{item.style.opacity=""})});
+  document.querySelectorAll("[data-action='drop-zone']").forEach(zone=>{zone.addEventListener("dragover",e=>{e.preventDefault();zone.classList.add("drag-over")});zone.addEventListener("dragleave",()=>zone.classList.remove("drag-over"));zone.addEventListener("drop",e=>{e.preventDefault();zone.classList.remove("drag-over");const nid=parseInt(e.dataTransfer.getData("text/plain"));const sid=zone.dataset.slotId;if(nid&&sid){Object.keys(S.slotAssignments).forEach(k=>{if(S.slotAssignments[k]===nid)delete S.slotAssignments[k]});S.slotAssignments[sid]=nid;render()}})});
+  document.removeEventListener("click",handleAction);document.addEventListener("click",handleAction);
+}
+
+async function handleAction(e){
+  const el=e.target.closest("[data-action]");if(!el)return;const a=el.dataset.action;
+  if(a==="toggle-select"){const id=parseInt(el.dataset.id);const idx=S.selectedIds.indexOf(id);if(idx>=0){S.selectedIds.splice(idx,1);Object.keys(S.slotAssignments).forEach(k=>{if(S.slotAssignments[k]===id)delete S.slotAssignments[k]})}else if(S.selectedIds.length<5)S.selectedIds.push(id);render();return}
+  if(a==="remove-slot"){e.stopPropagation();delete S.slotAssignments[el.dataset.slot];render();return}
+  if(a==="goto-landing"){S.mode="landing";render();return}
+  if(a==="goto-teacher"){S.mode="teacher";render();return}
+  if(a==="generate-pool"){if(!S.teacherName.trim()){alert("הזן שם");return}S.pool=pickRandomPool();S.sessionId='ag2_'+Date.now().toString(36)+Math.random().toString(36).substr(2,4);render();return}
+  if(a==="regenerate"){S.pool=pickRandomPool();S.sessionId='ag2_'+Date.now().toString(36)+Math.random().toString(36).substr(2,4);render();return}
+  if(a==="copy-student-link"||a==="copy-teacher-link"){const id=a.includes("student")?"studentLink":"teacherLink";const ta=document.getElementById(id);if(ta){ta.select();try{await navigator.clipboard.writeText(ta.value)}catch(x){document.execCommand("copy")}el.textContent="✅ הועתק!";setTimeout(()=>{el.textContent="📋 העתק"},1800)}return}
+  if(a==="submit-work"){const data={studentName:S.studentName,timestamp:new Date().toISOString(),selectedIds:[...S.selectedIds],slotAssignments:{...S.slotAssignments},justifications:{...S.justifications},rejectedReason:S.rejectedReason};await saveToFirebase(data);el.textContent="✅ נשלח!";el.style.background="#22c55e";setTimeout(()=>{el.textContent="📤 שלח";el.style.background=""},2500);return}
+  if(a==="refresh-subs"){S.submissions=await loadSubmissions();render();return}
+  if(a==="print"){window.print();return}
+  const nav={"goto-inbox":"inbox","goto-select":"select","goto-arrange":"arrange","goto-justify":"justify","goto-reveal":"reveal","start-exercise":"inbox"};
+  if(nav[a]){S.mode=nav[a];render();window.scrollTo(0,0)}
+}
+
+const urlData=checkUrl();
+if(urlData){if(urlData.teacherView){S.teacherName=urlData.teacher;S.sessionId=urlData.session;S.pool=urlData.pool;S.mode="teacher-view";loadSubmissions().then(subs=>{S.submissions=subs;render()})}else{S.pool=urlData.pool;S.teacherName=urlData.teacher;S.sessionId=urlData.session;S.mode="student-name"}}
+render();
+</script></body></html>
