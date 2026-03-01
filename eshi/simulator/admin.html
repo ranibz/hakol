@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ניהול סימולציות — דשבורד מנהל</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Hebrew:wght@300;400;500;600;700;800&family=Frank+Ruhl+Libre:wght@400;700;900&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<style>
+:root{--bg:#0f1117;--surface:#1a1d27;--surface2:#232733;--border:#2e3345;--text:#e4e6ed;--muted:#8890a4;--accent:#6c5ce7;--accent2:#a29bfe;--green:#00cec9;--orange:#fdcb6e;--red:#ff7675;--blue:#74b9ff;--pink:#fd79a8;
+--fd:'Frank Ruhl Libre',serif;--fu:'Noto Sans Hebrew',sans-serif;--r:10px}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:var(--fu);background:var(--bg);color:var(--text);min-height:100vh;line-height:1.6}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pulse{0%,100%{opacity:.6}50%{opacity:1}}
+
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:14px 24px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:100}
+.topbar h1{font-family:var(--fd);font-size:1.2rem;font-weight:900;display:flex;align-items:center;gap:8px}
+.topbar h1 span{font-size:1.3rem}
+.topbar-actions{display:flex;gap:8px;align-items:center}
+.topbar .status{font-size:.72rem;color:var(--green);display:flex;align-items:center;gap:4px}
+.topbar .status::before{content:'';width:6px;height:6px;background:var(--green);border-radius:50%;animation:pulse 2s infinite}
+.refresh-btn{background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:6px 14px;border-radius:var(--r);font-family:var(--fu);font-size:.78rem;font-weight:600;cursor:pointer;transition:all .2s}
+.refresh-btn:hover{background:var(--accent);border-color:var(--accent)}
+
+.container{max-width:1200px;margin:0 auto;padding:20px 16px}
+
+.sim-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:10px;margin-bottom:20px}
+.sim-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:16px;cursor:pointer;transition:all .25s;position:relative;overflow:hidden}
+.sim-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--card-color);opacity:.6;transition:opacity .2s}
+.sim-card:hover{border-color:var(--card-color);transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,.3)}
+.sim-card:hover::before{opacity:1}
+.sim-card.active{border-color:var(--card-color);background:var(--surface2)}
+.sim-card.active::before{opacity:1;height:4px}
+.sim-card .sc-icon{font-size:1.6rem;margin-bottom:6px}
+.sim-card .sc-name{font-size:.85rem;font-weight:700;margin-bottom:8px}
+.sim-card .sc-stats{display:flex;gap:12px}
+.sim-card .sc-stat{font-size:.72rem;color:var(--muted)}
+.sim-card .sc-stat strong{color:var(--text);font-size:.88rem;display:block}
+
+.loading{text-align:center;padding:60px;color:var(--muted)}
+.loading .spinner{width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 12px}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.section-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+.section-header h2{font-family:var(--fd);font-size:1.05rem;font-weight:700}
+.section-header .count{font-size:.74rem;color:var(--muted);background:var(--surface2);padding:2px 10px;border-radius:20px}
+
+.session-list{display:flex;flex-direction:column;gap:6px;margin-bottom:24px}
+.session-row{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;transition:all .2s}
+.session-row:hover{border-color:var(--accent2)}
+.session-header{padding:12px 16px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:10px}
+.session-header:hover{background:var(--surface2)}
+.session-info{flex:1}
+.session-teacher{font-size:.88rem;font-weight:700;display:flex;align-items:center;gap:6px}
+.session-teacher .badge{font-size:.62rem;background:var(--accent);color:#fff;padding:1px 7px;border-radius:10px;font-weight:600}
+.session-meta{font-size:.7rem;color:var(--muted);margin-top:2px;display:flex;gap:12px;flex-wrap:wrap}
+.session-students{font-size:.82rem;font-weight:700;color:var(--green);white-space:nowrap}
+.chevron{font-size:.7rem;color:var(--muted);transition:transform .3s}
+.session-row.open .chevron{transform:rotate(180deg)}
+
+.session-body{display:none;border-top:1px solid var(--border);padding:12px 16px;background:var(--surface2)}
+.session-row.open .session-body{display:block;animation:fadeIn .3s}
+
+.student-table{width:100%;border-collapse:collapse;font-size:.78rem}
+.student-table th{text-align:right;padding:6px 8px;color:var(--muted);font-weight:600;font-size:.7rem;border-bottom:1px solid var(--border);white-space:nowrap}
+.student-table td{padding:6px 8px;border-bottom:1px solid rgba(255,255,255,.04)}
+.student-table tr:hover td{background:rgba(255,255,255,.02)}
+.student-name{font-weight:700}
+.student-date{color:var(--muted);font-size:.7rem}
+
+.empty-state{text-align:center;padding:40px;color:var(--muted)}
+.empty-state .icon{font-size:2rem;margin-bottom:8px}
+.empty-state h3{font-size:.92rem;margin-bottom:4px;color:var(--text)}
+
+.tag{display:inline-block;padding:1px 7px;border-radius:6px;font-size:.64rem;font-weight:600}
+
+.totals-bar{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:12px 20px;margin-bottom:16px;display:flex;justify-content:space-around;flex-wrap:wrap;gap:10px}
+.total-item{text-align:center}
+.total-item .num{font-size:1.4rem;font-weight:800;font-family:var(--fd)}
+.total-item .label{font-size:.68rem;color:var(--muted)}
+
+@media(max-width:600px){.sim-cards{grid-template-columns:repeat(2,1fr)}.container{padding:12px 8px}.topbar{padding:10px 12px}.totals-bar{gap:6px}.total-item .num{font-size:1.1rem}}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <h1><span>📊</span> ניהול סימולציות</h1>
+  <div class="topbar-actions">
+    <div class="status">מחובר</div>
+    <button class="refresh-btn" id="refreshBtn">🔄 רענן</button>
+  </div>
+</div>
+<div class="container" id="app">
+  <div class="loading"><div class="spinner"></div>טוען נתונים מ-Firebase...</div>
+</div>
+<script>
+const firebaseConfig={apiKey:"AIzaSyCh8TMjXeatpegwaJGOiT64VU0cXeWMwLA",authDomain:"newspaper-editor.firebaseapp.com",databaseURL:"https://newspaper-editor-default-rtdb.europe-west1.firebasedatabase.app",projectId:"newspaper-editor",storageBucket:"newspaper-editor.firebasestorage.app",messagingSenderId:"1056483646622",appId:"1:1056483646622:web:1afdb41dbcfacff9106f8f"};
+let db;
+try{firebase.initializeApp(firebaseConfig);db=firebase.database()}catch(e){console.warn(e)}
+
+const SIMS=[
+  {id:'sessions',name:'עורך העיתון',icon:'📰',color:'#ff7675',path:'sessions'},
+  {id:'framing2',name:'מיסגור תקשורתי',icon:'🔀',color:'#74b9ff',path:'framing2'},
+  {id:'agenda2',name:'קביעת סדר יום',icon:'📋',color:'#00cec9',path:'agenda2'},
+  {id:'stereo',name:'סטריאוטיפים',icon:'🎭',color:'#a29bfe',path:'stereo'},
+  {id:'fakenews',name:'פייק ניוז',icon:'🔍',color:'#fdcb6e',path:'fakenews'},
+];
+
+let DATA={};
+let activeSim=null;
+
+const esc=s=>{const d=document.createElement('div');d.textContent=s;return d.innerHTML};
+
+async function loadAll(){
+  if(!db)return;
+  for(const sim of SIMS){
+    try{
+      const snap=await db.ref(sim.path).once('value');
+      DATA[sim.id]=snap.val()||{};
+    }catch(e){DATA[sim.id]={}}
+  }
+}
+
+function parseSessions(simId){
+  const raw=DATA[simId]||{};
+  const sessions=[];
+  for(const [sid,val] of Object.entries(raw)){
+    if(!val||typeof val!=='object')continue;
+    const config=val.config||{};
+    const subs=val.submissions?Object.values(val.submissions):[];
+    const teacher=config.teacher||'(ללא שם)';
+    // Find earliest and latest timestamps
+    let earliest=null,latest=null;
+    subs.forEach(s=>{
+      if(s.timestamp){
+        const d=new Date(s.timestamp);
+        if(!earliest||d<earliest)earliest=d;
+        if(!latest||d>latest)latest=d;
+      }
+    });
+    sessions.push({sid,teacher,config,students:subs,earliest,latest,hasConfig:!!config.teacher});
+  }
+  // Sort by latest activity desc
+  sessions.sort((a,b)=>{
+    const da=a.latest||a.earliest||new Date(0);
+    const db2=b.latest||b.earliest||new Date(0);
+    return db2-da;
+  });
+  return sessions;
+}
+
+function getStats(simId){
+  const sessions=parseSessions(simId);
+  const totalSessions=sessions.length;
+  const totalStudents=sessions.reduce((s,x)=>s+x.students.length,0);
+  const teachers=new Set(sessions.map(s=>s.teacher));
+  return{totalSessions,totalStudents,totalTeachers:teachers.size};
+}
+
+function render(){
+  const app=document.getElementById('app');
+  // Global totals
+  let allSessions=0,allStudents=0,allTeachers=new Set();
+  SIMS.forEach(sim=>{
+    const s=getStats(sim.id);
+    allSessions+=s.totalSessions;
+    allStudents+=s.totalStudents;
+    parseSessions(sim.id).forEach(sess=>allTeachers.add(sess.teacher));
+  });
+
+  const totalsHtml=`<div class="totals-bar">
+    <div class="total-item"><div class="num" style="color:var(--accent2)">${SIMS.length}</div><div class="label">סימולציות</div></div>
+    <div class="total-item"><div class="num" style="color:var(--orange)">${allTeachers.size}</div><div class="label">מורים</div></div>
+    <div class="total-item"><div class="num" style="color:var(--green)">${allSessions}</div><div class="label">תרגילים</div></div>
+    <div class="total-item"><div class="num" style="color:var(--blue)">${allStudents}</div><div class="label">הגשות תלמידים</div></div>
+  </div>`;
+
+  // Sim cards
+  const cardsHtml=SIMS.map(sim=>{
+    const s=getStats(sim.id);
+    return`<div class="sim-card ${activeSim===sim.id?'active':''}" style="--card-color:${sim.color}" data-sim="${sim.id}">
+      <div class="sc-icon">${sim.icon}</div>
+      <div class="sc-name">${sim.name}</div>
+      <div class="sc-stats">
+        <div class="sc-stat"><strong>${s.totalTeachers}</strong>מורים</div>
+        <div class="sc-stat"><strong>${s.totalSessions}</strong>תרגילים</div>
+        <div class="sc-stat"><strong>${s.totalStudents}</strong>תלמידים</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  // Detail section
+  let detailHtml='';
+  if(activeSim){
+    const sim=SIMS.find(s=>s.id===activeSim);
+    const sessions=parseSessions(activeSim);
+    if(!sessions.length){
+      detailHtml=`<div class="empty-state"><div class="icon">📭</div><h3>אין תרגילים עדיין</h3><p>עדיין אף מורה לא יצר תרגיל ב${sim.name}</p></div>`;
+    } else {
+      detailHtml=`<div class="section-header"><h2>${sim.icon} ${sim.name}</h2><span class="count">${sessions.length} תרגילים</span></div>`;
+      detailHtml+=`<div class="session-list">${sessions.map(sess=>{
+        const dateStr=sess.latest?sess.latest.toLocaleDateString('he-IL',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}):'—';
+        const studentsHtml=sess.students.length?`<table class="student-table"><thead><tr><th>שם תלמיד/ה</th><th>תאריך הגשה</th></tr></thead><tbody>${
+          sess.students.map(st=>{
+            const stDate=st.timestamp?new Date(st.timestamp).toLocaleString('he-IL',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):'—';
+            return`<tr><td class="student-name">${esc(st.studentName||'(ללא שם)')}</td><td class="student-date">${stDate}</td></tr>`;
+          }).join('')
+        }</tbody></table>`:`<div style="text-align:center;padding:12px;color:var(--muted);font-size:.78rem">אין הגשות עדיין</div>`;
+
+        return`<div class="session-row" data-session="${sess.sid}">
+          <div class="session-header">
+            <div class="session-info">
+              <div class="session-teacher">👨‍🏫 ${esc(sess.teacher)} <span class="badge">${sess.sid.substring(0,8)}</span></div>
+              <div class="session-meta"><span>📅 ${dateStr}</span></div>
+            </div>
+            <div class="session-students">${sess.students.length} 👤</div>
+            <span class="chevron">▼</span>
+          </div>
+          <div class="session-body">${studentsHtml}</div>
+        </div>`;
+      }).join('')}</div>`;
+    }
+  }
+
+  app.innerHTML=totalsHtml+`<div class="sim-cards">${cardsHtml}</div>`+detailHtml;
+  attachEvents();
+}
+
+function attachEvents(){
+  document.querySelectorAll('.sim-card').forEach(card=>{
+    card.addEventListener('click',()=>{
+      activeSim=activeSim===card.dataset.sim?null:card.dataset.sim;
+      render();
+    });
+  });
+  document.querySelectorAll('.session-header').forEach(hdr=>{
+    hdr.addEventListener('click',()=>{
+      hdr.closest('.session-row').classList.toggle('open');
+    });
+  });
+}
+
+document.getElementById('refreshBtn').addEventListener('click',async()=>{
+  const btn=document.getElementById('refreshBtn');
+  btn.textContent='⏳ טוען...';
+  await loadAll();
+  render();
+  btn.textContent='🔄 רענן';
+});
+
+// Init
+loadAll().then(()=>render());
+</script>
+</body>
+</html>
