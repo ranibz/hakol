@@ -1,0 +1,343 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>אמת או שקר? — סימולציית חדשות מזויפות</title>
+<link href="https://fonts.googleapis.com/css2?family=David+Libre:wght@400;500;700&family=Frank+Ruhl+Libre:wght@300;400;500;700;900&family=Noto+Sans+Hebrew:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<style>
+:root{--ink:#1a1410;--paper:#f8f5ef;--pbr:#fefcf7;--accent:#d97706;--accent-dk:#b45309;--slate:#2c3e50;--muted:#8a8070;--border:#d4cfc5;--bl:#e8e4dc;--real:#16a34a;--fake:#dc2626;--fd:'Frank Ruhl Libre','David Libre',serif;--fb:'David Libre','Noto Sans Hebrew',serif;--fu:'Noto Sans Hebrew','David Libre',sans-serif;--r:8px;--rl:12px}
+*{margin:0;padding:0;box-sizing:border-box}html{scroll-behavior:smooth}body{font-family:var(--fb);background:var(--paper);color:var(--ink);min-height:100vh;line-height:1.6}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+@keyframes slideUp{from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:translateY(0)}}
+
+.landing{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 20px;text-align:center;background:linear-gradient(180deg,#f8f5ef,#ece6db)}
+.landing-logo{font-size:4rem;margin-bottom:10px}
+.landing h1{font-family:var(--fd);font-size:2.1rem;font-weight:900;margin-bottom:2px}
+.landing .tagline{font-size:1rem;color:var(--muted);margin-bottom:4px}
+.landing .credit{font-size:.78rem;color:#b0a898;margin-bottom:28px}
+.landing-card{background:#fff;border-radius:16px;padding:26px 24px;max-width:480px;width:92%;border:2px solid var(--bl);box-shadow:0 4px 20px rgba(0,0,0,.08);text-align:right}
+.landing-card .ci{font-size:2rem;margin-bottom:5px;text-align:center}
+.landing-card h2{font-family:var(--fd);font-size:1.1rem;margin-bottom:5px;text-align:center}
+.landing-card p{font-size:.81rem;color:var(--muted);line-height:1.7;margin-bottom:10px}
+.landing-card ol{font-size:.78rem;color:#666;line-height:1.8;padding-right:18px;margin-bottom:10px}
+.lbtn{display:block;width:100%;padding:11px;font-size:.93rem;font-family:var(--fu);font-weight:700;border:none;border-radius:var(--r);cursor:pointer;text-align:center;background:var(--slate);color:#fff;transition:all .25s}.lbtn:hover{background:#1a2a3a}
+.landing-hint{font-size:.76rem;color:#aaa;margin-top:7px;text-align:center}
+.landing-footer{margin-top:28px;font-size:.72rem;color:#c0b8a8}
+
+.modal-overlay{position:fixed;inset:0;background:rgba(20,16,10,.75);backdrop-filter:blur(6px);display:flex;align-items:center;justify-content:center;z-index:1000;animation:fadeIn .3s}
+.modal-card{background:var(--pbr);border-radius:16px;padding:28px 30px;box-shadow:0 24px 80px rgba(0,0,0,.35);max-width:540px;width:92%;animation:slideUp .4s;text-align:right}
+.modal-card h2{font-family:var(--fd);font-size:1.25rem;font-weight:900;margin-bottom:3px;text-align:center}
+.modal-sub{color:var(--muted);font-size:.82rem;margin-bottom:14px;text-align:center;line-height:1.6}
+.modal-input{width:100%;padding:9px 12px;font-size:.9rem;border:2px solid var(--border);border-radius:var(--r);font-family:var(--fb);outline:none;background:#fff}.modal-input:focus{border-color:var(--accent)}
+.modal-btn{width:100%;padding:10px;font-size:.92rem;font-family:var(--fu);font-weight:700;border:none;border-radius:var(--r);cursor:pointer;margin-top:9px}.modal-btn.primary{background:var(--accent);color:#fff}.modal-btn.primary:hover{background:var(--accent-dk)}.modal-btn:disabled{background:var(--border);color:#999;cursor:default}
+.credit-bar{background:linear-gradient(135deg,#d9770608,#f59e0b08);border:1px solid #fde68a;border-radius:20px;padding:4px 16px;font-size:.72rem;color:var(--accent);font-family:var(--fu);font-weight:500;text-align:center;margin-bottom:10px}
+
+.app-header{background:var(--ink);color:var(--pbr);padding:0 18px;height:50px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:100;box-shadow:0 2px 16px rgba(0,0,0,.25)}
+.header-brand{display:flex;align-items:center;gap:9px}
+.header-brand .logo{font-size:1.15rem}.header-brand h1{font-family:var(--fd);font-size:.95rem;font-weight:700}.header-brand .meta{font-size:.64rem;opacity:.5}
+.phase-indicators{display:flex;gap:3px}
+.phase-pill{padding:3px 9px;border-radius:20px;font-size:.67rem;font-weight:600;font-family:var(--fu);background:rgba(255,255,255,.08);color:rgba(255,255,255,.3);transition:all .3s;white-space:nowrap}
+.phase-pill.active{background:var(--accent);color:#fff}.phase-pill.done{background:rgba(255,255,255,.15);color:rgba(255,255,255,.6)}
+
+.container{max-width:800px;margin:0 auto;padding:20px 18px}
+.info-box{background:#fff;border-radius:var(--rl);padding:15px 20px;margin-bottom:14px;border:1px solid var(--bl)}
+.info-box h2{font-family:var(--fd);font-size:1.12rem;margin-bottom:3px}.info-box p{color:var(--muted);font-size:.82rem;line-height:1.7}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:9px 20px;border-radius:var(--r);font-size:.85rem;font-weight:700;font-family:var(--fu);border:none;cursor:pointer;transition:all .25s}.btn:active{transform:scale(.97)}
+.btn-accent{background:var(--accent);color:#fff}.btn-accent:hover{background:var(--accent-dk)}
+.btn-dark{background:var(--slate);color:#fff}.btn-dark:hover{background:#1a2a3a}
+.btn-muted{background:#b0a898;color:#fff}.btn-muted:hover{background:#9a9080}
+.btn-center{display:flex;justify-content:center;gap:12px;margin-top:20px;flex-wrap:wrap}
+
+.theory-accordion{background:#fff;border:1px solid var(--bl);border-radius:var(--rl);margin-bottom:14px;overflow:hidden}
+.theory-toggle{width:100%;display:flex;justify-content:space-between;align-items:center;padding:12px 18px;cursor:pointer;background:#fff;border:none;font-family:var(--fu);font-size:.88rem;font-weight:700;color:var(--accent);transition:background .2s}
+.theory-toggle:hover{background:#fffbeb}
+.theory-toggle .chevron{transition:transform .3s;font-size:.8rem}
+.theory-accordion.open .theory-toggle .chevron{transform:rotate(180deg)}
+.theory-body{max-height:0;overflow:hidden;transition:max-height .4s ease,padding .3s;padding:0 18px}
+.theory-accordion.open .theory-body{max-height:2000px;padding:0 18px 16px}
+.theory-body h4{font-family:var(--fd);font-size:.92rem;margin:10px 0 4px}
+.theory-body p,.theory-body li{font-size:.8rem;color:#555;line-height:1.7}
+.theory-body ul{padding-right:18px;margin-bottom:6px}
+.theory-body .highlight{background:#fffbeb;border-right:3px solid var(--accent);padding:6px 12px;border-radius:0 6px 6px 0;margin:6px 0;font-size:.8rem;font-weight:600;color:var(--accent-dk)}
+
+.link-result{margin-top:12px;padding:12px;background:#fffbeb;border:2px solid var(--accent);border-radius:var(--r);animation:slideUp .3s}
+.link-result h3{font-size:.86rem;color:var(--accent-dk);margin-bottom:4px;font-family:var(--fu);text-align:center}
+.link-url{width:100%;padding:7px;background:#fff;border:1px solid #fde68a;border-radius:6px;font-family:monospace;font-size:.66rem;direction:ltr;text-align:left;word-break:break-all;margin-bottom:5px;resize:none;min-height:40px;outline:none}
+.link-actions{display:flex;gap:7px}
+.link-actions button{flex:1;padding:7px;font-family:var(--fu);font-weight:600;font-size:.8rem;border:none;border-radius:6px;cursor:pointer}
+.copy-btn{background:var(--accent);color:#fff}.copy-btn:hover{background:var(--accent-dk)}
+.new-btn{background:#3498db;color:#fff}.new-btn:hover{background:#2980b9}
+
+/* News card */
+.news-card{background:#fff;border-radius:var(--rl);padding:16px;margin-bottom:10px;border:2px solid var(--bl);transition:all .25s;position:relative}
+.news-card:hover{box-shadow:0 3px 12px rgba(0,0,0,.06)}
+.news-card .nc-source{font-size:.68rem;color:#999;font-family:var(--fu);margin-bottom:4px;display:flex;align-items:center;gap:4px}
+.news-card h3{font-family:var(--fd);font-size:1rem;font-weight:800;line-height:1.3;margin-bottom:4px}
+.news-card .nc-body{font-size:.82rem;line-height:1.6;color:#444;margin-bottom:8px}
+.news-card .nc-detail{font-size:.74rem;color:#888;line-height:1.5;padding:6px 10px;background:#fafaf5;border-radius:6px;margin-bottom:8px}
+.nc-vote{display:flex;gap:8px}
+.nc-vote-btn{flex:1;padding:8px;border-radius:var(--r);border:2px solid var(--bl);background:#fff;cursor:pointer;font-family:var(--fu);font-weight:700;font-size:.82rem;transition:all .2s;text-align:center}
+.nc-vote-btn:hover{background:#f5f5f0}
+.nc-vote-btn.real{color:var(--real)}.nc-vote-btn.fake{color:var(--fake)}
+.nc-vote-btn.real.selected{background:#f0fdf4;border-color:var(--real)}
+.nc-vote-btn.fake.selected{background:#fef2f2;border-color:var(--fake)}
+.nc-reason{width:100%;padding:6px 10px;border:1px solid var(--border);border-radius:var(--r);font-family:var(--fb);font-size:.78rem;line-height:1.5;resize:none;outline:none;min-height:36px;margin-top:6px}.nc-reason:focus{border-color:var(--accent)}
+.nc-num{position:absolute;top:8px;left:8px;background:var(--accent);color:#fff;border-radius:50%;width:24px;height:24px;font-size:.7rem;font-weight:700;display:flex;align-items:center;justify-content:center;font-family:var(--fu)}
+
+/* Result overlay on news card */
+.news-card.result-correct{border-color:var(--real);background:#f0fdf4}
+.news-card.result-wrong{border-color:var(--fake);background:#fef2f2}
+.nc-result-badge{display:inline-block;padding:2px 10px;border-radius:12px;font-size:.72rem;font-weight:700;font-family:var(--fu);color:#fff;margin-bottom:4px}
+.nc-technique{font-size:.76rem;padding:6px 10px;background:#fffbeb;border:1px solid #fde68a;border-radius:6px;margin-top:6px;color:var(--accent-dk)}
+
+.score-box{background:#fff;border:2px solid var(--accent);border-radius:var(--rl);padding:20px;margin-bottom:16px;text-align:center;animation:slideUp .5s}
+.score-big{font-size:2.5rem;font-weight:900;font-family:var(--fu)}
+.score-label{font-size:.86rem;color:var(--muted)}
+
+.sub-card{background:#fff;border:1px solid var(--bl);border-radius:var(--rl);padding:16px;margin-bottom:14px}
+.sub-card h4{font-family:var(--fd);font-size:1.02rem;margin-bottom:4px}
+.sub-meta{font-size:.74rem;color:var(--muted);margin-bottom:8px}
+
+.instructions-box{background:#fffbeb;border:1px solid #fde68a;border-radius:var(--rl);padding:13px 18px;margin-bottom:14px}
+.instructions-box h3{font-size:.9rem;color:var(--accent);margin-bottom:3px;font-family:var(--fu)}
+.instructions-box ol{font-size:.79rem;color:#666;line-height:1.8;padding-right:18px}
+
+@media print{.app-header,.info-box,.instructions-box,.btn,.btn-center,.credit-bar,.theory-accordion{display:none!important}body{background:#fff}}
+@media(max-width:768px){.container{padding:12px 10px}.phase-indicators{display:none}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+// ============ FIREBASE ============
+const firebaseConfig={apiKey:"AIzaSyCh8TMjXeatpegwaJGOiT64VU0cXeWMwLA",authDomain:"newspaper-editor.firebaseapp.com",databaseURL:"https://newspaper-editor-default-rtdb.europe-west1.firebasedatabase.app",projectId:"newspaper-editor",storageBucket:"newspaper-editor.firebasestorage.app",messagingSenderId:"1056483646622",appId:"1:1056483646622:web:1afdb41dbcfacff9106f8f"};
+let db;try{firebase.initializeApp(firebaseConfig);db=firebase.database()}catch(e){console.warn(e)}
+
+const THEORY_HTML=`
+<h4>חדשות מזויפות (Fake News) — הגדרה</h4>
+<p>ידיעות בדויות, המפיצות מידע שגוי ותעמולתי באמצעי התקשורת, ברשתות החברתיות ובאתרי אינטרנט במסווה / בצורה של חדשות אמיתיות. <strong>לא מדובר בפרסום בטעות או ברשלנות, אלא בפרסום מידע מזויף בכוונה, לשם הטעייה ותעמולה.</strong></p>
+<h4>השפעות מזיקות על תפיסת המציאות ועל דעת הקהל</h4>
+<ul>
+  <li>מעוותות את המציאות</li>
+  <li>פוגעות בערכי הדמוקרטיה ובקיומו של שוק הדעות (התלוי בתקשורת חופשית שתדווח אמת)</li>
+  <li>פוגעות באמון הציבור כלפי התקשורת</li>
+</ul>
+<h4>לצד הנזק, יש גם היבטים חיוביים</h4>
+<ul>
+  <li>חוסר האמון מצד הציבור באמיתוּת המידע ברשת, מוביל אותו להשוות ולקבל מידע מגופים ממוסדים, שנתפסים כאמינים יותר</li>
+  <li>העיתונאים מצדם, נאלצים לבדוק מידע לעומק ולהקפיד על נורמות מקצועיות ואתיות, כדי שלא תיפגע אמינות גופי התקשורת בהם הם עובדים</li>
+</ul>
+<div class="highlight">🔑 דוגמאות: פייק ריפורטר — חשבון טוויטר שמוגדר כ"מיזם מחקר בשיתוף הציבור למאבק בפעילות זדונית ברשתות". מהצד השני — גיא זוהר, המשרוקית.</div>
+<h4>הרחבה ומקורות מידע נוספים</h4>
+<p>בראשיתו, המושג התייחס למידע מומצא שפורסם באתרי אינטרנט במטרה להגדיל את התנועה בהם וכך לגרוף רווח כספי או פוליטי. כיום, היכולת של אנשים מן השורה להפיץ מידע מפוברק ומוטה ברשתות חברתיות ואתרי חדשות לא ממסדיים, חושפת את הגולשים לכמות עצומה של "פייק ניוז" ומכניסה את המושג לתודעה ולשיח הציבורי.</p>
+<p>גם באמצעי תקשורת ממסדיים קיימת התופעה אבל בכמות קטנה — למשל, כש"רויטרס" הפיצה תמונות מעובדות שבהן נמחקו הסכינים שבהם אחזו משתתפי המשט לעזה, או כש"רשת" שידרה סרטון המציג ביזוי של דגל ישראל בבני ברק, שהתברר כמבוים.</p>
+`;
+
+const TECHNIQUES={
+  misleading_headline:{label:"כותרת מטעה",icon:"📰",desc:"הכותרת מציגה תמונה שונה מגוף הידיעה"},
+  fake_source:{label:"מקור לא קיים",icon:"👻",desc:"המקור, המומחה או המכון שמצוטט לא קיים"},
+  fake_stats:{label:"סטטיסטיקה מומצאת",icon:"📊",desc:"מספרים שנראים מרשימים אבל הומצאו"},
+  out_of_context:{label:"ציטוט מחוץ להקשר",icon:"✂️",desc:"משפט אמיתי שהוצא מהקשרו ושינה משמעות"},
+  mix_fact_fiction:{label:"ערבוב עובדות ושקר",icon:"🔀",desc:"מידע אמיתי חלקי עם תוספות שקריות"},
+  emotional:{label:"רגש במקום עובדות",icon:"😱",desc:"שפה רגשית ומניפולטיבית שמחליפה ראיות"}
+};
+
+// ============ NEWS POOLS ============
+const ALL_POOLS=[
+{
+  id:1,name:"בוקר חדשותי א'",
+  items:[
+    {id:1,real:true,source:"ynet",
+      headline:"עיריית תל אביב תאסור כניסת קורקינטים חשמליים לפארק הירקון",
+      body:"העירייה הודיעה כי החל מהחודש הבא ייאסר השימוש בקורקינטים חשמליים בשטח פארק הירקון, בעקבות עלייה בתאונות.",
+      detail:"ההחלטה התקבלה אחרי 47 תאונות שנרשמו בפארק בשנה האחרונה. קנס של 250 ₪ יוטל על מפרים."},
+    {id:2,real:false,technique:"fake_source",source:"ידיעות אחרונות",
+      headline:"מחקר: 85% מהתלמידים בישראל סובלים מחרדת בחינות קשה",
+      body:"מחקר חדש של 'המכון הארצי לבריאות נפשית בחינוכית' מצא כי 85% מתלמידי התיכון בישראל סובלים מחרדת בחינות ברמה קשה או קשה מאוד.",
+      detail:"המחקר כלל 15,000 תלמידים מכל הארץ. פרופ' דנה כהן-לוי, ראשת המכון: 'מדובר במגפה שקטה'.",
+      explanation:"'המכון הארצי לבריאות נפשית בחינוכית' לא קיים. גם 'פרופ' דנה כהן-לוי' היא דמות בדויה. נתון של 85% הוא מוגזם בצורה קיצונית."},
+    {id:3,real:true,source:"הארץ",
+      headline:"בית המשפט העליון: תלמידים רשאים להשתמש בטלפון בהפסקות",
+      body:"בית המשפט העליון קבע כי בתי ספר אינם רשאים לאסור לחלוטין שימוש בטלפון נייד בזמן ההפסקות.",
+      detail:"פסק הדין ניתן בעקבות עתירה של ארגון זכויות תלמידים. השופטים קבעו כי איסור מוחלט פוגע בחופש הביטוי."},
+    {id:4,real:false,technique:"misleading_headline",source:"מאקו",
+      headline:"המדענים הכריזו: השוקולד בריא יותר מפירות",
+      body:"מחקר חדש מצא שחומרים מסוימים בקקאו גולמי עשויים להכיל ריכוז גבוה יותר של נוגדי חמצון בהשוואה לחלק מהפירות.",
+      detail:"המחקר בדק קקאו גולמי בלבד (לא שוקולד מעובד) והשווה אותו לשני סוגי פירות בלבד. החוקרים הדגישו שאין המלצה לאכול שוקולד במקום פירות.",
+      explanation:"הכותרת אומרת 'שוקולד בריא מפירות' — אבל המחקר דיבר על קקאו גולמי, לא שוקולד. וההשוואה הייתה חלקית בלבד. הגוף סותר את הכותרת."},
+    {id:5,real:false,technique:"fake_stats",source:"ישראל היום",
+      headline:"סקר: 94% מהישראלים מעדיפים לעבוד מהבית לצמיתות",
+      body:"סקר חדש חושף: 94% מהעובדים בישראל מעדיפים לעבוד מהבית באופן קבוע ולא לחזור למשרד.",
+      detail:"הסקר נערך בקרב 500 עובדי הייטק באזור תל אביב. 'המספרים מדברים בעד עצמם', אמר עורך הסקר.",
+      explanation:"94% זה מספר מוגזם. הסקר נערך רק בקרב עובדי הייטק בת\"א — אוכלוסייה לא מייצגת. רוב העובדים בישראל לא יכולים לעבוד מהבית (מורים, רופאים, פועלים)."},
+    {id:6,real:true,source:"כלכליסט",
+      headline:"חברת תחבורה ציבורית חדשה תתחיל לפעול בנגב",
+      body:"משרד התחבורה הודיע על זכיינית חדשה שתפעיל קווי אוטובוס בנגב, במטרה לשפר את הנגישות לתושבי הפריפריה.",
+      detail:"החברה תפעיל 12 קווים חדשים החל מינואר, עם השקעה של 80 מיליון ₪ מתקציב המדינה."},
+    {id:7,real:false,technique:"emotional",source:"חדשות 13",
+      headline:"'הילדים שלנו בסכנה': מומחים מזהירים — המסכים הורסים דור שלם",
+      body:"'אנחנו מאבדים דור שלם', זעק פרופ' אבי שלום. 'כל ילד שמסתכל על מסך יותר משעה ביום — נגרם לו נזק בלתי הפיך למוח.'",
+      detail:"'זו קריאת אזעקה. אם לא נפעל עכשיו, הנזק יהיה בלתי הפיך. ההורים חייבים להתעורר לפני שיהיה מאוחר מדי!'",
+      explanation:"שפה רגשית קיצונית: 'זעק', 'מאבדים דור', 'בלתי הפיך'. אין מחקר ספציפי, אין נתונים. 'פרופ' אבי שלום' לא קיים. טענה ש'שעה ביום = נזק בלתי הפיך' לא נתמכת במדע."},
+    {id:8,real:false,technique:"out_of_context",source:"וואלה",
+      headline:"שר החינוך: 'אני לא מאמין בבית ספר'",
+      body:"בריאיון שפורסם היום, שר החינוך אמר: 'אני לא מאמין בבית ספר כמוסד שלא משתנה. חייבים לחדש'.",
+      detail:"השר דיבר על הצורך ברפורמה חינוכית ואמר שהוא מאמין בשינוי. הציטוט המלא: 'אני לא מאמין בבית ספר כמוסד שלא משתנה — אני מאמין בבית ספר שמתפתח, שמקשיב, שמחדש'.",
+      explanation:"הציטוט 'אני לא מאמין בבית ספר' נקטע באמצע. המשפט המלא אומר בדיוק הפוך — שהשר מאמין בבית ספר שמשתנה. הוצאה מהקשר קלאסית."}
+  ]
+},
+{
+  id:2,name:"בוקר חדשותי ב'",
+  items:[
+    {id:1,real:false,technique:"mix_fact_fiction",source:"ערוץ 12",
+      headline:"עיריית ירושלים תחלק טאבלטים חינם לכל תלמידי יא'-יב'",
+      body:"עיריית ירושלים הכריזה על תוכנית חדשה: חלוקת טאבלטים חינם לכל תלמידי כיתות יא'-יב' בעיר.",
+      detail:"התוכנית, בשווי 45 מיליון ₪, תחל בספטמבר. ראש העיר: 'ירושלים תהיה העיר הראשונה בעולם עם טאבלט לכל תלמיד תיכון'.",
+      explanation:"עיריית ירושלים אמנם השקיעה בדיגיטציה בחינוך, אבל תוכנית חלוקת טאבלטים חינם לכל תלמיד לא קיימת. הטענה 'הראשונה בעולם' מוגזמת."},
+    {id:2,real:true,source:"גלובס",
+      headline:"אינטל תפטר 200 עובדים ממפעל קרית גת",
+      body:"חברת אינטל הודיעה על תוכנית התייעלות שתכלול פיטורי כ-200 עובדים ממפעלה בקרית גת.",
+      detail:"ההודעה באה על רקע מגמה עולמית של צמצום בתעשיית השבבים. ההסתדרות מנהלת מו\"מ על תנאי הפרישה."},
+    {id:3,real:false,technique:"fake_source",source:"כאן חדשות",
+      headline:"מחקר ישראלי: שתיית 5 כוסות קפה ביום מאריכה חיים ב-10 שנים",
+      body:"מחקר פורץ דרך של 'המרכז הישראלי לחקר אריכות ימים' מצא כי שתיית 5 כוסות קפה ביום מאריכה את תוחלת החיים ב-10 שנים.",
+      detail:"המחקר עקב אחרי 50,000 שותי קפה במשך 20 שנה. ד\"ר יעל ברנשטיין: 'התוצאות מדהימות — קפה הוא תרופת הפלא'.",
+      explanation:"'המרכז הישראלי לחקר אריכות ימים' לא קיים. 'ד\"ר יעל ברנשטיין' בדויה. הטענה ש-5 כוסות קפה = 10 שנים נוספות היא מגוחכת מבחינה מדעית."},
+    {id:4,real:true,source:"ynet",
+      headline:"משרד הבריאות: חיסון שפעת חינם לכל ילד מתחת לגיל 12",
+      body:"משרד הבריאות הודיע כי השנה יינתן חיסון שפעת חינם לכל ילד מתחת לגיל 12 בקופות החולים.",
+      detail:"ההחלטה באה על רקע עונת שפעת קשה שצפויה. 'מדובר בהשקעה של 30 מיליון ₪ שתחסוך מיליארדים', אמר מנכ\"ל המשרד."},
+    {id:5,real:false,technique:"emotional",source:"חדשות 14",
+      headline:"'רעידת אדמה חינוכית': אלפי מורים עוזבים את המקצוע בזעם",
+      body:"'המערכת קורסת!' צועקים מורים שעוזבים בהמוניהם. 'אנחנו מרגישים מושפלים, שבורים, ומיואשים. אף אחד לא מקשיב!'",
+      detail:"'זוהי הקטסטרופה הגדולה ביותר בתולדות החינוך הישראלי. אם לא יעשו משהו דרסטי מיד — לא יישאר אף מורה בארץ!'",
+      explanation:"שפה רגשית קיצונית: 'קורסת', 'מושפלים', 'קטסטרופה'. אין נתונים — כמה מורים עזבו? מתי? לעומת שנים קודמות? 'לא יישאר אף מורה' — הגזמה אבסורדית."},
+    {id:6,real:true,source:"הארץ",
+      headline:"ממשלת ישראל אישרה תקציב של מיליארד ₪ לפיתוח הנגב",
+      body:"הממשלה אישרה תוכנית חומש לפיתוח הנגב בהיקף של מיליארד ₪, שתכלול תשתיות, חינוך ותעסוקה.",
+      detail:"התוכנית כוללת הקמת 3 אזורי תעשייה חדשים, שדרוג 15 בתי ספר, והרחבת שירותי תחבורה ציבורית."},
+    {id:7,real:false,technique:"misleading_headline",source:"מעריב",
+      headline:"WHO: ישראל — המדינה הכי חולה בעולם",
+      body:"דו\"ח ארגון הבריאות העולמי מצא שישראל מדורגת במקום הראשון בעולם בשיעור מחלות כרוניות בקרב אנשים מעל גיל 65.",
+      detail:"הדו\"ח בחן 40 מדינות מפותחות. ישראל מדורגת ראשונה רק בקטגוריית 65+ במחלות כרוניות. בקטגוריות אחרות ישראל במקומות 15-25.",
+      explanation:"הכותרת אומרת 'המדינה הכי חולה בעולם' — אבל הנתון מדבר רק על 65+ ורק על מחלות כרוניות. בכל הקטגוריות האחרות ישראל באמצע. כותרת מטעה."},
+    {id:8,real:true,source:"ישראל היום",
+      headline:"רכבת ישראל: קו חדש ירושלים-אילת יאושר השנה",
+      body:"שר התחבורה הודיע כי הממשלה צפויה לאשר השנה את הקמת קו רכבת מהיר בין ירושלים לאילת.",
+      detail:"הפרויקט, בעלות של 30 מיליארד ₪, צפוי להימשך 12 שנים. המסלול יעבור דרך הערבה ויקצר את הנסיעה ל-90 דקות."}
+  ]
+}
+];
+
+function pickPool(id){return id?ALL_POOLS.find(p=>p.id===id):ALL_POOLS[Math.floor(Math.random()*ALL_POOLS.length)]}
+// ============ STATE ============
+const S={mode:"landing",studentName:"",teacherName:"",sessionId:"",pool:null,
+  votes:{},reasons:{},reflection:"",submissions:[]};
+const esc=s=>{const d=document.createElement('div');d.textContent=s;return d.innerHTML};
+function encodeToHash(d){try{return btoa(unescape(encodeURIComponent(JSON.stringify(d))))}catch(e){return""}}
+function decodeFromHash(h){try{return JSON.parse(decodeURIComponent(escape(atob(h))))}catch(e){return null}}
+function getBaseUrl(){return window.location.href.split('#')[0]}
+function checkUrl(){const h=window.location.hash.substring(1);if(h&&h.length>10){const d=decodeFromHash(h);if(d&&d.pool&&d.session)return d}return null}
+function saveToFirebase(data){if(!db||!S.sessionId)return Promise.resolve();const key=S.studentName.replace(/[.#$/[\]]/g,'_');return db.ref(`fakenews/${S.sessionId}/submissions/${key}`).set(data).catch(e=>console.warn(e))}
+function loadSubmissions(){if(!db||!S.sessionId)return Promise.resolve([]);return db.ref(`fakenews/${S.sessionId}/submissions`).once('value').then(snap=>{const v=snap.val();return v?Object.values(v):[]}).catch(()=>[])}
+function allVoted(){return S.pool&&S.pool.items.every(n=>S.votes[n.id])}
+function getScore(){if(!S.pool)return{correct:0,total:0};let c=0;S.pool.items.forEach(n=>{const v=S.votes[n.id];if((v==='real'&&n.real)||(v==='fake'&&!n.real))c++});return{correct:c,total:S.pool.items.length}}
+
+function render(){document.getElementById("app").innerHTML=S.mode==="landing"?renderLanding():S.mode==="teacher"?renderTeacher():S.mode==="teacher-view"?renderTeacherView():S.mode==="student-name"?renderStudentName():renderApp();attachEvents()}
+function renderTheory(){return`<div class="theory-accordion" id="theoryAcc"><button class="theory-toggle" onclick="document.getElementById('theoryAcc').classList.toggle('open')"><span>📖 חדשות מזויפות — הגדרה וטכניקות</span><span class="chevron">▼</span></button><div class="theory-body">${THEORY_HTML}</div></div>`}
+
+function renderLanding(){return`<div class="landing"><div class="landing-logo">🔍</div><h1>אמת או שקר?</h1><div class="tagline">כמה חדשות מזויפות תצליחו לזהות?</div><div class="credit">פיתוח הסימולציה: רני בן זאב</div><div class="landing-card"><div class="ci">👨‍🏫</div><h2>אזור מורה</h2><p>התלמידים יקבלו 8 ידיעות — חלקן אמיתיות וחלקן מזויפות. הם יסווגו כל אחת וינמקו. בסוף — יגלו מה אמת ומה שקר, ואיזו טכניקת זיוף הטעתה אותם.</p><ol><li>בחר מאגר → צור תרגיל</li><li>שלח קישור לתלמידים</li><li>צפה בתוצאות — מי זיהה ומי נפל</li></ol><button class="lbtn" data-action="goto-teacher">יצירת תרגיל לכיתה →</button></div><div class="landing-footer">סימולציית חדשות מזויפות • תקשורת וחברה</div></div>`}
+
+function renderTeacher(){const has=!!S.pool;
+  const pickCards=ALL_POOLS.map(p=>{const fakeCount=p.items.filter(i=>!i.real).length;return`<div class="inbox-item" style="border:2px solid ${S.pool&&S.pool.id===p.id?'var(--accent)':'var(--bl)'};border-radius:10px;padding:10px;margin-bottom:8px;cursor:pointer;transition:all .2s;background:${S.pool&&S.pool.id===p.id?'#fffbeb':''}" data-action="pick-pool" data-pid="${p.id}"><h4 style="font-family:var(--fd);font-size:.88rem;font-weight:700;margin-bottom:2px">${esc(p.name)}</h4><p style="font-size:.74rem;color:var(--muted)">${p.items.length} ידיעות (${fakeCount} מזויפות, ${p.items.length-fakeCount} אמיתיות)</p></div>`}).join("");
+  const sL=S.sessionId?getBaseUrl()+"#"+encodeToHash({pool:S.pool,teacher:S.teacherName,session:S.sessionId}):"";
+  const tL=S.sessionId?getBaseUrl()+"#"+encodeToHash({teacherView:true,teacher:S.teacherName,session:S.sessionId,pool:S.pool}):"";
+  const lH=S.sessionId?`<div class="link-result"><h3>✅ מוכן!</h3><p style="font-size:.76rem;color:#555;text-align:center;margin-bottom:4px"><strong>לתלמידים:</strong></p><textarea class="link-url" id="studentLink" readonly>${sL}</textarea><div class="link-actions"><button class="copy-btn" data-action="copy-student-link">📋 העתק</button></div><p style="font-size:.76rem;color:#555;text-align:center;margin:6px 0 3px"><strong>למורה:</strong></p><textarea class="link-url" id="teacherLink" readonly>${tL}</textarea><div class="link-actions"><button class="copy-btn" data-action="copy-teacher-link">📋 העתק</button><button class="new-btn" data-action="reset-pick">🔄 התחל מחדש</button></div></div>`:"";
+  const confirmBtn=(has&&!S.sessionId)?`<div class="btn-center"><button class="btn btn-accent" data-action="confirm-exercise">✅ צור קישורים</button></div>`:"";
+  return`<div class="container" style="max-width:620px;margin-top:22px"><div class="credit-bar">פיתוח הסימולציה: רני בן זאב</div><button class="btn btn-muted" data-action="goto-landing" style="margin-bottom:10px;font-size:.78rem">→ חזרה</button><div class="info-box"><h2>👨‍🏫 יצירת תרגיל חדשות מזויפות</h2><p>בחרו מאגר ידיעות.</p></div><div style="background:#fff;border-radius:var(--rl);padding:14px 18px;border:1px solid var(--bl)"><label style="font-size:.81rem;font-weight:700;font-family:var(--fu);display:block;margin-bottom:3px">שם המורה</label><input type="text" class="modal-input" id="teacherNameInput" value="${esc(S.teacherName)}" style="text-align:center;font-family:var(--fd);font-weight:700;margin-bottom:7px"></div><div style="background:#fff;border-radius:var(--rl);padding:14px 18px;border:1px solid var(--bl);margin-top:10px"><label style="font-size:.81rem;font-weight:700;font-family:var(--fu);display:block;margin-bottom:8px">📋 בחרו מאגר:</label>${pickCards}</div>${confirmBtn}${lH}</div>`}
+
+function renderStudentName(){return`<div class="modal-overlay"><div class="modal-card" style="text-align:center"><div style="font-size:2.6rem;margin-bottom:4px">🔍</div><h2>אמת או שקר?</h2><div class="modal-sub">כמה חדשות מזויפות תצליחו לזהות?<br><span style="font-size:.72rem;color:#b0a898">פיתוח הסימולציה: רני בן זאב${S.teacherName?' • מורה: '+esc(S.teacherName):''}</span></div><div class="instructions-box" style="text-align:right;margin-bottom:10px"><h3>📋 מה עושים?</h3><ol><li>קראו 8 ידיעות חדשותיות</li><li>לכל ידיעה — החליטו: אמת ✅ או שקר ❌</li><li>נמקו: למה חשבתם כך?</li><li>גלו את התוצאות — וכמה צדקתם</li></ol></div><label style="text-align:right;font-size:.81rem;font-weight:700;font-family:var(--fu);display:block">השם שלך</label><input type="text" class="modal-input" id="nameInput" placeholder="שם מלא..." style="text-align:center;font-family:var(--fd);font-weight:700" autofocus><button class="modal-btn primary" id="startBtn" disabled data-action="start-exercise">התחל/י ←</button></div></div>`}
+
+function renderApp(){return renderHeader()+renderPhase()}
+function renderHeader(){const phases=[{id:"classify",l:"① סיווג"},{id:"submit",l:"② שליחה"},{id:"results",l:"③ תוצאות"}];const order=phases.map(p=>p.id);const ci=order.indexOf(S.mode);const pills=phases.map(p=>{const i=order.indexOf(p.id);let c="phase-pill";if(p.id===S.mode)c+=" active";else if(i<ci)c+=" done";return`<div class="${c}">${p.l}</div>`}).join("");return`<div class="app-header"><div class="header-brand"><span class="logo">🔍</span><div><h1>אמת או שקר?</h1><div class="meta">${esc(S.studentName)}</div></div></div><div class="phase-indicators">${pills}</div></div><div class="container"><div class="credit-bar">פיתוח הסימולציה: רני בן זאב</div></div>`}
+function renderPhase(){switch(S.mode){case"classify":return renderClassify();case"results":return renderResults();case"submit":return renderSubmit();default:return""}}
+
+function renderClassify(){const voted=Object.keys(S.votes).length;const total=S.pool.items.length;
+  const cards=S.pool.items.map((n,i)=>{const v=S.votes[n.id];return`<div class="news-card"><div class="nc-num">${i+1}</div><div class="nc-source">📰 ${esc(n.source)}</div><h3>${esc(n.headline)}</h3><div class="nc-body">${esc(n.body)}</div><div class="nc-detail">${esc(n.detail)}</div><div class="nc-vote"><button class="nc-vote-btn real ${v==='real'?'selected':''}" data-action="vote-item" data-nid="${n.id}" data-val="real">✅ אמת</button><button class="nc-vote-btn fake ${v==='fake'?'selected':''}" data-action="vote-item" data-nid="${n.id}" data-val="fake">❌ שקר</button></div>${v?`<textarea class="nc-reason" data-rid="${n.id}" placeholder="למה חשבת כך? (רשות)">${esc(S.reasons[n.id]||'')}</textarea>`:''}</div>`}).join("");
+  return`<div class="container">${renderTheory()}<div class="info-box"><h2>סווגו: אמת ✅ או שקר ❌</h2><p>קראו כל ידיעה בעיון ושימו לב לפרטים. <strong>${voted} מתוך ${total} סווגו.</strong></p></div>${cards}${allVoted()?'<div class="btn-center"><button class="btn btn-accent" data-action="goto-submit">שליחה ←</button></div>':''}</div>`}
+
+function renderResults(){const{correct,total}=getScore();const pct=Math.round(correct/total*100);
+  const cards=S.pool.items.map((n,i)=>{const v=S.votes[n.id];const isCorrect=(v==='real'&&n.real)||(v==='fake'&&!n.real);const tech=!n.real?TECHNIQUES[n.technique]:null;
+    return`<div class="news-card ${isCorrect?'result-correct':'result-wrong'}"><div class="nc-num" style="background:${isCorrect?'var(--real)':'var(--fake)'}">${i+1}</div><div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:4px"><span class="nc-result-badge" style="background:${n.real?'var(--real)':'var(--fake)'}">${n.real?'✅ ידיעה אמיתית':'❌ ידיעה מזויפת'}</span><span class="nc-result-badge" style="background:${isCorrect?'var(--real)':'var(--fake)'}">${isCorrect?'🎯 צדקת!':'💥 טעית!'}</span></div><h3 style="font-size:.92rem">${esc(n.headline)}</h3><div style="font-size:.78rem;color:#666;margin-top:2px">סיווגת: ${v==='real'?'✅ אמת':'❌ שקר'}</div>${!n.real&&tech?`<div class="nc-technique"><strong>${tech.icon} טכניקת הזיוף: ${tech.label}</strong><br>${esc(n.explanation)}</div>`:''}${S.reasons[n.id]?`<div style="font-size:.76rem;color:#888;margin-top:4px;padding:4px 8px;background:rgba(0,0,0,.03);border-radius:4px"><strong>הנימוק שלך:</strong> ${esc(S.reasons[n.id])}</div>`:''}</div>`}).join("");
+  const emoji=pct>=88?'🏆':pct>=63?'👍':pct>=38?'😬':'💥';
+  const msg=pct>=88?'מרשים! כמעט בלתי ניתן להטעות אותך':pct>=63?'לא רע! אבל יש מקום לשיפור':pct>=38?'הצלחת חלקית — חדשות מזויפות הצליחו להטעות':'רוב החדשות המזויפות הטעו אותך — בדיוק ככה זה עובד';
+  // Technique breakdown
+  const techCounts={};S.pool.items.filter(n=>!n.real).forEach(n=>{const t=n.technique;const v=S.votes[n.id];const gotIt=(v==='fake');if(!techCounts[t])techCounts[t]={total:0,caught:0};techCounts[t].total++;if(gotIt)techCounts[t].caught++});
+  const techHtml=Object.entries(techCounts).map(([k,c])=>{const t=TECHNIQUES[k];const pct2=Math.round(c.caught/c.total*100);return`<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid #f0f0f0;font-size:.8rem"><span>${t.icon} ${t.label}</span><span style="font-weight:700;color:${pct2>=50?'var(--real)':'var(--fake)'}">${c.caught}/${c.total} זוהו</span></div>`}).join("");
+  return`<div class="container"><div class="score-box"><div class="score-big" style="color:${pct>=63?'var(--real)':'var(--fake)'}">${emoji} ${correct}/${total}</div><div class="score-label">${msg}</div></div><div class="info-box"><h3 style="font-family:var(--fd);margin-bottom:6px">🎯 אילו טכניקות הטעו אותך?</h3>${techHtml}</div>${cards}<div style="background:#fff;border-radius:var(--rl);padding:14px 18px;border:1px solid var(--bl);margin-top:14px"><label style="font-size:.85rem;font-weight:700;font-family:var(--fu);display:block;margin-bottom:6px">💭 מה תעשו להבא כדי לזהות חדשות מזויפות טוב יותר?</label><textarea class="nc-reason" id="reflectionInput" style="min-height:60px;font-size:.84rem" placeholder="למשל: אבדוק את המקור, אחפש את הידיעה במקומות נוספים, אשים לב לשפה רגשית...">${esc(S.reflection||'')}</textarea></div><div class="btn-center"><button class="btn btn-accent" data-action="submit-reflection">📤 שלח רפלקציה</button></div></div>`}
+
+function renderSubmit(){const total=S.pool.items.length;const voted=Object.keys(S.votes).length;
+  const summary=S.pool.items.map((n,i)=>{const v=S.votes[n.id];return`<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 8px;border-bottom:1px solid #f0f0f0;font-size:.8rem"><div style="flex:1">${i+1}. ${esc(n.headline.substring(0,50))}${n.headline.length>50?'...':''}</div><span style="font-weight:700;color:${v==='real'?'var(--real)':'var(--fake)'};white-space:nowrap">${v==='real'?'✅ אמת':'❌ שקר'}</span></div>`}).join("");
+  return`<div class="container"><div class="info-box"><h2>📤 שליחה</h2><p>בדקו את הסיווגים שלכם לפני השליחה. <strong>אחרי השליחה תגלו את התוצאות.</strong></p></div><div style="background:#fff;border-radius:var(--rl);padding:14px 18px;border:1px solid var(--bl);margin-bottom:14px"><h3 style="font-family:var(--fd);font-size:.95rem;margin-bottom:8px">הסיווגים שלי (${voted}/${total})</h3>${summary}</div><div class="btn-center"><button class="btn btn-muted" data-action="goto-classify">→ חזרה לשינויים</button><button class="btn btn-accent" data-action="submit-and-reveal">📤 שלח וגלה תוצאות</button></div></div>`}
+
+// ============ TEACHER VIEW ============
+function renderTeacherView(){
+  if(!S.submissions.length)return`<div class="container" style="max-width:900px;margin-top:22px"><div class="credit-bar">פיתוח הסימולציה: רני בן זאב</div><button class="btn btn-muted" data-action="goto-landing" style="margin-bottom:10px;font-size:.78rem">→ חזרה</button><div class="info-box"><h2>📊 הגשות — ${esc(S.teacherName)}</h2><p>0 הגשות • <button class="btn btn-dark" data-action="refresh-subs" style="padding:4px 9px;font-size:.74rem">🔄 רענן</button></p></div><div style="text-align:center;padding:30px;color:var(--muted)">📭 <h3>עדיין אין הגשות</h3></div></div>`;
+  const total=S.submissions.length;
+  // Average score
+  const scores=S.submissions.map(sub=>{let c=0;S.pool.items.forEach(n=>{const v=(sub.votes||{})[n.id];if((v==='real'&&n.real)||(v==='fake'&&!n.real))c++});return c});
+  const avg=(scores.reduce((a,b)=>a+b,0)/total).toFixed(1);
+  // Per-item stats: how many got each item right
+  const itemStats=S.pool.items.map(n=>{let correct=0;S.submissions.forEach(sub=>{const v=(sub.votes||{})[n.id];if((v==='real'&&n.real)||(v==='fake'&&!n.real))correct++});return{...n,correct,pct:Math.round(correct/total*100)}});
+  // Most deceptive fake
+  const fakes=itemStats.filter(n=>!n.real).sort((a,b)=>a.pct-b.pct);
+  const mostDeceptive=fakes[0];
+  // Technique effectiveness
+  const techEff={};S.pool.items.filter(n=>!n.real).forEach(n=>{const stat=itemStats.find(s=>s.id===n.id);const t=n.technique;if(!techEff[t])techEff[t]={total:0,totalCaught:0};techEff[t].total+=total;techEff[t].totalCaught+=stat.correct});
+  const techBars=Object.entries(techEff).map(([k,v])=>{const t=TECHNIQUES[k];const pct=Math.round(v.totalCaught/v.total*100);return`<div style="margin-bottom:5px"><div style="display:flex;justify-content:space-between;font-size:.8rem"><span>${t.icon} ${t.label}</span><span>${pct}% זיהו</span></div><div style="height:5px;background:#f0f0f0;border-radius:3px"><div style="height:100%;width:${pct}%;background:${pct>=50?'var(--real)':'var(--fake)'};border-radius:3px"></div></div></div>`}).join("");
+  // Item popularity
+  const itemRows=itemStats.map(n=>{const tech=!n.real?TECHNIQUES[n.technique]:null;return`<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid #f0f0f0;font-size:.78rem"><div style="flex:1"><span style="color:${n.real?'var(--real)':'var(--fake)'};font-weight:600">${n.real?'✅':'❌'}</span> ${esc(n.headline.substring(0,45))}${n.headline.length>45?'...':''} ${tech?'<span style="font-size:.66rem;color:var(--accent)">'+tech.icon+'</span>':''}</div><div style="white-space:nowrap"><span style="font-weight:700;color:${n.pct>=50?'var(--real)':'var(--fake)'}">${n.pct}%</span> צדקו</div></div>`}).join("");
+  // Student cards
+  const subCards=S.submissions.map(sub=>{let c=0;S.pool.items.forEach(n=>{const v=(sub.votes||{})[n.id];if((v==='real'&&n.real)||(v==='fake'&&!n.real))c++});const pct=Math.round(c/S.pool.items.length*100);return`<div class="sub-card"><div style="display:flex;justify-content:space-between;align-items:center"><h4>👤 ${esc(sub.studentName)}</h4><span style="background:${pct>=63?'var(--real)':'var(--fake)'};color:#fff;padding:1px 10px;border-radius:10px;font-size:.76rem;font-weight:700;font-family:var(--fu)">${c}/${S.pool.items.length}</span></div><div class="sub-meta">${sub.timestamp?new Date(sub.timestamp).toLocaleString("he-IL"):''}</div><div style="display:flex;gap:3px;flex-wrap:wrap">${S.pool.items.map(n=>{const v=(sub.votes||{})[n.id];const ok=(v==='real'&&n.real)||(v==='fake'&&!n.real);return`<span style="display:inline-block;width:22px;height:22px;border-radius:4px;background:${ok?'var(--real)':'var(--fake)'};color:#fff;font-size:.6rem;text-align:center;line-height:22px" title="${esc(n.headline)}">${ok?'✓':'✗'}</span>`}).join("")}</div></div>`}).join("");
+
+  return`<div class="container" style="max-width:900px;margin-top:22px"><div class="credit-bar">פיתוח הסימולציה: רני בן זאב</div><button class="btn btn-muted" data-action="goto-landing" style="margin-bottom:10px;font-size:.78rem">→ חזרה</button>
+    <div class="info-box"><h2>📊 הגשות — ${esc(S.teacherName)}</h2><p>${total} הגשות • ציון ממוצע: <strong>${avg}/${S.pool.items.length}</strong> • <button class="btn btn-dark" data-action="refresh-subs" style="padding:4px 9px;font-size:.74rem">🔄 רענן</button></p></div>
+    ${mostDeceptive?`<div style="background:#fef2f2;border:2px solid var(--fake);border-radius:var(--rl);padding:14px;margin-bottom:14px;position:relative"><div style="position:absolute;top:-10px;right:14px;background:var(--fake);color:#fff;padding:2px 12px;border-radius:20px;font-size:.72rem;font-weight:700;font-family:var(--fu)">🏆 הידיעה הכי מטעה</div><h4 style="font-family:var(--fd);font-size:.92rem;margin-top:6px">${esc(mostDeceptive.headline)}</h4><p style="font-size:.78rem;color:#888">רק ${mostDeceptive.pct}% זיהו שהיא מזויפת • טכניקה: ${TECHNIQUES[mostDeceptive.technique].icon} ${TECHNIQUES[mostDeceptive.technique].label}</p></div>`:''}
+    <div class="info-box"><h3 style="font-family:var(--fd);margin-bottom:6px">🎯 אילו טכניקות הכי מטעות?</h3>${techBars}</div>
+    <div class="info-box"><h3 style="font-family:var(--fd);margin-bottom:6px">📊 כל הידיעות — אחוז שצדקו</h3>${itemRows}</div>
+    ${subCards}</div>`}
+
+// ============ EVENTS ============
+function attachEvents(){
+  const ni=document.getElementById("nameInput"),sb=document.getElementById("startBtn");
+  if(ni&&sb){ni.addEventListener("input",()=>{sb.disabled=!ni.value.trim()});ni.addEventListener("keydown",e=>{if(e.key==="Enter"&&ni.value.trim()){S.studentName=ni.value.trim();S.mode="classify";render()}});sb.addEventListener("click",()=>{if(ni.value.trim()){S.studentName=ni.value.trim();S.mode="classify";render()}});ni.focus()}
+  const ti=document.getElementById("teacherNameInput");if(ti)ti.addEventListener("input",()=>{S.teacherName=ti.value});
+  document.querySelectorAll(".nc-reason[data-rid]").forEach(t=>t.addEventListener("input",()=>{S.reasons[t.dataset.rid]=t.value}));
+  const ri=document.getElementById("reflectionInput");if(ri)ri.addEventListener("input",()=>{S.reflection=ri.value});
+  document.removeEventListener("click",handleAction);document.addEventListener("click",handleAction);
+}
+
+async function handleAction(e){
+  const el=e.target.closest("[data-action]");if(!el)return;const a=el.dataset.action;
+  if(a==="vote-item"){S.votes[parseInt(el.dataset.nid)]=el.dataset.val;render();return}
+  if(a==="pick-pool"){if(!S.teacherName.trim()){alert("הזן שם");return}S.pool=pickPool(parseInt(el.dataset.pid));S.sessionId="";render();return}
+  if(a==="confirm-exercise"){S.sessionId='fn_'+Date.now().toString(36)+Math.random().toString(36).substr(2,4);render();return}
+  if(a==="reset-pick"){S.pool=null;S.sessionId="";render();return}
+  if(a==="goto-landing"){S.mode="landing";render();return}
+  if(a==="goto-teacher"){S.mode="teacher";render();return}
+  if(a==="copy-student-link"||a==="copy-teacher-link"){const id=a.includes("student")?"studentLink":"teacherLink";const ta=document.getElementById(id);if(ta){ta.select();try{await navigator.clipboard.writeText(ta.value)}catch(x){document.execCommand("copy")}el.textContent="✅ הועתק!";setTimeout(()=>{el.textContent="📋 העתק"},1800)}return}
+  if(a==="submit-and-reveal"){const{correct,total}=getScore();const data={studentName:S.studentName,timestamp:new Date().toISOString(),votes:{...S.votes},reasons:{...S.reasons},score:correct,total:total};await saveToFirebase(data);S.mode="results";render();window.scrollTo(0,0);return}
+  if(a==="submit-reflection"){const{correct,total}=getScore();const data={studentName:S.studentName,timestamp:new Date().toISOString(),votes:{...S.votes},reasons:{...S.reasons},score:correct,total:total,reflection:S.reflection};await saveToFirebase(data);el.textContent="✅ נשלח!";el.style.background="#22c55e";setTimeout(()=>{el.textContent="📤 שלח רפלקציה";el.style.background=""},2500);return}
+  if(a==="submit-work"){return}
+  if(a==="refresh-subs"){S.submissions=await loadSubmissions();render();return}
+  const nav={"goto-classify":"classify","goto-results":"results","goto-submit":"submit","start-exercise":"classify"};
+  if(nav[a]){S.mode=nav[a];render();window.scrollTo(0,0)}
+}
+
+const urlData=checkUrl();
+if(urlData){if(urlData.teacherView){S.teacherName=urlData.teacher;S.sessionId=urlData.session;S.pool=urlData.pool;S.mode="teacher-view";loadSubmissions().then(subs=>{S.submissions=subs;render()})}else{S.pool=urlData.pool;S.teacherName=urlData.teacher;S.sessionId=urlData.session;S.mode="student-name"}}
+render();
+</script></body></html>
