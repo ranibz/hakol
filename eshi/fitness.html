@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>💪 מעקב כושר</title>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700;800;900&family=Rubik:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<style>
+:root{--bg:#0a0a0f;--surface:#13141f;--surface2:#1c1d2e;--surface3:#252740;--border:#2a2c42;--text:#eef0f6;--muted:#6b7194;--accent:#ff6b35;--accent2:#ff9f1c;--green:#2ec4b6;--red:#e63946;--blue:#4cc9f0;--purple:#b07aff;
+--font:'Heebo','Rubik',sans-serif;--r:14px}
+*{margin:0;padding:0;box-sizing:border-box}
+html{-webkit-tap-highlight-color:transparent}
+body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;min-height:100dvh;overflow-x:hidden}
+@keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pop{0%{transform:scale(1)}50%{transform:scale(1.15)}100%{transform:scale(1)}}
+@keyframes pulse{0%,100%{opacity:.6}50%{opacity:1}}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.login-page{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:30px 20px;text-align:center;background:radial-gradient(ellipse at 50% 30%,rgba(255,107,53,.08),transparent 60%)}
+.login-logo{font-size:4rem;margin-bottom:8px}
+.login-page h1{font-size:1.8rem;font-weight:900;letter-spacing:-.02em;margin-bottom:2px}
+.login-page .tagline{font-size:.82rem;color:var(--muted);margin-bottom:28px}
+.login-box{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:24px 20px;width:100%;max-width:360px}
+.login-box label{display:block;font-size:.76rem;font-weight:700;color:var(--muted);margin-bottom:6px;text-align:right}
+.login-input{width:100%;padding:14px 16px;background:var(--surface2);border:2px solid var(--border);border-radius:12px;color:var(--text);font-family:var(--font);font-size:1.05rem;font-weight:700;text-align:center;outline:none;transition:border-color .2s}
+.login-input:focus{border-color:var(--accent)}
+.login-input::placeholder{color:var(--muted);font-weight:400;font-size:.85rem}
+.login-btn{width:100%;padding:14px;background:var(--accent);color:#fff;border:none;border-radius:12px;font-family:var(--font);font-size:1rem;font-weight:800;cursor:pointer;transition:all .2s;margin-top:14px}
+.login-btn:hover{background:var(--accent2)}
+.login-btn:disabled{background:var(--surface3);color:var(--muted);cursor:default}
+.login-note{font-size:.68rem;color:var(--muted);margin-top:12px}
+
+.nav{position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-top:1px solid var(--border);display:flex;z-index:100;padding-bottom:env(safe-area-inset-bottom)}
+.nav-btn{flex:1;padding:10px 4px 8px;text-align:center;cursor:pointer;transition:all .2s;border:none;background:none;color:var(--muted);font-family:var(--font);font-size:.62rem;font-weight:600}
+.nav-btn .icon{font-size:1.3rem;display:block;margin-bottom:2px}
+.nav-btn.active{color:var(--accent)}
+.nav-btn.active .icon{animation:pop .3s}
+
+.app-wrap{display:none}.app-wrap.visible{display:block}
+.page{padding:16px 16px 90px;max-width:500px;margin:0 auto;display:none}
+.page.active{display:block;animation:fadeUp .3s}
+
+.page-header{margin-bottom:16px;padding-top:8px;display:flex;align-items:center;gap:10px}
+.page-header .content{flex:1}
+.page-header h1{font-size:1.3rem;font-weight:900;letter-spacing:-.02em}
+.page-header p{font-size:.72rem;color:var(--muted);margin-top:1px}
+.back-btn{background:var(--surface2);border:1px solid var(--border);color:var(--text);width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:.9rem;transition:all .2s;flex-shrink:0}
+.back-btn:hover{background:var(--accent);border-color:var(--accent)}
+
+.user-bar{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:10px 14px;margin-bottom:12px;display:flex;justify-content:space-between;align-items:center}
+.user-bar .name{font-size:.82rem;font-weight:700;display:flex;align-items:center;gap:6px}
+.user-bar .name .dot{width:8px;height:8px;background:var(--green);border-radius:50%;animation:pulse 2s infinite}
+.logout-btn{background:var(--surface2);border:1px solid var(--border);color:var(--muted);padding:4px 12px;border-radius:8px;font-family:var(--font);font-size:.68rem;font-weight:600;cursor:pointer;transition:all .2s}
+.logout-btn:hover{color:var(--red);border-color:var(--red)}
+
+.ex-grid{display:flex;flex-direction:column;gap:8px}
+.ex-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;display:flex;align-items:center;gap:14px;cursor:pointer;transition:all .2s;position:relative;overflow:hidden}
+.ex-card::before{content:'';position:absolute;right:0;top:0;bottom:0;width:4px;background:var(--ex-color);border-radius:0 var(--r) var(--r) 0}
+.ex-card:hover{border-color:var(--ex-color);transform:translateX(-3px)}
+.ex-card:active{transform:scale(.98)}
+.ex-icon{font-size:1.8rem;min-width:40px;text-align:center}
+.ex-info{flex:1}.ex-name{font-size:.9rem;font-weight:800}.ex-last{font-size:.68rem;color:var(--muted);margin-top:1px}
+.ex-count{text-align:center}.ex-count .num{font-size:1.3rem;font-weight:900;color:var(--ex-color)}.ex-count .lbl{font-size:.58rem;color:var(--muted)}
+
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);backdrop-filter:blur(8px);z-index:200;display:flex;align-items:flex-end;justify-content:center;animation:fadeUp .2s}
+.modal{background:var(--surface);border-radius:20px 20px 0 0;padding:24px 20px 32px;width:100%;max-width:500px;animation:fadeUp .3s}
+.modal h2{font-size:1.1rem;font-weight:800;margin-bottom:4px;display:flex;align-items:center;gap:8px}
+.modal p{font-size:.76rem;color:var(--muted);margin-bottom:16px}
+.input-group{margin-bottom:14px}
+.input-group label{display:block;font-size:.74rem;font-weight:700;color:var(--muted);margin-bottom:4px}
+.input-row{display:flex;gap:8px}
+.input-field{flex:1;background:var(--surface2);border:2px solid var(--border);border-radius:10px;padding:12px 14px;color:var(--text);font-family:var(--font);font-size:1.1rem;font-weight:700;text-align:center;outline:none;transition:border-color .2s;-webkit-appearance:none}
+.input-field:focus{border-color:var(--accent)}
+.input-field::placeholder{color:var(--muted);font-weight:400;font-size:.85rem}
+.unit{display:flex;align-items:center;padding:0 10px;background:var(--surface2);border-radius:10px;font-size:.78rem;font-weight:600;color:var(--muted);white-space:nowrap}
+.save-btn{width:100%;padding:14px;background:var(--accent);color:#fff;border:none;border-radius:12px;font-family:var(--font);font-size:.95rem;font-weight:800;cursor:pointer;transition:all .2s;margin-top:6px}
+.save-btn:hover{background:var(--accent2)}.save-btn:active{transform:scale(.97)}
+
+.history-list{display:flex;flex-direction:column;gap:4px}
+.history-item{background:var(--surface);border-radius:10px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;border:1px solid var(--border)}
+.hi-main{flex:1}.hi-value{font-size:1rem;font-weight:800}.hi-date{font-size:.66rem;color:var(--muted)}
+.hi-delete{background:none;border:none;color:var(--red);font-size:.8rem;cursor:pointer;padding:4px 8px;opacity:.4;transition:opacity .2s}.hi-delete:hover{opacity:1}
+.hi-diff{font-size:.72rem;font-weight:700;padding:2px 8px;border-radius:8px}
+.hi-diff.better{color:var(--green);background:rgba(46,196,182,.1)}
+.hi-diff.worse{color:var(--red);background:rgba(230,57,70,.1)}
+
+.stat-cards{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px;text-align:center}
+.stat-card .val{font-size:1.4rem;font-weight:900}.stat-card .lbl{font-size:.64rem;color:var(--muted);margin-top:2px}
+
+.chart-container{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px;margin-bottom:12px}
+.chart-title{font-size:.82rem;font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:6px}
+.chart-area{position:relative;height:160px;display:flex;align-items:flex-end;gap:3px;padding-bottom:20px}
+.chart-bar{flex:1;background:var(--accent);border-radius:4px 4px 0 0;min-height:2px;transition:height .4s;position:relative;cursor:pointer;max-width:28px}
+.chart-bar:hover{opacity:.8}
+.chart-bar .tip{display:none;position:absolute;bottom:100%;left:50%;transform:translateX(-50%);background:var(--surface3);color:var(--text);padding:3px 8px;border-radius:6px;font-size:.62rem;font-weight:700;white-space:nowrap;margin-bottom:4px;z-index:10}
+.chart-bar:hover .tip{display:block}
+.chart-labels{display:flex;gap:3px;position:absolute;bottom:0;left:0;right:0}
+.chart-labels span{flex:1;text-align:center;font-size:.5rem;color:var(--muted);max-width:28px}
+
+.filter-tabs{display:flex;gap:4px;margin-bottom:12px;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:4px}
+.filter-tab{padding:6px 14px;border-radius:20px;font-size:.72rem;font-weight:700;background:var(--surface2);color:var(--muted);border:1px solid var(--border);cursor:pointer;transition:all .2s;white-space:nowrap;flex-shrink:0}
+.filter-tab.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+
+.empty{text-align:center;padding:40px 20px;color:var(--muted)}.empty .icon{font-size:2.5rem;margin-bottom:8px}.empty h3{font-size:.92rem;color:var(--text);margin-bottom:4px}
+.loading-msg{text-align:center;padding:40px;color:var(--muted);font-size:.82rem}
+.loading-msg .spinner{width:28px;height:28px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 10px}
+</style>
+</head>
+<body>
+
+<div class="login-page" id="loginPage">
+  <div class="login-logo">💪</div>
+  <h1>מעקב כושר</h1>
+  <div class="tagline">עקבי אחרי ההתקדמות שלך</div>
+  <div class="login-box">
+    <label>מה השם שלך?</label>
+    <input type="text" class="login-input" id="nameInput" placeholder="הכניסי שם..." autocomplete="off">
+    <button class="login-btn" id="loginBtn" disabled>🚀 התחלי</button>
+    <div class="login-note">☁️ הנתונים נשמרים בענן — תוכלי להיכנס מכל מכשיר</div>
+  </div>
+</div>
+
+<div class="app-wrap" id="appWrap">
+  <div class="page active" id="page-home">
+    <div class="page-header"><div class="content"><h1>💪 מעקב כושר</h1><p>לחצי על פעילות כדי לרשום תוצאה</p></div></div>
+    <div class="user-bar"><div class="name"><span class="dot"></span><span id="displayName"></span></div><button class="logout-btn" id="logoutBtn">התנתקי</button></div>
+    <div class="ex-grid" id="homeGrid"></div>
+  </div>
+  <div class="page" id="page-history">
+    <div class="page-header"><button class="back-btn" data-go="home">→</button><div class="content"><h1>📋 היסטוריה</h1><p>כל התוצאות</p></div></div>
+    <div class="filter-tabs" id="historyFilters"></div>
+    <div class="history-list" id="historyList"></div>
+  </div>
+  <div class="page" id="page-stats">
+    <div class="page-header"><button class="back-btn" data-go="home">→</button><div class="content"><h1>📈 סטטיסטיקות</h1><p>התקדמות והישגים</p></div></div>
+    <div class="filter-tabs" id="statsFilters"></div>
+    <div id="statsContent"></div>
+  </div>
+  <div class="nav">
+    <button class="nav-btn active" data-page="home"><span class="icon">🏠</span>בית</button>
+    <button class="nav-btn" data-page="history"><span class="icon">📋</span>היסטוריה</button>
+    <button class="nav-btn" data-page="stats"><span class="icon">📈</span>סטטיסטיקות</button>
+  </div>
+</div>
+<div id="modalRoot"></div>
+
+<script>
+const firebaseConfig={apiKey:"AIzaSyBLIhxCsjP9WJQmmUt6rF5iiPC821KsoP8",authDomain:"fitness-7a9a2.firebaseapp.com",databaseURL:"https://fitness-7a9a2-default-rtdb.europe-west1.firebasedatabase.app",projectId:"fitness-7a9a2",storageBucket:"fitness-7a9a2.firebasestorage.app",messagingSenderId:"674361798619",appId:"1:674361798619:web:9fe8a1057ce95fd0e301fe"};
+let db;try{firebase.initializeApp(firebaseConfig);db=firebase.database()}catch(e){console.warn(e)}
+
+const EXERCISES=[
+  {id:'run3k',name:'ריצת 3000',icon:'🏃‍♀️',unit:'דקות',color:'#ff6b35',inputType:'time',placeholder:'12:30'},
+  {id:'sprint',name:'ספרינטים',icon:'⚡',unit:'שניות',color:'#4cc9f0',inputType:'number',placeholder:'28.5'},
+  {id:'pullup',name:'עליות מתח',icon:'💪',unit:'חזרות',color:'#2ec4b6',inputType:'number',placeholder:'8'},
+  {id:'squat',name:'סקוואט 40 ק"ג',icon:'🦵',unit:'חזרות',color:'#b07aff',inputType:'number',placeholder:'15'},
+  {id:'dips',name:'מקבילים',icon:'🔥',unit:'חזרות',color:'#ff9f1c',inputType:'number',placeholder:'10'},
+];
+
+let userName='',userKey='',allData={},currentPage='home',historyFilter='all',statsFilter=EXERCISES[0].id;
+
+function getUserRef(){return db.ref(`fitness/${userKey}`)}
+function loadData(){if(!db||!userKey)return Promise.resolve();return getUserRef().once('value').then(snap=>{allData=snap.val()||{};delete allData._name}).catch(()=>{allData={}})}
+function saveEntry(exId,value){if(!db||!userKey)return Promise.resolve();const entry={value,ts:Date.now()};return getUserRef().child(exId).push(entry).then(()=>{if(!allData[exId])allData[exId]={};allData[exId][Date.now().toString()]=entry})}
+function removeEntry(exId,ts){if(!db||!userKey)return Promise.resolve();const entries=allData[exId]||{};const key=Object.keys(entries).find(k=>entries[k].ts===ts);if(!key)return Promise.resolve();return getUserRef().child(`${exId}/${key}`).remove().then(()=>{delete allData[exId][key]})}
+function getEntries(exId){const raw=allData[exId]||{};return Object.values(raw).filter(e=>e&&e.ts).sort((a,b)=>b.ts-a.ts)}
+
+function parseTime(v){if(v.includes(':')){const p=v.split(':');return parseInt(p[0])*60+parseFloat(p[1])}return parseFloat(v)*60}
+function formatTime(secs){const m=Math.floor(secs/60);const s=Math.round(secs%60);return`${m}:${s.toString().padStart(2,'0')}`}
+function formatVal(ex,val){return ex.inputType==='time'?formatTime(val):Number.isInteger(val)?val:parseFloat(val).toFixed(1)}
+function isLowerBetter(ex){return ex.id==='run3k'||ex.id==='sprint'}
+
+// LOGIN
+const nameInput=document.getElementById('nameInput');
+const loginBtn=document.getElementById('loginBtn');
+const saved=localStorage.getItem('fitness_user');
+if(saved){try{const u=JSON.parse(saved);userName=u.name;userKey=u.key;startApp()}catch(e){}}
+nameInput.addEventListener('input',()=>{loginBtn.disabled=!nameInput.value.trim()});
+nameInput.addEventListener('keydown',e=>{if(e.key==='Enter'&&nameInput.value.trim())doLogin()});
+loginBtn.addEventListener('click',doLogin);
+
+function doLogin(){
+  userName=nameInput.value.trim();if(!userName)return;
+  userKey=userName.replace(/[.#$/[\]\s]/g,'_').toLowerCase();
+  if(db)db.ref(`fitness/${userKey}/_name`).set(userName);
+  localStorage.setItem('fitness_user',JSON.stringify({name:userName,key:userKey}));
+  startApp();
+}
+function startApp(){
+  document.getElementById('loginPage').style.display='none';
+  document.getElementById('appWrap').classList.add('visible');
+  document.getElementById('displayName').textContent=userName;
+  document.getElementById('homeGrid').innerHTML='<div class="loading-msg"><div class="spinner"></div>טוען נתונים...</div>';
+  loadData().then(()=>renderAll());
+}
+document.getElementById('logoutBtn').addEventListener('click',()=>{
+  localStorage.removeItem('fitness_user');userName='';userKey='';allData={};
+  document.getElementById('appWrap').classList.remove('visible');
+  document.getElementById('loginPage').style.display='';
+  nameInput.value='';loginBtn.disabled=true;
+});
+
+// NAV
+document.querySelectorAll('.nav-btn').forEach(btn=>{btn.addEventListener('click',()=>goPage(btn.dataset.page))});
+document.querySelectorAll('.back-btn').forEach(btn=>{btn.addEventListener('click',()=>goPage(btn.dataset.go))});
+function goPage(page){
+  currentPage=page;
+  document.querySelectorAll('.nav-btn').forEach(b=>{b.classList.toggle('active',b.dataset.page===page)});
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById('page-'+page).classList.add('active');
+  renderAll();window.scrollTo(0,0);
+}
+function renderAll(){renderHome();renderHistory();renderStats()}
+
+function renderHome(){
+  const grid=document.getElementById('homeGrid');
+  grid.innerHTML=EXERCISES.map(ex=>{
+    const entries=getEntries(ex.id);const last=entries[0];
+    const lastStr=last?`אחרון: ${formatVal(ex,last.value)} ${ex.unit} • ${new Date(last.ts).toLocaleDateString('he-IL')}`:'טרם נרשמה תוצאה';
+    return`<div class="ex-card" style="--ex-color:${ex.color}" data-ex="${ex.id}"><div class="ex-icon">${ex.icon}</div><div class="ex-info"><div class="ex-name">${ex.name}</div><div class="ex-last">${lastStr}</div></div><div class="ex-count"><div class="num" style="color:${ex.color}">${entries.length}</div><div class="lbl">רישומים</div></div></div>`;
+  }).join('');
+  grid.querySelectorAll('.ex-card').forEach(card=>{card.addEventListener('click',()=>openModal(card.dataset.ex))});
+}
+
+function openModal(exId){
+  const ex=EXERCISES.find(e=>e.id===exId);const root=document.getElementById('modalRoot');const isTime=ex.inputType==='time';
+  root.innerHTML=`<div class="modal-overlay" id="modalOverlay"><div class="modal"><h2>${ex.icon} ${ex.name}</h2><p>הכניסי תוצאה חדשה</p><div class="input-group"><label>${isTime?'זמן (דקות:שניות)':'תוצאה'}</label><div class="input-row"><input type="${isTime?'text':'number'}" class="input-field" id="modalInput" placeholder="${ex.placeholder}" inputmode="${isTime?'text':'decimal'}" autocomplete="off"><div class="unit">${ex.unit}</div></div></div><button class="save-btn" id="modalSave">💾 שמור</button></div></div>`;
+  const input=document.getElementById('modalInput');const overlay=document.getElementById('modalOverlay');
+  setTimeout(()=>input.focus(),100);
+  document.getElementById('modalSave').addEventListener('click',async()=>{
+    const raw=input.value.trim();if(!raw)return;
+    const val=isTime?parseTime(raw):parseFloat(raw);if(isNaN(val)||val<=0)return;
+    const btn=document.getElementById('modalSave');btn.textContent='⏳ שומר...';btn.disabled=true;
+    await saveEntry(exId,val);await loadData();root.innerHTML='';renderAll();
+  });
+  overlay.addEventListener('click',e=>{if(e.target===overlay)root.innerHTML=''});
+  input.addEventListener('keydown',e=>{if(e.key==='Enter')document.getElementById('modalSave').click()});
+}
+
+function renderHistory(){
+  const fDiv=document.getElementById('historyFilters');
+  fDiv.innerHTML=`<div class="filter-tab ${historyFilter==='all'?'active':''}" data-f="all">הכל</div>`+EXERCISES.map(ex=>`<div class="filter-tab ${historyFilter===ex.id?'active':''}" data-f="${ex.id}" style="${historyFilter===ex.id?`background:${ex.color};border-color:${ex.color}`:''}">${ex.icon} ${ex.name}</div>`).join('');
+  fDiv.querySelectorAll('.filter-tab').forEach(tab=>{tab.addEventListener('click',()=>{historyFilter=tab.dataset.f;renderHistory()})});
+  const list=document.getElementById('historyList');let allEntries=[];
+  const exIds=historyFilter==='all'?EXERCISES.map(e=>e.id):[historyFilter];
+  exIds.forEach(id=>{const ex=EXERCISES.find(e=>e.id===id);getEntries(id).forEach((entry,i,arr)=>{const prev=arr[i+1];let diff=null;if(prev){const d=entry.value-prev.value;const better=isLowerBetter(ex)?(d<0):(d>0);diff={better,formatted:(isLowerBetter(ex)?(d<0?'-':'+'):(d>0?'+':'-'))+formatVal(ex,Math.abs(d))}}allEntries.push({...entry,exId:id,ex,diff})})});
+  allEntries.sort((a,b)=>b.ts-a.ts);
+  if(!allEntries.length){list.innerHTML=`<div class="empty"><div class="icon">📭</div><h3>אין תוצאות עדיין</h3><p>לחצי על פעילות בדף הבית כדי לרשום</p></div>`;return}
+  list.innerHTML=allEntries.map(e=>{const dateStr=new Date(e.ts).toLocaleDateString('he-IL',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});return`<div class="history-item"><div style="font-size:1.2rem;margin-left:10px">${e.ex.icon}</div><div class="hi-main"><div class="hi-value">${formatVal(e.ex,e.value)} <span style="font-size:.7rem;color:var(--muted);font-weight:400">${e.ex.unit}</span></div><div class="hi-date">${e.ex.name} • ${dateStr}</div></div>${e.diff?`<span class="hi-diff ${e.diff.better?'better':'worse'}">${e.diff.formatted}</span>`:''}<button class="hi-delete" data-ex="${e.exId}" data-ts="${e.ts}">✕</button></div>`}).join('');
+  list.querySelectorAll('.hi-delete').forEach(btn=>{btn.addEventListener('click',async()=>{await removeEntry(btn.dataset.ex,parseInt(btn.dataset.ts));renderAll()})});
+}
+
+function renderStats(){
+  const fDiv=document.getElementById('statsFilters');
+  fDiv.innerHTML=EXERCISES.map(ex=>`<div class="filter-tab ${statsFilter===ex.id?'active':''}" data-f="${ex.id}" style="${statsFilter===ex.id?`background:${ex.color};border-color:${ex.color}`:''}">${ex.icon} ${ex.name}</div>`).join('');
+  fDiv.querySelectorAll('.filter-tab').forEach(tab=>{tab.addEventListener('click',()=>{statsFilter=tab.dataset.f;renderStats()})});
+  const ex=EXERCISES.find(e=>e.id===statsFilter);const entries=getEntries(statsFilter).reverse();const cont=document.getElementById('statsContent');
+  if(!entries.length){cont.innerHTML=`<div class="empty"><div class="icon">${ex.icon}</div><h3>אין נתונים ל${ex.name}</h3><p>רשמי תוצאות כדי לראות סטטיסטיקות</p></div>`;return}
+  const vals=entries.map(e=>e.value);const best=isLowerBetter(ex)?Math.min(...vals):Math.max(...vals);const avg=vals.reduce((a,b)=>a+b,0)/vals.length;
+  const latest=vals[vals.length-1];const first=vals[0];const improvement=isLowerBetter(ex)?(first-latest):(latest-first);const impPct=first!==0?Math.round(Math.abs(improvement/first)*100):0;const impPositive=improvement>0;
+  const statsHtml=`<div class="stat-cards"><div class="stat-card"><div class="val" style="color:var(--green)">${formatVal(ex,best)}</div><div class="lbl">שיא אישי 🏆</div></div><div class="stat-card"><div class="val" style="color:var(--accent)">${formatVal(ex,avg)}</div><div class="lbl">ממוצע</div></div><div class="stat-card"><div class="val">${entries.length}</div><div class="lbl">סה"כ אימונים</div></div><div class="stat-card"><div class="val" style="color:${impPositive?'var(--green)':'var(--red)'}">${impPositive?'↑':'↓'}${impPct}%</div><div class="lbl">שיפור כללי</div></div></div>`;
+  const chartEntries=entries.slice(-20);const chartVals=chartEntries.map(e=>e.value);const maxV=Math.max(...chartVals);const minV=Math.min(...chartVals);const range=maxV-minV||1;
+  const barsHtml=chartEntries.map(e=>{const pct=((e.value-minV)/range)*80+15;const isBest=e.value===best;return`<div class="chart-bar" style="height:${pct}%;background:${isBest?'var(--green)':ex.color}"><div class="tip">${formatVal(ex,e.value)}</div></div>`}).join('');
+  const labelsHtml=chartEntries.map(e=>{const d=new Date(e.ts);return`<span>${d.getDate()}/${d.getMonth()+1}</span>`}).join('');
+  const chartHtml=`<div class="chart-container"><div class="chart-title">📊 גרף התקדמות (${chartEntries.length} אחרונים)</div><div class="chart-area">${barsHtml}<div class="chart-labels">${labelsHtml}</div></div></div>`;
+  let streak=0;for(let i=entries.length-1;i>0;i--){const better=isLowerBetter(ex)?(entries[i].value<=entries[i-1].value):(entries[i].value>=entries[i-1].value);if(better)streak++;else break}
+  const streakHtml=streak>0?`<div class="stat-card" style="grid-column:1/-1;margin-bottom:12px"><div class="val" style="color:var(--accent2)">🔥 ${streak}</div><div class="lbl">רצף שיפור רצוף</div></div>`:'';
+  cont.innerHTML=statsHtml+streakHtml+chartHtml;
+}
+</script>
+</body>
+</html>
