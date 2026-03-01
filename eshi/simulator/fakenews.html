@@ -237,12 +237,13 @@ function pickPool(id){return id?ALL_POOLS.find(p=>p.id===id):ALL_POOLS[Math.floo
 const S={mode:"landing",studentName:"",teacherName:"",sessionId:"",pool:null,
   votes:{},reasons:{},reflection:"",submissions:[]};
 const esc=s=>{const d=document.createElement('div');d.textContent=s;return d.innerHTML};
-function encodeToHash(d){try{return btoa(unescape(encodeURIComponent(JSON.stringify(d))))}catch(e){return""}}
-function decodeFromHash(h){try{return JSON.parse(decodeURIComponent(escape(atob(h))))}catch(e){return null}}
 function getBaseUrl(){return window.location.href.split('#')[0]}
-function checkUrl(){const h=window.location.hash.substring(1);if(h&&h.length>10){const d=decodeFromHash(h);if(d&&d.pool&&d.session)return d}return null}
+function checkUrl(){const h=window.location.hash.substring(1);if(h&&h.length>3)return h;return null}
 function saveToFirebase(data){if(!db||!S.sessionId)return Promise.resolve();const key=S.studentName.replace(/[.#$/[\]]/g,'_');return db.ref(`fakenews/${S.sessionId}/submissions/${key}`).set(data).catch(e=>console.warn(e))}
 function loadSubmissions(){if(!db||!S.sessionId)return Promise.resolve([]);return db.ref(`fakenews/${S.sessionId}/submissions`).once('value').then(snap=>{const v=snap.val();return v?Object.values(v):[]}).catch(()=>[])}
+
+function saveConfig(){if(!db||!S.sessionId)return Promise.resolve();return db.ref(`fakenews/${S.sessionId}/config`).set({pool:S.pool,teacher:S.teacherName}).catch(e=>console.warn(e))}
+function loadConfig(sid){if(!db)return Promise.resolve(null);return db.ref(`fakenews/${sid}/config`).once('value').then(s=>s.val()).catch(()=>null)}
 function allVoted(){return S.pool&&S.pool.items.every(n=>S.votes[n.id])}
 function getScore(){if(!S.pool)return{correct:0,total:0};let c=0;S.pool.items.forEach(n=>{const v=S.votes[n.id];if((v==='real'&&n.real)||(v==='fake'&&!n.real))c++});return{correct:c,total:S.pool.items.length}}
 
@@ -253,8 +254,8 @@ function renderLanding(){return`<div class="landing"><div class="landing-logo">�
 
 function renderTeacher(){const has=!!S.pool;
   const pickCards=ALL_POOLS.map(p=>{const fakeCount=p.items.filter(i=>!i.real).length;return`<div class="inbox-item" style="border:2px solid ${S.pool&&S.pool.id===p.id?'var(--accent)':'var(--bl)'};border-radius:10px;padding:10px;margin-bottom:8px;cursor:pointer;transition:all .2s;background:${S.pool&&S.pool.id===p.id?'#fffbeb':''}" data-action="pick-pool" data-pid="${p.id}"><h4 style="font-family:var(--fd);font-size:.88rem;font-weight:700;margin-bottom:2px">${esc(p.name)}</h4><p style="font-size:.74rem;color:var(--muted)">${p.items.length} ידיעות (${fakeCount} מזויפות, ${p.items.length-fakeCount} אמיתיות)</p></div>`}).join("");
-  const sL=S.sessionId?getBaseUrl()+"#"+encodeToHash({pool:S.pool,teacher:S.teacherName,session:S.sessionId}):"";
-  const tL=S.sessionId?getBaseUrl()+"#"+encodeToHash({teacherView:true,teacher:S.teacherName,session:S.sessionId,pool:S.pool}):"";
+  const sL=S.sessionId?getBaseUrl()+"#"+S.sessionId:"";
+  const tL=S.sessionId?getBaseUrl()+"#t_"+S.sessionId:"";
   const lH=S.sessionId?`<div class="link-result"><h3>✅ מוכן!</h3><p style="font-size:.76rem;color:#555;text-align:center;margin-bottom:4px"><strong>לתלמידים:</strong></p><textarea class="link-url" id="studentLink" readonly>${sL}</textarea><div class="link-actions"><button class="copy-btn" data-action="copy-student-link">📋 העתק</button></div><p style="font-size:.76rem;color:#555;text-align:center;margin:6px 0 3px"><strong>למורה:</strong></p><textarea class="link-url" id="teacherLink" readonly>${tL}</textarea><div class="link-actions"><button class="copy-btn" data-action="copy-teacher-link">📋 העתק</button><button class="new-btn" data-action="reset-pick">🔄 התחל מחדש</button></div></div>`:"";
   const confirmBtn=(has&&!S.sessionId)?`<div class="btn-center"><button class="btn btn-accent" data-action="confirm-exercise">✅ צור קישורים</button></div>`:"";
   return`<div class="container" style="max-width:620px;margin-top:22px"><div class="credit-bar">פיתוח הסימולציה: רני בן זאב</div><button class="btn btn-muted" data-action="goto-landing" style="margin-bottom:10px;font-size:.78rem">→ חזרה</button><div class="info-box"><h2>👨‍🏫 יצירת תרגיל חדשות מזויפות</h2><p>בחרו מאגר ידיעות.</p></div><div style="background:#fff;border-radius:var(--rl);padding:14px 18px;border:1px solid var(--bl)"><label style="font-size:.81rem;font-weight:700;font-family:var(--fu);display:block;margin-bottom:3px">שם המורה</label><input type="text" class="modal-input" id="teacherNameInput" value="${esc(S.teacherName)}" style="text-align:center;font-family:var(--fd);font-weight:700;margin-bottom:7px"></div><div style="background:#fff;border-radius:var(--rl);padding:14px 18px;border:1px solid var(--bl);margin-top:10px"><label style="font-size:.81rem;font-weight:700;font-family:var(--fu);display:block;margin-bottom:8px">📋 בחרו מאגר:</label>${pickCards}</div>${confirmBtn}${lH}</div>`}
@@ -324,7 +325,7 @@ async function handleAction(e){
   const el=e.target.closest("[data-action]");if(!el)return;const a=el.dataset.action;
   if(a==="vote-item"){S.votes[parseInt(el.dataset.nid)]=el.dataset.val;render();return}
   if(a==="pick-pool"){if(!S.teacherName.trim()){alert("הזן שם");return}S.pool=pickPool(parseInt(el.dataset.pid));S.sessionId="";render();return}
-  if(a==="confirm-exercise"){S.sessionId='fn_'+Date.now().toString(36)+Math.random().toString(36).substr(2,4);render();return}
+  if(a==="confirm-exercise"){S.sessionId='fn_'+Date.now().toString(36)+Math.random().toString(36).substr(2,4);saveConfig().then(()=>render());return}
   if(a==="reset-pick"){S.pool=null;S.sessionId="";render();return}
   if(a==="goto-landing"){S.mode="landing";render();return}
   if(a==="goto-teacher"){S.mode="teacher";render();return}
@@ -337,7 +338,20 @@ async function handleAction(e){
   if(nav[a]){S.mode=nav[a];render();window.scrollTo(0,0)}
 }
 
-const urlData=checkUrl();
-if(urlData){if(urlData.teacherView){S.teacherName=urlData.teacher;S.sessionId=urlData.session;S.pool=urlData.pool;S.mode="teacher-view";loadSubmissions().then(subs=>{S.submissions=subs;render()})}else{S.pool=urlData.pool;S.teacherName=urlData.teacher;S.sessionId=urlData.session;S.mode="student-name"}}
+const hashId=checkUrl();
+if(hashId){
+  const isTeacher=hashId.startsWith('t_');
+  const sid=isTeacher?hashId.substring(2):hashId;
+  S.sessionId=sid;
+  const cfgPromise=loadConfig(sid);
+  const subPromise=isTeacher?loadSubmissions():Promise.resolve([]);
+  Promise.all([cfgPromise,subPromise]).then(([cfg,subs])=>{
+    if(!cfg){S.mode="landing";render();return}
+    S.pool=cfg.pool;S.teacherName=cfg.teacher;
+    if(isTeacher){S.submissions=subs;S.mode="teacher-view"}else{S.mode="student-name"}
+    render();
+  });
+} else {
 render();
+}
 </script></body></html>

@@ -338,14 +338,8 @@ function ratedCnt(){return S.allNews.filter(n=>{const r=S.ratings[n.id];return r
 function newsColorIdx(nid){return S.allNews.findIndex(n=>n.id===nid)%10}
 
 // URL encode/decode
-function encodeToHash(data){try{return btoa(unescape(encodeURIComponent(JSON.stringify(data))))}catch(e){return""}}
-function decodeFromHash(hash){try{return JSON.parse(decodeURIComponent(escape(atob(hash))))}catch(e){return null}}
 function getBaseUrl(){return window.location.href.split('#')[0]}
-function checkUrl(){
-  const h=window.location.hash.substring(1);
-  if(h&&h.length>10){const d=decodeFromHash(h);if(d&&d.news&&d.teacher&&d.session)return d}
-  return null;
-}
+function checkUrl(){const h=window.location.hash.substring(1);if(h&&h.length>3)return h;return null}
 
 // Firebase
 function saveToFirebase(data){
@@ -359,6 +353,8 @@ function loadSubmissions(){
     const val=snap.val();return val?Object.values(val):[];
   }).catch(e=>{console.warn("Firebase load error:",e);return[]});
 }
+function saveConfig(){if(!db||!S.sessionId)return Promise.resolve();return db.ref(`sessions/${S.sessionId}/config`).set({news:S.allNews,teacher:S.teacherName}).catch(e=>console.warn(e))}
+function loadConfig(sid){if(!db)return Promise.resolve(null);return db.ref(`sessions/${sid}/config`).once('value').then(s=>s.val()).catch(()=>null)}
 
 // ============ RENDER ============
 function render(){
@@ -401,8 +397,8 @@ function renderTeacher(){
   const hasNews=S.allNews.length>0;
   const preview=hasNews?`<div class="np-list">${S.allNews.map((n,i)=>`<div class="np-item"><div class="np-num">${i+1}</div><div class="np-info"><span class="np-cat" style="color:${CC[n.category]||'#666'}">${n.category} </span><strong>${esc(n.headline)}</strong></div></div>`).join("")}</div>`:"";
   
-  const studentLink=S.sessionId?getBaseUrl()+"#"+encodeToHash({news:S.allNews,teacher:S.teacherName,session:S.sessionId}):"";
-  const teacherLink=S.sessionId?getBaseUrl()+"#"+encodeToHash({teacherView:true,teacher:S.teacherName,session:S.sessionId,news:S.allNews}):"";
+  const studentLink=S.sessionId?getBaseUrl()+"#"+S.sessionId:"";
+  const teacherLink=S.sessionId?getBaseUrl()+"#t_"+S.sessionId:"";
   
   const linkHtml=S.sessionId?`<div class="link-result">
     <h3>✅ הקישורים מוכנים!</h3>
@@ -644,14 +640,14 @@ async function handleAction(e){
   if(a==="goto-landing"){S.mode="landing";render();return}
   if(a==="goto-teacher"){S.mode="teacher";render();return}
   
-  if(a==="goto-student"){const d=checkUrl();if(d){S.allNews=d.news;S.teacherName=d.teacher;S.sessionId=d.session;S.ratings={};d.news.forEach(n=>{S.ratings[n.id]={}});S.mode="student-name";render()}return}
+  if(a==="goto-student"){return}
 
   if(a==="generate-news"){
     if(!S.teacherName.trim()){alert("יש להזין שם מורה");return}
     S.allNews=pickRandom10();
     S.sessionId=Date.now().toString(36)+Math.random().toString(36).substr(2,4);
-    render();return}
-  if(a==="regenerate"){S.allNews=pickRandom10();S.sessionId=Date.now().toString(36)+Math.random().toString(36).substr(2,4);render();return}
+    saveConfig().then(()=>render());return}
+  if(a==="regenerate"){S.allNews=pickRandom10();S.sessionId=Date.now().toString(36)+Math.random().toString(36).substr(2,4);saveConfig().then(()=>render());return}
   
   if(a==="copy-student-link"||a==="copy-teacher-link"){
     const id=a==="copy-student-link"?"studentLink":"teacherLink";
@@ -672,17 +668,21 @@ async function handleAction(e){
 }
 
 // ============ INIT ============
-const urlData=checkUrl();
-if(urlData){
-  if(urlData.teacherView){
-    S.teacherName=urlData.teacher;S.sessionId=urlData.session;S.allNews=urlData.news||[];
-    S.mode="teacher-view";
-    loadSubmissions().then(subs=>{S.submissions=subs;render()});
-  } else {
-    S.allNews=urlData.news;S.teacherName=urlData.teacher;S.sessionId=urlData.session;
-    S.ratings={};urlData.news.forEach(n=>{S.ratings[n.id]={}});
-    S.mode="student-name";
-  }
-}
+const hashId=checkUrl();
+if(hashId){
+  const isTeacher=hashId.startsWith('t_');
+  const sid=isTeacher?hashId.substring(2):hashId;
+  S.sessionId=sid;
+  const cfgPromise=loadConfig(sid);
+  const subPromise=isTeacher?loadSubmissions():Promise.resolve([]);
+  Promise.all([cfgPromise,subPromise]).then(([cfg,subs])=>{
+    if(!cfg){S.mode="landing";render();return}
+    S.allNews=cfg.news||[];S.teacherName=cfg.teacher||"";
+    S.ratings={};S.allNews.forEach(n=>{S.ratings[n.id]={}});
+    if(isTeacher){S.submissions=subs;S.mode="teacher-view"}else{S.mode="student-name"}
+    render();
+  });
+} else {
 render();
+}
 </script></body></html>
