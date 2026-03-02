@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0f0f0f">
+<title>אמת או שקר? — גרסת תקשורת וחברה</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;600;700;900&family=Frank+Ruhl+Libre:wght@700;900&display=swap');
+
+  *{margin:0;padding:0;box-sizing:border-box}
+
+  body{
+    font-family:'Heebo',sans-serif;
+    background:#0f0f0f;
+    color:#fff;
+    min-height:100vh;
+    direction:rtl;
+    overflow-x:hidden;
+  }
+
+  :root{
+    --green:#00c853;
+    --red:#ff1744;
+    --gold:#ffd600;
+    --bg:#0f0f0f;
+    --card:#1a1a1a;
+    --border:rgba(255,255,255,0.08);
+  }
+
+  /* Background texture */
+  .bg-noise{
+    position:fixed;inset:0;z-index:0;pointer-events:none;
+    background-image:
+      radial-gradient(ellipse 50% 50% at 20% 20%, rgba(0,200,83,0.03) 0%, transparent 60%),
+      radial-gradient(ellipse 50% 50% at 80% 80%, rgba(255,23,68,0.03) 0%, transparent 60%);
+  }
+
+  .screen{display:none;position:relative;z-index:1}
+  .screen.active{display:flex}
+
+  /* ===== HOME ===== */
+  #homeScreen{
+    min-height:100vh;flex-direction:column;align-items:center;justify-content:center;padding:20px;
+  }
+  .home-icon{font-size:clamp(50px,10vw,80px);margin-bottom:12px;animation:pulse 2s infinite}
+  @keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
+  .home-title{
+    font-family:'Frank Ruhl Libre',serif;
+    font-size:clamp(28px,6vw,48px);font-weight:900;
+    text-align:center;line-height:1.2;margin-bottom:4px;
+  }
+  .home-title .emet{color:var(--green)}
+  .home-title .sheker{color:var(--red)}
+  .home-subtitle{
+    font-size:clamp(13px,2.5vw,18px);color:rgba(255,255,255,0.5);
+    font-weight:300;text-align:center;margin-bottom:36px;
+  }
+  .form-panel{display:flex;flex-direction:column;gap:12px;width:100%;max-width:380px}
+  .form-input{
+    width:100%;padding:14px 18px;font-size:16px;font-family:'Heebo',sans-serif;
+    background:var(--card);border:1px solid var(--border);border-radius:14px;
+    color:#fff;outline:none;transition:border .3s;
+  }
+  .form-input:focus{border-color:rgba(255,214,0,0.4)}
+  .btn-start{
+    width:100%;padding:16px;font-size:20px;font-weight:700;font-family:'Heebo',sans-serif;
+    background:linear-gradient(135deg,var(--green),#00e676);border:none;border-radius:14px;
+    color:#0f0f0f;cursor:pointer;transition:all .3s;margin-top:8px;
+  }
+  .btn-start:disabled{opacity:.3;cursor:not-allowed}
+  .btn-start:not(:disabled):hover{transform:translateY(-2px);box-shadow:0 8px 30px rgba(0,200,83,0.3)}
+  .btn-lb{
+    margin-top:16px;padding:12px 28px;font-size:15px;font-weight:600;font-family:'Heebo',sans-serif;
+    background:transparent;border:1px solid var(--border);border-radius:12px;color:rgba(255,255,255,0.5);
+    cursor:pointer;transition:all .3s;
+  }
+  .btn-lb:hover{border-color:var(--gold);color:var(--gold)}
+  .home-rules{
+    max-width:380px;margin-top:28px;padding:20px;background:var(--card);border-radius:16px;
+    border:1px solid var(--border);text-align:center;
+  }
+  .home-rules h3{font-size:15px;color:var(--gold);margin-bottom:10px;font-weight:600}
+  .home-rules p{font-size:13px;color:rgba(255,255,255,0.5);line-height:1.6;font-weight:300}
+  .credit{color:rgba(255,255,255,0.2);font-size:11px;margin-top:20px}
+
+  /* ===== GAME ===== */
+  #gameScreen{
+    min-height:100vh;flex-direction:column;align-items:center;padding:16px;
+  }
+  .game-top{
+    width:100%;max-width:500px;display:flex;justify-content:space-between;align-items:center;
+    margin-bottom:12px;
+  }
+  .game-score{font-size:14px;color:rgba(255,255,255,0.5)}
+  .game-score span{color:var(--gold);font-weight:700;font-size:18px}
+  .game-timer{
+    font-size:22px;font-weight:900;padding:6px 16px;border-radius:10px;
+    background:var(--card);border:1px solid var(--border);min-width:60px;text-align:center;
+  }
+  .game-timer.warning{color:var(--red);border-color:rgba(255,23,68,0.3);animation:timerPulse .6s infinite}
+  @keyframes timerPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.1)}}
+  .game-progress{
+    width:100%;max-width:500px;height:4px;background:rgba(255,255,255,0.08);border-radius:2px;
+    margin-bottom:20px;overflow:hidden;
+  }
+  .game-progress-fill{height:100%;background:var(--gold);border-radius:2px;transition:width .4s ease}
+
+  /* Statement card */
+  .statement-card{
+    width:100%;max-width:500px;
+    background:var(--card);border:1px solid var(--border);border-radius:24px;
+    padding:clamp(24px,5vw,40px);text-align:center;
+    position:relative;overflow:hidden;
+    animation:cardIn .4s ease;
+    min-height:200px;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  }
+  @keyframes cardIn{from{opacity:0;transform:scale(.95) translateY(20px)}to{opacity:1;transform:scale(1) translateY(0)}}
+  .statement-num{
+    font-size:12px;color:rgba(255,255,255,0.25);margin-bottom:12px;font-weight:300;
+  }
+  .statement-arena{
+    display:inline-block;padding:4px 14px;border-radius:100px;font-size:12px;font-weight:600;
+    background:rgba(255,214,0,0.1);color:var(--gold);border:1px solid rgba(255,214,0,0.15);
+    margin-bottom:16px;
+  }
+  .statement-text{
+    font-family:'Frank Ruhl Libre',serif;
+    font-size:clamp(18px,4vw,26px);font-weight:700;line-height:1.5;
+    color:#fff;
+  }
+
+  /* Answer buttons */
+  .answer-row{
+    display:flex;gap:16px;width:100%;max-width:500px;margin-top:20px;
+  }
+  .btn-answer{
+    flex:1;padding:18px;font-size:20px;font-weight:700;font-family:'Heebo',sans-serif;
+    border:2px solid;border-radius:16px;cursor:pointer;
+    transition:all .25s;display:flex;align-items:center;justify-content:center;gap:8px;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .btn-emet{
+    background:rgba(0,200,83,0.08);border-color:rgba(0,200,83,0.3);color:var(--green);
+  }
+  .btn-emet:hover{background:rgba(0,200,83,0.15);transform:translateY(-2px)}
+  .btn-sheker{
+    background:rgba(255,23,68,0.08);border-color:rgba(255,23,68,0.3);color:var(--red);
+  }
+  .btn-sheker:hover{background:rgba(255,23,68,0.15);transform:translateY(-2px)}
+  .btn-answer:disabled{cursor:default;transform:none !important}
+
+  /* Feedback */
+  .feedback{
+    width:100%;max-width:500px;margin-top:16px;padding:16px 20px;border-radius:16px;
+    font-size:14px;line-height:1.6;text-align:center;animation:cardIn .3s ease;
+    display:none;
+  }
+  .feedback.correct{background:rgba(0,200,83,0.1);border:1px solid rgba(0,200,83,0.2);color:var(--green)}
+  .feedback.wrong{background:rgba(255,23,68,0.1);border:1px solid rgba(255,23,68,0.2);color:var(--red)}
+  .feedback.show{display:block}
+
+  /* Streak */
+  .streak-bar{
+    width:100%;max-width:500px;display:flex;justify-content:center;gap:6px;margin-top:12px;flex-wrap:wrap;
+  }
+  .streak-dot{
+    width:12px;height:12px;border-radius:50%;background:rgba(255,255,255,0.1);
+    transition:all .3s;
+  }
+  .streak-dot.correct{background:var(--green);box-shadow:0 0 8px rgba(0,200,83,0.4)}
+  .streak-dot.wrong{background:var(--red);box-shadow:0 0 8px rgba(255,23,68,0.4)}
+
+  /* ===== RESULT ===== */
+  #resultScreen{
+    min-height:100vh;flex-direction:column;align-items:center;justify-content:center;padding:20px;
+  }
+  .result-container{max-width:450px;width:100%;text-align:center;animation:cardIn .5s ease}
+  .result-emoji{font-size:64px;margin-bottom:12px}
+  .result-title{font-family:'Frank Ruhl Libre',serif;font-size:clamp(24px,5vw,36px);font-weight:900;margin-bottom:4px}
+  .result-sub{color:rgba(255,255,255,0.5);font-size:14px;margin-bottom:24px;font-weight:300}
+  .result-stats{
+    display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:24px;
+  }
+  .rstat{
+    background:var(--card);border:1px solid var(--border);border-radius:16px;padding:16px;
+  }
+  .rstat-val{font-size:28px;font-weight:900}
+  .rstat-val.green{color:var(--green)}
+  .rstat-val.red{color:var(--red)}
+  .rstat-val.gold{color:var(--gold)}
+  .rstat-val.blue{color:#448aff}
+  .rstat-label{font-size:12px;color:rgba(255,255,255,0.4);margin-top:2px}
+  .result-btns{display:flex;gap:12px;justify-content:center;flex-wrap:wrap}
+  .btn-primary{
+    padding:14px 28px;font-size:16px;font-weight:700;font-family:'Heebo',sans-serif;
+    background:var(--green);border:none;border-radius:14px;color:#0f0f0f;cursor:pointer;transition:.3s;
+  }
+  .btn-primary:hover{transform:translateY(-2px);box-shadow:0 8px 25px rgba(0,200,83,0.3)}
+  .btn-secondary{
+    padding:14px 28px;font-size:16px;font-weight:700;font-family:'Heebo',sans-serif;
+    background:transparent;border:1px solid var(--border);border-radius:14px;color:rgba(255,255,255,0.6);
+    cursor:pointer;transition:.3s;
+  }
+  .btn-secondary:hover{border-color:var(--gold);color:var(--gold)}
+
+  /* ===== LEADERBOARD ===== */
+  #leaderboardScreen{min-height:100vh;flex-direction:column;align-items:center;padding:20px}
+  .lb-wrap{max-width:600px;width:100%;animation:cardIn .5s ease}
+  .lb-head{text-align:center;margin-bottom:20px}
+  .lb-head h2{font-family:'Frank Ruhl Libre',serif;font-size:24px;color:var(--gold)}
+  .lb-head p{color:rgba(255,255,255,0.4);font-size:13px;margin-top:4px}
+  .lb-filters{display:flex;gap:10px;margin-bottom:16px}
+  .lb-filters input{
+    flex:1;padding:10px 14px;font-size:14px;font-family:'Heebo',sans-serif;
+    background:var(--card);border:1px solid var(--border);border-radius:10px;color:#fff;outline:none;
+  }
+  .lb-table{background:var(--card);border-radius:16px;border:1px solid var(--border);overflow:hidden}
+  .lb-row{
+    display:grid;grid-template-columns:35px 1fr 90px 60px 55px 55px;
+    padding:10px 14px;font-size:13px;gap:6px;align-items:center;
+    border-bottom:1px solid var(--border);
+  }
+  .lb-row-h{font-weight:700;color:var(--gold);font-size:11px;background:rgba(255,214,0,0.04)}
+  .lb-body{max-height:400px;overflow-y:auto;-webkit-overflow-scrolling:touch}
+  .lb-rank{font-weight:800}
+  .lb-name{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .lb-school{color:rgba(255,255,255,0.4);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .lb-correct{color:var(--green);font-weight:700}
+  .lb-pct{color:var(--gold);font-weight:700}
+  .lb-time{color:rgba(255,255,255,0.4)}
+  .lb-btns{text-align:center;margin-top:16px}
+
+  /* Admin */
+  .admin-overlay{
+    position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:1000;
+    display:flex;align-items:center;justify-content:center;padding:20px;
+  }
+  .admin-modal{
+    background:var(--card);border-radius:20px;padding:30px;border:1px solid var(--border);
+    max-width:350px;width:100%;text-align:center;
+  }
+  .admin-modal h3{color:var(--gold);margin-bottom:16px;font-size:20px}
+  .admin-modal input{
+    width:100%;padding:14px;font-size:16px;font-family:'Heebo',sans-serif;
+    background:rgba(255,255,255,0.05);border:1px solid var(--border);border-radius:12px;
+    color:#fff;outline:none;text-align:center;margin-bottom:12px;
+  }
+  .admin-btns{display:flex;gap:10px;justify-content:center}
+  .admin-btns button{padding:10px 24px;border-radius:10px;font-size:15px;font-weight:600;font-family:'Heebo',sans-serif;cursor:pointer;border:none}
+  .btn-admin-go{background:var(--gold);color:#0f0f0f}
+  .btn-admin-no{background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.5)}
+  .btn-admin-toggle{
+    margin-top:12px;padding:8px 20px;font-size:12px;font-family:'Heebo',sans-serif;
+    background:transparent;border:1px solid rgba(255,255,255,0.1);border-radius:8px;
+    color:rgba(255,255,255,0.25);cursor:pointer;transition:.3s;
+  }
+  .btn-admin-toggle.active{color:var(--green);border-color:rgba(0,200,83,0.3)}
+  .btn-del{
+    width:24px;height:24px;border-radius:50%;background:rgba(255,23,68,0.15);
+    border:1px solid rgba(255,23,68,0.25);color:var(--red);font-size:12px;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;padding:0;flex-shrink:0;
+  }
+
+  @media(max-width:500px){
+    .lb-row{grid-template-columns:28px 1fr 70px 50px 45px 45px;font-size:11px;padding:8px 10px}
+    .answer-row{gap:10px}
+    .btn-answer{padding:16px;font-size:18px}
+  }
+</style>
+</head>
+<body>
+<div class="bg-noise"></div>
+
+<!-- HOME -->
+<div class="screen active" id="homeScreen">
+  <div class="home-icon">🔍</div>
+  <div class="home-title"><span class="emet">אמת</span> או <span class="sheker">שקר</span>?</div>
+  <div class="home-subtitle">גרסת תקשורת וחברה</div>
+  <div class="form-panel">
+    <input class="form-input" id="inputSchool" placeholder="🏫 שם בית הספר" />
+    <input class="form-input" id="inputName" placeholder="👤 שם התלמיד/ה" />
+    <input class="form-input" id="inputClass" placeholder="📚 כיתה" />
+    <button class="btn-start" id="btnStart" disabled>▶ יאללה, מתחילים!</button>
+  </div>
+  <button class="btn-lb" onclick="showLeaderboard()">🏆 טבלת מובילים</button>
+  <div class="home-rules">
+    <h3>📋 איך משחקים?</h3>
+    <p>20 טענות על תקשורת וחברה. לכל טענה יש 15 שניות.<br>
+    ענו <span style="color:var(--green);font-weight:700">אמת ✓</span> או <span style="color:var(--red);font-weight:700">שקר ✗</span>.<br>
+    בסוף תקבלו ציון + הסבר לכל טעות. מי יהיה המומחה?</p>
+  </div>
+  <div class="credit">פיתוח: רני בן זאב 🛠️</div>
+</div>
+
+<!-- GAME -->
+<div class="screen" id="gameScreen">
+  <div class="game-top">
+    <div class="game-score">ניקוד: <span id="scoreDisplay">0</span></div>
+    <div class="game-timer" id="timerDisplay">15</div>
+    <div class="game-score">שאלה <span id="qNum">1</span>/20</div>
+  </div>
+  <div class="game-progress"><div class="game-progress-fill" id="progressFill"></div></div>
+
+  <div class="statement-card" id="statementCard">
+    <div class="statement-num" id="stmtNum"></div>
+    <div class="statement-arena" id="stmtArena"></div>
+    <div class="statement-text" id="stmtText"></div>
+  </div>
+
+  <div class="answer-row">
+    <button class="btn-answer btn-emet" id="btnEmet" onclick="answer(true)">✓ אמת</button>
+    <button class="btn-answer btn-sheker" id="btnSheker" onclick="answer(false)">✗ שקר</button>
+  </div>
+
+  <div class="feedback" id="feedback"></div>
+  <div class="streak-bar" id="streakBar"></div>
+</div>
+
+<!-- RESULT -->
+<div class="screen" id="resultScreen">
+  <div class="result-container">
+    <div class="result-emoji" id="resEmoji"></div>
+    <div class="result-title" id="resTitle"></div>
+    <div class="result-sub" id="resSub"></div>
+    <div class="result-stats">
+      <div class="rstat"><div class="rstat-val green" id="resCorrect">0</div><div class="rstat-label">תשובות נכונות</div></div>
+      <div class="rstat"><div class="rstat-val red" id="resWrong">0</div><div class="rstat-label">טעויות</div></div>
+      <div class="rstat"><div class="rstat-val gold" id="resPct">0%</div><div class="rstat-label">אחוז הצלחה</div></div>
+      <div class="rstat"><div class="rstat-val blue" id="resTime">0s</div><div class="rstat-label">זמן ממוצע</div></div>
+    </div>
+    <div class="result-btns">
+      <button class="btn-primary" onclick="goHome()">🔄 שחק שוב</button>
+      <button class="btn-secondary" onclick="showLeaderboard()">🏆 טבלת מובילים</button>
+    </div>
+  </div>
+</div>
+
+<!-- LEADERBOARD -->
+<div class="screen" id="leaderboardScreen">
+  <div class="lb-wrap">
+    <div class="lb-head">
+      <h2>🏆 טבלת המובילים</h2>
+      <p id="lbCount"></p>
+    </div>
+    <div class="lb-filters">
+      <input id="filterSchool" placeholder="🔍 בית ספר" oninput="renderLB()" />
+      <input id="filterName" placeholder="🔍 שם" oninput="renderLB()" />
+    </div>
+    <div id="lbContent"></div>
+    <div class="lb-btns">
+      <button class="btn-primary" onclick="goHome()">🏠 דף הבית</button>
+      <button class="btn-admin-toggle" id="btnAdminToggle" onclick="toggleAdmin()">🔐 מנהל</button>
+    </div>
+  </div>
+</div>
+
+<!-- Admin Modal -->
+<div class="admin-overlay" id="adminModal" style="display:none">
+  <div class="admin-modal">
+    <h3>🔐 כניסת מנהל</h3>
+    <input type="text" id="adminUser" placeholder="שם משתמש" onkeydown="if(event.key==='Enter')document.getElementById('adminPass').focus()" />
+    <input type="password" id="adminPass" placeholder="סיסמה" onkeydown="if(event.key==='Enter')adminLogin()" />
+    <div class="admin-btns">
+      <button class="btn-admin-go" onclick="adminLogin()">כניסה</button>
+      <button class="btn-admin-no" onclick="closeAdmin()">ביטול</button>
+    </div>
+  </div>
+</div>
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+<script>
+// ====== FIREBASE ======
+const FB_CONFIG = {
+  apiKey:"AIzaSyCHm6OLVGBVLcJrHH3q6VGGeBqcID3X8Do",
+  authDomain:"truefalse-tikshoret.firebaseapp.com",
+  databaseURL:"https://truefalse-tikshoret-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId:"truefalse-tikshoret",
+  storageBucket:"truefalse-tikshoret.firebasestorage.app",
+  messagingSenderId:"551533729779",
+  appId:"1:551533729779:web:1ddd8d0f3ef6dd0195a486"
+};
+let db=null, useFB=false;
+try{firebase.initializeApp(FB_CONFIG);db=firebase.database();useFB=true;
+  // Init admin credentials if not exist
+  db.ref('admin-config').once('value').then(s=>{if(!s.val())db.ref('admin-config').set({username:"admin",password:"admin"})});
+}catch(e){console.log("FB error",e)}
+
+// ====== STATEMENTS ======
+const STATEMENTS=[
+  // === אמת ===
+  {text:"'רשות רביעית' הוא כינוי לתפקיד התקשורת כמפקחת על השלטון",truth:true,arena:"זירת העל",explain:"התקשורת מכונה 'רשות רביעית' בשל תפקידה בפיקוח על הרשויות המחוקקת, המבצעת והשופטת."},
+  {text:"קביעת סדר יום (Agenda Setting) — התקשורת אומרת לנו על מה לחשוב, לא מה לחשוב",truth:true,arena:"זירה 3",explain:"לפי התיאוריה, התקשורת משפיעה על הנושאים שעל סדר היום הציבורי, אך לא בהכרח על הדעה שלנו."},
+  {text:"מסגור (Framing) הוא הדרך שבה התקשורת בוחרת להציג נושא — הזווית, ההדגשים וההקשר",truth:true,arena:"זירה 3",explain:"מסגור קובע את ההקשר ואת הפרשנות שהקהל מייחס לסיפור."},
+  {text:"פוסט-אמת היא תופעה שבה רגשות ואמונות משפיעים יותר מעובדות על דעת הקהל",truth:true,arena:"זירת העל",explain:"המונח נבחר למילה של השנה 2016 ומתאר עידן שבו אמיתות רגשית גוברת על אמיתות עובדתית."},
+  {text:"בעלויות צולבות בתקשורת — גוף אחד שולט במספר אמצעי תקשורת שונים",truth:true,arena:"זירת העל",explain:"מצב זה מעורר חשש לריכוזיות ולפגיעה בפלורליזם התקשורתי."},
+  {text:"ספירלת השתיקה מתארת מצב שבו אנשים נמנעים מלהביע דעת מיעוט מחשש לבידוד",truth:true,arena:"זירה 3",explain:"התיאוריה של אלישבט נואל-נוימן מסבירה כיצד דעת הרוב המשוערת משתיקה מיעוטים."},
+  {text:"דיפ-פייק הוא תוכן שנוצר באמצעות בינה מלאכותית ומדמה אנשים אמיתיים",truth:true,arena:"זירה 5",explain:"טכנולוגיית Deepfake מאפשרת ליצור וידאו ושמע משכנעים של אנשים שמעולם לא אמרו או עשו את מה שמוצג."},
+  {text:"אלגוריתם ברשתות חברתיות הוא נוסחה שמחליטה אילו תכנים להציג למשתמש",truth:true,arena:"זירה 5",explain:"האלגוריתם מתבסס על התנהגות גלישה, לייקים ושיתופים כדי לקבוע מה יופיע בפיד."},
+  {text:"הגמוניה תרבותית לפי גרמשי — שליטה באמצעות הפצת ערכים כנורמה מקובלת",truth:true,arena:"זירת העל",explain:"גרמשי טען שהמעמד השליט שולט לא בכוח, אלא בכך שערכיו מתקבלים כ'טבעיים'."},
+  {text:"סאטירה משמשת לביקורת על החברה והשלטון באמצעות הומור ואירוניה",truth:true,arena:"זירה 4",explain:"סאטירה היא כלי חשוב בדמוקרטיה לחשיפת כשלים חברתיים ופוליטיים."},
+  {text:"פער דיגיטלי מתאר פער בגישה ובידע להשתמש בטכנולוגיה דיגיטלית",truth:true,arena:"זירה 5",explain:"הפער יכול להיות כלכלי, גיאוגרפי, גילאי או חינוכי."},
+  {text:"FOMO (פומו) הוא חרדת ההחמצה — הפחד לפספס חוויות שאחרים עוברים",truth:true,arena:"זירה 5",explain:"התופעה מתעצמת בעידן הרשתות החברתיות כשאנו רואים כל הזמן מה אחרים עושים."},
+  {text:"ריאליטי משלב אלמנטים תיעודיים עם עריכה דרמטית ואנשים 'רגילים'",truth:true,arena:"זירה 6",explain:"ז'אנר הריאליטי יוצר מציאות מבוימת למרות שהוא מתיימר לתעד מציאות."},
+  {text:"אקטיביזם חברתי הוא פעולה יזומה לקידום שינוי חברתי באמצעות תקשורת",truth:true,arena:"זירה 9",explain:"ברשתות החברתיות, אקטיביזם הפך לנגיש יותר ומאפשר לכל אדם להשפיע."},
+  {text:"גלוקליזציה היא התאמת תכנים גלובליים לתרבות המקומית",truth:true,arena:"זירה 2",explain:"דוגמה: מקדונלד'ס מתאימה את התפריט שלה לכל מדינה."},
+  {text:"פרסום סמוי הוא תוכן שנראה עיתונאי אך למעשה ממומן על ידי מפרסם",truth:true,arena:"זירה 9",explain:"כתבות תוכן ממומן לפעמים לא מסומנות כפרסום, מה שמטעה את הצרכן."},
+  {text:"הכחדה סימבולית — תת-ייצוג של קבוצה בתקשורת שמעביר מסר שהיא לא חשובה",truth:true,arena:"זירה 7",explain:"כשקבוצה לא מופיעה בתקשורת, הציבור מפנים את המסר שהיא שולית."},
+  {text:"שידור ציבורי הוא תקשורת הממומנת מכספי ציבור ומחויבת לאינטרס הציבורי",truth:true,arena:"זירת העל",explain:"כמו BBC בבריטניה או כאן 11 בישראל."},
+  // === שקר ===
+  {text:"עיתונות חוקרת עוסקת בסיקור שוטף של אירועי משטרה ובתי משפט",truth:false,arena:"זירה 3",explain:"עיתונות חוקרת חושפת מידע שגורמים מעוניינים להסתיר — לא סיקור שוטף."},
+  {text:"פייק ניוז הוא טעות עיתונאית לא מכוונת בדיווח חדשותי",truth:false,arena:"זירה 5",explain:"פייק ניוז הוא מידע שגוי שנוצר ומופץ בכוונה כדי להטעות, לרוב למטרות כלכליות או פוליטיות."},
+  {text:"בוטים ברשתות חברתיות הם משתמשים אנושיים פעילים במיוחד",truth:false,arena:"זירה 5",explain:"בוטים הם תוכנות אוטומטיות שמחקות פעילות אנושית ברשת."},
+  {text:"סטריאוטיפ הוא דימוי מדויק ומבוסס עובדות של קבוצת אנשים",truth:false,arena:"זירה 7",explain:"סטריאוטיפ הוא דימוי מוכלל ופשטני שמתעלם מהגיוון הפנימי של הקבוצה."},
+  {text:"תקשורת מגויסת פירושה תקשורת שמדווחת באובייקטיביות מלאה",truth:false,arena:"זירת העל",explain:"תקשורת מגויסת מזדהה עם עמדה מסוימת ומקדמת אותה במקום לדווח באופן נייטרלי."},
+  {text:"ספין תקשורתי הוא סקר דעת קהל אובייקטיבי",truth:false,arena:"זירה 3",explain:"ספין הוא ניסיון מכוון להציג מידע באור חיובי או שלילי כדי לעצב תפיסות."},
+  {text:"רייטינג מודד את איכות התוכנית ולא את גודל הקהל",truth:false,arena:"זירה 9",explain:"רייטינג הוא מדד כמותי של גודל הקהל שנחשף לתוכן, ומשפיע על מחירי פרסום."},
+  {text:"מועצת העיתונות תפקידה לצנזר תכנים בתקשורת",truth:false,arena:"זירת העל",explain:"מועצת העיתונות מפקחת על אתיקה עיתונאית ודנה בתלונות הציבור — אינה גוף צנזורה."},
+  {text:"תרבות הביטול היא ביטול תוכניות טלוויזיה בגלל רייטינג נמוך",truth:false,arena:"זירת העל",explain:"תרבות הביטול (Cancel Culture) היא נוהג של הדרה והחרמה של אישיות ציבורית בעקבות התבטאות פוגענית."},
+  {text:"אימפריאליזם תרבותי פירושו החלפת תרבויות בין מדינות באופן שוויוני",truth:false,arena:"זירה 2",explain:"אימפריאליזם תרבותי הוא כפיית תרבות של מדינה חזקה על מדינות חלשות."},
+  {text:"הון דיגיטלי הוא כסף דיגיטלי כמו ביטקוין",truth:false,arena:"זירה 5",explain:"הון דיגיטלי מתייחס למיומנויות, ידע ונגישות דיגיטלית שמקנים יתרון חברתי."},
+  {text:"דנוטציה וקונוטציה הם שני סוגים שונים של מצלמות מקצועיות",truth:false,arena:"זירה 3",explain:"דנוטציה היא המשמעות הישירה של תמונה, קונוטציה היא המשמעות הסמויה והתרבותית (מודל בארת')."},
+  {text:"קהל פעיל הוא קהל שצופה בטלוויזיה בישיבה",truth:false,arena:"זירה 6",explain:"הגישה של 'קהל פעיל' רואה את הקהל כמפרש ומעצב משמעויות באופן אקטיבי."},
+  {text:"מודל לאסוול מתאר: כותרת, תמונה, כתבה ותגובות",truth:false,arena:"זירה 1",explain:"מודל לאסוול: מי אומר, מה, באיזה ערוץ, למי, ובאיזו השפעה."},
+  {text:"כפר גלובלי הוא אתר אינטרנט בינלאומי",truth:false,arena:"זירה 2",explain:"מושג של מרשל מקלוהן — הטכנולוגיה הפכה את העולם כולו לכפר אחד מחובר."},
+  {text:"תקינות פוליטית פירושה תמיכה של תקשורת במפלגה מסוימת",truth:false,arena:"זירת העל",explain:"תקינות פוליטית היא הימנעות מביטויים שעלולים לפגוע בקבוצות מוחלשות."},
+  {text:"פוליסמיות פירושה שימוש בשפות רבות בתקשורת",truth:false,arena:"זירה 4",explain:"פוליסמיות היא ריבוי משמעויות — טקסט הניתן לפרשנויות שונות על ידי קהלים שונים."},
+  {text:"אושיות רשת הם מתכנתים של רשתות חברתיות",truth:false,arena:"זירה 5",explain:"אושיות רשת (Influencers) הם אנשים שצברו קהל עוקבים ומשפיעים על דעות והתנהגות."},
+  {text:"גישת השימושים והסיפוקים בודקת כמה אנשים משתמשים בטלוויזיה",truth:false,arena:"זירה 6",explain:"הגישה שואלת מה הקהל עושה עם המדיה — איזה צורך היא ממלאה עבורו."},
+  {text:"אתיקה עיתונאית היא חוקים שנקבעו על ידי הממשלה לתקשורת",truth:false,arena:"זירת העל",explain:"אתיקה עיתונאית היא כללים ונורמות מקצועיות פנימיות, לא חקיקה ממשלתית."},
+  {text:"צילום אייקוני הוא צילום באיכות טכנית גבוהה במיוחד",truth:false,arena:"זירה 3",explain:"צילום אייקוני הוא צילום עיתונאי שהפך לסמל מזוהה של אירוע או תקופה."},
+  {text:"דטרמיניזם טכנולוגי פירושו התנגדות לשימוש בטכנולוגיה חדשה",truth:false,arena:"זירה 2",explain:"דטרמיניזם טכנולוגי טוען שהטכנולוגיה היא הכוח המרכזי שמעצב את החברה והתרבות."}
+];
+
+const TOTAL_Q = 20;
+const TIME_PER_Q = 15;
+
+// ====== STATE ======
+let state = {
+  school:"",name:"",cls:"",
+  questions:[],current:0,score:0,
+  answers:[],times:[],
+  timerVal:TIME_PER_Q,timerInt:null,qStart:0,
+  leaderboard:[],isAdmin:false
+};
+
+// ====== HELPERS ======
+function shuffle(a){const b=[...a];for(let i=b.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[b[i],b[j]]=[b[j],b[i]]}return b}
+
+function showScreen(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active')}
+
+function goHome(){showScreen('homeScreen')}
+
+// ====== GAME ======
+function startGame(){
+  state.school=document.getElementById('inputSchool').value.trim();
+  state.name=document.getElementById('inputName').value.trim();
+  state.cls=document.getElementById('inputClass').value.trim();
+  state.questions=shuffle(STATEMENTS).slice(0,TOTAL_Q);
+  state.current=0;state.score=0;state.answers=[];state.times=[];
+  document.getElementById('streakBar').innerHTML=Array(TOTAL_Q).fill('<div class="streak-dot"></div>').join('');
+  showScreen('gameScreen');
+  showQuestion();
+}
+
+function showQuestion(){
+  clearInterval(state.timerInt);
+  const q=state.questions[state.current];
+  document.getElementById('qNum').textContent=state.current+1;
+  document.getElementById('scoreDisplay').textContent=state.score;
+  document.getElementById('progressFill').style.width=((state.current)/TOTAL_Q*100)+'%';
+  document.getElementById('stmtNum').textContent=`טענה ${state.current+1} מתוך ${TOTAL_Q}`;
+  document.getElementById('stmtArena').textContent=q.arena;
+  document.getElementById('stmtText').textContent=q.text;
+  document.getElementById('statementCard').style.animation='none';
+  setTimeout(()=>document.getElementById('statementCard').style.animation='cardIn .4s ease',10);
+
+  document.getElementById('btnEmet').disabled=false;
+  document.getElementById('btnSheker').disabled=false;
+  document.getElementById('btnEmet').style.opacity='1';
+  document.getElementById('btnSheker').style.opacity='1';
+  document.getElementById('feedback').className='feedback';
+  document.getElementById('feedback').style.display='none';
+
+  state.timerVal=TIME_PER_Q;
+  state.qStart=Date.now();
+  updateTimer();
+  state.timerInt=setInterval(()=>{
+    state.timerVal--;
+    updateTimer();
+    if(state.timerVal<=0){clearInterval(state.timerInt);answer(null)}
+  },1000);
+}
+
+function updateTimer(){
+  const el=document.getElementById('timerDisplay');
+  el.textContent=state.timerVal;
+  el.className=state.timerVal<=5?'game-timer warning':'game-timer';
+}
+
+function answer(userSaid){
+  clearInterval(state.timerInt);
+  const q=state.questions[state.current];
+  const elapsed=((Date.now()-state.qStart)/1000).toFixed(1);
+  state.times.push(parseFloat(elapsed));
+
+  document.getElementById('btnEmet').disabled=true;
+  document.getElementById('btnSheker').disabled=true;
+
+  const isCorrect=(userSaid===q.truth);
+  const timedOut=(userSaid===null);
+
+  if(isCorrect)state.score++;
+  state.answers.push({correct:isCorrect,timedOut});
+
+  // Visual feedback
+  const dots=document.querySelectorAll('.streak-dot');
+  dots[state.current].className='streak-dot '+(isCorrect?'correct':'wrong');
+
+  const fb=document.getElementById('feedback');
+  if(timedOut){
+    fb.className='feedback wrong show';
+    fb.innerHTML=`⏱ נגמר הזמן! התשובה: <strong>${q.truth?'אמת ✓':'שקר ✗'}</strong><br><span style="font-size:13px;opacity:.7">${q.explain}</span>`;
+  } else if(isCorrect){
+    fb.className='feedback correct show';
+    fb.innerHTML=`✅ נכון מאוד!`;
+  } else {
+    fb.className='feedback wrong show';
+    fb.innerHTML=`❌ טעות! התשובה: <strong>${q.truth?'אמת ✓':'שקר ✗'}</strong><br><span style="font-size:13px;opacity:.7">${q.explain}</span>`;
+  }
+
+  // Highlight correct button
+  if(q.truth){
+    document.getElementById('btnEmet').style.opacity='1';
+    document.getElementById('btnSheker').style.opacity='.3';
+  } else {
+    document.getElementById('btnSheker').style.opacity='1';
+    document.getElementById('btnEmet').style.opacity='.3';
+  }
+
+  setTimeout(()=>{
+    state.current++;
+    if(state.current>=TOTAL_Q) endGame();
+    else showQuestion();
+  }, isCorrect?1200:2500);
+}
+
+function endGame(){
+  const pct=Math.round((state.score/TOTAL_Q)*100);
+  const avgTime=(state.times.reduce((a,b)=>a+b,0)/state.times.length).toFixed(1);
+
+  let emoji,title;
+  if(pct>=90){emoji='🏆';title='מומחה תקשורת!';}
+  else if(pct>=70){emoji='🌟';title='ידע מרשים!';}
+  else if(pct>=50){emoji='👍';title='לא רע, יש בסיס!';}
+  else{emoji='📚';title='כדאי לחזור על החומר';}
+
+  document.getElementById('resEmoji').textContent=emoji;
+  document.getElementById('resTitle').textContent=title;
+  document.getElementById('resSub').textContent=`${state.name} | ${state.school||'—'} | ${state.cls||'—'}`;
+  document.getElementById('resCorrect').textContent=state.score;
+  document.getElementById('resWrong').textContent=TOTAL_Q-state.score;
+  document.getElementById('resPct').textContent=pct+'%';
+  document.getElementById('resTime').textContent=avgTime+'s';
+
+  saveScore({
+    name:state.name,school:state.school,class:state.cls,
+    score:state.score,total:TOTAL_Q,pct,avgTime,
+    timestamp:Date.now()
+  });
+
+  showScreen('resultScreen');
+}
+
+// ====== LEADERBOARD ======
+async function saveScore(entry){
+  if(useFB){
+    try{await db.ref('truefalse-leaderboard').push(entry)}catch(e){saveLocal(entry)}
+  }else saveLocal(entry);
+}
+function saveLocal(entry){
+  let b=JSON.parse(localStorage.getItem('tf-lb')||'[]');
+  b.push(entry);b.sort((a,c)=>c.pct-a.pct||parseFloat(a.avgTime)-parseFloat(c.avgTime));
+  if(b.length>200)b=b.slice(0,200);
+  localStorage.setItem('tf-lb',JSON.stringify(b));
+  state.leaderboard=b;
+}
+
+async function loadLB(){
+  if(useFB){
+    try{
+      const snap=await db.ref('truefalse-leaderboard').once('value');
+      const d=snap.val();
+      if(d){
+        const entries=[];
+        Object.entries(d).forEach(([k,v])=>{v._fbKey=k;entries.push(v)});
+        entries.sort((a,b)=>b.pct-a.pct||parseFloat(a.avgTime)-parseFloat(b.avgTime));
+        state.leaderboard=entries;
+      }else state.leaderboard=[];
+    }catch(e){state.leaderboard=JSON.parse(localStorage.getItem('tf-lb')||'[]')}
+  }else state.leaderboard=JSON.parse(localStorage.getItem('tf-lb')||'[]');
+  renderLB();
+}
+
+function initRealtimeLB(){
+  if(!useFB)return;
+  db.ref('truefalse-leaderboard').on('value',snap=>{
+    const d=snap.val();
+    if(d){
+      const entries=[];
+      Object.entries(d).forEach(([k,v])=>{v._fbKey=k;entries.push(v)});
+      entries.sort((a,b)=>b.pct-a.pct||parseFloat(a.avgTime)-parseFloat(b.avgTime));
+      state.leaderboard=entries;
+    }else state.leaderboard=[];
+    renderLB();
+  });
+}
+
+function renderLB(){
+  const fs=(document.getElementById('filterSchool')?.value||'').trim().toLowerCase();
+  const fn=(document.getElementById('filterName')?.value||'').trim().toLowerCase();
+  let filtered=state.leaderboard.map((e,i)=>({...e,_idx:i}));
+  if(fs)filtered=filtered.filter(e=>(e.school||'').toLowerCase().includes(fs));
+  if(fn)filtered=filtered.filter(e=>(e.name||'').toLowerCase().includes(fn));
+
+  document.getElementById('lbCount').textContent=`${filtered.length} שחקנים`;
+  const c=document.getElementById('lbContent');
+  if(!filtered.length){c.innerHTML='<div style="text-align:center;color:rgba(255,255,255,0.3);padding:40px">עדיין אין תוצאות 🎮</div>';return}
+
+  const del=state.isAdmin?'30px ':'';
+  let h=`<div class="lb-table"><div class="lb-row lb-row-h" style="grid-template-columns:${del}35px 1fr 90px 60px 55px 55px">
+    ${state.isAdmin?'<span></span>':''}<span>#</span><span>שם</span><span>🏫 ביה"ס</span><span>כיתה</span><span>ציון</span><span>זמן⌀</span>
+  </div><div class="lb-body">`;
+
+  filtered.forEach((e,i)=>{
+    const rank=i===0?'🥇':i===1?'🥈':i===2?'🥉':(i+1);
+    h+=`<div class="lb-row" style="grid-template-columns:${del}35px 1fr 90px 60px 55px 55px">
+      ${state.isAdmin?`<button class="btn-del" onclick="delEntry(${e._idx})">✕</button>`:''}
+      <span class="lb-rank">${rank}</span>
+      <span class="lb-name">${e.name||'-'}</span>
+      <span class="lb-school">${e.school||'-'}</span>
+      <span>${e.class||'-'}</span>
+      <span class="lb-pct">${e.pct||0}%</span>
+      <span class="lb-time">${e.avgTime||0}s</span>
+    </div>`;
+  });
+  h+='</div></div>';
+  if(state.isAdmin)h+=`<div style="text-align:center;margin-top:12px"><button class="btn-del" style="width:auto;border-radius:10px;padding:8px 20px;font-size:13px" onclick="clearLB()">🗑 מחק הכל</button></div>`;
+  c.innerHTML=h;
+}
+
+function delEntry(idx){
+  if(!state.isAdmin)return;
+  const e=state.leaderboard[idx];
+  if(!e||!confirm(`למחוק את ${e.name||'?'}?`))return;
+  if(useFB&&e._fbKey)db.ref('truefalse-leaderboard/'+e._fbKey).remove();
+  else{state.leaderboard.splice(idx,1);localStorage.setItem('tf-lb',JSON.stringify(state.leaderboard));renderLB()}
+}
+
+function clearLB(){
+  if(!state.isAdmin||!confirm('למחוק את כל התוצאות?'))return;
+  if(useFB)db.ref('truefalse-leaderboard').remove();
+  localStorage.removeItem('tf-lb');state.leaderboard=[];renderLB();
+}
+
+function showLeaderboard(){loadLB();showScreen('leaderboardScreen')}
+
+// ====== ADMIN ======
+function toggleAdmin(){
+  if(state.isAdmin){state.isAdmin=false;updateAdminBtn();renderLB();return}
+  document.getElementById('adminModal').style.display='flex';
+  document.getElementById('adminUser').value='';document.getElementById('adminPass').value='';
+  document.getElementById('adminUser').focus();
+}
+async function adminLogin(){
+  const u=document.getElementById('adminUser').value.trim();
+  const p=document.getElementById('adminPass').value;
+  if(!useFB){alert('נדרש Firebase');return}
+  try{
+    const snap=await db.ref('admin-config').once('value');
+    const cfg=snap.val();
+    if(cfg&&u===cfg.username&&p===cfg.password){state.isAdmin=true;closeAdmin();updateAdminBtn();renderLB()}
+    else{alert('שגוי');document.getElementById('adminPass').value='';document.getElementById('adminPass').focus()}
+  }catch(e){alert('שגיאה')}
+}
+function closeAdmin(){document.getElementById('adminModal').style.display='none'}
+function updateAdminBtn(){
+  const b=document.getElementById('btnAdminToggle');
+  b.textContent=state.isAdmin?'🔓 יציאת מנהל':'🔐 מנהל';
+  b.className='btn-admin-toggle'+(state.isAdmin?' active':'');
+}
+
+// ====== INIT ======
+window.addEventListener('DOMContentLoaded',()=>{
+  const ni=document.getElementById('inputName'),btn=document.getElementById('btnStart');
+  ni.addEventListener('input',()=>btn.disabled=!ni.value.trim());
+  btn.addEventListener('click',startGame);
+  document.querySelectorAll('.form-input').forEach(i=>i.addEventListener('keydown',e=>{if(e.key==='Enter'&&ni.value.trim())startGame()}));
+  loadLB();initRealtimeLB();
+});
+</script>
+</body>
+</html>
