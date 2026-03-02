@@ -1,5 +1,3 @@
-html
-
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
@@ -74,7 +72,11 @@ html
   .form-input:focus { border-color: #ffd700; }
   .form-input::placeholder { color: rgba(255,255,255,0.4); }
   .form-input.error { border-color: #ff1744; }
+  .form-input.ltr { direction: ltr; text-align: left; }
   .error-msg { color: #ff5252; font-size: 13px; margin-top: -8px; margin-bottom: 10px; display: none; }
+  .plays-info { color: rgba(255,255,255,0.4); font-size: 12px; margin-top: -8px; margin-bottom: 10px; display: none; text-align: center; }
+  .plays-info.warning { color: #ff8c00; }
+  .plays-info.blocked { color: #ff5252; }
 
   .btn-start {
     width: 100%; padding: 16px; font-size: 22px; font-weight: 700;
@@ -397,6 +399,9 @@ html
       <input class="form-input" id="inputCode" placeholder="🔑 קוד כניסה" type="text" inputmode="numeric" maxlength="4" />
       <div class="error-msg" id="codeError">קוד שגוי, נסו שוב</div>
       <input class="form-input" id="inputName" placeholder="👤 שם מלא (חובה)" />
+      <input class="form-input ltr" id="inputPhone" placeholder="📱 מספר טלפון (חובה)" type="tel" inputmode="tel" maxlength="11" />
+      <div class="error-msg" id="phoneError">מספר טלפון לא תקין</div>
+      <div class="plays-info" id="playsInfo"></div>
       <input class="form-input" id="inputClass" placeholder="📅 גיל (לא חובה)" />
       <button class="btn-start" id="btnStart" disabled>🎮 בואו נתחיל!</button>
     </div>
@@ -543,9 +548,10 @@ try {
 }
 
 // ==========================================
-// ACCESS CODE
+// ACCESS CODE & PLAY LIMITS
 // ==========================================
 const ACCESS_CODE = "1234";
+const MAX_PLAYS_PER_PHONE = 2;
 
 // ==========================================
 // QUESTION BANK
@@ -572,7 +578,6 @@ const ALL_QUESTIONS = [
   {arena:"תרבות",question:"מהו המוטו החדש של נהריה?",answers:["אוהבים את החיים","החופש לגדול","עיר ללא הפסקה","נהריה שלי"],correct:1,difficulty:1},
   {arena:"היסטוריה",question:"מי ניהל את 'המשרד הגרמני' בארץ ישראל?",answers:["זליג סוסקין","יוסף לוי","ארתור רופין","היינריך כהן"],correct:2,difficulty:1},
   {arena:"תרבות",question:"מתי נפתח הגן הבוטני זואולוגי בנהריה?",answers:["1990","1997","2003","2010"],correct:2,difficulty:1},
-  // NEW Easy questions
   {arena:"גאוגרפיה",question:"מה שמה של הרחבה שבקצה שלה בנוי בניין העירייה?",answers:["כיכר אלזה דוד","כיכר העירייה","כיכר סוסקין","כיכר העצמאות"],correct:0,difficulty:1},
   {arena:"היסטוריה",question:"מי נחשב ל'הרצל' של נהריה?",answers:["יוסף לוי","זליג סוסקין","ארתור רופין","גרשון טץ"],correct:0,difficulty:1},
   {arena:"תרבות",question:"מסעדת פינגווין פעלה במשך כמה שנים?",answers:["83 שנים","65 שנים","70 שנים","90 שנים"],correct:0,difficulty:1},
@@ -603,7 +608,6 @@ const ALL_QUESTIONS = [
   {arena:"אירועים",question:"מתי אירעו השיטפונות הגדולים בנהריה?",answers:["ינואר 2018","ינואר 2020","ינואר 2022","ינואר 2024"],correct:1,difficulty:2},
   {arena:"תרבות",question:"מהו הכתוב בכתב עברי קדום על סמל העיר?",answers:["שמע ישראל","ברוך מבנים אשר","ציון במשפט תיפדה","לא תגנוב"],correct:1,difficulty:2},
   {arena:"היסטוריה",question:"מי היה ראש העיר הראשון של נהריה?",answers:["גרשון טץ","ארנולד כהאן","אוסקר מאיר וולף","אפרים שריר"],correct:2,difficulty:2},
-  // NEW Medium questions
   {arena:"היסטוריה",question:"כמה ממייסדי נהריה מונצחים בשמות רחובות על שמם?",answers:["3","2","4","5"],correct:0,difficulty:2},
   {arena:"היסטוריה",question:"כמה רחובות בנהריה מנציחים את שיירת יחיעם?",answers:["2","1","3","4"],correct:0,difficulty:2},
   {arena:"היסטוריה",question:"על שם איזו 'שרה' נקראת שכונת עין שרה?",answers:["שרה ליברמן","שרה אהרונסון","שרה לוי","שרה כהן"],correct:0,difficulty:2},
@@ -627,7 +631,6 @@ const ALL_QUESTIONS = [
   {arena:"היסטוריה",question:"מה שם הכפר הערבי שאולי השפיע על שם נהריה?",answers:["א-נחר","א-נהר","א-נהריה","א-נחל"],correct:1,difficulty:3},
   {arena:"אירועים",question:"מי נספה בשיטפונות 2020 ומה עשה?",answers:["שוטר שניסה לחלץ לכודים","מוטי בן שבת שניסה להציל משפחה","כבאי שנסחף בנחל","נהג אמבולנס בדרך לעזרה"],correct:1,difficulty:3},
   {arena:"היסטוריה",question:"מה שם אנית המעפילים שהביאה חיילים ביום העצמאות?",answers:["אטרטו","האומות המאוחדות","חנה סנש","גבורה"],correct:2,difficulty:3},
-  // NEW Hard questions
   {arena:"היסטוריה",question:"מי רצה לבנות בית מקדש בנהריה?",answers:["גדעון גונתר","ארתור רופין","זליג סוסקין","אוסקר מאיר וולף"],correct:0,difficulty:3},
   {arena:"גאוגרפיה",question:"מה גובהו של מגדל המים של נהריה מעל פני הים?",answers:["37 מטר","25 מטר","42 מטר","30 מטר"],correct:0,difficulty:3},
   {arena:"תרבות",question:"מה ייחד את מגדל המים של נהריה ממגדלי מים אחרים בתקופתו?",answers:["בנוי סגור מלמטה למעלה ורב שימושי חוץ ממים","צורתו המשושה הייחודית","היה הגבוה ביותר בארץ","שימש גם כמגדל תצפית"],correct:0,difficulty:3},
@@ -657,7 +660,7 @@ const LETTERS = ["א","ב","ג","ד"];
 // GAME STATE
 // ==========================================
 let state = {
-  playerName: "", playerClass: "",
+  playerName: "", playerClass: "", playerPhone: "",
   questions: [], currentQ: 0,
   selectedAnswer: null, answerState: null,
   lifelines: { fiftyFifty: true, audience: true, skip: true },
@@ -666,7 +669,8 @@ let state = {
   qStartTime: 0, questionTimes: [],
   leaderboard: [],
   firebaseKeys: {},
-  isAdmin: false
+  isAdmin: false,
+  phonePlayCount: 0
 };
 
 // Set admin credentials in Firebase (run once)
@@ -682,6 +686,64 @@ async function initAdminInFirebase() {
       console.log("Admin credentials initialized in Firebase");
     }
   } catch(e) { console.error("Admin init error:", e); }
+}
+
+// ==========================================
+// PHONE NUMBER HELPERS
+// ==========================================
+function normalizePhone(phone) {
+  // Remove spaces, dashes, dots, parentheses
+  let clean = phone.replace(/[\s\-\.\(\)]/g, '');
+  // Convert +972 to 0
+  if (clean.startsWith('+972')) clean = '0' + clean.slice(4);
+  // Convert 972 to 0
+  if (clean.startsWith('972') && clean.length > 9) clean = '0' + clean.slice(3);
+  return clean;
+}
+
+function isValidIsraeliPhone(phone) {
+  const norm = normalizePhone(phone);
+  // Israeli mobile: 05X-XXXXXXX (10 digits)
+  return /^05\d{8}$/.test(norm);
+}
+
+// Firebase key-safe phone (replace dots etc)
+function phoneToKey(phone) {
+  return normalizePhone(phone).replace(/[.#$\/\[\]]/g, '_');
+}
+
+async function getPhonePlayCount(phone) {
+  if (!useFirebase) {
+    // Fallback to localStorage
+    const plays = JSON.parse(localStorage.getItem('phone-plays') || '{}');
+    return plays[phoneToKey(phone)] || 0;
+  }
+  try {
+    const key = phoneToKey(phone);
+    const snap = await db.ref('phone-plays/' + key).once('value');
+    return snap.val() || 0;
+  } catch(e) {
+    console.error('Error checking phone plays:', e);
+    return 0;
+  }
+}
+
+async function incrementPhonePlays(phone) {
+  const key = phoneToKey(phone);
+  if (!useFirebase) {
+    const plays = JSON.parse(localStorage.getItem('phone-plays') || '{}');
+    plays[key] = (plays[key] || 0) + 1;
+    localStorage.setItem('phone-plays', JSON.stringify(plays));
+    return;
+  }
+  try {
+    const ref = db.ref('phone-plays/' + key);
+    const snap = await ref.once('value');
+    const current = snap.val() || 0;
+    await ref.set(current + 1);
+  } catch(e) {
+    console.error('Error incrementing phone plays:', e);
+  }
 }
 
 // ==========================================
@@ -734,9 +796,13 @@ function goHome() {
   clearInterval(state.timerInterval);
   document.getElementById('inputCode').value = '';
   document.getElementById('inputName').value = '';
+  document.getElementById('inputPhone').value = '';
   document.getElementById('inputClass').value = '';
   document.getElementById('codeError').style.display = 'none';
+  document.getElementById('phoneError').style.display = 'none';
+  document.getElementById('playsInfo').style.display = 'none';
   document.getElementById('inputCode').classList.remove('error');
+  document.getElementById('inputPhone').classList.remove('error');
   document.getElementById('btnStart').disabled = true;
   showScreen('homeScreen');
 }
@@ -758,11 +824,23 @@ function createStars() {
 // ==========================================
 // START GAME
 // ==========================================
-function startGame() {
+async function startGame() {
   const code = document.getElementById('inputCode').value.trim();
   const name = document.getElementById('inputName').value.trim();
+  const phone = document.getElementById('inputPhone').value.trim();
   const codeError = document.getElementById('codeError');
+  const phoneError = document.getElementById('phoneError');
+  const playsInfo = document.getElementById('playsInfo');
   const codeInput = document.getElementById('inputCode');
+  const phoneInput = document.getElementById('inputPhone');
+  const startBtn = document.getElementById('btnStart');
+
+  // Reset errors
+  codeError.style.display = 'none';
+  phoneError.style.display = 'none';
+  playsInfo.style.display = 'none';
+  codeInput.classList.remove('error');
+  phoneInput.classList.remove('error');
 
   // Validate access code
   if (code !== ACCESS_CODE) {
@@ -771,13 +849,40 @@ function startGame() {
     codeInput.focus();
     return;
   }
-  codeError.style.display = 'none';
-  codeInput.classList.remove('error');
 
   if (!name) return;
 
+  // Validate phone
+  if (!isValidIsraeliPhone(phone)) {
+    phoneError.style.display = 'block';
+    phoneInput.classList.add('error');
+    phoneInput.focus();
+    return;
+  }
+
+  // Check play count
+  startBtn.disabled = true;
+  startBtn.textContent = '⏳ בודק...';
+
+  const playCount = await getPhonePlayCount(phone);
+  
+  if (playCount >= MAX_PLAYS_PER_PHONE) {
+    playsInfo.textContent = `⛔ מספר הטלפון הזה כבר שיחק ${MAX_PLAYS_PER_PHONE} פעמים. לא ניתן לשחק שוב.`;
+    playsInfo.className = 'plays-info blocked';
+    playsInfo.style.display = 'block';
+    phoneInput.classList.add('error');
+    startBtn.textContent = '🎮 בואו נתחיל!';
+    startBtn.disabled = false;
+    return;
+  }
+
+  // Increment play count
+  await incrementPhonePlays(phone);
+
   state.playerName = name;
   state.playerClass = document.getElementById('inputClass').value.trim();
+  state.playerPhone = normalizePhone(phone);
+  state.phonePlayCount = playCount + 1;
 
   state.questions = pickQuestions();
   state.currentQ = 0;
@@ -793,6 +898,8 @@ function startGame() {
   document.getElementById('btnAudience').disabled = false;
   document.getElementById('btnSkip').disabled = false;
   document.getElementById('audiencePanel').style.display = 'none';
+
+  startBtn.textContent = '🎮 בואו נתחיל!';
 
   showScreen('gameScreen');
   renderGame();
@@ -1040,6 +1147,7 @@ function endGame(level) {
   // Save score
   saveScore({
     name: state.playerName,
+    phone: state.playerPhone,
     class: state.playerClass,
     level, score: finalScore, avgTime, lifelinesUsed,
     date: new Date().toLocaleDateString('he-IL'),
@@ -1124,6 +1232,16 @@ function clearLeaderboard() {
   localStorage.removeItem('nahariya-lb');
   state.leaderboard = [];
   renderLeaderboard();
+}
+
+function resetPhonePlays() {
+  if (!state.isAdmin) return;
+  if (!confirm('לאפס את כל מוני המשחקים לטלפונים? כולם יוכלו לשחק שוב.')) return;
+  if (useFirebase) {
+    db.ref('phone-plays').remove();
+  }
+  localStorage.removeItem('phone-plays');
+  alert('מוני המשחקים אופסו בהצלחה!');
 }
 
 function deleteEntry(index) {
@@ -1253,8 +1371,9 @@ function renderLeaderboard() {
   html += '</div></div>';
   
   if (state.isAdmin) {
-    html += `<div style="text-align:center;margin-top:12px;">
+    html += `<div style="text-align:center;margin-top:12px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
       <button class="btn-clear-lb" onclick="clearLeaderboard()" style="padding:10px 24px;font-size:14px;font-family:'Heebo',sans-serif;background:rgba(255,23,68,0.15);border:1px solid rgba(255,23,68,0.3);border-radius:10px;color:#ff5252;cursor:pointer;">🗑 מחק את כל התוצאות</button>
+      <button class="btn-clear-lb" onclick="resetPhonePlays()" style="padding:10px 24px;font-size:14px;font-family:'Heebo',sans-serif;background:rgba(255,140,0,0.15);border:1px solid rgba(255,140,0,0.3);border-radius:10px;color:#ff8c00;cursor:pointer;">🔄 אפס מוני טלפונים</button>
     </div>`;
   }
   
@@ -1268,14 +1387,43 @@ window.addEventListener('DOMContentLoaded', () => {
   createStars();
 
   const nameInput = document.getElementById('inputName');
+  const phoneInput = document.getElementById('inputPhone');
   const codeInput = document.getElementById('inputCode');
   const startBtn = document.getElementById('btnStart');
 
   function checkForm() {
-    startBtn.disabled = !nameInput.value.trim();
+    startBtn.disabled = !(nameInput.value.trim() && phoneInput.value.trim());
   }
 
   nameInput.addEventListener('input', checkForm);
+  phoneInput.addEventListener('input', () => {
+    checkForm();
+    document.getElementById('phoneError').style.display = 'none';
+    document.getElementById('playsInfo').style.display = 'none';
+    phoneInput.classList.remove('error');
+  });
+  
+  // Show remaining plays when phone loses focus
+  phoneInput.addEventListener('blur', async () => {
+    const phone = phoneInput.value.trim();
+    if (!phone || !isValidIsraeliPhone(phone)) return;
+    
+    const count = await getPhonePlayCount(phone);
+    const remaining = MAX_PLAYS_PER_PHONE - count;
+    const info = document.getElementById('playsInfo');
+    
+    if (remaining <= 0) {
+      info.textContent = `⛔ מספר זה כבר שיחק ${MAX_PLAYS_PER_PHONE} פעמים`;
+      info.className = 'plays-info blocked';
+    } else if (remaining === 1) {
+      info.textContent = `⚠️ נשאר לך משחק אחד אחרון!`;
+      info.className = 'plays-info warning';
+    } else {
+      info.textContent = `✅ נותרו ${remaining} משחקים`;
+      info.className = 'plays-info';
+    }
+    info.style.display = 'block';
+  });
   
   // Clear error on code input change
   codeInput.addEventListener('input', () => {
@@ -1288,7 +1436,7 @@ window.addEventListener('DOMContentLoaded', () => {
   // Enter key to start
   document.querySelectorAll('.form-input').forEach(input => {
     input.addEventListener('keydown', e => {
-      if (e.key === 'Enter' && nameInput.value.trim()) startGame();
+      if (e.key === 'Enter' && nameInput.value.trim() && phoneInput.value.trim()) startGame();
     });
   });
 
