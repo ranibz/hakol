@@ -1,3 +1,5 @@
+html
+
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
@@ -6,7 +8,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#0a0a2e">
-<title>מי רוצה להיות מיליונר? - מהדורת נהריה</title>
+<title>מי אלוף טריוויה נהריה?</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;600;700;900&display=swap');
 
@@ -71,6 +73,8 @@
   }
   .form-input:focus { border-color: #ffd700; }
   .form-input::placeholder { color: rgba(255,255,255,0.4); }
+  .form-input.error { border-color: #ff1744; }
+  .error-msg { color: #ff5252; font-size: 13px; margin-top: -8px; margin-bottom: 10px; display: none; }
 
   .btn-start {
     width: 100%; padding: 16px; font-size: 22px; font-weight: 700;
@@ -262,7 +266,7 @@
     border: 1px solid rgba(255,215,0,0.15); overflow: hidden;
   }
   .lb-row {
-    display: grid; grid-template-columns: 40px 1fr 110px 70px 85px 50px 50px;
+    display: grid; grid-template-columns: 40px 1fr 70px 85px 50px 50px;
     padding: 10px 16px; font-size: 13px; gap: 6px; align-items: center;
     border-bottom: 1px solid rgba(255,255,255,0.05);
   }
@@ -276,7 +280,6 @@
   .lb-body { max-height: 400px; overflow-y: auto; }
   .lb-rank { font-weight: 800; font-size: 16px; }
   .lb-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .lb-school { color: rgba(255,255,255,0.5); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .lb-class { color: rgba(255,255,255,0.5); }
   .lb-score { color: #ffd700; font-weight: 700; }
   .lb-level { color: #4dabff; }
@@ -304,7 +307,7 @@
   .btn-clear-lb:hover { background: rgba(255,23,68,0.3); }
 
   @media (max-width: 600px) {
-    .lb-row { grid-template-columns: 30px 1fr 80px 50px 70px 40px 40px; font-size: 11px; padding: 8px 10px; gap: 4px; }
+    .lb-row { grid-template-columns: 30px 1fr 50px 70px 40px 40px; font-size: 11px; padding: 8px 10px; gap: 4px; }
     .answers-grid { grid-template-columns: 1fr; }
     .answer-btn { min-height: 52px; padding: 14px 16px; font-size: 15px; -webkit-tap-highlight-color: transparent; }
     .lifeline-btn { padding: 12px 16px; font-size: 14px; min-height: 48px; }
@@ -320,7 +323,7 @@
   }
 
   @media (max-width: 380px) {
-    .lb-row { grid-template-columns: 25px 1fr 60px 45px 60px 35px 35px; font-size: 10px; padding: 6px 8px; }
+    .lb-row { grid-template-columns: 25px 1fr 45px 60px 35px 35px; font-size: 10px; padding: 6px 8px; }
     .home-title { font-size: 22px; }
     .prize-item { padding: 2px 4px; font-size: 8px; }
   }
@@ -387,12 +390,13 @@
 <!-- ============ HOME SCREEN ============ -->
 <div class="screen active" id="homeScreen">
   <div style="text-align:center">
-    <div class="home-title">💰 מי רוצה להיות מיליונר? 💰</div>
-    <div class="home-subtitle">מהדורת נהריה — כמה אתם באמת מכירים את העיר?</div>
+    <div class="home-title">🏆 מי אלוף טריוויה נהריה? 🏆</div>
+    <div class="home-subtitle">כמה אתם באמת מכירים את העיר?</div>
 
     <div class="form-panel">
-      <input class="form-input" id="inputSchool" placeholder="🏘️ שכונה" />
-      <input class="form-input" id="inputName" placeholder="👤 השם שלך" />
+      <input class="form-input" id="inputCode" placeholder="🔑 קוד כניסה" type="text" inputmode="numeric" maxlength="4" />
+      <div class="error-msg" id="codeError">קוד שגוי, נסו שוב</div>
+      <input class="form-input" id="inputName" placeholder="👤 שם מלא (חובה)" />
       <input class="form-input" id="inputClass" placeholder="📅 גיל (לא חובה)" />
       <button class="btn-start" id="btnStart" disabled>🎮 בואו נתחיל!</button>
     </div>
@@ -482,7 +486,6 @@
     </div>
 
     <div class="lb-filters">
-      <input class="filter-input" id="filterSchool" placeholder="🔍 סנן לפי שכונה" oninput="renderLeaderboard()" />
       <input class="filter-input" id="filterName" placeholder="🔍 סנן לפי שם" oninput="renderLeaderboard()" />
     </div>
 
@@ -515,7 +518,7 @@
 
 <script>
 // ==========================================
-// FIREBASE CONFIG - שנה את הפרטים שלך כאן
+// FIREBASE CONFIG
 // ==========================================
 const FIREBASE_CONFIG = {
   apiKey: "AIzaSyCpvZFekKntENBVQCXDEpllkcqZqcaLemw",
@@ -538,6 +541,11 @@ try {
 } catch(e) {
   console.log("Firebase error, using localStorage:", e);
 }
+
+// ==========================================
+// ACCESS CODE
+// ==========================================
+const ACCESS_CODE = "1234";
 
 // ==========================================
 // QUESTION BANK
@@ -564,6 +572,15 @@ const ALL_QUESTIONS = [
   {arena:"תרבות",question:"מהו המוטו החדש של נהריה?",answers:["אוהבים את החיים","החופש לגדול","עיר ללא הפסקה","נהריה שלי"],correct:1,difficulty:1},
   {arena:"היסטוריה",question:"מי ניהל את 'המשרד הגרמני' בארץ ישראל?",answers:["זליג סוסקין","יוסף לוי","ארתור רופין","היינריך כהן"],correct:2,difficulty:1},
   {arena:"תרבות",question:"מתי נפתח הגן הבוטני זואולוגי בנהריה?",answers:["1990","1997","2003","2010"],correct:2,difficulty:1},
+  // NEW Easy questions
+  {arena:"גאוגרפיה",question:"מה שמה של הרחבה שבקצה שלה בנוי בניין העירייה?",answers:["כיכר אלזה דוד","כיכר העירייה","כיכר סוסקין","כיכר העצמאות"],correct:0,difficulty:1},
+  {arena:"היסטוריה",question:"מי נחשב ל'הרצל' של נהריה?",answers:["יוסף לוי","זליג סוסקין","ארתור רופין","גרשון טץ"],correct:0,difficulty:1},
+  {arena:"תרבות",question:"מסעדת פינגווין פעלה במשך כמה שנים?",answers:["83 שנים","65 שנים","70 שנים","90 שנים"],correct:0,difficulty:1},
+  {arena:"היסטוריה",question:"בית הקפה הראשון בנהריה נוסד בידי?",answers:["טוטי לוי","גרטל מאייר","חנה דויטש","רות פאוקר"],correct:0,difficulty:1},
+  {arena:"היסטוריה",question:"מסילת הרכבת לנהריה נבנתה בשנת?",answers:["1942","1938","1945","1948"],correct:0,difficulty:1},
+  {arena:"היסטוריה",question:"מה היה המפגע הסביבתי שאיתו התמודדו תושבי נהריה מיום הקמתה?",answers:["שטפונות והצפות בנחל געתון","מליחות הקרקע","חולות נודדים","ביצות ויתושים"],correct:0,difficulty:1},
+  {arena:"היסטוריה",question:"כמה תושבים היו בנהריה עם פרוץ מלחמת העצמאות?",answers:["1,800","1,200","2,500","3,000"],correct:0,difficulty:1},
+  {arena:"היסטוריה",question:"המקום שבו רוכזו העולים החדשים בשנות החמישים נקרא?",answers:["המעברה","המחנה","השיכון","המושבה"],correct:0,difficulty:1},
 
   // ========== DIFFICULTY 2 (Medium) - Questions 6-10 ==========
   {arena:"היסטוריה",question:"כמה דונמים נרכשו להקמת נהריה?",answers:["1,200 דונם","2,400 דונם","4,800 דונם","6,000 דונם"],correct:1,difficulty:2},
@@ -586,6 +603,16 @@ const ALL_QUESTIONS = [
   {arena:"אירועים",question:"מתי אירעו השיטפונות הגדולים בנהריה?",answers:["ינואר 2018","ינואר 2020","ינואר 2022","ינואר 2024"],correct:1,difficulty:2},
   {arena:"תרבות",question:"מהו הכתוב בכתב עברי קדום על סמל העיר?",answers:["שמע ישראל","ברוך מבנים אשר","ציון במשפט תיפדה","לא תגנוב"],correct:1,difficulty:2},
   {arena:"היסטוריה",question:"מי היה ראש העיר הראשון של נהריה?",answers:["גרשון טץ","ארנולד כהאן","אוסקר מאיר וולף","אפרים שריר"],correct:2,difficulty:2},
+  // NEW Medium questions
+  {arena:"היסטוריה",question:"כמה ממייסדי נהריה מונצחים בשמות רחובות על שמם?",answers:["3","2","4","5"],correct:0,difficulty:2},
+  {arena:"היסטוריה",question:"כמה רחובות בנהריה מנציחים את שיירת יחיעם?",answers:["2","1","3","4"],correct:0,difficulty:2},
+  {arena:"היסטוריה",question:"על שם איזו 'שרה' נקראת שכונת עין שרה?",answers:["שרה ליברמן","שרה אהרונסון","שרה לוי","שרה כהן"],correct:0,difficulty:2},
+  {arena:"ארכאולוגיה",question:"איזה אתר מהתקופה הביזנטית נמצא בנהריה?",answers:["הכנסייה בכצנלסון","בית הכנסת בגבעה","המרחץ ליד הגעתון","המבצר בחוף הים"],correct:0,difficulty:2},
+  {arena:"היסטוריה",question:"מתי נבנתה שכונת רסקו?",answers:["1951","1948","1954","1960"],correct:0,difficulty:2},
+  {arena:"היסטוריה",question:"רחוב רייצ'יק הוא על שמו של?",answers:["חתנו של בעל מלון קרלטון","ראש המועצה הראשון","רופא ראשון בנהריה","מייסד בית החרושת הראשון"],correct:0,difficulty:2},
+  {arena:"היסטוריה",question:"המקום המרכזי לטקסי יום הזיכרון בנהריה נמצא ב...?",answers:["גבעת אוסישקין","כיכר העירייה","גן הזיכרון","חוף הגעתון"],correct:0,difficulty:2},
+  {arena:"היסטוריה",question:"כמה ספינות מעפילים הגיעו לנהריה?",answers:["5","3","7","10"],correct:0,difficulty:2},
+  {arena:"היסטוריה",question:"אוניית המעפילים המפורסמת ביותר שנחתה בחופי נהריה הייתה?",answers:["חנה סנש","אקסודוס","המעפיל","אטרטו"],correct:0,difficulty:2},
 
   // ========== DIFFICULTY 3 (Hard) - Questions 11-15 ==========
   {arena:"היסטוריה",question:"כמה עלתה הקרקע להקמת נהריה בלירות מנדטוריות?",answers:["12,000","22,000","34,000","48,000"],correct:2,difficulty:3},
@@ -599,7 +626,15 @@ const ALL_QUESTIONS = [
   {arena:"היסטוריה",question:"מי פיסל את האנדרטה לאניות המעפילים בנהריה?",answers:["יגאל תומרקין","דני קרוון","חמי גל","משה שטרנשוס"],correct:2,difficulty:3},
   {arena:"היסטוריה",question:"מה שם הכפר הערבי שאולי השפיע על שם נהריה?",answers:["א-נחר","א-נהר","א-נהריה","א-נחל"],correct:1,difficulty:3},
   {arena:"אירועים",question:"מי נספה בשיטפונות 2020 ומה עשה?",answers:["שוטר שניסה לחלץ לכודים","מוטי בן שבת שניסה להציל משפחה","כבאי שנסחף בנחל","נהג אמבולנס בדרך לעזרה"],correct:1,difficulty:3},
-  {arena:"היסטוריה",question:"מה שם אנית המעפילים שהביאה חיילים ביום העצמאות?",answers:["אטרטו","האומות המאוחדות","חנה סנש","גבורה"],correct:2,difficulty:3}
+  {arena:"היסטוריה",question:"מה שם אנית המעפילים שהביאה חיילים ביום העצמאות?",answers:["אטרטו","האומות המאוחדות","חנה סנש","גבורה"],correct:2,difficulty:3},
+  // NEW Hard questions
+  {arena:"היסטוריה",question:"מי רצה לבנות בית מקדש בנהריה?",answers:["גדעון גונתר","ארתור רופין","זליג סוסקין","אוסקר מאיר וולף"],correct:0,difficulty:3},
+  {arena:"גאוגרפיה",question:"מה גובהו של מגדל המים של נהריה מעל פני הים?",answers:["37 מטר","25 מטר","42 מטר","30 מטר"],correct:0,difficulty:3},
+  {arena:"תרבות",question:"מה ייחד את מגדל המים של נהריה ממגדלי מים אחרים בתקופתו?",answers:["בנוי סגור מלמטה למעלה ורב שימושי חוץ ממים","צורתו המשושה הייחודית","היה הגבוה ביותר בארץ","שימש גם כמגדל תצפית"],correct:0,difficulty:3},
+  {arena:"היסטוריה",question:"המנהל הראשון של בית ספר ויצמן היה?",answers:["שלמה רילף","אברהם כהן","יעקב דויטש","משה לוי"],correct:0,difficulty:3},
+  {arena:"היסטוריה",question:"מתי ניתן שמו של בית ספר ויצמן?",answers:["עוד בחייו ובאישורו","לאחר מותו ב-1952","ביום העצמאות 1949","בחגיגות העשור של נהריה"],correct:0,difficulty:3},
+  {arena:"היסטוריה",question:"אנדרטת ההעפלה שבחוף הים נוצרה בידי?",answers:["חמי גל","דני קרוון","יגאל תומרקין","משה שטרנשוס"],correct:0,difficulty:3},
+  {arena:"תרבות",question:"פסל מפורסם לזכר נפגעי פעולות המחבלים בנהריה נתרם בידי?",answers:["האומנית אילנה גור","הפסל דני קרוון","העירייה","תורמים מחו\"ל"],correct:0,difficulty:3}
 ];
 
 // ==========================================
@@ -622,7 +657,7 @@ const LETTERS = ["א","ב","ג","ד"];
 // GAME STATE
 // ==========================================
 let state = {
-  schoolName: "", playerName: "", playerClass: "",
+  playerName: "", playerClass: "",
   questions: [], currentQ: 0,
   selectedAnswer: null, answerState: null,
   lifelines: { fiftyFifty: true, audience: true, skip: true },
@@ -630,11 +665,9 @@ let state = {
   timerValue: 45, timerInterval: null,
   qStartTime: 0, questionTimes: [],
   leaderboard: [],
-  firebaseKeys: {},  // maps index to firebase key for deletion
+  firebaseKeys: {},
   isAdmin: false
 };
-
-const ADMIN_PASSWORD = null; // password stored in Firebase, not in code
 
 // Set admin credentials in Firebase (run once)
 async function initAdminInFirebase() {
@@ -668,7 +701,6 @@ function pickQuestions() {
   const medium = shuffle(ALL_QUESTIONS.filter(q => q.difficulty === 2)).slice(0, 5);
   const hard = shuffle(ALL_QUESTIONS.filter(q => q.difficulty === 3)).slice(0, 5);
   
-  // Gold milestones: 1-5 easy (up to 2,000₪), 6-10 medium (up to 100,000₪), 11-15 hard (up to 1,000,000₪)
   const picked = [...easy, ...medium, ...hard];
   
   return picked.map(q => {
@@ -700,9 +732,12 @@ function showScreen(id) {
 
 function goHome() {
   clearInterval(state.timerInterval);
-  document.getElementById('inputSchool').value = '';
+  document.getElementById('inputCode').value = '';
   document.getElementById('inputName').value = '';
   document.getElementById('inputClass').value = '';
+  document.getElementById('codeError').style.display = 'none';
+  document.getElementById('inputCode').classList.remove('error');
+  document.getElementById('btnStart').disabled = true;
   showScreen('homeScreen');
 }
 
@@ -724,10 +759,25 @@ function createStars() {
 // START GAME
 // ==========================================
 function startGame() {
-  state.schoolName = document.getElementById('inputSchool').value.trim();
-  state.playerName = document.getElementById('inputName').value.trim();
+  const code = document.getElementById('inputCode').value.trim();
+  const name = document.getElementById('inputName').value.trim();
+  const codeError = document.getElementById('codeError');
+  const codeInput = document.getElementById('inputCode');
+
+  // Validate access code
+  if (code !== ACCESS_CODE) {
+    codeError.style.display = 'block';
+    codeInput.classList.add('error');
+    codeInput.focus();
+    return;
+  }
+  codeError.style.display = 'none';
+  codeInput.classList.remove('error');
+
+  if (!name) return;
+
+  state.playerName = name;
   state.playerClass = document.getElementById('inputClass').value.trim();
-  if (!state.playerName) return;
 
   state.questions = pickQuestions();
   state.currentQ = 0;
@@ -756,8 +806,7 @@ function renderGame() {
 
   // Player info
   let info = `👤 ${state.playerName}`;
-  if (state.playerClass) info += ` | ${state.playerClass}`;
-  if (state.schoolName) info += ` | 🏫 ${state.schoolName}`;
+  if (state.playerClass) info += ` | גיל: ${state.playerClass}`;
   document.getElementById('gamePlayerInfo').textContent = info;
 
   document.getElementById('qCounter').textContent = `שאלה ${state.currentQ + 1} / 15`;
@@ -820,7 +869,6 @@ function updateTimerDisplay() {
 
 function timeUp() {
   state.answerState = 'wrong';
-  // Show correct answer
   const btns = document.querySelectorAll('.answer-btn');
   btns.forEach((btn, i) => {
     btn.disabled = true;
@@ -959,17 +1007,15 @@ function endGame(level) {
     (state.questionTimes.reduce((a,b)=>a+b,0) / state.questionTimes.length).toFixed(1) : "0";
   const lifelinesUsed = [state.lifelines.fiftyFifty, state.lifelines.audience, state.lifelines.skip].filter(x => !x).length;
 
-  // Show result
   showScreen('resultScreen');
 
   document.getElementById('resultEmoji').textContent = isMillionaire ? '🏆' : level >= 10 ? '🌟' : level >= 5 ? '👏' : '💪';
   const titleEl = document.getElementById('resultTitle');
-  titleEl.textContent = isMillionaire ? 'מיליונר/ית!' : level >= 10 ? 'מרשים מאוד!' : level >= 5 ? 'כל הכבוד!' : 'ניסיון טוב!';
+  titleEl.textContent = isMillionaire ? 'אלוף/ת טריוויה!' : level >= 10 ? 'מרשים מאוד!' : level >= 5 ? 'כל הכבוד!' : 'ניסיון טוב!';
   titleEl.className = 'result-title' + (isMillionaire ? ' millionaire' : '');
 
   let playerText = state.playerName;
-  if (state.playerClass) playerText += ` | ${state.playerClass}`;
-  if (state.schoolName) playerText += ` | 🏫 ${state.schoolName}`;
+  if (state.playerClass) playerText += ` | גיל: ${state.playerClass}`;
   document.getElementById('resultPlayer').textContent = playerText;
 
   document.getElementById('statScore').textContent = finalScore.toLocaleString() + ' ₪';
@@ -994,7 +1040,6 @@ function endGame(level) {
   // Save score
   saveScore({
     name: state.playerName,
-    school: state.schoolName,
     class: state.playerClass,
     level, score: finalScore, avgTime, lifelinesUsed,
     date: new Date().toLocaleDateString('he-IL'),
@@ -1049,7 +1094,6 @@ async function loadLeaderboard() {
   renderLeaderboard();
 }
 
-// Real-time listener - leaderboard updates live for all users
 function initRealtimeLeaderboard() {
   if (!useFirebase) return;
   db.ref('nahariya-leaderboard').on('value', (snap) => {
@@ -1166,11 +1210,9 @@ function showLeaderboard() {
 // RENDER LEADERBOARD
 // ==========================================
 function renderLeaderboard() {
-  const filterSchool = (document.getElementById('filterSchool')?.value || '').trim().toLowerCase();
   const filterName = (document.getElementById('filterName')?.value || '').trim().toLowerCase();
 
   let filtered = state.leaderboard.map((e, i) => ({ ...e, _origIndex: i }));
-  if (filterSchool) filtered = filtered.filter(e => (e.school || '').toLowerCase().includes(filterSchool));
   if (filterName) filtered = filtered.filter(e => (e.name || '').toLowerCase().includes(filterName));
 
   document.getElementById('lbCount').textContent = `${filtered.length} שחקנים`;
@@ -1182,13 +1224,12 @@ function renderLeaderboard() {
   }
 
   const delCol = state.isAdmin ? '36px ' : '';
-  const gridCols = `${delCol}40px 1fr 110px 70px 85px 50px 50px`;
-  const gridColsMobile = `${delCol}30px 1fr 80px 50px 70px 40px 40px`;
+  const gridCols = `${delCol}40px 1fr 70px 85px 50px 50px`;
 
   let html = `<div class="lb-table">
     <div class="lb-row lb-row-header" style="grid-template-columns:${gridCols}">
       ${state.isAdmin ? '<span></span>' : ''}
-      <span>#</span><span>שם</span><span>🏘️ שכונה</span><span>גיל</span><span>ניקוד</span><span>שלב</span><span>זמן⌀</span>
+      <span>#</span><span>שם</span><span>גיל</span><span>ניקוד</span><span>שלב</span><span>זמן⌀</span>
     </div>
     <div class="lb-body">`;
 
@@ -1202,7 +1243,6 @@ function renderLeaderboard() {
       ${state.isAdmin ? `<button class="btn-delete-entry" onclick="deleteEntry(${origIdx})" title="מחק">✕</button>` : ''}
       <span class="lb-rank" style="color:${rankColor}">${rank}</span>
       <span class="lb-name">${e.name || '-'}</span>
-      <span class="lb-school">${e.school || '-'}</span>
       <span class="lb-class">${e.class || '-'}</span>
       <span class="lb-score">${(e.score || 0).toLocaleString()} ₪</span>
       <span class="lb-level">${e.level || 0}/15</span>
@@ -1228,10 +1268,21 @@ window.addEventListener('DOMContentLoaded', () => {
   createStars();
 
   const nameInput = document.getElementById('inputName');
+  const codeInput = document.getElementById('inputCode');
   const startBtn = document.getElementById('btnStart');
-  nameInput.addEventListener('input', () => {
+
+  function checkForm() {
     startBtn.disabled = !nameInput.value.trim();
+  }
+
+  nameInput.addEventListener('input', checkForm);
+  
+  // Clear error on code input change
+  codeInput.addEventListener('input', () => {
+    document.getElementById('codeError').style.display = 'none';
+    codeInput.classList.remove('error');
   });
+
   startBtn.addEventListener('click', startGame);
 
   // Enter key to start
