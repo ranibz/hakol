@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>סביבת מורה — מסגור תקשורתי</title>
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@400;700;900&family=Heebo:wght@300;400;500;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<style>
+  :root {
+    --paper:#f5f0e8; --paper-dark:#e8e0cc;
+    --ink:#1a1208; --ink-light:#6b5d45;
+    --accent:#8b1a1a;
+    --shadow:4px 4px 0 #1a1208; --shadow-sm:2px 2px 0 #1a1208;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;min-height:100vh;
+    background-image:repeating-linear-gradient(0deg,transparent,transparent 27px,rgba(26,18,8,0.05) 27px,rgba(26,18,8,0.05) 28px);}
+
+  /* MODAL */
+  .modal-overlay{position:fixed;inset:0;background:rgba(26,18,8,0.88);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px;}
+  .modal-box{background:var(--paper);border:3px solid var(--ink);box-shadow:8px 8px 0 var(--ink);max-width:400px;width:100%;padding:40px;}
+  .modal-head{background:var(--ink);color:var(--paper);text-align:center;padding:16px 24px;margin:-40px -40px 32px;}
+  .modal-head h2{font-family:'Frank Ruhl Libre',serif;font-size:26px;font-weight:900;}
+  .modal-head p{font-size:12px;letter-spacing:3px;opacity:.65;margin-top:4px;}
+  .modal-label{font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:700;color:var(--ink-light);margin-bottom:6px;display:block;}
+  .modal-input{width:100%;padding:12px 14px;margin-bottom:20px;border:2px solid var(--ink);background:white;
+    font-family:'Heebo',sans-serif;font-size:20px;color:var(--ink);box-shadow:var(--shadow-sm);outline:none;text-align:center;letter-spacing:4px;}
+  .modal-input:focus{border-color:var(--accent);box-shadow:3px 3px 0 var(--accent);}
+  .modal-btn{width:100%;padding:14px;background:var(--ink);color:var(--paper);border:none;
+    font-family:'Frank Ruhl Libre',serif;font-size:20px;font-weight:700;cursor:pointer;box-shadow:var(--shadow);transition:all .15s;}
+  .modal-btn:hover{background:var(--accent);transform:translate(-2px,-2px);box-shadow:6px 6px 0 var(--ink);}
+  .modal-error{color:var(--accent);font-size:13px;margin-top:10px;display:none;font-weight:700;text-align:center;}
+
+  /* MASTHEAD */
+  .masthead{background:var(--ink);color:var(--paper);border-bottom:6px double var(--paper-dark);}
+  .masthead-inner{max-width:1100px;margin:0 auto;padding:0 24px;}
+  .masthead-top{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #444;font-size:12px;letter-spacing:1px;opacity:.65;}
+  .masthead-title{text-align:center;padding:18px 0 12px;}
+  .masthead-title h1{font-family:'Frank Ruhl Libre',serif;font-size:clamp(26px,4vw,48px);font-weight:900;}
+  .masthead-title p{font-size:12px;letter-spacing:4px;text-transform:uppercase;color:var(--paper-dark);margin-top:4px;}
+  .masthead-rule{height:3px;background:var(--paper-dark);margin-bottom:10px;}
+  .teacher-badge{display:flex;justify-content:center;gap:32px;padding-bottom:12px;font-size:13px;}
+  .teacher-badge strong{font-family:'Frank Ruhl Libre',serif;font-size:15px;}
+
+  /* MAIN */
+  .main{max-width:1100px;margin:0 auto;padding:28px 24px 60px;}
+
+  /* TOOLBAR */
+  .toolbar{display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap;background:white;border:2px solid var(--ink);box-shadow:var(--shadow);padding:18px 20px;margin-bottom:24px;}
+  .tb-group{display:flex;flex-direction:column;gap:5px;flex:1;min-width:140px;}
+  .tb-group label{font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:700;color:var(--ink-light);}
+  .tb-select,.tb-input{padding:9px 12px;border:2px solid var(--ink);background:var(--paper);font-family:'Heebo',sans-serif;font-size:14px;color:var(--ink);box-shadow:var(--shadow-sm);outline:none;appearance:none;}
+  .tb-select:focus,.tb-input:focus{border-color:var(--accent);}
+  .tb-btn{padding:10px 22px;background:var(--ink);color:var(--paper);border:none;font-family:'Frank Ruhl Libre',serif;font-size:16px;font-weight:700;cursor:pointer;box-shadow:var(--shadow-sm);transition:all .15s;white-space:nowrap;}
+  .tb-btn:hover{background:var(--accent);transform:translate(-2px,-2px);box-shadow:4px 4px 0 var(--ink);}
+  .tb-btn.ghost{background:var(--paper-dark);color:var(--ink);}
+  .tb-btn.ghost:hover{background:var(--paper);}
+
+  /* STATS */
+  .stats{display:flex;gap:14px;margin-bottom:20px;flex-wrap:wrap;}
+  .stat{background:white;border:2px solid var(--ink);box-shadow:var(--shadow-sm);padding:12px 18px;flex:1;min-width:100px;text-align:center;}
+  .stat-n{font-family:'Frank Ruhl Libre',serif;font-size:34px;font-weight:900;color:var(--accent);line-height:1;}
+  .stat-l{font-size:11px;letter-spacing:1px;color:var(--ink-light);margin-top:3px;}
+
+  /* ACTIONS ROW */
+  .actions{display:flex;gap:10px;margin-bottom:14px;}
+  .act-btn{padding:7px 18px;border:2px solid var(--ink);background:white;font-family:'Heebo',sans-serif;font-size:13px;font-weight:700;cursor:pointer;box-shadow:var(--shadow-sm);transition:all .15s;}
+  .act-btn:hover{background:var(--ink);color:var(--paper);transform:translate(-2px,-2px);box-shadow:4px 4px 0 var(--ink);}
+
+  /* TABLE */
+  .tbl-wrap{overflow-x:auto;}
+  table{width:100%;border-collapse:collapse;background:white;border:2px solid var(--ink);box-shadow:var(--shadow);}
+  thead tr{background:var(--ink);color:var(--paper);}
+  th{padding:11px 14px;font-family:'Frank Ruhl Libre',serif;font-size:14px;font-weight:700;text-align:right;white-space:nowrap;}
+  td{padding:11px 14px;border-bottom:1px solid var(--paper-dark);font-size:14px;vertical-align:middle;}
+  tr:last-child td{border-bottom:none;}
+  tr:hover td{background:var(--paper);}
+  .badge{display:inline-block;background:var(--ink);color:var(--paper);padding:2px 10px;font-size:12px;font-weight:700;}
+  .exp-btn{background:none;border:1.5px solid var(--ink);padding:4px 12px;font-family:'Heebo',sans-serif;font-size:12px;font-weight:700;cursor:pointer;transition:all .15s;}
+  .exp-btn:hover{background:var(--ink);color:var(--paper);}
+
+  /* EXPANDED */
+  .exp-row td{background:var(--paper-dark)!important;padding:0!important;}
+  .exp-inner{padding:18px 22px;}
+  .ans-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px;margin-top:10px;}
+  .ans-item{background:white;border:1.5px solid var(--ink);padding:11px 13px;}
+  .ans-key{font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--ink-light);font-weight:700;margin-bottom:3px;}
+  .ans-val{font-size:14px;line-height:1.6;white-space:pre-wrap;}
+  .ans-val:empty::after{content:'—';color:var(--ink-light);}
+
+  /* EMPTY / LOADING */
+  .empty{text-align:center;padding:50px 20px;color:var(--ink-light);}
+  .empty .icon{font-size:48px;opacity:.2;}
+  .empty p{margin-top:12px;font-size:15px;}
+  .loading{text-align:center;padding:40px;font-family:'Frank Ruhl Libre',serif;font-size:20px;color:var(--ink-light);}
+
+  @media(max-width:600px){
+    .toolbar{flex-direction:column;}
+    .stats{flex-direction:column;}
+    th,td{padding:9px 9px;font-size:13px;}
+  }
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div class="modal-overlay" id="modal">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h2>סביבת מורה</h2>
+      <p>מסגור תקשורתי</p>
+    </div>
+    <label class="modal-label">קוד הכיתה שלי</label>
+    <input class="modal-input" id="inp-code" type="text" placeholder="הקוד שלי" autocomplete="off" maxlength="20">
+    <button class="modal-btn" onclick="login()">כניסה ←</button>
+    <div class="modal-error" id="modal-err">יש להזין קוד.</div>
+  </div>
+</div>
+
+<!-- MASTHEAD -->
+<header class="masthead">
+  <div class="masthead-inner">
+    <div class="masthead-top">
+      <span>סביבת מורה</span><span>גליל מערבי</span>
+    </div>
+    <div class="masthead-title">
+      <h1>מסגור תקשורתי — הגשות תלמידים</h1>
+      <p>צפייה וסינון לפי כיתה</p>
+    </div>
+    <div class="masthead-rule"></div>
+    <div class="teacher-badge">
+      <span>קוד: <strong id="badge-code">—</strong></span>
+      <span>סה״כ: <strong id="badge-total">0</strong> הגשות</span>
+    </div>
+  </div>
+</header>
+
+<div class="main">
+
+  <!-- TOOLBAR -->
+  <div class="toolbar">
+    <div class="tb-group">
+      <label>סינון לפי כיתה</label>
+      <select class="tb-select" id="filter-class">
+        <option value="">— כל הכיתות —</option>
+      </select>
+    </div>
+    <div class="tb-group">
+      <label>חיפוש שם</label>
+      <input class="tb-input" id="filter-name" type="text" placeholder="שם תלמיד...">
+    </div>
+    <button class="tb-btn" onclick="applyFilters()">סנן</button>
+    <button class="tb-btn ghost" onclick="clearFilters()">נקה</button>
+  </div>
+
+  <!-- STATS -->
+  <div class="stats">
+    <div class="stat"><div class="stat-n" id="s-shown">0</div><div class="stat-l">מוצגות</div></div>
+    <div class="stat"><div class="stat-n" id="s-classes">0</div><div class="stat-l">כיתות</div></div>
+    <div class="stat"><div class="stat-n" id="s-today">0</div><div class="stat-l">היום</div></div>
+  </div>
+
+  <!-- ACTIONS -->
+  <div class="actions">
+    <button class="act-btn" onclick="exportCSV()">⬇ ייצא CSV</button>
+    <button class="act-btn" onclick="loadData()">↺ רענן</button>
+  </div>
+
+  <!-- TABLE -->
+  <div id="table-area"><div class="loading">ממתין לכניסה...</div></div>
+
+</div>
+
+<script>
+const firebaseConfig = {
+  apiKey:"AIzaSyCCHvn_ulmiyM56DuslNzNC0Ge6a8i2vhY",
+  authDomain:"tests-fd938.firebaseapp.com",
+  databaseURL:"https://tests-fd938-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId:"tests-fd938",
+  storageBucket:"tests-fd938.firebasestorage.app",
+  messagingSenderId:"586813097412",
+  appId:"1:586813097412:web:39a71b3e0ea03573509091"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+// ── שם הנתיב של המשימה הזו ──
+const ASSIGNMENT_PATH = 'tests/msagur';
+const ANSWER_LABELS = {
+  word_pair_mtnachel_mtyashev: 'זוג א׳ — מתיישבים / מתנחלים',
+  word_pair_ganav_lakach:      'זוג ב׳ — גנב / לקח אוכל',
+  word_pair_mitnaged_mesit:    'זוג ג׳ — מתנגד / מסית',
+  a1_feelings:                 'סעיף א׳ — תחושות לאחר הבחירה',
+  headline_choice:             'סעיף ב׳ — כותרת שנבחרה',
+  a2_headline_reason:          'סעיף ב׳ — נימוק הכותרת',
+  image_choice:                'סעיף ב׳ — תמונה שנבחרה',
+  a3_image_reason:             'סעיף ב׳ — נימוק התמונה',
+  b3_compare:                  'סעיף ג׳ — השוואת שתי המהדורות',
+};
+
+let myCode='', allRows=[], filtered=[];
+
+function login(){
+  const code=document.getElementById('inp-code').value.trim();
+  if(!code){document.getElementById('modal-err').style.display='block';return;}
+  myCode=code;
+  document.getElementById('badge-code').textContent=code;
+  document.getElementById('modal').style.display='none';
+  loadData();
+}
+document.addEventListener('keydown',e=>{
+  if(e.key==='Enter'&&document.getElementById('modal').style.display!=='none')login();
+});
+
+async function loadData(){
+  document.getElementById('table-area').innerHTML='<div class="loading">טוען...</div>';
+  const snap = await db.ref(ASSIGNMENT_PATH).once('value');
+  const data = snap.val()||{};
+  allRows = Object.entries(data)
+    .filter(([,r])=>r.student?.classCode===myCode)
+    .map(([key,r])=>({key, student:r.student||{}, answers:r.answers||{}, submittedAt:r.submittedAt||0}))
+    .sort((a,b)=>b.submittedAt-a.submittedAt);
+
+  document.getElementById('badge-total').textContent=allRows.length;
+  buildClassFilter();
+  filtered=[...allRows];
+  render();
+  updateStats();
+}
+
+function buildClassFilter(){
+  const sel=document.getElementById('filter-class');
+  const classes=[...new Set(allRows.map(r=>r.student.class).filter(Boolean))].sort();
+  sel.innerHTML='<option value="">— כל הכיתות —</option>';
+  classes.forEach(c=>sel.innerHTML+=`<option value="${c}">${c}</option>`);
+}
+
+function applyFilters(){
+  const cls=document.getElementById('filter-class').value;
+  const name=document.getElementById('filter-name').value.trim().toLowerCase();
+  filtered=allRows.filter(r=>{
+    if(cls&&r.student.class!==cls)return false;
+    if(name&&!r.student.name?.toLowerCase().includes(name))return false;
+    return true;
+  });
+  render(); updateStats();
+}
+
+function clearFilters(){
+  document.getElementById('filter-class').value='';
+  document.getElementById('filter-name').value='';
+  filtered=[...allRows]; render(); updateStats();
+}
+
+function updateStats(){
+  const today=new Date(); today.setHours(0,0,0,0);
+  document.getElementById('s-shown').textContent=filtered.length;
+  document.getElementById('s-classes').textContent=new Set(filtered.map(r=>r.student.class)).size;
+  document.getElementById('s-today').textContent=filtered.filter(r=>r.submittedAt>=today.getTime()).length;
+}
+
+function render(){
+  const area=document.getElementById('table-area');
+  if(!filtered.length){
+    area.innerHTML=`<div class="empty"><div class="icon">📭</div>
+      <p>${allRows.length===0?'אין הגשות עם הקוד <strong>'+myCode+'</strong> עדיין.':'לא נמצאו תוצאות לסינון הנוכחי.'}</p></div>`;
+    return;
+  }
+  let html=`<div class="tbl-wrap"><table>
+    <thead><tr><th>#</th><th>שם</th><th>כיתה</th><th>זמן הגשה</th><th></th></tr></thead><tbody>`;
+  filtered.forEach((r,i)=>{
+    const t=r.submittedAt?new Date(r.submittedAt).toLocaleString('he-IL'):'—';
+    html+=`<tr id="r${i}">
+      <td style="color:var(--ink-light);font-size:12px">${i+1}</td>
+      <td><strong>${esc(r.student.name||'—')}</strong></td>
+      <td><span class="badge">${esc(r.student.class||'—')}</span></td>
+      <td style="font-size:13px;color:var(--ink-light)">${t}</td>
+      <td><button class="exp-btn" onclick="toggle(${i})">▼ תשובות</button></td>
+    </tr>
+    <tr class="exp-row" id="e${i}" style="display:none">
+      <td colspan="5"><div class="exp-inner">${renderAns(r.answers)}</div></td>
+    </tr>`;
+  });
+  html+='</tbody></table></div>';
+  area.innerHTML=html;
+}
+
+function renderAns(ans){
+  if(!Object.keys(ans).length)return'<em style="color:var(--ink-light)">אין תשובות</em>';
+  return'<div class="ans-grid">'+Object.entries(ans).map(([k,v])=>
+    `<div class="ans-item"><div class="ans-key">${esc(ANSWER_LABELS[k]||k)}</div><div class="ans-val">${esc(String(v||''))}</div></div>`
+  ).join('')+'</div>';
+}
+
+function toggle(i){
+  const row=document.getElementById('e'+i);
+  const btn=document.querySelector(`#r${i} .exp-btn`);
+  const open=row.style.display!=='none';
+  row.style.display=open?'none':'table-row';
+  btn.textContent=open?'▼ תשובות':'▲ סגור';
+}
+
+function exportCSV(){
+  if(!filtered.length){alert('אין נתונים');return;}
+  const keys=[...new Set(filtered.flatMap(r=>Object.keys(r.answers)))];
+  const header=['שם','כיתה','זמן הגשה',...keys.map(k=>ANSWER_LABELS[k]||k)];
+  const rows=filtered.map(r=>{
+    const t=r.submittedAt?new Date(r.submittedAt).toLocaleString('he-IL'):'';
+    return[r.student.name||'',r.student.class||'',t,...keys.map(k=>(r.answers[k]||'').replace(/\n/g,' '))];
+  });
+  const csv='\uFEFF'+[header,...rows].map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8;'}));
+  a.download=`msagur_${myCode}_${new Date().toLocaleDateString('he-IL')}.csv`;
+  a.click();
+}
+
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+</script>
+</body>
+</html>
