@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>מסגור והבניית מציאות — מטלה חוויתית</title>
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@400;700;900&family=Heebo:wght@300;400;500;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<style>
+:root{--paper:#f5f0e8;--paper-dark:#e8e0cc;--ink:#1a1208;--ink-light:#6b5d45;--accent:#8b1a1a;--blue:#2563af;--green:#2d7a2d;--shadow:4px 4px 0 #1a1208;--shadow-sm:2px 2px 0 #1a1208;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;line-height:1.75;background-image:repeating-linear-gradient(0deg,transparent,transparent 27px,rgba(26,18,8,0.055) 27px,rgba(26,18,8,0.055) 28px);}
+
+/* MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(26,18,8,0.9);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px;}
+.modal-box{background:var(--paper);border:3px solid var(--ink);box-shadow:8px 8px 0 var(--ink);max-width:460px;width:100%;padding:40px;}
+.modal-head{background:var(--ink);color:var(--paper);text-align:center;padding:18px 24px;margin:-40px -40px 32px;}
+.modal-head h2{font-family:'Frank Ruhl Libre',serif;font-size:28px;font-weight:900;}
+.modal-head p{font-size:12px;letter-spacing:3px;text-transform:uppercase;opacity:.65;margin-top:5px;}
+.modal-field{margin-bottom:18px;}
+.modal-field label{display:block;font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:700;color:var(--ink-light);margin-bottom:6px;}
+.modal-field input{width:100%;padding:12px 14px;border:2px solid var(--ink);background:white;font-family:'Heebo',sans-serif;font-size:16px;color:var(--ink);box-shadow:var(--shadow-sm);outline:none;}
+.modal-field input:focus{border-color:var(--accent);box-shadow:3px 3px 0 var(--accent);}
+.modal-btn{width:100%;padding:14px;background:var(--ink);color:var(--paper);border:none;font-family:'Frank Ruhl Libre',serif;font-size:20px;font-weight:700;cursor:pointer;box-shadow:var(--shadow);transition:all .15s;margin-top:6px;}
+.modal-btn:hover{background:var(--accent);transform:translate(-2px,-2px);box-shadow:6px 6px 0 var(--ink);}
+.modal-error{color:var(--accent);font-size:13px;font-weight:700;margin-top:10px;display:none;text-align:center;}
+
+/* PROGRESS */
+.progress-bar-wrap{position:sticky;top:0;z-index:50;background:var(--ink);padding:6px 22px;display:flex;align-items:center;gap:14px;}
+.progress-track{flex:1;height:6px;background:#444;}
+.progress-fill{height:100%;background:var(--accent);transition:width .4s;width:0%;}
+.progress-label{font-size:12px;color:var(--paper-dark);letter-spacing:1px;white-space:nowrap;}
+
+/* MASTHEAD */
+.masthead{background:var(--ink);color:var(--paper);border-bottom:6px double var(--paper-dark);}
+.masthead-inner{max-width:980px;margin:0 auto;padding:0 24px;}
+.masthead-top{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #444;font-size:12px;letter-spacing:1px;opacity:.65;}
+.masthead-title{text-align:center;padding:20px 0 14px;}
+.masthead-title h1{font-family:'Frank Ruhl Libre',serif;font-size:clamp(28px,5vw,56px);font-weight:900;line-height:1;}
+.masthead-title p{font-size:12px;letter-spacing:4px;text-transform:uppercase;color:var(--paper-dark);margin-top:6px;}
+.masthead-rule{height:3px;background:var(--paper-dark);margin-bottom:10px;}
+.student-badge{display:flex;justify-content:center;gap:28px;padding-bottom:12px;font-size:13px;}
+.student-badge strong{font-family:'Frank Ruhl Libre',serif;font-size:15px;}
+
+/* PAGE */
+.page{max-width:980px;margin:0 auto;padding:36px 22px 80px;}
+.sec-head{border-top:3px solid var(--ink);border-bottom:1px solid var(--ink);padding:6px 0;margin:44px 0 22px;display:flex;align-items:center;gap:14px;}
+.sec-head .num{font-family:'Frank Ruhl Libre',serif;font-size:32px;font-weight:900;color:var(--accent);line-height:1;}
+.sec-head h2{font-family:'Frank Ruhl Libre',serif;font-size:21px;font-weight:700;}
+.sec-intro{font-size:15px;color:var(--ink-light);margin-bottom:20px;border-right:4px solid var(--accent);padding-right:14px;line-height:1.7;}
+.act{background:white;border:2px solid var(--ink);box-shadow:var(--shadow);padding:26px;margin-bottom:24px;}
+.act-title{font-family:'Frank Ruhl Libre',serif;font-size:19px;font-weight:700;border-bottom:1px solid var(--paper-dark);padding-bottom:10px;margin-bottom:16px;display:flex;align-items:center;gap:10px;}
+.act-instruction{font-size:14.5px;color:var(--ink-light);margin-bottom:14px;line-height:1.65;}
+
+/* WORD PAIRS */
+.wp-context{font-size:12px;letter-spacing:2px;text-transform:uppercase;font-weight:700;color:var(--ink-light);margin-bottom:8px;}
+.word-pair-wrap{position:relative;margin-bottom:20px;}
+.word-pair{display:grid;grid-template-columns:1fr 1fr;border:2px solid var(--ink);overflow:hidden;}
+.wp-side{padding:18px 20px;cursor:pointer;transition:all .2s;position:relative;}
+.wp-side:first-child{background:var(--paper-dark);border-left:2px solid var(--ink);}
+.wp-side:last-child{background:white;}
+.wp-side.chosen{background:var(--ink)!important;color:var(--paper);}
+.wp-label{font-size:10px;letter-spacing:2px;text-transform:uppercase;font-weight:700;opacity:.5;margin-bottom:5px;}
+.wp-side.chosen .wp-label{opacity:.55;color:var(--paper-dark);}
+.wp-word{font-family:'Frank Ruhl Libre',serif;font-size:28px;font-weight:900;line-height:1;}
+.wp-sub{font-size:13px;margin-top:5px;line-height:1.5;}
+.wp-vs{position:absolute;top:50%;right:-16px;transform:translateY(-50%);width:32px;height:32px;background:var(--accent);color:white;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Frank Ruhl Libre',serif;font-weight:900;font-size:13px;border:2px solid var(--ink);z-index:2;}
+
+/* HEADLINE */
+.hb-event{background:var(--paper-dark);border-right:5px solid var(--ink);padding:14px 18px;font-size:15px;margin-bottom:14px;line-height:1.6;}
+.hb-event strong{font-family:'Frank Ruhl Libre',serif;font-size:16px;display:block;margin-bottom:4px;}
+.hb-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;}
+.hb-opt{border:2px solid var(--ink);padding:14px 16px;cursor:pointer;transition:all .15s;background:white;position:relative;}
+.hb-opt:hover{transform:translate(-2px,-2px);box-shadow:4px 4px 0 var(--ink);}
+.hb-opt.chosen{background:var(--ink);color:var(--paper);}
+.hb-opt .opt-tag{font-size:10px;letter-spacing:2px;text-transform:uppercase;font-weight:700;opacity:.5;margin-bottom:5px;}
+.hb-opt.chosen .opt-tag{opacity:.55;color:var(--paper-dark);}
+.hb-opt .opt-txt{font-family:'Frank Ruhl Libre',serif;font-size:17px;font-weight:700;line-height:1.3;}
+.hb-opt .ck{position:absolute;top:8px;left:8px;width:20px;height:20px;background:var(--accent);color:white;display:none;align-items:center;justify-content:center;font-size:12px;font-weight:900;}
+.hb-opt.chosen .ck{display:flex;}
+
+/* IMAGE */
+.img-frame-area{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;}
+.img-card{border:2px solid var(--ink);background:white;padding:14px 12px;cursor:pointer;transition:all .2s;text-align:center;}
+.img-card:hover{transform:translate(-2px,-2px);box-shadow:4px 4px 0 var(--ink);}
+.img-card.selected{background:var(--ink);color:var(--paper);}
+.img-emoji{font-size:32px;display:block;margin-bottom:6px;}
+.img-tag{font-size:10px;letter-spacing:2px;text-transform:uppercase;font-weight:700;opacity:.5;margin-bottom:5px;}
+.img-card.selected .img-tag{opacity:.55;color:var(--paper-dark);}
+.img-desc{font-size:13px;line-height:1.5;}
+.img-card.selected .img-desc{color:var(--paper-dark);}
+
+/* COMPARE */
+.compare-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;}
+.compare-box{border:2px solid var(--ink);padding:14px 16px;}
+.compare-box h4{font-family:'Frank Ruhl Libre',serif;font-size:17px;font-weight:900;margin-bottom:8px;}
+.compare-box p{font-size:13px;line-height:1.6;}
+
+/* TEXTAREA */
+.ta-label{font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:700;color:var(--ink-light);margin-bottom:5px;margin-top:14px;display:block;}
+.ta-wrap{position:relative;margin-top:6px;}
+.ta-wrap textarea{width:100%;min-height:88px;padding:12px 46px 12px 14px;border:2px solid var(--ink);background:white;font-family:'Heebo',sans-serif;font-size:15px;color:var(--ink);resize:none;overflow:hidden;outline:none;line-height:1.65;transition:border-color .2s,box-shadow .2s;}
+.ta-wrap textarea:focus{border-color:var(--accent);box-shadow:3px 3px 0 var(--accent);}
+.mic-btn{position:absolute;top:10px;left:10px;width:30px;height:30px;background:var(--ink);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--paper);border-radius:2px;}
+.mic-btn.recording{background:var(--accent);animation:pulse 1s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.55}}
+
+/* SUBMIT */
+.submit-area{margin-top:50px;text-align:center;border-top:3px double var(--ink);padding-top:30px;}
+.submit-btn{display:inline-block;padding:16px 56px;background:var(--ink);color:var(--paper);border:none;font-family:'Frank Ruhl Libre',serif;font-size:22px;font-weight:900;cursor:pointer;box-shadow:var(--shadow);letter-spacing:1px;transition:all .15s;}
+.submit-btn:hover{background:var(--accent);transform:translate(-3px,-3px);box-shadow:7px 7px 0 var(--ink);}
+.submit-btn:disabled{opacity:.5;cursor:not-allowed;transform:none;}
+.submit-msg{margin-top:14px;font-size:15px;font-weight:700;display:none;}
+.submit-msg.ok{color:var(--green);display:block;}
+.submit-msg.err{color:var(--accent);display:block;}
+
+@media(max-width:640px){
+  .word-pair,.hb-grid,.img-frame-area,.compare-grid{grid-template-columns:1fr;}
+  .wp-vs{display:none;}
+  .page{padding:20px 14px 60px;}
+}
+</style>
+</head>
+<body>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modal">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h2>מסגור והבניית מציאות</h2>
+      <p>מטלה חוויתית</p>
+    </div>
+    <div class="modal-field"><label>שם מלא</label><input id="inp-name" type="text" placeholder="שם ומשפחה" autocomplete="name"></div>
+    <div class="modal-field"><label>כיתה</label><input id="inp-class" type="text" placeholder="לדוגמה: י׳2" autocomplete="off"></div>
+    <div class="modal-field"><label>קוד מורה</label><input id="inp-code" type="text" placeholder="הקוד שקיבלת" autocomplete="off"></div>
+    <button class="modal-btn" onclick="enterPage()">כניסה למטלה ←</button>
+    <div class="modal-error" id="modal-err">יש למלא את כל השדות.</div>
+  </div>
+</div>
+
+<!-- PROGRESS -->
+<div class="progress-bar-wrap">
+  <span class="progress-label" id="prog-label">0 / 4 שלבים</span>
+  <div class="progress-track"><div class="progress-fill" id="prog-fill"></div></div>
+</div>
+
+<!-- MASTHEAD -->
+<header class="masthead">
+  <div class="masthead-inner">
+    <div class="masthead-top"><span>מטלה חוויתית • מסגור והבניית מציאות</span><span>גליל מערבי</span></div>
+    <div class="masthead-title">
+      <h1>חווית המסגור</h1>
+      <p>מלאו, חשבו, גלו — ושלחו למורה</p>
+    </div>
+    <div class="masthead-rule"></div>
+    <div class="student-badge">
+      <span>שם: <strong id="b-name">—</strong></span>
+      <span>כיתה: <strong id="b-class">—</strong></span>
+    </div>
+  </div>
+</header>
+
+<div class="page">
+
+  <!-- ══ סעיף א׳ — כוח המילים ══ -->
+  <div class="sec-head"><span class="num">א</span><h2>מסגור — כיצד אתה רואה את המילים?</h2></div>
+  <p class="sec-intro">לחצו על המילה שהייתם בוחרים אם הייתם עיתונאים — ואז כתבו מה הרגשתם.</p>
+
+  <div class="act">
+    <div class="act-title"><span>🔤</span> פעילות 1 — בחרו את המילה שלכם</div>
+    <div class="act-instruction">לכל זוג — לחצו על הבחירה שלכם. שתי המילים מתארות את אותו אדם או מצב בדיוק.</div>
+
+    <div class="word-pair-wrap">
+      <p class="wp-context">זוג א׳ — על ישראלים הגרים בגדה המערבית</p>
+      <div class="word-pair">
+        <div class="wp-side" onclick="chooseWord(this,'w1','מתיישבים')">
+          <div class="wp-label">אפשרות א׳</div>
+          <div class="wp-word">מתיישבים</div>
+          <div class="wp-sub">ניטרלי-חיובי בשיח ישראלי — "ישיבה", ביסוס, בית</div>
+          <div class="wp-vs">מול</div>
+        </div>
+        <div class="wp-side" onclick="chooseWord(this,'w1','מתנחלים')">
+          <div class="wp-label">אפשרות ב׳</div>
+          <div class="wp-word">מתנחלים</div>
+          <div class="wp-sub">מוטעין בשיח הבינלאומי — "Settlers", תפיסה</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="word-pair-wrap">
+      <p class="wp-context">זוג ב׳ — על אדם שגנב אוכל כי היה רעב</p>
+      <div class="word-pair">
+        <div class="wp-side" onclick="chooseWord(this,'w2','גנב')">
+          <div class="wp-label">אפשרות א׳</div>
+          <div class="wp-word">גנב</div>
+          <div class="wp-sub">עובדתי-משפטי, שלילי, מייחס אחריות לאדם</div>
+          <div class="wp-vs">מול</div>
+        </div>
+        <div class="wp-side" onclick="chooseWord(this,'w2','לקח אוכל')">
+          <div class="wp-label">אפשרות ב׳</div>
+          <div class="wp-word">לקח אוכל</div>
+          <div class="wp-sub">מרוכך, מעורר אמפתיה, מוסיר שיפוט</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="word-pair-wrap">
+      <p class="wp-context">זוג ג׳ — על פעיל פוליטי שאינו מסכים עם הממשלה</p>
+      <div class="word-pair">
+        <div class="wp-side" onclick="chooseWord(this,'w3','מתנגד')">
+          <div class="wp-label">אפשרות א׳</div>
+          <div class="wp-word">מתנגד</div>
+          <div class="wp-sub">ניטרלי — מתאר עמדה בלי לשפוט</div>
+          <div class="wp-vs">מול</div>
+        </div>
+        <div class="wp-side" onclick="chooseWord(this,'w3','מסית')">
+          <div class="wp-label">אפשרות ב׳</div>
+          <div class="wp-word">מסית</div>
+          <div class="wp-sub">שלילי מאוד — מרמז על כוונת זדון וסכנה</div>
+        </div>
+      </div>
+    </div>
+
+    <span class="ta-label">מה הרגשתם כשבחרתם? האם הייתה מילה שהרגשתם אי-נוחות לבחור? למה?</span>
+    <div class="ta-wrap">
+      <textarea id="a1-feel" oninput="autoResize(this);trackProgress()" onpaste="blockPaste(event)" placeholder="כתבו את המחשבות שלכם..."></textarea>
+      <button class="mic-btn" onclick="toggleMic(this,'a1-feel')">🎤</button>
+    </div>
+  </div>
+
+  <!-- ══ סעיף ב׳ — אתם העורכים ══ -->
+  <div class="sec-head"><span class="num">ב</span><h2>מסגור — אתם העורכים</h2></div>
+  <p class="sec-intro">בחרו כותרת ותמונה לכתבות. שימו לב: אין תשובה נכונה — יש מסגרות שונות.</p>
+
+  <div class="act">
+    <div class="act-title"><span>📰</span> פעילות 2 — אתם העורכים: בחרו כותרת</div>
+    <div class="act-instruction">קראו את האירוע — ואז בחרו איזו כותרת תפרסמו.</div>
+    <div class="hb-event">
+      <strong>האירוע:</strong> חברת היי-טק גדולה פיטרה 400 עובדים. 60% מהמפוטרים הן נשים. החברה הרוויחה השנה 2 מיליארד שקל. המנכ"ל קיבל בונוס של 4 מיליון.
+    </div>
+    <div class="hb-grid">
+      <div class="hb-opt" onclick="chooseHeadline(this,'hl1','A')"><div class="ck">✓</div><div class="opt-tag">כותרת א׳</div><div class="opt-txt">400 מפוטרים בחברת הייטק — ההתייעלות נמשכת</div></div>
+      <div class="hb-opt" onclick="chooseHeadline(this,'hl1','B')"><div class="ck">✓</div><div class="opt-tag">כותרת ב׳</div><div class="opt-txt">חברה שרוויחה מיליארדים פיטרה מאות — רובן נשים</div></div>
+      <div class="hb-opt" onclick="chooseHeadline(this,'hl1','C')"><div class="ck">✓</div><div class="opt-tag">כותרת ג׳</div><div class="opt-txt">משבר מגדרי בהייטק: 240 אמהות איבדו עבודתן</div></div>
+      <div class="hb-opt" onclick="chooseHeadline(this,'hl1','D')"><div class="ck">✓</div><div class="opt-tag">כותרת ד׳</div><div class="opt-txt">בעוד המנכ"ל מרוויח מיליונים — 400 עובדים ברחוב</div></div>
+    </div>
+    <input type="hidden" id="hl1">
+    <span class="ta-label">מה המסגרת שהכותרת שבחרתם יוצרת? מה מודגש ומה מוסתר?</span>
+    <div class="ta-wrap">
+      <textarea id="a2-reason" oninput="autoResize(this);trackProgress()" onpaste="blockPaste(event)" placeholder="נמקו את הבחירה..."></textarea>
+      <button class="mic-btn" onclick="toggleMic(this,'a2-reason')">🎤</button>
+    </div>
+  </div>
+
+  <div class="act">
+    <div class="act-title"><span>📷</span> פעילות 3 — איזו תמונה תפרסמו?</div>
+    <div class="act-instruction">כתבה על מחאת סטודנטים מחוץ לכנסת. לחצו על התמונה שהייתם בוחרים לפרסם.</div>
+    <div class="img-frame-area">
+      <div class="img-card" onclick="chooseImage(this,'img1','A')"><span class="img-emoji">😤</span><div class="img-tag">תמונה א׳</div><div class="img-desc">סטודנט אחד, כועס, אגרוף מורם</div></div>
+      <div class="img-card" onclick="chooseImage(this,'img1','B')"><span class="img-emoji">🧑‍🤝‍🧑</span><div class="img-tag">תמונה ב׳</div><div class="img-desc">קבוצה גדולה, שלטים ברורים, נחושים</div></div>
+      <div class="img-card" onclick="chooseImage(this,'img1','C')"><span class="img-emoji">🚔</span><div class="img-tag">תמונה ג׳</div><div class="img-desc">שוטרים בחזית, מפגינים מטושטשים ברקע</div></div>
+      <div class="img-card" onclick="chooseImage(this,'img1','D')"><span class="img-emoji">🎓</span><div class="img-tag">תמונה ד׳</div><div class="img-desc">סטודנטית עם שלט — פנים שקטות ונחושות</div></div>
+    </div>
+    <input type="hidden" id="img1">
+    <span class="ta-label">מה המסגרת שהתמונה יוצרת? איך היא תשפיע על תפיסת הצופה לפני שקרא מילה?</span>
+    <div class="ta-wrap">
+      <textarea id="a3-reason" oninput="autoResize(this);trackProgress()" onpaste="blockPaste(event)" placeholder="תארו את המסגרת שהתמונה יוצרת..."></textarea>
+      <button class="mic-btn" onclick="toggleMic(this,'a3-reason')">🎤</button>
+    </div>
+  </div>
+
+  <!-- ══ סעיף ג׳ — הבניית מציאות ══ -->
+  <div class="sec-head"><span class="num">ג</span><h2>הבניית מציאות — שתי מהדורות, אותו ערב</h2></div>
+  <p class="sec-intro">שני ערוצים כיסו את אותו שיטפון בדרום. קראו את שניהם — ואז ענו.</p>
+
+  <div class="act">
+    <div class="act-title"><span>🗞</span> פעילות 4 — השוו בין שתי המהדורות</div>
+    <div class="compare-grid">
+      <div class="compare-box" style="border-right:5px solid var(--accent);">
+        <h4>ערוץ א׳ — מסחרי</h4>
+        <p><strong>"כישלון ממשלתי: ניבאו, לא פעלו"</strong><br>כתב שטח מהאזור הוצף. ראיון דרמטי עם משפחה שאיבדה ביתה. פקיד עירייה מותקף בשאלות. 18 דקות שידור.</p>
+      </div>
+      <div class="compare-box" style="border-right:5px solid var(--blue);">
+        <h4>ערוץ ב׳ — ציבורי</h4>
+        <p><strong>"שיטפון בדרום: חילוץ מוצלח, תשתיות נפגעו"</strong><br>מומחה קרקע, נציג רשות מים, נתונים מטאורולוגיים. ניתוח השקעות בתשתיות. 9 דקות שידור.</p>
+      </div>
+    </div>
+    <span class="ta-label">מה כל ערוץ הדגיש ומה הסתיר? מה הצופה של כל ערוץ "ייקח הביתה"?</span>
+    <div class="ta-wrap">
+      <textarea id="b3-compare" oninput="autoResize(this);trackProgress()" onpaste="blockPaste(event)" placeholder="השוו בין שתי המהדורות..."></textarea>
+      <button class="mic-btn" onclick="toggleMic(this,'b3-compare')">🎤</button>
+    </div>
+  </div>
+
+  <!-- SUBMIT -->
+  <div class="submit-area">
+    <p style="font-size:14px;color:var(--ink-light);margin-bottom:18px;">מלאו את כל השלבים ושלחו למורה</p>
+    <button class="submit-btn" onclick="submitWork()" id="sub-btn">◈ שלח עבודה למורה</button>
+    <div class="submit-msg" id="sub-msg"></div>
+  </div>
+
+</div>
+
+<script>
+const firebaseConfig={apiKey:"AIzaSyCCHvn_ulmiyM56DuslNzNC0Ge6a8i2vhY",authDomain:"tests-fd938.firebaseapp.com",databaseURL:"https://tests-fd938-default-rtdb.europe-west1.firebasedatabase.app",projectId:"tests-fd938",storageBucket:"tests-fd938.firebasestorage.app",messagingSenderId:"586813097412",appId:"1:586813097412:web:39a71b3e0ea03573509091"};
+firebase.initializeApp(firebaseConfig);
+const db=firebase.database();
+
+let student={}, activeMic=null, wordChoices={};
+
+function enterPage(){
+  const name=document.getElementById('inp-name').value.trim();
+  const cls=document.getElementById('inp-class').value.trim();
+  const code=document.getElementById('inp-code').value.trim();
+  if(!name||!cls||!code){document.getElementById('modal-err').style.display='block';return;}
+  student={name,class:cls,classCode:code};
+  document.getElementById('b-name').textContent=name;
+  document.getElementById('b-class').textContent=cls;
+  document.getElementById('modal').style.display='none';
+}
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&document.getElementById('modal').style.display!=='none')enterPage();});
+
+function autoResize(ta){ta.style.height='auto';ta.style.height=ta.scrollHeight+'px';}
+function blockPaste(e){e.preventDefault();alert('הדבקה אינה מותרת. יש לכתוב בעצמך.');}
+
+function toggleMic(btn,id){
+  if(!('webkitSpeechRecognition'in window||'SpeechRecognition'in window)){alert('הדפדפן שלך אינו תומך. נסה Chrome.');return;}
+  if(activeMic){activeMic.rec.stop();activeMic.btn.classList.remove('recording');activeMic=null;return;}
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  const rec=new SR();rec.lang='he-IL';rec.continuous=true;rec.interimResults=true;
+  const ta=document.getElementById(id);const base=ta.value;
+  rec.onresult=e=>{let f='',i='';for(let j=e.resultIndex;j<e.results.length;j++)e.results[j].isFinal?f+=e.results[j][0].transcript:i+=e.results[j][0].transcript;ta.value=base+f+i;autoResize(ta);trackProgress();};
+  rec.onerror=rec.onend=()=>{btn.classList.remove('recording');activeMic=null;};
+  rec.start();btn.classList.add('recording');activeMic={rec,btn};
+}
+
+function chooseWord(el,field,val){
+  el.closest('.word-pair').querySelectorAll('.wp-side').forEach(s=>s.classList.remove('chosen'));
+  el.classList.add('chosen');wordChoices[field]=val;trackProgress();
+}
+function chooseHeadline(el,field,val){
+  el.closest('.hb-grid').querySelectorAll('.hb-opt').forEach(o=>o.classList.remove('chosen'));
+  el.classList.add('chosen');document.getElementById(field).value=val;trackProgress();
+}
+function chooseImage(el,field,val){
+  el.closest('.img-frame-area').querySelectorAll('.img-card').forEach(c=>c.classList.remove('selected'));
+  el.classList.add('selected');document.getElementById(field).value=val;trackProgress();
+}
+
+const PROG=['a1-feel','a2-reason','a3-reason','b3-compare'];
+function trackProgress(){
+  let done=0;
+  PROG.forEach(id=>{const el=document.getElementById(id);if(el&&el.value.trim().length>10)done++;});
+  const pct=Math.round(done/PROG.length*100);
+  document.getElementById('prog-fill').style.width=pct+'%';
+  document.getElementById('prog-label').textContent=done+' / '+PROG.length+' שלבים';
+}
+
+async function submitWork(){
+  const btn=document.getElementById('sub-btn');const msg=document.getElementById('sub-msg');
+  btn.disabled=true;btn.textContent='שולח...';
+  const answers={
+    word_pair_mtnachel_mtyashev: wordChoices.w1||'—',
+    word_pair_ganav_lakach:       wordChoices.w2||'—',
+    word_pair_mitnaged_mesit:     wordChoices.w3||'—',
+    a1_feelings:    document.getElementById('a1-feel').value,
+    headline_choice:document.getElementById('hl1').value,
+    a2_headline_reason: document.getElementById('a2-reason').value,
+    image_choice:   document.getElementById('img1').value,
+    a3_image_reason:document.getElementById('a3-reason').value,
+    b3_compare:     document.getElementById('b3-compare').value,
+  };
+  try{
+    await db.ref('tests/msagur').push({student,answers,submittedAt:Date.now()});
+    msg.className='submit-msg ok';msg.textContent='✓ העבודה נשלחה! המורה יראה אותה בקרוב.';
+    btn.textContent='✓ נשלח';
+  }catch(e){
+    msg.className='submit-msg err';msg.textContent='שגיאה — בדקו חיבור לאינטרנט ונסו שוב.';
+    btn.disabled=false;btn.textContent='◈ שלח עבודה למורה';
+  }
+}
+</script>
+</body>
+</html>
