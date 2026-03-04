@@ -1,0 +1,1018 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>בינה מלאכותית בהפקת סרטי גמר</title>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700;900&family=Frank+Ruhl+Libre:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+html { scroll-behavior:smooth; }
+
+body {
+  background:#080810;
+  color:#f0eeff;
+  font-family:'Heebo',sans-serif;
+  overflow-x:hidden;
+}
+
+/* ── SLIDE BASE ─────────────────────────────── */
+.slide {
+  min-height:100vh;
+  width:100%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  position:relative;
+  overflow:hidden;
+  padding:80px 64px;
+}
+@media(max-width:700px){ .slide{padding:60px 24px;} }
+
+/* ── BACKGROUNDS ────────────────────────────── */
+.s-hero {
+  background:
+    radial-gradient(ellipse 90% 70% at 15% 50%, rgba(109,40,217,.35) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 60% at 85% 20%, rgba(6,182,212,.13) 0%, transparent 55%),
+    #080810;
+}
+.s-dark  { background:#0c0c18; }
+.s-navy  { background:#080e1a; }
+.s-mid   { background:#0e0e1a; }
+.s-gold-bg {
+  background:
+    radial-gradient(ellipse 80% 60% at 85% 50%, rgba(217,119,6,.2) 0%, transparent 55%),
+    radial-gradient(ellipse 50% 50% at 15% 40%, rgba(109,40,217,.18) 0%, transparent 55%),
+    #0c0c18;
+}
+.s-close {
+  background:
+    radial-gradient(ellipse 80% 80% at 50% 50%, rgba(109,40,217,.22) 0%, transparent 60%),
+    radial-gradient(ellipse 40% 40% at 10% 10%, rgba(6,182,212,.1) 0%, transparent 50%),
+    #080810;
+}
+
+/* grid */
+.grid {
+  position:absolute; inset:0; pointer-events:none;
+  background-image:
+    linear-gradient(rgba(168,85,247,.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(168,85,247,.04) 1px, transparent 1px);
+  background-size:52px 52px;
+}
+
+/* ── TYPOGRAPHY ─────────────────────────────── */
+.chip {
+  display:inline-flex; align-items:center; gap:8px;
+  padding:5px 16px; border-radius:999px;
+  border:1px solid rgba(168,85,247,.35);
+  background:rgba(168,85,247,.1);
+  font-size:11px; letter-spacing:3px;
+  color:#c084fc; font-weight:600;
+  margin-bottom:26px;
+}
+.chip .dot {
+  width:6px; height:6px; border-radius:50%;
+  background:#a855f7;
+  animation:blink 2s infinite;
+}
+
+.display {
+  font-family:'Frank Ruhl Libre',serif;
+  font-weight:900; line-height:1.05; letter-spacing:-1.5px;
+}
+.d-xl  { font-size:clamp(52px,9vw,112px); }
+.d-lg  { font-size:clamp(40px,6vw,76px); }
+.d-md  { font-size:clamp(28px,4vw,52px); }
+
+.grad  { background:linear-gradient(135deg,#c084fc 0%,#22d3ee 100%); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+.grad-gold { background:linear-gradient(135deg,#fbbf24 0%,#f97316 100%); -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text; }
+.purple{ color:#c084fc; }
+.gold  { color:#fbbf24; }
+.cyan  { color:#22d3ee; }
+.green { color:#34d399; }
+.pink  { color:#f472b6; }
+.muted { color:#9ca3af; }
+.muted2{ color:#6b7280; }
+
+.lead {
+  font-size:17px; line-height:1.85;
+  color:#9ca3af; max-width:640px;
+}
+
+.section-label {
+  font-size:10px; letter-spacing:4px; text-transform:uppercase;
+  color:#a855f7; font-weight:600; margin-bottom:18px;
+  display:flex; align-items:center; gap:10px;
+}
+.section-label::before {
+  content:''; display:block; width:20px; height:1px; background:#a855f7;
+}
+
+/* ── LAYOUT ─────────────────────────────────── */
+.inner { position:relative; z-index:1; width:100%; max-width:1200px; }
+
+.cols2 {
+  display:grid; grid-template-columns:1fr 1fr; gap:70px; align-items:center;
+}
+.cols2.top { align-items:start; }
+@media(max-width:860px){ .cols2{grid-template-columns:1fr;} }
+
+/* ── FILM STRIP (hero visual) ───────────────── */
+.filmstrip {
+  display:flex; flex-direction:column; gap:10px;
+  height:480px;
+}
+.frame {
+  flex:1; border-radius:12px;
+  border:1px solid rgba(168,85,247,.2);
+  display:flex; align-items:center; justify-content:center;
+  position:relative; overflow:hidden;
+  transition:border-color .3s;
+}
+.frame:hover{ border-color:rgba(168,85,247,.6); }
+.frame .em { font-size:36px; position:relative; z-index:1; }
+.frame::before {
+  content:''; position:absolute; inset:0;
+  background:linear-gradient(135deg,rgba(168,85,247,.12) 0%,transparent 60%);
+}
+.perfs {
+  position:absolute; top:50%; left:0; right:0;
+  transform:translateY(-50%);
+  display:flex; justify-content:space-between; padding:0 8px;
+}
+.perf { width:10px;height:10px;border-radius:50%;background:#080810;opacity:.7; }
+
+/* ── TOOL CARDS ─────────────────────────────── */
+.cards3 {
+  display:grid; grid-template-columns:repeat(3,1fr); gap:16px;
+}
+.cards2 {
+  display:grid; grid-template-columns:repeat(2,1fr); gap:16px;
+}
+@media(max-width:900px){ .cards3{grid-template-columns:repeat(2,1fr);} }
+@media(max-width:560px){ .cards3,.cards2{grid-template-columns:1fr;} }
+
+.tcard {
+  background:#101020;
+  border:1px solid rgba(255,255,255,.06);
+  border-radius:18px; padding:26px;
+  position:relative; overflow:hidden;
+  transition:transform .3s cubic-bezier(.4,0,.2,1), border-color .3s, box-shadow .3s;
+  cursor:default;
+}
+.tcard:hover {
+  transform:translateY(-7px);
+  border-color:rgba(168,85,247,.45);
+  box-shadow:0 20px 50px rgba(0,0,0,.5), inset 0 1px 0 rgba(255,255,255,.05);
+}
+.tcard .glow {
+  position:absolute; top:-50px; right:-50px;
+  width:160px; height:160px; border-radius:50%;
+  pointer-events:none; transition:transform .35s;
+}
+.tcard:hover .glow { transform:scale(1.4); }
+.tcard .bar {
+  position:absolute; bottom:0; left:0; right:0; height:2px;
+  transform:scaleX(0); transition:transform .35s; border-radius:0 0 18px 18px;
+}
+.tcard:hover .bar { transform:scaleX(1); }
+
+.gp .glow  { background:radial-gradient(circle,rgba(168,85,247,.25) 0%,transparent 70%); }
+.gc .glow  { background:radial-gradient(circle,rgba(6,182,212,.22) 0%,transparent 70%); }
+.gg .glow  { background:radial-gradient(circle,rgba(52,211,153,.22) 0%,transparent 70%); }
+.go .glow  { background:radial-gradient(circle,rgba(251,191,36,.22) 0%,transparent 70%); }
+.gpk.glow  { background:radial-gradient(circle,rgba(244,114,182,.22) 0%,transparent 70%); }
+
+.gp .bar  { background:linear-gradient(90deg,#a855f7,#7c3aed); }
+.gc .bar  { background:linear-gradient(90deg,#06b6d4,#0891b2); }
+.gg .bar  { background:linear-gradient(90deg,#10b981,#059669); }
+.go .bar  { background:linear-gradient(90deg,#f59e0b,#d97706); }
+.gpk .bar { background:linear-gradient(90deg,#ec4899,#be185d); }
+
+.tcard .icon  { font-size:34px; margin-bottom:14px; display:block; }
+.tcard .tname { font-family:'Frank Ruhl Libre',serif; font-size:22px; font-weight:900; margin-bottom:6px; }
+.tcard .ttag  {
+  display:inline-block; padding:2px 11px; border-radius:999px;
+  font-size:10px; letter-spacing:1.5px; font-weight:600; margin-bottom:14px;
+}
+.gp  .ttag { background:rgba(168,85,247,.15); color:#c084fc; }
+.gc  .ttag { background:rgba(6,182,212,.15);  color:#22d3ee; }
+.gg  .ttag { background:rgba(16,185,129,.15); color:#34d399; }
+.go  .ttag { background:rgba(245,158,11,.15); color:#fbbf24; }
+.gpk .ttag { background:rgba(236,72,153,.15); color:#f472b6; }
+.tcard .tdesc { font-size:13.5px; color:#9ca3af; line-height:1.75; position:relative; z-index:1; }
+.tcard .tlink { display:inline-block; margin-top:14px; font-size:12px; color:#6b7280; text-decoration:none; transition:color .2s; }
+.gp  .tlink:hover { color:#c084fc; }
+.gc  .tlink:hover { color:#22d3ee; }
+.gg  .tlink:hover { color:#34d399; }
+.go  .tlink:hover { color:#fbbf24; }
+
+/* ── PYRAMID ────────────────────────────────── */
+.pyramid { display:flex; flex-direction:column; gap:7px; }
+.prow { display:flex; align-items:stretch; gap:14px; }
+.pn {
+  width:42px; height:42px; border-radius:50%; flex-shrink:0;
+  display:flex; align-items:center; justify-content:center;
+  font-family:'Frank Ruhl Libre',serif; font-weight:900; font-size:16px;
+  align-self:center;
+}
+.pb {
+  flex:1; padding:16px 22px; border-radius:12px;
+  font-size:14px; line-height:1.7; position:relative;
+  transition:filter .25s, transform .25s;
+}
+.pb:hover { filter:brightness(1.18); transform:translateX(-4px); }
+.pb strong { color:#c084fc; }
+
+.p1 .pn{background:rgba(168,85,247,.9);color:#fff;}       .p1 .pb{background:linear-gradient(135deg,rgba(168,85,247,.28),rgba(168,85,247,.12));border:1px solid rgba(168,85,247,.5);}
+.p2 .pn{background:rgba(168,85,247,.72);color:#fff;}       .p2 .pb{background:linear-gradient(135deg,rgba(168,85,247,.2),rgba(168,85,247,.09));border:1px solid rgba(168,85,247,.38);}
+.p3 .pn{background:rgba(168,85,247,.5);color:#fff;}        .p3 .pb{background:linear-gradient(135deg,rgba(168,85,247,.14),rgba(168,85,247,.06));border:1px solid rgba(168,85,247,.26);}
+.p4 .pn{background:rgba(168,85,247,.3);color:#c084fc;}     .p4 .pb{background:linear-gradient(135deg,rgba(168,85,247,.09),rgba(168,85,247,.04));border:1px solid rgba(168,85,247,.18);}
+.p5 .pn{background:rgba(168,85,247,.14);color:#c084fc;}    .p5 .pb{background:linear-gradient(135deg,rgba(168,85,247,.05),rgba(168,85,247,.02));border:1px solid rgba(168,85,247,.12);}
+
+/* ── STEPS ──────────────────────────────────── */
+.steps { display:flex; flex-direction:column; gap:0; position:relative; }
+.steps::before {
+  content:''; position:absolute;
+  right:20px; top:44px; bottom:44px;
+  width:2px;
+  background:linear-gradient(to bottom,rgba(168,85,247,.7),rgba(168,85,247,.05));
+}
+.step { display:flex; gap:18px; padding:18px 0; }
+.sc {
+  width:42px; height:42px; border-radius:50%; flex-shrink:0;
+  border:2px solid #a855f7;
+  background:#0c0c18;
+  display:flex; align-items:center; justify-content:center;
+  font-family:'Frank Ruhl Libre',serif; font-weight:900; font-size:16px;
+  color:#c084fc; position:relative; z-index:1;
+  transition:all .3s;
+}
+.step:hover .sc { background:#a855f7; color:#fff; box-shadow:0 0 18px rgba(168,85,247,.5); }
+.sbody { padding-top:8px; }
+.stitle { font-size:16px; font-weight:700; margin-bottom:5px; }
+.sdesc  { font-size:14px; color:#9ca3af; line-height:1.75; }
+
+/* ── PROMPT BOX ─────────────────────────────── */
+.pbox {
+  background:#08081a;
+  border:1px solid rgba(168,85,247,.25);
+  border-radius:20px; padding:30px;
+  position:relative; overflow:hidden;
+}
+.pbox::before {
+  content:''; position:absolute; inset:0;
+  background:linear-gradient(135deg,rgba(168,85,247,.06) 0%,transparent 50%);
+  pointer-events:none;
+}
+.pbox-label {
+  position:absolute; top:0; right:24px;
+  background:#5b21b6; padding:4px 16px;
+  border-radius:0 0 10px 10px;
+  font-size:10px; letter-spacing:2px; color:rgba(255,255,255,.85);
+}
+.prow2 { display:flex; gap:10px; margin-bottom:11px; font-size:14px; line-height:1.75; align-items:flex-start; }
+.ptag {
+  flex-shrink:0; padding:1px 10px; border-radius:6px;
+  font-size:9.5px; font-weight:700; letter-spacing:1.2px; margin-top:4px;
+}
+.tp  { background:rgba(245,158,11,.2);  color:#fbbf24; }
+.tu  { background:rgba(6,182,212,.2);   color:#22d3ee; }
+.tg  { background:rgba(168,85,247,.2);  color:#c084fc; }
+.tf  { background:rgba(16,185,129,.2);  color:#34d399; }
+.tn  { background:rgba(236,72,153,.2);  color:#f472b6; }
+.ts  { background:rgba(139,92,246,.2);  color:#a78bfa; }
+
+/* ── HIGHLIGHT ──────────────────────────────── */
+.hl {
+  background:linear-gradient(135deg,rgba(109,40,217,.24) 0%,rgba(6,182,212,.1) 100%);
+  border:1px solid rgba(168,85,247,.3);
+  border-radius:22px; padding:44px; text-align:center;
+  position:relative; overflow:hidden;
+}
+.hl::before {
+  content:''; position:absolute;
+  top:-80px; left:50%; transform:translateX(-50%);
+  width:340px; height:340px;
+  background:radial-gradient(circle,rgba(168,85,247,.18) 0%,transparent 70%);
+  pointer-events:none;
+}
+
+/* ── SMALL INFO CARDS ───────────────────────── */
+.info-card {
+  background:#101020; border:1px solid rgba(255,255,255,.07);
+  border-radius:16px; padding:24px;
+  transition:border-color .3s, transform .3s;
+}
+.info-card:hover { border-color:rgba(168,85,247,.35); transform:translateY(-4px); }
+
+/* ── NAV DOTS ───────────────────────────────── */
+#ndots {
+  position:fixed; left:20px; top:50%; transform:translateY(-50%);
+  display:flex; flex-direction:column; gap:9px; z-index:200;
+}
+.nd {
+  width:6px; height:6px; border-radius:50%;
+  background:rgba(168,85,247,.3); cursor:pointer;
+  transition:all .3s;
+}
+.nd.on { background:#a855f7; box-shadow:0 0 8px rgba(168,85,247,.7); transform:scale(1.6); }
+@media(max-width:700px){ #ndots{display:none;} }
+
+/* ── DIVIDER ────────────────────────────────── */
+.div {
+  height:1px;
+  background:linear-gradient(90deg,transparent,rgba(168,85,247,.25),rgba(6,182,212,.2),transparent);
+}
+
+/* ── ANIMATIONS ─────────────────────────────── */
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+@keyframes fadeUp { from{opacity:0;transform:translateY(32px)} to{opacity:1;transform:none} }
+@keyframes spinRing { to{transform:translate(-50%,-50%) rotate(360deg)} }
+
+.rev {
+  opacity:0; transform:translateY(38px);
+  transition:opacity .7s ease, transform .7s ease;
+}
+.rev.on { opacity:1; transform:none; }
+.rev:nth-child(2){transition-delay:.07s}
+.rev:nth-child(3){transition-delay:.14s}
+.rev:nth-child(4){transition-delay:.21s}
+.rev:nth-child(5){transition-delay:.28s}
+.rev:nth-child(6){transition-delay:.35s}
+.rev:nth-child(7){transition-delay:.42s}
+.rev:nth-child(8){transition-delay:.49s}
+.rev:nth-child(9){transition-delay:.56s}
+
+/* hero entrance */
+.h1 { animation:fadeUp .9s .0s ease both; }
+.h2 { animation:fadeUp .9s .12s ease both; }
+.h3 { animation:fadeUp .9s .24s ease both; }
+.h4 { animation:fadeUp .9s .36s ease both; }
+.h5 { animation:fadeUp .9s .48s ease both; }
+
+/* orbits on closing */
+.ring {
+  position:absolute; border-radius:50%;
+  top:50%; left:50%;
+  border:1px solid rgba(168,85,247,.1);
+  animation:spinRing 22s linear infinite;
+}
+.ring2 {
+  border-color:rgba(6,182,212,.07);
+  animation-duration:15s;
+  animation-direction:reverse;
+}
+</style>
+</head>
+<body>
+
+<nav id="ndots"></nav>
+
+<!-- ═══════════════════════════════════════════════
+     SLIDE 1  HERO
+═══════════════════════════════════════════════ -->
+<section class="slide s-hero" data-s="1" id="s1">
+  <div class="grid"></div>
+
+  <div class="inner">
+    <div class="cols2">
+
+      <!-- LEFT: text -->
+      <div>
+        <div class="chip h1"><span class="dot"></span>FILM × AI</div>
+
+        <h1 class="display d-xl h2">
+          בינה<br>
+          <span class="grad">מלאכותית</span><br>
+          בהפקת<br>סרטי גמר
+        </h1>
+
+        <p class="h3" style="font-size:19px;color:#9ca3af;margin:22px 0 32px;font-weight:300;line-height:1.7">
+          מהרגע הראשון ועד העריכה הסופית
+        </p>
+
+        <div class="h4" style="display:inline-flex;align-items:center;gap:12px;color:#6b7280;font-size:14px">
+          <span style="color:rgba(168,85,247,.5)">—</span>
+          <span>by tommy cohen</span>
+        </div>
+      </div>
+
+      <!-- RIGHT: film strip -->
+      <div class="h5" style="display:flex;gap:10px;height:460px">
+        <div class="filmstrip" style="flex:1">
+          <div class="frame" style="background:linear-gradient(145deg,#1a0a30,#0d1028)">
+            <div class="perfs"><span class="perf"></span><span class="perf"></span><span class="perf"></span></div>
+            <span class="em">🎬</span>
+          </div>
+          <div class="frame" style="background:linear-gradient(145deg,#0d1a2e,#081a18)">
+            <div class="perfs"><span class="perf"></span><span class="perf"></span><span class="perf"></span></div>
+            <span class="em">🤖</span>
+          </div>
+          <div class="frame" style="background:linear-gradient(145deg,#1a0a18,#280a1a)">
+            <div class="perfs"><span class="perf"></span><span class="perf"></span><span class="perf"></span></div>
+            <span class="em">✨</span>
+          </div>
+        </div>
+        <div class="filmstrip" style="flex:1;margin-top:30px">
+          <div class="frame" style="background:linear-gradient(145deg,#0a1a28,#0a2010)">
+            <div class="perfs"><span class="perf"></span><span class="perf"></span><span class="perf"></span></div>
+            <span class="em">🎥</span>
+          </div>
+          <div class="frame" style="background:linear-gradient(145deg,#1a1008,#28200a)">
+            <div class="perfs"><span class="perf"></span><span class="perf"></span><span class="perf"></span></div>
+            <span class="em">🎵</span>
+          </div>
+          <div class="frame" style="background:linear-gradient(145deg,#0a0a28,#1a0a28)">
+            <div class="perfs"><span class="perf"></span><span class="perf"></span><span class="perf"></span></div>
+            <span class="em">🎙️</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<div class="div"></div>
+
+<!-- ═══════════════════════════════════════════════
+     SLIDE 2  INTRO — קולנוע = רגש
+═══════════════════════════════════════════════ -->
+<section class="slide s-mid" data-s="2" id="s2">
+  <div class="grid"></div>
+  <div class="inner">
+    <div class="cols2">
+
+      <div>
+        <div class="section-label rev">מהות</div>
+        <h2 class="display d-lg rev">
+          קולנוע<br>= <span class="purple">רגש</span>
+        </h2>
+        <p class="lead rev" style="margin-top:20px">
+          בינה מלאכותית היא כלי עצמתי, אך יצירת סרטים מחייבת את הבינה האנושית.
+          כתיבת סיפור, יצירת רגעים קולנועיים ושימוש באמצעי מבע שאינם ניתנים לאוטומציה —
+          הבינה האנושית מסייעת ביישום, עיבוד ושיפור היצירה.
+        </p>
+        <div class="rev" style="margin-top:28px;display:inline-flex;align-items:center;gap:10px;padding:14px 22px;background:rgba(168,85,247,.1);border:1px solid rgba(168,85,247,.25);border-radius:14px">
+          <span style="font-size:22px">💡</span>
+          <span style="font-size:14px;color:#9ca3af;line-height:1.65">
+            <strong style="color:#c084fc">חשוב לציין:</strong><br>
+            קיימים הרבה כלים ובכל יום מתעדכנים. מומלץ לעקוב ולהבין את העיקרון.
+          </span>
+        </div>
+      </div>
+
+      <div>
+        <div class="hl rev">
+          <div class="display d-md rev" style="margin-bottom:18px">
+            שילוב הבינה <span class="purple">המלאכותית</span><br>
+            עם הבינה <span class="gold">האנושית</span>
+          </div>
+          <p class="rev" style="font-size:15px;color:#9ca3af;line-height:1.8">
+            הכלים יוצרים קולנוע חדשני ומשכנע —<br>
+            אבל הלב, הסיפור והרגש הם <strong style="color:#f0eeff">שלכם</strong>
+          </p>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:16px">
+          <div class="info-card rev">
+            <div style="font-size:26px;margin-bottom:10px">🎬</div>
+            <div style="font-size:15px;font-weight:700;margin-bottom:6px">ניסוי ראשון</div>
+            <p style="font-size:13px;color:#9ca3af;line-height:1.7">גרסה ראשונה עם כל כלי ה-AI — מגוגל דוקס ועד פרמייר פרו.</p>
+          </div>
+          <div class="info-card rev">
+            <div style="font-size:26px;margin-bottom:10px">🔄</div>
+            <div style="font-size:15px;font-weight:700;margin-bottom:6px">תהליך איטרטיבי</div>
+            <p style="font-size:13px;color:#9ca3af;line-height:1.7">שיפור בכל שלב — מהתסריט, דרך הצילום ועד העריכה הסופית.</p>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<div class="div"></div>
+
+<!-- ═══════════════════════════════════════════════
+     SLIDE 3  כלי AI חינמיים
+═══════════════════════════════════════════════ -->
+<section class="slide s-dark" data-s="3" id="s3" style="align-items:flex-start;padding-top:90px;padding-bottom:90px">
+  <div class="grid"></div>
+  <div class="inner">
+    <div class="section-label rev">כלי AI</div>
+    <h2 class="display d-lg rev">
+      כלי AI <span class="grad">חינמיים</span><br>ליצירת סרטי גמר
+    </h2>
+    <p class="lead rev" style="margin-bottom:44px;margin-top:14px">בעידן הדיגיטלי, כלי AI הפכו לחלק בלתי נפרד מתהליך יצירת סרטי גמר.</p>
+
+    <div class="cards3">
+
+      <div class="tcard gp rev">
+        <div class="glow"></div><div class="bar"></div>
+        <span class="icon">💬</span>
+        <div class="tname">ChatGPT</div>
+        <div class="ttag">טקסט ▪ סיפור ▪ פרומפט</div>
+        <p class="tdesc">מודל בינה מלאכותית שיודע לייצר טקסטים, לנהל שיחות טבעיות ולהבין שפה על בסיס מידע עצום.</p>
+        <a href="https://chat.openai.com" class="tlink">chat.openai.com ↗</a>
+      </div>
+
+      <div class="tcard gc rev">
+        <div class="glow"></div><div class="bar"></div>
+        <span class="icon">🎨</span>
+        <div class="tname">Google AI Studio</div>
+        <div class="ttag">תמונה ▪ קריינות ▪ טקסט</div>
+        <p class="tdesc">יצירת תמונות מתיאורים טקסטואליים, עריכה, הסרת רקע, שיפור איכות — כל זה עם Gemini.</p>
+        <a href="https://aistudio.google.com" class="tlink">aistudio.google.com ↗</a>
+      </div>
+
+      <div class="tcard gpk rev">
+        <div class="glow" style="background:radial-gradient(circle,rgba(244,114,182,.22) 0%,transparent 70%)"></div>
+        <div class="bar" style="background:linear-gradient(90deg,#ec4899,#be185d)"></div>
+        <span class="icon">🎬</span>
+        <div class="tname">Hailuo AI</div>
+        <div class="ttag" style="background:rgba(236,72,153,.15);color:#f472b6">וידאו ▪ אנימציה</div>
+        <p class="tdesc">פלטפורמה לוידאו — יצירה ועריכת וידאו בעזרת בינה מלאכותית, בצורה פשוטה ונגישה.</p>
+        <a href="https://hailuoai.video" class="tlink" style="">hailuoai.video ↗</a>
+      </div>
+
+      <div class="tcard go rev">
+        <div class="glow"></div><div class="bar"></div>
+        <span class="icon">🎵</span>
+        <div class="tname">SUNO</div>
+        <div class="ttag">מוזיקה ▪ סאונד</div>
+        <p class="tdesc">יצירת מוזיקה מלאה בתוך שניות — שירים, סאונדים ומנגינות, הכל ללא זכויות יוצרים.</p>
+        <a href="https://suno.com" class="tlink">suno.com ↗</a>
+      </div>
+
+      <div class="tcard gp rev">
+        <div class="glow"></div><div class="bar"></div>
+        <span class="icon">🎙️</span>
+        <div class="tname">ElevenLabs</div>
+        <div class="ttag">קריינות ▪ דיבוב</div>
+        <p class="tdesc">50,000 קרדיטים חינם לחודש. כלי במגוון שפות ומבטאים — ניתן ליצור את הקול שלכם.</p>
+        <a href="https://elevenlabs.io" class="tlink">elevenlabs.io ↗</a>
+      </div>
+
+      <div class="tcard gc rev">
+        <div class="glow"></div><div class="bar"></div>
+        <span class="icon">📝</span>
+        <div class="tname">TurboScribe</div>
+        <div class="ttag">כתוביות ▪ תמלול</div>
+        <p class="tdesc">תמיכה בעברית. חינם בינתיים. קל לתפעול ונגיש לתיקונים.</p>
+        <a href="https://turboscribe.ai" class="tlink">turboscribe.ai ↗</a>
+      </div>
+
+      <div class="tcard gg rev">
+        <div class="glow"></div><div class="bar"></div>
+        <span class="icon">🇮🇱</span>
+        <div class="tname">ivrit.ai</div>
+        <div class="ttag">תמלול ▪ עברית</div>
+        <p class="tdesc">חינם לגמרי — פרויקט ישראלי. תמלול עד 30 דקות בקובץ אחד, ללא מטרות רווח.</p>
+        <a href="https://ivrit.ai" class="tlink" style="color:#6b7280">ivrit.ai ↗</a>
+      </div>
+
+      <div class="tcard go rev">
+        <div class="glow"></div><div class="bar"></div>
+        <span class="icon">📻</span>
+        <div class="tname">openai.fm</div>
+        <div class="ttag">קריינות ▪ עברית</div>
+        <p class="tdesc">תומך בעברית. כלי לקריינות בעברית טובה — חינמי לגמרי ופשוט לשימוש.</p>
+        <a href="https://openai.fm" class="tlink">openai.fm ↗</a>
+      </div>
+
+      <div class="tcard gpk rev">
+        <div class="glow" style="background:radial-gradient(circle,rgba(244,114,182,.22) 0%,transparent 70%)"></div>
+        <div class="bar" style="background:linear-gradient(90deg,#ec4899,#be185d)"></div>
+        <span class="icon">🎞️</span>
+        <div class="tname">Adobe Premiere Pro</div>
+        <div class="ttag" style="background:rgba(236,72,153,.15);color:#f472b6">עריכה ▪ AI מובנה</div>
+        <p class="tdesc">הארכת מנגינות, תיקון צבעים, בלאנס אוטומטי, ואופציות AI נוספות ישירות בתוכנה.</p>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<div class="div"></div>
+
+<!-- ═══════════════════════════════════════════════
+     SLIDE 4  פירמידת המחיר
+═══════════════════════════════════════════════ -->
+<section class="slide s-gold-bg" data-s="4" id="s4">
+  <div class="grid"></div>
+  <div class="inner">
+    <div class="cols2 top">
+
+      <div>
+        <div class="section-label rev">מחיר</div>
+        <h2 class="display d-lg rev">
+          האם<br><span class="grad-gold">"זול עולה<br>ביוקר"?</span>
+        </h2>
+        <p class="lead rev" style="margin-top:20px">
+          כיצד מתייחסים לכלי הבינה הנגישים ללא תשלום —
+          וכיצד לנהל את הקרדיטים בצורה חכמה.
+        </p>
+
+        <!-- stat cards -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:32px">
+          <div class="rev" style="padding:20px;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.25);border-radius:14px;text-align:center">
+            <div style="font-size:32px;font-weight:900;font-family:'Frank Ruhl Libre',serif;color:#fbbf24">100</div>
+            <div style="font-size:11px;color:#9ca3af;margin-top:4px;letter-spacing:1px">קרדיטים/יום — Hailuo</div>
+          </div>
+          <div class="rev" style="padding:20px;background:rgba(245,158,11,.1);border:1px solid rgba(245,158,11,.25);border-radius:14px;text-align:center">
+            <div style="font-size:32px;font-weight:900;font-family:'Frank Ruhl Libre',serif;color:#fbbf24">50</div>
+            <div style="font-size:11px;color:#9ca3af;margin-top:4px;letter-spacing:1px">קרדיטים/יום — SUNO</div>
+          </div>
+        </div>
+
+        <div class="rev" style="margin-top:16px;padding:16px 20px;background:rgba(168,85,247,.08);border:1px solid rgba(168,85,247,.2);border-radius:12px">
+          <p style="font-size:13px;color:#9ca3af;line-height:1.7">* בהשתלמות זו נעסוק בכל הפירמידה לפי שלב 1 ו-5</p>
+        </div>
+      </div>
+
+      <div class="pyramid rev">
+        <div class="prow p1">
+          <div class="pn">1</div>
+          <div class="pb"><strong>קניית מנויים לכלים השונים</strong> — אין הגבלות, מהיר, נפתחות אופציות נוספות ועוד.</div>
+        </div>
+        <div class="prow p2">
+          <div class="pn">2</div>
+          <div class="pb"><strong>כלים בתוך תוכנת עריכה (עם רישיון)</strong> — לא חינם! בתי הספר משלמים רישיונות שנתיים.</div>
+        </div>
+        <div class="prow p3">
+          <div class="pn">3</div>
+          <div class="pb"><strong>כלים חינמיים</strong> — ישנם כלים חינמיים לחלוטין ויש עם מגבלות מינימליות.</div>
+        </div>
+        <div class="prow p4">
+          <div class="pn">4</div>
+          <div class="pb"><strong>כלים עם הגבלה מסויימת</strong> — "חינם עם הגבלה" בכמות ביום. לפעמים צריך חשבון נוסף.</div>
+        </div>
+        <div class="prow p5">
+          <div class="pn">5</div>
+          <div class="pb"><strong>כלים עם הגבלה (קרדיטים לא מתחדשים)</strong> — אופציה פחות רצויה לשימוש ממושך.</div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<div class="div"></div>
+
+<!-- ═══════════════════════════════════════════════
+     SLIDE 5  ChatGPT + תורת הפרומפט
+═══════════════════════════════════════════════ -->
+<section class="slide s-navy" data-s="5" id="s5">
+  <div class="grid"></div>
+  <div class="inner">
+    <div class="section-label rev">ChatGPT</div>
+    <h2 class="display d-lg rev">תורת <span class="grad">הפרומפט</span></h2>
+
+    <div class="cols2 top" style="margin-top:36px;gap:50px">
+
+      <!-- LEFT: 4 pillars -->
+      <div>
+        <p class="lead rev" style="margin-bottom:28px">איך כותבים בקשה אפקטיבית ל-AI? ארבעת העמודות שיגרמו לכלי לייצר בדיוק מה שרציתם.</p>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div class="info-card rev" style="border-color:rgba(245,158,11,.2)">
+            <div style="font-size:24px;margin-bottom:8px">🎭</div>
+            <div style="font-size:14px;font-weight:700;color:#fbbf24;margin-bottom:4px">Persona — דמות</div>
+            <p style="font-size:13px;color:#9ca3af">מי אתה רוצה שה-AI יהיה?</p>
+          </div>
+          <div class="info-card rev" style="border-color:rgba(6,182,212,.2)">
+            <div style="font-size:24px;margin-bottom:8px">👤</div>
+            <div style="font-size:14px;font-weight:700;color:#22d3ee;margin-bottom:4px">User — מי אני</div>
+            <p style="font-size:13px;color:#9ca3af">תיאור קצר של ההקשר שלך</p>
+          </div>
+          <div class="info-card rev" style="border-color:rgba(168,85,247,.2)">
+            <div style="font-size:24px;margin-bottom:8px">🎯</div>
+            <div style="font-size:14px;font-weight:700;color:#c084fc;margin-bottom:4px">Goal — מטרה</div>
+            <p style="font-size:13px;color:#9ca3af">מה אתה רוצה לקבל?</p>
+          </div>
+          <div class="info-card rev" style="border-color:rgba(16,185,129,.2)">
+            <div style="font-size:24px;margin-bottom:8px">📋</div>
+            <div style="font-size:14px;font-weight:700;color:#34d399;margin-bottom:4px">Format — פורמט</div>
+            <p style="font-size:13px;color:#9ca3af">איך זה יוגש לך?</p>
+          </div>
+        </div>
+
+        <!-- tips -->
+        <div class="rev" style="margin-top:18px;padding:18px 22px;background:rgba(168,85,247,.08);border:1px solid rgba(168,85,247,.2);border-radius:14px">
+          <div style="font-size:13.5px;color:#9ca3af;line-height:1.9">
+            <div style="font-weight:700;color:#c084fc;margin-bottom:8px">✅ טיפים לכתיבה נכונה</div>
+            • כתבו באנגלית (או גם בעברית)<br>
+            • בחרו סגנון ברור<br>
+            • בקשו מהצ'אט לשאול אתכם שאלות<br>
+            • השתמשו בדרך השלילה — מה לא לעשות
+          </div>
+        </div>
+      </div>
+
+      <!-- RIGHT: prompt demo -->
+      <div>
+        <div class="pbox rev">
+          <div class="pbox-label">הפרומפט האולטימטיבי</div>
+
+          <div style="height:20px"></div>
+
+          <div class="prow2">
+            <span class="ptag tp">דמות</span>
+            <span>אתה אמן קונספט מומחה לסרטי אנימציה.</span>
+          </div>
+          <div class="prow2">
+            <span class="ptag tu">מי אני</span>
+            <span>אני סטודנט לקולנוע בישראל ויוצר לוח הגיבורה.</span>
+          </div>
+          <div class="prow2">
+            <span class="ptag tg">מטרה</span>
+            <span>אני רוצה לפתח את המשלב הראשון ועד לתסריט גמור לסרט קצר.</span>
+          </div>
+          <div class="prow2">
+            <span class="ptag ts">סגנון</span>
+            <span>בסגנון ריאליסטי/קומיקס, עם טקסטורה של צבעי מים. השראה: "הסרט הראשון".</span>
+          </div>
+          <div class="prow2">
+            <span class="ptag tf">פורמט</span>
+            <span>כתוב בעברית, בשפה פשוטה, עם הסבר קצר אחרי כל פסקה.</span>
+          </div>
+          <div class="prow2">
+            <span class="ptag tn">שלילה</span>
+            <span>אל תשתמש בטקסט על התמונה, אל תכתוב בסגנון ילדותי.</span>
+          </div>
+        </div>
+
+        <!-- prompt precision chart -->
+        <div class="rev" style="margin-top:18px;padding:22px;background:#08081a;border:1px solid rgba(255,255,255,.06);border-radius:16px">
+          <div style="font-size:13px;color:#6b7280;margin-bottom:14px;letter-spacing:1px">דיוק הפרומפט ↔ איכות התוצאה</div>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <div style="display:flex;align-items:center;gap:10px">
+              <span style="font-size:12px;color:#9ca3af;width:60px;text-align:left">כללי</span>
+              <div style="flex:1;height:8px;background:rgba(255,255,255,.06);border-radius:4px"><div style="width:25%;height:100%;background:#c084fc;border-radius:4px;opacity:.4"></div></div>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px">
+              <span style="font-size:12px;color:#9ca3af;width:60px;text-align:left">בינוני</span>
+              <div style="flex:1;height:8px;background:rgba(255,255,255,.06);border-radius:4px"><div style="width:60%;height:100%;background:#c084fc;border-radius:4px;opacity:.65"></div></div>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px">
+              <span style="font-size:12px;color:#9ca3af;width:60px;text-align:left">מפורט</span>
+              <div style="flex:1;height:8px;background:rgba(255,255,255,.06);border-radius:4px"><div style="width:95%;height:100%;background:linear-gradient(90deg,#c084fc,#22d3ee);border-radius:4px"></div></div>
+            </div>
+          </div>
+          <div style="font-size:12px;color:#6b7280;margin-top:12px">* הכלי מבין פרטים — <span style="color:#c084fc">תנו לו פרטים!</span></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<div class="div"></div>
+
+<!-- ═══════════════════════════════════════════════
+     SLIDE 6  Hailuo AI
+═══════════════════════════════════════════════ -->
+<section class="slide s-hero" data-s="6" id="s6">
+  <div class="grid"></div>
+  <div class="inner">
+    <div class="cols2">
+
+      <div>
+        <div class="section-label rev" style="color:#f472b6">Hailuo AI</div>
+        <h2 class="display d-lg rev">
+          תמונה<br>ל<span style="color:#f472b6">וידאו</span>
+        </h2>
+        <p class="lead rev" style="margin-top:18px">מדריך שלב אחר שלב לשימוש בפלטפורמת הוידאו המובילה של AI.</p>
+
+        <!-- credits card -->
+        <div class="rev" style="margin-top:28px;display:grid;grid-template-columns:1fr 1fr;gap:12px">
+          <div style="padding:22px;background:rgba(244,114,182,.1);border:1px solid rgba(244,114,182,.25);border-radius:16px;text-align:center">
+            <div style="font-size:38px;font-weight:900;font-family:'Frank Ruhl Libre',serif;color:#f472b6;line-height:1">100</div>
+            <div style="font-size:11px;color:#9ca3af;margin-top:6px">קרדיטים ביום</div>
+          </div>
+          <div style="padding:22px;background:rgba(244,114,182,.1);border:1px solid rgba(244,114,182,.25);border-radius:16px;text-align:center">
+            <div style="font-size:38px;font-weight:900;font-family:'Frank Ruhl Libre',serif;color:#f472b6;line-height:1">3</div>
+            <div style="font-size:11px;color:#9ca3af;margin-top:6px">תמונות ביום</div>
+          </div>
+        </div>
+
+        <!-- example prompt -->
+        <div class="rev" style="margin-top:16px;padding:20px;background:#08081a;border:1px solid rgba(244,114,182,.2);border-radius:14px">
+          <div style="font-size:11px;letter-spacing:2px;color:#f472b6;margin-bottom:10px">דוגמת פרומפט</div>
+          <p style="font-size:14px;color:#9ca3af;line-height:1.8">
+            <span style="color:#f0eeff">"דרקון</span> נושף אש
+            <span style="color:#f0eeff">בעולם פנטזיה חלומי."</span>
+            <br><small style="color:#6b7280">מטרה + סצנה + תנועה</small>
+          </p>
+        </div>
+      </div>
+
+      <div class="steps">
+        <div class="step rev">
+          <div class="sc" style="border-color:#f472b6;color:#f472b6">1</div>
+          <div class="sbody">
+            <div class="stitle">כניסה לאתר hailuo.ai</div>
+            <div class="sdesc">תוכנה שיוצרת תמונה לוידאו / טקסט לוידאו / קריינות.</div>
+          </div>
+        </div>
+        <div class="step rev">
+          <div class="sc" style="border-color:#f472b6;color:#f472b6">2</div>
+          <div class="sbody">
+            <div class="stitle">ללא פרומפט — תנו לתוכנה לחשוב</div>
+            <div class="sdesc">יתרון נוסף: הסיכוי לעיוותים יורד משמעותית.</div>
+          </div>
+        </div>
+        <div class="step rev">
+          <div class="sc" style="border-color:#f472b6;color:#f472b6">3</div>
+          <div class="sbody">
+            <div class="stitle">נוסחת פרומפט: מטרה + סצנה + תנועה</div>
+            <div class="sdesc">ספרו מה המוקד, איפה זה קורה, ומה הדמות עושה.</div>
+          </div>
+        </div>
+        <div class="step rev">
+          <div class="sc" style="border-color:#f472b6;color:#f472b6">4</div>
+          <div class="sbody">
+            <div class="stitle">אפשרויות אוטומטיות לתנועות מצלמה</div>
+            <div class="sdesc">בחרו מתנועות מוגדרות מראש לתוצאה קולנועית מקצועית.</div>
+          </div>
+        </div>
+        <div class="step rev">
+          <div class="sc" style="border-color:#f472b6;color:#f472b6">5</div>
+          <div class="sbody">
+            <div class="stitle">הורדה ועריכה בפרמייר פרו</div>
+            <div class="sdesc">ייצאו MP4 ושלבו עם כלי AI נוספים בתוך הפרוגרמה.</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<div class="div"></div>
+
+<!-- ═══════════════════════════════════════════════
+     SLIDE 7  SUNO
+═══════════════════════════════════════════════ -->
+<section class="slide s-mid" data-s="7" id="s7">
+  <div class="grid"></div>
+  <div class="inner">
+    <div class="cols2">
+
+      <div class="steps" style="padding-top:10px">
+        <div class="step rev">
+          <div class="sc" style="border-color:#fbbf24;color:#fbbf24">1</div>
+          <div class="sbody">
+            <div class="stitle">מוזיקה ללא זכויות יוצרים</div>
+            <div class="sdesc">50 קרדיטים ליום = 5 מנגינות × 2 אפשרויות בכל פעם.</div>
+          </div>
+        </div>
+        <div class="step rev">
+          <div class="sc" style="border-color:#fbbf24;color:#fbbf24">2</div>
+          <div class="sbody">
+            <div class="stitle">תומך בעברית</div>
+            <div class="sdesc">אך רצוי לכוון את ChatGPT לתת לכם פרומפט באנגלית לסונו.</div>
+          </div>
+        </div>
+        <div class="step rev">
+          <div class="sc" style="border-color:#fbbf24;color:#fbbf24">3</div>
+          <div class="sbody">
+            <div class="stitle">התכתבות עם הצ'אט לפרומפטים</div>
+            <div class="sdesc">סגנון מוזיקלי: קומדיה רומנטית, פולק אירי, מוזיקה קלאסית.</div>
+          </div>
+        </div>
+        <div class="step rev">
+          <div class="sc" style="border-color:#fbbf24;color:#fbbf24">4</div>
+          <div class="sbody">
+            <div class="stitle">לחיצה חוזרת על "Create"</div>
+            <div class="sdesc">ניתן ללחוץ שוב על אותו פרומפט לקבלת גירסאות נוספות.</div>
+          </div>
+        </div>
+        <div class="step rev">
+          <div class="sc" style="border-color:#fbbf24;color:#fbbf24">5</div>
+          <div class="sbody">
+            <div class="stitle">תוצאות לדוגמה</div>
+            <div class="sdesc" style="display:flex;gap:8px;margin-top:4px;flex-wrap:wrap">
+              <span style="padding:4px 12px;background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.2);border-radius:8px;font-size:12px;color:#fbbf24">🎵 Lost in the Shadows</span>
+              <span style="padding:4px 12px;background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.2);border-radius:8px;font-size:12px;color:#fbbf24">🎶 Love in the Air</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div class="section-label rev" style="color:#fbbf24">SUNO AI</div>
+        <h2 class="display d-lg rev">
+          טקסט<br>ל<span class="grad-gold">מנגינה</span>
+        </h2>
+
+        <!-- suno prompt example -->
+        <div class="rev" style="margin-top:28px;background:#08081a;border:1px solid rgba(245,158,11,.22);border-radius:18px;padding:28px;position:relative;overflow:hidden">
+          <div style="position:absolute;top:0;right:22px;background:#92400e;padding:3px 14px;border-radius:0 0 10px 10px;font-size:10px;letter-spacing:2px;color:rgba(255,255,255,.8)">פרומפט לסונו</div>
+          <div style="height:14px"></div>
+          <p style="font-size:14px;color:#9ca3af;line-height:1.9">
+            <span style="color:#fbbf24">נגיעות קלות של גיטרה אקוסטית ופסנתר,</span>
+            ובהדרגה מתפתחת לארמוניה שמחה ומלאת חיים. הקצב צריך להיות רגוע אך מספיק לשמור על תחושת תנועה ודינמיות. יש לכלול כלי מיתר רכים שיעניקו עומק.
+          </p>
+          <div style="margin-top:14px;padding:10px 16px;background:rgba(245,158,11,.08);border-radius:10px">
+            <span style="font-size:12px;color:#fbbf24">🎼 סגנון מוזיקלי: </span>
+            <span style="font-size:12px;color:#9ca3af">קומדיה רומנטית, פולק אירי, מוזיקה קלאסית</span>
+          </div>
+        </div>
+
+        <!-- waveform visualization -->
+        <div class="rev" style="margin-top:16px;padding:20px;background:#08081a;border:1px solid rgba(255,255,255,.06);border-radius:14px">
+          <div style="display:flex;align-items:center;gap:6px;height:40px">
+            <div style="font-size:18px">🎵</div>
+            <div style="flex:1;display:flex;align-items:center;gap:3px">
+              <div style="height:8px;width:3px;background:#fbbf24;border-radius:2px;opacity:.4"></div>
+              <div style="height:22px;width:3px;background:#fbbf24;border-radius:2px;opacity:.6"></div>
+              <div style="height:35px;width:3px;background:#fbbf24;border-radius:2px"></div>
+              <div style="height:18px;width:3px;background:#fbbf24;border-radius:2px;opacity:.7"></div>
+              <div style="height:28px;width:3px;background:#fbbf24;border-radius:2px;opacity:.9"></div>
+              <div style="height:12px;width:3px;background:#fbbf24;border-radius:2px;opacity:.5"></div>
+              <div style="height:38px;width:3px;background:#fbbf24;border-radius:2px"></div>
+              <div style="height:25px;width:3px;background:#fbbf24;border-radius:2px;opacity:.8"></div>
+              <div style="height:15px;width:3px;background:#fbbf24;border-radius:2px;opacity:.5"></div>
+              <div style="height:30px;width:3px;background:#fbbf24;border-radius:2px;opacity:.9"></div>
+              <div style="height:10px;width:3px;background:#fbbf24;border-radius:2px;opacity:.4"></div>
+              <div style="height:20px;width:3px;background:#fbbf24;border-radius:2px;opacity:.6"></div>
+            </div>
+            <div style="font-size:12px;color:#6b7280">2:34</div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<div class="div"></div>
+
+<!-- ═══════════════════════════════════════════════
+     SLIDE 8  CLOSING
+═══════════════════════════════════════════════ -->
+<section class="slide s-close" data-s="8" id="s8">
+  <div class="ring" style="width:600px;height:600px"></div>
+  <div class="ring ring2" style="width:420px;height:420px"></div>
+  <div class="ring" style="width:260px;height:260px;border-color:rgba(245,158,11,.06);animation-duration:10s"></div>
+  <div class="grid"></div>
+
+  <div class="inner" style="text-align:center">
+    <div class="section-label rev" style="justify-content:center">עתיד</div>
+    <h1 class="display d-xl rev" style="margin-bottom:28px">
+      עתיד עריכת<br><span class="grad">סרטי גמר</span>
+    </h1>
+    <p class="lead rev" style="margin:0 auto;text-align:center;font-size:18px;max-width:620px">
+      שימוש בבינה מלאכותית בעריכת סרטים ימשיך להתפתח. כלים חדשים יופיעו והקיימים יהפכו מתוחכמים יותר. מומלץ לעקוב ולהשתמש בכלים חדשים כדי לשפר את עבודתך.
+    </p>
+
+    <!-- tool pills -->
+    <div class="rev" style="display:flex;justify-content:center;gap:12px;flex-wrap:wrap;margin:44px auto 0">
+      <div style="padding:11px 26px;background:rgba(168,85,247,.14);border:1px solid rgba(168,85,247,.3);border-radius:999px;font-size:14px;color:#c084fc">ChatGPT</div>
+      <div style="padding:11px 26px;background:rgba(6,182,212,.12);border:1px solid rgba(6,182,212,.25);border-radius:999px;font-size:14px;color:#22d3ee">Google AI Studio</div>
+      <div style="padding:11px 26px;background:rgba(244,114,182,.12);border:1px solid rgba(244,114,182,.25);border-radius:999px;font-size:14px;color:#f472b6">Hailuo AI</div>
+      <div style="padding:11px 26px;background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.25);border-radius:999px;font-size:14px;color:#fbbf24">SUNO</div>
+      <div style="padding:11px 26px;background:rgba(16,185,129,.12);border:1px solid rgba(16,185,129,.25);border-radius:999px;font-size:14px;color:#34d399">ElevenLabs</div>
+      <div style="padding:11px 26px;background:rgba(6,182,212,.12);border:1px solid rgba(6,182,212,.25);border-radius:999px;font-size:14px;color:#22d3ee">TurboScribe</div>
+      <div style="padding:11px 26px;background:rgba(16,185,129,.12);border:1px solid rgba(16,185,129,.25);border-radius:999px;font-size:14px;color:#34d399">ivrit.ai</div>
+    </div>
+
+    <div class="rev" style="margin-top:60px;color:#4b5563;font-size:13px;letter-spacing:1px">by tommy cohen</div>
+  </div>
+</section>
+
+<script>
+// Scroll reveal
+const revEls = document.querySelectorAll('.rev');
+const ro = new IntersectionObserver(es => {
+  es.forEach(e => { if(e.isIntersecting) e.target.classList.add('on'); });
+},{threshold:.08,rootMargin:'0px 0px -40px 0px'});
+revEls.forEach(el => ro.observe(el));
+
+// Nav dots
+const slides = document.querySelectorAll('[data-s]');
+const nav = document.getElementById('ndots');
+slides.forEach((_,i) => {
+  const d = document.createElement('div');
+  d.className = 'nd';
+  d.onclick = () => slides[i].scrollIntoView({behavior:'smooth'});
+  nav.appendChild(d);
+});
+const dots = nav.querySelectorAll('.nd');
+const so = new IntersectionObserver(es => {
+  es.forEach(e => {
+    if(e.isIntersecting){
+      dots.forEach(d=>d.classList.remove('on'));
+      const i = [...slides].indexOf(e.target);
+      if(dots[i]) dots[i].classList.add('on');
+    }
+  });
+},{threshold:.5});
+slides.forEach(s=>so.observe(s));
+</script>
+</body>
+</html>
