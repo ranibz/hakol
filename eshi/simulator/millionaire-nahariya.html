@@ -431,7 +431,8 @@ async function logActivity(action, details = {}) {
       ...details
     });
   } catch(e) {
-    console.error('Activity log error:', e);
+    // רישום נכשל — לא חוסם את הפעולה הראשית
+    console.log('Activity log skipped:', e.message);
   }
 }
 
@@ -961,7 +962,13 @@ async function loadLeaderboard() {
       const snap = await db.ref('nahariya-leaderboard').orderByChild('score').once('value');
       const data = snap.val();
       if (data) {
-        state.leaderboard = Object.values(data).sort((a,b) => b.score - a.score || parseFloat(a.avgTime) - parseFloat(b.avgTime));
+        // שמירת _fbKey בכל רשומה כדי לאפשר מחיקה
+        const entries = [];
+        Object.entries(data).forEach(([key, val]) => {
+          val._fbKey = key;
+          entries.push(val);
+        });
+        state.leaderboard = entries.sort((a,b) => b.score - a.score || parseFloat(a.avgTime) - parseFloat(b.avgTime));
       } else {
         state.leaderboard = [];
       }
@@ -1393,21 +1400,39 @@ service cloud.firestore {
 // ==========================================
 async function cleanDuplicateNames() {
   if (!state.isAdmin) return;
-  if (!confirm('לנקות כפילויות? כל שם ישמור רק את 2 הנסיונות הראשונים שלו.')) return;
+  if (!confirm('לנקות כפילויות? כל שם/טלפון ישמור רק את 2 הנסיונות הראשונים שלו.')) return;
 
-  // קיבוץ כל הרשומות לפי שם
-  const byName = {};
+  // קיבוץ לפי טלפון — אם יש. אם אין — לפי שם
+  const byKey = {};
   state.leaderboard.forEach(entry => {
-    const name = (entry.name || '').trim().toLowerCase();
-    if (!byName[name]) byName[name] = [];
-    byName[name].push(entry);
+    let key;
+    if (entry.phone && entry.phone.trim()) {
+      key = 'phone:' + entry.phone.trim();
+    } else {
+      key = 'name:' + (entry.name || '').trim().toLowerCase();
+    }
+    if (!byKey[key]) byKey[key] = [];
+    byKey[key].push(entry);
   });
 
-  // מיון לפי זמן כניסה — הישן ביותר קודם, שמירת שניים ראשונים בלבד
+  // סיכום לקונסול
+  console.log('=== ניקוי כפילויות ===');
+  console.log('סה"כ רשומות:', state.leaderboard.length);
+  Object.entries(byKey).forEach(([key, entries]) => {
+    if (entries.length > 2) console.log(key + ': ' + entries.length + ' רשומות');
+  });
+
+  // מיון חכם: עם timestamp — לפי זמן. בלי — לפי ניקוד
   const toDelete = [];
-  Object.values(byName).forEach(entries => {
+  Object.values(byKey).forEach(entries => {
     if (entries.length <= 2) return;
-    entries.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+    const hasTimestamp = entries.some(e => e.timestamp);
+    if (hasTimestamp) {
+      entries.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+    } else {
+      entries.sort((a, b) => b.score - a.score || parseFloat(a.avgTime||0) - parseFloat(b.avgTime||0));
+    }
+    console.log('נמחקים: ' + (entries.length - 2) + ' מתוך ' + entries.length + ' של ' + (entries[0].name || '?'));
     entries.slice(2).forEach(e => toDelete.push(e));
   });
 
@@ -1416,24 +1441,29 @@ async function cleanDuplicateNames() {
     return;
   }
 
-  if (!confirm(`נמצאו ${toDelete.length} רשומות עודפות. למחוק?`)) return;
+  if (!confirm('נמצאו ' + toDelete.length + ' רשומות עודפות. למחוק?')) return;
 
   // מחיקה מפיירבייס
+  let deleted = 0;
   if (useFirebase) {
     for (const entry of toDelete) {
       if (entry._fbKey) {
         await db.ref('nahariya-leaderboard/' + entry._fbKey).remove();
+        deleted++;
+      } else {
+        console.log('חסר _fbKey לרשומה:', entry.name);
       }
     }
   } else {
-    const toDeleteKeys = new Set(toDelete.map(e => e.timestamp));
-    state.leaderboard = state.leaderboard.filter(e => !toDeleteKeys.has(e.timestamp));
+    const toDeleteKeys = new Set(toDelete.map(e => e.timestamp + '_' + e.name));
+    state.leaderboard = state.leaderboard.filter(e => !toDeleteKeys.has(e.timestamp + '_' + e.name));
     localStorage.setItem('nahariya-lb', JSON.stringify(state.leaderboard));
     renderLeaderboard();
+    deleted = toDelete.length;
   }
 
-  await logActivity('duplicates_cleaned', { deletedCount: toDelete.length, adminAction: true });
-  alert(`נוקו ${toDelete.length} רשומות עודפות בהצלחה!`);
+  try { await logActivity('duplicates_cleaned', { deletedCount: deleted, adminAction: true }); } catch(e) {}
+  alert('נוקו ' + deleted + ' רשומות עודפות בהצלחה!');
 }
 </script>
 </body>
