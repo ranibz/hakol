@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ניהול מורים — אדמין</title>
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@400;700;900&family=Heebo:wght@300;400;500;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<style>
+:root{--paper:#f5f0e8;--paper-dark:#e8e0cc;--ink:#1a1208;--ink-light:#6b5d45;--accent:#8b1a1a;--blue:#2563af;--green:#2d7a2d;--shadow:4px 4px 0 #1a1208;--shadow-sm:2px 2px 0 #1a1208;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;background-image:repeating-linear-gradient(0deg,transparent,transparent 27px,rgba(26,18,8,0.055) 27px,rgba(26,18,8,0.055) 28px);}
+
+/* LOGIN */
+.login-overlay{position:fixed;inset:0;background:rgba(26,18,8,.92);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px;}
+.login-box{background:var(--paper);border:3px solid var(--ink);box-shadow:8px 8px 0 var(--ink);max-width:400px;width:100%;padding:40px;}
+.login-head{background:var(--ink);color:var(--paper);text-align:center;padding:18px;margin:-40px -40px 28px;}
+.login-head h2{font-family:'Frank Ruhl Libre',serif;font-size:26px;font-weight:900;}
+.login-head p{font-size:11px;letter-spacing:3px;text-transform:uppercase;opacity:.6;margin-top:4px;}
+.l-field{margin-bottom:16px;}
+.l-field label{display:block;font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:700;color:var(--ink-light);margin-bottom:6px;}
+.l-field input{width:100%;padding:12px 14px;border:2px solid var(--ink);background:white;font-family:'Heebo',sans-serif;font-size:16px;outline:none;box-shadow:var(--shadow-sm);}
+.l-field input:focus{border-color:var(--accent);box-shadow:3px 3px 0 var(--accent);}
+.l-btn{width:100%;padding:13px;background:var(--ink);color:var(--paper);border:none;font-family:'Frank Ruhl Libre',serif;font-size:19px;font-weight:700;cursor:pointer;box-shadow:var(--shadow);transition:all .15s;}
+.l-btn:hover{background:var(--accent);}
+.l-err{color:var(--accent);font-size:13px;font-weight:700;margin-top:8px;display:none;text-align:center;}
+
+/* MASTHEAD */
+.masthead{background:var(--ink);color:var(--paper);border-bottom:6px double var(--paper-dark);}
+.mh-inner{max-width:1000px;margin:0 auto;padding:0 24px;}
+.mh-top{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #444;font-size:12px;letter-spacing:1px;opacity:.65;}
+.mh-title{text-align:center;padding:18px 0 12px;}
+.mh-title h1{font-family:'Frank Ruhl Libre',serif;font-size:clamp(24px,4vw,44px);font-weight:900;}
+.mh-title p{font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--paper-dark);margin-top:5px;}
+.mh-rule{height:3px;background:var(--paper-dark);margin-bottom:12px;}
+
+/* PAGE */
+.page{max-width:1000px;margin:0 auto;padding:32px 22px 60px;}
+
+/* TABS */
+.tabs{display:flex;border:2px solid var(--ink);margin-bottom:24px;}
+.tab{flex:1;padding:12px;text-align:center;cursor:pointer;font-family:'Frank Ruhl Libre',serif;font-size:17px;font-weight:700;border-left:1px solid var(--ink);background:var(--paper-dark);transition:all .15s;}
+.tab:last-child{border-left:none;}
+.tab.active{background:var(--ink);color:var(--paper);}
+.tab-panel{display:none;}
+.tab-panel.active{display:block;}
+
+/* STATS */
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:24px;}
+.stat{background:white;border:2px solid var(--ink);box-shadow:var(--shadow-sm);padding:16px;text-align:center;}
+.stat-num{font-family:'Frank Ruhl Libre',serif;font-size:36px;font-weight:900;color:var(--accent);line-height:1;}
+.stat-label{font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--ink-light);margin-top:4px;}
+
+/* CARDS */
+.req-card{background:white;border:2px solid var(--ink);box-shadow:var(--shadow-sm);padding:20px 22px;margin-bottom:14px;display:flex;align-items:center;gap:18px;flex-wrap:wrap;}
+.req-card.pending{border-right:5px solid var(--accent);}
+.req-card.approved{border-right:5px solid var(--green);opacity:.75;}
+.req-card.rejected{border-right:5px solid #999;opacity:.6;}
+.req-info{flex:1;min-width:200px;}
+.req-name{font-family:'Frank Ruhl Libre',serif;font-size:19px;font-weight:700;}
+.req-meta{font-size:13px;color:var(--ink-light);margin-top:3px;line-height:1.6;}
+.req-status{font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:700;padding:3px 10px;border:1.5px solid;}
+.req-status.pending{color:var(--accent);border-color:var(--accent);}
+.req-status.approved{color:var(--green);border-color:var(--green);}
+.req-status.rejected{color:#999;border-color:#999;}
+.req-actions{display:flex;gap:8px;flex-wrap:wrap;}
+.act-btn{padding:9px 18px;border:2px solid var(--ink);font-family:'Frank Ruhl Libre',serif;font-size:14px;font-weight:700;cursor:pointer;transition:all .12s;box-shadow:var(--shadow-sm);}
+.act-btn.approve{background:var(--green);color:white;border-color:var(--green);}
+.act-btn.approve:hover{transform:translate(-1px,-1px);box-shadow:3px 3px 0 var(--ink);}
+.act-btn.reject{background:var(--paper-dark);color:var(--ink);}
+.act-btn.reject:hover{background:#ddd;}
+.act-btn.delete{background:var(--accent);color:white;border-color:var(--accent);}
+.act-btn.delete:hover{transform:translate(-1px,-1px);box-shadow:3px 3px 0 var(--ink);}
+.empty{text-align:center;padding:40px;color:var(--ink-light);font-size:16px;font-family:'Frank Ruhl Libre',serif;}
+.pass-display{background:var(--paper-dark);border:1px solid var(--ink);padding:4px 10px;font-family:monospace;font-size:13px;letter-spacing:1px;display:inline-block;margin-top:4px;}
+.footer{margin-top:48px;border-top:2px solid var(--ink);padding-top:14px;text-align:center;font-size:12px;color:var(--ink-light);}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div class="login-overlay" id="login-overlay">
+  <div class="login-box">
+    <div class="login-head"><h2>כניסת מנהל</h2><p>ניהול מורים • גליל מערבי</p></div>
+    <div class="l-field"><label>סיסמת מנהל</label><input id="admin-pass" type="password" placeholder="הזינו סיסמת מנהל" autocomplete="off"></div>
+    <button class="l-btn" onclick="adminLogin()">כניסה ←</button>
+    <div class="l-err" id="l-err">סיסמה שגויה.</div>
+  </div>
+</div>
+
+<!-- MASTHEAD -->
+<header class="masthead">
+  <div class="mh-inner">
+    <div class="mh-top"><span>ממשק מנהל • גליל מערבי</span><span id="mh-time">—</span></div>
+    <div class="mh-title"><h1>ניהול מורים</h1><p>אישור בקשות רישום • צפייה במורים רשומים</p></div>
+    <div class="mh-rule"></div>
+  </div>
+</header>
+
+<div class="page">
+  <div class="stats">
+    <div class="stat"><div class="stat-num" id="s-pending">0</div><div class="stat-label">ממתינות לאישור</div></div>
+    <div class="stat"><div class="stat-num" id="s-approved">0</div><div class="stat-label">מורים פעילים</div></div>
+    <div class="stat"><div class="stat-num" id="s-total">0</div><div class="stat-label">סה"כ בקשות</div></div>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab(0)">⏳ ממתינות לאישור</div>
+    <div class="tab" onclick="switchTab(1)">✅ מורים פעילים</div>
+    <div class="tab" onclick="switchTab(2)">כל הבקשות</div>
+  </div>
+
+  <div class="tab-panel active" id="tp0"><div id="list-pending"><div class="empty">טוען...</div></div></div>
+  <div class="tab-panel" id="tp1"><div id="list-approved"><div class="empty">טוען...</div></div></div>
+  <div class="tab-panel" id="tp2"><div id="list-all"><div class="empty">טוען...</div></div></div>
+
+  <div class="footer">פיתוח: רני בן זאב • גליל מערבי</div>
+</div>
+
+<script>
+const firebaseConfig={apiKey:"AIzaSyCCHvn_ulmiyM56DuslNzNC0Ge6a8i2vhY",authDomain:"tests-fd938.firebaseapp.com",databaseURL:"https://tests-fd938-default-rtdb.europe-west1.firebasedatabase.app",projectId:"tests-fd938",storageBucket:"tests-fd938.firebasestorage.app",messagingSenderId:"586813097412",appId:"1:586813097412:web:39a71b3e0ea03573509091"};
+firebase.initializeApp(firebaseConfig);
+const db=firebase.database();
+
+// סיסמת מנהל — שמורה ב-Firebase ולא בקוד
+const ADMIN_PASS_REF='admin_config/admin_password';
+let allRequests=[];
+
+function adminLogin(){
+  const pass=document.getElementById('admin-pass').value.trim();
+  if(!pass){document.getElementById('l-err').style.display='block';return;}
+  db.ref(ADMIN_PASS_REF).once('value',snap=>{
+    const correct=snap.val();
+    if(pass===correct){
+      document.getElementById('login-overlay').style.display='none';
+      document.getElementById('mh-time').textContent=new Date().toLocaleString('he-IL');
+      loadRequests();
+    } else {
+      document.getElementById('l-err').style.display='block';
+    }
+  });
+}
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&document.getElementById('login-overlay').style.display!=='none')adminLogin();});
+
+function loadRequests(){
+  db.ref('teacher_requests').on('value',snap=>{
+    allRequests=[];
+    snap.forEach(child=>{
+      const d=child.val();
+      if(!d.status) d.status='pending'; // רשומות ללא status — טפל כממתינות
+      if(d.name) allRequests.push({key:child.key,...d}); // התעלם מרשומות ריקות
+    });
+    allRequests.sort((a,b)=>b.requestedAt-a.requestedAt);
+    updateStats();
+    renderAll();
+  });
+}
+
+function updateStats(){
+  const pending=allRequests.filter(r=>r.status==='pending').length;
+  const approved=allRequests.filter(r=>r.status==='approved').length;
+  document.getElementById('s-pending').textContent=pending;
+  document.getElementById('s-approved').textContent=approved;
+  document.getElementById('s-total').textContent=allRequests.length;
+}
+
+function renderAll(){
+  renderList('list-pending',allRequests.filter(r=>r.status==='pending'));
+  renderList('list-approved',allRequests.filter(r=>r.status==='approved'));
+  renderList('list-all',allRequests);
+}
+
+function renderList(containerId,items){
+  const el=document.getElementById(containerId);
+  if(!items.length){el.innerHTML='<div class="empty">אין רשומות להצגה.</div>';return;}
+  el.innerHTML=items.map(r=>{
+    const dt=new Date(r.requestedAt).toLocaleString('he-IL');
+    const statusLabel={pending:'ממתין',approved:'מאושר',rejected:'נדחה'}[r.status]||r.status;
+    let actions='';
+    if(r.status==='pending'){
+      actions=`<button class="act-btn approve" data-key="${r.key}" onclick="approveRequest(this.dataset.key)">✓ אשר</button>
+               <button class="act-btn reject" data-key="${r.key}" onclick="rejectRequest(this.dataset.key)">✕ דחה</button>`;
+    } else if(r.status==='approved'){
+      actions=`<button class="act-btn delete" data-key="${r.key}" onclick="revokeRequest(this.dataset.key)">בטל אישור</button>`;
+    }
+    return `<div class="req-card ${r.status}">
+      <div class="req-info">
+        <div class="req-name">${r.name}</div>
+        <div class="req-meta">
+          🏫 ${r.school} &nbsp;|&nbsp; 📞 ${r.phone}<br>
+          🔑 סיסמה מבוקשת: <span class="pass-display">${r.passwordRequested}</span><br>
+          🕐 ${dt}
+        </div>
+      </div>
+      <span class="req-status ${r.status}">${statusLabel}</span>
+      <div class="req-actions">${actions}</div>
+    </div>`;
+  }).join('');
+}
+
+async function approveRequest(key){
+  console.log('approveRequest called with key:', key);
+  const req=allRequests.find(r=>r.key===key);
+  console.log('found req:', req);
+  if(!req){alert('שגיאה: לא נמצאה הבקשה');return;}
+  if(!confirm(`לאשר את ${req.name} מ-${req.school}?`))return;
+  try{
+    await db.ref('teacher_requests/'+key).update({status:'approved',approvedAt:Date.now()});
+    await db.ref('teachers/'+key).set({
+      name:req.name,school:req.school,phone:req.phone,
+      password:req.passwordRequested,
+      status:'approved',approvedAt:Date.now()
+    });
+    console.log('teacher saved successfully:', key);
+  }catch(e){
+    console.error('error saving teacher:', e);
+    alert('שגיאה בשמירה: '+e.message);
+  }
+}
+
+async function rejectRequest(key){
+  const req=allRequests.find(r=>r.key===key);
+  if(!req)return;
+  if(!confirm(`לדחות את ${req.name}?`))return;
+  await db.ref('teacher_requests/'+key).update({status:'rejected'});
+}
+
+async function revokeRequest(key){
+  const req=allRequests.find(r=>r.key===key);
+  if(!req)return;
+  if(!confirm(`לבטל את האישור של ${req.name}? הם לא יוכלו להיכנס יותר.`))return;
+  await db.ref('teacher_requests/'+key).update({status:'pending'});
+  await db.ref('teachers/'+key).remove();
+}
+
+function switchTab(i){
+  document.querySelectorAll('.tab').forEach((t,j)=>t.classList.toggle('active',i===j));
+  document.querySelectorAll('.tab-panel').forEach((p,j)=>p.classList.toggle('active',i===j));
+}
+</script>
+</body>
+</html>
