@@ -112,10 +112,13 @@
       <h2>סביבת מורה</h2>
       <p>מסגור תקשורתי</p>
     </div>
-    <label class="modal-label">קוד הכיתה שלי</label>
-    <input class="modal-input" id="inp-code" type="text" placeholder="הקוד שלי" autocomplete="off" maxlength="20">
+    <label class="modal-label">סיסמה אישית</label>
+    <input class="modal-input" id="inp-pass" type="password" placeholder="הסיסמה שבחרתם בהרשמה" autocomplete="off">
+    <label class="modal-label" style="margin-top:12px;">קוד כיתה</label>
+    <input class="modal-input" id="inp-code" type="text" placeholder="הקוד שנתתם לתלמידים" autocomplete="off" maxlength="20">
     <button class="modal-btn" onclick="login()">כניסה ←</button>
-    <div class="modal-error" id="modal-err">יש להזין קוד.</div>
+    <div class="modal-error" id="modal-err"></div>
+    <div style="margin-top:14px;text-align:center;font-size:13px;color:var(--ink-light);">עדיין לא רשומים? <a href="teacher-register.html" style="color:var(--accent);font-weight:700;">בקשת רישום</a></div>
   </div>
 </div>
 
@@ -203,12 +206,30 @@ const ANSWER_LABELS = {
 let myCode='', allRows=[], filtered=[];
 
 function login(){
+  const pass=document.getElementById('inp-pass').value.trim();
   const code=document.getElementById('inp-code').value.trim();
-  if(!code){document.getElementById('modal-err').style.display='block';return;}
-  myCode=code;
-  document.getElementById('badge-code').textContent=code;
-  document.getElementById('modal').style.display='none';
-  loadData();
+  const err=document.getElementById('modal-err');
+  err.style.display='none';
+  if(!pass||!code){err.textContent='יש למלא סיסמה וקוד כיתה.';err.style.display='block';return;}
+  const btn=document.querySelector('.modal-btn');
+  btn.textContent='מאמת...';btn.disabled=true;
+  db.ref('teachers').once('value',snap=>{
+    let found=false;
+    snap.forEach(child=>{
+      const t=child.val();
+      if(t.password===pass&&t.status==='approved')found=true;
+    });
+    if(found){
+      myCode=code;
+      document.getElementById('badge-code').textContent=code;
+      document.getElementById('modal').style.display='none';
+      loadData();
+    } else {
+      err.textContent='סיסמה שגויה או משתמש לא מאושר. פנו למנהל המערכת.';
+      err.style.display='block';
+      btn.textContent='כניסה ←';btn.disabled=false;
+    }
+  });
 }
 document.addEventListener('keydown',e=>{
   if(e.key==='Enter'&&document.getElementById('modal').style.display!=='none')login();
