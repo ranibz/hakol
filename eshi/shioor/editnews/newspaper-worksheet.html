@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>עריכת עיתון — מטלה</title>
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@400;700;900&family=Heebo:wght@300;400;500;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<style>
+:root{
+  --paper:#f5f0e8;--paper-dark:#e8e0cc;--paper-mid:#ede5d0;
+  --ink:#1a1208;--ink-light:#6b5d45;
+  --accent:#8b1a1a;--blue:#2563af;--green:#2d7a2d;
+  --shadow:4px 4px 0 #1a1208;--shadow-sm:2px 2px 0 #1a1208;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;line-height:1.7;background-image:repeating-linear-gradient(0deg,transparent,transparent 27px,rgba(26,18,8,.055) 27px,rgba(26,18,8,.055) 28px);}
+
+/* ── MODAL ── */
+.modal-overlay{position:fixed;inset:0;background:rgba(26,18,8,.93);z-index:1000;display:flex;align-items:center;justify-content:center;padding:16px;}
+.modal-box{background:var(--paper);border:3px solid var(--ink);box-shadow:8px 8px 0 var(--ink);max-width:400px;width:100%;padding:36px;}
+.modal-head{background:var(--ink);color:var(--paper);text-align:center;padding:14px 20px;margin:-36px -36px 24px;}
+.modal-head h2{font-family:'Frank Ruhl Libre',serif;font-size:24px;font-weight:900;}
+.modal-head p{font-size:11px;letter-spacing:3px;text-transform:uppercase;opacity:.55;margin-top:3px;}
+.m-field{margin-bottom:14px;}
+.m-field label{display:block;font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:700;color:var(--ink-light);margin-bottom:4px;}
+.m-field input{width:100%;padding:11px 13px;border:2px solid var(--ink);background:white;font-family:'Heebo',sans-serif;font-size:16px;color:var(--ink);box-shadow:var(--shadow-sm);outline:none;}
+.m-field input:focus{border-color:var(--accent);}
+.m-btn{width:100%;padding:12px;background:var(--ink);color:var(--paper);border:none;font-family:'Frank Ruhl Libre',serif;font-size:18px;font-weight:700;cursor:pointer;box-shadow:var(--shadow);transition:all .15s;margin-top:4px;}
+.m-btn:hover{background:var(--accent);}
+.m-btn:disabled{background:#999;cursor:default;}
+
+/* ── PROGRESS ── */
+.progress-bar{position:sticky;top:0;z-index:100;background:var(--ink);padding:9px 20px;display:flex;align-items:center;gap:14px;}
+.progress-label{color:var(--paper);font-size:12px;font-weight:500;white-space:nowrap;}
+.progress-track{flex:1;height:7px;background:rgba(255,255,255,.15);}
+.progress-fill{height:100%;background:linear-gradient(90deg,var(--accent),#c0392b);transition:width .4s;}
+.progress-pct{color:var(--paper);font-size:12px;font-weight:700;white-space:nowrap;}
+
+/* ── MASTHEAD ── */
+.masthead{background:var(--ink);color:var(--paper);border-bottom:6px double #555;}
+.mh-inner{max-width:860px;margin:0 auto;padding:0 20px;}
+.mh-top{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #444;font-size:11px;letter-spacing:1px;opacity:.6;}
+.mh-title{text-align:center;padding:14px 0 10px;}
+.mh-title h1{font-family:'Frank Ruhl Libre',serif;font-size:clamp(22px,5vw,42px);font-weight:900;line-height:1;}
+.mh-title p{font-size:11px;letter-spacing:3px;text-transform:uppercase;color:#aaa;margin-top:4px;}
+.mh-rule{height:3px;background:#555;margin-bottom:8px;}
+.student-badge{display:flex;justify-content:center;gap:24px;padding-bottom:10px;font-size:12px;color:#ccc;}
+.student-badge strong{font-family:'Frank Ruhl Libre',serif;font-size:14px;color:white;}
+
+/* ── PHASES ── */
+.page{max-width:860px;margin:0 auto;padding:24px 16px 60px;}
+.phase{display:none;}
+.phase.active{display:block;}
+.phase-title{font-family:'Frank Ruhl Libre',serif;font-size:26px;font-weight:900;border-bottom:3px double var(--ink);padding-bottom:8px;margin-bottom:16px;}
+.phase-intro{background:white;border:2px solid var(--ink);box-shadow:var(--shadow-sm);padding:14px 18px;margin-bottom:18px;font-size:14px;line-height:1.7;}
+
+/* ── PHASE 1: RATING ── */
+.news-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;}
+.news-card{background:white;border:2px solid var(--ink);box-shadow:var(--shadow-sm);padding:16px;}
+.news-card h3{font-family:'Frank Ruhl Libre',serif;font-size:15px;margin-bottom:3px;line-height:1.3;}
+.news-card .sub{font-size:12px;color:var(--ink-light);margin-bottom:10px;line-height:1.45;}
+.criteria-checks{display:flex;flex-wrap:wrap;gap:5px;}
+.crit-btn{padding:5px 9px;font-size:11px;font-weight:700;border:2px solid var(--ink);background:var(--paper-dark);cursor:pointer;transition:all .15s;font-family:'Heebo',sans-serif;display:flex;align-items:center;gap:4px;}
+.crit-btn.checked{background:var(--ink);color:var(--paper);}
+.crit-btn .pts{font-size:10px;opacity:.55;background:rgba(0,0,0,.08);padding:0 3px;border-radius:2px;}
+.crit-btn.checked .pts{background:rgba(255,255,255,.15);opacity:.7;}
+.news-score{margin-top:10px;font-size:14px;font-weight:700;color:var(--accent);font-family:'Frank Ruhl Libre',serif;}
+.score-bar{height:5px;background:var(--paper-dark);margin-top:5px;}
+.score-bar-fill{height:100%;background:var(--accent);transition:width .3s;}
+
+/* ── PHASE 2: SELECT ── */
+.select-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;}
+.select-card{background:white;border:2px solid var(--ink);box-shadow:var(--shadow-sm);padding:14px;cursor:pointer;position:relative;transition:all .18s;}
+.select-card:active{transform:scale(.97);}
+.select-card.chosen{background:#f0fff0;border-color:var(--green);}
+.check-mark{position:absolute;top:8px;left:10px;background:var(--green);color:white;width:20px;height:20px;border-radius:50%;display:none;align-items:center;justify-content:center;font-size:12px;font-weight:700;}
+.select-card.chosen .check-mark{display:flex;}
+.select-card.full:not(.chosen){opacity:.4;pointer-events:none;}
+.score-pill{display:inline-block;background:var(--paper-dark);border:1px solid var(--ink-light);padding:2px 8px;font-size:11px;font-weight:700;margin-bottom:5px;}
+.score-pill.high{background:#fff3cd;border-color:#c8a000;color:#7a5c00;}
+.counter{text-align:center;margin-bottom:14px;font-family:'Frank Ruhl Libre',serif;font-size:19px;}
+.counter span{color:var(--accent);}
+
+/* ── PHASE 3: ARRANGE ── */
+.arrange-hint{background:var(--paper-dark);border:2px solid var(--ink);padding:10px 14px;margin-bottom:14px;font-size:13px;text-align:center;font-weight:500;}
+.arrange-hint strong{color:var(--accent);}
+
+/* NEWSPAPER */
+.np-wrapper{border:3px solid var(--ink);background:white;box-shadow:var(--shadow);}
+.np-masthead{background:var(--ink);color:var(--paper);text-align:center;padding:10px 16px 12px;border-bottom:4px double #555;}
+.np-masthead .np-date{font-size:10px;opacity:.45;letter-spacing:1px;margin-bottom:2px;}
+.np-masthead h2{font-family:'Frank Ruhl Libre',serif;font-size:clamp(20px,5vw,36px);font-weight:900;letter-spacing:-1px;line-height:1;}
+.np-masthead .np-edition{font-size:9px;opacity:.35;letter-spacing:2px;text-transform:uppercase;margin-top:3px;}
+
+/* Grid rows */
+.np-body{padding:0;}
+.np-row{display:grid;gap:0;}
+.np-row+.np-row{border-top:2px solid var(--ink);}
+.np-row-1{grid-template-columns:3fr 2fr;}
+.np-row-2{grid-template-columns:1fr 1fr 1fr;}
+.np-row-3{grid-template-columns:1fr 1fr;}
+
+.np-cell{position:relative;padding:12px;border-right:1px solid var(--ink);cursor:pointer;transition:background .15s;}
+.np-cell:last-child{border-right:none;}
+
+/* Empty slot */
+.np-cell.slot-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;color:#bbb;background:var(--paper);}
+.np-cell.slot-empty .slot-icon{font-size:18px;margin-bottom:3px;}
+.np-cell.slot-empty .slot-role{font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;}
+.np-cell.slot-waiting{background:#fff8e8 !important;outline:3px dashed var(--accent);outline-offset:-4px;animation:pulse-border .9s ease-in-out infinite;}
+@keyframes pulse-border{0%,100%{outline-color:var(--accent)}50%{outline-color:#f0c040}}
+.np-cell.slot-filled{background:white;cursor:default;}
+.np-cell.slot-filled:hover{background:#fdfcf8;}
+
+/* Story content by size */
+.story-kicker{font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--accent);margin-bottom:4px;}
+.story-rule{width:100%;height:2px;background:var(--ink);margin:5px 0 7px;}
+
+.slot-main .story-headline{font-family:'Frank Ruhl Libre',serif;font-size:clamp(17px,3.5vw,26px);font-weight:900;line-height:1.15;margin-bottom:5px;}
+.slot-main .story-sub{font-size:12px;color:var(--ink-light);line-height:1.5;}
+.slot-main .story-kicker,.slot-main .story-rule{display:block;}
+
+.slot-secondary .story-headline{font-family:'Frank Ruhl Libre',serif;font-size:clamp(13px,2.5vw,18px);font-weight:700;line-height:1.25;margin-bottom:3px;}
+.slot-secondary .story-sub{font-size:11px;color:var(--ink-light);line-height:1.4;}
+.slot-secondary .story-kicker{display:block;font-size:8px;}
+.slot-secondary .story-rule{display:none;}
+
+.slot-small .story-headline{font-family:'Frank Ruhl Libre',serif;font-size:clamp(11px,2vw,14px);font-weight:700;line-height:1.3;}
+.slot-small .story-sub,.slot-small .story-kicker,.slot-small .story-rule{display:none;}
+
+.slot-tiny .story-headline{font-family:'Frank Ruhl Libre',serif;font-size:11px;font-weight:700;line-height:1.3;}
+.slot-tiny .story-sub,.slot-tiny .story-kicker,.slot-tiny .story-rule{display:none;}
+
+.remove-btn{position:absolute;top:3px;left:3px;background:var(--accent);color:white;border:none;width:16px;height:16px;font-size:9px;cursor:pointer;display:none;align-items:center;justify-content:center;font-weight:700;z-index:2;}
+.np-cell.slot-filled:hover .remove-btn{display:flex;}
+.slot-role-tag{position:absolute;bottom:3px;right:5px;font-size:8px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#ccc;}
+
+/* Min heights */
+.np-row-1 .np-cell{min-height:140px;}
+@media(min-width:480px){.np-row-1 .np-cell{min-height:190px;}}
+.np-row-2 .np-cell{min-height:100px;}
+.np-row-3 .np-cell{min-height:80px;}
+
+/* Arrange list below newspaper */
+.news-list-arrange{display:flex;flex-direction:column;gap:7px;margin-top:14px;}
+.arrange-item{background:white;border:2px solid var(--ink);box-shadow:var(--shadow-sm);padding:11px 14px;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:10px;}
+.arrange-item:active{transform:scale(.98);}
+.arrange-item.selected-to-place{background:var(--accent);color:var(--paper);border-color:var(--accent);box-shadow:var(--shadow);}
+.arrange-item.placed{opacity:.28;pointer-events:none;}
+.arrange-item .ai-title{font-family:'Frank Ruhl Libre',serif;font-size:14px;flex:1;line-height:1.3;}
+.arrange-item .ai-score{font-size:11px;font-weight:700;white-space:nowrap;color:var(--ink-light);}
+.arrange-item.selected-to-place .ai-score{color:rgba(255,255,255,.65);}
+
+/* ── PHASE 4: JUSTIFY ── */
+.justify-block{background:white;border:2px solid var(--ink);box-shadow:var(--shadow-sm);padding:16px 18px;margin-bottom:12px;}
+.justify-block h4{font-family:'Frank Ruhl Libre',serif;font-size:15px;margin-bottom:8px;}
+.justify-block .slot-tag{display:inline-block;background:var(--accent);color:white;padding:2px 8px;font-size:11px;font-weight:700;margin-bottom:8px;}
+.mic-wrap{display:flex;align-items:flex-start;gap:8px;}
+.mic-wrap textarea{flex:1;padding:9px 12px;border:2px solid var(--ink);background:var(--paper);font-family:'Heebo',sans-serif;font-size:14px;resize:none;min-height:72px;outline:none;line-height:1.6;}
+.mic-wrap textarea:focus{border-color:var(--accent);}
+.mic-btn{flex-shrink:0;width:34px;height:34px;background:var(--ink);color:var(--paper);border:none;cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;}
+.mic-btn.recording{background:var(--accent);animation:pulse-rec 1s infinite;}
+@keyframes pulse-rec{0%,100%{opacity:1}50%{opacity:.6}}
+
+/* ── BUTTONS ── */
+.phase-btn{padding:11px 26px;background:var(--ink);color:var(--paper);border:none;font-family:'Frank Ruhl Libre',serif;font-size:17px;font-weight:700;cursor:pointer;box-shadow:var(--shadow);transition:all .15s;margin-top:18px;}
+.phase-btn:hover{background:var(--accent);}
+.phase-btn.secondary{background:var(--paper-dark);color:var(--ink);border:2px solid var(--ink);}
+.btn-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px;}
+.submit-btn{padding:13px 30px;background:var(--green);color:white;border:none;font-family:'Frank Ruhl Libre',serif;font-size:19px;font-weight:900;cursor:pointer;box-shadow:var(--shadow);}
+
+/* ── SUCCESS ── */
+.success-box{text-align:center;padding:40px 20px;background:white;border:3px solid var(--green);box-shadow:var(--shadow);}
+.success-box h2{font-family:'Frank Ruhl Libre',serif;font-size:30px;font-weight:900;color:var(--green);margin-bottom:8px;}
+</style>
+</head>
+<body>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modal">
+  <div class="modal-box">
+    <div class="modal-head"><h2>כניסה למטלה</h2><p>עריכת עיתון</p></div>
+    <div class="m-field"><label>שם מלא</label><input id="inp-name" type="text" placeholder="הכנס/י שם מלא" autocomplete="off"></div>
+    <div class="m-field"><label>כיתה</label><input id="inp-class" type="text" placeholder="למשל: י׳2" autocomplete="off"></div>
+    <div class="m-field"><label>קוד מורה</label><input id="inp-code" type="text" placeholder="הקוד שקיבלת מהמורה" autocomplete="off"></div>
+    <button class="m-btn" id="enter-btn" onclick="enterWorksheet()" disabled>כניסה למטלה ←</button>
+  </div>
+</div>
+
+<!-- PROGRESS -->
+<div class="progress-bar" id="progress-bar" style="display:none">
+  <span class="progress-label" id="progress-label">שלב 1/4</span>
+  <div class="progress-track"><div class="progress-fill" id="progress-fill" style="width:25%"></div></div>
+  <span class="progress-pct" id="progress-pct">25%</span>
+</div>
+
+<!-- MASTHEAD -->
+<header class="masthead" id="masthead" style="display:none">
+  <div class="mh-inner">
+    <div class="mh-top"><span>מטלה • תקשורת ועיתונות</span><span>גליל מערבי</span></div>
+    <div class="mh-title"><h1>עורך/ת העיתון</h1><p>דרגו • בחרו • ערכו • נמקו</p></div>
+    <div class="mh-rule"></div>
+    <div class="student-badge"><span>שם: <strong id="badge-name">—</strong></span><span>כיתה: <strong id="badge-class">—</strong></span></div>
+  </div>
+</header>
+
+<div class="page" id="main-page" style="display:none">
+
+  <!-- PHASE 1 -->
+  <div class="phase active" id="phase-1">
+    <div class="phase-title">שלב א׳ — דירוג ערך חדשותי</div>
+    <div class="phase-intro">
+      לפניכם 12 ידיעות. <strong>סמנו לכל ידיעה את הקריטריונים שמתקיימים בה.</strong><br>
+      שימו לב: <strong>חשיבות</strong> שווה 3 נקודות, <strong>רלוונטיות/עדכניות/ייחודיות</strong> — 2 נקודות, <strong>עניין אנושי/אישיות מפורסמת</strong> — נקודה אחת.
+    </div>
+    <div class="news-cards" id="rating-cards"></div>
+    <div class="btn-row"><button class="phase-btn" onclick="goPhase(2)">המשך לבחירת ידיעות ←</button></div>
+  </div>
+
+  <!-- PHASE 2 -->
+  <div class="phase" id="phase-2">
+    <div class="phase-title">שלב ב׳ — בחירת 6 ידיעות</div>
+    <div class="phase-intro">בחרו בדיוק <strong>6 ידיעות</strong> לעמוד הראשון של העיתון שלכם.</div>
+    <div class="counter">נבחרו: <span id="select-count">0</span> / 6</div>
+    <div class="select-grid" id="select-cards"></div>
+    <div class="btn-row">
+      <button class="phase-btn secondary" onclick="goPhase(1)">← חזרה</button>
+      <button class="phase-btn" id="to-phase3-btn" onclick="goPhase(3)" disabled>המשך לעריכה ←</button>
+    </div>
+  </div>
+
+  <!-- PHASE 3 -->
+  <div class="phase" id="phase-3">
+    <div class="phase-title">שלב ג׳ — עריכת העמוד הראשון</div>
+    <div class="phase-intro">לחצו על ידיעה מהרשימה ← ואז לחצו על המשבצת הרצויה בעיתון. המשבצת הגדולה = ידיעה ראשית.</div>
+    <div class="arrange-hint" id="arrange-hint">👆 בחרו ידיעה מהרשימה למטה</div>
+    <div class="np-wrapper">
+      <div class="np-masthead">
+        <div class="np-date" id="np-date"></div>
+        <h2>הידיעות</h2>
+        <div class="np-edition">עיתון יומי · גליל מערבי</div>
+      </div>
+      <div class="np-body">
+        <div class="np-row np-row-1">
+          <div class="np-cell slot-main slot-empty" data-slot="0"><div class="slot-icon">⭐</div><div class="slot-role">ידיעה ראשית</div><div class="slot-role-tag">ראשית</div></div>
+          <div class="np-cell slot-secondary slot-empty" data-slot="1"><div class="slot-icon">📰</div><div class="slot-role">ידיעה משנית</div><div class="slot-role-tag">משנית</div></div>
+        </div>
+        <div class="np-row np-row-2">
+          <div class="np-cell slot-small slot-empty" data-slot="2"><div class="slot-icon">📰</div><div class="slot-role">ידיעה 3</div><div class="slot-role-tag">3</div></div>
+          <div class="np-cell slot-small slot-empty" data-slot="3"><div class="slot-icon">📰</div><div class="slot-role">ידיעה 4</div><div class="slot-role-tag">4</div></div>
+          <div class="np-cell slot-small slot-empty" data-slot="4"><div class="slot-icon">📰</div><div class="slot-role">ידיעה 5</div><div class="slot-role-tag">5</div></div>
+        </div>
+        <div class="np-row np-row-3">
+          <div class="np-cell slot-tiny slot-empty" data-slot="5"><div class="slot-icon">📰</div><div class="slot-role">ידיעה 6 (תחתית)</div><div class="slot-role-tag">6</div></div>
+          <div class="np-cell slot-tiny slot-empty" data-slot="6" style="display:none"></div>
+        </div>
+      </div>
+    </div>
+    <div style="margin-top:16px;">
+      <div style="font-family:'Frank Ruhl Libre',serif;font-size:15px;font-weight:700;border-bottom:2px solid var(--ink);padding-bottom:6px;margin-bottom:10px;">הידיעות שנבחרו — לחצו לבחירה</div>
+      <div class="news-list-arrange" id="arrange-list"></div>
+    </div>
+    <div class="btn-row">
+      <button class="phase-btn secondary" onclick="goPhase(2)">← חזרה</button>
+      <button class="phase-btn" id="to-phase4-btn" onclick="goPhase(4)" disabled>המשך לנימוקים ←</button>
+    </div>
+  </div>
+
+  <!-- PHASE 4 -->
+  <div class="phase" id="phase-4">
+    <div class="phase-title">שלב ד׳ — נימוקים</div>
+    <div class="phase-intro"><strong>לכל ידיעה שמתם בעמוד — הסבירו למה בחרתם בה ולמה שמתם אותה דווקא שם.</strong></div>
+    <div id="justify-blocks"></div>
+    <div class="btn-row">
+      <button class="phase-btn secondary" onclick="goPhase(3)">← חזרה</button>
+      <button class="submit-btn" onclick="submitWorksheet()">📤 שלח למורה ←</button>
+    </div>
+  </div>
+
+  <!-- SUCCESS -->
+  <div class="phase" id="phase-success">
+    <div class="success-box">
+      <div style="font-size:48px;margin-bottom:10px;">✅</div>
+      <h2>המטלה הוגשה בהצלחה!</h2>
+      <p style="font-size:15px;margin-top:6px;color:var(--ink-light);">העבודה נשמרה ותועבר למורה.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+const firebaseConfig={apiKey:"AIzaSyCCHvn_ulmiyM56DuslNzNC0Ge6a8i2vhY",authDomain:"tests-fd938.firebaseapp.com",databaseURL:"https://tests-fd938-default-rtdb.europe-west1.firebasedatabase.app",projectId:"tests-fd938"};
+firebase.initializeApp(firebaseConfig);
+const db=firebase.database();
+
+// ── WEIGHTED CRITERIA ──
+const CRITERIA=[
+  {key:"חשיבות",           pts:3, icon:"⚖️"},
+  {key:"רלוונטיות",        pts:2, icon:"🎯"},
+  {key:"עדכניות",          pts:2, icon:"🕐"},
+  {key:"ייחודיות",         pts:2, icon:"⚡"},
+  {key:"עניין אנושי",      pts:1, icon:"❤️"},
+  {key:"אישיות מפורסמת",  pts:1, icon:"⭐"},
+];
+const MAX_SCORE=CRITERIA.reduce((s,c)=>s+c.pts,0); // 11
+
+const NEWS=[
+  {id:1, h:"ראש הממשלה אושפז בבית חולים לאחר קריסה בישיבת הממשלה",       p:"מצבו יציב, ממלא מקום מינה שר ביטחון לתפקיד זמני"},
+  {id:2, h:"תלמידת תיכון מחיפה פיתחה אפליקציה שמצילה חיים",              p:"מזהה סימני התקפי לב ומתריעה אוטומטית למד\"א"},
+  {id:3, h:"מחיר הדירות עלה ב-12% בשנה האחרונה",                          p:"הנתון הגבוה ביותר מאז 2008 — עשרות אלפי משפחות מתקשות"},
+  {id:4, h:"כוכב כדורגל ישראלי עובר לאירופה בעסקת 30 מיליון",             p:"ההעברה הגדולה ביותר בהיסטוריית הכדורגל הישראלי"},
+  {id:5, h:"שריפה ענקית בגליל: 3,000 דונם נשרפו, תושבים פונו",           p:"כוחות כיבוי ממספר מחוזות נאבקים בלהבות, אין נפגעים"},
+  {id:6, h:"מחקר: שינה של פחות מ-6 שעות מגדילה סיכון למחלות לב",        p:"עקבו אחרי 10,000 ישראלים במשך עשור"},
+  {id:7, h:"הסכם שלום היסטורי: ישראל ומדינה ערבית נוספת מנרמלות יחסים",  p:"הטקס ייערך בבית הלבן בסוף החודש"},
+  {id:8, h:"גל חום: טמפרטורות שיא של 46 מעלות בבאר שבע",                 p:"משרד הבריאות קורא להימנע מיציאה לשמש בשעות החמות"},
+  {id:9, h:"ילדה בת 7 הצילה חיי אביה עם ידע שרכשה ביוטיוב",              p:"זיהתה סימני שבץ וקראה לאמבולנס — הרופאים נדהמו"},
+  {id:10,h:"כנסת ישראל אישרה תקציב המדינה לשנת 2025",                     p:"אחרי מאבק פוליטי ממושך — עבר ב-62 קולות מול 48"},
+  {id:11,h:"סייקלון הורס עיר שלמה בפיליפינים — 200 הרוגים",               p:"הסייקלון החזק בעשור. ישראל שולחת סיוע הומניטרי"},
+  {id:12,h:"חברת הייטק ישראלית נמכרה לענקית אמריקאית ב-2 מיליארד",        p:"400 עובדים יעברו, המשרד הראשי ייסגר"},
+];
+const SLOT_NAMES=["ראשית","משנית","3","4","5","6"];
+const SLOT_SIZE=["slot-main","slot-secondary","slot-small","slot-small","slot-small","slot-tiny"];
+
+// ── STATE ──
+let student={name:'',cls:'',code:''};
+let ratings={};
+let selected=new Set();
+let arrangement={};
+let justifications={};
+let pickedForPlace=null;
+
+NEWS.forEach(n=>{ratings[n.id]=new Set();});
+
+// ── MODAL ──
+['inp-name','inp-class','inp-code'].forEach(id=>{
+  document.getElementById(id).addEventListener('input',()=>{
+    const ok=['inp-name','inp-class','inp-code'].every(i=>document.getElementById(i).value.trim());
+    document.getElementById('enter-btn').disabled=!ok;
+  });
+});
+document.addEventListener('keydown',e=>{
+  if(e.key==='Enter'&&!document.getElementById('enter-btn').disabled&&document.getElementById('modal').style.display!=='none')enterWorksheet();
+});
+
+function enterWorksheet(){
+  student={name:document.getElementById('inp-name').value.trim(),cls:document.getElementById('inp-class').value.trim(),code:document.getElementById('inp-code').value.trim()};
+  document.getElementById('modal').style.display='none';
+  document.getElementById('progress-bar').style.display='flex';
+  document.getElementById('masthead').style.display='block';
+  document.getElementById('main-page').style.display='block';
+  document.getElementById('badge-name').textContent=student.name;
+  document.getElementById('badge-class').textContent=student.cls;
+  document.getElementById('np-date').textContent=new Date().toLocaleDateString('he-IL',{weekday:'long',year:'numeric',month:'long',day:'numeric'});
+  renderRating();updateProgress(1);
+}
+
+function updateProgress(phase){
+  const labels=['שלב 1/4 — דירוג','שלב 2/4 — בחירה','שלב 3/4 — עריכה','שלב 4/4 — נימוקים'];
+  const pcts=[25,50,75,100];
+  document.getElementById('progress-label').textContent=labels[phase-1]||'הושלם';
+  document.getElementById('progress-fill').style.width=(pcts[phase-1]||100)+'%';
+  document.getElementById('progress-pct').textContent=(pcts[phase-1]||100)+'%';
+}
+
+function goPhase(n){
+  document.querySelectorAll('.phase').forEach(p=>p.classList.remove('active'));
+  document.getElementById('phase-'+n).classList.add('active');
+  window.scrollTo(0,0);
+  if(n===2)renderSelect();
+  if(n===3){pickedForPlace=null;renderArrange();}
+  if(n===4)renderJustify();
+  if(n<=4)updateProgress(n);
+}
+
+function getScore(id){return CRITERIA.reduce((s,c)=>s+(ratings[id].has(c.key)?c.pts:0),0);}
+
+// ── PHASE 1 ──
+function renderRating(){
+  document.getElementById('rating-cards').innerHTML=NEWS.map(n=>{
+    const score=getScore(n.id);
+    return`<div class="news-card">
+      <h3>${n.h}</h3><p class="sub">${n.p}</p>
+      <div class="criteria-checks">
+        ${CRITERIA.map(c=>`<button class="crit-btn ${ratings[n.id].has(c.key)?'checked':''}" onclick="toggleCrit(${n.id},'${c.key}')">${c.icon} ${c.key} <span class="pts">+${c.pts}</span></button>`).join('')}
+      </div>
+      <div class="news-score">ניקוד: ${score} / ${MAX_SCORE}</div>
+      <div class="score-bar"><div class="score-bar-fill" style="width:${Math.round(score/MAX_SCORE*100)}%"></div></div>
+    </div>`;
+  }).join('');
+}
+function toggleCrit(id,key){if(ratings[id].has(key))ratings[id].delete(key);else ratings[id].add(key);renderRating();}
+
+// ── PHASE 2 ──
+function renderSelect(){
+  const sorted=[...NEWS].sort((a,b)=>getScore(b.id)-getScore(a.id));
+  document.getElementById('select-cards').innerHTML=sorted.map(n=>{
+    const score=getScore(n.id);
+    return`<div class="select-card ${selected.has(n.id)?'chosen':''} ${selected.size>=6&&!selected.has(n.id)?'full':''}" onclick="toggleSelect(${n.id})">
+      <div class="check-mark">✓</div>
+      <div class="score-pill ${score>=6?'high':''}">ניקוד: ${score}/${MAX_SCORE}</div>
+      <h3 style="font-family:'Frank Ruhl Libre',serif;font-size:14px;line-height:1.3;margin-bottom:3px;">${n.h}</h3>
+      <p style="font-size:12px;color:var(--ink-light);">${n.p}</p>
+    </div>`;
+  }).join('');
+  document.getElementById('select-count').textContent=selected.size;
+  document.getElementById('to-phase3-btn').disabled=selected.size!==6;
+}
+function toggleSelect(id){if(selected.has(id))selected.delete(id);else if(selected.size<6)selected.add(id);renderSelect();}
+
+// ── PHASE 3: TAP TO PLACE ──
+function renderArrange(){
+  const placedIds=new Set(Object.values(arrangement));
+
+  // Render newspaper slots
+  document.querySelectorAll('.np-cell').forEach(cell=>{
+    const si=parseInt(cell.dataset.slot);
+    if(isNaN(si))return;
+    const nid=arrangement[si];
+    const news=nid?NEWS.find(n=>n.id===nid):null;
+    const sizeClass=SLOT_SIZE[si]||'slot-tiny';
+    const roleTag=`<div class="slot-role-tag">${SLOT_NAMES[si]||si+1}</div>`;
+    const roleNames=["ידיעה ראשית","ידיעה משנית","ידיעה 3","ידיעה 4","ידיעה 5","ידיעה 6"];
+    const icons=["⭐","📰","📰","📰","📰","📰"];
+
+    if(news){
+      cell.className=`np-cell ${sizeClass} slot-filled`;
+      cell.onclick=null;
+      cell.innerHTML=`
+        <div class="story-kicker">ידיעה ${SLOT_NAMES[si]}</div>
+        <div class="story-rule"></div>
+        <div class="story-headline">${news.h}</div>
+        <div class="story-sub">${news.p}</div>
+        <button class="remove-btn" onclick="removeSlot(event,${si})">✕</button>
+        ${roleTag}`;
+    } else {
+      const waiting=pickedForPlace!==null;
+      cell.className=`np-cell ${sizeClass} slot-empty${waiting?' slot-waiting':''}`;
+      cell.onclick=waiting?()=>placeInSlot(si):null;
+      cell.innerHTML=`<div class="slot-icon">${icons[si]||'📰'}</div><div class="slot-role">${roleNames[si]||'ידיעה '+(si+1)}</div>${roleTag}`;
+    }
+  });
+
+  // Render list
+  const selNews=[...selected].map(id=>NEWS.find(n=>n.id===id)).filter(Boolean)
+    .sort((a,b)=>getScore(b.id)-getScore(a.id));
+  document.getElementById('arrange-list').innerHTML=selNews.map(n=>`
+    <div class="arrange-item ${placedIds.has(n.id)?'placed':''} ${pickedForPlace===n.id?'selected-to-place':''}"
+      onclick="pickForPlace(${n.id})">
+      <div class="ai-title">${n.h}</div>
+      <div class="ai-score">${getScore(n.id)}/${MAX_SCORE}</div>
+    </div>`).join('');
+
+  // Hint
+  const hint=document.getElementById('arrange-hint');
+  if(pickedForPlace){
+    const news=NEWS.find(n=>n.id===pickedForPlace);
+    hint.innerHTML=`✅ נבחר: <strong>${news.h.substring(0,45)}...</strong><br>עכשיו לחצו על משבצת בעיתון 👆`;
+  } else {
+    hint.innerHTML='👆 לחצו על ידיעה מהרשימה למטה, ואז לחצו על המשבצת הרצויה';
+  }
+
+  document.getElementById('to-phase4-btn').disabled=Object.keys(arrangement).length<6;
+}
+
+function pickForPlace(newsId){
+  const placedIds=new Set(Object.values(arrangement));
+  if(placedIds.has(newsId))return;
+  pickedForPlace=pickedForPlace===newsId?null:newsId;
+  renderArrange();
+}
+function placeInSlot(si){
+  if(pickedForPlace===null)return;
+  Object.keys(arrangement).forEach(k=>{if(arrangement[k]===pickedForPlace)delete arrangement[k];});
+  arrangement[si]=pickedForPlace;
+  pickedForPlace=null;
+  renderArrange();
+}
+function removeSlot(e,si){e.stopPropagation();delete arrangement[si];pickedForPlace=null;renderArrange();}
+
+// ── PHASE 4 ──
+function renderJustify(){
+  document.getElementById('justify-blocks').innerHTML=[...Array(6).keys()].map(si=>{
+    const nid=arrangement[si];const news=nid?NEWS.find(n=>n.id===nid):null;if(!news)return'';
+    const roleNames=["הידיעה הראשית","הידיעה המשנית","ידיעה 3","ידיעה 4","ידיעה 5","ידיעה 6"];
+    return`<div class="justify-block">
+      <span class="slot-tag">${roleNames[si]}</span>
+      <h4>"${news.h}"</h4>
+      <p style="font-size:12px;color:var(--ink-light);margin-bottom:8px;">למה בחרתם בה? למה שמתם אותה כאן?</p>
+      <div class="mic-wrap">
+        <textarea id="just-${nid}" placeholder="כתבו את הנימוק שלכם..."
+          onpaste="return false"
+          oninput="justifications[${nid}]=this.value;autoResize(this)">${justifications[nid]||''}</textarea>
+        <button class="mic-btn" onclick="toggleMic(${nid},this)" title="דיקטציה">🎤</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+function autoResize(el){el.style.height='auto';el.style.height=el.scrollHeight+'px';}
+
+let recognition=null;
+function toggleMic(nid,btn){
+  if(!('webkitSpeechRecognition' in window||'SpeechRecognition' in window)){alert('הדפדפן לא תומך בדיקטציה');return;}
+  if(recognition){recognition.stop();recognition=null;btn.classList.remove('recording');btn.textContent='🎤';return;}
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  recognition=new SR();recognition.lang='he-IL';recognition.continuous=true;recognition.interimResults=false;
+  recognition.onresult=e=>{const ta=document.getElementById('just-'+nid);ta.value+=' '+e.results[e.results.length-1][0].transcript;justifications[nid]=ta.value;autoResize(ta);};
+  recognition.onend=()=>{btn.classList.remove('recording');btn.textContent='🎤';recognition=null;};
+  recognition.start();btn.classList.add('recording');btn.textContent='⏹';
+}
+
+// ── SUBMIT ──
+function submitWorksheet(){
+  const answers={};
+  NEWS.forEach(n=>{answers['rating_'+n.id]=[...ratings[n.id]].join(',');});
+  [...selected].forEach((id,i)=>{answers['selected_'+i]=id;});
+  Object.keys(arrangement).forEach(si=>{answers['slot_'+si]=arrangement[si];});
+  Object.keys(justifications).forEach(nid=>{answers['just_'+nid]=justifications[nid];});
+  const data={student:{name:student.name,class:student.cls,classCode:student.code},answers,submittedAt:Date.now()};
+  const key=(student.name+'_'+Date.now()).replace(/[.#$/[\] ]/g,'_');
+  db.ref('tests/newspaper/'+key).set(data)
+    .then(()=>{
+      document.querySelectorAll('.phase').forEach(p=>p.classList.remove('active'));
+      document.getElementById('phase-success').classList.add('active');
+      document.getElementById('progress-fill').style.width='100%';
+      document.getElementById('progress-pct').textContent='100%';
+      document.getElementById('progress-label').textContent='הושלם ✓';
+    })
+    .catch(()=>alert('שגיאה בשמירה — נסו שנית'));
+}
+</script>
+</body>
+</html>
