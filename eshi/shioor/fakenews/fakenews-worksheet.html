@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>פייק ניוז — מטלה</title>
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@400;700;900&family=Heebo:wght@300;400;500;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<style>
+:root{--paper:#f5f0e8;--paper-dark:#e8e0cc;--ink:#1a1208;--ink-light:#6b5d45;--accent:#8b1a1a;--blue:#2563af;--green:#2d7a2d;--warn:#b05a00;--shadow:4px 4px 0 #1a1208;--shadow-sm:2px 2px 0 #1a1208;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;line-height:1.7;background-image:repeating-linear-gradient(0deg,transparent,transparent 27px,rgba(26,18,8,.055) 27px,rgba(26,18,8,.055) 28px);}
+.modal-overlay{position:fixed;inset:0;background:rgba(26,18,8,.93);z-index:1000;display:flex;align-items:center;justify-content:center;padding:16px;}
+.modal-box{background:var(--paper);border:3px solid var(--ink);box-shadow:8px 8px 0 var(--ink);max-width:400px;width:100%;padding:36px;}
+.modal-head{background:var(--ink);color:var(--paper);text-align:center;padding:14px 20px;margin:-36px -36px 24px;}
+.modal-head h2{font-family:'Frank Ruhl Libre',serif;font-size:24px;font-weight:900;}
+.modal-head p{font-size:11px;letter-spacing:3px;text-transform:uppercase;opacity:.55;margin-top:3px;}
+.m-field{margin-bottom:14px;}
+.m-field label{display:block;font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:700;color:var(--ink-light);margin-bottom:4px;}
+.m-field input{width:100%;padding:11px 13px;border:2px solid var(--ink);background:white;font-family:'Heebo',sans-serif;font-size:16px;color:var(--ink);box-shadow:var(--shadow-sm);outline:none;}
+.m-field input:focus{border-color:var(--accent);}
+.m-btn{width:100%;padding:12px;background:var(--ink);color:var(--paper);border:none;font-family:'Frank Ruhl Libre',serif;font-size:18px;font-weight:700;cursor:pointer;box-shadow:var(--shadow);margin-top:4px;transition:all .15s;}
+.m-btn:hover{background:var(--accent);}
+.m-btn:disabled{background:#999;cursor:default;}
+.progress-bar{position:sticky;top:0;z-index:100;background:var(--ink);padding:9px 20px;display:flex;align-items:center;gap:14px;}
+.progress-label{color:var(--paper);font-size:12px;font-weight:500;white-space:nowrap;}
+.progress-track{flex:1;height:7px;background:rgba(255,255,255,.15);}
+.progress-fill{height:100%;background:linear-gradient(90deg,var(--accent),#c0392b);transition:width .4s;}
+.progress-pct{color:var(--paper);font-size:12px;font-weight:700;white-space:nowrap;}
+.masthead{background:var(--ink);color:var(--paper);border-bottom:6px double var(--paper-dark);}
+.mh-breaking{background:var(--accent);text-align:center;padding:5px;font-size:11px;letter-spacing:3px;text-transform:uppercase;font-weight:700;}
+.mh-inner{max-width:860px;margin:0 auto;padding:0 20px;}
+.mh-top{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #444;font-size:11px;letter-spacing:1px;opacity:.6;}
+.mh-title{text-align:center;padding:14px 0 10px;}
+.mh-title h1{font-family:'Frank Ruhl Libre',serif;font-size:clamp(20px,5vw,40px);font-weight:900;line-height:1;}
+.mh-title p{font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--paper-dark);margin-top:4px;}
+.mh-rule{height:3px;background:var(--paper-dark);margin-bottom:8px;}
+.student-badge{display:flex;justify-content:center;gap:24px;padding-bottom:10px;font-size:12px;color:#ccc;}
+.student-badge strong{font-family:'Frank Ruhl Libre',serif;font-size:14px;color:white;}
+.page{max-width:860px;margin:0 auto;padding:24px 16px 60px;}
+.phase{display:none;}
+.phase.active{display:block;}
+.phase-title{font-family:'Frank Ruhl Libre',serif;font-size:24px;font-weight:900;border-bottom:3px double var(--ink);padding-bottom:8px;margin-bottom:16px;}
+.phase-intro{background:white;border:2px solid var(--ink);box-shadow:var(--shadow-sm);padding:14px 18px;margin-bottom:18px;font-size:14px;line-height:1.75;}
+
+/* NEWS CARDS for verdicts */
+.verdict-pool{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;margin-bottom:14px;}
+.vcard{background:white;border:2px solid var(--ink);box-shadow:var(--shadow-sm);padding:16px;}
+.vcard h4{font-family:'Frank Ruhl Libre',serif;font-size:14px;line-height:1.35;margin-bottom:5px;}
+.vcard p{font-size:11px;color:var(--ink-light);margin-bottom:8px;line-height:1.4;}
+.vcard .vsrc{font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--ink-light);font-weight:700;margin-bottom:10px;}
+.vcard-btns{display:flex;gap:6px;}
+.vbtn{flex:1;padding:6px 4px;font-size:12px;font-weight:700;border:2px solid var(--ink);background:var(--paper-dark);cursor:pointer;transition:all .15s;font-family:'Heebo',sans-serif;}
+.vbtn.active-fake{background:var(--accent);color:white;border-color:var(--accent);}
+.vbtn.active-real{background:var(--green);color:white;border-color:var(--green);}
+.vbtn.active-unsure{background:var(--warn);color:white;border-color:var(--warn);}
+
+/* Q BLOCK */
+.q-block{background:white;border:2px solid var(--ink);box-shadow:var(--shadow-sm);padding:18px 20px;margin-bottom:14px;border-right:4px solid var(--accent);}
+.q-block.blue-border{border-right-color:var(--blue);}
+.q-block.green-border{border-right-color:var(--green);}
+.q-block h4{font-family:'Frank Ruhl Libre',serif;font-size:16px;margin-bottom:10px;color:var(--accent);}
+.q-block.blue-border h4{color:var(--blue);}
+.q-block.green-border h4{color:var(--green);}
+.q-block p.ctx{font-size:13px;color:var(--ink-light);margin-bottom:10px;line-height:1.6;}
+.mic-wrap{display:flex;gap:8px;align-items:flex-start;}
+.mic-wrap textarea{flex:1;padding:10px 13px;border:2px solid var(--ink);background:var(--paper);font-family:'Heebo',sans-serif;font-size:14px;resize:none;min-height:80px;outline:none;line-height:1.6;}
+.mic-wrap textarea:focus{border-color:var(--accent);}
+.mic-btn{flex-shrink:0;width:34px;height:34px;background:var(--ink);color:var(--paper);border:none;cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;}
+.mic-btn:hover{background:var(--accent);}
+.mic-btn.recording{background:var(--accent);animation:pulse .8s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+
+/* FAKE BUILDER */
+.fake-builder{background:var(--paper-dark);border:2px solid var(--ink);padding:16px;margin-bottom:14px;}
+.fake-builder h4{font-family:'Frank Ruhl Libre',serif;font-size:15px;margin-bottom:12px;color:var(--warn);}
+.fb-field{margin-bottom:10px;}
+.fb-field label{display:block;font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:700;color:var(--ink-light);margin-bottom:4px;}
+.fb-field input,.fb-field textarea{width:100%;padding:9px 12px;border:2px solid var(--ink);background:white;font-family:'Heebo',sans-serif;font-size:14px;color:var(--ink);outline:none;}
+.fb-field input:focus,.fb-field textarea:focus{border-color:var(--warn);}
+.fb-preview{background:white;border:2px solid var(--ink);padding:14px 16px;margin-top:10px;display:none;}
+.fb-preview h5{font-family:'Frank Ruhl Libre',serif;font-size:18px;font-weight:900;margin-bottom:4px;}
+.fb-preview .fp-src{font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--ink-light);font-weight:700;margin-bottom:6px;}
+.fb-preview p{font-size:12px;color:var(--ink-light);}
+.fb-preview .fake-stamp{background:var(--accent);color:white;font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;padding:3px 10px;display:inline-block;margin-top:8px;}
+
+.phase-btn{padding:11px 26px;background:var(--ink);color:var(--paper);border:none;font-family:'Frank Ruhl Libre',serif;font-size:17px;font-weight:700;cursor:pointer;box-shadow:var(--shadow);transition:all .15s;margin-top:18px;}
+.phase-btn:hover{background:var(--accent);}
+.phase-btn.secondary{background:var(--paper-dark);color:var(--ink);border:2px solid var(--ink);}
+.btn-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px;}
+.submit-btn{padding:13px 30px;background:var(--green);color:white;border:none;font-family:'Frank Ruhl Libre',serif;font-size:18px;font-weight:900;cursor:pointer;box-shadow:var(--shadow);}
+.submit-btn:hover{background:#1a5c1a;}
+.success-box{text-align:center;padding:40px 20px;background:white;border:3px solid var(--green);box-shadow:var(--shadow);}
+.success-box h2{font-family:'Frank Ruhl Libre',serif;font-size:30px;color:var(--green);margin-bottom:8px;}
+</style>
+</head>
+<body>
+
+<div class="modal-overlay" id="modal">
+  <div class="modal-box">
+    <div class="modal-head"><h2>כניסה למטלה</h2><p>פייק ניוז</p></div>
+    <div class="m-field"><label>שם מלא</label><input id="inp-name" type="text" placeholder="הכנס/י שם מלא" autocomplete="off"></div>
+    <div class="m-field"><label>כיתה</label><input id="inp-class" type="text" placeholder="למשל: י׳2" autocomplete="off"></div>
+    <div class="m-field"><label>קוד מורה</label><input id="inp-code" type="text" placeholder="הקוד שקיבלת מהמורה" autocomplete="off"></div>
+    <button class="m-btn" id="enter-btn" onclick="enterWS()" disabled>כניסה למטלה ←</button>
+  </div>
+</div>
+
+<div class="progress-bar" id="progress-bar" style="display:none">
+  <span class="progress-label" id="p-label">שלב 1/3</span>
+  <div class="progress-track"><div class="progress-fill" id="p-fill" style="width:33%"></div></div>
+  <span class="progress-pct" id="p-pct">33%</span>
+</div>
+
+<header class="masthead" id="masthead" style="display:none">
+  <div class="mh-breaking">⚠️ מטלה — האם תדעו להבחין בין אמת לשקר? ⚠️</div>
+  <div class="mh-inner">
+    <div class="mh-top"><span>מטלה • תקשורת ועיתונות</span><span>גליל מערבי</span></div>
+    <div class="mh-title"><h1>פייק ניוז — מטלה</h1><p>זהו • נתחו • בנו</p></div>
+    <div class="mh-rule"></div>
+    <div class="student-badge"><span>שם: <strong id="badge-name">—</strong></span><span>כיתה: <strong id="badge-class">—</strong></span></div>
+  </div>
+</header>
+
+<div class="page" id="main-page" style="display:none">
+
+  <!-- PHASE 1: VERDICT -->
+  <div class="phase active" id="phase-1">
+    <div class="phase-title">שלב א׳ — אמיתי, מזויף, או לא בטוח?</div>
+    <div class="phase-intro">לפניכם 6 ידיעות. <strong>סווגו כל ידיעה</strong> — האם היא אמיתית, מזויפת, או שאינכם בטוחים? אחרי הסיווג — הסבירו את שיקוליכם.</div>
+    <div class="verdict-pool" id="verdict-pool"></div>
+    <div class="q-block">
+      <h4>מה הקשה ביותר לזהות — ולמה?</h4>
+      <p class="ctx">הסתכלו על הידיעות שסיווגתם "לא בטוח" — מה גרם לאי-הוודאות? אילו סימנים היו חסרים?</p>
+      <div class="mic-wrap">
+        <textarea id="q-verdict-exp" placeholder="כתבו את ניתוחכם..." onpaste="return false" oninput="autoResize(this)"></textarea>
+        <button class="mic-btn" onclick="toggleMic('q-verdict-exp',this)">🎤</button>
+      </div>
+    </div>
+    <div class="btn-row"><button class="phase-btn" onclick="goPhase(2)">המשך ←</button></div>
+  </div>
+
+  <!-- PHASE 2: ANALYSIS -->
+  <div class="phase" id="phase-2">
+    <div class="phase-title">שלב ב׳ — השפעות פייק ניוז</div>
+    <div class="phase-intro">פייק ניוז לא רק "שגוי" — יש לו השפעות ממשיות. ענו על השאלות הבאות:</div>
+
+    <div class="q-block blue-border">
+      <h4>1. מה הנזק לדמוקרטיה?</h4>
+      <p class="ctx">נזכרו בהגדרה: דמוקרטיה תלויה ב"שוק דעות" שמתבסס על מידע אמיתי. הסבירו בדוגמה אחת קונקרטית כיצד פייק ניוז פוגע בתהליך דמוקרטי.</p>
+      <div class="mic-wrap">
+        <textarea id="q-democracy" placeholder="דוגמה ממשית..." onpaste="return false" oninput="autoResize(this)"></textarea>
+        <button class="mic-btn" onclick="toggleMic('q-democracy',this)">🎤</button>
+      </div>
+    </div>
+    <div class="q-block green-border">
+      <h4>2. ההיבט החיובי — כיצד פייק ניוז משפר את התקשורת?</h4>
+      <p class="ctx">תארו מצב בו פייק ניוז דווקא הוביל לתגובה חיובית — בציבור, בעיתונאים, או בגופים ממוסדים.</p>
+      <div class="mic-wrap">
+        <textarea id="q-positive" placeholder="ההיבט החיובי..." onpaste="return false" oninput="autoResize(this)"></textarea>
+        <button class="mic-btn" onclick="toggleMic('q-positive',this)">🎤</button>
+      </div>
+    </div>
+    <div class="q-block">
+      <h4>3. האם נתקלתם בפייק ניוז בחייכם? מה עשיתם?</h4>
+      <p class="ctx">תארו מקרה אמיתי — בוואטסאפ, ברשתות, מחבר/ה. מה עשיתם כשגיליתם שהמידע מזויף?</p>
+      <div class="mic-wrap">
+        <textarea id="q-personal" placeholder="הסיפור שלכם..." onpaste="return false" oninput="autoResize(this)"></textarea>
+        <button class="mic-btn" onclick="toggleMic('q-personal',this)">🎤</button>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="phase-btn secondary" onclick="goPhase(1)">← חזרה</button>
+      <button class="phase-btn" onclick="goPhase(3)">המשך ←</button>
+    </div>
+  </div>
+
+  <!-- PHASE 3: BUILD FAKE -->
+  <div class="phase" id="phase-3">
+    <div class="phase-title">שלב ג׳ — בנו ידיעת פייק ניוז (כדי להבין איך זה עובד)</div>
+    <div class="phase-intro">
+      כדי להבין לעומק את המנגנון — <strong>תבנו ידיעת פייק ניוז אחת בעצמכם</strong>. לא לפרסם! המטרה להבין מה הופך ידיעה ל"משכנעת" גם כשהיא שקר.
+    </div>
+    <div class="fake-builder">
+      <h4>⚠️ מעבדת הפייק ניוז — לימודי בלבד</h4>
+      <div class="fb-field"><label>כותרת הידיעה</label><input id="fb-title" type="text" placeholder="כותרת מוקצנת שתגרום לאנשים ללחוץ..." oninput="updatePreview()"></div>
+      <div class="fb-field"><label>מקור בדוי</label><input id="fb-src" type="text" placeholder="שם אתר שנשמע רשמי..." oninput="updatePreview()"></div>
+      <div class="fb-field"><label>גוף הידיעה (2-3 משפטים)</label><textarea id="fb-body" rows="3" placeholder="הוסיפו פרטים שנשמעים אמינים..." oninput="updatePreview();autoResize(this)"></textarea></div>
+      <div class="fb-preview" id="fb-preview">
+        <h5 id="fp-title"></h5>
+        <div class="fp-src" id="fp-src"></div>
+        <p id="fp-body"></p>
+        <div class="fake-stamp">⚠️ פייק ניוז — לימודי בלבד</div>
+      </div>
+    </div>
+    <div class="q-block">
+      <h4>ניתוח: אילו טכניקות השתמשתם?</h4>
+      <p class="ctx">מה עשיתם כדי שהידיעה תיראה אמינה? כותרת מפחידה? מקור שנשמע רשמי? מידע שאי אפשר לבדוק? הסבירו את הטכניקות.</p>
+      <div class="mic-wrap">
+        <textarea id="q-build-analysis" placeholder="הסבירו את הטכניקות שלכם..." onpaste="return false" oninput="autoResize(this)"></textarea>
+        <button class="mic-btn" onclick="toggleMic('q-build-analysis',this)">🎤</button>
+      </div>
+    </div>
+    <div class="btn-row">
+      <button class="phase-btn secondary" onclick="goPhase(2)">← חזרה</button>
+      <button class="submit-btn" onclick="submitWS()">📤 שלח למורה ←</button>
+    </div>
+  </div>
+
+  <div class="phase" id="phase-success">
+    <div class="success-box">
+      <div style="font-size:48px;margin-bottom:10px;">✅</div>
+      <h2>המטלה הוגשה בהצלחה!</h2>
+      <p style="color:var(--ink-light);margin-top:6px;font-size:15px;">תשובותיך נשמרו ויועברו למורה.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+const firebaseConfig={apiKey:"AIzaSyCCHvn_ulmiyM56DuslNzNC0Ge6a8i2vhY",authDomain:"tests-fd938.firebaseapp.com",databaseURL:"https://tests-fd938-default-rtdb.europe-west1.firebasedatabase.app",projectId:"tests-fd938"};
+firebase.initializeApp(firebaseConfig);
+const db=firebase.database();
+
+const VCARDS=[
+  {id:'v1',h:'חיסון שפעת גרם לעלייה ב-300% בהתקפי לב',p:'מחקר חדש שפורסם באוניברסיטה חשאית',src:'health-exposed.net'},
+  {id:'v2',h:'ממשלת ישראל מתכננת הגבלת גישה לאינטרנט ב-2025',p:'כך עולה ממסמך שנחשף ממשרד התקשורת',src:'רשת ב׳ — כאן'},
+  {id:'v3',h:'שיעור אבטלה בישראל ירד ל-3.2% בחודש האחרון',p:'לפי הלשכה המרכזית לסטטיסטיקה',src:'cbs.gov.il'},
+  {id:'v4',h:'מדען ישראלי המציא תרופה לסרטן — ממשלה מסתירה',p:'עשרות אלפי חולים יכלו להיוושע אך הממשלה מחביאה',src:'truth-israel24.info'},
+  {id:'v5',h:'נסיגת מניות הבנקים ב-12% — מגמה שתימשך',p:'אנליסטים צופים המשך ירידות',src:'כלכליסט'},
+  {id:'v6',h:'תלמיד ישראלי זכה בפרס בינלאומי על המצאת מכשיר רפואי',p:'הצגה בועידת הנוער הבינלאומית בז׳נווה',src:'ynet.co.il'},
+];
+const verdicts={};
+let student={};
+
+['inp-name','inp-class','inp-code'].forEach(id=>{
+  document.getElementById(id).addEventListener('input',()=>{
+    document.getElementById('enter-btn').disabled=!['inp-name','inp-class','inp-code'].every(i=>document.getElementById(i).value.trim());
+  });
+});
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&!document.getElementById('enter-btn').disabled&&document.getElementById('modal').style.display!=='none')enterWS();});
+
+function enterWS(){
+  student={name:document.getElementById('inp-name').value.trim(),cls:document.getElementById('inp-class').value.trim(),code:document.getElementById('inp-code').value.trim()};
+  document.getElementById('modal').style.display='none';
+  document.getElementById('progress-bar').style.display='flex';
+  document.getElementById('masthead').style.display='block';
+  document.getElementById('main-page').style.display='block';
+  document.getElementById('badge-name').textContent=student.name;
+  document.getElementById('badge-class').textContent=student.cls;
+  renderVerdicts();setProgress(1);
+}
+
+function setProgress(n){
+  const labels=['שלב 1/3 — זיהוי','שלב 2/3 — ניתוח','שלב 3/3 — בנייה'];
+  const pcts=[33,67,100];
+  document.getElementById('p-label').textContent=labels[n-1];
+  document.getElementById('p-fill').style.width=pcts[n-1]+'%';
+  document.getElementById('p-pct').textContent=pcts[n-1]+'%';
+}
+
+function goPhase(n){
+  document.querySelectorAll('.phase').forEach(p=>p.classList.remove('active'));
+  document.getElementById('phase-'+n).classList.add('active');
+  window.scrollTo(0,0);setProgress(n);
+}
+
+function renderVerdicts(){
+  document.getElementById('verdict-pool').innerHTML=VCARDS.map(v=>`
+    <div class="vcard">
+      <h4>${v.h}</h4>
+      <p>${v.p}</p>
+      <div class="vsrc">${v.src}</div>
+      <div class="vcard-btns">
+        <button class="vbtn ${verdicts[v.id]==='fake'?'active-fake':''}" onclick="setVerdict('${v.id}','fake')">❌ מזויף</button>
+        <button class="vbtn ${verdicts[v.id]==='real'?'active-real':''}" onclick="setVerdict('${v.id}','real')">✅ אמיתי</button>
+        <button class="vbtn ${verdicts[v.id]==='unsure'?'active-unsure':''}" onclick="setVerdict('${v.id}','unsure')">❓ לא בטוח</button>
+      </div>
+    </div>`).join('');
+}
+
+function setVerdict(id,v){verdicts[id]=v;renderVerdicts();}
+
+function updatePreview(){
+  const t=document.getElementById('fb-title').value;
+  const s=document.getElementById('fb-src').value;
+  const b=document.getElementById('fb-body').value;
+  const prev=document.getElementById('fb-preview');
+  if(t||s||b){
+    prev.style.display='block';
+    document.getElementById('fp-title').textContent=t;
+    document.getElementById('fp-src').textContent=s;
+    document.getElementById('fp-body').textContent=b;
+  } else prev.style.display='none';
+}
+
+function autoResize(el){el.style.height='auto';el.style.height=el.scrollHeight+'px';}
+let recognition=null;
+function toggleMic(tid,btn){
+  if(!('webkitSpeechRecognition' in window||'SpeechRecognition' in window)){alert('הדפדפן לא תומך בדיקטציה');return;}
+  if(recognition){recognition.stop();recognition=null;btn.classList.remove('recording');btn.textContent='🎤';return;}
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  recognition=new SR();recognition.lang='he-IL';recognition.continuous=true;recognition.interimResults=false;
+  recognition.onresult=e=>{const ta=document.getElementById(tid);ta.value+=' '+e.results[e.results.length-1][0].transcript;autoResize(ta);};
+  recognition.onend=()=>{btn.classList.remove('recording');btn.textContent='🎤';recognition=null;};
+  recognition.start();btn.classList.add('recording');btn.textContent='⏹';
+}
+
+function submitWS(){
+  const verdictAnswers={};
+  VCARDS.forEach(v=>{verdictAnswers['verdict_'+v.id]=verdicts[v.id]||'';});
+  const answers={
+    ...verdictAnswers,
+    verdict_explanation:document.getElementById('q-verdict-exp').value,
+    democracy_impact:document.getElementById('q-democracy').value,
+    positive_aspect:document.getElementById('q-positive').value,
+    personal_experience:document.getElementById('q-personal').value,
+    fake_title:document.getElementById('fb-title').value,
+    fake_source:document.getElementById('fb-src').value,
+    fake_body:document.getElementById('fb-body').value,
+    build_analysis:document.getElementById('q-build-analysis').value,
+  };
+  const data={student:{name:student.name,class:student.cls,classCode:student.code},answers,submittedAt:Date.now()};
+  const key=(student.name+'_'+Date.now()).replace(/[.#$/[\] ]/g,'_');
+  db.ref('tests/fakenews/'+key).set(data)
+    .then(()=>{
+      document.querySelectorAll('.phase').forEach(p=>p.classList.remove('active'));
+      document.getElementById('phase-success').classList.add('active');
+      document.getElementById('p-fill').style.width='100%';
+      document.getElementById('p-pct').textContent='100%';
+      document.getElementById('p-label').textContent='הושלם ✓';
+    })
+    .catch(()=>alert('שגיאה בשמירה — נסו שנית'));
+}
+</script>
+</body>
+</html>

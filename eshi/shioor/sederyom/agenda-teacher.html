@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>סדר יום — ממשק מורה</title>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;700;900&family=Frank+Ruhl+Libre:wght@400;700;900&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<style>
+:root{--bg:#0a0c10;--bg2:#111318;--bg3:#181c24;--green:#00e676;--green-dark:#003d1a;--amber:#ffb300;--blue:#40c4ff;--red:#ff1744;--purple:#ce93d8;--text:#e8eaf0;--text-dim:#8a90a0;--text-muted:#4a5060;--border:#252a36;--border-bright:#353d50;--card-bg:#12151e;--c-pol:#ff1744;--c-med:#00e676;--c-pub:#40c4ff;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--text);font-family:'Heebo',sans-serif;line-height:1.7;background-image:repeating-linear-gradient(0deg,transparent,transparent 59px,rgba(0,230,118,.02) 59px,rgba(0,230,118,.02) 60px);}
+
+/* MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.96);z-index:1000;display:flex;align-items:center;justify-content:center;padding:16px;}
+.modal-box{background:var(--bg2);border:1px solid var(--green);max-width:400px;width:100%;padding:36px;box-shadow:0 0 40px rgba(0,230,118,.18);}
+.modal-head{text-align:center;margin-bottom:22px;}
+.modal-head h2{font-family:'Frank Ruhl Libre',serif;font-size:24px;font-weight:900;color:var(--green);}
+.modal-head p{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--text-muted);margin-top:4px;}
+.m-field{margin-bottom:13px;}
+.m-field label{display:block;font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:700;color:var(--text-muted);margin-bottom:4px;}
+.m-field input{width:100%;padding:10px 13px;border:1px solid var(--border-bright);background:var(--bg3);font-family:'Heebo',sans-serif;font-size:15px;color:var(--text);outline:none;transition:border .2s;}
+.m-field input:focus{border-color:var(--green);}
+.m-btn{width:100%;padding:12px;background:var(--green-dark);border:1px solid var(--green);color:var(--green);font-family:'Frank Ruhl Libre',serif;font-size:17px;font-weight:700;cursor:pointer;transition:all .2s;letter-spacing:1px;}
+.m-btn:hover{background:rgba(0,230,118,.18);}
+.m-err{color:var(--red);font-size:12px;margin-top:8px;text-align:center;display:none;}
+.m-reg{text-align:center;margin-top:14px;font-size:12px;color:var(--text-muted);}
+.m-reg a{color:var(--green);font-weight:700;text-decoration:none;}
+
+/* MASTHEAD */
+.masthead{background:linear-gradient(180deg,#000 0%,var(--bg) 100%);border-bottom:1px solid var(--green);text-align:center;padding:20px;}
+.masthead h1{font-family:'Frank Ruhl Libre',serif;font-size:clamp(18px,4vw,34px);font-weight:900;color:var(--green);line-height:1;}
+.teacher-badge{font-size:12px;color:var(--text-muted);margin-top:6px;letter-spacing:1px;}
+.teacher-badge strong{color:var(--text-dim);}
+
+/* CONTROLS */
+.page{max-width:1100px;margin:0 auto;padding:24px 16px 60px;}
+.controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:18px;padding:13px 16px;background:var(--card-bg);border:1px solid var(--border);}
+.ctrl-input{padding:8px 12px;border:1px solid var(--border-bright);background:var(--bg3);font-family:'Heebo',sans-serif;font-size:13px;color:var(--text);outline:none;min-width:160px;transition:border .2s;}
+.ctrl-input:focus{border-color:var(--green);}
+.ctrl-btn{padding:8px 16px;background:var(--green-dark);border:1px solid var(--green);color:var(--green);font-family:'Heebo',sans-serif;font-size:12px;font-weight:700;cursor:pointer;letter-spacing:1px;transition:all .2s;}
+.ctrl-btn:hover{background:rgba(0,230,118,.15);}
+.ctrl-btn.sec{background:transparent;border-color:var(--border-bright);color:var(--text-dim);}
+.ctrl-btn.sec:hover{border-color:var(--text-dim);color:var(--text);}
+
+/* STATS */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:18px;}
+.stat{background:var(--card-bg);border:1px solid var(--border);padding:14px;text-align:center;}
+.stat-num{font-family:'Frank Ruhl Libre',serif;font-size:32px;font-weight:900;line-height:1;}
+.stat-num.green{color:var(--green);}
+.stat-num.amber{color:var(--amber);}
+.stat-num.blue{color:var(--blue);}
+.stat-num.red{color:var(--red);}
+.stat-label{font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--text-muted);margin-top:4px;}
+
+/* TABLE */
+.loading{text-align:center;padding:50px;color:var(--text-muted);font-size:14px;}
+table{width:100%;border-collapse:collapse;background:var(--card-bg);border:1px solid var(--border);}
+thead th{background:var(--bg2);color:var(--text-dim);padding:10px 13px;text-align:right;font-size:11px;letter-spacing:1px;text-transform:uppercase;border-bottom:1px solid var(--border-bright);white-space:nowrap;}
+tbody tr{border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s;}
+tbody tr:hover{background:rgba(0,230,118,.04);}
+tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
+.expand-row{cursor:default;}
+.expand-row:hover{background:transparent!important;}
+.expand-inner{padding:18px 20px;background:var(--bg2);border-top:1px solid var(--border);}
+
+/* CAT TAG */
+.cat-tag{font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;padding:2px 7px;border:1px solid;}
+.cat-tag.pol{color:var(--c-pol);border-color:var(--c-pol);}
+.cat-tag.med{color:var(--c-med);border-color:var(--c-med);}
+.cat-tag.pub{color:var(--c-pub);border-color:var(--c-pub);}
+
+/* EXPAND DETAILS */
+.exp-section{margin-bottom:16px;}
+.exp-label{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--text-muted);margin-bottom:8px;}
+.exp-broadcast{display:flex;flex-direction:column;gap:5px;}
+.exp-item{display:flex;align-items:center;gap:10px;padding:7px 10px;background:var(--bg3);border:1px solid var(--border);}
+.exp-item .ei-num{font-family:'Frank Ruhl Libre',serif;font-size:15px;color:var(--amber);min-width:20px;}
+.exp-item h5{font-size:12px;font-family:'Frank Ruhl Libre',serif;flex:1;line-height:1.3;color:var(--text);}
+.exp-just{padding:8px 12px;background:var(--bg3);border:1px solid var(--border);border-right:2px solid var(--amber);font-size:12px;color:var(--text-dim);line-height:1.6;margin-top:4px;}
+.exp-general{padding:10px 14px;background:var(--bg3);border:1px solid var(--purple);border-right:2px solid var(--purple);font-size:12px;color:var(--text-dim);line-height:1.6;}
+
+/* PIE-LIKE cats */
+.cat-dist{display:flex;gap:12px;flex-wrap:wrap;align-items:center;}
+.cd-item{display:flex;align-items:center;gap:6px;font-size:12px;}
+.cd-dot{width:10px;height:10px;border-radius:50%;}
+.cd-item.pol .cd-dot{background:var(--c-pol);}
+.cd-item.med .cd-dot{background:var(--c-med);}
+.cd-item.pub .cd-dot{background:var(--c-pub);}
+.cd-num{font-weight:700;}
+.cd-item.pol .cd-num{color:var(--c-pol);}
+.cd-item.med .cd-num{color:var(--c-med);}
+.cd-item.pub .cd-num{color:var(--c-pub);}
+
+.no-results{text-align:center;padding:40px;color:var(--text-muted);}
+</style>
+</head>
+<body>
+
+<div class="modal-overlay" id="modal">
+  <div class="modal-box">
+    <div class="modal-head"><h2>כניסת מורה</h2><p>סדר יום תקשורתי</p></div>
+    <div class="m-field"><label>סיסמה אישית</label><input id="inp-pass" type="password" placeholder="הסיסמה שבחרתם בהרשמה"></div>
+    <div class="m-field"><label>קוד כיתה</label><input id="inp-code" type="text" placeholder="הקוד שנתתם לתלמידים"></div>
+    <button class="m-btn" onclick="teacherLogin()">כניסה לצפייה בהגשות ←</button>
+    <div class="m-err" id="m-err"></div>
+    <div class="m-reg">עדיין לא רשומים? <a href="../teacher-register.html">בקשת רישום</a></div>
+  </div>
+</div>
+
+<div class="masthead">
+  <h1>📡 סדר יום — הגשות תלמידים</h1>
+  <div class="teacher-badge">קוד: <strong id="t-code">—</strong> &nbsp;|&nbsp; הגשות: <strong id="t-count">—</strong></div>
+</div>
+
+<div class="page">
+  <div class="controls">
+    <input class="ctrl-input" id="filter-class" placeholder="סנן לפי כיתה..." oninput="renderTable()">
+    <input class="ctrl-input" id="filter-name" placeholder="חיפוש שם..." oninput="renderTable()">
+    <button class="ctrl-btn sec" onclick="loadData()">↺ רענן</button>
+    <button class="ctrl-btn sec" onclick="exportCSV()">⬇ CSV</button>
+  </div>
+  <div class="stats">
+    <div class="stat"><div class="stat-num green" id="s-total">0</div><div class="stat-label">סה"כ הגשות</div></div>
+    <div class="stat"><div class="stat-num amber" id="s-classes">0</div><div class="stat-label">כיתות</div></div>
+    <div class="stat"><div class="stat-num blue" id="s-today">0</div><div class="stat-label">הגשות היום</div></div>
+    <div class="stat"><div class="stat-num red" id="s-avg">0</div><div class="stat-label">ממוצע ידיעות למהדורה</div></div>
+  </div>
+  <div id="content"><div class="loading">ממתין לכניסה...</div></div>
+</div>
+
+<script>
+const firebaseConfig={apiKey:"AIzaSyCCHvn_ulmiyM56DuslNzNC0Ge6a8i2vhY",authDomain:"tests-fd938.firebaseapp.com",databaseURL:"https://tests-fd938-default-rtdb.europe-west1.firebasedatabase.app",projectId:"tests-fd938"};
+firebase.initializeApp(firebaseConfig);
+const db=firebase.database();
+
+const NEWS_MAP={
+  1:"הקפאת תקציב הרווחה",2:"תכנית דיור רה\"מ",3:"חוק ביטוח לאומי בכנסת",
+  4:"רפורמה בתורים בבתי חולים",5:"מצע המפלגה הגדולה",6:"פרויקט רכבת קלה ת\"א",
+  7:"חקירה: תקציב בריאות",8:"ראיון בלעדי שר לשעבר",9:"מצוקת הדיור לזוגות צעירים",
+  10:"אינסטגרם ותיקטוק — השמנת נוער",11:"הארץ: אבטלה מוסתרת",12:"יועצי תקשורת מנצלים מדיה",
+  13:"פודקאסט ויראלי — חינוך",14:"הפגנה בכיכר רבין",15:"האשטג מחאת_הדיור",
+  16:"עתירה: פרויקט בנייה",17:"עצומת הורים 80,000 חתימות",18:"סטודנטים חסמו אוניברסיטה",
+  19:"קבוצת פייסבוק דרום ת\"א",20:"ארגוני נשים נגד שופט"
+};
+const CAT_REAL={1:'pol',2:'pol',3:'pol',4:'pol',5:'pol',6:'pol',7:'med',8:'med',9:'med',10:'med',11:'med',12:'med',13:'med',14:'pub',15:'pub',16:'pub',17:'pub',18:'pub',19:'pub',20:'pub'};
+const CAT_LABEL={pol:'פוליטי',med:'תקשורתי',pub:'ציבורי'};
+
+let teacherCode='',allData=[];
+
+function teacherLogin(){
+  const pass=document.getElementById('inp-pass').value.trim();
+  const code=document.getElementById('inp-code').value.trim();
+  const err=document.getElementById('m-err');
+  err.style.display='none';
+  if(!pass||!code){err.textContent='יש למלא סיסמה וקוד.';err.style.display='block';return;}
+  const btn=document.querySelector('.m-btn');btn.textContent='מאמת...';btn.disabled=true;
+  db.ref('teachers').once('value',snap=>{
+    let found=false;
+    snap.forEach(c=>{const t=c.val();if(t.password===pass&&t.status==='approved')found=true;});
+    if(found){
+      teacherCode=code;
+      document.getElementById('t-code').textContent=code;
+      document.getElementById('modal').style.display='none';
+      loadData();
+    } else {
+      err.textContent='סיסמה שגויה או משתמש לא מאושר.';err.style.display='block';
+      btn.textContent='כניסה לצפייה בהגשות ←';btn.disabled=false;
+    }
+  });
+}
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&document.getElementById('modal').style.display!=='none')teacherLogin();});
+
+function loadData(){
+  document.getElementById('content').innerHTML='<div class="loading">טוען...</div>';
+  db.ref('tests/agenda').once('value',snap=>{
+    allData=[];
+    snap.forEach(c=>{
+      const d=c.val();
+      if(d.student&&d.student.classCode===teacherCode) allData.push({key:c.key,...d});
+    });
+    allData.sort((a,b)=>b.submittedAt-a.submittedAt);
+    updateStats();renderTable();
+  });
+}
+
+function updateStats(){
+  const today=new Date().toDateString();
+  const classes=new Set(allData.map(d=>d.student.class));
+  const todayC=allData.filter(d=>new Date(d.submittedAt).toDateString()===today).length;
+  const totalBroadcast=allData.reduce((s,d)=>{
+    const a=d.answers||{};
+    return s+Object.keys(a).filter(k=>k.startsWith('broadcast_')).length;
+  },0);
+  const avg=allData.length?Math.round(totalBroadcast/allData.length*10)/10:0;
+  document.getElementById('s-total').textContent=allData.length;
+  document.getElementById('t-count').textContent=allData.length;
+  document.getElementById('s-classes').textContent=classes.size;
+  document.getElementById('s-today').textContent=todayC;
+  document.getElementById('s-avg').textContent=avg;
+}
+
+function renderTable(){
+  const cls=document.getElementById('filter-class').value.trim().toLowerCase();
+  const name=document.getElementById('filter-name').value.trim().toLowerCase();
+  let rows=allData.filter(d=>(!cls||d.student.class.toLowerCase().includes(cls))&&(!name||d.student.name.toLowerCase().includes(name)));
+  if(!rows.length){document.getElementById('content').innerHTML='<div class="no-results">אין הגשות תואמות.</div>';return;}
+  let html='<table><thead><tr><th>#</th><th>שם</th><th>כיתה</th><th>מהדורה</th><th>שעת הגשה</th><th></th></tr></thead><tbody>';
+  rows.forEach((d,i)=>{
+    const ans=d.answers||{};
+    const bcIds=Object.keys(ans).filter(k=>k.startsWith('broadcast_')).map(k=>ans[k]);
+    const dt=new Date(d.submittedAt);
+    const time=dt.toLocaleDateString('he-IL')+' '+dt.toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'});
+    // cat distribution in broadcast
+    const catCounts={pol:0,med:0,pub:0};
+    bcIds.forEach(id=>{const c=ans['cat_'+id]||CAT_REAL[id];if(catCounts[c]!==undefined)catCounts[c]++;});
+    const distHTML=`<div class="cat-dist">
+      <div class="cd-item pol"><div class="cd-dot"></div><span class="cd-num">${catCounts.pol}</span> פוליטי</div>
+      <div class="cd-item med"><div class="cd-dot"></div><span class="cd-num">${catCounts.med}</span> תקשורתי</div>
+      <div class="cd-item pub"><div class="cd-dot"></div><span class="cd-num">${catCounts.pub}</span> ציבורי</div>
+    </div>`;
+    html+=`<tr onclick="toggleExpand('${d.key}')">
+      <td style="color:var(--text-muted)">${i+1}</td>
+      <td style="font-weight:700">${d.student.name}</td>
+      <td>${d.student.class}</td>
+      <td>${distHTML}</td>
+      <td style="direction:ltr;text-align:right;font-size:12px;color:var(--text-muted)">${time}</td>
+      <td style="color:var(--text-muted);font-size:12px">▾</td>
+    </tr>`;
+    html+=`<tr class="expand-row" id="exp-${d.key}" style="display:none"><td colspan="6"><div class="expand-inner">${buildExpand(d)}</div></td></tr>`;
+  });
+  html+='</tbody></table>';
+  document.getElementById('content').innerHTML=html;
+}
+
+function buildExpand(d){
+  const ans=d.answers||{};
+  const bcIds=Object.keys(ans).filter(k=>k.startsWith('broadcast_')).map(k=>parseInt(ans[k])).filter(Boolean);
+  // Broadcast items
+  let bcHTML=bcIds.map((nid,i)=>{
+    const cat=ans['cat_'+nid]||CAT_REAL[nid]||'med';
+    const just=ans['just_'+nid];
+    return`<div class="exp-item">
+        <div class="ei-num">${i+1}</div>
+        <h5>${NEWS_MAP[nid]||nid}</h5>
+        <div class="cat-tag ${cat}">${CAT_LABEL[cat]||cat}</div>
+      </div>
+      ${just?`<div class="exp-just">${just}</div>`:''}`;
+  }).join('');
+  // General answer
+  const genHTML=ans['general']?`<div class="exp-section"><div class="exp-label">שאלת סיכום — סדר היום שנוצר</div><div class="exp-general">${ans.general}</div></div>`:'';
+  // Sort accuracy
+  let correct=0,total=0;
+  Object.keys(ans).filter(k=>k.startsWith('cat_')).forEach(k=>{
+    const nid=parseInt(k.replace('cat_',''));
+    if(CAT_REAL[nid]){total++;if(ans[k]===CAT_REAL[nid])correct++;}
+  });
+  const acc=total?Math.round(correct/total*100):0;
+  return`
+    <div class="exp-section">
+      <div class="exp-label">ידיעות שנכנסו למהדורה (${bcIds.length})</div>
+      <div class="exp-broadcast">${bcHTML||'—'}</div>
+    </div>
+    ${genHTML}
+    <div style="font-size:12px;color:var(--text-muted);margin-top:12px;">דיוק מיון: <strong style="color:var(--green)">${acc}%</strong> (${correct}/${total} ידיעות סווגו נכון)</div>
+  `;
+}
+
+function toggleExpand(key){
+  const row=document.getElementById('exp-'+key);if(!row)return;
+  const open=row.style.display!=='none';
+  document.querySelectorAll('.expand-row').forEach(r=>r.style.display='none');
+  if(!open)row.style.display='';
+}
+
+function exportCSV(){
+  if(!allData.length)return;
+  const hdrs=['שם','כיתה','קוד','תאריך','מס׳ ידיעות','פוליטי','תקשורתי','ציבורי','דיוק מיון %','שאלת סיכום'];
+  const rows=allData.map(d=>{
+    const ans=d.answers||{};
+    const bcIds=Object.keys(ans).filter(k=>k.startsWith('broadcast_')).map(k=>parseInt(ans[k]));
+    const cc={pol:0,med:0,pub:0};
+    bcIds.forEach(id=>{const c=ans['cat_'+id]||CAT_REAL[id];if(cc[c]!==undefined)cc[c]++;});
+    let cor=0,tot=0;
+    Object.keys(ans).filter(k=>k.startsWith('cat_')).forEach(k=>{const nid=parseInt(k.replace('cat_',''));if(CAT_REAL[nid]){tot++;if(ans[k]===CAT_REAL[nid])cor++;}});
+    const acc=tot?Math.round(cor/tot*100):0;
+    const dt=new Date(d.submittedAt).toLocaleString('he-IL');
+    return[d.student.name,d.student.class,d.student.classCode,dt,bcIds.length,cc.pol,cc.med,cc.pub,acc,ans.general||''];
+  });
+  const csv='\uFEFF'+[hdrs,...rows].map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download='agenda-submissions.csv';a.click();
+}
+</script>
+</body>
+</html>
