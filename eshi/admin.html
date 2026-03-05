@@ -144,9 +144,13 @@ function adminLogin(){
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&document.getElementById('login-overlay').style.display!=='none')adminLogin();});
 
 function loadRequests(){
-  db.ref('tests/teacher_requests').on('value',snap=>{
+  db.ref('teacher_requests').on('value',snap=>{
     allRequests=[];
-    snap.forEach(child=>allRequests.push({key:child.key,...child.val()}));
+    snap.forEach(child=>{
+      const d=child.val();
+      if(!d.status) d.status='pending'; // רשומות ללא status — טפל כממתינות
+      if(d.name) allRequests.push({key:child.key,...d}); // התעלם מרשומות ריקות
+    });
     allRequests.sort((a,b)=>b.requestedAt-a.requestedAt);
     updateStats();
     renderAll();
@@ -202,7 +206,7 @@ async function approveRequest(key){
   if(!req){alert('שגיאה: לא נמצאה הבקשה');return;}
   if(!confirm(`לאשר את ${req.name} מ-${req.school}?`))return;
   try{
-    await db.ref('tests/teacher_requests/'+key).update({status:'approved',approvedAt:Date.now()});
+    await db.ref('teacher_requests/'+key).update({status:'approved',approvedAt:Date.now()});
     await db.ref('teachers/'+key).set({
       name:req.name,school:req.school,phone:req.phone,
       password:req.passwordRequested,
@@ -219,14 +223,14 @@ async function rejectRequest(key){
   const req=allRequests.find(r=>r.key===key);
   if(!req)return;
   if(!confirm(`לדחות את ${req.name}?`))return;
-  await db.ref('tests/teacher_requests/'+key).update({status:'rejected'});
+  await db.ref('teacher_requests/'+key).update({status:'rejected'});
 }
 
 async function revokeRequest(key){
   const req=allRequests.find(r=>r.key===key);
   if(!req)return;
   if(!confirm(`לבטל את האישור של ${req.name}? הם לא יוכלו להיכנס יותר.`))return;
-  await db.ref('tests/teacher_requests/'+key).update({status:'pending'});
+  await db.ref('teacher_requests/'+key).update({status:'pending'});
   await db.ref('teachers/'+key).remove();
 }
 
