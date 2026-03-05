@@ -175,10 +175,10 @@ function renderList(containerId,items){
     const statusLabel={pending:'ממתין',approved:'מאושר',rejected:'נדחה'}[r.status]||r.status;
     let actions='';
     if(r.status==='pending'){
-      actions=`<button class="act-btn approve" onclick="approveRequest('${r.key}')">✓ אשר</button>
-               <button class="act-btn reject" onclick="rejectRequest('${r.key}')">✕ דחה</button>`;
+      actions=`<button class="act-btn approve" data-key="${r.key}" onclick="approveRequest(this.dataset.key)">✓ אשר</button>
+               <button class="act-btn reject" data-key="${r.key}" onclick="rejectRequest(this.dataset.key)">✕ דחה</button>`;
     } else if(r.status==='approved'){
-      actions=`<button class="act-btn delete" onclick="revokeRequest('${r.key}')">בטל אישור</button>`;
+      actions=`<button class="act-btn delete" data-key="${r.key}" onclick="revokeRequest(this.dataset.key)">בטל אישור</button>`;
     }
     return `<div class="req-card ${r.status}">
       <div class="req-info">
@@ -196,16 +196,23 @@ function renderList(containerId,items){
 }
 
 async function approveRequest(key){
+  console.log('approveRequest called with key:', key);
   const req=allRequests.find(r=>r.key===key);
-  if(!req)return;
+  console.log('found req:', req);
+  if(!req){alert('שגיאה: לא נמצאה הבקשה');return;}
   if(!confirm(`לאשר את ${req.name} מ-${req.school}?`))return;
-  await db.ref('teacher_requests/'+key).update({status:'approved',approvedAt:Date.now()});
-  // שמירת המורה המאושר בנתיב נפרד לאימות כניסה
-  await db.ref('teachers/'+key).set({
-    name:req.name,school:req.school,phone:req.phone,
-    password:req.passwordRequested,
-    status:'approved',approvedAt:Date.now()
-  });
+  try{
+    await db.ref('teacher_requests/'+key).update({status:'approved',approvedAt:Date.now()});
+    await db.ref('teachers/'+key).set({
+      name:req.name,school:req.school,phone:req.phone,
+      password:req.passwordRequested,
+      status:'approved',approvedAt:Date.now()
+    });
+    console.log('teacher saved successfully:', key);
+  }catch(e){
+    console.error('error saving teacher:', e);
+    alert('שגיאה בשמירה: '+e.message);
+  }
 }
 
 async function rejectRequest(key){
