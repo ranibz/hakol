@@ -80,8 +80,19 @@ body{background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;lin
 <div class="modal-overlay" id="modal">
   <div class="modal-box">
     <div class="modal-head"><h2>דנוטציה וקונוטציה</h2><p>מטלה חוויתית</p></div>
-    <div class="m-field"><label>שם מלא</label><input id="inp-name" type="text" placeholder="שם ומשפחה" autocomplete="name"></div>
-    <div class="m-field"><label>כיתה</label><input id="inp-class" type="text" placeholder="לדוגמה: י׳2" autocomplete="off"></div>
+    <div style="display:flex;gap:8px;margin-bottom:16px;">
+      <div style="flex:1"><label style="display:block;font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:700;color:var(--ink-light);margin-bottom:5px;">שם פרטי</label><input id="inp-firstname" type="text" placeholder="שם פרטי" autocomplete="off" style="width:100%;padding:11px 13px;border:2px solid var(--ink);background:white;font-family:'Heebo',sans-serif;font-size:15px;color:var(--ink);outline:none;box-shadow:2px 2px 0 #1a1208;"></div>
+      <div style="flex:1"><label style="display:block;font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:700;color:var(--ink-light);margin-bottom:5px;">שם משפחה</label><input id="inp-lastname" type="text" placeholder="שם משפחה" autocomplete="off" style="width:100%;padding:11px 13px;border:2px solid var(--ink);background:white;font-family:'Heebo',sans-serif;font-size:15px;color:var(--ink);outline:none;box-shadow:2px 2px 0 #1a1208;"></div>
+    </div>
+    <div class="m-field"><label>כתובת מייל</label><input id="inp-email" type="email" placeholder="your@email.com" autocomplete="off" style="direction:ltr;text-align:left;"></div>
+    <div class="m-field"><label>שכבה</label>
+      <select id="inp-grade" style="width:100%;padding:11px 13px;border:2px solid var(--ink);background:white;font-family:'Heebo',sans-serif;font-size:15px;color:var(--ink);outline:none;box-shadow:2px 2px 0 #1a1208;">
+        <option value="">בחר/י שכבה...</option>
+        <option value="י">י׳</option>
+        <option value="יא">יא׳</option>
+        <option value="יב">יב׳</option>
+      </select>
+    </div>
     <div class="m-field"><label>קוד מורה</label><input id="inp-code" type="text" placeholder="הקוד שקיבלת" autocomplete="off"></div>
     <button class="m-btn" onclick="enterPage()">כניסה למטלה ←</button>
     <div class="m-err" id="m-err">יש למלא את כל השדות.</div>
@@ -93,7 +104,7 @@ body{background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;lin
     <div class="mh-top"><span>מטלה חוויתית • תקשורת ועיתונות</span><span>גליל מערבי</span></div>
     <div class="mh-title"><h1>דנוטציה וקונוטציה</h1><p>ראו, חשבו, נתחו — ושלחו למורה</p></div>
     <div class="mh-rule"></div>
-    <div class="badge-row"><span>שם: <strong id="b-name">—</strong></span><span>כיתה: <strong id="b-class">—</strong></span></div>
+    <div class="badge-row"><span>שם: <strong id="b-name">—</strong></span><span>שכבה: <strong id="b-class">—</strong></span><span id="b-email" style="font-size:11px;direction:ltr;opacity:.8"></span></div>
   </div>
 </header>
 <div class="page">
@@ -215,7 +226,7 @@ const firebaseConfig={apiKey:"AIzaSyCCHvn_ulmiyM56DuslNzNC0Ge6a8i2vhY",authDomai
 firebase.initializeApp(firebaseConfig);
 const db=firebase.database();
 let student={},activeMic=null,selectedElems=[];
-function enterPage(){const name=document.getElementById('inp-name').value.trim();const cls=document.getElementById('inp-class').value.trim();const code=document.getElementById('inp-code').value.trim();if(!name||!cls||!code){document.getElementById('m-err').style.display='block';return;}student={name,class:cls,classCode:code};document.getElementById('b-name').textContent=name;document.getElementById('b-class').textContent=cls;document.getElementById('modal').style.display='none';}
+function enterPage(){const fn=document.getElementById('inp-firstname').value.trim();const ln=document.getElementById('inp-lastname').value.trim();const email=document.getElementById('inp-email').value.trim().toLowerCase();const grade=document.getElementById('inp-grade').value;const code=document.getElementById('inp-code').value.trim();if(!fn||!ln||!email||!grade||!code){document.getElementById('m-err').style.display='block';return;}student={name:fn+' '+ln,firstName:fn,lastName:ln,email,class:grade,classCode:code};document.getElementById('b-name').textContent=fn+' '+ln;document.getElementById('b-class').textContent=grade;document.getElementById('b-email').textContent=email;document.getElementById('modal').style.display='none';}
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&document.getElementById('modal').style.display!=='none')enterPage();});
 function autoResize(ta){ta.style.height='auto';ta.style.height=ta.scrollHeight+'px';}
 function blockPaste(e){e.preventDefault();alert('הדבקה אינה מותרת. יש לכתוב בעצמך.');}
@@ -224,7 +235,7 @@ function toggleElem(el,val){el.classList.toggle('chosen');if(el.classList.contai
 function choosePhoto(el,val){document.querySelectorAll('#two-photos .photo-mini').forEach(p=>p.classList.remove('chosen'));el.classList.add('chosen');document.getElementById('b2-choice').value=val;trackProg();}
 const TAS=['a1-den','a2-explain','b1-first','b1-why','b2-compare','c1-den','c1-con','c1-take'];
 function trackProg(){const filled=TAS.filter(id=>{const el=document.getElementById(id);return el&&el.value.trim().length>10;}).length;let done=Math.min(Math.floor(filled/1.6),5);const pct=Math.round(done/5*100);document.getElementById('prog-fill').style.width=pct+'%';document.getElementById('prog-label').textContent=done+' / 5 שלבים';}
-async function submitWork(){const btn=document.getElementById('sub-btn');const msg=document.getElementById('sub-msg');btn.disabled=true;btn.textContent='שולח...';const answers={a1_denotation:document.getElementById('a1-den').value,a2_elements:document.getElementById('a2-elems').value,a2_elements_explain:document.getElementById('a2-explain').value,b1_connotation_first:document.getElementById('b1-first').value,b1_connotation_why:document.getElementById('b1-why').value,b2_photo_choice:document.getElementById('b2-choice').value,b2_photo_compare:document.getElementById('b2-compare').value,c1_my_denotation:document.getElementById('c1-den').value,c1_my_connotation:document.getElementById('c1-con').value,c1_takeaway:document.getElementById('c1-take').value};try{await db.ref('tests/denotation').push({student,answers,submittedAt:Date.now()});msg.className='sub-msg ok';msg.textContent='✓ העבודה נשלחה! המורה יראה אותה בקרוב.';btn.textContent='✓ נשלח';}catch(e){msg.className='sub-msg err';msg.textContent='שגיאה — בדקו חיבור לאינטרנט ונסו שוב.';btn.disabled=false;btn.textContent='◈ שלח עבודה למורה';}}
+async function submitWork(){const btn=document.getElementById('sub-btn');const msg=document.getElementById('sub-msg');btn.disabled=true;btn.textContent='שולח...';const answers={a1_denotation:document.getElementById('a1-den').value,a2_elements:document.getElementById('a2-elems').value,a2_elements_explain:document.getElementById('a2-explain').value,b1_connotation_first:document.getElementById('b1-first').value,b1_connotation_why:document.getElementById('b1-why').value,b2_photo_choice:document.getElementById('b2-choice').value,b2_photo_compare:document.getElementById('b2-compare').value,c1_my_denotation:document.getElementById('c1-den').value,c1_my_connotation:document.getElementById('c1-con').value,c1_takeaway:document.getElementById('c1-take').value};try{const key=(student.email+'_'+Date.now()).replace(/[.#$\/\[\]@ ]/g,'_');await db.ref('tests/denotation/'+key).set({student,answers,submittedAt:Date.now()});msg.className='sub-msg ok';msg.textContent='✓ העבודה נשלחה! המורה יראה אותה בקרוב.';btn.textContent='✓ נשלח';}catch(e){msg.className='sub-msg err';msg.textContent='שגיאה — בדקו חיבור לאינטרנט ונסו שוב.';btn.disabled=false;btn.textContent='◈ שלח עבודה למורה';}}
 </script>
 </body>
 </html>
