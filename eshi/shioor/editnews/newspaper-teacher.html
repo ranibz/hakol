@@ -52,6 +52,16 @@ tbody tr:hover{background:var(--paper-dark);}
 tbody td{padding:11px 14px;font-size:14px;vertical-align:middle;}
 .expand-row td{padding:0;}
 .expand-inner{padding:20px 24px;background:var(--paper);border-top:2px solid var(--ink);}
+.feedback-panel{margin-top:14px;border:2px solid var(--accent);background:#fff5f5;padding:14px 16px;}
+.feedback-panel h5{font-family:'Frank Ruhl Libre',serif;font-size:15px;color:var(--accent);margin-bottom:10px;border-bottom:1px solid #ddd;padding-bottom:6px;}
+.fb-row{display:flex;gap:10px;align-items:center;margin-bottom:8px;flex-wrap:wrap;}
+.fb-label{font-size:12px;font-weight:700;letter-spacing:1px;color:var(--ink-light);min-width:50px;}
+.fb-grade{width:70px;padding:7px 10px;border:2px solid var(--ink);font-family:'Frank Ruhl Libre',serif;font-size:18px;font-weight:700;text-align:center;background:white;outline:none;}
+.fb-comment{flex:1;padding:8px 11px;border:2px solid var(--ink);font-family:'Heebo',sans-serif;font-size:13px;background:white;resize:none;min-height:60px;outline:none;}
+.fb-save{padding:9px 20px;background:var(--accent);color:white;border:none;font-family:'Frank Ruhl Libre',serif;font-size:15px;font-weight:700;cursor:pointer;box-shadow:2px 2px 0 #1a1208;}
+.fb-save:hover{opacity:.85;}
+.fb-saved{padding:9px 16px;background:var(--green);color:white;font-size:13px;font-weight:700;display:none;}
+.grade-badge{display:inline-block;color:white;font-family:'Frank Ruhl Libre',serif;font-size:13px;font-weight:900;padding:2px 9px;}
 .ans-label{font-size:10px;letter-spacing:2px;text-transform:uppercase;font-weight:700;color:var(--ink-light);margin-bottom:4px;margin-top:14px;display:block;}
 .ans-label:first-child{margin-top:0;}
 .ans-text{font-size:14px;line-height:1.7;padding:10px 14px;background:white;border:1px solid var(--paper-dark);border-right:3px solid var(--accent);}
@@ -177,12 +187,13 @@ function renderTable(){
     return(!cls||d.student.class.toLowerCase().includes(cls))&&(!name||d.student.name.toLowerCase().includes(name));
   });
   if(!rows.length){document.getElementById('content').innerHTML='<div class="no-results">אין הגשות תואמות.</div>';return;}
-  let html='<table><thead><tr><th>#</th><th>שם</th><th>כיתה</th><th>שעת הגשה</th><th>פרטים</th></tr></thead><tbody>';
+  let html='<table><thead><tr><th>#</th><th>שם</th><th>כיתה</th><th>ציון</th><th>שעת הגשה</th><th>פרטים</th></tr></thead><tbody>';
   rows.forEach((d,i)=>{
     const dt=new Date(d.submittedAt);
     const time=dt.toLocaleDateString('he-IL')+' '+dt.toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'});
-    html+=`<tr onclick="toggleExpand('${d.key}')"><td>${i+1}</td><td>${d.student.name}</td><td>${d.student.class}</td><td style="direction:ltr;text-align:right">${time}</td><td style="text-align:center">▾</td></tr>`;
-    html+=`<tr class="expand-row" id="exp-${d.key}" style="display:none"><td colspan="5"><div class="expand-inner">${buildExpand(d)}</div></td></tr>`;
+    const gb=d.feedback&&d.feedback.grade!==undefined?`<span class="grade-badge" style="background:var(--green)">${d.feedback.grade}</span>`:'<span class="grade-badge" style="background:#aaa;font-size:11px">לא הוערך</span>';
+    html+=`<tr onclick="toggleExpand('${d.key}')"><td>${i+1}</td><td>${d.student.name}</td><td>${d.student.class}</td><td>${gb}</td><td style="direction:ltr;text-align:right">${time}</td><td style="text-align:center">▾</td></tr>`;
+    html+=`<tr class="expand-row" id="exp-${d.key}" style="display:none"><td colspan="6"><div class="expand-inner">${buildExpand(d)}</div></td></tr>`;
   });
   html+='</tbody></table>';
   document.getElementById('content').innerHTML=html;
@@ -221,7 +232,17 @@ function buildExpand(d){
     if(cr) ratings+=`<div style="margin-bottom:4px;font-size:12px;"><strong>${NEWS_MAP[n]}</strong>: ${cr}</div>`;
   }
 
-  return `
+  const fb=d.feedback||{};
+  const emailLine=d.student.email?`<div style="font-size:12px;color:var(--ink-light);margin-bottom:10px;direction:ltr;text-align:right">📧 ${d.student.email}</div>`:'';
+  const savedNote=fb.grade!==undefined?`<div style="margin-bottom:8px;font-size:13px;color:var(--green)">✅ הוערך ${new Date(fb.gradedAt).toLocaleDateString('he-IL')} — ציון: <strong>${fb.grade}</strong>${fb.comment?' | '+fb.comment:''}</div>`:'';
+  const feedbackPanel=`<div class="feedback-panel">
+    <h5>✏️ הערכת מורה</h5>
+    ${savedNote}
+    <div class="fb-row"><span class="fb-label">ציון:</span><input class="fb-grade" id="fg-${d.key}" type="number" min="0" max="100" placeholder="0–100" value="${fb.grade!==undefined?fb.grade:''}"></div>
+    <div class="fb-row"><span class="fb-label">הערה:</span><textarea class="fb-comment" id="fc-${d.key}" placeholder="הערה אישית לתלמיד...">${fb.comment||''}</textarea></div>
+    <div class="fb-row"><button class="fb-save" onclick="saveFeedback('${d.key}')">💾 שמור הערכה</button><span class="fb-saved" id="fs-${d.key}">✓ נשמר!</span></div>
+  </div>`;
+  return emailLine+`
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;flex-wrap:wrap;">
       <div>${miniNp}</div>
       <div>
@@ -231,7 +252,23 @@ function buildExpand(d){
     </div>
     ${justs?`<span class="ans-label">נימוקים</span>${justs}`:''}
     ${ratings?`<details style="margin-top:12px"><summary style="cursor:pointer;font-size:13px;font-weight:700;">דירוגי ערך חדשותי</summary><div style="margin-top:8px">${ratings}</div></details>`:''}
-  `;
+  `+feedbackPanel;
+}
+function saveFeedback(key){
+  const grade=document.getElementById('fg-'+key).value;
+  const comment=document.getElementById('fc-'+key).value.trim();
+  if(grade===''||isNaN(grade)){alert('יש להזין ציון');return;}
+  const btn=document.querySelector('#exp-'+key+' .fb-save');
+  btn.disabled=true;btn.textContent='שומר...';
+  db.ref('tests/newspaper/'+key+'/feedback').set({grade:parseInt(grade),comment,gradedAt:Date.now(),gradedBy:teacherCode})
+    .then(()=>{
+      const saved=document.getElementById('fs-'+key);
+      saved.style.display='inline-block';
+      btn.textContent='💾 שמור הערכה';btn.disabled=false;
+      const idx=allData.findIndex(d=>d.key===key);
+      if(idx>-1)allData[idx].feedback={grade:parseInt(grade),comment,gradedAt:Date.now()};
+      setTimeout(()=>saved.style.display='none',3000);
+    }).catch(()=>{btn.textContent='💾 שמור הערכה';btn.disabled=false;alert('שגיאה — נסו שנית');});
 }
 
 function toggleExpand(key){
@@ -244,13 +281,13 @@ function toggleExpand(key){
 
 function exportCSV(){
   if(!allData.length)return;
-  const headers=['שם','כיתה','קוד','תאריך','ידיעה ראשית','ידיעה משנית','ידיעה 3','ידיעה 4','ידיעה 5','ידיעה 6','נימוק ראשית'];
+  const headers=['שם','מייל','שכבה','קוד','תאריך','ציון','הערת מורה','ידיעה ראשית','ידיעה משנית','ידיעה 3','ידיעה 4','ידיעה 5','ידיעה 6','נימוק ראשית'];
   const rows=allData.map(d=>{
     const ans=d.answers||{};
     const dt=new Date(d.submittedAt).toLocaleString('he-IL');
     const slots=[0,1,2,3,4,5].map(i=>NEWS_MAP[ans['slot_'+i]]||'');
     const just0=ans['just_'+(ans['slot_0'])]||'';
-    return[d.student.name,d.student.class,d.student.classCode,dt,...slots,just0];
+    const fb=d.feedback||{};return[d.student.name,d.student.email||'',d.student.class,d.student.classCode,dt,fb.grade!==undefined?fb.grade:'לא הוערך',fb.comment||'',...slots,just0];
   });
   const csv='\uFEFF'+[headers,...rows].map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
   const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download='newspaper-submissions.csv';a.click();
