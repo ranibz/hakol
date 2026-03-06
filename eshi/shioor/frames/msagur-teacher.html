@@ -290,29 +290,57 @@ function render(){
     return;
   }
   let html=`<div class="tbl-wrap"><table>
-    <thead><tr><th>#</th><th>שם</th><th>כיתה</th><th>זמן הגשה</th><th></th></tr></thead><tbody>`;
+    <thead><tr><th>#</th><th>שם</th><th>כיתה</th><th>ציון</th><th>זמן הגשה</th><th></th></tr></thead><tbody>`;
   filtered.forEach((r,i)=>{
     const t=r.submittedAt?new Date(r.submittedAt).toLocaleString('he-IL'):'—';
+    const gb=r.feedback&&r.feedback.grade!==undefined?`<span class="grade-badge" style="background:var(--green)">${r.feedback.grade}</span>`:'<span class="grade-badge" style="background:#aaa;font-size:11px">לא הוערך</span>';
     html+=`<tr id="r${i}">
       <td style="color:var(--ink-light);font-size:12px">${i+1}</td>
       <td><strong>${esc(r.student.name||'—')}</strong></td>
       <td><span class="badge">${esc(r.student.class||'—')}</span></td>
+      <td>${gb}</td>
       <td style="font-size:13px;color:var(--ink-light)">${t}</td>
       <td><button class="exp-btn" onclick="toggle(${i})">▼ תשובות</button></td>
     </tr>
     <tr class="exp-row" id="e${i}" style="display:none">
-      <td colspan="5"><div class="exp-inner">${renderAns(r.answers)}</div></td>
+      <td colspan="6"><div class="exp-inner">${renderAns(r,r.answers)}</div></td>
     </tr>`;
   });
   html+='</tbody></table></div>';
   area.innerHTML=html;
 }
 
-function renderAns(ans){
-  if(!Object.keys(ans).length)return'<em style="color:var(--ink-light)">אין תשובות</em>';
-  return'<div class="ans-grid">'+Object.entries(ans).map(([k,v])=>
+function renderAns(r,ans){
+  const fb=r.feedback||{};
+  const emailLine=r.student.email?`<div style="font-size:12px;color:var(--ink-light);margin-bottom:10px;direction:ltr;text-align:right">📧 ${r.student.email}</div>`:'';
+  const ansHtml=Object.keys(ans).length?'<div class="ans-grid">'+Object.entries(ans).map(([k,v])=>
     `<div class="ans-item"><div class="ans-key">${esc(ANSWER_LABELS[k]||k)}</div><div class="ans-val">${esc(String(v||''))}</div></div>`
-  ).join('')+'</div>';
+  ).join('')+'</div>':'<em style="color:var(--ink-light)">אין תשובות</em>';
+  const savedNote=fb.grade!==undefined?`<div style="margin-bottom:8px;font-size:13px;color:var(--green)">✅ הוערך ${new Date(fb.gradedAt).toLocaleDateString('he-IL')} — ציון: <strong>${fb.grade}</strong>${fb.comment?' | '+fb.comment:''}</div>`:'';
+  const feedbackPanel=`<div class="feedback-panel">
+    <h5>✏️ הערכת מורה</h5>
+    ${savedNote}
+    <div class="fb-row"><span class="fb-label">ציון:</span><input class="fb-grade" id="fg-${r.key}" type="number" min="0" max="100" placeholder="0–100" value="${fb.grade!==undefined?fb.grade:''}"></div>
+    <div class="fb-row"><span class="fb-label">הערה:</span><textarea class="fb-comment" id="fc-${r.key}" placeholder="הערה אישית לתלמיד...">${fb.comment||''}</textarea></div>
+    <div class="fb-row"><button class="fb-save" onclick="saveFeedback('${r.key}')">💾 שמור הערכה</button><span class="fb-saved" id="fs-${r.key}">✓ נשמר!</span></div>
+  </div>`;
+  return emailLine+ansHtml+feedbackPanel;
+}
+function saveFeedback(key){
+  const grade=document.getElementById('fg-'+key).value;
+  const comment=document.getElementById('fc-'+key).value.trim();
+  if(grade===''||isNaN(grade)){alert('יש להזין ציון');return;}
+  const btn=document.querySelector(`#fs-${key}`).previousElementSibling;
+  btn.disabled=true;btn.textContent='שומר...';
+  db.ref('tests/msagur/'+key+'/feedback').set({grade:parseInt(grade),comment,gradedAt:Date.now(),gradedBy:myCode})
+    .then(()=>{
+      const saved=document.getElementById('fs-'+key);
+      saved.style.display='inline-block';
+      btn.textContent='💾 שמור הערכה';btn.disabled=false;
+      const idx=allRows.findIndex(r=>r.key===key);
+      if(idx>-1)allRows[idx].feedback={grade:parseInt(grade),comment,gradedAt:Date.now()};
+      setTimeout(()=>saved.style.display='none',3000);
+    }).catch(()=>{btn.textContent='💾 שמור הערכה';btn.disabled=false;alert('שגיאה — נסו שנית');});
 }
 
 function toggle(i){
@@ -326,10 +354,10 @@ function toggle(i){
 function exportCSV(){
   if(!filtered.length){alert('אין נתונים');return;}
   const keys=[...new Set(filtered.flatMap(r=>Object.keys(r.answers)))];
-  const header=['שם','כיתה','זמן הגשה',...keys.map(k=>ANSWER_LABELS[k]||k)];
+  const header=['שם','מייל','שכבה','זמן הגשה','ציון','הערת מורה',...keys.map(k=>ANSWER_LABELS[k]||k)];
   const rows=filtered.map(r=>{
     const t=r.submittedAt?new Date(r.submittedAt).toLocaleString('he-IL'):'';
-    return[r.student.name||'',r.student.class||'',t,...keys.map(k=>(r.answers[k]||'').replace(/\n/g,' '))];
+    const fb=r.feedback||{};return[r.student.name||'',r.student.email||'',r.student.class||'',t,fb.grade!==undefined?fb.grade:'לא הוערך',fb.comment||'',...keys.map(k=>(r.answers[k]||'').replace(/\n/g,' '))];
   });
   const csv='\uFEFF'+[header,...rows].map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
   const a=document.createElement('a');
