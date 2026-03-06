@@ -83,8 +83,19 @@ body{background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;lin
 <div class="modal-overlay" id="modal">
   <div class="modal-box">
     <div class="modal-head"><h2>כניסה למטלה</h2><p>חופש הביטוי</p></div>
-    <div class="mf"><label>שם מלא</label><input id="inp-name" type="text" placeholder="הכנס/י שם מלא" autocomplete="off"></div>
-    <div class="mf"><label>כיתה</label><input id="inp-class" type="text" placeholder="למשל: י׳2" autocomplete="off"></div>
+    <div style="display:flex;gap:8px;margin-bottom:14px;">
+      <div style="flex:1"><label style="display:block;font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:700;color:var(--ink-light);margin-bottom:4px;">שם פרטי</label><input id="inp-firstname" type="text" placeholder="שם פרטי" autocomplete="off" style="width:100%;padding:11px 13px;border:2px solid var(--ink);background:white;font-family:'Heebo',sans-serif;font-size:15px;color:var(--ink);outline:none;"></div>
+      <div style="flex:1"><label style="display:block;font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:700;color:var(--ink-light);margin-bottom:4px;">שם משפחה</label><input id="inp-lastname" type="text" placeholder="שם משפחה" autocomplete="off" style="width:100%;padding:11px 13px;border:2px solid var(--ink);background:white;font-family:'Heebo',sans-serif;font-size:15px;color:var(--ink);outline:none;"></div>
+    </div>
+    <div class="mf"><label>כתובת מייל</label><input id="inp-email" type="email" placeholder="your@email.com" autocomplete="off" style="direction:ltr;text-align:left;"></div>
+    <div class="mf"><label>שכבה</label>
+      <select id="inp-grade" style="width:100%;padding:11px 13px;border:2px solid var(--ink);background:white;font-family:'Heebo',sans-serif;font-size:15px;color:var(--ink);outline:none;">
+        <option value="">בחר/י שכבה...</option>
+        <option value="י">י׳</option>
+        <option value="יא">יא׳</option>
+        <option value="יב">יב׳</option>
+      </select>
+    </div>
     <div class="mf"><label>קוד מורה</label><input id="inp-code" type="text" placeholder="הקוד שקיבלת מהמורה" autocomplete="off"></div>
     <button class="mbtn" id="enter-btn" onclick="enterWS()" disabled>כניסה למטלה ←</button>
   </div>
@@ -99,7 +110,7 @@ body{background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;lin
     <div class="mht"><span>מטלה • תקשורת ועיתונות</span><span>גליל מערבי</span></div>
     <div class="mhti"><h1>חופש הביטוי</h1><p>דילמה • ניתוח • עמדה</p></div>
     <div class="mhr"></div>
-    <div class="sbadge"><span>שם: <strong id="bname">—</strong></span><span>כיתה: <strong id="bcls">—</strong></span></div>
+    <div class="sbadge"><span>שם: <strong id="bname">—</strong></span><span>שכבה: <strong id="bcls">—</strong></span><span id="bemail" style="font-size:11px;direction:ltr;opacity:.8"></span></div>
   </div>
 </header>
 <div class="page" id="mainpage" style="display:none">
@@ -208,21 +219,22 @@ const DILEMMAS=[
   {t:'אזרח מפיץ מידע שנגנב מממשלה שפגעה בזכויות אדם'},
 ];
 const dv={};
-['inp-name','inp-class','inp-code'].forEach(id=>{
-  document.getElementById(id).addEventListener('input',()=>{
-    document.getElementById('enter-btn').disabled=!['inp-name','inp-class','inp-code'].every(i=>document.getElementById(i).value.trim());
-  });
-});
+['inp-firstname','inp-lastname','inp-email','inp-code'].forEach(id=>{document.getElementById(id).addEventListener('input',checkReady);});
+document.getElementById('inp-grade').addEventListener('change',checkReady);
+function checkReady(){document.getElementById('enter-btn').disabled=!(document.getElementById('inp-firstname').value.trim()&&document.getElementById('inp-lastname').value.trim()&&document.getElementById('inp-email').value.trim()&&document.getElementById('inp-grade').value&&document.getElementById('inp-code').value.trim());}
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&!document.getElementById('enter-btn').disabled&&document.getElementById('modal').style.display!=='none')enterWS();});
 let student={};
 function enterWS(){
-  student={name:document.getElementById('inp-name').value.trim(),cls:document.getElementById('inp-class').value.trim(),code:document.getElementById('inp-code').value.trim()};
+  const fn=document.getElementById('inp-firstname').value.trim();
+  const ln=document.getElementById('inp-lastname').value.trim();
+  student={name:fn+' '+ln,firstName:fn,lastName:ln,email:document.getElementById('inp-email').value.trim().toLowerCase(),cls:document.getElementById('inp-grade').value,code:document.getElementById('inp-code').value.trim()};
   document.getElementById('modal').style.display='none';
   document.getElementById('pbar').style.display='flex';
   document.getElementById('mhead').style.display='block';
   document.getElementById('mainpage').style.display='block';
   document.getElementById('bname').textContent=student.name;
   document.getElementById('bcls').textContent=student.cls;
+  document.getElementById('bemail').textContent=student.email;
   renderD();setP(1);
 }
 function setP(n){
@@ -267,8 +279,8 @@ function submitWS(){
     limits_position:document.getElementById('q-limits').value,
     journalist_ethics:document.getElementById('q-ethics').value,
   };
-  const data={student:{name:student.name,class:student.cls,classCode:student.code},answers,submittedAt:Date.now()};
-  const key=(student.name+'_'+Date.now()).replace(/[.#$\/\[\] ]/g,'_');
+  const data={student:{name:student.name,firstName:student.firstName,lastName:student.lastName,email:student.email,class:student.cls,classCode:student.code},answers,submittedAt:Date.now()};
+  const key=(student.email+'_'+Date.now()).replace(/[.#$\/\[\]@ ]/g,'_');
   db.ref('tests/freedom/'+key).set(data)
     .then(()=>{document.querySelectorAll('.phase').forEach(p=>p.classList.remove('active'));document.getElementById('phase-success').classList.add('active');document.getElementById('pfill').style.width='100%';document.getElementById('ppct').textContent='100%';document.getElementById('plbl').textContent='הושלם ✓';})
     .catch(()=>alert('שגיאה בשמירה — נסו שנית'));
