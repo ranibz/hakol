@@ -52,6 +52,16 @@ tbody td{padding:10px 13px;font-size:13px;vertical-align:middle;}
 .xrow{cursor:default!important;}
 .xrow:hover{background:transparent!important;}
 .xi{padding:18px 20px;background:var(--paper-dark);border-top:2px solid var(--ink);}
+.feedback-panel{margin-top:14px;border:2px solid var(--accent);background:#fff5f5;padding:14px 16px;}
+.feedback-panel h5{font-family:'Frank Ruhl Libre',serif;font-size:15px;color:var(--accent);margin-bottom:10px;border-bottom:1px solid #ddd;padding-bottom:6px;}
+.fb-row{display:flex;gap:10px;align-items:center;margin-bottom:8px;flex-wrap:wrap;}
+.fb-label{font-size:12px;font-weight:700;letter-spacing:1px;color:var(--ink-light);min-width:50px;}
+.fb-grade{width:70px;padding:7px 10px;border:2px solid var(--ink);font-family:'Frank Ruhl Libre',serif;font-size:18px;font-weight:700;text-align:center;background:white;outline:none;}
+.fb-comment{flex:1;padding:8px 11px;border:2px solid var(--ink);font-family:'Heebo',sans-serif;font-size:13px;background:white;resize:none;min-height:60px;outline:none;}
+.fb-save{padding:9px 20px;background:var(--accent);color:white;border:none;font-family:'Frank Ruhl Libre',serif;font-size:15px;font-weight:700;cursor:pointer;box-shadow:2px 2px 0 #1a1208;}
+.fb-save:hover{opacity:.85;}
+.fb-saved{padding:9px 16px;background:var(--green);color:white;font-size:13px;font-weight:700;display:none;}
+.grade-badge{display:inline-block;color:white;font-family:'Frank Ruhl Libre',serif;font-size:13px;font-weight:900;padding:2px 9px;}
 .xb{background:white;border:2px solid var(--ink);padding:13px 16px;margin-bottom:8px;border-right:4px solid var(--accent);}
 .xb.xbl{border-right-color:var(--blue);}
 .xb.xbg{border-right-color:var(--green);}
@@ -150,18 +160,20 @@ function renderT(){
   const name=document.getElementById('fname').value.trim().toLowerCase();
   const rows=allD.filter(d=>(!cls||d.student.class.toLowerCase().includes(cls))&&(!name||d.student.name.toLowerCase().includes(name)));
   if(!rows.length){document.getElementById('content').innerHTML='<div class="none">אין הגשות תואמות.</div>';return;}
-  let html='<table><thead><tr><th>#</th><th>שם</th><th>כיתה</th><th>שעת הגשה</th><th></th></tr></thead><tbody>';
+  let html='<table><thead><tr><th>#</th><th>שם</th><th>כיתה</th><th>ציון</th><th>שעת הגשה</th><th></th></tr></thead><tbody>';
   rows.forEach((d,i)=>{
     const dt=new Date(d.submittedAt);
     const time=dt.toLocaleDateString('he-IL')+' '+dt.toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'});
+    const gb=d.feedback&&d.feedback.grade!==undefined?`<span class="grade-badge" style="background:var(--green)">${d.feedback.grade}</span>`:'<span class="grade-badge" style="background:#aaa;font-size:11px">לא הוערך</span>';
     html+=`<tr onclick="togX('${d.key}')">
       <td style="color:var(--ink-light)">${i+1}</td>
       <td style="font-weight:700">${d.student.name}</td>
       <td>${d.student.class}</td>
+      <td>${gb}</td>
       <td style="direction:ltr;text-align:right;font-size:12px;color:var(--ink-light)">${time}</td>
       <td style="color:var(--ink-light)">▾</td>
     </tr>
-    <tr class="xrow" id="xr-${d.key}" style="display:none"><td colspan="5"><div class="xi">${buildX(d)}</div></td></tr>`;
+    <tr class="xrow" id="xr-${d.key}" style="display:none"><td colspan="6"><div class="xi">${buildX(d)}</div></td></tr>`;
   });
   html+='</tbody></table>';
   document.getElementById('content').innerHTML=html;
@@ -186,7 +198,33 @@ function buildX(d){
     {k:'action_proposal',l:'הצעות לשינוי',c:'xbg'},
   ];
   const qHTML=QS.filter(q=>a[q.k]).map(q=>`<div class="xb ${q.c}"><h5>${q.l}</h5><p>${a[q.k]}</p></div>`).join('');
-  return cvHTML+qHTML||'<p style="color:var(--ink-light);font-size:13px">אין תשובות</p>';
+  const fb=d.feedback||{};
+  const emailLine=d.student.email?`<div style="font-size:12px;color:var(--ink-light);margin-bottom:10px;direction:ltr;text-align:right">📧 ${d.student.email}</div>`:'';
+  const savedNote=fb.grade!==undefined?`<div style="margin-bottom:8px;font-size:13px;color:var(--green)">✅ הוערך ${new Date(fb.gradedAt).toLocaleDateString('he-IL')} — ציון: <strong>${fb.grade}</strong>${fb.comment?' | '+fb.comment:''}</div>`:'';
+  const feedbackPanel=`<div class="feedback-panel">
+    <h5>✏️ הערכת מורה</h5>
+    ${savedNote}
+    <div class="fb-row"><span class="fb-label">ציון:</span><input class="fb-grade" id="fg-${d.key}" type="number" min="0" max="100" placeholder="0–100" value="${fb.grade!==undefined?fb.grade:''}"></div>
+    <div class="fb-row"><span class="fb-label">הערה:</span><textarea class="fb-comment" id="fc-${d.key}" placeholder="הערה אישית לתלמיד...">${fb.comment||''}</textarea></div>
+    <div class="fb-row"><button class="fb-save" onclick="saveFeedback('${d.key}')">💾 שמור הערכה</button><span class="fb-saved" id="fs-${d.key}">✓ נשמר!</span></div>
+  </div>`;
+  return emailLine+(cvHTML+qHTML||'<p style="color:var(--ink-light);font-size:13px">אין תשובות</p>')+feedbackPanel;
+}
+function saveFeedback(key){
+  const grade=document.getElementById('fg-'+key).value;
+  const comment=document.getElementById('fc-'+key).value.trim();
+  if(grade===''||isNaN(grade)){alert('יש להזין ציון');return;}
+  const btn=document.querySelector('#xr-'+key+' .fb-save');
+  btn.disabled=true;btn.textContent='שומר...';
+  db.ref('tests/exclusion/'+key+'/feedback').set({grade:parseInt(grade),comment,gradedAt:Date.now(),gradedBy:tCode})
+    .then(()=>{
+      const saved=document.getElementById('fs-'+key);
+      saved.style.display='inline-block';
+      btn.textContent='💾 שמור הערכה';btn.disabled=false;
+      const idx=allD.findIndex(d=>d.key===key);
+      if(idx>-1)allD[idx].feedback={grade:parseInt(grade),comment,gradedAt:Date.now()};
+      setTimeout(()=>saved.style.display='none',3000);
+    }).catch(()=>{btn.textContent='💾 שמור הערכה';btn.disabled=false;alert('שגיאה — נסו שנית');});
 }
 function togX(key){
   const r=document.getElementById('xr-'+key);if(!r)return;
@@ -197,11 +235,11 @@ function togX(key){
 function expCSV(){
   if(!allD.length)return;
   const QS={classify_explanation:'הסבר סיווג',excluded_group:'קבוצה מודרת',exclusion_reason:'סיבת הדרה',pluralism_change:'שינוי פלורליזם',personal_experience:'חוויה אישית',position:'עמדה',action_proposal:'הצעות לשינוי'};
-  const hdrs=['שם','כיתה','קוד','תאריך',...Object.values(QS)];
+  const hdrs=['שם','מייל','שכבה','קוד','תאריך','ציון','הערת מורה',...Object.values(QS)];
   const rows=allD.map(d=>{
     const a=d.answers||{};
     const dt=new Date(d.submittedAt).toLocaleString('he-IL');
-    return[d.student.name,d.student.class,d.student.classCode,dt,...Object.keys(QS).map(k=>a[k]||'')];
+    const fb=d.feedback||{};return[d.student.name,d.student.email||'',d.student.class,d.student.classCode,dt,fb.grade!==undefined?fb.grade:'לא הוערך',fb.comment||'',...Object.keys(QS).map(k=>a[k]||'')];
   });
   const csv='\uFEFF'+[hdrs,...rows].map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
   const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download='exclusion-submissions.csv';a.click();
