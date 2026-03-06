@@ -161,22 +161,24 @@ function renderTable(){
   const name=document.getElementById('filter-name').value.trim().toLowerCase();
   const rows=allData.filter(d=>(!cls||d.student.class.toLowerCase().includes(cls))&&(!name||d.student.name.toLowerCase().includes(name)));
   if(!rows.length){document.getElementById('content').innerHTML='<div class="no-results">אין הגשות תואמות.</div>';return;}
-  let html='<table><thead><tr><th>#</th><th>שם</th><th>כיתה</th><th>ציון מסכים</th><th>שעת הגשה</th><th></th></tr></thead><tbody>';
+  let html='<table><thead><tr><th>#</th><th>שם</th><th>כיתה</th><th>ציון מסכים</th><th>ציון מורה</th><th>שעת הגשה</th><th></th></tr></thead><tbody>';
   rows.forEach((d,i)=>{
     const a=d.answers||{};
     const score=parseInt(a.screen_theft_score||0);
     const dt=new Date(d.submittedAt);
     const time=dt.toLocaleDateString('he-IL')+' '+dt.toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'});
     const scoreClass=score>=8?'':'score-badge '+(score>=5?'mid':'low');
+    const tgb=d.feedback&&d.feedback.grade!==undefined?`<span class="teacher-grade-badge" style="background:var(--green)">${d.feedback.grade}</span>`:'<span class="teacher-grade-badge" style="background:#aaa;font-size:11px">לא הוערך</span>';
     html+=`<tr onclick="toggleExpand('${d.key}')">
       <td style="color:var(--ink-light)">${i+1}</td>
       <td style="font-weight:700">${d.student.name}</td>
       <td>${d.student.class}</td>
       <td><span class="score-badge ${score>=8?'':score>=5?'mid':'low'}">${score}/10</span></td>
+      <td>${tgb}</td>
       <td style="direction:ltr;text-align:right;font-size:12px;color:var(--ink-light)">${time}</td>
       <td style="color:var(--ink-light)">▾</td>
     </tr>
-    <tr class="expand-row" id="exp-${d.key}" style="display:none"><td colspan="6"><div class="expand-inner">${buildExpand(d)}</div></td></tr>`;
+    <tr class="expand-row" id="exp-${d.key}" style="display:none"><td colspan="7"><div class="expand-inner">${buildExpand(d)}</div></td></tr>`;
   });
   html+='</tbody></table>';
   document.getElementById('content').innerHTML=html;
@@ -205,7 +207,33 @@ function buildExpand(d){
   ];
   const qHTML=QS.filter(q=>a[q.k]).map(q=>`
     <div class="exp-block ${q.cls}"><h5>${q.label}</h5><p>${a[q.k]}</p></div>`).join('');
-  return memHTML+qHTML||'<p style="color:var(--ink-light);font-size:13px">אין תשובות</p>';
+  const fb=d.feedback||{};
+  const emailLine=d.student.email?`<div style="font-size:12px;color:var(--ink-light);margin-bottom:10px;direction:ltr;text-align:right">📧 ${d.student.email}</div>`:'';
+  const savedNote=fb.grade!==undefined?`<div style="margin-bottom:8px;font-size:13px;color:var(--green)">✅ הוערך ${new Date(fb.gradedAt).toLocaleDateString('he-IL')} — ציון: <strong>${fb.grade}</strong>${fb.comment?' | '+fb.comment:''}</div>`:'';
+  const feedbackPanel=`<div class="feedback-panel">
+    <h5>✏️ הערכת מורה</h5>
+    ${savedNote}
+    <div class="fb-row"><span class="fb-label">ציון:</span><input class="fb-grade" id="fg-${d.key}" type="number" min="0" max="100" placeholder="0–100" value="${fb.grade!==undefined?fb.grade:''}"></div>
+    <div class="fb-row"><span class="fb-label">הערה:</span><textarea class="fb-comment" id="fc-${d.key}" placeholder="הערה אישית לתלמיד...">${fb.comment||''}</textarea></div>
+    <div class="fb-row"><button class="fb-save" onclick="saveFeedback('${d.key}')">💾 שמור הערכה</button><span class="fb-saved" id="fs-${d.key}">✓ נשמר!</span></div>
+  </div>`;
+  return emailLine+(memHTML+qHTML||'<p style="color:var(--ink-light);font-size:13px">אין תשובות</p>')+feedbackPanel;
+}
+function saveFeedback(key){
+  const grade=document.getElementById('fg-'+key).value;
+  const comment=document.getElementById('fc-'+key).value.trim();
+  if(grade===''||isNaN(grade)){alert('יש להזין ציון');return;}
+  const btn=document.querySelector('#exp-'+key+' .fb-save');
+  btn.disabled=true;btn.textContent='שומר...';
+  db.ref('tests/childhood/'+key+'/feedback').set({grade:parseInt(grade),comment,gradedAt:Date.now(),gradedBy:teacherCode})
+    .then(()=>{
+      const saved=document.getElementById('fs-'+key);
+      saved.style.display='inline-block';
+      btn.textContent='💾 שמור הערכה';btn.disabled=false;
+      const idx=allData.findIndex(d=>d.key===key);
+      if(idx>-1)allData[idx].feedback={grade:parseInt(grade),comment,gradedAt:Date.now()};
+      setTimeout(()=>saved.style.display='none',3000);
+    }).catch(()=>{btn.textContent='💾 שמור הערכה';btn.disabled=false;alert('שגיאה — נסו שנית');});
 }
 
 function toggleExpand(key){
@@ -218,11 +246,11 @@ function toggleExpand(key){
 function exportCSV(){
   if(!allData.length)return;
   const QS={memory_7:'גיל 7-8',memory_9:'גיל 9-10',memory_11:'גיל 11-12',how_reached:'כיצד הגיע לתוכן',what_lost:'מה אבד',authority_impact:'סמכות מבוגרים',responsibility_order:'סדר אחריות',responsibility_explain:'הסבר אחריות',no_phone_childhood:'ילדות ללא מסכים',screen_theft_score:'ציון מסכים',screen_theft_explain:'הסבר ציון',future_parent:'הורה עתידי'};
-  const hdrs=['שם','כיתה','קוד','תאריך',...Object.values(QS)];
+  const hdrs=['שם','מייל','שכבה','קוד','תאריך','ציון מורה','הערת מורה',...Object.values(QS)];
   const rows=allData.map(d=>{
     const a=d.answers||{};
     const dt=new Date(d.submittedAt).toLocaleString('he-IL');
-    return[d.student.name,d.student.class,d.student.classCode,dt,...Object.keys(QS).map(k=>a[k]||'')];
+    const fb=d.feedback||{};return[d.student.name,d.student.email||'',d.student.class,d.student.classCode,dt,fb.grade!==undefined?fb.grade:'לא הוערך',fb.comment||'',...Object.keys(QS).map(k=>a[k]||'')];
   });
   const csv='\uFEFF'+[hdrs,...rows].map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
   const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download='childhood-submissions.csv';a.click();

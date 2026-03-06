@@ -94,8 +94,19 @@ body{background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;lin
 <div class="modal-overlay" id="modal">
   <div class="modal-box">
     <div class="modal-head"><h2>כניסה למטלה</h2><p>אובדן הילדות</p></div>
-    <div class="m-field"><label>שם מלא</label><input id="inp-name" type="text" placeholder="הכנס/י שם מלא" autocomplete="off"></div>
-    <div class="m-field"><label>כיתה</label><input id="inp-class" type="text" placeholder="למשל: י׳2" autocomplete="off"></div>
+    <div style="display:flex;gap:8px;margin-bottom:14px;">
+      <div style="flex:1"><label style="display:block;font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:700;color:var(--ink-light);margin-bottom:4px;">שם פרטי</label><input id="inp-firstname" type="text" placeholder="שם פרטי" autocomplete="off" style="width:100%;padding:11px 13px;border:2px solid var(--ink);background:white;font-family:'Heebo',sans-serif;font-size:15px;color:var(--ink);outline:none;"></div>
+      <div style="flex:1"><label style="display:block;font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:700;color:var(--ink-light);margin-bottom:4px;">שם משפחה</label><input id="inp-lastname" type="text" placeholder="שם משפחה" autocomplete="off" style="width:100%;padding:11px 13px;border:2px solid var(--ink);background:white;font-family:'Heebo',sans-serif;font-size:15px;color:var(--ink);outline:none;"></div>
+    </div>
+    <div class="m-field"><label>כתובת מייל</label><input id="inp-email" type="email" placeholder="your@email.com" autocomplete="off" style="direction:ltr;text-align:left;"></div>
+    <div class="m-field"><label>שכבה</label>
+      <select id="inp-grade" style="width:100%;padding:11px 13px;border:2px solid var(--ink);background:white;font-family:'Heebo',sans-serif;font-size:15px;color:var(--ink);outline:none;">
+        <option value="">בחר/י שכבה...</option>
+        <option value="י">י׳</option>
+        <option value="יא">יא׳</option>
+        <option value="יב">יב׳</option>
+      </select>
+    </div>
     <div class="m-field"><label>קוד מורה</label><input id="inp-code" type="text" placeholder="הקוד שקיבלת מהמורה" autocomplete="off"></div>
     <button class="m-btn" id="enter-btn" onclick="enterWS()" disabled>כניסה למטלה ←</button>
   </div>
@@ -112,7 +123,7 @@ body{background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;lin
     <div class="mh-top"><span>מטלה • תקשורת ועיתונות</span><span>גליל מערבי</span></div>
     <div class="mh-title"><h1>אובדן הילדות</h1><p>חיברות • תמימות • גבולות • סמכות</p></div>
     <div class="mh-rule"></div>
-    <div class="student-badge"><span>שם: <strong id="badge-name">—</strong></span><span>כיתה: <strong id="badge-class">—</strong></span></div>
+    <div class="student-badge"><span>שם: <strong id="badge-name">—</strong></span><span>שכבה: <strong id="badge-class">—</strong></span><span id="badge-email" style="font-size:11px;direction:ltr;opacity:.8"></span></div>
   </div>
 </header>
 
@@ -235,21 +246,22 @@ const RESP_ITEMS=['חברת הטכנולוגיה שבנתה את האלגורי�
 let respOrder=[...RESP_ITEMS];
 let student={};
 
-['inp-name','inp-class','inp-code'].forEach(id=>{
-  document.getElementById(id).addEventListener('input',()=>{
-    document.getElementById('enter-btn').disabled=!['inp-name','inp-class','inp-code'].every(i=>document.getElementById(i).value.trim());
-  });
-});
+['inp-firstname','inp-lastname','inp-email','inp-code'].forEach(id=>{document.getElementById(id).addEventListener('input',checkReady);});
+document.getElementById('inp-grade').addEventListener('change',checkReady);
+function checkReady(){document.getElementById('enter-btn').disabled=!(document.getElementById('inp-firstname').value.trim()&&document.getElementById('inp-lastname').value.trim()&&document.getElementById('inp-email').value.trim()&&document.getElementById('inp-grade').value&&document.getElementById('inp-code').value.trim());}
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&!document.getElementById('enter-btn').disabled&&document.getElementById('modal').style.display!=='none')enterWS();});
 
 function enterWS(){
-  student={name:document.getElementById('inp-name').value.trim(),cls:document.getElementById('inp-class').value.trim(),code:document.getElementById('inp-code').value.trim()};
+  const fn=document.getElementById('inp-firstname').value.trim();
+  const ln=document.getElementById('inp-lastname').value.trim();
+  student={name:fn+' '+ln,firstName:fn,lastName:ln,email:document.getElementById('inp-email').value.trim().toLowerCase(),cls:document.getElementById('inp-grade').value,code:document.getElementById('inp-code').value.trim()};
   document.getElementById('modal').style.display='none';
   document.getElementById('progress-bar').style.display='flex';
   document.getElementById('masthead').style.display='block';
   document.getElementById('main-page').style.display='block';
   document.getElementById('badge-name').textContent=student.name;
   document.getElementById('badge-class').textContent=student.cls;
+  document.getElementById('badge-email').textContent=student.email;
   renderSort();setProgress(1);
 }
 
@@ -307,8 +319,8 @@ function submitWS(){
     screen_theft_explain:document.getElementById('q-steal-exp').value,
     future_parent:document.getElementById('q-parent').value,
   };
-  const data={student:{name:student.name,class:student.cls,classCode:student.code},answers,submittedAt:Date.now()};
-  const key=(student.name+'_'+Date.now()).replace(/[.#$/[\] ]/g,'_');
+  const data={student:{name:student.name,firstName:student.firstName,lastName:student.lastName,email:student.email,class:student.cls,classCode:student.code},answers,submittedAt:Date.now()};
+  const key=(student.email+'_'+Date.now()).replace(/[.#$\/\[\]@ ]/g,'_');
   db.ref('tests/childhood/'+key).set(data)
     .then(()=>{
       document.querySelectorAll('.phase').forEach(p=>p.classList.remove('active'));
