@@ -197,8 +197,19 @@ body{background:var(--bg);color:var(--text);font-family:'Heebo',sans-serif;line-
       <h2>כניסה למטלה</h2>
       <p>סדר יום תקשורתי</p>
     </div>
-    <div class="m-field"><label>שם מלא</label><input id="inp-name" type="text" placeholder="הכנס/י שם מלא" autocomplete="off"></div>
-    <div class="m-field"><label>כיתה</label><input id="inp-class" type="text" placeholder="למשל: י׳2" autocomplete="off"></div>
+    <div style="display:flex;gap:8px;margin-bottom:14px;">
+      <div style="flex:1"><label style="display:block;font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:700;color:var(--text-muted);margin-bottom:4px;">שם פרטי</label><input id="inp-firstname" type="text" placeholder="שם פרטי" autocomplete="off" style="width:100%;padding:11px 13px;border:1px solid var(--border-bright);background:var(--bg2);font-family:'Heebo',sans-serif;font-size:15px;color:var(--text);outline:none;"></div>
+      <div style="flex:1"><label style="display:block;font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:700;color:var(--text-muted);margin-bottom:4px;">שם משפחה</label><input id="inp-lastname" type="text" placeholder="שם משפחה" autocomplete="off" style="width:100%;padding:11px 13px;border:1px solid var(--border-bright);background:var(--bg2);font-family:'Heebo',sans-serif;font-size:15px;color:var(--text);outline:none;"></div>
+    </div>
+    <div class="m-field"><label>כתובת מייל</label><input id="inp-email" type="email" placeholder="your@email.com" autocomplete="off" style="direction:ltr;text-align:left;"></div>
+    <div class="m-field"><label>שכבה</label>
+      <select id="inp-grade" style="width:100%;padding:11px 13px;border:1px solid var(--border-bright);background:var(--bg2);font-family:'Heebo',sans-serif;font-size:15px;color:var(--text);outline:none;">
+        <option value="">בחר/י שכבה...</option>
+        <option value="י">י׳</option>
+        <option value="יא">יא׳</option>
+        <option value="יב">יב׳</option>
+      </select>
+    </div>
     <div class="m-field"><label>קוד מורה</label><input id="inp-code" type="text" placeholder="הקוד שקיבלת מהמורה" autocomplete="off"></div>
     <button class="m-btn" id="enter-btn" onclick="enterWorksheet()" disabled>כניסה למטלה ←</button>
   </div>
@@ -215,7 +226,7 @@ body{background:var(--bg);color:var(--text);font-family:'Heebo',sans-serif;line-
 <!-- MASTHEAD -->
 <div class="masthead" id="masthead" style="display:none">
   <h1>עורך/ת המהדורה</h1>
-  <div class="student-line">שם: <strong id="badge-name">—</strong> &nbsp;|&nbsp; כיתה: <strong id="badge-class">—</strong></div>
+  <div class="student-line">שם: <strong id="badge-name">—</strong> &nbsp;|&nbsp; שכבה: <strong id="badge-class">—</strong> &nbsp;<span id="badge-email" style="font-size:11px;direction:ltr;opacity:.7"></span></div>
 </div>
 
 <div class="page" id="main-page" style="display:none">
@@ -342,24 +353,24 @@ let generalAns='';
 const NEWS=[...ALL_NEWS].sort(()=>Math.random()-.5);
 
 // ── MODAL ──
-['inp-name','inp-class','inp-code'].forEach(id=>{
-  document.getElementById(id).addEventListener('input',()=>{
-    const ok=['inp-name','inp-class','inp-code'].every(i=>document.getElementById(i).value.trim());
-    document.getElementById('enter-btn').disabled=!ok;
-  });
-});
+['inp-firstname','inp-lastname','inp-email','inp-code'].forEach(id=>{document.getElementById(id).addEventListener('input',checkReady);});
+document.getElementById('inp-grade').addEventListener('change',checkReady);
+function checkReady(){document.getElementById('enter-btn').disabled=!(document.getElementById('inp-firstname').value.trim()&&document.getElementById('inp-lastname').value.trim()&&document.getElementById('inp-email').value.trim()&&document.getElementById('inp-grade').value&&document.getElementById('inp-code').value.trim());}
 document.addEventListener('keydown',e=>{
   if(e.key==='Enter'&&!document.getElementById('enter-btn').disabled&&document.getElementById('modal').style.display!=='none')enterWorksheet();
 });
 
 function enterWorksheet(){
-  student={name:document.getElementById('inp-name').value.trim(),cls:document.getElementById('inp-class').value.trim(),code:document.getElementById('inp-code').value.trim()};
+  const fn=document.getElementById('inp-firstname').value.trim();
+  const ln=document.getElementById('inp-lastname').value.trim();
+  student={name:fn+' '+ln,firstName:fn,lastName:ln,email:document.getElementById('inp-email').value.trim().toLowerCase(),cls:document.getElementById('inp-grade').value,code:document.getElementById('inp-code').value.trim()};
   document.getElementById('modal').style.display='none';
   document.getElementById('progress-bar').style.display='flex';
   document.getElementById('masthead').style.display='block';
   document.getElementById('main-page').style.display='block';
   document.getElementById('badge-name').textContent=student.name;
   document.getElementById('badge-class').textContent=student.cls;
+  document.getElementById('badge-email').textContent=student.email;
   renderPool();updateProgress(1);
 }
 
@@ -520,8 +531,8 @@ function submitWorksheet(){
   [...broadcast].forEach((id,i)=>{answers['broadcast_'+i]=id;});
   Object.keys(justifications).forEach(k=>{answers['just_'+k]=justifications[k];});
   answers['general']=generalAns;
-  const data={student:{name:student.name,class:student.cls,classCode:student.code},answers,submittedAt:Date.now()};
-  const key=(student.name+'_'+Date.now()).replace(/[.#$/[\] ]/g,'_');
+  const data={student:{name:student.name,firstName:student.firstName,lastName:student.lastName,email:student.email,class:student.cls,classCode:student.code},answers,submittedAt:Date.now()};
+  const key=(student.email+'_'+Date.now()).replace(/[.#$\/\[\]@ ]/g,'_');
   db.ref('tests/agenda/'+key).set(data)
     .then(()=>{
       document.querySelectorAll('.phase').forEach(p=>p.classList.remove('active'));
