@@ -285,9 +285,14 @@ header{
 
 <!-- ══ GUARD (נטען לפני Firebase) ══ -->
 <div id="guardScreen">
-  <div style="font-size:48px;margin-bottom:16px;">🔒</div>
-  <div style="font-family:'Rubik Mono One',monospace;font-size:20px;color:var(--gold2);margin-bottom:10px;">Ranimedia</div>
-  <div style="font-size:14px;color:var(--text2);">בודק הרשאות...</div>
+  <div style="font-size:56px;margin-bottom:12px;filter:drop-shadow(0 0 20px rgba(249,168,37,.4));">🏆</div>
+  <div style="font-family:'Rubik Mono One',monospace;font-size:22px;color:var(--gold2);margin-bottom:6px;">אלוף הזירות</div>
+  <div style="font-size:13px;color:var(--text2);margin-bottom:24px;">כניסת מורה</div>
+  <div style="display:flex;flex-direction:column;gap:12px;width:100%;max-width:320px;">
+    <input id="loginName" type="text" placeholder="שם המורה" style="padding:13px 16px;border-radius:12px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.06);color:#f0f4ff;font-family:'Rubik',sans-serif;font-size:15px;outline:none;width:100%;direction:rtl;" onkeydown="if(event.key==='Enter')doLogin()">
+    <input id="loginSchool" type="text" placeholder="בית הספר" style="padding:13px 16px;border-radius:12px;border:1px solid rgba(255,255,255,.15);background:rgba(255,255,255,.06);color:#f0f4ff;font-family:'Rubik',sans-serif;font-size:15px;outline:none;width:100%;direction:rtl;" onkeydown="if(event.key==='Enter')doLogin()">
+    <button onclick="doLogin()" style="padding:14px;border-radius:12px;border:none;background:linear-gradient(135deg,#f9a825,#ffca28);color:#1a0f00;font-family:'Rubik',sans-serif;font-size:15px;font-weight:900;cursor:pointer;box-shadow:0 4px 18px rgba(249,168,37,.4);">כניסה ←</button>
+  </div>
 </div>
 
 <!-- ══ HEADER ══ -->
@@ -370,6 +375,13 @@ header{
   </div>
 </div>
 
+<div style="text-align:center;padding:20px 16px 8px;">
+  <button onclick="resetZira()" style="
+    background:rgba(239,83,80,.1);color:#ef5350;border:1px solid rgba(239,83,80,.3);
+    border-radius:10px;padding:10px 24px;font-family:'Rubik',sans-serif;font-size:13px;
+    font-weight:600;cursor:pointer;
+  ">🗑️ אפס תוצאות לזירה + כיתה</button>
+</div>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -410,21 +422,11 @@ window.addEventListener('DOMContentLoaded',()=>{
   if(teacher&&teacher.name){
     initPage();
   } else {
-    // הצג מסך חסום עם כפתור חזרה
-    document.getElementById('guardScreen').innerHTML=`
-      <div style="font-size:56px;margin-bottom:16px;">🔒</div>
-      <div style="font-family:'Rubik Mono One',monospace;font-size:22px;color:var(--gold2);margin-bottom:10px;">Ranimedia</div>
-      <div style="font-size:14px;color:var(--text2);margin-bottom:24px;line-height:1.7;">
-        הגישה לדף זה דרך פורטל המורה בלבד.<br>
-        אנא התחברו כדי לגשת למשחקים.
-      </div>
-      <a href="teacher-portal.html" style="
-        background:linear-gradient(135deg,#f9a825,#ffca28);
-        color:#1a0f00;padding:13px 28px;border-radius:12px;
-        font-family:'Rubik',sans-serif;font-size:15px;font-weight:900;
-        text-decoration:none;display:inline-block;
-        box-shadow:0 4px 18px rgba(249,168,37,.4);
-      ">כניסה לפורטל המורה ←</a>`;
+    // טען פרטים שמורים מ-localStorage אם יש
+    const saved = localStorage.getItem('ah_teacher_local');
+    if(saved){ try{teacher=JSON.parse(saved);}catch(e){} }
+    if(teacher&&teacher.name){ initPage(); }
+    // אחרת — הצג טופס כניסה (guardScreen כבר מכיל אותו)
   }
 });
 
@@ -594,12 +596,65 @@ function sendWA(){
 }
 
 /* ══ UTILS ══ */
+function doLogin(){
+  const name = document.getElementById('loginName').value.trim();
+  const school = document.getElementById('loginSchool').value.trim();
+  if(!name || !school){ 
+    document.getElementById('loginName').style.borderColor = name ? '' : '#ff4757';
+    document.getElementById('loginSchool').style.borderColor = school ? '' : '#ff4757';
+    return; 
+  }
+  teacher = { name, school, key: name.replace(/\s+/g,'_') };
+  localStorage.setItem('ah_teacher_local', JSON.stringify(teacher));
+  sessionStorage.setItem('ranimedia_teacher', JSON.stringify(teacher));
+  initPage();
+}
+
 function san(s){return(s||'').replace(/[.#$/[\]\s]/g,'_');}
 let _tt=null;
 function showToast(msg,type){
   const t=document.getElementById('toast');t.textContent=msg;
   t.className='toast show '+(type||'');
   clearTimeout(_tt);_tt=setTimeout(()=>t.classList.remove('show'),3000);
+}
+
+function resetZira(){
+  const cls = currentClass;
+  if(!cls){ alert('בחרו כיתה תחילה'); return; }
+  
+  // בקש מהמורה לבחור זירה
+  const zoneNames = ZONES.filter(z=>z.ready).map(z=>z.id+'. '+z.name).join('\n');
+  const input = prompt('בחרו מספר זירה לאיפוס:\n'+zoneNames);
+  if(!input) return;
+  const zid = parseInt(input);
+  const z = ZONES.find(z=>z.id===zid);
+  if(!z){ alert('זירה לא נמצאה'); return; }
+  
+  if(!confirm('למחוק תוצאות זירה '+z.name+' לכיתה '+cls+' בלבד?\nפעולה זו אינה הפיכה.')){ return; }
+  
+  const ziraField = 'zira'+zid;
+  ROOT.child('leaderboard').once('value', snap=>{
+    const updates = {};
+    snap.forEach(child=>{
+      const v = child.val();
+      if(v && v.class === cls && v[ziraField] !== undefined){
+        updates[child.key+'/'+ziraField] = null;
+        let newTotal = 0;
+        for(let i=1;i<=10;i++){
+          if(i!==zid && v['zira'+i]) newTotal += v['zira'+i];
+        }
+        updates[child.key+'/total'] = newTotal || null;
+      }
+    });
+    if(Object.keys(updates).length===0){
+      alert('אין תוצאות לכיתה '+cls+' בזירה זו');
+      return;
+    }
+    ROOT.child('leaderboard').update(updates, err=>{
+      if(err){ alert('שגיאה: '+err); }
+      else { alert('✅ תוצאות '+z.name+' לכיתה '+cls+' נמחקו ('+Object.keys(updates).length/2+' שחקנים)'); }
+    });
+  });
 }
 </script>
 </body>
