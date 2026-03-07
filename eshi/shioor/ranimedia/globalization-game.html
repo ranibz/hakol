@@ -691,17 +691,33 @@ function showLeaderboard(){
   document.getElementById('myFinalScore').textContent=score;
 
   const hasSession = isPortalSession && sessionData;
-  document.getElementById('lbFilter').style.display = hasSession ? 'flex' : 'none';
+  document.getElementById('lbFilter').style.display = 'flex';
 
-  setTimeout(()=>{
-    ROOT.child('leaderboard').once('value', snap=>{
-      allLbRows=[];
-      snap.forEach(c=>allLbRows.push(c.val()));
-      allLbRows.sort((a,b)=>b['zira'+ZIRA_ID]-a['zira'+ZIRA_ID]);
-      renderLb('all');
-    });
-  }, 1500);
   showScreen('s-leaderboard');
+  const db = firebase.database();
+  Promise.all([
+    ROOT.child('leaderboard').once('value'),
+    db.ref('/').once('value')
+  ]).then(([newSnap, oldSnap])=>{
+    const seen = new Set();
+    allLbRows = [];
+    newSnap.forEach(c=>{
+      const v = c.val();
+      if(v && v.name){
+        const key = v.name+'__'+(v.class||'')+'__'+(v.school||'');
+        if(!seen.has(key)){ seen.add(key); allLbRows.push(v); }
+      }
+    });
+    oldSnap.forEach(c=>{
+      const v = c.val();
+      if(v && v.name && v['zira'+ZIRA_ID]){
+        const key = v.name+'__'+(v.class||'')+'__'+(v.school||'');
+        if(!seen.has(key)){ seen.add(key); allLbRows.push(v); }
+      }
+    });
+    allLbRows.sort((a,b)=>b['zira'+ZIRA_ID]-a['zira'+ZIRA_ID]);
+    renderLb('all');
+  });
 }
 
 function filterLb(f){
