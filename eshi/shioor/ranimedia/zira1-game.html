@@ -675,10 +675,31 @@ function showLeaderboard(){
   document.getElementById('lbFilter').style.display = 'flex';
 
   showScreen('s-leaderboard');
-  ROOT.child('leaderboard').once('value', snap=>{
-    allLbRows=[];
-    snap.forEach(c=>allLbRows.push(c.val()));
-    console.log('[DEBUG] leaderboard rows loaded:', allLbRows.length, allLbRows.map(r=>r.name+':'+r['zira'+ZIRA_ID]));
+  // טען משני מקורות: path חדש + path ישן (root)
+  const db = firebase.database();
+  Promise.all([
+    ROOT.child('leaderboard').once('value'),
+    db.ref('/').once('value')
+  ]).then(([newSnap, oldSnap])=>{
+    const seen = new Set();
+    allLbRows = [];
+    // נתונים חדשים מ-aluf_hazirot/leaderboard
+    newSnap.forEach(c=>{
+      const v = c.val();
+      if(v && v.name){
+        const key = v.name+'__'+(v.class||'')+'__'+(v.school||'');
+        if(!seen.has(key)){ seen.add(key); allLbRows.push(v); }
+      }
+    });
+    // נתונים ישנים מה-root
+    oldSnap.forEach(c=>{
+      const v = c.val();
+      if(v && v.name && v['zira'+ZIRA_ID]){
+        const key = v.name+'__'+(v.class||'')+'__'+(v.school||'');
+        if(!seen.has(key)){ seen.add(key); allLbRows.push(v); }
+      }
+    });
+    console.log('[DEBUG] total rows:', allLbRows.length);
     allLbRows.sort((a,b)=>b['zira'+ZIRA_ID]-a['zira'+ZIRA_ID]);
     renderLb('all');
   });
