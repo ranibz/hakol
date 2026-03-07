@@ -318,9 +318,9 @@ body{font-family:'Rubik',sans-serif;background:var(--bg);color:var(--purple-dark
     <div class="lb-title">טבלת <span>אלופים</span></div>
     <!-- filter tabs — מוצגים רק אם יש כיתה -->
     <div class="lb-filter" id="lbFilter" style="display:none;">
-      <button class="lb-filter-btn active" onclick="filterLb('class')" id="fBtnClass">הכיתה שלי</button>
+      <button class="lb-filter-btn" onclick="filterLb('class')" id="fBtnClass">הכיתה שלי</button>
       <button class="lb-filter-btn" onclick="filterLb('school')" id="fBtnSchool">בית הספר</button>
-      <button class="lb-filter-btn" onclick="filterLb('all')" id="fBtnAll">כולם</button>
+      <button class="lb-filter-btn active" onclick="filterLb('all')" id="fBtnAll">כולם</button>
     </div>
     <div class="podium" id="podium"></div>
     <div class="lb-list" id="lbList"></div>
@@ -360,19 +360,6 @@ const Q = [
   {type:'tf',q:'תקשורת המונים מסורתית מאפשרת משוב מיידי מהנמענים.',o:['נכון','לא נכון'],a:1,fb:'לא נכון! תקשורת המונים מסורתית היא חד-סיטרית — ללא משוב. זו אחת הנקודות שבהן התקשורת הדיגיטלית שינתה הכל.'}
 ];
 
-
-/* ══ ערבוב תשובות ══ */
-function shuffleAnswers(q) {
-  if(q.type !== 'mc') return q;
-  const paired = q.o.map((opt, i) => ({opt, correct: i === q.a}));
-  for(let i = paired.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [paired[i], paired[j]] = [paired[j], paired[i]];
-  }
-  const newCorrect = paired.findIndex(p => p.correct);
-  return {...q, o: paired.map(p => p.opt), a: newCorrect};
-}
-
 /* ══ STATE ══ */
 let mode = null;          // 'live' | 'async'
 let playerName = '';
@@ -382,7 +369,7 @@ let isPortalSession = false; // האם הסשן נפתח מהפורטל
 let currentQ = 0, score = 0;
 let timerInterval = null, timerLeft = 20, answered = false;
 let gameRef = null;       // ref ל-aluf_hazirot/games/[sid]
-let lbFilter = 'class';   // 'class' | 'school' | 'all'
+let lbFilter = 'all';     // 'class' | 'school' | 'all'
 let allLbRows = [];
 
 /* ══ INIT — קרא URL params ══ */
@@ -430,23 +417,8 @@ function loadPortalSession(sid){
 }
 
 function showStandaloneEntry(msg){
-  // ללא קישור תקין מהמורה — הצג מסך נעול
-  document.getElementById('s-entry').innerHTML = `
-    <div style="
-      background:white;border-radius:18px;padding:40px 32px;
-      max-width:380px;width:100%;text-align:center;
-      box-shadow:0 8px 32px rgba(58,31,115,.18);
-      border-top:6px solid #303f9f;
-    ">
-      <div style="font-size:64px;margin-bottom:16px;">🔒</div>
-      <div style="font-family:'Rubik Mono One',monospace;font-size:18px;color:#1a237e;margin-bottom:12px;">
-        המשחק סגור
-      </div>
-      <div style="font-size:14px;color:#666;line-height:1.7;">
-        ${msg||'הגישה למשחק היא דרך המורה בלבד.'}<br><br>
-        בקשו מהמורה לשלוח לכם קישור לפעילות.
-      </div>
-    </div>`;
+  // כניסה חופשית — הצג טופס שם
+  mode = 'async';
   showScreen('s-entry');
 }
 
@@ -559,7 +531,7 @@ function startGame(){currentQ=0;score=0;answered=false;showScreen('s-question');
 
 function loadQuestion(idx){
   if(idx>=Q.length){endGame();return;}
-  const q=shuffleAnswers(Q[idx]); answered=false;
+  const q=Q[idx]; answered=false;
   document.getElementById('qBarFill').style.width=(idx/Q.length*100)+'%';
   document.getElementById('qNum').textContent=(idx+1)+' / '+Q.length;
   const badge=document.getElementById('qTypeBadge');
@@ -700,7 +672,7 @@ function showLeaderboard(){
 
   const hasSession = isPortalSession && sessionData;
   // הצג פילטר רק אם יש session עם כיתה
-  document.getElementById('lbFilter').style.display = hasSession ? 'flex' : 'none';
+  document.getElementById('lbFilter').style.display = 'flex';
 
   // המתן קצת כדי לוודא שהשמירה ב-Firebase הסתיימה לפני הטעינה
   setTimeout(()=>{
@@ -708,7 +680,7 @@ function showLeaderboard(){
       allLbRows=[];
       snap.forEach(c=>allLbRows.push(c.val()));
       allLbRows.sort((a,b)=>b['zira'+ZIRA_ID]-a['zira'+ZIRA_ID]);
-      renderLb('all');  // תמיד הצג הכל — המשתמש יכול לסנן אחר כך
+      renderLb('all');
     });
   }, 1500);
   showScreen('s-leaderboard');
