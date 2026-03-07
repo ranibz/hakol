@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>אלוף זירת המציאות התקשורתית 🧩</title>
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700;900&family=Rubik+Mono+One&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+<style>
+:root {
+  --purple:#5c35a8; --purple-dark:#3a1f73; --purple-light:#9c7ede; --purple-pale:#ede7f6;
+  --bg:#ede7f6; --white:#fff;
+  --gold:#ffca28; --gold-dark:#f9a825;
+  --silver:#b0bec5; --bronze:#a1887f;
+  --c1r:#e53935; --c1d:#b71c1c;
+  --c2r:#1e88e5; --c2d:#1565c0;
+  --c3r:#fb8c00; --c3d:#e65100;
+  --c4r:#43a047; --c4d:#2e7d32;
+  --shadow:0 8px 32px rgba(58,31,115,.18);
+  --radius:18px;
+}
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+html{height:100%;}
+body{font-family:'Rubik',sans-serif;background:var(--bg);color:var(--purple-dark);min-height:100vh;overflow-x:hidden;}
+
+.bg-orbs{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden;}
+.orb{position:absolute;border-radius:50%;filter:blur(60px);opacity:.18;animation:drift 18s ease-in-out infinite;}
+.orb1{width:400px;height:400px;background:var(--purple);top:-100px;right:-100px;}
+.orb2{width:300px;height:300px;background:var(--gold);bottom:-80px;left:-80px;animation-delay:-6s;}
+.orb3{width:250px;height:250px;background:#7c4dff;top:40%;left:30%;animation-delay:-12s;}
+@keyframes drift{0%,100%{transform:translate(0,0) scale(1);}33%{transform:translate(30px,-40px) scale(1.1);}66%{transform:translate(-20px,30px) scale(.95);}}
+
+.screen{display:none;position:relative;z-index:1;min-height:100vh;}
+.screen.active{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;}
+
+/* ── NAME ENTRY (main entry for students) ── */
+.entry-card{
+  background:white;border-radius:var(--radius);
+  padding:32px 28px;width:100%;max-width:400px;
+  box-shadow:var(--shadow);border-top:6px solid var(--purple);
+  text-align:center;animation:fadeUp .4s ease;
+}
+@keyframes fadeUp{from{opacity:0;transform:translateY(16px);}to{opacity:1;transform:none;}}
+.entry-icon{font-size:56px;display:block;margin-bottom:10px;animation:entry-pulse 2s ease-in-out infinite;}
+@keyframes entry-pulse{0%,100%{transform:scale(1);}50%{transform:scale(1.1);}}
+.entry-zone-badge{
+  display:inline-block;background:var(--purple);color:white;
+  font-size:11px;font-weight:700;letter-spacing:2px;
+  padding:3px 14px;border-radius:20px;margin-bottom:12px;
+  text-transform:uppercase;
+}
+.entry-card h2{font-family:'Rubik Mono One',monospace;font-size:20px;color:var(--purple-dark);margin-bottom:4px;}
+.entry-meta{font-size:12px;color:#888;margin-bottom:20px;line-height:1.6;}
+.entry-meta strong{color:var(--purple);}
+.inp{
+  width:100%;padding:13px 16px;
+  border:2px solid var(--purple-pale);border-radius:12px;
+  font-family:'Rubik',sans-serif;font-size:16px;
+  color:var(--purple-dark);text-align:center;
+  outline:none;transition:border-color .2s;margin-bottom:12px;
+}
+.inp:focus{border-color:var(--purple);}
+.btn-primary{
+  width:100%;background:var(--purple);color:white;border:none;
+  padding:14px;border-radius:12px;font-family:'Rubik',sans-serif;
+  font-size:16px;font-weight:700;cursor:pointer;
+  box-shadow:0 4px 14px rgba(92,53,168,.3);transition:all .2s;
+}
+.btn-primary:hover{background:var(--purple-dark);transform:translateY(-2px);}
+
+/* session info banner */
+.session-banner{
+  background:linear-gradient(135deg,var(--purple-dark),#283593);
+  border-radius:12px;padding:12px 16px;margin-bottom:16px;
+  display:flex;align-items:center;gap:10px;
+  font-size:13px;color:white;
+}
+.session-banner .dot{
+  width:8px;height:8px;background:#69f0ae;border-radius:50%;
+  flex-shrink:0;animation:pulse 1.2s ease-in-out infinite;
+}
+@keyframes pulse{0%,100%{transform:scale(1);}50%{transform:scale(1.5);opacity:.5;}}
+
+/* ── MODE SELECT (standalone — no portal) ── */
+.game-globe{font-size:72px;display:block;margin:0 auto 12px;animation:entry-pulse 2s ease-in-out infinite;}
+.zone-badge{display:inline-block;background:var(--purple);color:white;font-size:12px;font-weight:700;letter-spacing:2px;padding:4px 16px;border-radius:20px;margin-bottom:16px;text-transform:uppercase;}
+.game-logo{font-family:'Rubik Mono One',monospace;font-size:clamp(20px,6vw,34px);color:var(--purple-dark);line-height:1.2;text-align:center;margin-bottom:6px;}
+.game-logo span{color:var(--purple);}
+.mode-cards{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:22px;width:100%;max-width:420px;}
+.mode-card{background:white;border:2.5px solid var(--purple-pale);border-radius:var(--radius);padding:22px 16px;cursor:pointer;transition:all .25s;box-shadow:0 4px 14px rgba(92,53,168,.08);text-align:center;}
+.mode-card:hover{transform:translateY(-6px);box-shadow:var(--shadow);border-color:var(--purple);}
+.mode-card.live{border-color:var(--gold);}
+.mode-icon{font-size:34px;margin-bottom:8px;display:block;}
+.mode-title{font-size:15px;font-weight:700;color:var(--purple-dark);margin-bottom:4px;}
+.mode-desc{font-size:11px;color:#666;line-height:1.5;}
+
+/* join code */
+.btn-secondary{
+  background:transparent;border:2px solid var(--purple-pale);
+  color:var(--purple);width:auto;padding:9px 20px;
+  border-radius:10px;font-family:'Rubik',sans-serif;
+  font-size:13px;font-weight:600;cursor:pointer;
+  transition:all .2s;margin-top:10px;
+}
+.btn-secondary:hover{border-color:var(--purple);background:#f0f2ff;}
+
+/* ── WAITING ROOM ── */
+.pulse-dot{display:inline-block;width:9px;height:9px;background:var(--gold);border-radius:50%;margin-right:4px;animation:pulse 1.2s ease-in-out infinite;}
+.player-count{font-family:'Rubik Mono One',monospace;font-size:48px;color:var(--purple);margin:14px 0 6px;}
+.player-count small{font-size:13px;font-family:'Rubik',sans-serif;color:#888;display:block;}
+.players-list{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;max-height:110px;overflow-y:auto;margin:10px 0;}
+.player-chip{background:var(--purple-pale);color:var(--purple-dark);padding:4px 12px;border-radius:20px;font-size:12px;font-weight:600;}
+.card{background:white;border-radius:var(--radius);padding:28px 24px;width:100%;max-width:420px;box-shadow:var(--shadow);text-align:center;}
+.card-top{border-top:6px solid var(--purple);}
+.card-gold{border-top:6px solid var(--gold);}
+.card h2{font-size:20px;font-weight:900;color:var(--purple-dark);margin-bottom:6px;}
+.card p{font-size:13px;color:#666;margin-bottom:18px;line-height:1.6;}
+.btn-start{background:linear-gradient(135deg,var(--gold),var(--gold-dark));color:#1a0f00;border:none;padding:14px 32px;border-radius:12px;font-family:'Rubik',sans-serif;font-size:16px;font-weight:900;cursor:pointer;box-shadow:0 4px 16px rgba(249,168,37,.4);transition:all .2s;}
+.btn-start:hover{transform:translateY(-3px);box-shadow:0 8px 24px rgba(249,168,37,.5);}
+
+/* ── LIVE STRIP ── */
+.live-strip{position:fixed;top:0;left:0;right:0;z-index:10;background:var(--purple-dark);padding:6px 16px;display:flex;align-items:center;gap:8px;overflow-x:auto;transform:translateY(-60px);transition:transform .4s ease;}
+.live-strip.show{transform:translateY(0);}
+.live-chip{display:flex;align-items:center;gap:5px;flex-shrink:0;background:rgba(255,255,255,.12);border-radius:20px;padding:3px 10px;font-size:11px;color:white;font-weight:600;}
+.live-chip .pts{color:var(--gold);font-family:'Rubik Mono One',monospace;font-size:10px;}
+.live-me{background:rgba(255,202,40,.25);border:1px solid var(--gold);}
+
+/* ── QUESTION ── */
+.q-wrap{width:100%;max-width:560px;}
+.q-progress{display:flex;align-items:center;gap:10px;margin-bottom:14px;}
+.q-bar-bg{flex:1;height:8px;background:rgba(92,53,168,.12);border-radius:4px;overflow:hidden;}
+.q-bar-fill{height:100%;background:linear-gradient(90deg,var(--purple),var(--purple-light));border-radius:4px;transition:width .4s ease;}
+.q-num{font-size:12px;font-weight:700;color:var(--purple-light);white-space:nowrap;}
+.q-timer-ring{width:56px;height:56px;position:relative;flex-shrink:0;}
+.q-timer-ring svg{transform:rotate(-90deg);}
+.timer-bg{fill:none;stroke:var(--purple-pale);stroke-width:5;}
+.timer-fg{fill:none;stroke:var(--purple);stroke-width:5;stroke-linecap:round;transition:stroke-dashoffset .9s linear,stroke .3s;stroke-dasharray:138;stroke-dashoffset:0;}
+.timer-text{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:'Rubik Mono One',monospace;font-size:15px;color:var(--purple-dark);}
+.q-card{background:white;border-radius:var(--radius);padding:22px 20px;box-shadow:var(--shadow);border-top:5px solid var(--purple);margin-bottom:12px;}
+.q-type-badge{display:inline-block;font-size:9px;letter-spacing:2px;font-weight:700;text-transform:uppercase;padding:3px 10px;border-radius:20px;margin-bottom:8px;}
+.q-type-know{background:#e8eaf6;color:var(--purple);}
+.q-type-think{background:#fff8e1;color:#f57f17;}
+.q-text{font-size:16px;font-weight:600;color:var(--purple-dark);line-height:1.6;}
+.answers-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.ans-btn{border:none;border-radius:14px;padding:16px 12px;font-family:'Rubik',sans-serif;font-size:13px;font-weight:700;cursor:pointer;transition:all .18s;text-align:center;line-height:1.5;position:relative;overflow:hidden;color:white;min-height:72px;display:flex;align-items:center;justify-content:center;text-shadow:0 1px 3px rgba(0,0,0,.2);}
+.ans-btn:nth-child(1){background:linear-gradient(135deg,var(--c1r),var(--c1d));box-shadow:0 4px 14px rgba(229,57,53,.35);}
+.ans-btn:nth-child(2){background:linear-gradient(135deg,var(--c2r),var(--c2d));box-shadow:0 4px 14px rgba(30,136,229,.35);}
+.ans-btn:nth-child(3){background:linear-gradient(135deg,var(--c3r),var(--c3d));box-shadow:0 4px 14px rgba(251,140,0,.35);}
+.ans-btn:nth-child(4){background:linear-gradient(135deg,var(--c4r),var(--c4d));box-shadow:0 4px 14px rgba(67,160,71,.35);}
+.ans-btn:hover:not(:disabled){transform:translateY(-4px) scale(1.02);filter:brightness(1.12);}
+.ans-btn:disabled{cursor:default;}
+.ans-btn.correct{outline:4px solid #ffee58;outline-offset:3px;filter:brightness(1.15)!important;transform:scale(1.04)!important;z-index:2;}
+.ans-btn.wrong{opacity:.38;filter:grayscale(70%)!important;transform:none!important;}
+.q-feedback{background:white;border-radius:14px;padding:14px 16px;font-size:13px;line-height:1.6;margin-top:6px;border-right:4px solid var(--purple);display:none;animation:slideIn .3s ease;box-shadow:0 2px 10px rgba(92,53,168,.08);}
+.q-feedback.show{display:block;}
+.q-feedback.fb-ok{border-right-color:#43a047;}
+.q-feedback.fb-no{border-right-color:#e53935;}
+@keyframes slideIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
+.pts-badge{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) scale(0);background:var(--gold);color:var(--purple-dark);font-family:'Rubik Mono One',monospace;font-size:20px;padding:8px 16px;border-radius:12px;animation:pop-badge .65s cubic-bezier(.22,1,.36,1) forwards;pointer-events:none;white-space:nowrap;box-shadow:0 4px 20px rgba(249,168,37,.5);}
+@keyframes pop-badge{0%{transform:translate(-50%,-50%) scale(0);opacity:1;}50%{transform:translate(-50%,-80%) scale(1.1);}80%{transform:translate(-50%,-90%) scale(1);opacity:1;}100%{transform:translate(-50%,-110%) scale(.9);opacity:0;}}
+
+/* ── LEADERBOARD ── */
+.lb-wrap{width:100%;max-width:480px;}
+.lb-title{font-family:'Rubik Mono One',monospace;font-size:clamp(18px,5vw,26px);color:var(--purple-dark);text-align:center;margin-bottom:18px;}
+.lb-title span{color:var(--gold-dark);}
+.champ-banner{background:linear-gradient(135deg,var(--purple-dark),#4527a0);border-radius:var(--radius);padding:22px;text-align:center;margin-bottom:18px;color:white;box-shadow:0 8px 32px rgba(58,31,115,.3);position:relative;overflow:hidden;}
+.champ-banner::before{content:'🏆';position:absolute;font-size:120px;opacity:.06;top:50%;left:50%;transform:translate(-50%,-50%);}
+.champ-name{font-family:'Rubik Mono One',monospace;font-size:clamp(18px,6vw,30px);color:var(--gold);margin:6px 0 4px;}
+.champ-title{font-size:11px;letter-spacing:2px;opacity:.7;text-transform:uppercase;}
+.confetti-emoji{font-size:28px;display:inline-block;animation:bounce .6s ease infinite alternate;}
+@keyframes bounce{to{transform:translateY(-8px);}}
+.my-score-card{background:white;border-radius:14px;padding:14px 20px;text-align:center;margin-bottom:14px;border-top:4px solid var(--purple);box-shadow:0 4px 16px rgba(92,53,168,.1);}
+.my-score-label{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:#888;margin-bottom:2px;}
+.my-score-num{font-family:'Rubik Mono One',monospace;font-size:44px;color:var(--purple-dark);}
+.my-score-sub{font-size:12px;color:#666;}
+.podium{display:flex;align-items:flex-end;justify-content:center;gap:8px;margin-bottom:20px;}
+.podium-slot{display:flex;flex-direction:column;align-items:center;}
+.podium-avatar{border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:900;color:white;margin-bottom:6px;box-shadow:0 4px 14px rgba(0,0,0,.18);}
+.p1 .podium-avatar{background:var(--gold);color:var(--purple-dark);width:62px;height:62px;font-size:24px;}
+.p2 .podium-avatar{background:var(--silver);width:50px;height:50px;}
+.p3 .podium-avatar{background:var(--bronze);width:50px;height:50px;}
+.podium-name{font-size:11px;font-weight:700;color:var(--purple-dark);text-align:center;max-width:70px;word-break:break-word;line-height:1.3;}
+.podium-pts{font-family:'Rubik Mono One',monospace;font-size:12px;color:var(--purple);}
+.podium-bar{border-radius:8px 8px 0 0;display:flex;align-items:center;justify-content:center;font-weight:900;color:white;font-size:16px;margin-top:6px;}
+.p1 .podium-bar{background:var(--gold);width:78px;height:76px;color:var(--purple-dark);}
+.p2 .podium-bar{background:var(--silver);width:64px;height:56px;}
+.p3 .podium-bar{background:var(--bronze);width:64px;height:40px;}
+.lb-list{display:flex;flex-direction:column;gap:8px;}
+.lb-row{background:white;border-radius:12px;padding:11px 16px;display:flex;align-items:center;gap:12px;box-shadow:0 2px 8px rgba(92,53,168,.07);}
+.lb-row.me{border:2px solid var(--purple);background:#f0f2ff;}
+.lb-rank{font-family:'Rubik Mono One',monospace;font-size:15px;color:var(--purple-light);min-width:22px;text-align:center;}
+.lb-name{flex:1;font-size:14px;font-weight:600;}
+.lb-pts{font-family:'Rubik Mono One',monospace;font-size:13px;color:var(--purple);}
+/* class filter tabs on leaderboard */
+.lb-filter{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;justify-content:center;}
+.lb-filter-btn{background:var(--purple-pale);color:var(--purple-dark);border:none;padding:5px 14px;border-radius:20px;font-family:'Rubik',sans-serif;font-size:12px;font-weight:600;cursor:pointer;transition:all .18s;}
+.lb-filter-btn.active,.lb-filter-btn:hover{background:var(--purple);color:white;}
+
+/* countdown */
+.countdown{font-family:'Rubik Mono One',monospace;font-size:52px;color:var(--purple);margin:14px 0;}
+.countdown small{font-size:14px;font-family:'Rubik',sans-serif;color:#888;display:block;margin-top:4px;}
+
+@media(max-width:420px){
+  .mode-cards{grid-template-columns:1fr;}
+  .answers-grid{grid-template-columns:1fr;}
+}
+</style>
+</head>
+<body>
+
+<div class="bg-orbs">
+  <div class="orb orb1"></div><div class="orb orb2"></div><div class="orb orb3"></div>
+</div>
+
+<div class="live-strip" id="liveStrip"></div>
+
+<!-- ══ S-ENTRY: כניסת תלמיד (עם או בלי סשן מהפורטל) ══ -->
+<div class="screen active" id="s-entry">
+  <div class="entry-card">
+    <span class="entry-globe">🌍</span>
+    <div class="entry-zone-badge">זירה 1 • גלובליזציה</div>
+    <h2>אלוף זירת הגלובליזציה</h2>
+    <!-- מתמלא דינמית: אם יש סשן מהפורטל / ידני -->
+    <div id="entryMeta" class="entry-meta"></div>
+    <input class="inp" id="nameInput" type="text" placeholder="שם מלא" maxlength="20" autocomplete="off">
+    <button class="btn-primary" id="entryBtn" onclick="submitEntry()">קדימה! →</button>
+    <div id="entryJoinRow" style="display:none;margin-top:10px;">
+      <div style="font-size:12px;color:#888;margin-bottom:6px;">או הכניסו קוד כיתה:</div>
+      <input class="inp" id="joinCodeInput" type="text" placeholder="קוד כיתה" maxlength="60" autocomplete="off" style="margin-bottom:8px;">
+      <button class="btn-primary" style="font-size:14px;padding:11px;" onclick="joinByCode()">הצטרפות ←</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ S-MODE: מצב עצמאי (ללא פורטל) ══ -->
+<div class="screen" id="s-mode">
+  <div style="text-align:center;width:100%;max-width:440px;">
+    <span class="game-globe">🌍</span>
+    <div class="zone-badge">זירה 1 • גלובליזציה</div>
+    <div class="game-logo">אלוף<br><span>זירת הגלובליזציה</span></div>
+    <p style="font-size:12px;color:#666;margin:6px 0 0;">15 שאלות • ידע וחשיבה ביקורתית</p>
+    <div class="mode-cards">
+      <div class="mode-card live" onclick="standaloneMode('live')">
+        <span class="mode-icon">⚡</span>
+        <div class="mode-title">מצב חי</div>
+        <div class="mode-desc">כולם משחקים בזמן אמת<br>לידרבורד חי על הלוח</div>
+      </div>
+      <div class="mode-card" onclick="standaloneMode('async')">
+        <span class="mode-icon">🕐</span>
+        <div class="mode-title">מצב חופשי</div>
+        <div class="mode-desc">כל אחד בזמנו<br>תוצאות נשמרות לטבלה</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ S-WAITING: המתנה לתחילת משחק חי ══ -->
+<div class="screen" id="s-waiting">
+  <div class="card card-gold">
+    <div style="font-size:32px;margin-bottom:8px;">⏳</div>
+    <h2>ממתינים להתחלה <span class="pulse-dot"></span></h2>
+    <p style="font-size:12px;color:#888;">כיתה: <strong id="waitClassDisplay">—</strong></p>
+    <div class="player-count" id="playerCount">0<small>שחקנים נכנסו</small></div>
+    <div class="players-list" id="playersList"></div>
+    <div id="studentWaitMsg" style="font-size:12px;color:#999;margin-top:12px;">המורה יתחיל את המשחק בקרוב...</div>
+  </div>
+</div>
+
+<!-- ══ S-ASYNC-WAIT: ספירה לאחור ══ -->
+<div class="screen" id="s-async-wait">
+  <div class="card card-top">
+    <div style="font-size:40px;margin-bottom:12px;">🌍</div>
+    <h2>מוכנים?</h2>
+    <p>15 שאלות על גלובליזציה<br>לכל שאלה — 20 שניות<br>מהירות + דיוק = ניקוד גבוה יותר</p>
+    <div class="countdown" id="asyncCountdown">3<small>שניות להתחלה</small></div>
+    <button class="btn-primary" onclick="startGame()">התחל עכשיו →</button>
+  </div>
+</div>
+
+<!-- ══ S-QUESTION ══ -->
+<div class="screen" id="s-question" style="padding-top:60px;">
+  <div class="q-wrap">
+    <div class="q-progress">
+      <div class="q-timer-ring">
+        <svg viewBox="0 0 48 48" width="56" height="56">
+          <circle class="timer-bg" cx="24" cy="24" r="22"/>
+          <circle class="timer-fg" id="timerCircle" cx="24" cy="24" r="22"/>
+        </svg>
+        <div class="timer-text" id="timerText">20</div>
+      </div>
+      <div class="q-bar-bg"><div class="q-bar-fill" id="qBarFill" style="width:0%"></div></div>
+      <div class="q-num" id="qNum">1 / 15</div>
+    </div>
+    <div class="q-card">
+      <span class="q-type-badge" id="qTypeBadge">ידע</span>
+      <div class="q-text" id="qText">...</div>
+    </div>
+    <div class="answers-grid" id="answersGrid"></div>
+    <div class="q-feedback" id="qFeedback"></div>
+  </div>
+</div>
+
+<!-- ══ S-LEADERBOARD ══ -->
+<div class="screen" id="s-leaderboard">
+  <div class="lb-wrap">
+    <div class="champ-banner" id="champBanner" style="display:none;">
+      <div class="confetti-emoji">🏆</div>
+      <div class="champ-title" id="champTitle">אלוף / אלופת זירת המציאות התקשורתית</div>
+      <div class="champ-name" id="champName">—</div>
+      <div style="font-size:12px;opacity:.8;margin-top:4px;">עם <span id="champPts" style="color:var(--gold);font-weight:900;"></span> נקודות</div>
+    </div>
+    <div class="my-score-card">
+      <div class="my-score-label">הניקוד שלי</div>
+      <div class="my-score-num" id="myFinalScore">0</div>
+      <div class="my-score-sub" id="myFinalRank">—</div>
+    </div>
+    <div class="lb-title">טבלת <span>אלופים</span></div>
+    <!-- filter tabs — מוצגים רק אם יש כיתה -->
+    <div class="lb-filter" id="lbFilter" style="display:none;">
+      <button class="lb-filter-btn active" onclick="filterLb('class')" id="fBtnClass">הכיתה שלי</button>
+      <button class="lb-filter-btn" onclick="filterLb('school')" id="fBtnSchool">בית הספר</button>
+      <button class="lb-filter-btn" onclick="filterLb('all')" id="fBtnAll">כולם</button>
+    </div>
+    <div class="podium" id="podium"></div>
+    <div class="lb-list" id="lbList"></div>
+    <div style="text-align:center;margin-top:20px;">
+      <button style="background:transparent;border:2px solid var(--purple-pale);color:var(--purple);padding:10px 22px;border-radius:10px;font-family:'Rubik',sans-serif;font-size:14px;font-weight:600;cursor:pointer;" onclick="location.reload()">משחק חדש</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ══ FIREBASE ══ */
+firebase.initializeApp({
+  apiKey:"AIzaSyCCHvn_ulmiyM56DuslNzNC0Ge6a8i2vhY",
+  databaseURL:"https://tests-fd938-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId:"tests-fd938"
+});
+const db = firebase.database();
+const ROOT = db.ref('aluf_hazirot');   // כל הנתונים החדשים כאן
+const ZIRA_ID = 1;
+
+/* ══ QUESTIONS ══ */
+const Q = [
+  {type:'mc',q:'מה הם ארבעת המרכיבים הקבועים בכל תהליך תקשורת?',o:['מוען, מסר, נמען, ערוץ','מוען, נמען, רעש, משוב','ערוץ, קוד, מסר, משוב','מוען, מסר, ערוץ, רעש'],a:0,fb:'ארבעת המרכיבים: מוען (יוזם), מסר (תוכן), נמען (מקבל) וערוץ (אמצעי). רעש ומשוב הם מרכיבים נוספים אפשריים.'},
+  {type:'mc',q:'מהו "רעש" בתקשורת?',o:['קול חזק שמפריע לשמוע את המסר','כל הפרעה — טכנית או תרבותית — שמונעת מהמסר לעבור','המסר שהמוען שולח לנמען','תגובת הנמען על המסר'],a:1,fb:'רעש = כל הפרעה. טכנית: הפסקת חשמל. תרבותית: אי הבנה על רקע פערי שפה ותרבות.'},
+  {type:'mc',q:'מה ההבדל העיקרי בין תקשורת בינאישית לתקשורת המונים?',o:['תקשורת המונים היא תמיד בחינם','בתקשורת בינאישית הנמען גדול ואנונימי','תקשורת בינאישית — נמען מוכר וקטן; תקשורת המונים — נמען גדול ואנונימי','תקשורת המונים מתנהלת פנים אל פנים בלבד'],a:2,fb:'בינאישית: אנשים מכירים, פרטי, יש משוב, עלות נמוכה. המונים: קהל גדול ואנונימי, פומבי, חד-סיטרי, עלות גבוהה.'},
+  {type:'mc',q:'מה מאפיין את מודל לאסוול?',o:['מדגיש פרשנויות שונות של הנמענים','תהליך חד-כיווני: מי? אומר מה? באיזה ערוץ? למי? באיזו השפעה?','מתמקד במשוב של הנמען','מסביר טשטוש גבולות בתקשורת דיגיטלית'],a:1,fb:'לאסוול: תהליך חד-כיווני, המוען שולט, הנמענים פסיביים ומושפעים באופן אחיד.'},
+  {type:'mc',q:'מה המאפיין המרכזי של מודל פיסק?',o:['הנמען פסיבי ומושפע באופן אחיד','המסר מקבל משמעות שונה אצל כל נמען לפי הקשרו','המוען תמיד שולט בפרשנות','אין כלל משוב בין מוען לנמען'],a:1,fb:'פיסק: מוען ונמען שווים, המסר מפורש שונה לפי גיל, מגדר, תרבות ונסיבות — כמו "יוניקורן" שנשמע שונה לישראלים.'},
+  {type:'mc',q:'מהם חמשת תפקידי התקשורת?',o:['סיקור, תיאום, המשכיות, בידור, גיוס','ידוע, חינוך, שכנוע, מידע, בידור','תקשורת, שידור, עריכה, הפקה, פרסום','חדשות, פרסומות, בידור, ספורט, תרבות'],a:0,fb:'5 תפקידים: סיקור (מה קורה), תיאום (פרשנות), המשכיות (מורשת תרבותית), בידור (הפגת מתחים), גיוס (סולידריות).'},
+  {type:'mc',q:'מהי "התכנסות מדיה"?',o:['כנס של עיתונאים ממדינות שונות','שיתוף פעולה בין ערוצי טלוויזיה','ריכוז טכנולוגיות מדיה שונות במכשיר אחד — הסמארטפון','פגישה של מנהלי חברות תקשורת'],a:2,fb:'התכנסות מדיה: הסמארטפון = עיתון + טלוויזיה + טלפון + מצלמה + ניווט + קניות — הכל יחד.'},
+  {type:'mc',q:'ספורטאי מפרסם מוצר ברשתות החברתיות. איזה תפקיד תקשורת זה ממלא?',o:['סיקור — מדווח על אירוע','תיאום — מסביר את חוקי הספורט','בידור — מפנה לתחרות','גיוס — מגייס לאורח חיים ורכישת מוצר'],a:3,fb:'גיוס אינו רק לאומי — גם שיווקי. הספורטאי "מגייס" צרכנים לאימוץ מוצר ואורח חיים.'},
+  {type:'mc',q:'אדם מפרסם תמונות מחופשתו בפייסבוק. הוא גם מוען וגם נמען. מה מסביר זאת?',o:['מודל לאסוול — הנמען מקבל בצורה פסיבית','תפקיד הסיקור של התקשורת','טשטוש הגבול בין מוען לנמען בתקשורת דיגיטלית','התכנסות מדיה שמחברת מכשירים'],a:2,fb:'בתקשורת דיגיטלית הקהל פעיל: גם מייצר וגם צורך תוכן. הגבול בין מוען לנמען נמחק.'},
+  {type:'mc',q:'שידור חי של טקס יום הזיכרון ממלא בעיקר איזה תפקיד?',o:['בידור','המשכיות — הנצחה והעברת זיכרון בין דורות','סיקור בלבד','תיאום'],a:1,fb:'המשכיות: העברת ערכים, זיכרון וזהות לאומית בין הדורות. יכול לשלב גם גיוס וסיקור.'},
+  {type:'tf',q:'לפי מודל לאסוול, כל הנמענים מושפעים מהמסר באופן זהה.',o:['נכון','לא נכון'],a:0,fb:'נכון — זו הנחת היסוד של לאסוול. מודל פיסק בא בדיוק לתקן זאת ולהדגיש שפרשנות שונה אצל כל נמען.'},
+  {type:'tf',q:'הסמארטפון הוא דוגמה לתהליך התכנסות מדיה.',o:['נכון','לא נכון'],a:0,fb:'נכון! הסמארטפון מחבר טכנולוגיות ותפקידים רבים במכשיר אחד — ההגדרה המדויקת של התכנסות מדיה.'},
+  {type:'tf',q:'ב"רעש תרבותי" הבעיה היא תמיד כשל טכני כמו הפסקת חשמל.',o:['נכון','לא נכון'],a:1,fb:'לא נכון! רעש תרבותי נגרם מפערי שפה, תרבות או הקשר — לא מכשל טכני. כשל טכני = רעש טכני.'},
+  {type:'tf',q:'במודל המעגלי, המוען והנמען יכולים להחליף תפקידים.',o:['נכון','לא נכון'],a:0,fb:'נכון! המודל המעגלי מדגיש משוב והחלפת תפקידים — בניגוד למודל הקווי שבו המוען שולט תמיד.'},
+  {type:'tf',q:'תקשורת המונים מסורתית מאפשרת משוב מיידי מהנמענים.',o:['נכון','לא נכון'],a:1,fb:'לא נכון! תקשורת המונים מסורתית היא חד-סיטרית — ללא משוב. זו אחת הנקודות שבהן התקשורת הדיגיטלית שינתה הכל.'}
+];
+
+
+/* ══ ערבוב תשובות ══ */
+function shuffleAnswers(q) {
+  if(q.type !== 'mc') return q;
+  const paired = q.o.map((opt, i) => ({opt, correct: i === q.a}));
+  for(let i = paired.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [paired[i], paired[j]] = [paired[j], paired[i]];
+  }
+  const newCorrect = paired.findIndex(p => p.correct);
+  return {...q, o: paired.map(p => p.opt), a: newCorrect};
+}
+
+/* ══ STATE ══ */
+let mode = null;          // 'live' | 'async'
+let playerName = '';
+let sessionId = '';       // ID הסשן ב-aluf_hazirot/games/
+let sessionData = null;   // {teacher, school, class, zira, mode, status}
+let isPortalSession = false; // האם הסשן נפתח מהפורטל
+let currentQ = 0, score = 0;
+let timerInterval = null, timerLeft = 20, answered = false;
+let gameRef = null;       // ref ל-aluf_hazirot/games/[sid]
+let lbFilter = 'class';   // 'class' | 'school' | 'all'
+let allLbRows = [];
+
+/* ══ INIT — קרא URL params ══ */
+window.addEventListener('DOMContentLoaded', ()=>{
+  const params = new URLSearchParams(location.search);
+  const sid = params.get('session');
+  if(sid){
+    // הגענו מהפורטל — טען את הסשן
+    loadPortalSession(sid);
+  } else {
+    // כניסה עצמאית — הצג מסך כניסה בסיסי
+    showStandaloneEntry();
+  }
+});
+
+/* ══ PORTAL SESSION ══ */
+function loadPortalSession(sid){
+  ROOT.child('games/'+sid).once('value', snap=>{
+    if(!snap.exists()){
+      showStandaloneEntry('לא נמצא משחק פעיל. פנו למורה.');
+      return;
+    }
+    sessionData = snap.val();
+    sessionId = sid;
+    isPortalSession = true;
+    gameRef = ROOT.child('games/'+sid);
+
+    if(sessionData.status==='closed'||sessionData.status==='done'){
+      showStandaloneEntry('המשחק הסתיים. פנו למורה לפתיחת משחק חדש.');
+      return;
+    }
+
+    mode = sessionData.mode; // 'live' | 'async'
+
+    // הצג מסך כניסת שם עם פרטי הסשן
+    document.getElementById('entryMeta').innerHTML =
+      `<strong>${sessionData.ziraName||'מציאות תקשורתית'}</strong><br>
+       🏫 ${sessionData.school} &nbsp;|&nbsp; 📋 כיתה ${sessionData.class}<br>
+       <span style="font-size:11px;color:#aaa;">מורה: ${sessionData.teacher}</span>`;
+
+    // הסתר שדה קוד ידני
+    document.getElementById('entryJoinRow').style.display='none';
+    showScreen('s-entry');
+  });
+}
+
+function showStandaloneEntry(msg){
+  // ללא קישור תקין מהמורה — הצג מסך נעול
+  document.getElementById('s-entry').innerHTML = `
+    <div style="
+      background:white;border-radius:18px;padding:40px 32px;
+      max-width:380px;width:100%;text-align:center;
+      box-shadow:0 8px 32px rgba(58,31,115,.18);
+      border-top:6px solid #303f9f;
+    ">
+      <div style="font-size:64px;margin-bottom:16px;">🔒</div>
+      <div style="font-family:'Rubik Mono One',monospace;font-size:18px;color:#1a237e;margin-bottom:12px;">
+        המשחק סגור
+      </div>
+      <div style="font-size:14px;color:#666;line-height:1.7;">
+        ${msg||'הגישה למשחק היא דרך המורה בלבד.'}<br><br>
+        בקשו מהמורה לשלוח לכם קישור לפעילות.
+      </div>
+    </div>`;
+  showScreen('s-entry');
+}
+
+/* ══ ENTRY SUBMIT ══ */
+function submitEntry(){
+  const name = document.getElementById('nameInput').value.trim();
+  if(!name){alert('נא להכניס שם');return;}
+  playerName = name;
+
+  if(isPortalSession){
+    if(mode==='live') joinLiveGame();
+    else joinAsyncGame();
+  } else {
+    // standalone — התחל ישירות
+    mode = 'async';
+    startGame();
+  }
+}
+
+function joinByCode(){
+  const name = document.getElementById('nameInput').value.trim();
+  const code = document.getElementById('joinCodeInput').value.trim();
+  if(!name){alert('נא להכניס שם');return;}
+  if(!code){alert('נא להכניס קוד');return;}
+  playerName = name;
+  // חפש סשן פעיל עם הקוד הזה
+  ROOT.child('games').orderByChild('class').equalTo(code).limitToLast(5).once('value', snap=>{
+    if(!snap.exists()){alert('לא נמצא משחק עם קוד זה');return;}
+    let found=null;
+    snap.forEach(c=>{
+      const v=c.val();
+      if((v.status==='waiting'||v.status==='open'||v.status==='playing') && v.zira===ZIRA_ID)
+        found={key:c.key,...v};
+    });
+    if(!found){alert('לא נמצא משחק פעיל לזירה זו עם קוד זה');return;}
+    sessionId=found.key; sessionData=found; isPortalSession=true;
+    gameRef=ROOT.child('games/'+sessionId);
+    mode=found.mode;
+    if(mode==='live') joinLiveGame();
+    else joinAsyncGame();
+  });
+}
+
+/* ══ STANDALONE MODE ══ */
+function standaloneMode(m){
+  mode=m; sessionId='standalone_zira1'; isPortalSession=false;
+  if(m==='live'){
+    // standalone live — create own session
+    gameRef=null;
+    showAsyncCountdown(); // standalone live goes direct to game
+  } else {
+    showAsyncCountdown();
+  }
+}
+
+/* ══ LIVE GAME ══ */
+function joinLiveGame(){
+  // רשום את השחקן בסשן
+  gameRef.child('players').child(san(playerName)).set({
+    name:playerName, score:0, joined:Date.now()
+  });
+
+  // הצג חדר המתנה
+  document.getElementById('waitClassDisplay').textContent = sessionData.class||'—';
+  showScreen('s-waiting');
+
+  // עקוב אחרי שחקנים
+  gameRef.child('players').on('value', snap=>{
+    const ps=Object.values(snap.val()||{});
+    document.getElementById('playerCount').innerHTML=ps.length+'<small>שחקנים נכנסו</small>';
+    document.getElementById('playersList').innerHTML=ps.map(p=>`<div class="player-chip">${p.name}</div>`).join('');
+  });
+
+  // עקוב אחרי התחלת משחק
+  gameRef.child('status').on('value', snap=>{
+    if(snap.val()==='playing'){
+      gameRef.child('currentQ').on('value', qSnap=>{
+        const q=qSnap.val();
+        if(q>=0 && q<Q.length){ currentQ=q; loadQuestion(q); showScreen('s-question'); updateStrip(); }
+        else if(q>=Q.length) endGame();
+      });
+    } else if(snap.val()==='done'){
+      endGame();
+    }
+  });
+}
+
+/* ══ ASYNC GAME ══ */
+function joinAsyncGame(){
+  // בדוק תוקף
+  if(sessionData.expiresAt && Date.now()>sessionData.expiresAt){
+    alert('המשחק פג תוקף. פנו למורה.');return;
+  }
+  showAsyncCountdown();
+}
+
+function showAsyncCountdown(){
+  showScreen('s-async-wait');
+  let c=3;
+  document.getElementById('asyncCountdown').innerHTML=c+'<small>שניות להתחלה</small>';
+  const iv=setInterval(()=>{
+    c--;
+    document.getElementById('asyncCountdown').innerHTML=c+'<small>שניות להתחלה</small>';
+    if(c<=0){clearInterval(iv);startGame();}
+  },1000);
+}
+
+/* ══ GAME ENGINE ══ */
+function startGame(){currentQ=0;score=0;answered=false;showScreen('s-question');loadQuestion(0);}
+
+function loadQuestion(idx){
+  if(idx>=Q.length){endGame();return;}
+  const q=shuffleAnswers(Q[idx]); answered=false;
+  document.getElementById('qBarFill').style.width=(idx/Q.length*100)+'%';
+  document.getElementById('qNum').textContent=(idx+1)+' / '+Q.length;
+  const badge=document.getElementById('qTypeBadge');
+  badge.textContent=q.type==='know'?'📚 ידע':'💡 חשיבה';
+  badge.className='q-type-badge '+(q.type==='know'?'q-type-know':'q-type-think');
+  document.getElementById('qText').textContent=q.q;
+  document.getElementById('answersGrid').innerHTML=q.o.map((o,i)=>`<button class="ans-btn" id="ans${i}" onclick="answer(${i})">${o}</button>`).join('');
+  const fb=document.getElementById('qFeedback');
+  fb.style.display='none'; fb.className='q-feedback';
+  startTimer();
+}
+
+function startTimer(){
+  clearInterval(timerInterval); timerLeft=20; updateTimerUI(20);
+  timerInterval=setInterval(()=>{
+    timerLeft--; updateTimerUI(timerLeft);
+    if(timerLeft<=0){clearInterval(timerInterval);if(!answered)timeUp();}
+  },1000);
+}
+function updateTimerUI(t){
+  document.getElementById('timerText').textContent=t;
+  const c=document.getElementById('timerCircle');
+  c.style.strokeDashoffset=138*(1-t/20);
+  c.style.stroke=t>10?'var(--purple)':t>5?'var(--gold-dark)':'var(--c1r)';
+}
+
+function answer(idx){
+  if(answered)return;
+  answered=true; clearInterval(timerInterval);
+  const q=Q[currentQ];
+  const ok=idx===q.a;
+  const pts=ok?Math.max(100,Math.round(100+timerLeft*10)):0;
+  document.querySelectorAll('.ans-btn').forEach((b,i)=>{
+    b.disabled=true;
+    if(i===q.a)b.classList.add('correct');
+    if(i===idx&&!ok)b.classList.add('wrong');
+  });
+  if(ok){
+    score+=pts;
+    const badge=document.createElement('div');
+    badge.className='pts-badge'; badge.textContent='+'+pts;
+    document.getElementById('ans'+idx).appendChild(badge);
+    setTimeout(()=>badge.remove(),700);
+  }
+  const fb=document.getElementById('qFeedback');
+  fb.textContent=q.fb; fb.style.display='block';
+  fb.className='q-feedback show '+(ok?'fb-ok':'fb-no');
+  // עדכן ניקוד בסשן חי
+  if(mode==='live'&&gameRef)
+    gameRef.child('players').child(san(playerName)).update({score});
+  setTimeout(()=>nextQ(), mode==='live'?3500:3000);
+}
+
+function timeUp(){
+  answered=true;
+  const q=Q[currentQ];
+  document.querySelectorAll('.ans-btn').forEach((b,i)=>{b.disabled=true;if(i===q.a)b.classList.add('correct');});
+  const fb=document.getElementById('qFeedback');
+  fb.textContent='⏰ הזמן נגמר! '+q.fb;
+  fb.style.display='block'; fb.className='q-feedback show fb-no';
+  setTimeout(()=>nextQ(), mode==='live'?3500:3000);
+}
+
+function nextQ(){
+  currentQ++;
+  if(currentQ>=Q.length) endGame();
+  else loadQuestion(currentQ);
+}
+
+/* ══ END GAME — שמור ניקוד ══ */
+function endGame(){
+  clearInterval(timerInterval);
+  document.getElementById('liveStrip').classList.remove('show');
+
+  if(isPortalSession && sessionData){
+    // שמור ב-aluf_hazirot/leaderboard
+    const lbKey = san(sessionData.school)+'__'+san(sessionData.class)+'__'+san(playerName);
+    const lbRef = ROOT.child('leaderboard/'+lbKey);
+    lbRef.once('value', snap=>{
+      const prev = snap.val()||{};
+      const prevZ = prev['zira'+ZIRA_ID]||0;
+      const newZ = Math.max(prevZ, score); // שמור רק שיא
+      // חשב total מכל הזירות הקיימות + הזירה הנוכחית
+      let newTotal = newZ;
+      for(let z=1;z<=9;z++){
+        if(z!==ZIRA_ID && prev['zira'+z]) newTotal += prev['zira'+z];
+      }
+      // update ולא set — שומר זירות אחרות ולא מוחק אותן
+      lbRef.update({
+        name: playerName,
+        school: sessionData.school,
+        class: sessionData.class,
+        ['zira'+ZIRA_ID]: newZ,
+        total: newTotal,
+        lastPlayed: Date.now()
+      }, (err)=>{ 
+        if(err) console.error('Firebase write error:', err);
+        showLeaderboard(); 
+      });
+    });
+    return;
+  } else {
+    // standalone — שמור ב-aluf_hazirot/leaderboard
+    const lbKey = 'standalone__all__'+san(playerName);
+    const lbRef = ROOT.child('leaderboard/'+lbKey);
+    console.log('[DEBUG] standalone save. playerName:', playerName, 'score:', score, 'lbKey:', lbKey);
+    lbRef.once('value', snap=>{
+      const prev = snap.val()||{};
+      console.log('[DEBUG] prev data:', prev);
+      const prevZ = prev['zira'+ZIRA_ID]||0;
+      const newZ = Math.max(prevZ, score);
+      let newTotal = newZ;
+      for(let z=1;z<=9;z++){
+        if(z!==ZIRA_ID && prev['zira'+z]) newTotal += prev['zira'+z];
+      }
+      const updateData = {
+        name: playerName,
+        school: 'עצמאי',
+        class: '',
+        ['zira'+ZIRA_ID]: newZ,
+        total: newTotal,
+        lastPlayed: Date.now()
+      };
+      console.log('[DEBUG] writing:', updateData, 'to path:', lbRef.toString());
+      lbRef.update(updateData, (err)=>{ 
+        if(err) console.error('Firebase write error:', err);
+        else console.log('[DEBUG] write SUCCESS');
+        showLeaderboard(); 
+      });
+    });
+    return;
+  }
+}
+
+/* ══ LEADERBOARD ══ */
+function showLeaderboard(){
+  document.getElementById('myFinalScore').textContent=score;
+
+  const hasSession = isPortalSession && sessionData;
+  // הצג פילטר רק אם יש session עם כיתה
+  document.getElementById('lbFilter').style.display = hasSession ? 'flex' : 'none';
+
+  // המתן קצת כדי לוודא שהשמירה ב-Firebase הסתיימה לפני הטעינה
+  setTimeout(()=>{
+    ROOT.child('leaderboard').once('value', snap=>{
+      allLbRows=[];
+      snap.forEach(c=>allLbRows.push(c.val()));
+      allLbRows.sort((a,b)=>b['zira'+ZIRA_ID]-a['zira'+ZIRA_ID]);
+      renderLb('all');  // תמיד הצג הכל — המשתמש יכול לסנן אחר כך
+    });
+  }, 1500);
+  showScreen('s-leaderboard');
+}
+
+function filterLb(f){
+  lbFilter=f;
+  document.querySelectorAll('.lb-filter-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('fBtn'+f.charAt(0).toUpperCase()+f.slice(1)).classList.add('active');
+  renderLb(f);
+}
+
+function renderLb(f){
+  lbFilter=f;
+  let rows = allLbRows;
+  let champTitle = 'אלוף / אלופת זירת המציאות התקשורתית';
+
+  if(f==='class' && sessionData){
+    rows=allLbRows.filter(r=>r.class===sessionData.class && r.school===sessionData.school);
+    champTitle='אלוף/ת זירת המציאות התקשורתית — כיתה '+sessionData.class;
+    // אם כיתה ריקה — חזור לבית ספר
+    if(rows.length===0) rows=allLbRows.filter(r=>r.school===sessionData.school);
+  } else if(f==='school' && sessionData){
+    rows=allLbRows.filter(r=>r.school===sessionData.school);
+    champTitle='אלוף/ת זירת המציאות התקשורתית — '+sessionData.school;
+  }
+
+  const field = 'zira'+ZIRA_ID;
+  rows = rows.filter(r=>r[field]>0).sort((a,b)=>b[field]-a[field]);
+
+  // אם עדיין ריק — הצג את כולם
+  if(rows.length===0){
+    rows = allLbRows.filter(r=>r[field]>0).sort((a,b)=>b[field]-a[field]);
+  }
+
+  // Champion
+  if(rows.length>0){
+    document.getElementById('champBanner').style.display='block';
+    document.getElementById('champTitle').textContent=champTitle;
+    document.getElementById('champName').textContent=rows[0].name;
+    document.getElementById('champPts').textContent=rows[0][field]+' נק׳';
+  }
+
+  const myRank=rows.findIndex(r=>r.name===playerName)+1;
+  document.getElementById('myFinalRank').textContent=myRank?'מקום '+myRank+' מתוך '+rows.length:'';
+
+  // Podium
+  const top3=rows.slice(0,3);
+  const medals=['🥇','🥈','🥉'];
+  const pCls=['p1','p2','p3'];
+  const order=top3.length>=3?[top3[1],top3[0],top3[2]]:top3;
+  const oCls=top3.length>=3?['p2','p1','p3']:top3.map((_,i)=>pCls[i]);
+  document.getElementById('podium').innerHTML=order.map((p,i)=>{
+    const rank=top3.indexOf(p);
+    return`<div class="podium-slot ${oCls[i]}">
+      <div class="podium-avatar">${medals[rank]||''}</div>
+      <div class="podium-name">${p.name}</div>
+      <div class="podium-pts">${p[field]}</div>
+      <div class="podium-bar">${rank+1}</div>
+    </div>`;
+  }).join('');
+
+  // List
+  document.getElementById('lbList').innerHTML= rows.length===0
+    ? `<div style="text-align:center;padding:30px;color:#aaa;font-size:14px;">אין עדיין תוצאות — היה הראשון! 🏅</div>`
+    : rows.slice(0,20).map((r,i)=>`
+    <div class="lb-row ${r.name===playerName?'me':''}">
+      <div class="lb-rank">${i+1}</div>
+      ${i===0?'<span style="font-size:15px;">👑</span>':''}
+      <div class="lb-name">${r.name}${r.name===playerName?' (אני)':''}${r.class?` <span style="font-size:10px;color:#aaa;">• ${r.class}</span>`:''}
+      </div>
+      <div class="lb-pts">${r[field]} נק׳</div>
+    </div>`).join('');
+}
+
+/* ══ LIVE STRIP ══ */
+function updateStrip(){
+  if(!gameRef)return;
+  gameRef.child('players').once('value',snap=>{
+    const ps=Object.values(snap.val()||{}).sort((a,b)=>b.score-a.score).slice(0,6);
+    document.getElementById('liveStrip').innerHTML='⚡ '+
+      ps.map(p=>`<div class="live-chip ${p.name===playerName?'live-me':''}">${p.name} <span class="pts">${p.score}</span></div>`).join('');
+    document.getElementById('liveStrip').classList.add('show');
+  });
+}
+
+/* ══ UTILS ══ */
+function showScreen(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active');}
+function san(s){return(s||'').replace(/[.#$/[\]\s]/g,'_');}
+document.getElementById('nameInput').addEventListener('keydown',e=>{if(e.key==='Enter')submitEntry();});
+</script>
+</body>
+</html>
