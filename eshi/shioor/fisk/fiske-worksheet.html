@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>מודל פיסק — מטלה</title>
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@400;700;900&family=Heebo:wght@300;400;500;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<style>
+:root{--paper:#f5f0e8;--paper-dark:#e8e0cc;--ink:#1a1208;--ink-light:#6b5d45;--accent:#8b1a1a;--blue:#2563af;--green:#2d7a2d;--warm:#7a4f1a;--purple:#6b21a8;--shadow:4px 4px 0 #1a1208;--shadow-sm:2px 2px 0 #1a1208;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;line-height:1.7;background-image:repeating-linear-gradient(0deg,transparent,transparent 27px,rgba(26,18,8,.055) 27px,rgba(26,18,8,.055) 28px);}
+
+/* MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(26,18,8,.93);z-index:1000;display:flex;align-items:center;justify-content:center;padding:16px;}
+.modal-box{background:var(--paper);border:3px solid var(--ink);box-shadow:8px 8px 0 var(--ink);max-width:420px;width:100%;padding:36px;}
+.modal-head{background:var(--ink);color:var(--paper);text-align:center;padding:14px 20px;margin:-36px -36px 24px;}
+.modal-head h2{font-family:'Frank Ruhl Libre',serif;font-size:24px;font-weight:900;}
+.modal-head p{font-size:11px;letter-spacing:3px;text-transform:uppercase;opacity:.55;margin-top:3px;}
+.mf{margin-bottom:14px;}
+.mf label{display:block;font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:700;color:var(--ink-light);margin-bottom:4px;}
+.mf input,.mf select{width:100%;padding:11px 13px;border:2px solid var(--ink);background:white;font-family:'Heebo',sans-serif;font-size:15px;color:var(--ink);outline:none;}
+.mf input:focus{border-color:var(--accent);}
+.mbtn{width:100%;padding:12px;background:var(--ink);color:var(--paper);border:none;font-family:'Frank Ruhl Libre',serif;font-size:18px;font-weight:700;cursor:pointer;box-shadow:var(--shadow);transition:all .15s;}
+.mbtn:hover:not(:disabled){background:var(--accent);}
+.mbtn:disabled{background:#999;cursor:default;}
+.modal-err{color:var(--accent);font-size:13px;font-weight:700;margin-top:8px;text-align:center;display:none;}
+
+/* PROGRESS */
+.pbar{position:sticky;top:0;z-index:100;background:var(--ink);padding:9px 20px;display:flex;align-items:center;gap:14px;}
+.plbl{color:var(--paper);font-size:12px;font-weight:500;white-space:nowrap;}
+.ptrack{flex:1;height:7px;background:rgba(255,255,255,.15);}
+.pfill{height:100%;background:linear-gradient(90deg,var(--accent),#e05);transition:width .4s;}
+.ppct{color:var(--paper);font-size:12px;font-weight:700;white-space:nowrap;}
+
+/* MASTHEAD */
+.masthead{background:var(--ink);color:var(--paper);border-bottom:6px double var(--paper-dark);}
+.mhi{max-width:860px;margin:0 auto;padding:0 20px;}
+.mht{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #444;font-size:11px;letter-spacing:1px;opacity:.6;}
+.mhti{text-align:center;padding:14px 0 10px;}
+.mhti h1{font-family:'Frank Ruhl Libre',serif;font-size:clamp(20px,5vw,38px);font-weight:900;line-height:1;}
+.mhti p{font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--paper-dark);margin-top:4px;}
+.mhr{height:3px;background:var(--paper-dark);margin-bottom:8px;}
+.sbadge{display:flex;justify-content:center;gap:24px;padding-bottom:10px;font-size:12px;color:#ccc;}
+.sbadge strong{font-family:'Frank Ruhl Libre',serif;font-size:14px;color:white;}
+
+/* PAGE */
+.page{max-width:860px;margin:0 auto;padding:24px 16px 60px;}
+.phase{display:none;animation:fadein .3s;}
+.phase.active{display:block;}
+@keyframes fadein{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+.phase-header{margin-bottom:22px;}
+.phase-header .ph-num{font-family:'Frank Ruhl Libre',serif;font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--ink-light);margin-bottom:4px;}
+.phase-header h2{font-family:'Frank Ruhl Libre',serif;font-size:28px;font-weight:900;border-bottom:3px double var(--ink);padding-bottom:8px;}
+.phase-header p{margin-top:8px;font-size:14px;color:#555;line-height:1.75;}
+
+/* EXAMPLE CARD */
+.example-card{background:white;border:3px solid var(--ink);box-shadow:var(--shadow);margin-bottom:22px;overflow:hidden;}
+.example-card-head{background:var(--ink);color:var(--paper);padding:12px 20px;display:flex;align-items:center;gap:12px;}
+.example-card-head .ec-icon{font-size:24px;}
+.example-card-head h3{font-family:'Frank Ruhl Libre',serif;font-size:18px;font-weight:900;}
+.example-card-head .ec-tag{margin-right:auto;background:rgba(255,255,255,.15);font-size:11px;padding:3px 10px;letter-spacing:1px;}
+.example-card-body{padding:18px 22px;}
+
+/* FISKE TABLE inside card */
+.fiske-summary{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;}
+.fs-cell{background:var(--paper-dark);border:1px solid var(--paper-dark);padding:10px 14px;}
+.fs-cell .fc-lbl{font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--ink-light);margin-bottom:3px;}
+.fs-cell .fc-val{font-size:13px;font-weight:700;color:var(--ink);}
+@media(max-width:500px){.fiske-summary{grid-template-columns:1fr;}}
+
+/* ANALYSIS TASKS inside example */
+.task-list{display:flex;flex-direction:column;gap:10px;}
+.task-item{border:2px solid var(--paper-dark);background:var(--paper);padding:14px 16px;transition:border-color .2s;}
+.task-item.answered{border-color:var(--green);}
+.task-label{font-size:12px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:6px;display:flex;align-items:center;gap:8px;}
+.task-q{font-size:14px;font-weight:700;margin-bottom:8px;color:var(--ink);line-height:1.5;}
+.task-q .tq-hint{display:block;font-size:12px;font-weight:400;color:var(--ink-light);margin-top:3px;}
+
+/* CHOICE CHIPS */
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;}
+.chip{padding:7px 14px;border:2px solid var(--ink);background:var(--paper-dark);font-family:'Heebo',sans-serif;font-size:13px;cursor:pointer;font-weight:600;transition:all .15s;line-height:1.3;}
+.chip:hover{background:var(--paper);border-color:var(--accent);}
+.chip.sel{border-color:var(--accent);background:var(--accent);color:white;}
+.chip.sel-b{border-color:var(--blue);background:var(--blue);color:white;}
+.chip.sel-g{border-color:var(--green);background:var(--green);color:white;}
+.chip.sel-p{border-color:var(--purple);background:var(--purple);color:white;}
+
+/* REVEAL box */
+.reveal-btn{display:inline-flex;align-items:center;gap:8px;padding:7px 16px;border:2px dashed var(--ink-light);background:transparent;font-family:'Heebo',sans-serif;font-size:13px;font-weight:700;cursor:pointer;color:var(--ink-light);transition:all .15s;margin-top:6px;}
+.reveal-btn:hover{border-color:var(--warm);color:var(--warm);}
+.reveal-box{display:none;background:#fff8f0;border:2px solid var(--warm);border-right:4px solid var(--warm);padding:12px 16px;margin-top:8px;font-size:13px;line-height:1.8;}
+.reveal-box.show{display:block;}
+.reveal-box strong{color:var(--warm);}
+
+/* TEXTAREA */
+.mwrap{display:flex;gap:8px;align-items:flex-start;}
+.mwrap textarea{flex:1;padding:9px 12px;border:2px solid var(--ink);background:var(--paper);font-family:'Heebo',sans-serif;font-size:13px;resize:none;min-height:72px;outline:none;line-height:1.6;}
+.mwrap textarea:focus{border-color:var(--accent);background:white;}
+.micbtn{flex-shrink:0;width:34px;height:34px;background:var(--ink);color:var(--paper);border:none;cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;transition:background .15s;}
+.micbtn:hover{background:var(--accent);}
+.micbtn.rec{background:var(--accent);animation:pulse .8s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+
+/* TAP RANK */
+.rank-list{list-style:none;display:flex;flex-direction:column;gap:6px;}
+.rank-item{display:flex;align-items:center;gap:10px;background:white;border:2px solid var(--ink);padding:10px 14px;transition:all .15s;}
+.rank-item.ranked{border-color:var(--green);background:#f0faf0;}
+.rank-badge{min-width:28px;height:28px;border-radius:50%;background:var(--green);color:white;font-family:'Frank Ruhl Libre',serif;font-size:14px;font-weight:900;display:flex;align-items:center;justify-content:center;display:none;}
+.rank-item.ranked .rank-badge{display:flex;}
+.rank-item.ranked .rank-tap-btn{background:var(--paper-dark);color:var(--ink-light);}
+.rank-tap-btn{padding:5px 11px;background:var(--ink);color:var(--paper);border:none;font-family:'Frank Ruhl Libre',serif;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0;}
+.rank-tap-btn:hover:not(:disabled){background:var(--accent);}
+.rank-tap-btn:disabled{background:var(--paper-dark);color:var(--ink-light);cursor:default;}
+.rank-reset{padding:6px 14px;background:transparent;border:2px solid var(--ink-light);color:var(--ink-light);font-family:'Heebo',sans-serif;font-size:12px;font-weight:700;cursor:pointer;margin-top:6px;}
+.rank-reset:hover{border-color:var(--accent);color:var(--accent);}
+.rank-num{font-family:'Frank Ruhl Libre',serif;font-size:18px;font-weight:900;color:var(--ink-light);width:24px;text-align:center;}
+.rank-text{font-size:13px;flex:1;}
+.rank-handle{color:var(--ink-light);font-size:16px;}
+
+/* NAV BUTTONS */
+.btnrow{display:flex;gap:10px;flex-wrap:wrap;margin-top:20px;}
+.pbtn{padding:11px 26px;background:var(--ink);color:var(--paper);border:none;font-family:'Frank Ruhl Libre',serif;font-size:17px;font-weight:700;cursor:pointer;box-shadow:var(--shadow);transition:all .15s;}
+.pbtn:hover{background:var(--accent);}
+.pbtn.sec{background:var(--paper-dark);color:var(--ink);border:2px solid var(--ink);box-shadow:var(--shadow-sm);}
+.subbtn{padding:13px 30px;background:var(--green);color:white;border:none;font-family:'Frank Ruhl Libre',serif;font-size:18px;font-weight:900;cursor:pointer;box-shadow:var(--shadow);}
+.subbtn:hover{background:#1a5c1a;}
+
+/* DIVIDER */
+.section-div{display:flex;align-items:center;gap:12px;margin:22px 0 18px;}
+.section-div span{font-family:'Frank Ruhl Libre',serif;font-size:14px;font-weight:700;color:var(--ink-light);white-space:nowrap;}
+.section-div::before,.section-div::after{content:'';flex:1;height:1px;background:var(--paper-dark);}
+
+/* SUCCESS */
+.sbox{text-align:center;padding:50px 20px;background:white;border:3px solid var(--green);box-shadow:var(--shadow);}
+.sbox h2{font-family:'Frank Ruhl Libre',serif;font-size:30px;color:var(--green);margin-bottom:8px;}
+
+/* LIKERT */
+.likert-row{display:flex;gap:4px;align-items:center;flex-wrap:wrap;margin:8px 0;}
+.likert-lbl{font-size:11px;color:var(--ink-light);width:70px;line-height:1.3;}
+.likert-lbl.right{text-align:right;}
+.likert-lbl.left{text-align:left;}
+.likert-btns{display:flex;gap:4px;flex:1;justify-content:center;}
+.lbtn{width:38px;height:38px;border:2px solid var(--ink);background:var(--paper-dark);cursor:pointer;font-family:'Frank Ruhl Libre',serif;font-size:14px;font-weight:900;transition:all .15s;}
+.lbtn:hover{background:var(--paper);}
+.lbtn.sel{background:var(--accent);color:white;border-color:var(--accent);}
+</style>
+</head>
+<body>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modal">
+  <div class="modal-box">
+    <div class="modal-head"><h2>כניסה למטלה</h2><p>מודל פיסק</p></div>
+    <div style="display:flex;gap:8px;margin-bottom:14px;">
+      <div style="flex:1">
+        <label style="display:block;font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:700;color:var(--ink-light);margin-bottom:4px;">שם פרטי</label>
+        <input id="inp-fn" type="text" placeholder="שם פרטי" style="width:100%;padding:11px 13px;border:2px solid var(--ink);background:white;font-family:'Heebo',sans-serif;font-size:15px;outline:none;">
+      </div>
+      <div style="flex:1">
+        <label style="display:block;font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:700;color:var(--ink-light);margin-bottom:4px;">שם משפחה</label>
+        <input id="inp-ln" type="text" placeholder="שם משפחה" style="width:100%;padding:11px 13px;border:2px solid var(--ink);background:white;font-family:'Heebo',sans-serif;font-size:15px;outline:none;">
+      </div>
+    </div>
+    <div class="mf"><label>כתובת מייל</label><input id="inp-email" type="email" placeholder="your@email.com" style="direction:ltr;text-align:left;"></div>
+    <div class="mf"><label>שכבה</label>
+      <select id="inp-grade">
+        <option value="">בחר/י שכבה...</option>
+        <option value="י">י׳</option><option value="יא">יא׳</option><option value="יב">יב׳</option>
+      </select>
+    </div>
+    <div class="mf"><label>קוד מורה</label><input id="inp-code" type="text" placeholder="הקוד שקיבלת מהמורה"></div>
+    <button class="mbtn" id="enter-btn" onclick="enterWS()" disabled>כניסה למטלה ←</button>
+    <div class="modal-err" id="modal-err">יש למלא את כל השדות.</div>
+  </div>
+</div>
+
+<div class="pbar" id="pbar" style="display:none">
+  <span class="plbl" id="plbl">שלב 1/3</span>
+  <div class="ptrack"><div class="pfill" id="pfill" style="width:33%"></div></div>
+  <span class="ppct" id="ppct">33%</span>
+</div>
+
+<header class="masthead" id="mhead" style="display:none">
+  <div class="mhi">
+    <div class="mht"><span>מטלה • תקשורת ועיתונות</span><span>גליל מערבי</span></div>
+    <div class="mhti"><h1>מודל פיסק — מטלה</h1><p>נתח דוגמאות אמיתיות</p></div>
+    <div class="mhr"></div>
+    <div class="sbadge"><span>שם: <strong id="bname">—</strong></span><span>שכבה: <strong id="bcls">—</strong></span></div>
+  </div>
+</header>
+
+<div class="page" id="mainpage" style="display:none">
+
+  <!-- ═══════════════════ PHASE 1 ═══════════════════ -->
+  <div class="phase active" id="phase-1">
+    <div class="phase-header">
+      <div class="ph-num">שלב א׳ מתוך ג׳</div>
+      <h2>ניתוח דוגמאות — מי אומר מה למי?</h2>
+      <p>לפניכם שני מסרי מדיה אמיתיים. לכל אחד — זהו את מרכיבי פיסק ונתחו את הפרשנות.</p>
+    </div>
+
+    <!-- EXAMPLE 1: Unicorn -->
+    <div class="example-card">
+      <div class="example-card-head">
+        <span class="ec-icon">🦄</span>
+        <h3>דוגמה 1 — יוניקורן, נועה קירל (אירוויזיון 2023)</h3>
+        <span class="ec-tag">מוזיקה</span>
+      </div>
+      <div class="example-card-body">
+        <div class="fiske-summary">
+          <div class="fs-cell"><div class="fc-lbl">📢 מוען</div><div class="fc-val">נועה קירל + יוצרי השיר + ישראל</div></div>
+          <div class="fs-cell"><div class="fc-lbl">📄 טקסט</div><div class="fc-val">שיר פופ עם ויזואל צבעוני בתחרות בינ"ל</div></div>
+          <div class="fs-cell"><div class="fc-lbl">👁 נמען</div><div class="fc-val">קהל עולמי: אירופאים, ישראלים, מבקרי מוזיקה</div></div>
+          <div class="fs-cell"><div class="fc-lbl">🌍 הקשר</div><div class="fc-val">תחרות אירוויזיון, מלחמה בישראל, מאי 2023</div></div>
+        </div>
+
+        <div class="task-list">
+          <!-- Task 1a -->
+          <div class="task-item" id="t1a">
+            <div class="task-label" style="color:var(--accent)">🎯 משימה 1</div>
+            <div class="task-q">מה לדעתכם הייתה כוונת המוען — נועה קירל ומדינת ישראל — בהשתתפות בתחרות?
+              <span class="tq-hint">בחרו את כל הכוונות שנראות לכם הגיוניות:</span>
+            </div>
+            <div class="chips" id="chips-1a">
+              <button class="chip" onclick="toggleChip(this,'1a')">🎵 כוונה אמנותית בלבד</button>
+              <button class="chip" onclick="toggleChip(this,'1a')">🇮🇱 ייצוג לאומי</button>
+              <button class="chip" onclick="toggleChip(this,'1a')">🏆 ניצחון בתחרות</button>
+              <button class="chip" onclick="toggleChip(this,'1a')">🌍 שיפור תדמית ישראל</button>
+              <button class="chip" onclick="toggleChip(this,'1a')">💰 הצלחה מסחרית</button>
+            </div>
+            <div class="mwrap"><textarea id="q1a" onpaste="return false" oninput="ar(this);markAnswered('t1a')" placeholder="הסבירו את הבחירה שלכם..."></textarea><button class="micbtn" onclick="mic('q1a',this)">🎤</button></div>
+          </div>
+
+          <!-- Task 1b — likert -->
+          <div class="task-item" id="t1b">
+            <div class="task-label" style="color:var(--blue)">🎯 משימה 2</div>
+            <div class="task-q">עד כמה ה<strong>הקשר הפוליטי</strong> (מלחמה, ייצוג ישראל) השפיע על הפרשנויות של הקהל?</div>
+            <div class="likert-row">
+              <span class="likert-lbl right">כלל לא</span>
+              <div class="likert-btns" id="likert-1b">
+                <button class="lbtn" onclick="setLikert('1b',1,this)">1</button>
+                <button class="lbtn" onclick="setLikert('1b',2,this)">2</button>
+                <button class="lbtn" onclick="setLikert('1b',3,this)">3</button>
+                <button class="lbtn" onclick="setLikert('1b',4,this)">4</button>
+                <button class="lbtn" onclick="setLikert('1b',5,this)">5</button>
+              </div>
+              <span class="likert-lbl left">השפיע מאוד</span>
+            </div>
+            <input type="hidden" id="hid-1b">
+            <div class="mwrap"><textarea id="q1b" onpaste="return false" oninput="ar(this);markAnswered('t1b')" placeholder="נמקו..."></textarea><button class="micbtn" onclick="mic('q1b',this)">🎤</button></div>
+          </div>
+
+          <!-- Task 1c — persona reveal -->
+          <div class="task-item" id="t1c">
+            <div class="task-label" style="color:var(--green)">🎯 משימה 3</div>
+            <div class="task-q">בחרו נמען אחד — כיצד לדעתכם הוא פירש את השיר?
+              <span class="tq-hint">לאחר הבחירה וכתיבת הניתוח — לחצו "גלו" לראות ניתוח מומחה</span>
+            </div>
+            <div class="chips" id="chips-1c">
+              <button class="chip" onclick="selectPersona(this,'teen-il','1c')">🇮🇱 נער/ה ישראלי/ת</button>
+              <button class="chip" onclick="selectPersona(this,'teen-eu','1c')">🇪🇺 נער/ה אירופאי/ת</button>
+              <button class="chip" onclick="selectPersona(this,'elder-il','1c')">👴 מבוגר ישראלי</button>
+              <button class="chip" onclick="selectPersona(this,'critic','1c')">🎨 מבקר מוזיקה</button>
+            </div>
+            <input type="hidden" id="hid-1c-persona">
+            <div class="mwrap"><textarea id="q1c" onpaste="return false" oninput="ar(this);markAnswered('t1c')" placeholder="הנמען שבחרתי יפרש את השיר כ..."></textarea><button class="micbtn" onclick="mic('q1c',this)">🎤</button></div>
+            <button class="reveal-btn" onclick="revealPersona('1c')">👁 גלו מה אומר המומחה ▾</button>
+            <div class="reveal-box" id="reveal-1c"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- EXAMPLE 2: Dove ad -->
+    <div class="example-card">
+      <div class="example-card-head">
+        <span class="ec-icon">🧴</span>
+        <h3>דוגמה 2 — פרסומת Dove "Real Beauty"</h3>
+        <span class="ec-tag">פרסום</span>
+      </div>
+      <div class="example-card-body">
+        <div style="background:var(--paper-dark);border:1px solid var(--paper-dark);padding:12px 16px;margin-bottom:14px;font-size:13px;line-height:1.75;">
+          <strong>רקע:</strong> Dove השיקה קמפיין שבו נשים "רגילות" (לא דוגמניות) מציגות את עצמן בפרסומות לסבון. הקמפיין קיבל תגובות הפוכות — חלק ראו זאת כמהפכה פמיניסטית, אחרים ראו זאת כמניפולציה שיווקית.
+        </div>
+        <div class="fiske-summary">
+          <div class="fs-cell"><div class="fc-lbl">📢 מוען</div><div class="fc-val">חברת Dove (Unilever)</div></div>
+          <div class="fs-cell"><div class="fc-lbl">📄 טקסט</div><div class="fc-val">פרסומת עם נשים מכל הגופים וגילאים</div></div>
+          <div class="fs-cell"><div class="fc-lbl">👁 נמען</div><div class="fc-val">נשים בגילאים שונים, תרבויות שונות</div></div>
+          <div class="fs-cell"><div class="fc-lbl">🌍 הקשר</div><div class="fc-val">תרבות הדיאטה, שיח פמיניסטי עכשווי</div></div>
+        </div>
+
+        <div class="task-list">
+          <!-- Task 2a — drag rank -->
+          <div class="task-item" id="t2a">
+            <div class="task-label" style="color:var(--warm)">🎯 משימה 4</div>
+            <div class="task-q">סדרו את מאפייני הנמען לפי השפעתם על פרשנות הפרסומת (גררו לסדר):
+              <span class="tq-hint">1 = הכי משפיע</span>
+            </div>
+            <p style="font-size:12px;color:var(--ink-light);margin-bottom:8px;">לחצו "בחר" לפי סדר ההשפעה — מהכי משפיע לפחות משפיע:</p>
+            <ul class="rank-list" id="rank-2a">
+              <li class="rank-item" data-val="מגדר"><span class="rank-badge" id="rb-מגדר"></span><span class="rank-text">מגדר (נשים לעומת גברים)</span><button class="rank-tap-btn" onclick="tapRank('מגדר',this)">בחר</button></li>
+              <li class="rank-item" data-val="גיל"><span class="rank-badge" id="rb-גיל"></span><span class="rank-text">גיל (צעירות לעומת מבוגרות)</span><button class="rank-tap-btn" onclick="tapRank('גיל',this)">בחר</button></li>
+              <li class="rank-item" data-val="תרבות"><span class="rank-badge" id="rb-תרבות"></span><span class="rank-text">תרבות ומוצא</span><button class="rank-tap-btn" onclick="tapRank('תרבות',this)">בחר</button></li>
+              <li class="rank-item" data-val="מעמד"><span class="rank-badge" id="rb-מעמד"></span><span class="rank-text">מעמד סוציו-אקונומי</span><button class="rank-tap-btn" onclick="tapRank('מעמד',this)">בחר</button></li>
+              <li class="rank-item" data-val="נסיבות"><span class="rank-badge" id="rb-נסיבות"></span><span class="rank-text">נסיבות (מצב גוף אישי)</span><button class="rank-tap-btn" onclick="tapRank('נסיבות',this)">בחר</button></li>
+            </ul>
+            <button class="rank-reset" onclick="resetRank()">↺ איפוס</button>
+            <div class="mwrap" style="margin-top:10px"><textarea id="q2a" onpaste="return false" oninput="ar(this);markAnswered('t2a')" placeholder="נמקו את הסדר שבחרתם..."></textarea><button class="micbtn" onclick="mic('q2a',this)">🎤</button></div>
+          </div>
+
+          <!-- Task 2b — two readings -->
+          <div class="task-item" id="t2b">
+            <div class="task-label" style="color:var(--purple)">🎯 משימה 5</div>
+            <div class="task-q">לפניכם שתי פרשנויות לפרסומת. לאיזו אתם מסכימים יותר?</div>
+            <div class="chips" id="chips-2b">
+              <button class="chip" onclick="selectOne(this,'chips-2b');markAnswered('t2b')">💪 מהפכה פמיניסטית — Dove מאתגרת נורמות יופי</button>
+              <button class="chip" onclick="selectOne(this,'chips-2b');markAnswered('t2b')">💰 מניפולציה שיווקית — Dove ניצלה שיח פמיניסטי למכירות</button>
+              <button class="chip" onclick="selectOne(this,'chips-2b');markAnswered('t2b')">🔀 שתי הפרשנויות נכונות בו-זמנית</button>
+            </div>
+            <div class="mwrap"><textarea id="q2b" onpaste="return false" oninput="ar(this)" placeholder="נמקו לפי מודל פיסק — מה המאפיינים שלכם כנמענים שמשפיעים על הבחירה?"></textarea><button class="micbtn" onclick="mic('q2b',this)">🎤</button></div>
+            <button class="reveal-btn" onclick="revealBox('r2b')">👁 ניתוח מומחה ▾</button>
+            <div class="reveal-box" id="r2b">
+              <strong>לפי מודל פיסק:</strong> שתי הפרשנויות <em>תקפות</em> — ותלויות לחלוטין במאפייני הנמען. נשים שחוו פגיעה בדימוי הגוף נוטות לקרוא זאת כמהפכה. אנשים עם רקע ביקורתי-שיווקי נוטים לזהות את הכוונה המסחרית. פיסק טוען שאין קריאה "נכונה" — יש רק קריאות שונות, שכל אחת מהן מגלה משהו על הנמען.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="btnrow"><button class="pbtn" onclick="goP(2)">המשך לשלב ב׳ ←</button></div>
+  </div>
+
+  <!-- ═══════════════════ PHASE 2 ═══════════════════ -->
+  <div class="phase" id="phase-2">
+    <div class="phase-header">
+      <div class="ph-num">שלב ב׳ מתוך ג׳</div>
+      <h2>הקשר משנה הכל</h2>
+      <p>אותו מסר — הקשרים שונים. נתחו כיצד ההקשר הופך את המשמעות.</p>
+    </div>
+
+    <!-- EXAMPLE 3: Context shift -->
+    <div class="example-card">
+      <div class="example-card-head">
+        <span class="ec-icon">📸</span>
+        <h3>דוגמה 3 — תמונת ילד בוכה</h3>
+        <span class="ec-tag">צילום עיתונאי</span>
+      </div>
+      <div class="example-card-body">
+        <div style="background:var(--paper-dark);border:1px solid var(--paper-dark);padding:12px 16px;margin-bottom:14px;font-size:13px;line-height:1.75;">
+          <strong>המסר:</strong> תמונת ילד קטן בוכה, לבוש בבגדים קרועים, על רקע חורבות. <em>אותה תמונה בדיוק</em> — פורסמה בהקשרים שונים.
+        </div>
+
+        <div class="task-list">
+          <!-- Task 3a — context comparison -->
+          <div class="task-item" id="t3a">
+            <div class="task-label" style="color:var(--accent)">🎯 משימה 6</div>
+            <div class="task-q">לאותה תמונה שלושה הקשרים אפשריים. לכל הקשר — כתבו בקצרה כיצד הוא משנה את הפרשנות:</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin:10px 0 12px;">
+              <div style="background:white;border:2px solid var(--accent);padding:10px 12px;text-align:center;">
+                <div style="font-size:20px;margin-bottom:4px;">📰</div>
+                <div style="font-size:12px;font-weight:700;">כתבת חדשות על<br>פליטים בגבול</div>
+              </div>
+              <div style="background:white;border:2px solid var(--blue);padding:10px 12px;text-align:center;">
+                <div style="font-size:20px;margin-bottom:4px;">💔</div>
+                <div style="font-size:12px;font-weight:700;">קמפיין גיוס כספים<br>לאונסא"ף</div>
+              </div>
+              <div style="background:white;border:2px solid var(--green);padding:10px 12px;text-align:center;">
+                <div style="font-size:20px;margin-bottom:4px;">🏛️</div>
+                <div style="font-size:12px;font-weight:700;">פרסומת פוליטית<br>של מפלגה</div>
+              </div>
+            </div>
+            <div class="mwrap"><textarea id="q3a" onpaste="return false" oninput="ar(this);markAnswered('t3a')" style="min-height:100px" placeholder="הקשר 1 (חדשות): הפרשנות היא...&#10;הקשר 2 (גיוס כספים): הפרשנות היא...&#10;הקשר 3 (פוליטי): הפרשנות היא..."></textarea><button class="micbtn" onclick="mic('q3a',this)">🎤</button></div>
+            <button class="reveal-btn" onclick="revealBox('r3a')">👁 ניתוח מומחה ▾</button>
+            <div class="reveal-box" id="r3a">
+              <strong>לפי פיסק:</strong><br>
+              <strong>1. חדשות:</strong> הנמען מפרש כ"מציאות" — תיעוד עובדתי. רגש, אך מרוחק.<br>
+              <strong>2. גיוס כספים:</strong> הנמען מחובר — רגש ישיר, מנגנון "עליי לעשות משהו". ההקשר מוסיף סוכנות.<br>
+              <strong>3. פוליטי:</strong> אותה תמונה הופכת לנשק — הנמען עלול להרגיש מניפולציה, וגם הרגש עלול להתהפך לכעס על מי שמשתמש בסבל ילדים לצרכים פוליטיים.
+            </div>
+          </div>
+
+          <!-- Task 3b -->
+          <div class="task-item" id="t3b">
+            <div class="task-label" style="color:var(--blue)">🎯 משימה 7</div>
+            <div class="task-q">האם לדעתכם מותר להשתמש באותה תמונה בשלושת ההקשרים?
+              <span class="tq-hint">זו שאלה אתית — אין תשובה "נכונה" אחת</span>
+            </div>
+            <div class="chips" id="chips-3b">
+              <button class="chip" onclick="selectOne(this,'chips-3b');markAnswered('t3b')">✅ כן — תמונה היא עובדה, מותר לכל הקשר</button>
+              <button class="chip" onclick="selectOne(this,'chips-3b');markAnswered('t3b')">❌ לא — יש הקשרים שמנצלים</button>
+              <button class="chip" onclick="selectOne(this,'chips-3b');markAnswered('t3b')">🔀 תלוי מי ולמה</button>
+            </div>
+            <div class="mwrap"><textarea id="q3b" onpaste="return false" oninput="ar(this)" placeholder="נמקו..."></textarea><button class="micbtn" onclick="mic('q3b',this)">🎤</button></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- EXAMPLE 4: Meme -->
+    <div class="example-card">
+      <div class="example-card-head">
+        <span class="ec-icon">😂</span>
+        <h3>דוגמה 4 — מם ויראלי</h3>
+        <span class="ec-tag">רשתות חברתיות</span>
+      </div>
+      <div class="example-card-body">
+        <div style="background:var(--paper-dark);border:1px solid var(--paper-dark);padding:12px 16px;margin-bottom:14px;font-size:13px;line-height:1.75;">
+          <strong>המסר:</strong> תמונת "Distracted Boyfriend" — גבר מביט על אישה אחרת בזמן שחברתו מסתכלת עליו בזעם. המם מקבל כיתובים חדשים בכל יום — על פוליטיקה, כלכלה, יחסים, בית ספר ועוד.
+        </div>
+        <div class="task-list">
+          <div class="task-item" id="t4a">
+            <div class="task-label" style="color:var(--green)">🎯 משימה 8</div>
+            <div class="task-q">המם עצמו לא משתנה — רק הכיתוב. לפי מודל פיסק, מי המוען האמיתי בכל גרסה?</div>
+            <div class="chips" id="chips-4a">
+              <button class="chip" onclick="selectOne(this,'chips-4a');markAnswered('t4a')">📸 הצלם המקורי</button>
+              <button class="chip" onclick="selectOne(this,'chips-4a');markAnswered('t4a')">✍️ מי שהוסיף את הכיתוב</button>
+              <button class="chip" onclick="selectOne(this,'chips-4a');markAnswered('t4a')">🔄 מי ששיתף</button>
+              <button class="chip" onclick="selectOne(this,'chips-4a');markAnswered('t4a')">🌐 כולם ביחד</button>
+            </div>
+            <div class="mwrap"><textarea id="q4a" onpaste="return false" oninput="ar(this)" placeholder="נמקו..."></textarea><button class="micbtn" onclick="mic('q4a',this)">🎤</button></div>
+            <button class="reveal-btn" onclick="revealBox('r4a')">👁 ניתוח מומחה ▾</button>
+            <div class="reveal-box" id="r4a">
+              <strong>לפי פיסק:</strong> זו דוגמה מרתקת — המוען <em>משתנה</em> בכל גרסה. הצלם יצר את ה"טקסט" הויזואלי, אבל כל מי שמוסיף כיתוב הופך למוען חדש עם מסר שונה. זה מדגים שבעידן הדיגיטלי, הגבול בין מוען לנמען מיטשטש — הנמען הופך למוען (user-generated content).
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="btnrow">
+      <button class="pbtn sec" onclick="goP(1)">← חזרה</button>
+      <button class="pbtn" onclick="goP(3)">המשך לשלב ג׳ ←</button>
+    </div>
+  </div>
+
+  <!-- ═══════════════════ PHASE 3 ═══════════════════ -->
+  <div class="phase" id="phase-3">
+    <div class="phase-header">
+      <div class="ph-num">שלב ג׳ מתוך ג׳</div>
+      <h2>אני כמוען — יצירה וניתוח</h2>
+      <p>הפעם אתם המוענים. צרו מסר ונתחו אותו לפי פיסק.</p>
+    </div>
+
+    <div class="example-card">
+      <div class="example-card-head">
+        <span class="ec-icon">✍️</span>
+        <h3>המסר שלי</h3>
+        <span class="ec-tag">יצירה</span>
+      </div>
+      <div class="example-card-body">
+        <div class="task-list">
+          <div class="task-item" id="t5a">
+            <div class="task-label" style="color:var(--accent)">🎯 משימה 9</div>
+            <div class="task-q">בחרו נושא וצרו מסר קצר — פוסט, כותרת, או רעיון לקמפיין</div>
+            <div class="chips" id="chips-5a" style="margin-bottom:10px">
+              <button class="chip" onclick="selectOne(this,'chips-5a')">🌱 סביבה</button>
+              <button class="chip" onclick="selectOne(this,'chips-5a')">📱 תלות בסמארטפון</button>
+              <button class="chip" onclick="selectOne(this,'chips-5a')">🏫 בית ספר</button>
+              <button class="chip" onclick="selectOne(this,'chips-5a')">❤️ יחסים חברתיים</button>
+              <button class="chip" onclick="selectOne(this,'chips-5a')">🎮 משחקי מחשב</button>
+              <button class="chip" onclick="selectOne(this,'chips-5a')">✏️ נושא אחר</button>
+            </div>
+            <div class="mwrap"><textarea id="q5a" onpaste="return false" oninput="ar(this);markAnswered('t5a')" placeholder="המסר שלי: ..."></textarea><button class="micbtn" onclick="mic('q5a',this)">🎤</button></div>
+          </div>
+
+          <div class="task-item" id="t5b">
+            <div class="task-label" style="color:var(--blue)">🎯 משימה 10</div>
+            <div class="task-q">נתחו את המסר שלכם לפי 4 מרכיבי פיסק:</div>
+            <div class="mwrap"><textarea id="q5b" onpaste="return false" oninput="ar(this);markAnswered('t5b')" style="min-height:100px" placeholder="מוען (אני): ...&#10;טקסט: ...&#10;נמען מיועד: ...&#10;הקשר שבחרתי: ..."></textarea><button class="micbtn" onclick="mic('q5b',this)">🎤</button></div>
+          </div>
+
+          <div class="task-item" id="t5c">
+            <div class="task-label" style="color:var(--green)">🎯 משימה 11</div>
+            <div class="task-q">תארו נמען אחד שעלול לפרש את המסר שלכם <strong>אחרת ממה שרציתם</strong> — ומדוע:</div>
+            <div class="mwrap"><textarea id="q5c" onpaste="return false" oninput="ar(this);markAnswered('t5c')" placeholder="נמען עם מאפיינים של... יפרש אחרת כי..."></textarea><button class="micbtn" onclick="mic('q5c',this)">🎤</button></div>
+          </div>
+
+          <!-- Final reflection -->
+          <div class="section-div"><span>🎓 שאלת סיכום</span></div>
+          <div class="task-item" id="t5d">
+            <div class="task-label" style="color:var(--warm)">🎯 משימה 12 — סיכום</div>
+            <div class="task-q">השלימו את המשפט: "לאחר המטלה הזו, כשאאמוד מסר תקשורתי, אני אשאל את עצמי..."</div>
+            <div class="mwrap"><textarea id="q5d" onpaste="return false" oninput="ar(this);markAnswered('t5d')" placeholder="אשאל את עצמי..."></textarea><button class="micbtn" onclick="mic('q5d',this)">🎤</button></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="btnrow">
+      <button class="pbtn sec" onclick="goP(2)">← חזרה</button>
+      <button class="subbtn" onclick="submitWS()">📤 שלח למורה ←</button>
+    </div>
+  </div>
+
+  <div class="phase" id="phase-success">
+    <div class="sbox">
+      <div style="font-size:52px;margin-bottom:12px">✅</div>
+      <h2>המטלה הוגשה בהצלחה!</h2>
+      <p style="color:var(--ink-light);margin-top:8px;font-size:15px">תשובותיך נשמרו ויועברו למורה.</p>
+      <p style="margin-top:14px;font-size:13px;color:var(--ink-light)">ניתן לצפות בציון ב: <a href="fiske-mygrades.html" style="color:var(--blue);font-weight:700">הציונים שלי ⭐</a></p>
+    </div>
+  </div>
+</div>
+
+<script>
+const FC={apiKey:"AIzaSyCCHvn_ulmiyM56DuslNzNC0Ge6a8i2vhY",authDomain:"tests-fd938.firebaseapp.com",databaseURL:"https://tests-fd938-default-rtdb.europe-west1.firebasedatabase.app",projectId:"tests-fd938"};
+firebase.initializeApp(FC);
+const db=firebase.database();
+
+// MODAL VALIDATION
+['inp-fn','inp-ln','inp-email','inp-code'].forEach(id=>document.getElementById(id).addEventListener('input',checkReady));
+document.getElementById('inp-grade').addEventListener('change',checkReady);
+function checkReady(){
+  const ok=['inp-fn','inp-ln','inp-email','inp-code'].every(id=>document.getElementById(id).value.trim())&&document.getElementById('inp-grade').value;
+  document.getElementById('enter-btn').disabled=!ok;
+}
+
+let student={};
+function enterWS(){
+  const fn=document.getElementById('inp-fn').value.trim();
+  const ln=document.getElementById('inp-ln').value.trim();
+  const email=document.getElementById('inp-email').value.trim().toLowerCase();
+  const cls=document.getElementById('inp-grade').value;
+  const code=document.getElementById('inp-code').value.trim().toLowerCase();
+  if(!fn||!ln||!email||!cls||!code){document.getElementById('modal-err').style.display='block';return;}
+  student={name:fn+' '+ln,firstName:fn,lastName:ln,email,class:cls,classCode:code};
+  document.getElementById('modal').style.display='none';
+  document.getElementById('pbar').style.display='flex';
+  document.getElementById('mhead').style.display='block';
+  document.getElementById('mainpage').style.display='block';
+  document.getElementById('bname').textContent=student.name;
+  document.getElementById('bcls').textContent=cls;
+  setP(1);
+}
+
+// PROGRESS
+function setP(n){
+  const ls=['שלב 1/3 — ניתוח דוגמאות','שלב 2/3 — הקשר','שלב 3/3 — יצירה'];
+  const ps=[33,67,100];
+  document.getElementById('plbl').textContent=ls[n-1];
+  document.getElementById('pfill').style.width=ps[n-1]+'%';
+  document.getElementById('ppct').textContent=ps[n-1]+'%';
+}
+function goP(n){
+  document.querySelectorAll('.phase').forEach(p=>p.classList.remove('active'));
+  document.getElementById('phase-'+n).classList.add('active');
+  window.scrollTo({top:0,behavior:'smooth'});
+  setP(n);
+}
+
+// AUTO RESIZE
+function ar(el){el.style.height='auto';el.style.height=el.scrollHeight+'px';}
+
+// MARK ANSWERED
+function markAnswered(id){document.getElementById(id).classList.add('answered');}
+
+// CHIPS
+function toggleChip(btn,group){btn.classList.toggle('sel');markAnswered('t'+group.replace('chips-',''));}
+function selectOne(btn,groupId){
+  document.querySelectorAll('#'+groupId+' .chip').forEach(c=>c.classList.remove('sel','sel-b','sel-g','sel-p'));
+  btn.classList.add('sel');
+}
+function selectPersona(btn,persona,group){
+  selectOne(btn,'chips-'+group);
+  document.getElementById('hid-'+group+'-persona').value=persona;
+  markAnswered('t'+group);
+}
+
+// LIKERT
+function setLikert(id,val,btn){
+  document.querySelectorAll('#likert-'+id+' .lbtn').forEach((b,i)=>{b.classList.toggle('sel',i<val);});
+  document.getElementById('hid-'+id).value=val;
+  markAnswered('t'+id);
+}
+
+// REVEAL
+function revealBox(id){
+  const box=document.getElementById(id);
+  box.classList.toggle('show');
+  const btn=box.previousElementSibling;
+  if(btn&&btn.classList.contains('reveal-btn'))btn.textContent=box.classList.contains('show')?'▴ הסתרה':'👁 ניתוח מומחה ▾';
+}
+
+const PERSONA_TEXTS={
+  'teen-il':'<strong>נער/ה ישראלי/ת:</strong> פרשנות רגשית חזקה — הזדהות לאומית, גאווה, חיבור ישיר לנועה קירל כסמל. הנסיבות (מלחמה) מחזקות את הרגש עד כדי "הם לא יכולים לקחת את זה מאיתנו".',
+  'teen-eu':'<strong>נער/ה אירופאי/ת:</strong> פרשנות מוזיקלית-פוליטית מעורבת. השיר עצמו נתפס ככיף, אבל הזדהות לאומית נמוכה. ייתכנות גבוהה להשפעה של עמדות פוליטיות לגבי ישראל על הצבעה.',
+  'elder-il':'<strong>מבוגר ישראלי:</strong> גאווה לאומית + ניתוק מהסגנון. "אני גאה שישראל ייצגת, אבל הייתי מעדיף מוזיקה רצינית". פער דורי — הויזואל הצבעוני מרגיש זר, אך הלאומיות גוברת.',
+  'critic':'<strong>מבקר מוזיקה:</strong> ניתוח אסתטי-אנליטי — מנותק מהפוליטיקה, מתמקד בעיצוב הבמה, כוריאוגרפיה, איכות הביצוע. פרשנות שיפוטית: "האם השיר עצמו ראוי לניצחון?"'
+};
+function revealPersona(group){
+  const persona=document.getElementById('hid-'+group+'-persona').value;
+  const box=document.getElementById('reveal-'+group);
+  if(!persona){box.innerHTML='<em>בחרו נמען תחילה</em>';box.classList.add('show');return;}
+  box.innerHTML=PERSONA_TEXTS[persona]||'';
+  box.classList.add('show');
+}
+
+// TAP RANK
+let rankOrder=[];
+function tapRank(val,btn){
+  if(rankOrder.includes(val))return;
+  rankOrder.push(val);
+  const n=rankOrder.length;
+  const item=btn.closest('.rank-item');
+  item.classList.add('ranked');
+  const badge=document.getElementById('rb-'+val);
+  badge.textContent=n;
+  btn.textContent='#'+n;
+  btn.disabled=true;
+  if(rankOrder.length===5)markAnswered('t2a');
+}
+function resetRank(){
+  rankOrder=[];
+  document.querySelectorAll('#rank-2a .rank-item').forEach(item=>{
+    item.classList.remove('ranked');
+    const badge=item.querySelector('.rank-badge');
+    badge.textContent='';
+    const btn=item.querySelector('.rank-tap-btn');
+    btn.textContent='בחר';
+    btn.disabled=false;
+  });
+}
+
+// MIC
+let micRec=null;
+function mic(tid,btn){
+  if(!('webkitSpeechRecognition'in window||'SpeechRecognition'in window)){alert('הדפדפן לא תומך בדיקטציה');return;}
+  if(micRec){micRec.stop();micRec=null;btn.classList.remove('rec');btn.textContent='🎤';return;}
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  micRec=new SR();micRec.lang='he-IL';micRec.continuous=true;micRec.interimResults=false;
+  micRec.onresult=e=>{const ta=document.getElementById(tid);ta.value+=' '+e.results[e.results.length-1][0].transcript;ar(ta);markAnswered(tid.replace(/[0-9]/,'').replace(/[ab]/,''));};
+  micRec.onend=()=>{btn.classList.remove('rec');btn.textContent='🎤';micRec=null;};
+  micRec.start();btn.classList.add('rec');btn.textContent='⏹';
+}
+
+// COLLECT CHIPS
+function getChips(id){return [...document.querySelectorAll('#'+id+' .chip.sel')].map(c=>c.textContent.trim()).join(', ');}
+function getRank(){return rankOrder.map((v,i)=>(i+1)+'. '+v).join(' | ');}
+
+// SUBMIT
+function submitWS(){
+  function v(id){return document.getElementById(id)?.value||'';}
+  const answers={
+    // Phase 1
+    'א1_כוונת_מוען_יוניקורן_בחירות': getChips('chips-1a'),
+    'א1_כוונת_מוען_נימוק': v('q1a'),
+    'א2_השפעת_הקשר_פוליטי_ציון': v('hid-1b')+'/5',
+    'א2_השפעת_הקשר_נימוק': v('q1b'),
+    'א3_נמען_שנבחר': v('hid-1c-persona'),
+    'א3_ניתוח_נמען': v('q1c'),
+    'ב4_סדר_מאפייני_נמען_Dove': getRank(),
+    'ב4_נימוק_סדר': v('q2a'),
+    'ב5_קריאת_Dove': getChips('chips-2b'),
+    'ב5_נימוק': v('q2b'),
+    // Phase 2
+    'ג6_ניתוח_הקשרים_תמונה': v('q3a'),
+    'ג7_שימוש_מותר_בחירה': getChips('chips-3b'),
+    'ג7_נימוק': v('q3b'),
+    'ד8_מוען_מם': getChips('chips-4a'),
+    'ד8_נימוק': v('q4a'),
+    // Phase 3
+    'ה9_נושא': getChips('chips-5a'),
+    'ה9_המסר_שלי': v('q5a'),
+    'ה10_ניתוח_פיסק': v('q5b'),
+    'ה11_נמען_שונה': v('q5c'),
+    'ה12_סיכום': v('q5d'),
+  };
+  const data={student:{name:student.name,firstName:student.firstName,lastName:student.lastName,email:student.email,class:student.class,classCode:student.classCode},answers,submittedAt:Date.now()};
+  const key=(student.email+'_'+Date.now()).replace(/[.#$\/\[\]@ ]/g,'_');
+  db.ref('tests/fiske/'+key).set(data)
+    .then(()=>{document.querySelectorAll('.phase').forEach(p=>p.classList.remove('active'));document.getElementById('phase-success').classList.add('active');document.getElementById('pfill').style.width='100%';document.getElementById('ppct').textContent='100%';document.getElementById('plbl').textContent='הושלם ✓';})
+    .catch(()=>alert('שגיאה בשמירה — נסו שנית'));
+}
+</script>
+</body>
+</html>
