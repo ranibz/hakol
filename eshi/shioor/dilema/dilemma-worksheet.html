@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>דילמה עיתונאית — מטלה</title>
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@400;700;900&family=Heebo:wght@300;400;500;700;800&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<style>
+:root{--bg:#f0f7ff;--ink:#1a2340;--ink-light:#5a6480;--red:#c0392b;--red-bg:#fff0ee;--green:#1a7a3c;--green-bg:#edfaf2;--blue:#1d5fa8;--blue-bg:#e8f0fb;--orange:#c06010;--purple:#6b21a8;--shadow:4px 4px 0 rgba(0,0,0,.13);--shadow-sm:2px 2px 0 rgba(0,0,0,.08);}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--bg);color:var(--ink);font-family:'Heebo',sans-serif;line-height:1.75;}
+.modal-overlay{position:fixed;inset:0;background:rgba(26,35,64,.96);z-index:1000;display:flex;align-items:center;justify-content:center;padding:16px;}
+.modal-box{background:white;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.4);max-width:420px;width:100%;overflow:hidden;}
+.modal-head{background:linear-gradient(135deg,#1a2340,#2d3a6b);color:white;padding:22px 24px;}
+.modal-head h2{font-family:'Frank Ruhl Libre',serif;font-size:22px;font-weight:900;}
+.modal-head p{font-size:12px;opacity:.6;margin-top:3px;}
+.modal-body{padding:24px;}
+.mf{margin-bottom:14px;}
+.mf label{display:block;font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:700;color:var(--ink-light);margin-bottom:5px;}
+.mf input,.mf select{width:100%;padding:11px 14px;border:2px solid #dde3f0;border-radius:8px;background:var(--bg);font-family:'Heebo',sans-serif;font-size:15px;color:var(--ink);outline:none;transition:border .15s;}
+.mf input:focus,.mf select:focus{border-color:var(--blue);}
+.mbtn{width:100%;padding:13px;background:linear-gradient(135deg,#1a2340,#2d3a6b);color:white;border:none;border-radius:8px;font-family:'Frank Ruhl Libre',serif;font-size:18px;font-weight:700;cursor:pointer;transition:opacity .15s;}
+.mbtn:hover:not(:disabled){opacity:.88;}
+.mbtn:disabled{background:#aab;cursor:default;}
+.modal-err{color:var(--red);font-size:13px;font-weight:700;margin-top:8px;text-align:center;display:none;}
+.pbar{position:sticky;top:0;z-index:100;background:var(--ink);padding:9px 20px;display:flex;align-items:center;gap:14px;}
+.plbl{color:white;font-size:12px;white-space:nowrap;}
+.ptrack{flex:1;height:7px;background:rgba(255,255,255,.15);border-radius:4px;}
+.pfill{height:100%;background:linear-gradient(90deg,#e74c3c,#f39c12);border-radius:4px;transition:width .4s;}
+.ppct{color:white;font-size:12px;font-weight:700;white-space:nowrap;}
+.masthead{background:linear-gradient(135deg,#1a2340,#2d3a6b);color:white;}
+.mhi{max-width:860px;margin:0 auto;padding:0 20px;}
+.mht{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid rgba(255,255,255,.15);font-size:11px;opacity:.6;text-transform:uppercase;}
+.mhti{text-align:center;padding:16px 0 10px;}
+.mhti h1{font-family:'Frank Ruhl Libre',serif;font-size:clamp(20px,4vw,36px);font-weight:900;}
+.mhti p{font-size:11px;letter-spacing:3px;text-transform:uppercase;color:rgba(255,255,255,.5);margin-top:4px;}
+.mhstrip{height:4px;background:linear-gradient(90deg,#e74c3c,#f39c12,#27ae60,#2980b9,#8e44ad);}
+.sbadge{display:flex;justify-content:center;gap:24px;padding:8px 0 14px;font-size:12px;color:rgba(255,255,255,.65);}
+.sbadge strong{color:white;font-family:'Frank Ruhl Libre',serif;font-size:15px;}
+.page{max-width:860px;margin:0 auto;padding:28px 16px 70px;}
+.phase{display:none;animation:fadein .3s;}
+.phase.active{display:block;}
+@keyframes fadein{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.ph-num{font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--ink-light);margin-bottom:4px;}
+.ph2{font-family:'Frank Ruhl Libre',serif;font-size:26px;font-weight:900;border-bottom:3px solid var(--ink);padding-bottom:8px;margin-bottom:10px;}
+.ph-desc{font-size:14px;color:#555;line-height:1.75;margin-bottom:22px;}
+.qblock{background:white;border-radius:12px;box-shadow:var(--shadow-sm);padding:18px 20px;margin-bottom:14px;border:2px solid #dde3f0;}
+.qblock.qa{border-right:5px solid var(--red);}
+.qblock.qb{border-right:5px solid var(--blue);}
+.qblock.qg{border-right:5px solid var(--green);}
+.qblock.qo{border-right:5px solid var(--orange);}
+.qblock.qp{border-right:5px solid var(--purple);}
+.qblock h4{font-family:'Frank Ruhl Libre',serif;font-size:16px;margin-bottom:8px;}
+.qblock.qa h4{color:var(--red);}
+.qblock.qb h4{color:var(--blue);}
+.qblock.qg h4{color:var(--green);}
+.qblock.qo h4{color:var(--orange);}
+.qblock.qp h4{color:var(--purple);}
+.ctx{font-size:13px;color:var(--ink-light);line-height:1.75;background:var(--bg);padding:10px 14px;border-radius:8px;margin-bottom:12px;}
+.ctx strong{color:var(--ink);}
+.ctx.focus{background:#fffbea;border-right:3px solid #f0d060;}
+.mwrap{display:flex;gap:8px;align-items:flex-start;}
+.mwrap textarea{flex:1;padding:10px 13px;border:2px solid #dde3f0;border-radius:8px;background:var(--bg);font-family:'Heebo',sans-serif;font-size:14px;resize:none;min-height:80px;outline:none;line-height:1.65;transition:border .15s;}
+.mwrap textarea:focus{border-color:var(--blue);background:white;}
+.micbtn{flex-shrink:0;width:38px;height:38px;background:var(--ink);color:white;border:none;border-radius:8px;cursor:pointer;font-size:17px;display:flex;align-items:center;justify-content:center;}
+.micbtn:hover{background:var(--blue);}
+.micbtn.rec{background:var(--red);animation:pulse .8s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+.chips{display:flex;flex-wrap:wrap;gap:7px;margin:8px 0;}
+.chip{padding:7px 14px;border:2px solid #dde3f0;border-radius:20px;background:white;font-family:'Heebo',sans-serif;font-size:13px;cursor:pointer;font-weight:600;transition:all .15s;}
+.chip:hover{border-color:var(--blue);background:var(--blue-bg);}
+.chip.sel{border-color:var(--red);background:var(--red);color:white;}
+.chip.sel-b{border-color:var(--blue);background:var(--blue);color:white;}
+.chip.sel-g{border-color:var(--green);background:var(--green);color:white;}
+.btnrow{display:flex;gap:10px;flex-wrap:wrap;margin-top:22px;}
+.pbtn{padding:11px 28px;background:var(--ink);color:white;border:none;border-radius:8px;font-family:'Frank Ruhl Libre',serif;font-size:17px;font-weight:700;cursor:pointer;box-shadow:var(--shadow-sm);transition:all .15s;}
+.pbtn:hover{background:var(--blue);}
+.pbtn.sec{background:white;color:var(--ink);border:2px solid #dde3f0;box-shadow:none;}
+.pbtn.sec:hover{border-color:var(--blue);}
+.subbtn{padding:13px 32px;background:linear-gradient(135deg,var(--green),#148a3a);color:white;border:none;border-radius:8px;font-family:'Frank Ruhl Libre',serif;font-size:18px;font-weight:900;cursor:pointer;box-shadow:var(--shadow);}
+.subbtn:hover{opacity:.88;}
+.sbox{text-align:center;padding:60px 20px;background:white;border-radius:16px;border:2px solid #dde3f0;box-shadow:var(--shadow);}
+.sbox h2{font-family:'Frank Ruhl Libre',serif;font-size:30px;color:var(--green);margin-bottom:10px;}
+</style>
+</head>
+<body>
+<div class="modal-overlay" id="modal">
+  <div class="modal-box">
+    <div class="modal-head"><h2>כניסה למטלה</h2><p>דילמה עיתונאית</p></div>
+    <div class="modal-body">
+      <div style="display:flex;gap:10px;margin-bottom:14px;">
+        <div style="flex:1"><label style="display:block;font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:700;color:var(--ink-light);margin-bottom:5px;">שם פרטי</label><input id="inp-fn" type="text" placeholder="שם פרטי" style="width:100%;padding:11px 14px;border:2px solid #dde3f0;border-radius:8px;background:var(--bg);font-family:'Heebo',sans-serif;font-size:15px;outline:none;"></div>
+        <div style="flex:1"><label style="display:block;font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:700;color:var(--ink-light);margin-bottom:5px;">שם משפחה</label><input id="inp-ln" type="text" placeholder="שם משפחה" style="width:100%;padding:11px 14px;border:2px solid #dde3f0;border-radius:8px;background:var(--bg);font-family:'Heebo',sans-serif;font-size:15px;outline:none;"></div>
+      </div>
+      <div class="mf"><label>כתובת מייל</label><input id="inp-email" type="email" placeholder="your@email.com" style="direction:ltr;text-align:left;"></div>
+      <div class="mf"><label>שכבה</label><select id="inp-grade"><option value="">בחר/י שכבה...</option><option value="י">י׳</option><option value="יא">יא׳</option><option value="יב">יב׳</option></select></div>
+      <div class="mf"><label>קוד מורה</label><input id="inp-code" type="text" placeholder="הקוד שקיבלת מהמורה"></div>
+      <button class="mbtn" id="enter-btn" onclick="enterWS()" disabled>כניסה למטלה ←</button>
+      <div class="modal-err" id="modal-err">יש למלא את כל השדות.</div>
+    </div>
+  </div>
+</div>
+
+<div class="pbar" id="pbar" style="display:none">
+  <span class="plbl" id="plbl">שלב 1/3</span>
+  <div class="ptrack"><div class="pfill" id="pfill" style="width:33%"></div></div>
+  <span class="ppct" id="ppct">33%</span>
+</div>
+<header class="masthead" id="mhead" style="display:none">
+  <div class="mhi">
+    <div class="mht"><span>מטלה • תקשורת ועיתונות</span><span>גליל מערבי</span></div>
+    <div class="mhti"><h1>דילמה עיתונאית</h1><p>נתח • הכרע • נמק</p></div>
+    <div class="sbadge"><span>שם: <strong id="bname">—</strong></span><span>שכבה: <strong id="bcls">—</strong></span></div>
+  </div>
+  <div class="mhstrip"></div>
+</header>
+
+<div class="page" id="mainpage" style="display:none">
+
+  <!-- שלב א -->
+  <div class="phase active" id="phase-1">
+    <div class="ph-num">שלב א׳ מתוך ג׳</div>
+    <div class="ph2">דילמה 1 — תקשורת בזמן מלחמה</div>
+    <div class="ph-desc">קראו את השאלה. תארו את הדילמה וזהו את הצדדים.</div>
+
+    <div class="qblock qa">
+      <h4>שאלת הדילמה</h4>
+      <p class="ctx">יש הטוענים כי תקשורת מגויסת מסוכנת לדמוקרטיה, וכי על התקשורת להמשיך ולתפקד כרשות רביעית גם בזמן מלחמה. <strong>האם בזמן מלחמה על התקשורת לתפקד כתקשורת מגויסת או כרשות רביעית?</strong><br>השתמשו ב-3 מושגים מהאלה: זכות הציבור לדעת, רשות רביעית, תקשורת ואחריות חברתית, הבניה חברתית של המציאות, אתיקה עיתונאית, אמון הציבור.</p>
+      <p style="font-size:13px;font-weight:800;margin-bottom:8px;color:var(--red)">1. תארו את הדילמה במשפטיכם שלכם:</p>
+      <div class="mwrap"><textarea id="q1a" onpaste="return false" oninput="ar(this)" placeholder="הדילמה היא..."></textarea><button class="micbtn" onclick="mic('q1a',this)">🎤</button></div>
+    </div>
+
+    <div class="qblock qb">
+      <h4>2. בחרו 3 מושגים שתשתמשו בתשובה</h4>
+      <div class="chips" id="chips-anchors">
+        <button class="chip" onclick="toggleChip(this,'chips-anchors',3)">זכות הציבור לדעת</button>
+        <button class="chip" onclick="toggleChip(this,'chips-anchors',3)">רשות רביעית</button>
+        <button class="chip" onclick="toggleChip(this,'chips-anchors',3)">תקשורת ואחריות חברתית</button>
+        <button class="chip" onclick="toggleChip(this,'chips-anchors',3)">הבניה חברתית של המציאות</button>
+        <button class="chip" onclick="toggleChip(this,'chips-anchors',3)">אתיקה עיתונאית</button>
+        <button class="chip" onclick="toggleChip(this,'chips-anchors',3)">אמון הציבור</button>
+      </div>
+      <p id="chips-anchors-hint" style="font-size:12px;color:var(--ink-light);margin-top:6px;">בחרו עד 3 מושגים</p>
+    </div>
+
+    <div class="qblock qg">
+      <h4>3. הציגו יתרון לתקשורת מגויסת</h4>
+      <p class="ctx" style="background:var(--red-bg);">🎖️ תקשורת מגויסת — מה הרווח?</p>
+      <div class="mwrap"><textarea id="q1-pro-a" onpaste="return false" oninput="ar(this)" placeholder="יתרון: ..."></textarea><button class="micbtn" onclick="mic('q1-pro-a',this)">🎤</button></div>
+      <p style="font-size:13px;font-weight:800;margin:10px 0 6px;color:var(--red)">חיסרון לתקשורת מגויסת:</p>
+      <div class="mwrap"><textarea id="q1-con-a" onpaste="return false" oninput="ar(this)" placeholder="חיסרון: ..."></textarea><button class="micbtn" onclick="mic('q1-con-a',this)">🎤</button></div>
+    </div>
+
+    <div class="qblock qo">
+      <h4>4. הציגו יתרון לרשות רביעית עצמאית</h4>
+      <p class="ctx" style="background:var(--blue-bg);">📰 רשות רביעית — מה הרווח?</p>
+      <div class="mwrap"><textarea id="q1-pro-b" onpaste="return false" oninput="ar(this)" placeholder="יתרון: ..."></textarea><button class="micbtn" onclick="mic('q1-pro-b',this)">🎤</button></div>
+      <p style="font-size:13px;font-weight:800;margin:10px 0 6px;color:var(--red)">חיסרון לרשות רביעית עצמאית:</p>
+      <div class="mwrap"><textarea id="q1-con-b" onpaste="return false" oninput="ar(this)" placeholder="חיסרון: ..."></textarea><button class="micbtn" onclick="mic('q1-con-b',this)">🎤</button></div>
+    </div>
+
+    <div class="btnrow"><button class="pbtn" onclick="goP(2)">המשך ←</button></div>
+  </div>
+
+  <!-- שלב ב -->
+  <div class="phase" id="phase-2">
+    <div class="ph-num">שלב ב׳ מתוך ג׳</div>
+    <div class="ph2">הכרעה — דילמה 1</div>
+    <div class="ph-desc">הגיע הזמן להכריע ולנמק תוך שימוש במושגים שבחרתם.</div>
+
+    <div class="qblock qa">
+      <h4>5. מהי הכרעתכם?</h4>
+      <div class="chips" id="chips-verdict">
+        <button class="chip" onclick="selOne(this,'chips-verdict')">🎖️ תקשורת מגויסת</button>
+        <button class="chip" onclick="selOne(this,'chips-verdict')">📰 רשות רביעית עצמאית</button>
+        <button class="chip" onclick="selOne(this,'chips-verdict')">⚖️ תלוי בנסיבות</button>
+      </div>
+    </div>
+
+    <div class="qblock qb">
+      <h4>6. נמקו את הכרעתכם</h4>
+      <p class="ctx">השתמשו לפחות ב-2 מהמושגים שבחרתם. הסבירו מדוע הצד שבחרתם עדיף.</p>
+      <div class="mwrap"><textarea id="q2-reasoning" onpaste="return false" oninput="ar(this)" style="min-height:120px" placeholder="אני מכריע לטובת... כי...&#10;לפי המושג ___, ...&#10;לכן..."></textarea><button class="micbtn" onclick="mic('q2-reasoning',this)">🎤</button></div>
+    </div>
+
+    <div class="btnrow">
+      <button class="pbtn sec" onclick="goP(1)">← חזרה</button>
+      <button class="pbtn" onclick="goP(3)">המשך ←</button>
+    </div>
+  </div>
+
+  <!-- שלב ג -->
+  <div class="phase" id="phase-3">
+    <div class="ph-num">שלב ג׳ מתוך ג׳</div>
+    <div class="ph2">דילמה 2 — צוקרברג ובדיקת עובדות</div>
+    <div class="ph-desc">דילמה נוספת — הציגו, נתחו והכריעו.</div>
+
+    <div class="qblock qp">
+      <h4>ג1. הדילמה של צוקרברג</h4>
+      <p class="ctx focus">הציגו את הדילמה העולה מהחלטתו של מארק צוקרברג <strong>להפסיק את בדיקת העובדות</strong> ואת צנזור התכנים השקריים ברשתות החברתיות שבבעלותו. בתשובתכם השתמשו בשניים מבין המושגים האלה: זכות הציבור לדעת, אתיקה עיתונאית, תקשורת ואחריות חברתית.</p>
+      <div class="chips" id="chips-zuck-anchors" style="margin-bottom:10px">
+        <button class="chip" onclick="toggleChip(this,'chips-zuck-anchors',2)">זכות הציבור לדעת</button>
+        <button class="chip" onclick="toggleChip(this,'chips-zuck-anchors',2)">אתיקה עיתונאית</button>
+        <button class="chip" onclick="toggleChip(this,'chips-zuck-anchors',2)">תקשורת ואחריות חברתית</button>
+      </div>
+      <div class="mwrap"><textarea id="q3-zuck-desc" onpaste="return false" oninput="ar(this)" style="min-height:100px" placeholder="הדילמה היא...&#10;מצד אחד: ...&#10;מצד שני: ..."></textarea><button class="micbtn" onclick="mic('q3-zuck-desc',this)">🎤</button></div>
+    </div>
+
+    <div class="qblock qg">
+      <h4>ג2. הכרעה ונימוק</h4>
+      <div class="chips" id="chips-zuck-verdict" style="margin-bottom:10px">
+        <button class="chip" onclick="selOne(this,'chips-zuck-verdict')">✅ נכון לבטל בדיקת עובדות</button>
+        <button class="chip" onclick="selOne(this,'chips-zuck-verdict')">❌ שגוי לבטל בדיקת עובדות</button>
+      </div>
+      <div class="mwrap"><textarea id="q3-zuck-verdict" onpaste="return false" oninput="ar(this)" style="min-height:110px" placeholder="הכרעתי: ...&#10;נימוק: ..."></textarea><button class="micbtn" onclick="mic('q3-zuck-verdict',this)">🎤</button></div>
+    </div>
+
+    <div class="qblock qo">
+      <h4>7. סיכום — מה הכי קשה בשאלת דילמה?</h4>
+      <div class="mwrap"><textarea id="q3-summary" onpaste="return false" oninput="ar(this)" placeholder="הדבר הכי קשה בענות על שאלת דילמה הוא..."></textarea><button class="micbtn" onclick="mic('q3-summary',this)">🎤</button></div>
+    </div>
+
+    <div class="btnrow">
+      <button class="pbtn sec" onclick="goP(2)">← חזרה</button>
+      <button class="subbtn" onclick="submitWS()">📤 שלח למורה ←</button>
+    </div>
+  </div>
+
+  <div class="phase" id="phase-success">
+    <div class="sbox">
+      <div style="font-size:60px;margin-bottom:14px">✅</div>
+      <h2>המטלה הוגשה בהצלחה!</h2>
+      <p style="color:var(--ink-light);margin-top:8px;font-size:15px">תשובותיך נשמרו ויועברו למורה.</p>
+      <p style="margin-top:16px;font-size:13px;color:var(--ink-light)">לצפייה בציון: <a href="dilemma-mygrades.html" style="color:var(--blue);font-weight:700">הציונים שלי ⭐</a></p>
+    </div>
+  </div>
+</div>
+
+<script>
+const FC={apiKey:"AIzaSyCCHvn_ulmiyM56DuslNzNC0Ge6a8i2vhY",authDomain:"tests-fd938.firebaseapp.com",databaseURL:"https://tests-fd938-default-rtdb.europe-west1.firebasedatabase.app",projectId:"tests-fd938"};
+firebase.initializeApp(FC);
+const db=firebase.database();
+['inp-fn','inp-ln','inp-email','inp-code'].forEach(id=>document.getElementById(id).addEventListener('input',checkReady));
+document.getElementById('inp-grade').addEventListener('change',checkReady);
+function checkReady(){const ok=['inp-fn','inp-ln','inp-email','inp-code'].every(id=>document.getElementById(id).value.trim())&&document.getElementById('inp-grade').value;document.getElementById('enter-btn').disabled=!ok;}
+let student={};
+function enterWS(){
+  const fn=document.getElementById('inp-fn').value.trim();
+  const ln=document.getElementById('inp-ln').value.trim();
+  const email=document.getElementById('inp-email').value.trim().toLowerCase();
+  const cls=document.getElementById('inp-grade').value;
+  const code=document.getElementById('inp-code').value.trim().toLowerCase();
+  if(!fn||!ln||!email||!cls||!code){document.getElementById('modal-err').style.display='block';return;}
+  student={name:fn+' '+ln,firstName:fn,lastName:ln,email,class:cls,classCode:code};
+  document.getElementById('modal').style.display='none';
+  document.getElementById('pbar').style.display='flex';
+  document.getElementById('mhead').style.display='block';
+  document.getElementById('mainpage').style.display='block';
+  document.getElementById('bname').textContent=student.name;
+  document.getElementById('bcls').textContent=cls;
+  setP(1);
+}
+function setP(n){const ls=['שלב 1/3 — הצגה','שלב 2/3 — הכרעה','שלב 3/3 — דילמה 2'];const ps=[33,66,100];document.getElementById('plbl').textContent=ls[n-1];document.getElementById('pfill').style.width=ps[n-1]+'%';document.getElementById('ppct').textContent=ps[n-1]+'%';}
+function goP(n){document.querySelectorAll('.phase').forEach(p=>p.classList.remove('active'));document.getElementById('phase-'+n).classList.add('active');window.scrollTo({top:0,behavior:'smooth'});setP(n);}
+function ar(el){el.style.height='auto';el.style.height=el.scrollHeight+'px';}
+let micRec=null;
+function mic(tid,btn){
+  if(!('webkitSpeechRecognition'in window||'SpeechRecognition'in window)){alert('הדפדפן לא תומך בדיבור');return;}
+  if(micRec){micRec.stop();micRec=null;btn.classList.remove('rec');btn.textContent='🎤';return;}
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  micRec=new SR();micRec.lang='he-IL';micRec.continuous=true;micRec.interimResults=false;
+  micRec.onresult=e=>{const ta=document.getElementById(tid);ta.value+=' '+e.results[e.results.length-1][0].transcript;ar(ta);};
+  micRec.onend=()=>{btn.classList.remove('rec');btn.textContent='🎤';micRec=null;};
+  micRec.start();btn.classList.add('rec');btn.textContent='⏹';
+}
+function toggleChip(btn,gid,max){
+  const sel=[...document.querySelectorAll('#'+gid+' .chip.sel')];
+  if(btn.classList.contains('sel')){btn.classList.remove('sel');return;}
+  if(sel.length>=max)return;
+  btn.classList.add('sel');
+  const hint=document.getElementById(gid+'-hint');
+  if(hint)hint.textContent='נבחרו '+(sel.length+1)+'/'+max+' מושגים';
+}
+function selOne(btn,gid){document.querySelectorAll('#'+gid+' .chip').forEach(c=>c.classList.remove('sel','sel-b','sel-g'));btn.classList.add('sel');}
+function getChips(id){return[...document.querySelectorAll('#'+id+' .chip.sel')].map(c=>c.textContent.trim()).join(', ');}
+function v(id){return(document.getElementById(id)?.value||'').trim();}
+function submitWS(){
+  const answers={
+    'א_תיאור_הדילמה':v('q1a'),
+    'א_מושגים_שנבחרו':getChips('chips-anchors'),
+    'א_יתרון_תקשורת_מגויסת':v('q1-pro-a'),
+    'א_חיסרון_תקשורת_מגויסת':v('q1-con-a'),
+    'א_יתרון_רשות_רביעית':v('q1-pro-b'),
+    'א_חיסרון_רשות_רביעית':v('q1-con-b'),
+    'ב_הכרעה':getChips('chips-verdict'),
+    'ב_נימוק':v('q2-reasoning'),
+    'ג1_הצגת_דילמה_צוקרברג':v('q3-zuck-desc'),
+    'ג1_מושגים_שנבחרו':getChips('chips-zuck-anchors'),
+    'ג2_הכרעה':getChips('chips-zuck-verdict'),
+    'ג2_נימוק':v('q3-zuck-verdict'),
+    'סיכום':v('q3-summary'),
+  };
+  const data={student:{name:student.name,firstName:student.firstName,lastName:student.lastName,email:student.email,class:student.class,classCode:student.classCode},answers,submittedAt:Date.now()};
+  const key=(student.email+'_'+Date.now()).replace(/[.#$\/\[\]@ ]/g,'_');
+  db.ref('tests/dilemma/'+key).set(data)
+    .then(()=>{document.querySelectorAll('.phase').forEach(p=>p.classList.remove('active'));document.getElementById('phase-success').classList.add('active');document.getElementById('pfill').style.width='100%';document.getElementById('ppct').textContent='100%';document.getElementById('plbl').textContent='הושלם ✓';})
+    .catch(()=>alert('שגיאה בשמירה — נסו שנית'));
+}
+</script>
+</body>
+</html>

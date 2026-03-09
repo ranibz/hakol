@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>דילמה עיתונאית — ממשק מורה</title>
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@400;700;900&family=Heebo:wght@300;400;500;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<style>
+:root{--paper:#f5f0e8;--paper-dark:#e8e0cc;--ink:#1a1208;--ink-light:#6b5d45;--accent:#8b1a1a;--blue:#2563af;--green:#2d7a2d;--warm:#7a4f1a;--shadow:4px 4px 0 #1a1208;--shadow-sm:2px 2px 0 #1a1208;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;}
+.login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;background:var(--ink);}
+.login-box{background:var(--paper);border:3px solid var(--paper-dark);padding:36px;max-width:380px;width:100%;}
+.login-box h2{font-family:'Frank Ruhl Libre',serif;font-size:26px;font-weight:900;margin-bottom:20px;text-align:center;border-bottom:2px solid var(--ink);padding-bottom:12px;}
+.lf{margin-bottom:12px;}
+.lf label{display:block;font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:700;color:var(--ink-light);margin-bottom:4px;}
+.lf input{width:100%;padding:10px 13px;border:2px solid var(--ink);background:white;font-family:'Heebo',sans-serif;font-size:15px;outline:none;}
+.lbtn{width:100%;padding:12px;background:var(--ink);color:var(--paper);border:none;font-family:'Frank Ruhl Libre',serif;font-size:18px;font-weight:700;cursor:pointer;box-shadow:var(--shadow);}
+.lbtn:hover{background:var(--accent);}
+.lerr{color:var(--accent);font-size:13px;font-weight:700;text-align:center;margin-top:8px;display:none;}
+.app{display:none;}
+.topbar{background:var(--ink);color:var(--paper);padding:12px 24px;display:flex;align-items:center;justify-content:space-between;}
+.topbar h1{font-family:'Frank Ruhl Libre',serif;font-size:20px;font-weight:900;}
+.topbar-right{display:flex;align-items:center;gap:12px;}
+.tbtn{padding:7px 16px;background:transparent;color:var(--paper);border:1px solid rgba(255,255,255,.3);font-family:'Heebo',sans-serif;font-size:13px;cursor:pointer;}
+.tbtn:hover{background:rgba(255,255,255,.1);}
+.filters{background:var(--paper-dark);padding:12px 20px;display:flex;gap:10px;align-items:center;flex-wrap:wrap;border-bottom:2px solid var(--ink);}
+.filters select,.filters input{padding:8px 12px;border:2px solid var(--ink);background:white;font-family:'Heebo',sans-serif;font-size:14px;outline:none;}
+.fbtn{padding:8px 18px;background:var(--ink);color:var(--paper);border:none;font-family:'Heebo',sans-serif;font-size:14px;font-weight:700;cursor:pointer;}
+.fbtn:hover{background:var(--accent);}
+.stats{display:flex;gap:14px;padding:14px 20px;background:white;border-bottom:2px solid var(--ink);flex-wrap:wrap;}
+.stat{text-align:center;min-width:70px;}
+.stat-n{font-family:'Frank Ruhl Libre',serif;font-size:26px;font-weight:900;}
+.stat-l{font-size:11px;color:var(--ink-light);}
+.list{padding:18px 20px;}
+.sub-card{background:white;border:2px solid var(--ink);margin-bottom:10px;box-shadow:var(--shadow-sm);}
+.sub-head{padding:12px 16px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;background:var(--paper-dark);gap:12px;}
+.sub-head:hover{background:var(--paper);}
+.sub-name{font-family:'Frank Ruhl Libre',serif;font-size:16px;font-weight:900;}
+.sub-meta{font-size:12px;color:var(--ink-light);}
+.sub-badge{padding:4px 10px;font-size:11px;font-weight:700;border:1px solid var(--ink);}
+.sub-body{display:none;padding:16px 18px;border-top:1px solid var(--paper-dark);}
+.sub-card.open .sub-body{display:block;}
+.ans-grid{display:grid;gap:8px;margin-bottom:16px;}
+.ans-row{background:var(--paper);padding:10px 14px;}
+.ans-q{font-size:11px;font-weight:700;color:var(--warm);margin-bottom:3px;text-transform:uppercase;letter-spacing:.5px;}
+.ans-v{font-size:14px;line-height:1.75;}
+.grade-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px;padding-top:12px;border-top:2px solid var(--paper-dark);}
+.grade-row input[type=number]{width:80px;padding:8px;border:2px solid var(--ink);font-family:'Heebo',sans-serif;font-size:15px;text-align:center;outline:none;}
+.grade-row input[type=text]{flex:1;min-width:180px;padding:8px 10px;border:2px solid var(--ink);font-family:'Heebo',sans-serif;font-size:14px;outline:none;}
+.gbtn{padding:8px 18px;background:var(--green);color:white;border:none;font-family:'Heebo',sans-serif;font-size:14px;font-weight:700;cursor:pointer;}
+.gbtn:hover{background:#1a5c1a;}
+.empty{text-align:center;padding:50px;color:var(--ink-light);font-size:15px;}
+.reg-link{text-align:center;margin-top:14px;font-size:13px;color:rgba(255,255,255,.5);}
+.reg-link a{color:rgba(255,255,255,.7);}
+</style>
+</head>
+<body>
+<div class="login-wrap" id="loginWrap">
+  <div class="login-box">
+    <h2>👩‍🏫 ממשק מורה<br><small style="font-size:14px;font-weight:400;font-family:'Heebo'">דילמה עיתונאית</small></h2>
+    <div class="lf"><label>סיסמה</label><input id="lpass" type="password" placeholder="סיסמת מורה" onkeydown="if(event.key==='Enter')doLogin()"></div>
+    <button class="lbtn" onclick="doLogin()">כניסה ←</button>
+    <div class="lerr" id="lerr">סיסמה שגויה</div>
+    <div class="reg-link"><a href="../teacher-register.html">הרשמה כמורה חדש/ה</a></div>
+  </div>
+</div>
+<div class="app" id="app">
+  <div class="topbar">
+    <h1>⚖️ דילמה עיתונאית — הגשות</h1>
+    <div class="topbar-right">
+      <button class="tbtn" onclick="exportCSV()">📥 ייצוא CSV</button>
+      <button class="tbtn" onclick="location.reload()">יציאה</button>
+    </div>
+  </div>
+  <div class="filters">
+    <select id="fClass" onchange="render()"><option value="">כל השכבות</option><option value="י">י׳</option><option value="יא">יא׳</option><option value="יב">יב׳</option></select>
+    <input id="fCode" type="text" placeholder="קוד מורה..." oninput="render()">
+    <input id="fName" type="text" placeholder="חיפוש שם..." oninput="render()">
+    <select id="fGrade" onchange="render()"><option value="">הכל</option><option value="graded">עם ציון</option><option value="ungraded">ללא ציון</option></select>
+    <button class="fbtn" onclick="loadData()">🔄 רענן</button>
+  </div>
+  <div class="stats">
+    <div class="stat"><div class="stat-n" id="stTotal">0</div><div class="stat-l">סה"כ</div></div>
+    <div class="stat"><div class="stat-n" id="stGraded" style="color:var(--green)">0</div><div class="stat-l">עם ציון</div></div>
+    <div class="stat"><div class="stat-n" id="stAvg" style="color:var(--blue)">—</div><div class="stat-l">ממוצע</div></div>
+  </div>
+  <div class="list" id="list"></div>
+</div>
+<script>
+const FC={apiKey:"AIzaSyCCHvn_ulmiyM56DuslNzNC0Ge6a8i2vhY",authDomain:"tests-fd938.firebaseapp.com",databaseURL:"https://tests-fd938-default-rtdb.europe-west1.firebasedatabase.app",projectId:"tests-fd938"};
+firebase.initializeApp(FC);
+const db=firebase.database();
+let allSubs=[];
+let teacherCode='';
+
+function doLogin(){
+  const pass=document.getElementById('lpass').value.trim();
+  db.ref('teachers').once('value').then(snap=>{
+    let found=false;
+    snap.forEach(c=>{
+      const t=c.val();
+      if(t.password===pass&&t.status==='approved'){found=true;teacherCode=t.classCode||'';}
+    });
+    if(found){document.getElementById('loginWrap').style.display='none';document.getElementById('app').style.display='block';loadData();}
+    else{document.getElementById('lerr').style.display='block';}
+  });
+}
+
+function loadData(){
+  db.ref('tests/dilemma').once('value').then(snap=>{
+    allSubs=[];
+    snap.forEach(c=>{const d=c.val();d._key=c.key;allSubs.push(d);});
+    allSubs.sort((a,b)=>(b.submittedAt||0)-(a.submittedAt||0));
+    render();
+  });
+}
+
+function render(){
+  const fc=document.getElementById('fClass').value;
+  const fcode=document.getElementById('fCode').value.trim().toLowerCase();
+  const fname=document.getElementById('fName').value.trim().toLowerCase();
+  const fg=document.getElementById('fGrade').value;
+  let list=allSubs.filter(d=>{
+    const s=d.student||{};
+    if(fc&&s.class!==fc)return false;
+    if(fcode&&(s.classCode||'').toLowerCase()!==fcode)return false;
+    if(fname&&!(s.name||'').toLowerCase().includes(fname))return false;
+    if(fg==='graded'&&d.grade===undefined)return false;
+    if(fg==='ungraded'&&d.grade!==undefined)return false;
+    return true;
+  });
+  document.getElementById('stTotal').textContent=list.length;
+  const graded=list.filter(d=>d.grade!==undefined);
+  document.getElementById('stGraded').textContent=graded.length;
+  const avg=graded.length?Math.round(graded.reduce((s,d)=>s+(+d.grade),0)/graded.length):null;
+  document.getElementById('stAvg').textContent=avg!==null?avg:'—';
+  if(!list.length){document.getElementById('list').innerHTML='<div class="empty">אין הגשות</div>';return;}
+  document.getElementById('list').innerHTML=list.map(d=>{
+    const s=d.student||{};
+    const ans=d.answers||{};
+    const date=d.submittedAt?new Date(d.submittedAt).toLocaleString('he-IL'):'—';
+    const gradeLabel=d.grade!==undefined?`ציון: ${d.grade}`:'ללא ציון';
+    const ansHtml=Object.entries(ans).map(([q,v])=>`<div class="ans-row"><div class="ans-q">${q.replace(/_/g,' ')}</div><div class="ans-v">${v||'(ריק)'}</div></div>`).join('');
+    return `<div class="sub-card" id="sc_${d._key}">
+      <div class="sub-head" onclick="tog('${d._key}')">
+        <div><div class="sub-name">👤 ${s.name||'—'}</div><div class="sub-meta">${s.class||''} | קוד: ${s.classCode||''} | ${date}</div></div>
+        <span class="sub-badge">${gradeLabel}</span>
+      </div>
+      <div class="sub-body">
+        <div class="ans-grid">${ansHtml}</div>
+        <div class="grade-row">
+          <input type="number" id="gn_${d._key}" placeholder="ציון" min="0" max="100" value="${d.grade!==undefined?d.grade:''}">
+          <input type="text" id="gf_${d._key}" placeholder="הערה למתלמיד..." value="${d.feedback||''}">
+          <button class="gbtn" onclick="save('${d._key}')">💾 שמור</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function tog(key){document.getElementById('sc_'+key).classList.toggle('open');}
+function save(key){
+  const g=document.getElementById('gn_'+key).value;
+  const f=document.getElementById('gf_'+key).value;
+  const upd={};
+  if(g!=='')upd.grade=+g;
+  if(f)upd.feedback=f;
+  db.ref('tests/dilemma/'+key).update(upd).then(()=>{loadData();});
+}
+
+function exportCSV(){
+  const fc=document.getElementById('fClass').value;
+  const fcode=document.getElementById('fCode').value.trim().toLowerCase();
+  let list=allSubs.filter(d=>{
+    const s=d.student||{};
+    if(fc&&s.class!==fc)return false;
+    if(fcode&&(s.classCode||'').toLowerCase()!==fcode)return false;
+    return true;
+  });
+  if(!list.length)return;
+  const qkeys=[...new Set(list.flatMap(d=>Object.keys(d.answers||{})))];
+  const header=['שם','שכבה','קוד מורה','תאריך',...qkeys,'ציון','הערה'];
+  const rows=list.map(d=>{
+    const s=d.student||{};
+    const ans=d.answers||{};
+    const date=d.submittedAt?new Date(d.submittedAt).toLocaleString('he-IL'):'';
+    return [s.name||'',s.class||'',s.classCode||'',date,...qkeys.map(k=>ans[k]||''),d.grade!==undefined?d.grade:'',d.feedback||''];
+  });
+  const csv=[header,...rows].map(r=>r.map(c=>'"'+(String(c).replace(/"/g,'""'))+'"').join(',')).join('\n');
+  const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,\uFEFF'+encodeURIComponent(csv);a.download='dilemma-submissions.csv';a.click();
+}
+</script>
+</body>
+</html>
