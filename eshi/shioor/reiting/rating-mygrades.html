@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>רייטינג — הציונים שלי</title>
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@400;700;900&family=Heebo:wght@300;400;500;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<style>
+:root{--paper:#f5f0e8;--paper-dark:#e8e0cc;--ink:#1a1208;--ink-light:#6b5d45;--accent:#8b1a1a;--blue:#2563af;--green:#2d7a2d;--warm:#7a4f1a;--shadow:4px 4px 0 #1a1208;--shadow-sm:2px 2px 0 #1a1208;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;line-height:1.7;background-image:repeating-linear-gradient(0deg,transparent,transparent 27px,rgba(26,18,8,.055) 27px,rgba(26,18,8,.055) 28px);}
+.overlay{position:fixed;inset:0;background:rgba(26,18,8,.93);z-index:1000;display:flex;align-items:center;justify-content:center;padding:16px;}
+.mbox{background:var(--paper);border:3px solid var(--ink);box-shadow:8px 8px 0 var(--ink);max-width:400px;width:100%;padding:36px;}
+.mhead{background:var(--ink);color:var(--paper);text-align:center;padding:14px 20px;margin:-36px -36px 24px;}
+.mhead h2{font-family:'Frank Ruhl Libre',serif;font-size:24px;font-weight:900;}
+.mhead p{font-size:11px;letter-spacing:3px;text-transform:uppercase;opacity:.55;margin-top:3px;}
+.mf{margin-bottom:14px;}
+.mf label{display:block;font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:700;color:var(--ink-light);margin-bottom:4px;}
+.mf input{width:100%;padding:11px 13px;border:2px solid var(--ink);background:white;font-family:'Heebo',sans-serif;font-size:15px;outline:none;}
+.mf input:focus{border-color:var(--accent);}
+.mbtn{width:100%;padding:12px;background:var(--ink);color:var(--paper);border:none;font-family:'Frank Ruhl Libre',serif;font-size:18px;font-weight:700;cursor:pointer;box-shadow:var(--shadow);transition:background .15s;}
+.mbtn:hover{background:var(--accent);}
+.merr{color:var(--accent);font-size:13px;font-weight:700;margin-top:8px;text-align:center;display:none;}
+.masthead{background:var(--ink);color:var(--paper);border-bottom:6px double var(--paper-dark);}
+.mhi{max-width:860px;margin:0 auto;padding:0 20px;}
+.mht{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #444;font-size:11px;letter-spacing:1px;opacity:.6;}
+.mhti{text-align:center;padding:14px 0 10px;}
+.mhti h1{font-family:'Frank Ruhl Libre',serif;font-size:clamp(20px,5vw,38px);font-weight:900;}
+.mhti p{font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--paper-dark);margin-top:4px;}
+.mhr{height:3px;background:var(--paper-dark);margin-bottom:8px;}
+.sbadge{display:flex;justify-content:center;gap:24px;padding-bottom:10px;font-size:12px;color:#ccc;}
+.sbadge strong{font-family:'Frank Ruhl Libre',serif;font-size:14px;color:white;}
+.page{max-width:860px;margin:0 auto;padding:28px 16px 60px;}
+.sub-card{background:white;border:2px solid var(--ink);box-shadow:var(--shadow);margin-bottom:22px;overflow:hidden;}
+.sub-card-head{background:var(--ink);color:var(--paper);padding:12px 20px;display:flex;align-items:center;justify-content:space-between;}
+.sub-card-head .sc-title{font-family:'Frank Ruhl Libre',serif;font-size:17px;font-weight:900;}
+.sub-card-head .sc-date{font-size:12px;opacity:.6;}
+.grade-circle{width:64px;height:64px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Frank Ruhl Libre',serif;font-size:26px;font-weight:900;flex-shrink:0;margin:16px auto;}
+.gc-graded{background:#d4edda;color:#1a5c1a;border:3px solid #1a5c1a;}
+.gc-none{background:#f0f0f0;color:#888;border:3px solid #ccc;font-size:13px;}
+.grade-section{padding:18px 22px;border-bottom:2px solid var(--paper-dark);text-align:center;}
+.grade-bar{height:10px;background:var(--paper-dark);border:1px solid var(--ink);margin:10px 0;overflow:hidden;}
+.grade-bar-fill{height:100%;transition:width .6s;}
+.fb-comment{background:#f0faf0;border:2px solid var(--green);padding:12px 16px;margin-top:10px;font-size:14px;line-height:1.75;text-align:right;}
+.fb-comment .fc-lbl{font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--green);margin-bottom:4px;}
+.pending-box{background:#fff8f0;border:2px solid var(--warm);padding:12px 16px;margin-top:10px;font-size:13px;color:var(--warm);font-weight:700;text-align:center;}
+.answers-section{padding:18px 22px;}
+.answers-title{font-family:'Frank Ruhl Libre',serif;font-size:16px;font-weight:900;margin-bottom:12px;color:var(--ink-light);}
+.ans-item{margin-bottom:10px;}
+.ans-q{font-size:11px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:var(--warm);margin-bottom:3px;}
+.ans-v{font-size:13px;background:var(--paper-dark);padding:8px 12px;line-height:1.7;white-space:pre-wrap;word-break:break-word;}
+.empty-state{text-align:center;padding:60px 20px;background:white;border:2px solid var(--ink);box-shadow:var(--shadow);}
+.empty-state h2{font-family:'Frank Ruhl Libre',serif;font-size:24px;color:var(--ink-light);margin-bottom:8px;}
+.empty-state p{font-size:14px;color:#888;}
+footer{text-align:center;margin-top:48px;padding-top:14px;border-top:3px double var(--ink);font-size:12px;color:var(--ink-light);}
+</style>
+</head>
+<body>
+
+<div class="overlay" id="overlay">
+  <div class="mbox">
+    <div class="mhead"><h2>הציונים שלי</h2><p>רייטינג</p></div>
+    <div class="mf"><label>כתובת מייל</label><input id="inp-email" type="email" placeholder="your@email.com" style="direction:ltr;text-align:left;" onkeydown="if(event.key==='Enter')lookup()"></div>
+    <div class="mf"><label>קוד מורה</label><input id="inp-code" type="text" placeholder="הקוד שקיבלת" onkeydown="if(event.key==='Enter')lookup()"></div>
+    <button class="mbtn" onclick="lookup()">הצג ציונים ←</button>
+    <div class="merr" id="merr"></div>
+  </div>
+</div>
+
+<header class="masthead" id="mhead" style="display:none">
+  <div class="mhi">
+    <div class="mht"><span>הציונים שלי • רייטינג</span><span>גליל מערבי</span></div>
+    <div class="mhti"><h1>⭐ הציונים שלי</h1><p>רייטינג</p></div>
+    <div class="mhr"></div>
+    <div class="sbadge"><span>מייל: <strong id="b-email">—</strong></span></div>
+  </div>
+</header>
+
+<div class="page" id="mainpage" style="display:none"></div>
+
+<script>
+const FC={apiKey:"AIzaSyCCHvn_ulmiyM56DuslNzNC0Ge6a8i2vhY",authDomain:"tests-fd938.firebaseapp.com",databaseURL:"https://tests-fd938-default-rtdb.europe-west1.firebasedatabase.app",projectId:"tests-fd938"};
+firebase.initializeApp(FC);
+const db=firebase.database();
+
+function lookup(){
+  const email=document.getElementById('inp-email').value.trim().toLowerCase();
+  const code=document.getElementById('inp-code').value.trim().toLowerCase();
+  if(!email||!code){showErr('יש למלא מייל וקוד');return;}
+  document.querySelector('.mbtn').textContent='מחפש...';
+  db.ref('tests/rating').once('value').then(snap=>{
+    const all=snap.val()||{};
+    const found=Object.entries(all).filter(([,d])=>
+      d&&d.student&&
+      (d.student.email||'').toLowerCase()===email&&
+      (d.student.classCode||'').toLowerCase()===code
+    ).sort((a,b)=>(b[1].submittedAt||0)-(a[1].submittedAt||0));
+    if(!found.length){showErr('לא נמצאו הגשות עם הפרטים האלה');document.querySelector('.mbtn').textContent='הצג ציונים ←';return;}
+    document.getElementById('overlay').style.display='none';
+    document.getElementById('mhead').style.display='block';
+    document.getElementById('mainpage').style.display='block';
+    document.getElementById('b-email').textContent=email;
+    renderResults(found.map(([k,d])=>({key:k,...d})));
+  }).catch(()=>{showErr('שגיאת חיבור');document.querySelector('.mbtn').textContent='הצג ציונים ←';});
+}
+
+function showErr(m){const e=document.getElementById('merr');e.textContent=m;e.style.display='block';}
+
+function renderResults(items){
+  const page=document.getElementById('mainpage');
+  if(!items.length){
+    page.innerHTML='<div class="empty-state"><h2>אין הגשות עדיין</h2><p>לאחר שתגיש את המטלה — הציון יופיע כאן.</p></div>';
+    return;
+  }
+  page.innerHTML=items.map((d,i)=>{
+    const fb=d.feedback||{};
+    const graded=fb.grade!==undefined;
+    const date=d.submittedAt?new Date(d.submittedAt).toLocaleDateString('he-IL',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}):'—';
+    const gradeColor=graded?(fb.grade>=85?'#1a5c1a':fb.grade>=70?'#2563af':fb.grade>=55?var_warm():'#8b1a1a'):'#888';
+    const gradeW=graded?fb.grade:0;
+
+    const gradeSection=graded?`
+      <div class="grade-section">
+        <div class="grade-circle gc-graded" style="background:${gradeColor}22;color:${gradeColor};border-color:${gradeColor}">${fb.grade}</div>
+        <div class="grade-bar"><div class="grade-bar-fill" style="width:${gradeW}%;background:${gradeColor}"></div></div>
+        <div style="font-size:13px;color:var(--ink-light)">ציון ${fb.grade} מתוך 100</div>
+        ${fb.comment?`<div class="fb-comment"><div class="fc-lbl">💬 הערת המורה</div>${escH(fb.comment)}</div>`:''}
+        ${fb.gradedAt?`<div style="font-size:11px;color:#aaa;margin-top:8px">הוערך: ${new Date(fb.gradedAt).toLocaleDateString('he-IL')}</div>`:''}
+      </div>`:`
+      <div class="grade-section">
+        <div class="grade-circle gc-none">טרם<br>הוערך</div>
+        <div class="pending-box">⏳ המורה עדיין לא העריך את המטלה</div>
+      </div>`;
+
+    const ans=d.answers||{};
+    const ansHtml=Object.entries(ans).map(([q,v])=>`
+      <div class="ans-item">
+        <div class="ans-q">${q.replace(/_/g,' ')}</div>
+        <div class="ans-v">${escH(v||'(ריק)')}</div>
+      </div>`).join('');
+
+    return `
+    <div class="sub-card">
+      <div class="sub-card-head">
+        <span class="sc-title">📋 הגשה ${items.length>1?'#'+(i+1):''}</span>
+        <span class="sc-date">${date}</span>
+      </div>
+      ${gradeSection}
+      <div class="answers-section">
+        <div class="answers-title">התשובות שלי</div>
+        ${ansHtml||'<div style="color:#aaa;font-size:13px">אין תשובות שמורות</div>'}
+      </div>
+    </div>`;
+  }).join('')+'<footer>גליל מערבי • תקשורת ועיתונות • רייטינג</footer>';
+
+  // animate grade bars
+  setTimeout(()=>document.querySelectorAll('.grade-bar-fill').forEach(el=>{
+    const w=el.style.width;el.style.width='0';setTimeout(()=>el.style.width=w,50);
+  }),100);
+}
+
+function var_warm(){return'#7a4f1a';}
+function escH(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+</script>
+</body>
+</html>
