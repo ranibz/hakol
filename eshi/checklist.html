@@ -3,176 +3,287 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>רשימת מטלות — כיתות תקשורת</title>
-<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700;800&display=swap" rel="stylesheet">
+<title>צ׳ק ליסט מטלות</title>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700;800;900&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box;}
 body{font-family:'Heebo',sans-serif;background:#f0f4f8;color:#1a2340;min-height:100vh;}
-header{background:linear-gradient(135deg,#1a2340,#2d3a6b);color:white;padding:20px 24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;}
-header h1{font-size:20px;font-weight:800;}
-header p{font-size:12px;opacity:.6;margin-top:2px;}
-.tabs{display:flex;gap:8px;padding:16px 20px 0;background:white;border-bottom:2px solid #e2e8f0;}
-.tab{padding:10px 24px;font-family:'Heebo',sans-serif;font-size:15px;font-weight:700;border:none;background:none;cursor:pointer;border-bottom:3px solid transparent;color:#64748b;transition:all .15s;}
-.tab:hover{color:#1a2340;}
-.tab.active{color:#1d5fa8;border-bottom-color:#1d5fa8;}
-.toolbar{display:flex;gap:10px;align-items:center;padding:14px 20px;background:white;border-bottom:1px solid #e2e8f0;flex-wrap:wrap;}
-.toolbar input{padding:8px 14px;border:2px solid #e2e8f0;border-radius:8px;font-family:'Heebo',sans-serif;font-size:14px;outline:none;width:200px;}
+header{background:linear-gradient(135deg,#1a2340,#2d3a6b);color:white;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;}
+.header-left h1{font-size:18px;font-weight:900;}
+.header-left p{font-size:11px;opacity:.5;margin-top:2px;}
+.header-btns{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+.hbtn{padding:8px 15px;border-radius:8px;font-family:'Heebo',sans-serif;font-size:13px;font-weight:700;cursor:pointer;border:none;transition:all .15s;white-space:nowrap;}
+.hbtn.lock{background:#f59e0b;color:#1a2340;}
+.hbtn.lock:hover{background:#fbbf24;}
+.hbtn.lock.locked{background:#ef4444;color:white;}
+.hbtn.lock.locked:hover{background:#dc2626;}
+.hbtn.closeday{background:#22c55e;color:white;}
+.hbtn.closeday:hover{background:#16a34a;}
+.hbtn.ghost{background:rgba(255,255,255,.12);color:white;}
+.hbtn.ghost:hover{background:rgba(255,255,255,.22);}
+.sync-dot{width:8px;height:8px;border-radius:50%;background:#94a3b8;display:inline-block;margin-left:6px;transition:background .3s;}
+.sync-dot.ok{background:#22c55e;}
+.sync-dot.err{background:#ef4444;}
+.lock-banner{display:none;background:#fef3c7;border-bottom:2px solid #f59e0b;padding:8px 20px;font-size:13px;font-weight:700;color:#92400e;align-items:center;gap:8px;}
+.lock-banner.show{display:flex;}
+.tabs{display:flex;background:white;border-bottom:2px solid #e2e8f0;}
+.tab{padding:11px 24px;font-family:'Heebo',sans-serif;font-size:14px;font-weight:700;border:none;background:none;cursor:pointer;border-bottom:3px solid transparent;color:#64748b;transition:all .15s;}
+.tab:hover{color:#1a2340;background:#f8fafc;}
+.tab.active{color:#1d5fa8;border-bottom-color:#1d5fa8;background:#f0f6ff;}
+.stats-bar{background:white;border-bottom:2px solid #e2e8f0;padding:10px 20px;display:flex;gap:18px;flex-wrap:wrap;align-items:center;}
+.stat{font-size:13px;font-weight:600;color:#64748b;}
+.stat strong{font-size:20px;font-weight:900;margin-left:3px;}
+.stat.done strong{color:#16a34a;}
+.stat.notdone strong{color:#dc2626;}
+.stat.total strong{color:#1d5fa8;}
+.stat.none strong{color:#94a3b8;}
+.progress-wrap{flex:1;min-width:100px;height:8px;background:#e2e8f0;border-radius:4px;overflow:hidden;}
+.progress-fill{height:100%;background:linear-gradient(90deg,#16a34a,#4ade80);border-radius:4px;transition:width .4s;}
+.toolbar{background:#f8fafc;border-bottom:1px solid #e2e8f0;padding:10px 20px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+.toolbar input{padding:8px 13px;border:2px solid #e2e8f0;border-radius:8px;font-family:'Heebo',sans-serif;font-size:14px;outline:none;width:190px;background:white;}
 .toolbar input:focus{border-color:#1d5fa8;}
-.stats-bar{display:flex;gap:16px;padding:10px 20px;background:white;border-bottom:2px solid #e2e8f0;flex-wrap:wrap;}
-.stat{font-size:13px;font-weight:700;}
-.stat span{font-size:18px;font-weight:800;margin-left:4px;}
-.stat.done span{color:#16a34a;}
-.stat.notdone span{color:#dc2626;}
-.stat.total span{color:#1d5fa8;}
+.fbtn{padding:6px 13px;border-radius:20px;border:2px solid #e2e8f0;background:white;font-family:'Heebo',sans-serif;font-size:12px;font-weight:700;cursor:pointer;color:#64748b;transition:all .15s;}
+.fbtn:hover{border-color:#94a3b8;}
+.fbtn.active{border-color:#1d5fa8;background:#e8f0fb;color:#1d5fa8;}
 .class-panel{display:none;padding:16px 20px;}
 .class-panel.active{display:block;}
-.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;}
-.student{border-radius:12px;padding:14px 16px;cursor:pointer;transition:all .18s;border:2px solid transparent;user-select:none;display:flex;align-items:center;justify-content:space-between;gap:8px;}
-.student.none{background:white;border-color:#e2e8f0;color:#64748b;}
-.student.none:hover{border-color:#94a3b8;background:#f8fafc;}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(195px,1fr));gap:9px;}
+.student{border-radius:10px;padding:12px 15px;cursor:pointer;transition:all .15s;border:2px solid transparent;display:flex;align-items:center;justify-content:space-between;gap:8px;user-select:none;}
+.student.none{background:white;border-color:#e2e8f0;color:#475569;}
+.student.none:hover:not(.lk){border-color:#94a3b8;background:#f8fafc;}
 .student.done{background:#dcfce7;border-color:#86efac;color:#14532d;}
+.student.done:hover:not(.lk){background:#bbf7d0;}
 .student.notdone{background:#fee2e2;border-color:#fca5a5;color:#7f1d1d;}
-.student-name{font-size:14px;font-weight:700;line-height:1.3;}
-.student-icon{font-size:20px;flex-shrink:0;}
-.btn-reset{padding:8px 16px;background:#f1f5f9;border:2px solid #e2e8f0;border-radius:8px;font-family:'Heebo',sans-serif;font-size:13px;font-weight:700;cursor:pointer;color:#64748b;}
-.btn-reset:hover{border-color:#94a3b8;color:#1a2340;}
-.btn-export{padding:8px 16px;background:linear-gradient(135deg,#1a2340,#2d3a6b);color:white;border:none;border-radius:8px;font-family:'Heebo',sans-serif;font-size:13px;font-weight:700;cursor:pointer;}
-.btn-export:hover{opacity:.85;}
-.legend{display:flex;gap:14px;align-items:center;font-size:12px;color:#64748b;}
-.leg{display:flex;align-items:center;gap:5px;}
-.leg-dot{width:12px;height:12px;border-radius:50%;}
+.student.notdone:hover:not(.lk){background:#fecaca;}
+.student.lk{cursor:default;}
+.student-name{font-size:13px;font-weight:700;line-height:1.3;}
+.student-icon{font-size:18px;flex-shrink:0;}
+.loading{text-align:center;padding:40px;color:#94a3b8;font-size:15px;}
+/* OVERLAY */
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:200;align-items:flex-start;justify-content:center;padding:30px 16px;overflow-y:auto;}
+.overlay.show{display:flex;}
+.obox{background:white;border-radius:16px;max-width:580px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.3);overflow:hidden;max-height:90vh;display:flex;flex-direction:column;}
+.ohead{background:linear-gradient(135deg,#1a2340,#2d3a6b);color:white;padding:15px 20px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;}
+.ohead h2{font-size:17px;font-weight:800;}
+.xbtn{background:rgba(255,255,255,.15);border:none;color:white;font-size:16px;cursor:pointer;border-radius:6px;width:30px;height:30px;display:flex;align-items:center;justify-content:center;}
+.xbtn:hover{background:rgba(255,255,255,.28);}
+.obody{padding:16px;overflow-y:auto;}
+.hempty{text-align:center;padding:40px;color:#94a3b8;font-size:14px;}
+.hday{border:2px solid #e2e8f0;border-radius:10px;margin-bottom:10px;overflow:hidden;}
+.hday-head{background:#f8fafc;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;}
+.hday-head:hover{background:#f0f6ff;}
+.hday-date{font-size:13px;font-weight:800;}
+.hday-nums{display:flex;gap:10px;font-size:12px;font-weight:800;}
+.hday-nums .g{color:#16a34a;} .hday-nums .r{color:#dc2626;} .hday-nums .gr{color:#94a3b8;}
+.hday-body{display:none;padding:12px 14px;border-top:1px solid #e2e8f0;}
+.hday.open .hday-body{display:block;}
+.hcls{margin-bottom:12px;}
+.hcls-title{font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:#64748b;margin-bottom:6px;}
+.hnamesrow{margin-bottom:6px;}
+.hnamesrow-lbl{font-size:11px;font-weight:800;margin-bottom:4px;}
+.hnamesrow-lbl.g{color:#16a34a;} .hnamesrow-lbl.r{color:#dc2626;} .hnamesrow-lbl.gr{color:#94a3b8;}
+.hnames{display:flex;flex-wrap:wrap;gap:5px;}
+.hname{padding:3px 10px;border-radius:12px;font-size:12px;font-weight:700;}
+.hname.done{background:#dcfce7;color:#14532d;}
+.hname.notdone{background:#fee2e2;color:#7f1d1d;}
+.hname.none{background:#f1f5f9;color:#64748b;}
+.hdel{margin-top:10px;padding:5px 12px;background:#fee2e2;color:#dc2626;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;}
+.hdel:hover{background:#fecaca;}
+/* CONFIRM */
+.confirm-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:300;align-items:center;justify-content:center;}
+.confirm-overlay.show{display:flex;}
+.cbox{background:white;border-radius:14px;padding:28px 24px;max-width:340px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.3);text-align:center;}
+.cbox h3{font-size:18px;font-weight:900;margin-bottom:8px;}
+.cbox p{font-size:14px;color:#64748b;line-height:1.65;margin-bottom:20px;}
+.cbtns{display:flex;gap:10px;justify-content:center;}
+.cbtn{padding:10px 22px;border-radius:8px;font-family:'Heebo',sans-serif;font-size:14px;font-weight:700;cursor:pointer;border:none;}
+.cbtn.yes{background:#22c55e;color:white;}
+.cbtn.yes:hover{background:#16a34a;}
+.cbtn.no{background:#f1f5f9;color:#1a2340;border:2px solid #e2e8f0;}
+.cbtn.no:hover{background:#e2e8f0;}
+/* TOAST */
+.toast{position:fixed;bottom:24px;right:24px;background:#1a2340;color:white;padding:12px 20px;border-radius:10px;font-size:14px;font-weight:700;z-index:999;box-shadow:0 8px 24px rgba(0,0,0,.3);transition:opacity .4s;pointer-events:none;}
 </style>
 </head>
 <body>
 
 <header>
-  <div>
-    <h1>✅ רשימת מטלות — תקשורת</h1>
-    <p>לחץ על תלמיד להחלפת סטטוס • ירוק = ביצע • אדום = לא ביצע</p>
+  <div class="header-left">
+    <h1>✅ צ׳ק ליסט מטלות <span class="sync-dot" id="syncDot" title="סטטוס חיבור"></span></h1>
+    <p id="hdate">—</p>
   </div>
-  <div style="display:flex;gap:8px;">
-    <button class="btn-export" onclick="exportSummary()">📋 ייצוא סיכום</button>
-    <button class="btn-reset" onclick="resetClass()">🔄 איפוס כיתה</button>
+  <div class="header-btns">
+    <button class="hbtn ghost" onclick="showHistory()">📋 היסטוריה</button>
+    <button class="hbtn ghost" onclick="doExport()">⬇️ ייצוא</button>
+    <button class="hbtn closeday" onclick="askCloseDay()">📁 סגור יום</button>
+    <button class="hbtn lock" id="lockBtn" onclick="toggleLock()">🔓 נעל</button>
   </div>
 </header>
+
+<div class="lock-banner" id="lockBanner">🔒 המצב נעול — לחץ "בטל נעילה" כדי לערוך</div>
 
 <div class="tabs">
   <button class="tab active" onclick="switchTab('y10',this)">י׳ תקשורת למד</button>
   <button class="tab" onclick="switchTab('y11',this)">יא׳ תקשורת למד</button>
 </div>
 
+<div class="stats-bar">
+  <div class="stat total">סה״כ <strong id="st-total">0</strong></div>
+  <div class="stat done">✅ ביצעו <strong id="st-done">0</strong></div>
+  <div class="stat notdone">❌ לא ביצעו <strong id="st-notdone">0</strong></div>
+  <div class="stat none">○ לא סומן <strong id="st-none">0</strong></div>
+  <div class="progress-wrap"><div class="progress-fill" id="prog" style="width:0%"></div></div>
+</div>
+
 <div class="toolbar">
-  <input type="text" id="search" placeholder="🔍 חיפוש תלמיד..." oninput="renderAll()">
-  <div class="legend">
-    <div class="leg"><div class="leg-dot" style="background:#86efac"></div>ביצע</div>
-    <div class="leg"><div class="leg-dot" style="background:#fca5a5"></div>לא ביצע</div>
-    <div class="leg"><div class="leg-dot" style="background:#e2e8f0"></div>לא סומן</div>
+  <input type="text" id="search" placeholder="🔍 חיפוש שם..." oninput="renderAll()">
+  <button class="fbtn active" onclick="setFilter('all',this)">הכל</button>
+  <button class="fbtn" onclick="setFilter('done',this)">✅ ביצעו</button>
+  <button class="fbtn" onclick="setFilter('notdone',this)">❌ לא ביצעו</button>
+  <button class="fbtn" onclick="setFilter('none',this)">○ לא סומן</button>
+</div>
+
+<div class="class-panel active" id="panel-y10"><div class="grid" id="grid-y10"><div class="loading">טוען...</div></div></div>
+<div class="class-panel" id="panel-y11"><div class="grid" id="grid-y11"><div class="loading">טוען...</div></div></div>
+
+<!-- History -->
+<div class="overlay" id="histPanel">
+  <div class="obox">
+    <div class="ohead"><h2>📋 היסטוריה</h2><button class="xbtn" onclick="hideHistory()">✕</button></div>
+    <div class="obody" id="histBody"></div>
   </div>
 </div>
 
-<div class="stats-bar" id="stats-bar">
-  <div class="stat total">סה"כ: <span id="st-total">0</span></div>
-  <div class="stat done">ביצעו: <span id="st-done">0</span></div>
-  <div class="stat notdone">לא ביצעו: <span id="st-notdone">0</span></div>
-  <div class="stat" style="color:#64748b">לא סומן: <span id="st-none" style="color:#64748b;font-size:18px;font-weight:800;">0</span></div>
-</div>
-
-<div class="class-panel active" id="panel-y10">
-  <div class="grid" id="grid-y10"></div>
-</div>
-<div class="class-panel" id="panel-y11">
-  <div class="grid" id="grid-y11"></div>
+<!-- Confirm -->
+<div class="confirm-overlay" id="confirmPanel">
+  <div class="cbox">
+    <h3>📁 סגור יום</h3>
+    <p>המצב הנוכחי יישמר בהיסטוריה והרשימה תתאפס לדף חדש. להמשיך?</p>
+    <div class="cbtns">
+      <button class="cbtn yes" onclick="doCloseDay()">כן, שמור וסגור</button>
+      <button class="cbtn no" onclick="hideConfirm()">ביטול</button>
+    </div>
+  </div>
 </div>
 
 <script>
+// ─── FIREBASE ───────────────────────────────────────────────
+const FC = {
+  apiKey: "AIzaSyC67dskXJrcLSntxIAGkQA5iWHMRMFYlAk",
+  authDomain: "eshi-32997.firebaseapp.com",
+  databaseURL: "https://eshi-32997-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "eshi-32997",
+  storageBucket: "eshi-32997.firebasestorage.app",
+  messagingSenderId: "749933113390",
+  appId: "1:749933113390:web:5d13c7fff681e122036fbf"
+};
+firebase.initializeApp(FC);
+const db = firebase.database();
+const STATE_REF = db.ref('checklist/state');
+const LOCK_REF  = db.ref('checklist/locked');
+const HIST_REF  = db.ref('checklist/history');
+
+// ─── DATA ────────────────────────────────────────────────────
 const CLASSES = {
-  y10: {
-    label: 'י׳ תקשורת למד',
-    students: [
-      'אלוף יקוטי רוני','בורוכוביץ סיון','גולדשטיין נועה','דהן יקיר','דהן ליאל',
-      'דטיאשוילי גולן','דרעי אנאל','ולצר ליהי','טגנר גאיה','טגנר יהלי',
-      'טובלי ליאם','לוי תהל','מוסרי שנהב','מלכה טליה','משולם נועה',
-      'נחום ירדן','נפתלי אלמוג','עמר ירין טרז','פינטו שירה','ציטרון מליסה בתאל',
-      'קנטור גאיה','קרמר הילה','ראדה יהלי','שרעבי טליה'
-    ]
-  },
-  y11: {
-    label: 'יא׳ תקשורת למד',
-    students: [
-      'ברש יסמין','גוגולשוילי ליאל תמר','גרה בגי נרקיס','דהן שחר רבקה',
-      'דוידי אילון אפרים','דרעי נטע רחל','הופמן עמית','הלפר נוגה',
-      'זפרודסקי גיא','ישראל נועם','לוי ליאור','מידן תומר','מיזן רום',
-      'מרסיאנו איתי חי','עסיס אביה','פלדמן טליה','פנחס נועה',
-      'פרנג\'י לוטם','צדק שירה','שלוש ליאן','שמאי הלל'
-    ]
-  }
+  y10: { label:'י׳ תקשורת למד', students:['אלוף יקוטי רוני','בורוכוביץ סיון','גולדשטיין נועה','דהן יקיר','דהן ליאל','דטיאשוילי גולן','דרעי אנאל','ולצר ליהי','טגנר גאיה','טגנר יהלי','טובלי ליאם','לוי תהל','מוסרי שנהב','מלכה טליה','משולם נועה','נחום ירדן','נפתלי אלמוג','עמר ירין טרז','פינטו שירה','ציטרון מליסה בתאל','קנטור גאיה','קרמר הילה','ראדה יהלי','שרעבי טליה'] },
+  y11: { label:'יא׳ תקשורת למד', students:['ברש יסמין','גוגולשוילי ליאל תמר','גרה בגי נרקיס','דהן שחר רבקה','דוידי אילון אפרים','דרעי נטע רחל','הופמן עמית','הלפר נוגה','זפרודסקי גיא','ישראל נועם','לוי ליאור','מידן תומר','מיזן רום','מרסיאנו איתי חי','עסיס אביה','פלדמן טליה','פנחס נועה',"פרנג'י לוטם",'צדק שירה','שלוש ליאן','שמאי הלל'] }
 };
 
-// state: { classId_studentName: 'done'|'notdone'|'none' }
-let state = {};
-let currentClass = 'y10';
+let state  = {};   // { "y10_שם": "done"|"notdone"|"none" }
+let locked = false;
+let curCls = 'y10';
+let filter = 'all';
+let ready  = false;
 
-function loadState() {
-  try {
-    const saved = sessionStorage.getItem('checklist_state');
-    if (saved) state = JSON.parse(saved);
-  } catch(e) {}
+// ─── FIREBASE LISTENERS ──────────────────────────────────────
+function fbKey(cls, name) {
+  return cls + '_' + name.replace(/[.#$\[\]/]/g, '_');
 }
 
-function saveState() {
-  try { sessionStorage.setItem('checklist_state', JSON.stringify(state)); } catch(e) {}
+// Listen to state changes in real-time
+STATE_REF.on('value', snap => {
+  state = snap.val() || {};
+  ready = true;
+  setSyncDot(true);
+  renderAll();
+});
+
+LOCK_REF.on('value', snap => {
+  locked = snap.val() === true;
+  const btn = document.getElementById('lockBtn');
+  const ban = document.getElementById('lockBanner');
+  btn.textContent = locked ? '🔒 בטל נעילה' : '🔓 נעל';
+  btn.classList.toggle('locked', locked);
+  ban.classList.toggle('show', locked);
+  renderAll();
+});
+
+db.ref('.info/connected').on('value', snap => {
+  setSyncDot(snap.val() === true);
+});
+
+function setSyncDot(ok) {
+  const d = document.getElementById('syncDot');
+  d.className = 'sync-dot ' + (ok ? 'ok' : 'err');
+  d.title = ok ? 'מחובר ל-Firebase' : 'לא מחובר';
 }
 
-function getStatus(cls, name) {
-  return state[cls + '_' + name] || 'none';
+// ─── STATE OPS ───────────────────────────────────────────────
+function get(cls, name) {
+  return state[fbKey(cls, name)] || 'none';
 }
 
 function cycleStatus(cls, name) {
-  const cur = getStatus(cls, name);
+  if (locked || !ready) return;
+  const cur = get(cls, name);
   const next = cur === 'none' ? 'done' : cur === 'done' ? 'notdone' : 'none';
-  state[cls + '_' + name] = next;
-  saveState();
-  renderAll();
+  const upd = {};
+  upd[fbKey(cls, name)] = next;
+  STATE_REF.update(upd).catch(() => showToast('❌ שגיאת שמירה'));
 }
 
-function getIcon(status) {
-  return status === 'done' ? '✅' : status === 'notdone' ? '❌' : '○';
+function toggleLock() {
+  LOCK_REF.set(!locked).catch(() => showToast('❌ שגיאת שמירה'));
 }
 
+// ─── RENDER ──────────────────────────────────────────────────
 function renderGrid(cls) {
-  const search = document.getElementById('search').value.trim().toLowerCase();
-  const grid = document.getElementById('grid-' + cls);
-  const students = CLASSES[cls].students;
-  const filtered = search ? students.filter(n => n.includes(search) || n.toLowerCase().includes(search)) : students;
-
-  grid.innerHTML = filtered.map(name => {
-    const status = getStatus(cls, name);
-    return `<div class="student ${status}" onclick="cycleStatus('${cls}','${name.replace(/'/g,"\\'")}')">
-      <div class="student-name">${name}</div>
-      <div class="student-icon">${getIcon(status)}</div>
-    </div>`;
-  }).join('');
+  if (!ready) return;
+  const q = document.getElementById('search').value.trim().toLowerCase();
+  let list = CLASSES[cls].students;
+  if (q) list = list.filter(n => n.toLowerCase().includes(q));
+  if (filter !== 'all') list = list.filter(n => get(cls, n) === filter);
+  const lk = locked ? ' lk' : '';
+  document.getElementById('grid-' + cls).innerHTML = list.length
+    ? list.map(n => {
+        const s = get(cls, n);
+        const ic = s === 'done' ? '✅' : s === 'notdone' ? '❌' : '○';
+        return `<div class="student ${s}${lk}" onclick="cycleStatus('${cls}','${n.replace(/'/g,"\\'")}')">
+          <div class="student-name">${n}</div>
+          <div class="student-icon">${ic}</div>
+        </div>`;
+      }).join('')
+    : '<div style="padding:20px;color:#94a3b8;font-size:14px">אין תוצאות</div>';
 }
 
 function updateStats() {
-  const students = CLASSES[currentClass].students;
-  const done = students.filter(n => getStatus(currentClass, n) === 'done').length;
-  const notdone = students.filter(n => getStatus(currentClass, n) === 'notdone').length;
-  const none = students.length - done - notdone;
-  document.getElementById('st-total').textContent = students.length;
-  document.getElementById('st-done').textContent = done;
+  const list = CLASSES[curCls].students;
+  const done    = list.filter(n => get(curCls, n) === 'done').length;
+  const notdone = list.filter(n => get(curCls, n) === 'notdone').length;
+  const none    = list.length - done - notdone;
+  document.getElementById('st-total').textContent   = list.length;
+  document.getElementById('st-done').textContent    = done;
   document.getElementById('st-notdone').textContent = notdone;
-  document.getElementById('st-none').textContent = none;
+  document.getElementById('st-none').textContent    = none;
+  document.getElementById('prog').style.width = (list.length ? Math.round(done / list.length * 100) : 0) + '%';
 }
 
-function renderAll() {
-  renderGrid('y10');
-  renderGrid('y11');
-  updateStats();
-}
+function renderAll() { renderGrid('y10'); renderGrid('y11'); updateStats(); }
 
 function switchTab(cls, btn) {
-  currentClass = cls;
+  curCls = cls;
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   btn.classList.add('active');
   document.querySelectorAll('.class-panel').forEach(p => p.classList.remove('active'));
@@ -180,34 +291,115 @@ function switchTab(cls, btn) {
   updateStats();
 }
 
-function resetClass() {
-  if (!confirm('לאפס את כל הסימונים של הכיתה הנוכחית?')) return;
-  CLASSES[currentClass].students.forEach(n => { delete state[currentClass + '_' + n]; });
-  saveState();
+function setFilter(f, btn) {
+  filter = f;
+  document.querySelectorAll('.fbtn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
   renderAll();
 }
 
-function exportSummary() {
-  const lines = [];
+// ─── CLOSE DAY ───────────────────────────────────────────────
+function askCloseDay() { document.getElementById('confirmPanel').classList.add('show'); }
+function hideConfirm() { document.getElementById('confirmPanel').classList.remove('show'); }
+
+function doCloseDay() {
+  const now = new Date();
+  const snap = {
+    date: now.toLocaleDateString('he-IL', {weekday:'long', year:'numeric', month:'long', day:'numeric'}) +
+          ' ' + now.toLocaleTimeString('he-IL', {hour:'2-digit', minute:'2-digit'}),
+    ts: now.getTime(),
+    classes: {}
+  };
   for (const [cls, data] of Object.entries(CLASSES)) {
-    lines.push('=== ' + data.label + ' ===');
-    const done = data.students.filter(n => getStatus(cls, n) === 'done');
-    const notdone = data.students.filter(n => getStatus(cls, n) === 'notdone');
-    const none = data.students.filter(n => getStatus(cls, n) === 'none');
-    lines.push('✅ ביצעו (' + done.length + '): ' + (done.join(', ') || '—'));
-    lines.push('❌ לא ביצעו (' + notdone.length + '): ' + (notdone.join(', ') || '—'));
-    lines.push('○ לא סומן (' + none.length + '): ' + (none.join(', ') || '—'));
-    lines.push('');
+    snap.classes[cls] = { label: data.label, students: {} };
+    data.students.forEach(n => { snap.classes[cls].students[n] = get(cls, n); });
   }
-  const blob = new Blob([lines.join('\n')], {type: 'text/plain;charset=utf-8'});
+  HIST_REF.push(snap)
+    .then(() => STATE_REF.remove())
+    .then(() => LOCK_REF.set(false))
+    .then(() => {
+      hideConfirm();
+      showToast('✅ היום נשמר בהיסטוריה! הרשימה אופסה.');
+    })
+    .catch(() => showToast('❌ שגיאה בשמירת היסטוריה'));
+}
+
+// ─── HISTORY ─────────────────────────────────────────────────
+function showHistory() {
+  HIST_REF.once('value').then(snap => {
+    const raw = snap.val();
+    const hist = raw ? Object.entries(raw).reverse().map(([k,v]) => ({...v, _key:k})) : [];
+    const body = document.getElementById('histBody');
+    if (!hist.length) {
+      body.innerHTML = '<div class="hempty">📭 אין היסטוריה שמורה עדיין</div>';
+    } else {
+      body.innerHTML = hist.map((entry, i) => {
+        let td=0, tn=0, to=0;
+        const clsHtml = Object.entries(entry.classes || {}).map(([, cd]) => {
+          const entries = Object.entries(cd.students || {});
+          const done  = entries.filter(([,v]) => v==='done').map(([n]) => n);
+          const notd  = entries.filter(([,v]) => v==='notdone').map(([n]) => n);
+          const none  = entries.filter(([,v]) => v==='none').map(([n]) => n);
+          td+=done.length; tn+=notd.length; to+=none.length;
+          return `<div class="hcls">
+            <div class="hcls-title">${cd.label}</div>
+            ${done.length ? `<div class="hnamesrow"><div class="hnamesrow-lbl g">✅ ביצעו (${done.length})</div><div class="hnames">${done.map(n=>`<span class="hname done">${n}</span>`).join('')}</div></div>` : ''}
+            ${notd.length ? `<div class="hnamesrow"><div class="hnamesrow-lbl r">❌ לא ביצעו (${notd.length})</div><div class="hnames">${notd.map(n=>`<span class="hname notdone">${n}</span>`).join('')}</div></div>` : ''}
+            ${none.length ? `<div class="hnamesrow"><div class="hnamesrow-lbl gr">○ לא סומן (${none.length})</div><div class="hnames">${none.map(n=>`<span class="hname none">${n}</span>`).join('')}</div></div>` : ''}
+          </div>`;
+        }).join('');
+        return `<div class="hday" id="hd${i}">
+          <div class="hday-head" onclick="document.getElementById('hd${i}').classList.toggle('open')">
+            <div class="hday-date">📅 ${entry.date}</div>
+            <div class="hday-nums"><span class="g">✅ ${td}</span><span class="r">❌ ${tn}</span><span class="gr">○ ${to}</span></div>
+          </div>
+          <div class="hday-body">${clsHtml}
+            <button class="hdel" onclick="delHist('${entry._key}')">🗑️ מחק</button>
+          </div>
+        </div>`;
+      }).join('');
+    }
+    document.getElementById('histPanel').classList.add('show');
+  });
+}
+
+function hideHistory() { document.getElementById('histPanel').classList.remove('show'); }
+
+function delHist(key) {
+  if (!confirm('למחוק רשומה זו?')) return;
+  HIST_REF.child(key).remove().then(() => showHistory());
+}
+
+// ─── EXPORT ──────────────────────────────────────────────────
+function doExport() {
+  const now = new Date().toLocaleString('he-IL');
+  const lines = ['צ׳ק ליסט מטלות — ' + now, '='.repeat(40)];
+  for (const [cls, data] of Object.entries(CLASSES)) {
+    lines.push('\n' + data.label, '-'.repeat(30));
+    const done = data.students.filter(n => get(cls,n)==='done');
+    const notd = data.students.filter(n => get(cls,n)==='notdone');
+    const none = data.students.filter(n => get(cls,n)==='none');
+    lines.push('✅ ביצעו (' + done.length + '): ' + (done.join(', ') || '—'));
+    lines.push('❌ לא ביצעו (' + notd.length + '): ' + (notd.join(', ') || '—'));
+    lines.push('○ לא סומן (' + none.length + '): ' + (none.join(', ') || '—'));
+  }
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = 'checklist.txt';
+  a.href = 'data:text/plain;charset=utf-8,\uFEFF' + encodeURIComponent(lines.join('\n'));
+  a.download = 'checklist_' + Date.now() + '.txt';
   a.click();
 }
 
-loadState();
-renderAll();
+// ─── TOAST ───────────────────────────────────────────────────
+function showToast(msg) {
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 400); }, 2800);
+}
+
+// ─── INIT ─────────────────────────────────────────────────────
+document.getElementById('hdate').textContent = new Date().toLocaleDateString('he-IL', {weekday:'long', year:'numeric', month:'long', day:'numeric'});
 </script>
 </body>
 </html>
