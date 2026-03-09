@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>רשימת מטלות — כיתות תקשורת</title>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700;800&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Heebo',sans-serif;background:#f0f4f8;color:#1a2340;min-height:100vh;}
+header{background:linear-gradient(135deg,#1a2340,#2d3a6b);color:white;padding:20px 24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;}
+header h1{font-size:20px;font-weight:800;}
+header p{font-size:12px;opacity:.6;margin-top:2px;}
+.tabs{display:flex;gap:8px;padding:16px 20px 0;background:white;border-bottom:2px solid #e2e8f0;}
+.tab{padding:10px 24px;font-family:'Heebo',sans-serif;font-size:15px;font-weight:700;border:none;background:none;cursor:pointer;border-bottom:3px solid transparent;color:#64748b;transition:all .15s;}
+.tab:hover{color:#1a2340;}
+.tab.active{color:#1d5fa8;border-bottom-color:#1d5fa8;}
+.toolbar{display:flex;gap:10px;align-items:center;padding:14px 20px;background:white;border-bottom:1px solid #e2e8f0;flex-wrap:wrap;}
+.toolbar input{padding:8px 14px;border:2px solid #e2e8f0;border-radius:8px;font-family:'Heebo',sans-serif;font-size:14px;outline:none;width:200px;}
+.toolbar input:focus{border-color:#1d5fa8;}
+.stats-bar{display:flex;gap:16px;padding:10px 20px;background:white;border-bottom:2px solid #e2e8f0;flex-wrap:wrap;}
+.stat{font-size:13px;font-weight:700;}
+.stat span{font-size:18px;font-weight:800;margin-left:4px;}
+.stat.done span{color:#16a34a;}
+.stat.notdone span{color:#dc2626;}
+.stat.total span{color:#1d5fa8;}
+.class-panel{display:none;padding:16px 20px;}
+.class-panel.active{display:block;}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;}
+.student{border-radius:12px;padding:14px 16px;cursor:pointer;transition:all .18s;border:2px solid transparent;user-select:none;display:flex;align-items:center;justify-content:space-between;gap:8px;}
+.student.none{background:white;border-color:#e2e8f0;color:#64748b;}
+.student.none:hover{border-color:#94a3b8;background:#f8fafc;}
+.student.done{background:#dcfce7;border-color:#86efac;color:#14532d;}
+.student.notdone{background:#fee2e2;border-color:#fca5a5;color:#7f1d1d;}
+.student-name{font-size:14px;font-weight:700;line-height:1.3;}
+.student-icon{font-size:20px;flex-shrink:0;}
+.btn-reset{padding:8px 16px;background:#f1f5f9;border:2px solid #e2e8f0;border-radius:8px;font-family:'Heebo',sans-serif;font-size:13px;font-weight:700;cursor:pointer;color:#64748b;}
+.btn-reset:hover{border-color:#94a3b8;color:#1a2340;}
+.btn-export{padding:8px 16px;background:linear-gradient(135deg,#1a2340,#2d3a6b);color:white;border:none;border-radius:8px;font-family:'Heebo',sans-serif;font-size:13px;font-weight:700;cursor:pointer;}
+.btn-export:hover{opacity:.85;}
+.legend{display:flex;gap:14px;align-items:center;font-size:12px;color:#64748b;}
+.leg{display:flex;align-items:center;gap:5px;}
+.leg-dot{width:12px;height:12px;border-radius:50%;}
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>✅ רשימת מטלות — תקשורת</h1>
+    <p>לחץ על תלמיד להחלפת סטטוס • ירוק = ביצע • אדום = לא ביצע</p>
+  </div>
+  <div style="display:flex;gap:8px;">
+    <button class="btn-export" onclick="exportSummary()">📋 ייצוא סיכום</button>
+    <button class="btn-reset" onclick="resetClass()">🔄 איפוס כיתה</button>
+  </div>
+</header>
+
+<div class="tabs">
+  <button class="tab active" onclick="switchTab('y10',this)">י׳ תקשורת למד</button>
+  <button class="tab" onclick="switchTab('y11',this)">יא׳ תקשורת למד</button>
+</div>
+
+<div class="toolbar">
+  <input type="text" id="search" placeholder="🔍 חיפוש תלמיד..." oninput="renderAll()">
+  <div class="legend">
+    <div class="leg"><div class="leg-dot" style="background:#86efac"></div>ביצע</div>
+    <div class="leg"><div class="leg-dot" style="background:#fca5a5"></div>לא ביצע</div>
+    <div class="leg"><div class="leg-dot" style="background:#e2e8f0"></div>לא סומן</div>
+  </div>
+</div>
+
+<div class="stats-bar" id="stats-bar">
+  <div class="stat total">סה"כ: <span id="st-total">0</span></div>
+  <div class="stat done">ביצעו: <span id="st-done">0</span></div>
+  <div class="stat notdone">לא ביצעו: <span id="st-notdone">0</span></div>
+  <div class="stat" style="color:#64748b">לא סומן: <span id="st-none" style="color:#64748b;font-size:18px;font-weight:800;">0</span></div>
+</div>
+
+<div class="class-panel active" id="panel-y10">
+  <div class="grid" id="grid-y10"></div>
+</div>
+<div class="class-panel" id="panel-y11">
+  <div class="grid" id="grid-y11"></div>
+</div>
+
+<script>
+const CLASSES = {
+  y10: {
+    label: 'י׳ תקשורת למד',
+    students: [
+      'אלוף יקוטי רוני','בורוכוביץ סיון','גולדשטיין נועה','דהן יקיר','דהן ליאל',
+      'דטיאשוילי גולן','דרעי אנאל','ולצר ליהי','טגנר גאיה','טגנר יהלי',
+      'טובלי ליאם','לוי תהל','מוסרי שנהב','מלכה טליה','משולם נועה',
+      'נחום ירדן','נפתלי אלמוג','עמר ירין טרז','פינטו שירה','ציטרון מליסה בתאל',
+      'קנטור גאיה','קרמר הילה','ראדה יהלי','שרעבי טליה'
+    ]
+  },
+  y11: {
+    label: 'יא׳ תקשורת למד',
+    students: [
+      'ברש יסמין','גוגולשוילי ליאל תמר','גרה בגי נרקיס','דהן שחר רבקה',
+      'דוידי אילון אפרים','דרעי נטע רחל','הופמן עמית','הלפר נוגה',
+      'זפרודסקי גיא','ישראל נועם','לוי ליאור','מידן תומר','מיזן רום',
+      'מרסיאנו איתי חי','עסיס אביה','פלדמן טליה','פנחס נועה',
+      'פרנג\'י לוטם','צדק שירה','שלוש ליאן','שמאי הלל'
+    ]
+  }
+};
+
+// state: { classId_studentName: 'done'|'notdone'|'none' }
+let state = {};
+let currentClass = 'y10';
+
+function loadState() {
+  try {
+    const saved = sessionStorage.getItem('checklist_state');
+    if (saved) state = JSON.parse(saved);
+  } catch(e) {}
+}
+
+function saveState() {
+  try { sessionStorage.setItem('checklist_state', JSON.stringify(state)); } catch(e) {}
+}
+
+function getStatus(cls, name) {
+  return state[cls + '_' + name] || 'none';
+}
+
+function cycleStatus(cls, name) {
+  const cur = getStatus(cls, name);
+  const next = cur === 'none' ? 'done' : cur === 'done' ? 'notdone' : 'none';
+  state[cls + '_' + name] = next;
+  saveState();
+  renderAll();
+}
+
+function getIcon(status) {
+  return status === 'done' ? '✅' : status === 'notdone' ? '❌' : '○';
+}
+
+function renderGrid(cls) {
+  const search = document.getElementById('search').value.trim().toLowerCase();
+  const grid = document.getElementById('grid-' + cls);
+  const students = CLASSES[cls].students;
+  const filtered = search ? students.filter(n => n.includes(search) || n.toLowerCase().includes(search)) : students;
+
+  grid.innerHTML = filtered.map(name => {
+    const status = getStatus(cls, name);
+    return `<div class="student ${status}" onclick="cycleStatus('${cls}','${name.replace(/'/g,"\\'")}')">
+      <div class="student-name">${name}</div>
+      <div class="student-icon">${getIcon(status)}</div>
+    </div>`;
+  }).join('');
+}
+
+function updateStats() {
+  const students = CLASSES[currentClass].students;
+  const done = students.filter(n => getStatus(currentClass, n) === 'done').length;
+  const notdone = students.filter(n => getStatus(currentClass, n) === 'notdone').length;
+  const none = students.length - done - notdone;
+  document.getElementById('st-total').textContent = students.length;
+  document.getElementById('st-done').textContent = done;
+  document.getElementById('st-notdone').textContent = notdone;
+  document.getElementById('st-none').textContent = none;
+}
+
+function renderAll() {
+  renderGrid('y10');
+  renderGrid('y11');
+  updateStats();
+}
+
+function switchTab(cls, btn) {
+  currentClass = cls;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  document.querySelectorAll('.class-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('panel-' + cls).classList.add('active');
+  updateStats();
+}
+
+function resetClass() {
+  if (!confirm('לאפס את כל הסימונים של הכיתה הנוכחית?')) return;
+  CLASSES[currentClass].students.forEach(n => { delete state[currentClass + '_' + n]; });
+  saveState();
+  renderAll();
+}
+
+function exportSummary() {
+  const lines = [];
+  for (const [cls, data] of Object.entries(CLASSES)) {
+    lines.push('=== ' + data.label + ' ===');
+    const done = data.students.filter(n => getStatus(cls, n) === 'done');
+    const notdone = data.students.filter(n => getStatus(cls, n) === 'notdone');
+    const none = data.students.filter(n => getStatus(cls, n) === 'none');
+    lines.push('✅ ביצעו (' + done.length + '): ' + (done.join(', ') || '—'));
+    lines.push('❌ לא ביצעו (' + notdone.length + '): ' + (notdone.join(', ') || '—'));
+    lines.push('○ לא סומן (' + none.length + '): ' + (none.join(', ') || '—'));
+    lines.push('');
+  }
+  const blob = new Blob([lines.join('\n')], {type: 'text/plain;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'checklist.txt';
+  a.click();
+}
+
+loadState();
+renderAll();
+</script>
+</body>
+</html>
