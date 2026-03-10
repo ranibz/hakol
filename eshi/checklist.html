@@ -39,6 +39,7 @@ header{background:linear-gradient(135deg,#1a2340,#2d3a6b);color:white;padding:14
 .stat.notdone strong{color:#dc2626;}
 .stat.total strong{color:#1d5fa8;}
 .stat.none strong{color:#94a3b8;}
+.stat.partial strong{color:#ca8a04;}
 .progress-wrap{flex:1;min-width:100px;height:8px;background:#e2e8f0;border-radius:4px;overflow:hidden;}
 .progress-fill{height:100%;background:linear-gradient(90deg,#16a34a,#4ade80);border-radius:4px;transition:width .4s;}
 .toolbar{background:#f8fafc;border-bottom:1px solid #e2e8f0;padding:10px 20px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
@@ -56,6 +57,8 @@ header{background:linear-gradient(135deg,#1a2340,#2d3a6b);color:white;padding:14
 .student.done{background:#dcfce7;border-color:#86efac;color:#14532d;}
 .student.done:hover:not(.lk){background:#bbf7d0;}
 .student.notdone{background:#fee2e2;border-color:#fca5a5;color:#7f1d1d;}
+.student.partial{background:#fef9c3;border-color:#fde047;color:#713f12;}
+.student.partial:hover:not(.lk){background:#fef08a;}
 .student.notdone:hover:not(.lk){background:#fecaca;}
 .student.lk{cursor:default;}
 .student-name{font-size:13px;font-weight:700;line-height:1.3;}
@@ -89,6 +92,7 @@ header{background:linear-gradient(135deg,#1a2340,#2d3a6b);color:white;padding:14
 .hname.done{background:#dcfce7;color:#14532d;}
 .hname.notdone{background:#fee2e2;color:#7f1d1d;}
 .hname.none{background:#f1f5f9;color:#64748b;}
+.hname.partial{background:#fef9c3;color:#713f12;}
 .hdel{margin-top:10px;padding:5px 12px;background:#fee2e2;color:#dc2626;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;}
 .hdel:hover{background:#fecaca;}
 /* CONFIRM */
@@ -134,6 +138,7 @@ header{background:linear-gradient(135deg,#1a2340,#2d3a6b);color:white;padding:14
   <div class="stat done">✅ ביצעו <strong id="st-done">0</strong></div>
   <div class="stat notdone">❌ לא ביצעו <strong id="st-notdone">0</strong></div>
   <div class="stat none">○ לא סומן <strong id="st-none">0</strong></div>
+  <div class="stat partial">⚠️ חלקי <strong id="st-partial">0</strong></div>
   <div class="progress-wrap"><div class="progress-fill" id="prog" style="width:0%"></div></div>
 </div>
 
@@ -143,6 +148,7 @@ header{background:linear-gradient(135deg,#1a2340,#2d3a6b);color:white;padding:14
   <button class="fbtn" onclick="setFilter('done',this)">✅ ביצעו</button>
   <button class="fbtn" onclick="setFilter('notdone',this)">❌ לא ביצעו</button>
   <button class="fbtn" onclick="setFilter('none',this)">○ לא סומן</button>
+  <button class="fbtn" onclick="setFilter('partial',this)">⚠️ חלקי</button>
 </div>
 
 <div class="class-panel active" id="panel-y10"><div class="grid" id="grid-y10"><div class="loading">טוען...</div></div></div>
@@ -238,7 +244,7 @@ function get(cls, name) {
 function cycleStatus(cls, name) {
   if (locked || !ready) return;
   const cur = get(cls, name);
-  const next = cur === 'none' ? 'done' : cur === 'done' ? 'notdone' : 'none';
+  const next = cur === 'none' ? 'done' : cur === 'done' ? 'partial' : cur === 'partial' ? 'notdone' : 'none';
   const upd = {};
   upd[fbKey(cls, name)] = next;
   STATE_REF.update(upd).catch(() => showToast('❌ שגיאת שמירה'));
@@ -259,7 +265,7 @@ function renderGrid(cls) {
   document.getElementById('grid-' + cls).innerHTML = list.length
     ? list.map(n => {
         const s = get(cls, n);
-        const ic = s === 'done' ? '✅' : s === 'notdone' ? '❌' : '○';
+        const ic = s === 'done' ? '✅' : s === 'notdone' ? '❌' : s === 'partial' ? '⚠️' : '○';
         return `<div class="student ${s}${lk}" onclick="cycleStatus('${cls}','${n.replace(/'/g,"\\'")}')">
           <div class="student-name">${n}</div>
           <div class="student-icon">${ic}</div>
@@ -272,10 +278,12 @@ function updateStats() {
   const list = CLASSES[curCls].students;
   const done    = list.filter(n => get(curCls, n) === 'done').length;
   const notdone = list.filter(n => get(curCls, n) === 'notdone').length;
-  const none    = list.length - done - notdone;
+  const partial = list.filter(n => get(curCls, n) === 'partial').length;
+  const none    = list.length - done - notdone - partial;
   document.getElementById('st-total').textContent   = list.length;
   document.getElementById('st-done').textContent    = done;
   document.getElementById('st-notdone').textContent = notdone;
+  document.getElementById('st-partial').textContent = partial;
   document.getElementById('st-none').textContent    = none;
   document.getElementById('prog').style.width = (list.length ? Math.round(done / list.length * 100) : 0) + '%';
 }
@@ -338,13 +346,15 @@ function showHistory() {
         const clsHtml = Object.entries(entry.classes || {}).map(([, cd]) => {
           const entries = Object.entries(cd.students || {});
           const done  = entries.filter(([,v]) => v==='done').map(([n]) => n);
+          const part  = entries.filter(([,v]) => v==='partial').map(([n]) => n);
           const notd  = entries.filter(([,v]) => v==='notdone').map(([n]) => n);
           const none  = entries.filter(([,v]) => v==='none').map(([n]) => n);
-          td+=done.length; tn+=notd.length; to+=none.length;
+          td+=done.length; tn+=notd.length; to+=none.length; tp=(tp||0)+part.length;
           return `<div class="hcls">
             <div class="hcls-title">${cd.label}</div>
             ${done.length ? `<div class="hnamesrow"><div class="hnamesrow-lbl g">✅ ביצעו (${done.length})</div><div class="hnames">${done.map(n=>`<span class="hname done">${n}</span>`).join('')}</div></div>` : ''}
             ${notd.length ? `<div class="hnamesrow"><div class="hnamesrow-lbl r">❌ לא ביצעו (${notd.length})</div><div class="hnames">${notd.map(n=>`<span class="hname notdone">${n}</span>`).join('')}</div></div>` : ''}
+            ${part && part.length ? `<div class="hnamesrow"><div class="hnamesrow-lbl" style="color:#ca8a04">⚠️ חלקי (${part.length})</div><div class="hnames">${part.map(n=>`<span class="hname" style="background:#fef9c3;color:#713f12">${n}</span>`).join('')}</div></div>` : ''}
             ${none.length ? `<div class="hnamesrow"><div class="hnamesrow-lbl gr">○ לא סומן (${none.length})</div><div class="hnames">${none.map(n=>`<span class="hname none">${n}</span>`).join('')}</div></div>` : ''}
           </div>`;
         }).join('');
