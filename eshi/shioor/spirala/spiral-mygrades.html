@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>הציונים שלי — ספירלת השתיקה</title>
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@400;700;900&family=Heebo:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Heebo',sans-serif;background:#f5f0e8;color:#1a1208;direction:rtl;min-height:100vh;}
+.masthead{background:#1a1208;color:#f5f0e8;text-align:center;padding:16px 20px 12px;border-bottom:4px solid #c9a84c;}
+.masthead-kicker{font-size:.7rem;letter-spacing:3px;color:#c9a84c;margin-bottom:4px;}
+.masthead h1{font-family:'Frank Ruhl Libre',serif;font-size:clamp(1.8rem,5vw,2.8rem);font-weight:900;}
+.rule{height:3px;background:linear-gradient(90deg,transparent,#c9a84c,transparent);}
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:1000;display:flex;align-items:center;justify-content:center;padding:16px;}
+.modal{background:#f5f0e8;border:3px solid #1a1208;box-shadow:6px 6px 0 #1a1208;padding:28px 24px;width:100%;max-width:380px;}
+.modal h2{font-family:'Frank Ruhl Libre',serif;font-size:1.4rem;font-weight:900;margin-bottom:18px;text-align:center;}
+.modal-field{margin-bottom:14px;}
+.modal-field label{display:block;font-weight:700;font-size:.85rem;margin-bottom:5px;}
+.modal-field input{width:100%;padding:11px 13px;border:2px solid #1a1208;background:white;font-family:'Heebo',sans-serif;font-size:.95rem;outline:none;}
+.modal-field input[type="email"]{direction:ltr;text-align:left;}
+.modal-field input:focus{border-color:#c9a84c;}
+.modal-btn{width:100%;padding:13px;background:#1a1208;color:#c9a84c;border:none;font-family:'Heebo',sans-serif;font-size:1rem;font-weight:700;cursor:pointer;margin-top:6px;}
+.modal-err{color:#c0392b;font-size:.85rem;text-align:center;margin-top:8px;display:none;}
+.content{max-width:700px;margin:0 auto;padding:28px 16px 60px;}
+.grade-card{background:white;border:2px solid #1a1208;box-shadow:4px 4px 0 #1a1208;padding:22px;margin-bottom:20px;border-radius:2px;}
+.gc-top{display:flex;align-items:center;gap:16px;margin-bottom:14px;padding-bottom:14px;border-bottom:2px solid #eee;}
+.grade-circle{width:72px;height:72px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Frank Ruhl Libre',serif;font-size:1.6rem;font-weight:900;flex-shrink:0;border:3px solid;}
+.grade-circle.graded{background:#d4edda;color:#155724;border-color:#b7efc5;}
+.grade-circle.pending{background:#f0f0f0;color:#888;border-color:#ddd;font-size:.85rem;text-align:center;line-height:1.2;}
+.gc-date{font-size:.78rem;color:#888;margin-bottom:4px;}
+.gc-title{font-family:'Frank Ruhl Libre',serif;font-size:1.1rem;font-weight:900;}
+.grade-bar{height:8px;border-radius:4px;margin:6px 0;overflow:hidden;background:#eee;}
+.grade-fill{height:100%;border-radius:4px;transition:width .6s;}
+.gc-note{background:#fff9e8;border:1px solid #f0d060;padding:10px 12px;border-radius:2px;font-size:.88rem;line-height:1.6;color:#555;margin-bottom:12px;}
+.gc-note strong{color:#856404;display:block;font-size:.75rem;margin-bottom:3px;}
+.answers-section{border-top:2px solid #eee;padding-top:12px;}
+.answers-title{font-size:.78rem;font-weight:700;color:#888;margin-bottom:10px;letter-spacing:1px;}
+.ans-item{background:#f9f5ed;border:1px solid #ddd;padding:10px 12px;border-radius:2px;margin-bottom:8px;}
+.ans-label{font-size:.72rem;font-weight:700;color:#888;margin-bottom:4px;}
+.ans-value{font-size:.85rem;line-height:1.6;color:#333;}
+.empty-card{background:white;border:2px solid #ddd;padding:40px;text-align:center;color:#888;}
+</style>
+</head>
+<body>
+<div class="masthead">
+  <div class="masthead-kicker">ציונים · ספירלת השתיקה</div>
+  <h1>⭐ הציונים שלי</h1>
+</div>
+<div class="rule"></div>
+<div class="modal-bg" id="modalBg">
+  <div class="modal">
+    <h2>⭐ הציונים שלי</h2>
+    <div class="modal-field"><label>כתובת מייל</label><input type="email" id="inp-email" placeholder="your@email.com"></div>
+    <div class="modal-field"><label>קוד מורה</label><input type="text" id="inp-code" placeholder="קוד שקיבלת מהמורה"></div>
+    <button class="modal-btn" onclick="doSearch()">הצג ציונים →</button>
+    <div class="modal-err" id="modal-err">לא נמצאו הגשות עם הפרטים האלה</div>
+  </div>
+</div>
+<div class="content" id="mainContent" style="display:none;"></div>
+
+<script>
+const FB_CONFIG={apiKey:"AIzaSyCCHvn_ulmiyM56DuslNzNC0Ge6a8i2vhY",databaseURL:"https://tests-fd938-default-rtdb.europe-west1.firebasedatabase.app"};
+firebase.initializeApp(FB_CONFIG);
+const db=firebase.database();
+
+const ANS_LABELS={
+  t1_situation:'פעילות 1 — הסיטואציה',t1_why:'פעילות 1 — מדוע שתקו',t1_result:'פעילות 1 — מה קרה',
+  t2_example:'פעילות 2 — דוגמה',t2_majority:'פעילות 2 — דעת הרוב',t2_hidden:'פעילות 2 — מה הוצנע',t2_effect:'פעילות 2 — השפעה',
+  t3_network:'פעילות 3 — רשת',t3_boost:'פעילות 3 — האלגוריתם',t3_spiral:'פעילות 3 — הספירלה',
+  t4_position:'פעילות 4 — עמדה',t4_solution:'פעילות 4 — פתרון'
+};
+
+function doSearch(){
+  const email=document.getElementById('inp-email').value.trim().toLowerCase();
+  const code=document.getElementById('inp-code').value.trim().toLowerCase();
+  if(!email||!code){document.getElementById('modal-err').style.display='block';return;}
+  db.ref('tests/spiral').once('value').then(snap=>{
+    const results=[];
+    snap.forEach(c=>{
+      const d={_key:c.key,...c.val()};
+      if((d.student?.email||'').toLowerCase()===email&&(d.student?.classCode||'').toLowerCase()===code) results.push(d);
+    });
+    if(!results.length){document.getElementById('modal-err').style.display='block';return;}
+    document.getElementById('modalBg').style.display='none';
+    document.getElementById('mainContent').style.display='block';
+    renderGrades(results);
+  });
+}
+
+function renderGrades(results){
+  let html='';
+  results.forEach(d=>{
+    const hasGrade=d.feedback&&d.feedback.grade!==undefined;
+    const grade=hasGrade?d.feedback.grade:null;
+    const gradeColor=grade>=90?'#155724':grade>=75?'#0d6efd':grade>=60?'#856404':'#c0392b';
+    const subDate=d.submittedAt?new Date(d.submittedAt).toLocaleDateString('he-IL'):'—';
+    const gradeDate=d.feedback?.gradedAt?new Date(d.feedback.gradedAt).toLocaleDateString('he-IL'):'';
+    const ans=d.answers||{};
+    const ansHtml=Object.entries(ans).filter(([,v])=>v).map(([k,v])=>
+      `<div class="ans-item"><div class="ans-label">${ANS_LABELS[k]||k}</div><div class="ans-value">${escHtml(String(v))}</div></div>`
+    ).join('');
+    html+=`<div class="grade-card">
+      <div class="gc-top">
+        <div class="grade-circle ${hasGrade?'graded':'pending'}">${hasGrade?grade:'טרם<br>הוערך'}</div>
+        <div>
+          <div class="gc-date">הוגש: ${subDate}</div>
+          <div class="gc-title">ספירלת השתיקה</div>
+          ${hasGrade?`<div class="grade-bar"><div class="grade-fill" style="background:${gradeColor};width:${grade}%"></div></div>`:''}
+        </div>
+      </div>
+      ${hasGrade&&d.feedback.note?`<div class="gc-note"><strong>הערת המורה:</strong>${escHtml(d.feedback.note)}</div>`:''}
+      ${gradeDate?`<div style="font-size:.75rem;color:#888;margin-bottom:12px;">הוערך: ${gradeDate}</div>`:''}
+      ${ansHtml?`<div class="answers-section"><div class="answers-title">התשובות שלך</div>${ansHtml}</div>`:''}
+    </div>`;
+  });
+  document.getElementById('mainContent').innerHTML=html||'<div class="empty-card">לא נמצאו הגשות</div>';
+}
+
+function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+document.addEventListener('keydown',e=>{if(e.key==='Enter')doSearch();});
+</script>
+</body>
+</html>
