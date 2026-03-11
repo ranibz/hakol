@@ -79,7 +79,7 @@ tr:hover td{background:#f9f6f0;}
 <div class="container">
   <div class="toolbar">
     <input type="text" id="search-input" placeholder="🔍 חיפוש לפי שם..." oninput="renderTable()">
-    <select id="filter-topic" onchange="loadData()">
+    <select id="filter-topic" onchange="renderTable()">
       <option value="">— בחר נושא —</option>
       <option value="ownership">בעלות צולבת</option>
       <option value="msagur">מסגור תקשורתי</option>
@@ -133,22 +133,28 @@ function teacherLogin(){
     if(!foundKey){err.textContent='סיסמה שגויה או משתמש לא מאושר';err.style.display='block';return;}
     teacherID=foundKey;
     document.getElementById('modal').style.display='none';
-    document.getElementById('filter-topic').value='ownership';
     loadData();
   });
 }
 
 function loadData(){
-  const topic = document.getElementById('filter-topic').value;
-  if(!topic){
-    allData=[];
-    document.getElementById('filter-class').innerHTML='<option value="">כל הכיתות</option>';
-    renderTable();
-    return;
-  }
-  db.ref('tests/'+topic).once('value').then(snap=>{
-    const raw = snap.val()||{};
-    allData = Object.entries(raw).map(([k,v])=>({key:k, _topic:topic, ...v}));
+  const TOPICS = {
+    'ownership': 'בעלות צולבת',
+    'msagur': 'מסגור תקשורתי',
+    'reyting': 'רייטינג',
+    'konotazia': 'ציון וקונוטציה',
+    'praklit': 'עיתונאי פרקליט ושומר סף'
+  };
+  allData = [];
+  const promises = Object.keys(TOPICS).map(topic =>
+    db.ref('tests/'+topic).once('value').then(snap=>{
+      const raw=snap.val()||{};
+      return Object.entries(raw).map(([k,v])=>({key:k, _topic:topic, _topicLabel:TOPICS[topic], ...v}));
+    })
+  );
+  Promise.all(promises).then(results=>{
+    allData = results.flat();
+    // בנה תפריט כיתות דינמי
     const classes=[...new Set(allData.map(d=>d.student?.class).filter(Boolean))].sort();
     const sel=document.getElementById('filter-class');
     sel.innerHTML='<option value="">כל הכיתות</option>';
@@ -160,12 +166,14 @@ function loadData(){
 function renderTable(){
   const search = document.getElementById('search-input').value.toLowerCase();
   const cls    = document.getElementById('filter-class').value;
+  const topic  = document.getElementById('filter-topic').value;
   const tbody  = document.getElementById('table-body');
   const filtered = allData.filter(d=>{
     const name=(d.student?.name||'').toLowerCase();
     const matchName = !search||name.includes(search);
     const matchCls  = !cls||d.student?.class===cls;
-    return matchName&&matchCls;
+    const matchTopic= !topic||d._topic===topic;
+    return matchName&&matchCls&&matchTopic;
   });
   // stats
   document.getElementById('stat-total').textContent=filtered.length;
