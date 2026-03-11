@@ -154,11 +154,6 @@ function loadData(){
   );
   Promise.all(promises).then(results=>{
     allData = results.flat();
-    // בנה תפריט כיתות דינמי
-    const classes=[...new Set(allData.map(d=>d.student?.class).filter(Boolean))].sort();
-    const sel=document.getElementById('filter-class');
-    sel.innerHTML='<option value="">כל הכיתות</option>';
-    classes.forEach(c=>sel.innerHTML+=`<option>${c}</option>`);
     renderTable();
   });
 }
@@ -168,12 +163,20 @@ function renderTable(){
   const cls    = document.getElementById('filter-class').value;
   const topic  = document.getElementById('filter-topic').value;
   const tbody  = document.getElementById('table-body');
-  const filtered = allData.filter(d=>{
+
+  // עדכן תפריט כיתות לפי הנושא הנבחר
+  const relevantData = topic ? allData.filter(d=>d._topic===topic) : allData;
+  const classes=[...new Set(relevantData.map(d=>d.student?.class).filter(Boolean))].sort();
+  const sel=document.getElementById('filter-class');
+  const currentCls=sel.value;
+  sel.innerHTML='<option value="">כל הכיתות</option>';
+  classes.forEach(c=>sel.innerHTML+=`<option${c===currentCls?' selected':''}>${c}</option>`);
+
+  const filtered = relevantData.filter(d=>{
     const name=(d.student?.name||'').toLowerCase();
     const matchName = !search||name.includes(search);
     const matchCls  = !cls||d.student?.class===cls;
-    const matchTopic= !topic||d._topic===topic;
-    return matchName&&matchCls&&matchTopic;
+    return matchName&&matchCls;
   });
   // stats
   document.getElementById('stat-total').textContent=filtered.length;
