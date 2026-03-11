@@ -79,6 +79,14 @@ tr:hover td{background:#f9f6f0;}
 <div class="container">
   <div class="toolbar">
     <input type="text" id="search-input" placeholder="🔍 חיפוש לפי שם..." oninput="renderTable()">
+    <select id="filter-topic" onchange="loadData()">
+      <option value="">— בחר נושא —</option>
+      <option value="ownership">בעלות צולבת</option>
+      <option value="msagur">מסגור תקשורתי</option>
+      <option value="reyting">רייטינג</option>
+      <option value="konotazia">ציון וקונוטציה</option>
+      <option value="praklit">עיתונאי פרקליט ושומר סף</option>
+    </select>
     <select id="filter-class" onchange="renderTable()">
       <option value="">כל הכיתות</option>
     </select>
@@ -125,15 +133,22 @@ function teacherLogin(){
     if(!foundKey){err.textContent='סיסמה שגויה או משתמש לא מאושר';err.style.display='block';return;}
     teacherID=foundKey;
     document.getElementById('modal').style.display='none';
+    document.getElementById('filter-topic').value='ownership';
     loadData();
   });
 }
 
 function loadData(){
-  db.ref('tests/ownership').once('value').then(snap=>{
+  const topic = document.getElementById('filter-topic').value;
+  if(!topic){
+    allData=[];
+    document.getElementById('filter-class').innerHTML='<option value="">כל הכיתות</option>';
+    renderTable();
+    return;
+  }
+  db.ref('tests/'+topic).once('value').then(snap=>{
     const raw = snap.val()||{};
-    allData = Object.entries(raw).map(([k,v])=>({key:k,...v}));
-    // בנה תפריט כיתות דינמי
+    allData = Object.entries(raw).map(([k,v])=>({key:k, _topic:topic, ...v}));
     const classes=[...new Set(allData.map(d=>d.student?.class).filter(Boolean))].sort();
     const sel=document.getElementById('filter-class');
     sel.innerHTML='<option value="">כל הכיתות</option>';
@@ -217,7 +232,8 @@ function saveFeedback(key){
   const grade=document.getElementById('grade-'+key).value;
   const comment=document.getElementById('comment-'+key).value;
   if(grade===''){alert('נא להזין ציון');return;}
-  db.ref('tests/ownership/'+key+'/feedback').set({
+  const topic=allData.find(d=>d.key===key)?._topic||document.getElementById('filter-topic').value;
+  db.ref('tests/'+topic+'/'+key+'/feedback').set({
     grade:Number(grade), comment, gradedAt:new Date().toISOString()
   }).then(()=>{
     const idx=allData.findIndex(d=>d.key===key);
@@ -243,9 +259,10 @@ function exportCSV(){
   });
   const csv=rows.map(r=>r.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(',')).join('\n');
   const blob=new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'});
+  const topic=document.getElementById('filter-topic').value||'export';
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);
-  a.download='ownership_'+teacherCode+'_'+new Date().toLocaleDateString('he-IL').replace(/\//g,'-')+'.csv';
+  a.download=topic+'_'+new Date().toLocaleDateString('he-IL').replace(/\//g,'-')+'.csv';
   a.click();
 }
 </script>
