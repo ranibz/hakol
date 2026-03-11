@@ -145,16 +145,29 @@ function loadData(){
     'konotazia': 'ציון וקונוטציה',
     'praklit': 'עיתונאי פרקליט ושומר סף'
   };
-  allData = [];
-  const promises = Object.keys(TOPICS).map(topic =>
-    db.ref('tests/'+topic).once('value').then(snap=>{
-      const raw=snap.val()||{};
-      return Object.entries(raw).map(([k,v])=>({key:k, _topic:topic, _topicLabel:TOPICS[topic], ...v}));
-    })
-  );
-  Promise.all(promises).then(results=>{
-    allData = results.flat();
-    renderTable();
+  // שלב 1: שלוף את כל קודי הכיתה שיצר המורה הזה
+  db.ref('teacher_codes').once('value').then(codesSnap=>{
+    const codes = codesSnap.val()||{};
+    const myCodes = Object.entries(codes)
+      .filter(([k,v])=>v===teacherID)
+      .map(([k])=>k.split('_')[0].toLowerCase());
+
+    // שלב 2: טען את כל ההגשות וסנן
+    const promises = Object.keys(TOPICS).map(topic=>
+      db.ref('tests/'+topic).once('value').then(snap=>{
+        const raw=snap.val()||{};
+        return Object.entries(raw).map(([k,v])=>({key:k,_topic:topic,_topicLabel:TOPICS[topic],...v}));
+      })
+    );
+    Promise.all(promises).then(results=>{
+      allData = results.flat().filter(d=>{
+        // הגשות חדשות — לפי teacherID
+        if(d.student?.teacherID) return d.student.teacherID===teacherID;
+        // הגשות ישנות — לפי classCode שהמורה יצר
+        return myCodes.includes((d.student?.classCode||'').toLowerCase());
+      });
+      renderTable();
+    });
   });
 }
 
