@@ -66,7 +66,6 @@ tr:hover td{background:#f9f6f0;}
     <h2>👩‍🏫 כניסת מורה</h2>
     <div class="modal-err" id="modal-err"></div>
     <input type="password" id="inp-pass" placeholder="סיסמה אישית">
-    <input type="text" id="inp-code" placeholder="קוד כיתה">
     <button class="modal-btn" onclick="teacherLogin()">כניסה ←</button>
     <div class="register-link"><a href="../teacher-register.html">עדיין לא רשומים? לחץ כאן להרשמה</a></div>
   </div>
@@ -75,18 +74,13 @@ tr:hover td{background:#f9f6f0;}
 <div class="masthead">
   <h1>בעלות צולבת — סביבת מורה</h1>
   <div class="masthead-sub">צפייה בהגשות · ציונים · CSV</div>
-  <div id="active-code-bar" style="display:none;margin-top:8px;font-size:.85rem;color:#c9a84c;letter-spacing:1px;">
-    מחובר עם קוד: <strong id="active-code-display" style="color:white;font-size:1rem;letter-spacing:2px;"></strong>
-    &nbsp;|&nbsp; סה״כ הגשות: <strong id="active-total" style="color:white;"></strong>
-  </div>
 </div>
 
 <div class="container">
   <div class="toolbar">
     <input type="text" id="search-input" placeholder="🔍 חיפוש לפי שם..." oninput="renderTable()">
     <select id="filter-class" onchange="renderTable()">
-      <option value="">כל השכבות</option>
-      <option>י׳</option><option>יא׳</option><option>יב׳</option>
+      <option value="">כל הכיתות</option>
     </select>
     <button class="btn csv" onclick="exportCSV()">ייצוא CSV ⬇</button>
   </div>
@@ -120,21 +114,16 @@ let teacherID = '';
 
 function teacherLogin(){
   const pass = document.getElementById('inp-pass').value.trim();
-  const code = document.getElementById('inp-code').value.trim().toLowerCase();
   const err  = document.getElementById('modal-err');
-  if(!pass||!code){err.textContent='נא למלא את כל השדות';err.style.display='block';return;}
+  if(!pass){err.textContent='נא למלא סיסמה';err.style.display='block';return;}
   db.ref('teachers').once('value').then(snap=>{
     let foundKey='';
     snap.forEach(child=>{
       const t=child.val();
-      if(t.password===pass) foundKey=child.key;
+      if(t.password===pass && t.status==='approved') foundKey=child.key;
     });
-    if(!foundKey){err.textContent='סיסמה שגויה';err.style.display='block';return;}
+    if(!foundKey){err.textContent='סיסמה שגויה או משתמש לא מאושר';err.style.display='block';return;}
     teacherID=foundKey;
-    teacherCode=code;
-    document.getElementById('active-code-display').textContent=code;
-    document.getElementById('active-code-bar').style.display='block';
-    db.ref('teacher_codes/'+code+'_'+foundKey).set(foundKey);
     document.getElementById('modal').style.display='none';
     loadData();
   });
@@ -144,14 +133,12 @@ function loadData(){
   db.ref('tests/ownership').once('value').then(snap=>{
     const raw = snap.val()||{};
     allData = Object.entries(raw).map(([k,v])=>({key:k,...v}))
-      .filter(d=>{
-        const codeMatch=(d.student?.classCode||'').toLowerCase()===teacherCode.toLowerCase();
-        if(!codeMatch) return false;
-        const idMatch=!d.student?.teacherID || d.student.teacherID===teacherID;
-        return idMatch;
-      })
-      .map(d=>({...d, _ts: typeof d.submittedAt==='number' ? d.submittedAt : new Date(d.submittedAt).getTime()}));
-    document.getElementById('active-total').textContent=allData.length;
+      .filter(d=> !d.student?.teacherID || d.student.teacherID===teacherID);
+    // בנה תפריט כיתות דינמי
+    const classes=[...new Set(allData.map(d=>d.student?.class).filter(Boolean))].sort();
+    const sel=document.getElementById('filter-class');
+    sel.innerHTML='<option value="">כל הכיתות</option>';
+    classes.forEach(c=>sel.innerHTML+=`<option>${c}</option>`);
     renderTable();
   });
 }
