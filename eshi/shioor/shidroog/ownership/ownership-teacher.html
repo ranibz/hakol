@@ -66,6 +66,7 @@ tr:hover td{background:#f9f6f0;}
     <h2>👩‍🏫 כניסת מורה</h2>
     <div class="modal-err" id="modal-err"></div>
     <input type="password" id="inp-pass" placeholder="סיסמה אישית">
+    <input type="text" id="inp-code" placeholder="קוד כיתה">
     <button class="modal-btn" onclick="teacherLogin()">כניסה ←</button>
     <div class="register-link"><a href="../teacher-register.html">עדיין לא רשומים? לחץ כאן להרשמה</a></div>
   </div>
@@ -122,8 +123,9 @@ let teacherID = '';
 
 function teacherLogin(){
   const pass = document.getElementById('inp-pass').value.trim();
+  const code = document.getElementById('inp-code').value.trim().toLowerCase();
   const err  = document.getElementById('modal-err');
-  if(!pass){err.textContent='נא למלא סיסמה';err.style.display='block';return;}
+  if(!pass||!code){err.textContent='נא למלא סיסמה וקוד כיתה';err.style.display='block';return;}
   db.ref('teachers').once('value').then(snap=>{
     let foundKey='';
     snap.forEach(child=>{
@@ -132,6 +134,9 @@ function teacherLogin(){
     });
     if(!foundKey){err.textContent='סיסמה שגויה או משתמש לא מאושר';err.style.display='block';return;}
     teacherID=foundKey;
+    teacherCode=code;
+    // שמור teacher_codes כדי שהגשות עתידיות יקבלו teacherID
+    db.ref('teacher_codes/'+code+'_'+foundKey).set(foundKey);
     document.getElementById('modal').style.display='none';
     loadData();
   });
@@ -154,7 +159,8 @@ function loadData(){
   );
   Promise.all(promises).then(results=>{
     allData = results.flat().filter(d=>
-      d.student?.teacherID === teacherID
+      d.student?.teacherID === teacherID ||
+      (!d.student?.teacherID && (d.student?.classCode||'').toLowerCase() === teacherCode)
     );
     renderTable();
   });
