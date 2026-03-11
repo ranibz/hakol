@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>בעלות צולבת — הציונים שלי</title>
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@400;700;900&family=Heebo:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Heebo',sans-serif;background:#f5f0e8;color:#1a1208;direction:rtl;min-height:100vh;}
+.masthead{background:#1a1208;color:#f5f0e8;text-align:center;padding:16px 20px 12px;border-bottom:4px solid #c9a84c;}
+.masthead-top{font-size:.7rem;letter-spacing:3px;color:#c9a84c;margin-bottom:4px;}
+.masthead h1{font-family:'Frank Ruhl Libre',serif;font-size:clamp(1.6rem,4vw,2.4rem);font-weight:900;}
+.container{max-width:700px;margin:0 auto;padding:24px 16px 60px;}
+
+/* modal */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:1000;display:flex;align-items:center;justify-content:center;padding:16px;}
+.modal{background:white;border:3px solid #1a1208;box-shadow:6px 6px 0 #1a1208;border-radius:2px;padding:28px 24px;max-width:380px;width:100%;}
+.modal h2{font-family:'Frank Ruhl Libre',serif;font-size:1.3rem;font-weight:900;margin-bottom:16px;text-align:center;}
+.modal input{width:100%;padding:10px 12px;border:2px solid #1a1208;border-radius:2px;font-family:'Heebo',sans-serif;font-size:.95rem;margin-bottom:10px;background:#f5f0e8;}
+.modal input[type="email"]{direction:ltr;text-align:left;}
+.modal-btn{width:100%;background:#1a1208;color:#f5f0e8;border:none;border-radius:2px;padding:12px;font-family:'Heebo',sans-serif;font-size:1rem;font-weight:900;cursor:pointer;}
+.modal-err{color:#dc2626;font-size:.82rem;margin-bottom:8px;display:none;}
+
+/* submission card */
+.sub-card{background:white;border:2px solid #1a1208;box-shadow:4px 4px 0 #1a1208;border-radius:2px;margin-bottom:20px;overflow:hidden;}
+.sub-header{padding:14px 18px;display:flex;align-items:center;gap:14px;border-bottom:2px solid #1a1208;}
+.grade-circle{width:64px;height:64px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Frank Ruhl Libre',serif;font-size:1.5rem;font-weight:900;flex-shrink:0;border:3px solid #1a1208;}
+.grade-circle.graded{background:#dcfce7;color:#15803d;}
+.grade-circle.pending{background:#f3f4f6;color:#9ca3af;font-size:.9rem;}
+.sub-meta{flex:1;}
+.sub-date{font-size:.8rem;color:#555;margin-top:2px;}
+.sub-body{padding:16px 18px;}
+.grade-bar{height:10px;background:#e5e7eb;border-radius:99px;margin:10px 0;overflow:hidden;}
+.grade-bar-fill{height:100%;border-radius:99px;transition:width 1s ease;}
+.teacher-comment{background:#fffbeb;border:1px solid #c9a84c;border-radius:2px;padding:10px 14px;font-size:.88rem;line-height:1.6;margin-top:10px;}
+.teacher-comment strong{display:block;margin-bottom:4px;font-size:.78rem;color:#92400e;}
+.answers-section{margin-top:12px;}
+.answers-section h4{font-size:.85rem;font-weight:700;margin-bottom:8px;color:#555;}
+.ans-item{background:#f5f0e8;border-radius:2px;padding:8px 12px;margin-bottom:6px;font-size:.83rem;line-height:1.5;}
+.ans-item strong{display:block;font-size:.75rem;color:#555;margin-bottom:2px;}
+.no-data{background:white;border:2px solid #1a1208;border-radius:2px;padding:28px;text-align:center;color:#555;font-size:.95rem;}
+.loading{text-align:center;padding:40px;color:#555;}
+</style>
+</head>
+<body>
+
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <h2>⭐ הציונים שלי</h2>
+    <div class="modal-err" id="modal-err"></div>
+    <input type="email" id="inp-email" placeholder="כתובת מייל">
+    <div id="field-code"><input type="text" id="inp-code" placeholder="קוד מורה" style="width:100%;padding:10px 12px;border:2px solid #1a1208;border-radius:2px;font-family:'Heebo',sans-serif;font-size:.95rem;margin-bottom:10px;background:#f5f0e8;"></div>
+    <button class="modal-btn" onclick="loadGrades()">הצג ציונים ←</button>
+  </div>
+</div>
+
+<div class="masthead">
+  <div class="masthead-top">תקשורת וחברה · הציונים שלי</div>
+  <h1>⭐ הציונים שלי — בעלות צולבת</h1>
+</div>
+
+<div class="container" id="results">
+  <div class="loading">טוען...</div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script>
+firebase.initializeApp({
+  apiKey:"AIzaSyCCHvn_ulmiyM56DuslNzNC0Ge6a8i2vhY",
+  databaseURL:"https://tests-fd938-default-rtdb.europe-west1.firebasedatabase.app"
+});
+const db = firebase.database();
+
+const _urlCode = new URLSearchParams(location.search).get('code');
+if(_urlCode){
+  document.getElementById('inp-code').value=_urlCode;
+  document.getElementById('field-code').style.display='none';
+}
+
+function loadGrades(){
+  const email = document.getElementById('inp-email').value.trim().toLowerCase();
+  const code  = document.getElementById('inp-code').value.trim().toLowerCase();
+  const err   = document.getElementById('modal-err');
+  if(!email||!code){err.textContent='נא למלא את כל השדות';err.style.display='block';return;}
+  document.getElementById('modal').style.display='none';
+  document.getElementById('results').innerHTML='<div class="loading">מחפש הגשות...</div>';
+
+  db.ref('tests/ownership').once('value').then(snap=>{
+    const raw=snap.val()||{};
+    const subs=Object.values(raw).filter(d=>
+      (d.student?.email||'').toLowerCase()===email &&
+      (d.student?.classCode||'').toLowerCase()===code
+    );
+    renderGrades(subs);
+  });
+}
+
+function renderGrades(subs){
+  const container=document.getElementById('results');
+  if(!subs.length){
+    container.innerHTML='<div class="no-data">לא נמצאו הגשות עבור המייל וקוד המורה שהזנת.<br>וודא שמילאת את המטלה ושלחת אותה.</div>';
+    return;
+  }
+  container.innerHTML='';
+  subs.sort((a,b)=>new Date(b.submittedAt)-new Date(a.submittedAt));
+  subs.forEach(d=>{
+    const hasGrade=d.feedback?.grade!==undefined;
+    const g=hasGrade?Number(d.feedback.grade):null;
+    const barColor=g>=85?'#16a34a':g>=70?'#f59e0b':g>=55?'#f97316':'#dc2626';
+    const date=d.submittedAt?new Date(d.submittedAt).toLocaleDateString('he-IL'):'';
+    const gradedDate=d.feedback?.gradedAt?new Date(d.feedback.gradedAt).toLocaleDateString('he-IL'):'';
+    const a=d.answers||{};
+    const card=document.createElement('div');
+    card.className='sub-card';
+    card.innerHTML=`
+      <div class="sub-header">
+        <div class="grade-circle ${hasGrade?'graded':'pending'}">${hasGrade?g:'טרם הוערך'}</div>
+        <div class="sub-meta">
+          <div style="font-family:'Frank Ruhl Libre',serif;font-weight:900;font-size:1.05rem;">בעלות צולבת</div>
+          <div class="sub-date">הוגש: ${date}${gradedDate?' · הוערך: '+gradedDate:''}</div>
+        </div>
+      </div>
+      <div class="sub-body">
+        ${hasGrade?`
+          <div class="grade-bar"><div class="grade-bar-fill" style="width:${g}%;background:${barColor};"></div></div>
+          <div style="text-align:center;font-family:'Frank Ruhl Libre',serif;font-size:1.4rem;font-weight:900;color:${barColor};">${g} / 100</div>
+          ${d.feedback?.comment?`<div class="teacher-comment"><strong>💬 הערת המורה:</strong>${d.feedback.comment}</div>`:''}
+        `:'<div style="color:#9ca3af;font-size:.88rem;text-align:center;padding:8px;">המורה טרם הוסיף ציון להגשה זו</div>'}
+        <div class="answers-section">
+          <h4>התשובות שלך:</h4>
+          ${a.media_chosen?`<div class="ans-item"><strong>כלי תקשורת שנבחר:</strong>${a.media_chosen}</div>`:''}
+          ${a.q1_ownership?`<div class="ans-item"><strong>פירוט בעלות:</strong>${a.q1_ownership}</div>`:''}
+          ${a.case_chosen?`<div class="ans-item"><strong>דוגמת ניגוד עניינים:</strong>${a.case_chosen}</div>`:''}
+          ${a.journalist_action?`<div class="ans-item"><strong>מה יעשה העיתונאי:</strong>${a.journalist_action}</div>`:''}
+          ${a.q3_two_media?`<div class="ans-item"><strong>שני כלי תקשורת:</strong>${a.q3_two_media}</div>`:''}
+          ${a.interest_type?`<div class="ans-item"><strong>סוג אינטרס:</strong>${a.interest_type}</div>`:''}
+          ${a.q3_missing_story?`<div class="ans-item"><strong>כתבה שלא תצא:</strong>${a.q3_missing_story}</div>`:''}
+          ${a.law_position?`<div class="ans-item"><strong>עמדה לגבי חוק:</strong>${a.law_position}</div>`:''}
+          ${a.q4_consumer?`<div class="ans-item"><strong>הגנה כצרכן:</strong>${a.q4_consumer}</div>`:''}
+        </div>
+      </div>
+    `;
+    container.appendChild(card);
+  });
+}
+</script>
+</body>
+</html>
