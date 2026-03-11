@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>דנוטציה וקונוטציה — כניסת מורה</title>
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@400;700;900&family=Heebo:wght@300;400;500;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<style>
+:root{--paper:#f5f0e8;--paper-dark:#e8e0cc;--ink:#1a1208;--ink-light:#6b5d45;--accent:#8b1a1a;--blue:#2563af;--green:#2d7a2d;--shadow:4px 4px 0 #1a1208;--shadow-sm:2px 2px 0 #1a1208;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;line-height:1.7;background-image:repeating-linear-gradient(0deg,transparent,transparent 27px,rgba(26,18,8,0.055) 27px,rgba(26,18,8,0.055) 28px);}
+.modal-overlay{position:fixed;inset:0;background:rgba(26,18,8,.92);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px;}
+.modal-box{background:var(--paper);border:3px solid var(--ink);box-shadow:8px 8px 0 var(--ink);max-width:420px;width:100%;padding:40px;}
+.modal-head{background:var(--ink);color:var(--paper);text-align:center;padding:16px 20px;margin:-40px -40px 28px;}
+.modal-head h2{font-family:'Frank Ruhl Libre',serif;font-size:26px;font-weight:900;}
+.modal-head p{font-size:11px;letter-spacing:3px;text-transform:uppercase;opacity:.6;margin-top:4px;}
+.m-field{margin-bottom:16px;}
+.m-field label{display:block;font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:700;color:var(--ink-light);margin-bottom:5px;}
+.m-field input{width:100%;padding:11px 13px;border:2px solid var(--ink);background:white;font-family:'Heebo',sans-serif;font-size:16px;color:var(--ink);box-shadow:var(--shadow-sm);outline:none;}
+.m-field input:focus{border-color:var(--accent);box-shadow:3px 3px 0 var(--accent);}
+.m-btn{width:100%;padding:13px;background:var(--ink);color:var(--paper);border:none;font-family:'Frank Ruhl Libre',serif;font-size:19px;font-weight:700;cursor:pointer;box-shadow:var(--shadow);transition:all .15s;margin-top:5px;}
+.m-btn:hover{background:var(--accent);transform:translate(-2px,-2px);box-shadow:6px 6px 0 var(--ink);}
+.m-err{color:var(--accent);font-size:13px;font-weight:700;margin-top:8px;display:none;text-align:center;}
+.masthead{background:var(--ink);color:var(--paper);border-bottom:6px double var(--paper-dark);}
+.mh-inner{max-width:1100px;margin:0 auto;padding:0 24px;}
+.mh-top{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #444;font-size:12px;letter-spacing:1px;opacity:.65;}
+.mh-title{text-align:center;padding:18px 0 12px;}
+.mh-title h1{font-family:'Frank Ruhl Libre',serif;font-size:clamp(26px,4vw,48px);font-weight:900;line-height:1;}
+.mh-title p{font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--paper-dark);margin-top:5px;}
+.mh-rule{height:3px;background:var(--paper-dark);margin-bottom:10px;}
+.teacher-badge{display:flex;justify-content:center;gap:32px;padding-bottom:12px;font-size:13px;}
+.teacher-badge strong{font-family:'Frank Ruhl Libre',serif;font-size:15px;}
+.page{max-width:1100px;margin:0 auto;padding:32px 22px 60px;}
+.controls-bar{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-bottom:24px;padding:16px 18px;background:white;border:2px solid var(--ink);box-shadow:var(--shadow-sm);}
+.ctrl-input{padding:9px 13px;border:2px solid var(--ink);background:var(--paper);font-family:'Heebo',sans-serif;font-size:14px;color:var(--ink);outline:none;min-width:180px;}
+.ctrl-input:focus{border-color:var(--accent);}
+.ctrl-btn{padding:9px 18px;background:var(--ink);color:var(--paper);border:none;font-family:'Frank Ruhl Libre',serif;font-size:15px;font-weight:700;cursor:pointer;box-shadow:var(--shadow-sm);transition:all .12s;}
+.ctrl-btn:hover{background:var(--accent);}
+.ctrl-btn.secondary{background:var(--paper-dark);color:var(--ink);border:2px solid var(--ink);}
+.ctrl-btn.secondary:hover{background:var(--paper);}
+.stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:24px;}
+.stat-card{background:white;border:2px solid var(--ink);box-shadow:var(--shadow-sm);padding:16px;text-align:center;}
+.stat-num{font-family:'Frank Ruhl Libre',serif;font-size:36px;font-weight:900;color:var(--accent);line-height:1;}
+.stat-label{font-size:12px;letter-spacing:1px;text-transform:uppercase;color:var(--ink-light);margin-top:4px;}
+.loading{text-align:center;padding:40px;font-family:'Frank Ruhl Libre',serif;font-size:20px;color:var(--ink-light);}
+table{width:100%;border-collapse:collapse;background:white;border:2px solid var(--ink);box-shadow:var(--shadow);}
+thead th{background:var(--ink);color:var(--paper);padding:12px 14px;text-align:right;font-family:'Frank Ruhl Libre',serif;font-size:14px;font-weight:700;letter-spacing:.5px;white-space:nowrap;}
+tbody tr{border-bottom:1px solid var(--paper-dark);cursor:pointer;transition:background .15s;}
+tbody tr:hover{background:var(--paper-dark);}
+tbody td{padding:11px 14px;font-size:14px;vertical-align:middle;}
+.expand-row td{padding:0;}
+.expand-inner{padding:20px 24px;background:var(--paper);border-top:2px solid var(--ink);}
+.ans-label{font-size:10px;letter-spacing:2px;text-transform:uppercase;font-weight:700;color:var(--ink-light);margin-bottom:4px;margin-top:14px;display:block;}
+.ans-label:first-child{margin-top:0;}
+.ans-text{font-size:14px;line-height:1.7;padding:10px 14px;background:white;border:1px solid var(--paper-dark);border-right:3px solid var(--accent);}
+.ans-text.blue-border{border-right-color:var(--blue);}
+.ans-chip{display:inline-block;background:var(--ink);color:var(--paper);padding:3px 10px;font-size:12px;font-weight:700;font-family:'Frank Ruhl Libre',serif;margin-top:4px;}
+.no-results{text-align:center;padding:40px;color:var(--ink-light);font-size:16px;}
+.feedback-panel{margin-top:14px;border:2px solid var(--accent);background:#fff5f5;padding:14px 16px;}
+.feedback-panel h5{font-family:'Frank Ruhl Libre',serif;font-size:15px;color:var(--accent);margin-bottom:10px;border-bottom:1px solid #ddd;padding-bottom:6px;}
+.fb-row{display:flex;gap:10px;align-items:center;margin-bottom:8px;flex-wrap:wrap;}
+.fb-label{font-size:12px;font-weight:700;letter-spacing:1px;color:var(--ink-light);min-width:50px;}
+.fb-grade{width:70px;padding:7px 10px;border:2px solid var(--ink);font-family:'Frank Ruhl Libre',serif;font-size:18px;font-weight:700;text-align:center;background:white;outline:none;}
+.fb-comment{flex:1;padding:8px 11px;border:2px solid var(--ink);font-family:'Heebo',sans-serif;font-size:13px;background:white;resize:none;min-height:60px;outline:none;}
+.fb-save{padding:9px 20px;background:var(--accent);color:white;border:none;font-family:'Frank Ruhl Libre',serif;font-size:15px;font-weight:700;cursor:pointer;box-shadow:2px 2px 0 #1a1208;}
+.fb-save:hover{opacity:.85;}
+.fb-saved{padding:9px 16px;background:var(--green);color:white;font-size:13px;font-weight:700;display:none;}
+.grade-badge{display:inline-block;color:white;font-family:'Frank Ruhl Libre',serif;font-size:13px;font-weight:900;padding:2px 9px;}
+</style>
+</head>
+<body>
+<div class="modal-overlay" id="modal">
+  <div class="modal-box">
+    <div class="modal-head"><h2>כניסת מורה</h2><p>דנוטציה וקונוטציה</p></div>
+    <div class="m-field"><label>טלפון</label><input id="inp-phone" type="tel" placeholder="מספר הטלפון שלך" autocomplete="off" style="direction:ltr;text-align:left"></div>
+    <div class="m-field"><label>סיסמה אישית</label><input id="inp-pass" type="password" placeholder="הסיסמה שבחרתם בהרשמה" autocomplete="off"></div>
+    <button class="m-btn" onclick="teacherLogin()">כניסה לצפייה בהגשות ←</button>
+    <div class="m-err" id="m-err"></div>
+    <div style="margin-top:16px;text-align:center;font-size:13px;color:var(--ink-light);">עדיין לא רשומים? <a href="../teacher-register.html" style="color:var(--accent);font-weight:700;">בקשת רישום</a></div>
+  </div>
+</div>
+<header class="masthead">
+  <div class="mh-inner">
+    <div class="mh-top"><span>ממשק מורה • תקשורת ועיתונות</span><span>גליל מערבי</span></div>
+    <div class="mh-title"><h1>דנוטציה וקונוטציה — הגשות תלמידים</h1><p>ממשק מורה • צפייה וניתוח</p></div>
+    <div class="mh-rule"></div>
+    <div class="teacher-badge"><span>מורה: <strong id="t-name">—</strong></span><span>הגשות: <strong id="t-count">—</strong></span><span>היום: <strong id="t-today">—</strong></span></div>
+  </div>
+</header>
+<div class="page">
+  <div class="controls-bar">
+    <input class="ctrl-input" id="filter-class" placeholder="סנן לפי כיתה..." oninput="renderTable()">
+    <input class="ctrl-input" id="filter-name" placeholder="חיפוש שם..." oninput="renderTable()">
+    <button class="ctrl-btn secondary" onclick="exportCSV()">⬇ ייצוא CSV</button>
+    <button class="ctrl-btn secondary" onclick="loadData()">↺ רענן</button>
+  </div>
+  <div class="stats-row">
+    <div class="stat-card"><div class="stat-num" id="s-total">0</div><div class="stat-label">סה"כ הגשות</div></div>
+    <div class="stat-card"><div class="stat-num" id="s-classes">0</div><div class="stat-label">כיתות</div></div>
+    <div class="stat-card"><div class="stat-num" id="s-today">0</div><div class="stat-label">הגשות היום</div></div>
+  </div>
+  <div id="content"><div class="loading">טוען נתונים...</div></div>
+</div>
+
+<script>
+const firebaseConfig={apiKey:"AIzaSyCCHvn_ulmiyM56DuslNzNC0Ge6a8i2vhY",authDomain:"tests-fd938.firebaseapp.com",databaseURL:"https://tests-fd938-default-rtdb.europe-west1.firebasedatabase.app",projectId:"tests-fd938"};
+firebase.initializeApp(firebaseConfig);
+const db=firebase.database();
+
+const LABELS={
+  a1_denotation:'א1 — ניתוח דנוטטיבי',
+  a2_elements:'א2 — אלמנטים שנבחרו',
+  a2_elements_explain:'א2 — הסבר האלמנטים',
+  b1_connotation_first:'ב1 — קונוטציה ראשונה',
+  b1_connotation_why:'ב1 — קשר לבחירות הצלם',
+  b2_photo_choice:'ב2 — תמונה שנבחרה',
+  b2_photo_compare:'ב2 — השוואת תמונות',
+  c1_my_denotation:'ג1 — דנוטציה מחיי',
+  c1_my_connotation:'ג1 — קונוטציה מחיי',
+  c1_takeaway:'ג1 — מה אקח מהשיעור'
+};
+
+let teacherID='', teacherName='', allData=[];
+
+function teacherLogin(){
+  const pass=document.getElementById('inp-pass').value.trim();
+  const phone=document.getElementById('inp-phone').value.trim();
+  const err=document.getElementById('m-err');
+  err.style.display='none';
+  if(!pass||!phone){err.textContent='יש למלא טלפון וסיסמה.';err.style.display='block';return;}
+  const btn=document.querySelector('.m-btn');
+  btn.textContent='מאמת...';btn.disabled=true;
+  db.ref('teachers').once('value',snap=>{
+    let foundKey='', foundName='';
+    snap.forEach(child=>{
+      const t=child.val();
+      if(t.password===pass && t.phone===phone && t.status==='approved'){
+        foundKey=child.key; foundName=t.name;
+      }
+    });
+    if(foundKey){
+      teacherID=foundKey;
+      teacherName=foundName;
+      document.getElementById('t-name').textContent=teacherName;
+      document.getElementById('modal').style.display='none';
+      loadData();
+    } else {
+      err.textContent='פרטים שגויים או משתמש לא מאושר.';
+      err.style.display='block';
+      btn.textContent='כניסה לצפייה בהגשות ←';btn.disabled=false;
+    }
+  });
+}
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&document.getElementById('modal').style.display!=='none')teacherLogin();});
+
+function loadData(){
+  document.getElementById('content').innerHTML='<div class="loading">טוען...</div>';
+  db.ref('tests/denotation').once('value',snap=>{
+    allData=[];
+    snap.forEach(child=>{
+      const d=child.val();
+      if(d.student && d.student.teacherID===teacherID){
+        allData.push({key:child.key,...d});
+      }
+    });
+    allData.sort((a,b)=>b.submittedAt-a.submittedAt);
+    updateStats();
+    renderTable();
+  });
+}
+
+function updateStats(){
+  const today=new Date().toDateString();
+  const classes=new Set(allData.map(d=>d.student.class));
+  const todayCount=allData.filter(d=>new Date(d.submittedAt).toDateString()===today).length;
+  document.getElementById('s-total').textContent=allData.length;
+  document.getElementById('t-count').textContent=allData.length;
+  document.getElementById('s-classes').textContent=classes.size;
+  document.getElementById('s-today').textContent=todayCount;
+  document.getElementById('t-today').textContent=todayCount+' היום';
+}
+
+function renderTable(){
+  const cls=document.getElementById('filter-class').value.trim().toLowerCase();
+  const name=document.getElementById('filter-name').value.trim().toLowerCase();
+  let rows=allData.filter(d=>{
+    const matchC=!cls||(d.student.class||'').toLowerCase().includes(cls);
+    const matchN=!name||(d.student.name||'').toLowerCase().includes(name);
+    return matchC&&matchN;
+  });
+  if(!rows.length){document.getElementById('content').innerHTML='<div class="no-results">אין הגשות תואמות.</div>';return;}
+  let html='<table><thead><tr><th>#</th><th>שם</th><th>כיתה</th><th>ציון</th><th>שעת הגשה</th><th>פרטים</th></tr></thead><tbody>';
+  rows.forEach((d,i)=>{
+    const dt=new Date(d.submittedAt);
+    const time=dt.toLocaleDateString('he-IL')+' '+dt.toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'});
+    const gb=d.feedback&&d.feedback.grade!==undefined
+      ?`<span class="grade-badge" style="background:var(--green)">${d.feedback.grade}</span>`
+      :'<span class="grade-badge" style="background:#aaa;font-size:11px">לא הוערך</span>';
+    html+=`<tr onclick="toggleExpand('${d.key}')"><td>${i+1}</td><td>${d.student.name}</td><td>${d.student.class}</td><td>${gb}</td><td style="direction:ltr;text-align:right">${time}</td><td style="text-align:center">▾</td></tr>`;
+    html+=`<tr class="expand-row" id="exp-${d.key}" style="display:none"><td colspan="6"><div class="expand-inner">${buildAnswers(d,d.answers)}</div></td></tr>`;
+  });
+  html+='</tbody></table>';
+  document.getElementById('content').innerHTML=html;
+}
+
+function buildAnswers(d,ans){
+  const fb=d.feedback||{};
+  if(!ans)return '<em>אין תשובות</em>';
+  const emailLine=d.student.email?`<div style="font-size:12px;color:var(--ink-light);margin-bottom:10px;direction:ltr;text-align:right">📧 ${d.student.email}</div>`:'';
+  let html=emailLine;
+  Object.entries(LABELS).forEach(([key,label])=>{
+    const val=ans[key]||'—';
+    const isChip=key==='b2_photo_choice'||key==='a2_elements';
+    html+=`<span class="ans-label">${label}</span>`;
+    if(isChip)html+=`<div><span class="ans-chip">${val}</span></div>`;
+    else html+=`<div class="ans-text ${key.startsWith('b')||key.startsWith('c')?'blue-border':''}">${val.replace(/\n/g,'<br>')}</div>`;
+  });
+  const savedNote=fb.grade!==undefined?`<div style="margin-bottom:8px;font-size:13px;color:var(--green)">✅ הוערך ${new Date(fb.gradedAt).toLocaleDateString('he-IL')} — ציון: <strong>${fb.grade}</strong>${fb.comment?' | '+fb.comment:''}</div>`:'';
+  html+=`<div class="feedback-panel">
+    <h5>✏️ הערכת מורה</h5>
+    ${savedNote}
+    <div class="fb-row"><span class="fb-label">ציון:</span><input class="fb-grade" id="fg-${d.key}" type="number" min="0" max="100" placeholder="0–100" value="${fb.grade!==undefined?fb.grade:''}"></div>
+    <div class="fb-row"><span class="fb-label">הערה:</span><textarea class="fb-comment" id="fc-${d.key}" placeholder="הערה אישית לתלמיד...">${fb.comment||''}</textarea></div>
+    <div class="fb-row"><button class="fb-save" onclick="saveFeedback('${d.key}')">💾 שמור הערכה</button><span class="fb-saved" id="fs-${d.key}">✓ נשמר!</span></div>
+  </div>`;
+  return html;
+}
+
+function saveFeedback(key){
+  const grade=document.getElementById('fg-'+key).value;
+  const comment=document.getElementById('fc-'+key).value.trim();
+  if(grade===''||isNaN(grade)){alert('יש להזין ציון');return;}
+  const btn=document.querySelector('#exp-'+key+' .fb-save');
+  btn.disabled=true;btn.textContent='שומר...';
+  db.ref('tests/denotation/'+key+'/feedback').set({grade:parseInt(grade),comment,gradedAt:Date.now(),gradedBy:teacherID})
+    .then(()=>{
+      const saved=document.getElementById('fs-'+key);
+      saved.style.display='inline-block';
+      btn.textContent='💾 שמור הערכה';btn.disabled=false;
+      const idx=allData.findIndex(d=>d.key===key);
+      if(idx>-1)allData[idx].feedback={grade:parseInt(grade),comment,gradedAt:Date.now()};
+      setTimeout(()=>saved.style.display='none',3000);
+    }).catch(()=>{btn.textContent='💾 שמור הערכה';btn.disabled=false;alert('שגיאה — נסו שנית');});
+}
+
+function toggleExpand(key){
+  const row=document.getElementById('exp-'+key);
+  if(!row)return;
+  const isOpen=row.style.display!=='none';
+  document.querySelectorAll('.expand-row').forEach(r=>r.style.display='none');
+  if(!isOpen)row.style.display='';
+}
+
+function exportCSV(){
+  if(!allData.length)return;
+  const headers=['שם','מייל','שכבה','קוד','תאריך','ציון','הערת מורה',...Object.values(LABELS)];
+  const rows=allData.map(d=>{
+    const dt=new Date(d.submittedAt).toLocaleString('he-IL');
+    const fb=d.feedback||{};
+    const base=[d.student.name,d.student.email||'',d.student.class,d.student.classCode,dt,fb.grade!==undefined?fb.grade:'לא הוערך',fb.comment||''];
+    const ans=Object.keys(LABELS).map(k=>(d.answers&&d.answers[k]||'').replace(/,/g,' ').replace(/\n/g,' '));
+    return [...base,...ans];
+  });
+  const csv='\uFEFF'+[headers,...rows].map(r=>r.map(c=>`"${c}"`).join(',')).join('\n');
+  const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download='denotation-submissions.csv';a.click();
+}
+</script>
+</body>
+</html>
