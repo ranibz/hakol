@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>עריכת עיתון — תצוגה מקדימה</title>
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@400;700;900&family=Heebo:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#f5f0e8;--paper-dark:#e8e0cc;--paper-mid:#ede5d0;
+  --ink:#1a1208;--ink-light:#6b5d45;
+  --accent:#8b1a1a;--blue:#2563af;--green:#2d7a2d;
+  --shadow:4px 4px 0 #1a1208;--shadow-sm:2px 2px 0 #1a1208;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;line-height:1.7;background-image:repeating-linear-gradient(0deg,transparent,transparent 27px,rgba(26,18,8,.055) 27px,rgba(26,18,8,.055) 28px);}
+
+/* ── MODAL ── */
+.modal-overlay{position:fixed;inset:0;background:rgba(26,18,8,.93);z-index:1000;display:flex;align-items:center;justify-content:center;padding:16px;}
+.modal-box{background:var(--paper);border:3px solid var(--ink);box-shadow:8px 8px 0 var(--ink);max-width:400px;width:100%;padding:36px;}
+.modal-head{background:var(--ink);color:var(--paper);text-align:center;padding:14px 20px;margin:-36px -36px 24px;}
+.modal-head h2{font-family:'Frank Ruhl Libre',serif;font-size:24px;font-weight:900;}
+.modal-head p{font-size:11px;letter-spacing:3px;text-transform:uppercase;opacity:.55;margin-top:3px;}
+.m-field{margin-bottom:14px;}
+.m-field label{display:block;font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:700;color:var(--ink-light);margin-bottom:4px;}
+.m-field input{width:100%;padding:11px 13px;border:2px solid var(--ink);background:white;font-family:'Heebo',sans-serif;font-size:16px;color:var(--ink);box-shadow:var(--shadow-sm);outline:none;}
+.m-field input:focus{border-color:var(--accent);}
+.m-btn{width:100%;padding:12px;background:var(--ink);color:var(--paper);border:none;font-family:'Frank Ruhl Libre',serif;font-size:18px;font-weight:700;cursor:pointer;box-shadow:var(--shadow);transition:all .15s;margin-top:4px;}
+.m-btn:hover{background:var(--accent);}
+.m-btn:disabled{background:#999;cursor:default;}
+
+/* ── PROGRESS ── */
+.progress-bar{position:sticky;top:0;z-index:100;background:var(--ink);padding:9px 20px;display:flex;align-items:center;gap:14px;}
+.progress-label{color:var(--paper);font-size:12px;font-weight:500;white-space:nowrap;}
+.progress-track{flex:1;height:7px;background:rgba(255,255,255,.15);}
+.progress-fill{height:100%;background:linear-gradient(90deg,var(--accent),#c0392b);transition:width .4s;}
+.progress-pct{color:var(--paper);font-size:12px;font-weight:700;white-space:nowrap;}
+
+/* ── MASTHEAD ── */
+.masthead{background:var(--ink);color:var(--paper);border-bottom:6px double #555;}
+.mh-inner{max-width:860px;margin:0 auto;padding:0 20px;}
+.mh-top{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #444;font-size:11px;letter-spacing:1px;opacity:.6;}
+.mh-title{text-align:center;padding:14px 0 10px;}
+.mh-title h1{font-family:'Frank Ruhl Libre',serif;font-size:clamp(22px,5vw,42px);font-weight:900;line-height:1;}
+.mh-title p{font-size:11px;letter-spacing:3px;text-transform:uppercase;color:#aaa;margin-top:4px;}
+.mh-rule{height:3px;background:#555;margin-bottom:8px;}
+.student-badge{display:flex;justify-content:center;gap:24px;padding-bottom:10px;font-size:12px;color:#ccc;}
+.student-badge strong{font-family:'Frank Ruhl Libre',serif;font-size:14px;color:white;}
+
+/* ── PHASES ── */
+.page{max-width:860px;margin:0 auto;padding:24px 16px 60px;}
+.phase{display:none;}
+.phase.active{display:block;}
+.phase-title{font-family:'Frank Ruhl Libre',serif;font-size:26px;font-weight:900;border-bottom:3px double var(--ink);padding-bottom:8px;margin-bottom:16px;}
+.phase-intro{background:white;border:2px solid var(--ink);box-shadow:var(--shadow-sm);padding:14px 18px;margin-bottom:18px;font-size:14px;line-height:1.7;}
+
+/* ── PHASE 1: RATING ── */
+.news-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;}
+.news-card{background:white;border:2px solid var(--ink);box-shadow:var(--shadow-sm);padding:16px;}
+.news-card h3{font-family:'Frank Ruhl Libre',serif;font-size:15px;margin-bottom:3px;line-height:1.3;}
+.news-card .sub{font-size:12px;color:var(--ink-light);margin-bottom:10px;line-height:1.45;}
+.criteria-checks{display:flex;flex-wrap:wrap;gap:5px;}
+.crit-btn{padding:5px 9px;font-size:11px;font-weight:700;border:2px solid var(--ink);background:var(--paper-dark);cursor:pointer;transition:all .15s;font-family:'Heebo',sans-serif;display:flex;align-items:center;gap:4px;}
+.crit-btn.checked{background:var(--ink);color:var(--paper);}
+.crit-btn .pts{font-size:10px;opacity:.55;background:rgba(0,0,0,.08);padding:0 3px;border-radius:2px;}
+.crit-btn.checked .pts{background:rgba(255,255,255,.15);opacity:.7;}
+.news-score{margin-top:10px;font-size:14px;font-weight:700;color:var(--accent);font-family:'Frank Ruhl Libre',serif;}
+.score-bar{height:5px;background:var(--paper-dark);margin-top:5px;}
+.score-bar-fill{height:100%;background:var(--accent);transition:width .3s;}
+
+/* ── PHASE 2: SELECT ── */
+.select-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;}
+.select-card{background:white;border:2px solid var(--ink);box-shadow:var(--shadow-sm);padding:14px;cursor:pointer;position:relative;transition:all .18s;}
+.select-card:active{transform:scale(.97);}
+.select-card.chosen{background:#f0fff0;border-color:var(--green);}
+.check-mark{position:absolute;top:8px;left:10px;background:var(--green);color:white;width:20px;height:20px;border-radius:50%;display:none;align-items:center;justify-content:center;font-size:12px;font-weight:700;}
+.select-card.chosen .check-mark{display:flex;}
+.select-card.full:not(.chosen){opacity:.4;pointer-events:none;}
+.score-pill{display:inline-block;background:var(--paper-dark);border:1px solid var(--ink-light);padding:2px 8px;font-size:11px;font-weight:700;margin-bottom:5px;}
+.score-pill.high{background:#fff3cd;border-color:#c8a000;color:#7a5c00;}
+.counter{text-align:center;margin-bottom:14px;font-family:'Frank Ruhl Libre',serif;font-size:19px;}
+.counter span{color:var(--accent);}
+
+/* ── PHASE 3: ARRANGE ── */
+.arrange-hint{background:var(--paper-dark);border:2px solid var(--ink);padding:10px 14px;margin-bottom:14px;font-size:13px;text-align:center;font-weight:500;}
+.arrange-hint strong{color:var(--accent);}
+
+/* NEWSPAPER */
+.np-wrapper{border:3px solid var(--ink);background:white;box-shadow:var(--shadow);}
+.np-masthead{background:var(--ink);color:var(--paper);text-align:center;padding:10px 16px 12px;border-bottom:4px double #555;}
+.np-masthead .np-date{font-size:10px;opacity:.45;letter-spacing:1px;margin-bottom:2px;}
+.np-masthead h2{font-family:'Frank Ruhl Libre',serif;font-size:clamp(20px,5vw,36px);font-weight:900;letter-spacing:-1px;line-height:1;}
+.np-masthead .np-edition{font-size:9px;opacity:.35;letter-spacing:2px;text-transform:uppercase;margin-top:3px;}
+
+/* Grid rows */
+.np-body{padding:0;}
+.np-row{display:grid;gap:0;}
+.np-row+.np-row{border-top:2px solid var(--ink);}
+.np-row-1{grid-template-columns:3fr 2fr;}
+.np-row-2{grid-template-columns:1fr 1fr 1fr;}
+.np-row-3{grid-template-columns:1fr 1fr;}
+
+.np-cell{position:relative;padding:12px;border-right:1px solid var(--ink);cursor:pointer;transition:background .15s;}
+.np-cell:last-child{border-right:none;}
+
+/* Empty slot */
+.np-cell.slot-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;color:#bbb;background:var(--paper);}
+.np-cell.slot-empty .slot-icon{font-size:18px;margin-bottom:3px;}
+.np-cell.slot-empty .slot-role{font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;}
+.np-cell.slot-waiting{background:#fff8e8 !important;outline:3px dashed var(--accent);outline-offset:-4px;animation:pulse-border .9s ease-in-out infinite;}
+@keyframes pulse-border{0%,100%{outline-color:var(--accent)}50%{outline-color:#f0c040}}
+.np-cell.slot-filled{background:white;cursor:default;}
+.np-cell.slot-filled:hover{background:#fdfcf8;}
+
+/* Story content by size */
+.story-kicker{font-size:9px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--accent);margin-bottom:4px;}
+.story-rule{width:100%;height:2px;background:var(--ink);margin:5px 0 7px;}
+
+.slot-main .story-headline{font-family:'Frank Ruhl Libre',serif;font-size:clamp(17px,3.5vw,26px);font-weight:900;line-height:1.15;margin-bottom:5px;}
+.slot-main .story-sub{font-size:12px;color:var(--ink-light);line-height:1.5;}
+.slot-main .story-kicker,.slot-main .story-rule{display:block;}
+
+.slot-secondary .story-headline{font-family:'Frank Ruhl Libre',serif;font-size:clamp(13px,2.5vw,18px);font-weight:700;line-height:1.25;margin-bottom:3px;}
+.slot-secondary .story-sub{font-size:11px;color:var(--ink-light);line-height:1.4;}
+.slot-secondary .story-kicker{display:block;font-size:8px;}
+.slot-secondary .story-rule{display:none;}
+
+.slot-small .story-headline{font-family:'Frank Ruhl Libre',serif;font-size:clamp(11px,2vw,14px);font-weight:700;line-height:1.3;}
+.slot-small .story-sub,.slot-small .story-kicker,.slot-small .story-rule{display:none;}
+
+.slot-tiny .story-headline{font-family:'Frank Ruhl Libre',serif;font-size:11px;font-weight:700;line-height:1.3;}
+.slot-tiny .story-sub,.slot-tiny .story-kicker,.slot-tiny .story-rule{display:none;}
+
+.remove-btn{position:absolute;top:3px;left:3px;background:var(--accent);color:white;border:none;width:16px;height:16px;font-size:9px;cursor:pointer;display:none;align-items:center;justify-content:center;font-weight:700;z-index:2;}
+.np-cell.slot-filled:hover .remove-btn{display:flex;}
+.slot-role-tag{position:absolute;bottom:3px;right:5px;font-size:8px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#ccc;}
+
+/* Min heights */
+.np-row-1 .np-cell{min-height:140px;}
+@media(min-width:480px){.np-row-1 .np-cell{min-height:190px;}}
+.np-row-2 .np-cell{min-height:100px;}
+.np-row-3 .np-cell{min-height:80px;}
+
+/* Arrange list below newspaper */
+.news-list-arrange{display:flex;flex-direction:column;gap:7px;margin-top:14px;}
+.arrange-item{background:white;border:2px solid var(--ink);box-shadow:var(--shadow-sm);padding:11px 14px;cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:10px;}
+.arrange-item:active{transform:scale(.98);}
+.arrange-item.selected-to-place{background:var(--accent);color:var(--paper);border-color:var(--accent);box-shadow:var(--shadow);}
+.arrange-item.placed{opacity:.28;pointer-events:none;}
+.arrange-item .ai-title{font-family:'Frank Ruhl Libre',serif;font-size:14px;flex:1;line-height:1.3;}
+.arrange-item .ai-score{font-size:11px;font-weight:700;white-space:nowrap;color:var(--ink-light);}
+.arrange-item.selected-to-place .ai-score{color:rgba(255,255,255,.65);}
+
+/* ── PHASE 4: JUSTIFY ── */
+.justify-block{background:white;border:2px solid var(--ink);box-shadow:var(--shadow-sm);padding:16px 18px;margin-bottom:12px;}
+.justify-block h4{font-family:'Frank Ruhl Libre',serif;font-size:15px;margin-bottom:8px;}
+.justify-block .slot-tag{display:inline-block;background:var(--accent);color:white;padding:2px 8px;font-size:11px;font-weight:700;margin-bottom:8px;}
+.mic-wrap{display:flex;align-items:flex-start;gap:8px;}
+.mic-wrap textarea{flex:1;padding:9px 12px;border:2px solid var(--ink);background:var(--paper);font-family:'Heebo',sans-serif;font-size:14px;resize:none;min-height:72px;outline:none;line-height:1.6;}
+.mic-wrap textarea:focus{border-color:var(--accent);}
+.mic-btn{flex-shrink:0;width:34px;height:34px;background:var(--ink);color:var(--paper);border:none;cursor:pointer;font-size:15px;display:flex;align-items:center;justify-content:center;}
+.mic-btn.recording{background:var(--accent);animation:pulse-rec 1s infinite;}
+@keyframes pulse-rec{0%,100%{opacity:1}50%{opacity:.6}}
+
+/* ── BUTTONS ── */
+.phase-btn{padding:11px 26px;background:var(--ink);color:var(--paper);border:none;font-family:'Frank Ruhl Libre',serif;font-size:17px;font-weight:700;cursor:pointer;box-shadow:var(--shadow);transition:all .15s;margin-top:18px;}
+.phase-btn:hover{background:var(--accent);}
+.phase-btn.secondary{background:var(--paper-dark);color:var(--ink);border:2px solid var(--ink);}
+.btn-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px;}
+.submit-btn{padding:13px 30px;background:var(--green);color:white;border:none;font-family:'Frank Ruhl Libre',serif;font-size:19px;font-weight:900;cursor:pointer;box-shadow:var(--shadow);}
+
+/* ── SUCCESS ── */
+.success-box{text-align:center;padding:40px 20px;background:white;border:3px solid var(--green);box-shadow:var(--shadow);}
+.success-box h2{font-family:'Frank Ruhl Libre',serif;font-size:30px;font-weight:900;color:var(--green);margin-bottom:8px;}
+</style>
+</head>
+<body>
+<div style="background:#8b1a1a;color:white;text-align:center;padding:10px 20px;font-family:'Frank Ruhl Libre',serif;font-size:14px;font-weight:700;position:sticky;top:0;z-index:999;">👁 תצוגה מקדימה למורה — ללא שמירה</div>
+
+<!-- MODAL -->
+
+
+<!-- PROGRESS -->
+<div class="progress-bar" id="progress-bar" style="display:none">
+  <span class="progress-label" id="progress-label">שלב 1/4</span>
+  <div class="progress-track"><div class="progress-fill" id="progress-fill" style="width:25%"></div></div>
+  <span class="progress-pct" id="progress-pct">25%</span>
+</div>
+
+<!-- MASTHEAD -->
+<header class="masthead" id="masthead" style="display:none">
+  <div class="mh-inner">
+    <div class="mh-top"><span>מטלה • תקשורת ועיתונות</span><span>גליל מערבי</span></div>
+    <div class="mh-title"><h1>עורך/ת העיתון</h1><p>דרגו • בחרו • ערכו • נמקו</p></div>
+    <div class="mh-rule"></div>
+    <div class="student-badge"><span>שם: <strong id="badge-name">—</strong></span><span>שכבה: <strong id="badge-class">—</strong></span><span id="badge-email" style="font-size:11px;direction:ltr;opacity:.8"></span></div>
+  </div>
+</header>
+
+<div class="page" id="main-page" style="display:none">
+
+  <!-- PHASE 1 -->
+  <div class="phase active" id="phase-1">
+    <div class="phase-title">שלב א׳ — דירוג ערך חדשותי</div>
+    <div class="phase-intro">
+      לפניכם 12 ידיעות. <strong>סמנו לכל ידיעה את הקריטריונים שמתקיימים בה.</strong><br>
+      שימו לב: <strong>חשיבות</strong> שווה 3 נקודות, <strong>רלוונטיות/עדכניות/ייחודיות</strong> — 2 נקודות, <strong>עניין אנושי/אישיות מפורסמת</strong> — נקודה אחת.
+    </div>
+    <div class="news-cards" id="rating-cards"></div>
+    <div class="btn-row"><button class="phase-btn" onclick="goPhase(2)">המשך לבחירת ידיעות ←</button></div>
+  </div>
+
+  <!-- PHASE 2 -->
+  <div class="phase" id="phase-2">
+    <div class="phase-title">שלב ב׳ — בחירת 6 ידיעות</div>
+    <div class="phase-intro">בחרו בדיוק <strong>6 ידיעות</strong> לעמוד הראשון של העיתון שלכם.</div>
+    <div class="counter">נבחרו: <span id="select-count">0</span> / 6</div>
+    <div class="select-grid" id="select-cards"></div>
+    <div class="btn-row">
+      <button class="phase-btn secondary" onclick="goPhase(1)">← חזרה</button>
+      <button class="phase-btn" id="to-phase3-btn" onclick="goPhase(3)" disabled>המשך לעריכה ←</button>
+    </div>
+  </div>
+
+  <!-- PHASE 3 -->
+  <div class="phase" id="phase-3">
+    <div class="phase-title">שלב ג׳ — עריכת העמוד הראשון</div>
+    <div class="phase-intro">לחצו על ידיעה מהרשימה ← ואז לחצו על המשבצת הרצויה בעיתון. המשבצת הגדולה = ידיעה ראשית.</div>
+    <div class="arrange-hint" id="arrange-hint">👆 בחרו ידיעה מהרשימה למטה</div>
+    <div class="np-wrapper">
+      <div class="np-masthead">
+        <div class="np-date" id="np-date"></div>
+        <h2>הידיעות</h2>
+        <div class="np-edition">עיתון יומי · גליל מערבי</div>
+      </div>
+      <div class="np-body">
+        <div class="np-row np-row-1">
+          <div class="np-cell slot-main slot-empty" data-slot="0"><div class="slot-icon">⭐</div><div class="slot-role">ידיעה ראשית</div><div class="slot-role-tag">ראשית</div></div>
+          <div class="np-cell slot-secondary slot-empty" data-slot="1"><div class="slot-icon">📰</div><div class="slot-role">ידיעה משנית</div><div class="slot-role-tag">משנית</div></div>
+        </div>
+        <div class="np-row np-row-2">
+          <div class="np-cell slot-small slot-empty" data-slot="2"><div class="slot-icon">📰</div><div class="slot-role">ידיעה 3</div><div class="slot-role-tag">3</div></div>
+          <div class="np-cell slot-small slot-empty" data-slot="3"><div class="slot-icon">📰</div><div class="slot-role">ידיעה 4</div><div class="slot-role-tag">4</div></div>
+          <div class="np-cell slot-small slot-empty" data-slot="4"><div class="slot-icon">📰</div><div class="slot-role">ידיעה 5</div><div class="slot-role-tag">5</div></div>
+        </div>
+        <div class="np-row np-row-3">
+          <div class="np-cell slot-tiny slot-empty" data-slot="5"><div class="slot-icon">📰</div><div class="slot-role">ידיעה 6 (תחתית)</div><div class="slot-role-tag">6</div></div>
+          <div class="np-cell slot-tiny slot-empty" data-slot="6" style="display:none"></div>
+        </div>
+      </div>
+    </div>
+    <div style="margin-top:16px;">
+      <div style="font-family:'Frank Ruhl Libre',serif;font-size:15px;font-weight:700;border-bottom:2px solid var(--ink);padding-bottom:6px;margin-bottom:10px;">הידיעות שנבחרו — לחצו לבחירה</div>
+      <div class="news-list-arrange" id="arrange-list"></div>
+    </div>
+    <div class="btn-row">
+      <button class="phase-btn secondary" onclick="goPhase(2)">← חזרה</button>
+      <button class="phase-btn" id="to-phase4-btn" onclick="goPhase(4)" disabled>המשך לנימוקים ←</button>
+    </div>
+  </div>
+
+  <!-- PHASE 4 -->
+  <div class="phase" id="phase-4">
+    <div class="phase-title">שלב ד׳ — נימוקים</div>
+    <div class="phase-intro"><strong>לכל ידיעה שמתם בעמוד — הסבירו למה בחרתם בה ולמה שמתם אותה דווקא שם.</strong></div>
+    <div id="justify-blocks"></div>
+    <div class="btn-row">
+      <button class="phase-btn secondary" onclick="goPhase(3)">← חזרה</button>
+      <div style="background:#fff8e1;border:2px solid #f59e0b;padding:12px 18px;font-size:13px;color:#92400e;margin-top:16px;text-align:center;">⚠️ כפתור השליחה מושבת בתצוגה מקדימה</div>
+    </div>
+  </div>
+
+  <!-- SUCCESS -->
+  <div class="phase" id="phase-success">
+    <div class="success-box">
+      <div style="font-size:48px;margin-bottom:10px;">✅</div>
+      <h2>המטלה הוגשה בהצלחה!</h2>
+      <p style="font-size:15px;margin-top:6px;color:var(--ink-light);">העבודה נשמרה ותועבר למורה.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+// תצוגה מקדימה בלבד — ללא שמירה
+function goPhase(n){
+  document.querySelectorAll('.phase').forEach(p=>p.classList.remove('active'));
+  const ph=document.getElementById('phase-'+n);
+  if(ph){ph.classList.add('active');window.scrollTo({top:0,behavior:'smooth'});}
+  // אפשר כפתורי המשך בתצוגה מקדימה
+  ['to-phase3-btn','to-phase4-btn'].forEach(id=>{const b=document.getElementById(id);if(b)b.disabled=false;});
+}
+function rateNews(id,val,btn){
+  btn.closest('.rating-row')?.querySelectorAll('.rate-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+}
+function toggleSelect(el){el.classList.toggle('selected');}
+function ar(el){el.style.height="auto";el.style.height=el.scrollHeight+"px";}
+function mic(tid,btn){alert("מיקרופון לא זמין בתצוגה מקדימה");}
+</script>
+</body>
+</html>
