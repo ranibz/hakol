@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>פורטל מורים — הכל בכף היד</title>
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@400;700;900&family=Heebo:wght@300;400;500;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<style>
+:root{
+  --ink:#1a1208;--paper:#f5f0e8;--paper2:#e8e0cc;
+  --accent:#1a3a6b;--accent2:#c9a84c;
+  --green:#1a5c1a;--red:#8b1a1a;--purple:#4a1a6b;
+  --sh:4px 4px 0 #1a1208;--sh2:2px 2px 0 #1a1208;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;
+  background-image:repeating-linear-gradient(0deg,transparent,transparent 27px,rgba(26,18,8,.04) 27px,rgba(26,18,8,.04) 28px);}
+
+/* LOGIN OVERLAY */
+.overlay{position:fixed;inset:0;background:rgba(26,18,8,.93);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px;}
+.modal-box{background:var(--paper);border:3px solid var(--ink);box-shadow:8px 8px 0 var(--ink);max-width:400px;width:100%;}
+.modal-head{background:var(--ink);color:var(--paper);padding:20px 24px;text-align:center;}
+.modal-head h2{font-family:'Frank Ruhl Libre',serif;font-size:24px;font-weight:900;}
+.modal-head p{font-size:11px;letter-spacing:2px;text-transform:uppercase;opacity:.6;margin-top:4px;}
+.modal-body{padding:28px;}
+.mf{margin-bottom:16px;}
+.mf label{display:block;font-size:10px;letter-spacing:2px;text-transform:uppercase;font-weight:700;color:#6b5d45;margin-bottom:6px;}
+.mf input{width:100%;padding:11px 14px;border:2px solid var(--ink);background:white;font-family:'Heebo',sans-serif;font-size:15px;outline:none;}
+.mf input:focus{border-color:var(--accent);}
+.mbtn{width:100%;padding:13px;background:var(--accent);color:white;border:none;font-family:'Frank Ruhl Libre',serif;font-size:18px;font-weight:700;cursor:pointer;box-shadow:var(--sh2);margin-bottom:10px;}
+.mbtn:hover{background:var(--ink);}
+.merr{color:var(--red);font-size:12px;font-weight:700;margin-top:6px;display:none;text-align:center;}
+.reg-link{text-align:center;font-size:12px;margin-top:6px;}
+.reg-link a{color:var(--accent);text-decoration:none;font-weight:700;}
+
+/* MASTHEAD */
+.masthead{background:var(--ink);color:var(--paper);border-bottom:5px solid var(--accent2);}
+.mhi{max-width:1000px;margin:0 auto;padding:0 24px;}
+.mht{display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #333;font-size:10px;letter-spacing:2px;opacity:.5;}
+.mhti{text-align:center;padding:18px 0 10px;}
+.mhti h1{font-family:'Frank Ruhl Libre',serif;font-size:clamp(22px,4vw,44px);font-weight:900;line-height:1.1;}
+.mhti .sub{font-size:11px;letter-spacing:3px;text-transform:uppercase;color:var(--paper2);margin-top:5px;}
+.mhr{height:3px;background:var(--accent);margin-top:8px;}
+.teacher-banner{background:var(--accent);color:white;text-align:center;padding:10px;font-size:13px;font-weight:700;letter-spacing:1px;}
+.teacher-banner span{color:var(--accent2);}
+
+/* PAGE */
+.page{max-width:1000px;margin:0 auto;padding:32px 20px 60px;}
+
+/* SECTION HEADER */
+.sec-head{display:flex;align-items:baseline;gap:14px;margin-bottom:18px;padding-bottom:10px;border-bottom:3px double var(--ink);}
+.sec-head h2{font-family:'Frank Ruhl Libre',serif;font-size:24px;font-weight:900;}
+.sec-head .sec-sub{font-size:12px;color:#6b5d45;letter-spacing:1px;}
+.sec-div{margin:36px 0 24px;position:relative;text-align:center;}
+.sec-div::before{content:'';position:absolute;top:50%;left:0;right:0;height:2px;background:var(--paper2);}
+.sec-div span{background:var(--paper);padding:0 16px;font-family:'Frank Ruhl Libre',serif;font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;position:relative;}
+
+/* LAMED HERO */
+.lamed-hero{background:var(--ink);color:var(--paper);border:none;box-shadow:var(--sh);margin-bottom:32px;overflow:hidden;display:flex;flex-direction:column;}
+.lh-top{display:grid;grid-template-columns:1fr 1fr;gap:0;}
+@media(max-width:600px){.lh-top{grid-template-columns:1fr;}}
+.lh-info{padding:28px 28px 24px;}
+.lh-badge{display:inline-block;background:var(--accent2);color:var(--ink);font-size:10px;font-weight:900;letter-spacing:2px;padding:3px 12px;margin-bottom:12px;}
+.lh-info h2{font-family:'Frank Ruhl Libre',serif;font-size:28px;font-weight:900;color:var(--accent2);margin-bottom:8px;line-height:1.1;}
+.lh-info p{font-size:13px;color:#ccc;line-height:1.7;margin-bottom:18px;}
+.lh-btn{display:inline-block;padding:12px 28px;background:var(--accent2);color:var(--ink);font-family:'Frank Ruhl Libre',serif;font-size:17px;font-weight:900;text-decoration:none;box-shadow:var(--sh2);}
+.lh-btn:hover{background:white;}
+.lh-stats{background:#111;padding:28px;display:flex;flex-direction:column;justify-content:center;gap:16px;border-right:3px solid #333;}
+@media(max-width:600px){.lh-stats{border-right:none;border-top:3px solid #333;}}
+.lh-stat{display:flex;flex-direction:column;}
+.lh-stat .n{font-family:'Frank Ruhl Libre',serif;font-size:36px;font-weight:900;color:var(--accent2);line-height:1;}
+.lh-stat .l{font-size:11px;color:#888;letter-spacing:1px;margin-top:2px;}
+.lh-questions{background:#0d0d0d;padding:16px 28px;border-top:2px solid #222;}
+.lh-questions h4{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#555;margin-bottom:10px;}
+.lh-q-chips{display:flex;flex-wrap:wrap;gap:6px;}
+.lh-chip{background:#1a1a1a;border:1px solid #333;padding:4px 10px;font-size:11px;color:#888;}
+
+/* UNITS GRID */
+.units-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px;}
+.unit-card{background:white;border:2px solid var(--ink);box-shadow:var(--sh2);overflow:hidden;text-decoration:none;color:var(--ink);display:flex;flex-direction:column;transition:transform .15s,box-shadow .15s;}
+.unit-card:hover{transform:translate(-2px,-2px);box-shadow:var(--sh);}
+.uc-stripe{height:5px;}
+.uc-body{padding:16px 18px;flex:1;}
+.uc-topic{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#8a7a5a;margin-bottom:6px;}
+.uc-title{font-family:'Frank Ruhl Libre',serif;font-size:18px;font-weight:900;margin-bottom:8px;line-height:1.2;}
+.uc-links{display:flex;gap:8px;padding:12px 18px;background:var(--paper);border-top:1px solid var(--paper2);flex-wrap:wrap;}
+.uc-link{font-size:11px;font-weight:700;text-decoration:none;padding:4px 10px;border:1.5px solid var(--ink);}
+.uc-link:hover{background:var(--ink);color:var(--paper);}
+
+/* TOOLS ROW */
+.tools-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-bottom:32px;}
+.tool-card{background:white;border:2px solid var(--ink);box-shadow:var(--sh2);padding:18px 20px;text-decoration:none;color:var(--ink);display:flex;flex-direction:column;gap:8px;transition:transform .15s,box-shadow .15s;}
+.tool-card:hover{transform:translate(-2px,-2px);box-shadow:var(--sh);}
+.tool-icon{font-size:28px;}
+.tool-title{font-family:'Frank Ruhl Libre',serif;font-size:17px;font-weight:900;}
+.tool-desc{font-size:12px;color:#6b5d45;line-height:1.5;}
+.tool-cta{font-size:11px;font-weight:700;margin-top:4px;}
+
+/* STATS BAR */
+.stats-bar{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:28px;}
+.stat-box{background:white;border:2px solid var(--ink);box-shadow:var(--sh2);padding:14px;text-align:center;}
+.stat-n{font-family:'Frank Ruhl Libre',serif;font-size:32px;font-weight:900;line-height:1;}
+.stat-l{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:#6b5d45;margin-top:3px;}
+
+footer{max-width:1000px;margin:0 auto;border-top:3px double var(--ink);padding:14px 20px;text-align:center;font-size:11px;color:#8a7a5a;}
+</style>
+</head>
+<body>
+
+<!-- LOGIN OVERLAY -->
+<div class="overlay" id="login-overlay">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h2>🔐 פורטל מורים</h2>
+      <p>הכל בכף היד • גליל מערבי</p>
+    </div>
+    <div class="modal-body">
+      <div class="mf"><label>טלפון</label><input type="tel" id="inp-phone" placeholder="050-0000000" style="direction:ltr;text-align:right;"></div>
+      <div class="mf"><label>סיסמה אישית</label><input type="password" id="inp-pass" placeholder="••••••" onkeydown="if(event.key==='Enter')login()"></div>
+      <div class="merr" id="login-err"></div>
+      <button class="mbtn" onclick="login()">כניסה לפורטל ←</button>
+      <div class="reg-link"><a href="teacher-register.html">עדיין לא רשומים? לחץ להרשמה</a></div>
+    </div>
+  </div>
+</div>
+
+<!-- MASTHEAD -->
+<header class="masthead">
+  <div class="mhi">
+    <div class="mht">
+      <span>פורטל מורים • גליל מערבי</span>
+      <span id="mh-teacher-name" style="color:var(--accent2);font-weight:700;"></span>
+    </div>
+    <div class="mhti">
+      <h1>הכל בכף היד</h1>
+      <div class="sub">פורטל ניהול מורים • תקשורת וחברה</div>
+    </div>
+    <div class="mhr"></div>
+  </div>
+</header>
+<div class="teacher-banner" id="teacher-banner" style="display:none;">
+  מחובר/ת כ: <span id="banner-name">—</span> &nbsp;|&nbsp;
+  <a href="teacher-register.html" style="color:var(--accent2);text-decoration:none;font-size:12px;">הגדרות חשבון</a>
+  &nbsp;|&nbsp;
+  <a onclick="logout()" style="color:#aaa;text-decoration:none;font-size:12px;cursor:pointer;">התנתקות</a>
+</div>
+
+<div class="page" id="main-page" style="display:none;">
+
+  <!-- STATS -->
+  <div class="stats-bar" id="stats-bar">
+    <div class="stat-box"><div class="stat-n" id="st-units" style="color:var(--accent);">13</div><div class="stat-l">יחידות לימוד</div></div>
+    <div class="stat-box"><div class="stat-n" id="st-submissions" style="color:var(--green);">—</div><div class="stat-l">הגשות כולל</div></div>
+    <div class="stat-box"><div class="stat-n" id="st-pending" style="color:var(--red);">—</div><div class="stat-l">ממתינות לציון</div></div>
+    <div class="stat-box"><div class="stat-n" id="st-sessions" style="color:var(--accent2);">—</div><div class="stat-l">סשני למ״ד</div></div>
+  </div>
+
+  <!-- LAMED HERO -->
+  <div class="sec-head">
+    <h2>סימולטור למ״ד</h2>
+    <div class="sec-sub">למידה מבוססת דילמות • הערכת עמיתים</div>
+  </div>
+
+  <div class="lamed-hero">
+    <div class="lh-top">
+      <div class="lh-info">
+        <div class="lh-badge">חדש</div>
+        <h2>הצגת עבודת גמר<br>— הערכת עמיתים חיה</h2>
+        <p>תלמיד מציג בפני הכיתה. שאר התלמידים מדרגים בטלפון בזמן אמת. בסוף — סיכום סטטיסטי מלא.</p>
+        <a href="lamed-host.html" class="lh-btn">פתח סשן הצגה ←</a>
+      </div>
+      <div class="lh-stats">
+        <div class="lh-stat"><div class="n">10</div><div class="l">שאלות דירוג</div></div>
+        <div class="lh-stat"><div class="n">0–10</div><div class="l">סולם הדירוג</div></div>
+        <div class="lh-stat"><div class="n">∞</div><div class="l">מדרגים במקביל</div></div>
+      </div>
+    </div>
+    <div class="lh-questions">
+      <h4>שאלות הדירוג הקבועות</h4>
+      <div class="lh-q-chips">
+        <div class="lh-chip">דילמה אישית</div>
+        <div class="lh-chip">דילמה מקצועית</div>
+        <div class="lh-chip">עומק החקר</div>
+        <div class="lh-chip">תובנות</div>
+        <div class="lh-chip">מושגי תקשורת</div>
+        <div class="lh-chip">נושאים חברתיים</div>
+        <div class="lh-chip">בהירות ההצגה</div>
+        <div class="lh-chip">חשיבות הנושא</div>
+        <div class="lh-chip">מה היה ברור ✍</div>
+        <div class="lh-chip">מה צריך פירוט ✍</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOOLS -->
+  <div class="sec-div"><span>כלים נוספים</span></div>
+  <div class="tools-row">
+    <a href="teacher-guide-v2.html" class="tool-card">
+      <div class="tool-icon">📖</div>
+      <div class="tool-title">מדריך המורה</div>
+      <div class="tool-desc">הוראות שימוש מלאות בפלטפורמה — כניסת תלמידים, מעקב הגשות, ציונים.</div>
+      <div class="tool-cta" style="color:var(--accent);">למדריך ←</div>
+    </a>
+    <a href="teacher-register.html" class="tool-card">
+      <div class="tool-icon">✍</div>
+      <div class="tool-title">הרשמת מורה</div>
+      <div class="tool-desc">רישום מורה חדש למערכת — לשיתוף עם עמיתים.</div>
+      <div class="tool-cta" style="color:var(--green);">לטופס הרשמה ←</div>
+    </a>
+    <a href="mygrades.html" class="tool-card">
+      <div class="tool-icon">🎓</div>
+      <div class="tool-title">ציונים לתלמיד</div>
+      <div class="tool-desc">דף הציונים לתלמיד — לשיתוף עם הכיתה.</div>
+      <div class="tool-cta" style="color:var(--accent2);">לדף הציונים ←</div>
+    </a>
+    <a href="admin-overview.html" class="tool-card">
+      <div class="tool-icon">⚙️</div>
+      <div class="tool-title">ניהול מורים</div>
+      <div class="tool-desc">אישור מורים חדשים, ניהול הרשאות. לאדמין בלבד.</div>
+      <div class="tool-cta" style="color:var(--red);">לניהול ←</div>
+    </a>
+  </div>
+
+  <!-- UNITS -->
+  <div class="sec-div"><span>יחידות הלימוד</span></div>
+  <div class="units-grid">
+
+    <div class="unit-card">
+      <div class="uc-stripe" style="background:#1a5c3a;"></div>
+      <div class="uc-body">
+        <div class="uc-topic">מסגור תקשורתי</div>
+        <div class="uc-title">מסגור ממסדי או עצמאי</div>
+      </div>
+      <div class="uc-links">
+        <a href="msagur-mamssadi-index.html" class="uc-link" style="color:#1a5c3a;border-color:#1a5c3a;">דף ראשי</a>
+        <a href="msagur-mamssadi-lesson.html" class="uc-link">שיעור</a>
+        <a href="msagur-mamssadi-teacher.html" class="uc-link">הגשות</a>
+        <a href="msagur-mamssadi-student.html" class="uc-link">תלמיד</a>
+      </div>
+    </div>
+
+    <div class="unit-card">
+      <div class="uc-stripe" style="background:#1a3a6b;"></div>
+      <div class="uc-body">
+        <div class="uc-topic">תקשורת בזמן מלחמה</div>
+        <div class="uc-title">תקשורת מגויסת או ביקורתית</div>
+      </div>
+      <div class="uc-links">
+        <a href="engaged-media-index.html" class="uc-link" style="color:#1a3a6b;border-color:#1a3a6b;">דף ראשי</a>
+        <a href="engaged-media-lesson.html" class="uc-link">שיעור</a>
+        <a href="engaged-media-teacher.html" class="uc-link">הגשות</a>
+        <a href="engaged-media-student.html" class="uc-link">תלמיד</a>
+      </div>
+    </div>
+
+    <div class="unit-card">
+      <div class="uc-stripe" style="background:#4a1a6b;"></div>
+      <div class="uc-body">
+        <div class="uc-topic">ייצוג בתקשורת</div>
+        <div class="uc-title">הכחדה סימבולית</div>
+      </div>
+      <div class="uc-links">
+        <a href="symbolic-index.html" class="uc-link" style="color:#4a1a6b;border-color:#4a1a6b;">דף ראשי</a>
+        <a href="symbolic-lesson.html" class="uc-link">שיעור</a>
+        <a href="symbolic-teacher.html" class="uc-link">הגשות</a>
+        <a href="symbolic-student.html" class="uc-link">תלמיד</a>
+      </div>
+    </div>
+
+    <div class="unit-card">
+      <div class="uc-stripe" style="background:#1a3a8b;"></div>
+      <div class="uc-body">
+        <div class="uc-topic">תיאוריית קהל</div>
+        <div class="uc-title">שימושים וסיפוקים</div>
+      </div>
+      <div class="uc-links">
+        <a href="uses-index.html" class="uc-link" style="color:#1a3a8b;border-color:#1a3a8b;">דף ראשי</a>
+        <a href="uses-lesson.html" class="uc-link">שיעור</a>
+        <a href="uses-teacher.html" class="uc-link">הגשות</a>
+        <a href="uses-student.html" class="uc-link">תלמיד</a>
+      </div>
+    </div>
+
+    <div class="unit-card">
+      <div class="uc-stripe" style="background:#8b1a1a;"></div>
+      <div class="uc-body">
+        <div class="uc-topic">תוכן ואלימות</div>
+        <div class="uc-title">תיאוריות של אלימות</div>
+      </div>
+      <div class="uc-links">
+        <a href="violence-index.html" class="uc-link" style="color:#8b1a1a;border-color:#8b1a1a;">דף ראשי</a>
+        <a href="violence-lesson.html" class="uc-link">שיעור</a>
+        <a href="violence-teacher.html" class="uc-link">הגשות</a>
+        <a href="violence-student.html" class="uc-link">תלמיד</a>
+      </div>
+    </div>
+
+    <div class="unit-card">
+      <div class="uc-stripe" style="background:#c9a84c;"></div>
+      <div class="uc-body">
+        <div class="uc-topic">ייצוג מגדרי</div>
+        <div class="uc-title">ייצוג מגדרי בתקשורת</div>
+      </div>
+      <div class="uc-links">
+        <a href="gender-index.html" class="uc-link" style="color:#7a5a00;border-color:#c9a84c;">דף ראשי</a>
+        <a href="gender-lesson.html" class="uc-link">שיעור</a>
+        <a href="gender-teacher.html" class="uc-link">הגשות</a>
+        <a href="gender-student.html" class="uc-link">תלמיד</a>
+      </div>
+    </div>
+
+    <div class="unit-card">
+      <div class="uc-stripe" style="background:#1d4ed8;"></div>
+      <div class="uc-body">
+        <div class="uc-topic">דימויים ותפיסה</div>
+        <div class="uc-title">סטריאוטיפים בתקשורת</div>
+      </div>
+      <div class="uc-links">
+        <a href="stereotype-index.html" class="uc-link" style="color:#1d4ed8;border-color:#1d4ed8;">דף ראשי</a>
+        <a href="stereotype-lesson.html" class="uc-link">שיעור</a>
+        <a href="stereotype-teacher.html" class="uc-link">הגשות</a>
+        <a href="stereotype-student.html" class="uc-link">תלמיד</a>
+      </div>
+    </div>
+
+    <div class="unit-card">
+      <div class="uc-stripe" style="background:#8b1a1a;"></div>
+      <div class="uc-body">
+        <div class="uc-topic">שפה ומשמעות</div>
+        <div class="uc-title">דנוטציה וקונוטציה</div>
+      </div>
+      <div class="uc-links">
+        <a href="denotation-index.html" class="uc-link" style="color:#8b1a1a;border-color:#8b1a1a;">דף ראשי</a>
+        <a href="denotation-lesson.html" class="uc-link">שיעור</a>
+        <a href="denotation-teacher.html" class="uc-link">הגשות</a>
+        <a href="denotation-student.html" class="uc-link">תלמיד</a>
+      </div>
+    </div>
+
+    <div class="unit-card">
+      <div class="uc-stripe" style="background:#1a5c1a;"></div>
+      <div class="uc-body">
+        <div class="uc-topic">מסגור תקשורתי</div>
+        <div class="uc-title">מסגור תקשורתי</div>
+      </div>
+      <div class="uc-links">
+        <a href="msagur-index.html" class="uc-link" style="color:#1a5c1a;border-color:#1a5c1a;">דף ראשי</a>
+        <a href="msagur-lesson.html" class="uc-link">שיעור</a>
+        <a href="msagur-teacher.html" class="uc-link">הגשות</a>
+        <a href="msagur-student.html" class="uc-link">תלמיד</a>
+      </div>
+    </div>
+
+    <div class="unit-card">
+      <div class="uc-stripe" style="background:#0d7a5f;"></div>
+      <div class="uc-body">
+        <div class="uc-topic">כלכלת תקשורת</div>
+        <div class="uc-title">רייטינג</div>
+      </div>
+      <div class="uc-links">
+        <a href="reyting-index.html" class="uc-link" style="color:#0d7a5f;border-color:#0d7a5f;">דף ראשי</a>
+        <a href="reyting-lesson.html" class="uc-link">שיעור</a>
+        <a href="reyting-teacher.html" class="uc-link">הגשות</a>
+        <a href="reyting-student.html" class="uc-link">תלמיד</a>
+      </div>
+    </div>
+
+    <div class="unit-card">
+      <div class="uc-stripe" style="background:#7a4f1a;"></div>
+      <div class="uc-body">
+        <div class="uc-topic">עיתונאות ואתיקה</div>
+        <div class="uc-title">עיתונאי פרקליט ושומר סף</div>
+      </div>
+      <div class="uc-links">
+        <a href="praklit-index.html" class="uc-link" style="color:#7a4f1a;border-color:#7a4f1a;">דף ראשי</a>
+        <a href="praklit-lesson.html" class="uc-link">שיעור</a>
+        <a href="praklit-teacher.html" class="uc-link">הגשות</a>
+        <a href="praklit-student.html" class="uc-link">תלמיד</a>
+      </div>
+    </div>
+
+    <div class="unit-card">
+      <div class="uc-stripe" style="background:#374151;"></div>
+      <div class="uc-body">
+        <div class="uc-topic">טכנולוגיה וחברה</div>
+        <div class="uc-title">דטרמיניזם טכנולוגי</div>
+      </div>
+      <div class="uc-links">
+        <a href="determinism-index.html" class="uc-link" style="color:#374151;border-color:#374151;">דף ראשי</a>
+        <a href="determinism-lesson.html" class="uc-link">שיעור</a>
+        <a href="determinism-teacher.html" class="uc-link">הגשות</a>
+        <a href="determinism-student.html" class="uc-link">תלמיד</a>
+      </div>
+    </div>
+
+    <div class="unit-card">
+      <div class="uc-stripe" style="background:#78350f;"></div>
+      <div class="uc-body">
+        <div class="uc-topic">כלכלת תקשורת</div>
+        <div class="uc-title">בעלות צולבת</div>
+      </div>
+      <div class="uc-links">
+        <a href="ownership-index.html" class="uc-link" style="color:#78350f;border-color:#78350f;">דף ראשי</a>
+        <a href="ownership-lesson.html" class="uc-link">שיעור</a>
+        <a href="ownership-teacher.html" class="uc-link">הגשות</a>
+        <a href="ownership-student.html" class="uc-link">תלמיד</a>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<footer>הכל בכף היד • גליל מערבי • תקשורת וחברה • פיתוח: רני בן זאב</footer>
+
+<script>
+const FC={apiKey:"AIzaSyCCHvn_ulmiyM56DuslNzNC0Ge6a8i2vhY",authDomain:"tests-fd938.firebaseapp.com",databaseURL:"https://tests-fd938-default-rtdb.europe-west1.firebasedatabase.app",projectId:"tests-fd938"};
+firebase.initializeApp(FC);
+const db=firebase.database();
+
+const TOPICS=['msagur_mamssadi','engaged_media','symbolic_annihilation','uses_and_gratifications',
+  'violence','gender','stereotype','denotation','msagur','reyting','praklit','determinism','ownership'];
+
+let currentTeacher='';
+let teacherName='';
+
+function login(){
+  const phone=document.getElementById('inp-phone').value.trim();
+  const pass=document.getElementById('inp-pass').value.trim();
+  const err=document.getElementById('login-err');
+  if(!phone||!pass){err.textContent='נא למלא טלפון וסיסמה';err.style.display='block';return;}
+  db.ref('teachers').once('value').then(snap=>{
+    let found='';let name='';
+    snap.forEach(c=>{
+      const t=c.val();
+      if(t.password===pass&&t.phone===phone&&t.status==='approved'){found=c.key;name=t.name||phone;}
+    });
+    if(!found){err.textContent='סיסמה שגויה או משתמש לא מאושר';err.style.display='block';return;}
+    currentTeacher=found;teacherName=name;
+    document.getElementById('login-overlay').style.display='none';
+    document.getElementById('teacher-banner').style.display='block';
+    document.getElementById('banner-name').textContent=name;
+    document.getElementById('mh-teacher-name').textContent=name;
+    document.getElementById('main-page').style.display='block';
+    loadStats();
+  });
+}
+
+function logout(){
+  currentTeacher='';teacherName='';
+  document.getElementById('login-overlay').style.display='flex';
+  document.getElementById('teacher-banner').style.display='none';
+  document.getElementById('main-page').style.display='none';
+  document.getElementById('inp-pass').value='';
+}
+
+document.addEventListener('keydown',e=>{
+  if(e.key==='Enter'&&document.getElementById('login-overlay').style.display!=='none') login();
+});
+
+function loadStats(){
+  // submissions
+  Promise.all(TOPICS.map(t=>db.ref('tests/'+t).once('value').then(s=>{
+    const v=s.val()||{};
+    return Object.values(v).filter(d=>d.student?.teacherID===currentTeacher);
+  }))).then(results=>{
+    const all=results.flat();
+    const graded=all.filter(d=>d.feedback?.grade!==undefined).length;
+    document.getElementById('st-submissions').textContent=all.length;
+    document.getElementById('st-pending').textContent=all.length-graded;
+  });
+  // lamed sessions
+  db.ref('lamed/sessions').orderByChild('className').once('value').then(snap=>{
+    document.getElementById('st-sessions').textContent=snap.exists()?Object.keys(snap.val()).length:0;
+  });
+}
+</script>
+</body>
+</html>
