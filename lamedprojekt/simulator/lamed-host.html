@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>למ״ד — מסך מורה</title>
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@400;700;900&family=Heebo:wght@300;400;500;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<style>
+:root{
+  --ink:#1a1208;--paper:#f5f0e8;--paper2:#e8e0cc;
+  --accent:#1a3a6b;--accent2:#c9a84c;--green:#1a5c1a;--red:#8b1a1a;
+  --sh:4px 4px 0 #1a1208;--sh2:2px 2px 0 #1a1208;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--ink);color:var(--paper);font-family:'Heebo',sans-serif;min-height:100vh;}
+
+/* SETUP SCREEN */
+#setup{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:24px;}
+.setup-box{background:var(--paper);color:var(--ink);border:3px solid var(--accent2);box-shadow:8px 8px 0 var(--accent2);max-width:500px;width:100%;padding:36px;}
+.setup-box h1{font-family:'Frank Ruhl Libre',serif;font-size:32px;font-weight:900;margin-bottom:6px;}
+.setup-box .sub{font-size:12px;letter-spacing:3px;text-transform:uppercase;color:#6b5d45;margin-bottom:28px;}
+.sf{margin-bottom:16px;}
+.sf label{display:block;font-size:10px;letter-spacing:2px;text-transform:uppercase;font-weight:700;color:#6b5d45;margin-bottom:6px;}
+.sf input{width:100%;padding:12px 14px;border:2px solid var(--ink);background:white;font-family:'Heebo',sans-serif;font-size:16px;outline:none;}
+.sf input:focus{border-color:var(--accent);}
+.start-btn{width:100%;padding:14px;background:var(--accent);color:white;border:none;font-family:'Frank Ruhl Libre',serif;font-size:20px;font-weight:900;cursor:pointer;box-shadow:var(--sh2);margin-top:8px;}
+.start-btn:hover{background:var(--ink);}
+.serr{color:var(--red);font-size:12px;font-weight:700;margin-top:8px;display:none;}
+
+/* MAIN HOST SCREEN */
+#host{display:none;min-height:100vh;flex-direction:column;}
+
+/* TOP BAR */
+.topbar{background:#111;border-bottom:3px solid var(--accent2);padding:12px 28px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;}
+.topbar-title{font-family:'Frank Ruhl Libre',serif;font-size:18px;font-weight:900;color:var(--accent2);}
+.topbar-info{font-size:12px;color:#aaa;display:flex;gap:20px;align-items:center;}
+.voter-count{background:var(--accent2);color:var(--ink);padding:3px 12px;font-size:13px;font-weight:700;}
+.qr-link{font-size:12px;color:var(--accent2);direction:ltr;word-break:break-all;border:1px solid #333;padding:4px 10px;background:#1a1a1a;}
+
+/* PRESENTER BAR */
+.presenter-bar{background:var(--accent);color:white;padding:10px 28px;font-size:14px;text-align:center;letter-spacing:1px;}
+.presenter-bar strong{font-size:16px;}
+
+/* STAGE: WAITING / QUESTION / SUMMARY */
+#stage{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:28px 20px;}
+
+/* WAITING */
+.waiting-screen{text-align:center;}
+.waiting-screen h2{font-family:'Frank Ruhl Libre',serif;font-size:42px;font-weight:900;color:var(--accent2);margin-bottom:12px;}
+.waiting-screen p{font-size:16px;color:#aaa;margin-bottom:32px;}
+.waiting-screen .code-display{font-family:monospace;font-size:48px;font-weight:900;letter-spacing:8px;color:white;background:#222;padding:16px 32px;border:2px solid var(--accent2);}
+
+/* QUESTION DISPLAY */
+.q-display{max-width:860px;width:100%;text-align:center;}
+.q-num-badge{display:inline-block;background:var(--accent2);color:var(--ink);font-size:12px;font-weight:900;letter-spacing:2px;padding:4px 14px;margin-bottom:16px;}
+.q-text{font-family:'Frank Ruhl Libre',serif;font-size:clamp(24px,4vw,48px);font-weight:900;line-height:1.2;margin-bottom:32px;}
+.scale-visual{display:flex;align-items:flex-end;justify-content:center;gap:10px;height:80px;margin-bottom:20px;}
+.scale-bar{width:44px;background:#333;border-radius:3px 3px 0 0;transition:height .4s,background .4s;}
+.scale-nums{display:flex;gap:10px;justify-content:center;}
+.scale-num{width:44px;text-align:center;font-size:13px;color:#666;}
+.vote-counter{font-size:16px;color:var(--accent2);margin-bottom:24px;}
+.avg-display{font-family:'Frank Ruhl Libre',serif;font-size:64px;font-weight:900;color:var(--accent2);margin-bottom:8px;display:none;}
+.avg-label{font-size:13px;color:#888;margin-bottom:24px;display:none;}
+
+/* CONTROLS */
+.controls{display:flex;gap:14px;flex-wrap:wrap;justify-content:center;margin-top:16px;}
+.ctrl-btn{padding:12px 28px;background:#222;color:var(--paper);border:2px solid #444;font-family:'Frank Ruhl Libre',serif;font-size:16px;font-weight:700;cursor:pointer;transition:all .15s;}
+.ctrl-btn:hover{background:var(--accent);border-color:var(--accent);}
+.ctrl-btn.primary{background:var(--accent2);color:var(--ink);border-color:var(--accent2);}
+.ctrl-btn.primary:hover{background:#e8c040;}
+.ctrl-btn.danger{background:var(--red);border-color:var(--red);}
+.ctrl-btn:disabled{opacity:.35;cursor:not-allowed;}
+
+/* PROGRESS BAR */
+.q-progress{display:flex;gap:8px;justify-content:center;margin-bottom:24px;flex-wrap:wrap;}
+.q-dot{width:12px;height:12px;border-radius:50%;background:#333;transition:background .3s;}
+.q-dot.done{background:var(--green);}
+.q-dot.active{background:var(--accent2);}
+
+/* OPEN QUESTIONS display */
+.open-q-block{max-width:860px;width:100%;margin-top:16px;}
+.open-q-label{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--accent2);margin-bottom:10px;}
+.open-q-text{font-family:'Frank Ruhl Libre',serif;font-size:clamp(20px,3.5vw,36px);font-weight:900;color:white;margin-bottom:20px;}
+.open-votes-list{display:flex;flex-direction:column;gap:8px;max-height:50vh;overflow-y:auto;}
+.open-vote-item{background:#1a1a1a;border-right:3px solid var(--accent2);padding:10px 14px;font-size:14px;color:#ccc;line-height:1.5;}
+
+/* SUMMARY SCREEN */
+.summary-screen{max-width:900px;width:100%;}
+.summary-screen h2{font-family:'Frank Ruhl Libre',serif;font-size:32px;font-weight:900;color:var(--accent2);margin-bottom:6px;text-align:center;}
+.summary-presenter{text-align:center;font-size:14px;color:#888;margin-bottom:28px;}
+.sum-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:24px;}
+@media(max-width:640px){.sum-grid{grid-template-columns:1fr;}}
+.sum-card{background:#1a1a1a;border:1px solid #333;padding:16px 18px;}
+.sum-card-q{font-size:12px;color:#888;margin-bottom:6px;line-height:1.4;}
+.sum-card-stats{display:flex;align-items:baseline;gap:10px;margin-bottom:10px;}
+.sum-avg{font-family:'Frank Ruhl Libre',serif;font-size:36px;font-weight:900;color:var(--accent2);}
+.sum-votes{font-size:12px;color:#666;}
+.sum-mini-bars{display:flex;align-items:flex-end;gap:3px;height:36px;}
+.sum-mini-bar{flex:1;background:#333;border-radius:2px 2px 0 0;transition:height .5s;}
+.open-answers-section{background:#1a1a1a;border:1px solid #333;padding:16px 18px;margin-bottom:14px;}
+.open-answers-section h4{font-family:'Frank Ruhl Libre',serif;font-size:16px;color:var(--accent2);margin-bottom:12px;}
+.open-answer-item{border-right:3px solid #333;padding:8px 12px;font-size:13px;color:#ccc;margin-bottom:6px;line-height:1.5;}
+</style>
+</head>
+<body>
+
+<!-- SETUP -->
+<div id="setup">
+  <div class="setup-box">
+    <h1>למ״ד</h1>
+    <div class="sub">למידה מבוססת דילמות • מסך מורה</div>
+    <div class="sf">
+      <label>שם המציג/ה</label>
+      <input id="presenter-name" placeholder="שם התלמיד/ה המציג/ה">
+    </div>
+    <div class="sf">
+      <label>שם הכיתה (לזיהוי)</label>
+      <input id="class-name" placeholder="לדוגמה: יב3">
+    </div>
+    <div class="serr" id="setup-err">נא למלא את כל השדות</div>
+    <button class="start-btn" onclick="startSession()">פתח סשן הצגה ←</button>
+  </div>
+</div>
+
+<!-- HOST MAIN -->
+<div id="host" style="display:none;flex-direction:column;">
+  <div class="topbar">
+    <div class="topbar-title">למ״ד — מסך מורה</div>
+    <div class="topbar-info">
+      <div class="qr-link" id="vote-url-display">טוען...</div>
+      <div class="voter-count">👥 <span id="voter-count-num">0</span> מדרגים</div>
+    </div>
+  </div>
+  <div class="presenter-bar">מציג/ה: <strong id="presenter-display"></strong> &nbsp;|&nbsp; כיתה: <strong id="class-display"></strong></div>
+
+  <div id="stage">
+    <!-- content injected by JS -->
+  </div>
+</div>
+
+<script>
+const FC={apiKey:"AIzaSyCCHvn_ulmiyM56DuslNzNC0Ge6a8i2vhY",authDomain:"tests-fd938.firebaseapp.com",databaseURL:"https://tests-fd938-default-rtdb.europe-west1.firebasedatabase.app",projectId:"tests-fd938"};
+firebase.initializeApp(FC);
+const db=firebase.database();
+
+const QUESTIONS=[
+  {type:'scale',text:'עד כמה הדילמה האישית הוצגה בצורה ברורה?'},
+  {type:'scale',text:'עד כמה הדילמה המקצועית הייתה מובנת?'},
+  {type:'scale',text:'עד כמה החקר של העבודה נראה ברור, רציני ומעמיק?'},
+  {type:'scale',text:'עד כמה התובנות מהחקר היו מעניינות ומשמעותיות?'},
+  {type:'scale',text:'עד כמה נעשה שימוש במושגים מתחום התקשורת?'},
+  {type:'scale',text:'עד כמה העבודה מתייחסת לנושאים חברתיים?'},
+  {type:'scale',text:'עד כמה ההצגה של העבודה הייתה ברורה ומסודרת?'},
+  {type:'scale',text:'עד כמה נושא העבודה חשוב בעינייך?'},
+  {type:'open',text:'מה היה החלק הכי ברור בעבודה?'},
+  {type:'open',text:'מה היה החלק שהיה צריך להסביר קצת יותר?'},
+];
+
+let sessionId='';
+let currentQ=-1;
+let votesListener=null;
+let voterListener=null;
+let presenterName='';
+let className='';
+
+function startSession(){
+  presenterName=document.getElementById('presenter-name').value.trim();
+  className=document.getElementById('class-name').value.trim();
+  if(!presenterName||!className){
+    document.getElementById('setup-err').style.display='block';return;
+  }
+  sessionId='lamed_'+Date.now();
+  db.ref('lamed/sessions/'+sessionId).set({
+    presenter:presenterName,className,startedAt:Date.now(),status:'waiting',currentQ:-1
+  }).then(()=>{
+    document.getElementById('setup').style.display='none';
+    document.getElementById('host').style.display='flex';
+    document.getElementById('presenter-display').textContent=presenterName;
+    document.getElementById('class-display').textContent=className;
+    const voteUrl=location.origin+location.pathname.replace('lamed-host.html','lamed-vote.html')+'?s='+sessionId;
+    document.getElementById('vote-url-display').textContent=voteUrl;
+    // voter count listener
+    voterListener=db.ref('lamed/sessions/'+sessionId+'/voters').on('value',snap=>{
+      const n=snap.exists()?Object.keys(snap.val()).length:0;
+      document.getElementById('voter-count-num').textContent=n;
+    });
+    showWaiting();
+  });
+}
+
+function showWaiting(){
+  currentQ=-1;
+  db.ref('lamed/sessions/'+sessionId).update({status:'waiting',currentQ:-1});
+  if(votesListener){db.ref('lamed/sessions/'+sessionId+'/votes').off();votesListener=null;}
+  const voteUrl=location.origin+location.pathname.replace('lamed-host.html','lamed-vote.html')+'?s='+sessionId;
+  document.getElementById('stage').innerHTML=`
+    <div class="waiting-screen">
+      <h2>ממתין לתלמידים</h2>
+      <p>שלחו את הקישור הבא לתלמידים:</p>
+      <div class="code-display">${voteUrl.split('?s=')[1].slice(-6)}</div>
+      <p style="margin-top:16px;font-size:13px;color:#888;">קוד הסשן הנ״ל אינו דרוש — שלחו את הקישור המלא המופיע למעלה</p>
+      <div class="controls" style="margin-top:32px;">
+        <button class="ctrl-btn primary" onclick="goToQuestion(0)">התחל הצגה ←</button>
+      </div>
+    </div>`;
+}
+
+function goToQuestion(idx){
+  if(idx>=QUESTIONS.length){showSummary();return;}
+  currentQ=idx;
+  const q=QUESTIONS[idx];
+  db.ref('lamed/sessions/'+sessionId).update({status:'question',currentQ:idx,questionType:q.type});
+  if(votesListener){db.ref('lamed/sessions/'+sessionId+'/votes/'+idx).off();}
+  if(q.type==='scale') renderScaleQuestion(idx);
+  else renderOpenQuestion(idx);
+}
+
+function renderScaleQuestion(idx){
+  const q=QUESTIONS[idx];
+  const dots=QUESTIONS.map((_,i)=>`<div class="q-dot${i<idx?' done':i===idx?' active':''}"></div>`).join('');
+  document.getElementById('stage').innerHTML=`
+    <div class="q-display">
+      <div class="q-progress">${dots}</div>
+      <div class="q-num-badge">שאלה ${idx+1} מתוך ${QUESTIONS.length}</div>
+      <div class="q-text">${q.text}</div>
+      <div class="vote-counter">הצביעו: <strong id="vote-count">0</strong></div>
+      <div class="scale-visual" id="scale-visual">
+        ${Array.from({length:11},(_,i)=>`<div class="scale-bar" id="bar-${i}" style="height:4px;"></div>`).join('')}
+      </div>
+      <div class="scale-nums">${Array.from({length:11},(_,i)=>`<div class="scale-num">${i}</div>`).join('')}</div>
+      <div class="avg-display" id="avg-display">—</div>
+      <div class="avg-label" id="avg-label">ממוצע</div>
+      <div class="controls">
+        ${idx>0?`<button class="ctrl-btn" onclick="goToQuestion(${idx-1})">← חזרה</button>`:''}
+        <button class="ctrl-btn primary" onclick="goToQuestion(${idx+1})">${idx<QUESTIONS.length-1?'שאלה הבאה ←':'סיום וסיכום ←'}</button>
+      </div>
+    </div>`;
+  // listen for votes
+  votesListener=db.ref('lamed/sessions/'+sessionId+'/votes/'+idx).on('value',snap=>{
+    const votes=snap.val()||{};
+    const vals=Object.values(votes).filter(v=>v.rating!==undefined).map(v=>v.rating);
+    document.getElementById('vote-count').textContent=vals.length;
+    // bars
+    const counts=Array(11).fill(0);
+    vals.forEach(v=>counts[v]++);
+    const max=Math.max(...counts,1);
+    counts.forEach((c,i)=>{
+      const bar=document.getElementById('bar-'+i);
+      if(bar){
+        const h=Math.max(4,Math.round((c/max)*72));
+        bar.style.height=h+'px';
+        bar.style.background=c>0?`hsl(${40+i*14},70%,50%)`:'#333';
+      }
+    });
+    if(vals.length>0){
+      const avg=(vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(1);
+      const ad=document.getElementById('avg-display');
+      const al=document.getElementById('avg-label');
+      if(ad){ad.textContent=avg;ad.style.display='block';}
+      if(al){al.style.display='block';}
+    }
+  });
+}
+
+function renderOpenQuestion(idx){
+  const q=QUESTIONS[idx];
+  const dots=QUESTIONS.map((_,i)=>`<div class="q-dot${i<idx?' done':i===idx?' active':''}"></div>`).join('');
+  document.getElementById('stage').innerHTML=`
+    <div class="open-q-block">
+      <div class="q-progress" style="justify-content:center;display:flex;gap:8px;margin-bottom:24px;">${dots}</div>
+      <div class="q-num-badge" style="display:inline-block;margin-bottom:16px;">שאלה ${idx+1} מתוך ${QUESTIONS.length}</div>
+      <div class="open-q-text">${q.text}</div>
+      <div class="vote-counter" style="margin-bottom:16px;">ענו: <strong id="vote-count">0</strong></div>
+      <div class="open-votes-list" id="open-list"></div>
+      <div class="controls" style="margin-top:24px;">
+        ${idx>0?`<button class="ctrl-btn" onclick="goToQuestion(${idx-1})">← חזרה</button>`:''}
+        <button class="ctrl-btn primary" onclick="goToQuestion(${idx+1})">${idx<QUESTIONS.length-1?'שאלה הבאה ←':'סיום וסיכום ←'}</button>
+      </div>
+    </div>`;
+  votesListener=db.ref('lamed/sessions/'+sessionId+'/votes/'+idx).on('value',snap=>{
+    const votes=snap.val()||{};
+    const answers=Object.values(votes).filter(v=>v.answer).map(v=>v.answer);
+    document.getElementById('vote-count').textContent=answers.length;
+    const list=document.getElementById('open-list');
+    if(list) list.innerHTML=answers.map(a=>`<div class="open-vote-item">${escHtml(a)}</div>`).join('');
+  });
+}
+
+function showSummary(){
+  db.ref('lamed/sessions/'+sessionId).update({status:'done'});
+  if(votesListener){db.ref('lamed/sessions/'+sessionId+'/votes').off();votesListener=null;}
+  // load all votes
+  db.ref('lamed/sessions/'+sessionId+'/votes').once('value').then(snap=>{
+    const all=snap.val()||{};
+    let html=`<div class="summary-screen">
+      <h2>סיכום הצגה</h2>
+      <div class="summary-presenter">מציג/ה: <strong>${escHtml(presenterName)}</strong> &nbsp;|&nbsp; כיתה: ${escHtml(className)}</div>
+      <div class="sum-grid">`;
+    // scale questions
+    QUESTIONS.forEach((q,i)=>{
+      if(q.type!=='scale')return;
+      const votes=all[i]||{};
+      const vals=Object.values(votes).filter(v=>v.rating!==undefined).map(v=>v.rating);
+      if(vals.length===0){
+        html+=`<div class="sum-card"><div class="sum-card-q">${q.text}</div><div class="sum-avg" style="color:#555;">—</div><div class="sum-votes">אין הצבעות</div></div>`;
+        return;
+      }
+      const avg=(vals.reduce((a,b)=>a+b,0)/vals.length).toFixed(1);
+      const counts=Array(11).fill(0);vals.forEach(v=>counts[v]++);
+      const max=Math.max(...counts,1);
+      const bars=counts.map((c,j)=>{
+        const h=Math.max(2,Math.round((c/max)*36));
+        const col=c>0?`hsl(${40+j*14},70%,50%)`:'#2a2a2a';
+        return `<div class="sum-mini-bar" style="height:${h}px;background:${col};"></div>`;
+      }).join('');
+      const scoreColor=avg>=7?'#4ade80':avg>=5?'var(--accent2)':'#f87171';
+      html+=`<div class="sum-card">
+        <div class="sum-card-q">${q.text}</div>
+        <div class="sum-card-stats">
+          <div class="sum-avg" style="color:${scoreColor}">${avg}</div>
+          <div class="sum-votes">${vals.length} הצבעות</div>
+        </div>
+        <div class="sum-mini-bars">${bars}</div>
+      </div>`;
+    });
+    html+=`</div>`;
+    // open questions
+    QUESTIONS.forEach((q,i)=>{
+      if(q.type!=='open')return;
+      const votes=all[i]||{};
+      const answers=Object.values(votes).filter(v=>v.answer).map(v=>v.answer);
+      html+=`<div class="open-answers-section">
+        <h4>${q.text}</h4>
+        ${answers.length===0?'<div class="open-answer-item" style="color:#555;">אין תשובות</div>':answers.map(a=>`<div class="open-answer-item">${escHtml(a)}</div>`).join('')}
+      </div>`;
+    });
+    html+=`<div style="text-align:center;margin-top:16px;">
+      <button class="ctrl-btn primary" onclick="location.reload()">סשן חדש ←</button>
+    </div></div>`;
+    document.getElementById('stage').innerHTML=html;
+  });
+}
+
+function escHtml(s){
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>
