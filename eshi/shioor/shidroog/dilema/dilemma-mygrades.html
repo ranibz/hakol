@@ -78,15 +78,22 @@ if(_urlCode){
   document.getElementById('field-code').style.display='none';
 }
 
+const TOPICS={'dilemma':'דילמה עיתונאית','ownership':'בעלות צולבת','determinism':'דטרמיניזם טכנולוגי','msagur':'מסגור תקשורתי','reyting':'רייטינג','konotazia':'קונוטציה','denotation':'דנוטציה וקונוטציה','praklit':'עיתונאי פרקליט ושומר סף'};
+
 function lookup(){
   const email=document.getElementById('inp-email').value.trim().toLowerCase();
   if(!email)return;
-  db.ref('tests/dilemma').once('value').then(snap=>{
-    const found=[];
-    const myCode=document.getElementById('inp-code').value.trim().toLowerCase();
-    snap.forEach(c=>{const d=c.val();d._key=c.key;
-      if((d.student?.email||'').toLowerCase()===email&&(!myCode||(d.student?.classCode||'').toLowerCase()===myCode))found.push(d);
-    });
+  const promises=Object.keys(TOPICS).map(topic=>
+    db.ref('tests/'+topic).once('value').then(snap=>{
+      const res=[];
+      snap.forEach(c=>{const d=c.val();d._key=c.key;d._topic=topic;d._topicLabel=TOPICS[topic];
+        if((d.student?.email||'').toLowerCase()===email)res.push(d);
+      });
+      return res;
+    })
+  );
+  Promise.all(promises).then(results=>{
+    const found=results.flat();
     if(!found.length){document.getElementById('merr').style.display='block';return;}
     document.getElementById('modal').style.display='none';
     document.getElementById('page').style.display='block';
@@ -103,7 +110,7 @@ function lookup(){
         d.grade===undefined?`<div class="gc-pending">המטלה הוגשה — הציון יעודכן בקרוב.</div>`:'';
       return `<div class="grade-card">
         <div class="gc-top">
-          <div><div class="gc-name">⚖️ דילמה עיתונאית</div><div class="gc-meta">${s.class||''} | ${date}</div></div>
+          <div><div class="gc-name">📋 ${d._topicLabel||'מטלה'}</div><div class="gc-meta">${s.class||''} | ${date}</div></div>
           ${gradeHtml}
         </div>
         ${fbHtml}
