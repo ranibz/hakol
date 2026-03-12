@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ייצוג מגדרי — תצוגה מקדימה</title>
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@400;700;900&family=Heebo:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Heebo',sans-serif;background:#f5f0e8;color:#1a1208;direction:rtl;}
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:1000;display:flex;align-items:center;justify-content:center;padding:16px;}
+.modal{background:#f5f0e8;border:3px solid #1a1208;box-shadow:6px 6px 0 #1a1208;padding:28px 24px;width:100%;max-width:420px;}
+.modal h2{font-family:'Frank Ruhl Libre',serif;font-size:1.5rem;font-weight:900;margin-bottom:18px;text-align:center;}
+.modal-field{margin-bottom:14px;}
+.modal-field label{display:block;font-weight:700;font-size:.85rem;margin-bottom:5px;}
+.modal-field input,.modal-field select{width:100%;padding:11px 13px;border:2px solid #1a1208;background:white;font-family:'Heebo',sans-serif;font-size:.95rem;outline:none;}
+.modal-field input:focus,.modal-field select:focus{border-color:#c9a84c;}
+.modal-field input[type="email"]{direction:ltr;text-align:left;}
+.modal-btn{width:100%;padding:13px;background:#1a1208;color:#c9a84c;border:none;font-family:'Heebo',sans-serif;font-size:1rem;font-weight:700;cursor:pointer;margin-top:6px;}
+.modal-btn:hover{opacity:.85;}
+.modal-err{color:#c0392b;font-size:.85rem;text-align:center;margin-top:8px;display:none;}
+.prog-bar-wrap{position:sticky;top:0;z-index:100;background:#1a1208;border-bottom:3px solid #c9a84c;}
+.prog-inner{display:flex;align-items:center;gap:12px;padding:10px 20px;}
+.prog-label{color:#c9a84c;font-size:.8rem;font-weight:700;white-space:nowrap;}
+.prog-track{flex:1;height:8px;background:rgba(255,255,255,.15);border-radius:4px;overflow:hidden;}
+.prog-fill{height:100%;background:#c9a84c;border-radius:4px;transition:width .4s;}
+.prog-pct{color:#c9a84c;font-size:.8rem;font-weight:700;white-space:nowrap;}
+.masthead{background:#1a1208;color:#f5f0e8;text-align:center;padding:14px 20px 10px;border-bottom:4px solid #c9a84c;}
+.masthead-kicker{font-size:.7rem;letter-spacing:3px;color:#c9a84c;margin-bottom:4px;}
+.masthead h1{font-family:'Frank Ruhl Libre',serif;font-size:clamp(1.6rem,4vw,2.4rem);font-weight:900;}
+.masthead-deck{font-size:.82rem;color:#aaa;margin-top:4px;}
+.content{max-width:820px;margin:0 auto;padding:28px 16px 60px;}
+.task-card{background:white;border:2px solid #1a1208;box-shadow:4px 4px 0 #1a1208;padding:22px;margin-bottom:28px;border-radius:2px;}
+.task-num{font-size:.7rem;letter-spacing:2px;color:#c9a84c;background:#1a1208;padding:3px 10px;display:inline-block;margin-bottom:8px;}
+.task-title{font-family:'Frank Ruhl Libre',serif;font-size:1.2rem;font-weight:900;margin-bottom:8px;}
+.task-instruction{font-size:.9rem;color:#444;line-height:1.75;margin-bottom:14px;}
+.lf-block{margin-bottom:14px;}
+.lf-label{font-weight:700;font-size:.88rem;margin-bottom:6px;display:flex;align-items:center;gap:8px;}
+.lf-q{background:#1a1208;color:#c9a84c;width:22px;height:22px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:900;flex-shrink:0;}
+.lf-hint{font-weight:400;color:#888;font-size:.82rem;}
+.ta-wrap{position:relative;}
+textarea{width:100%;min-height:80px;padding:12px 44px 12px 12px;border:2px solid #ddd;font-family:'Heebo',sans-serif;font-size:.9rem;resize:none;background:#fdfaf4;line-height:1.65;transition:border-color .2s;}
+textarea:focus{border-color:#c9a84c;outline:none;}
+.mic-btn{position:absolute;left:8px;top:8px;background:#1a1208;color:#c9a84c;border:none;width:32px;height:32px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1rem;}
+.mic-btn.recording{background:#c0392b;animation:rp .8s infinite;}
+@keyframes rp{0%,100%{opacity:1}50%{opacity:.5}}
+.radio-group{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;}
+.radio-opt{flex:1;min-width:130px;}
+.radio-opt input{display:none;}
+.radio-opt label{display:block;border:2px solid #ddd;padding:10px 14px;cursor:pointer;text-align:center;font-weight:700;font-size:.85rem;transition:all .15s;background:white;line-height:1.4;}
+.radio-opt input:checked + label{border-color:#1a1208;background:#1a1208;color:#c9a84c;}
+.radio-opt label:hover{border-color:#c9a84c;}
+
+/* CLIP SELECTOR */
+.clip-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:16px;}
+.clip-choice{border:2px solid #ddd;border-radius:4px;padding:14px 10px;cursor:pointer;text-align:center;background:white;transition:all .18s;}
+.clip-choice:hover{border-color:#c9a84c;transform:translateY(-2px);}
+.clip-choice.selected{border-color:#1a1208;background:#1a1208;color:#f5f0e8;box-shadow:3px 3px 0 #c9a84c;}
+.clip-choice.selected .cc-genre{color:#aaa;}
+.cc-emoji{font-size:2rem;margin-bottom:6px;}
+.cc-name{font-weight:900;font-size:.88rem;margin-bottom:3px;}
+.cc-artist{font-size:.75rem;color:#888;margin-bottom:3px;}
+.cc-genre{font-size:.7rem;color:#aaa;}
+.cc-yt{font-size:.7rem;color:#c0392b;font-weight:700;margin-top:5px;letter-spacing:.5px;}
+.clip-choice.selected .cc-yt{color:#ff8a80;}
+.yt-watch-btn{display:inline-flex;align-items:center;gap:8px;background:#c0392b;color:white;padding:9px 20px;text-decoration:none;font-weight:700;font-size:.88rem;border-radius:4px;margin-bottom:16px;transition:opacity .2s;}
+.yt-watch-btn:hover{opacity:.85;}
+.clip-selected-display{background:#1a1208;color:#f5f0e8;padding:12px 16px;border-radius:4px;font-size:.88rem;line-height:1.6;border-right:4px solid #c9a84c;margin-bottom:12px;}
+.clip-selected-display strong{color:#c9a84c;}
+
+/* SCALE BAR */
+.scale-bar{display:flex;flex-direction:column;gap:10px;margin-bottom:14px;}
+.scale-item{display:flex;align-items:center;gap:10px;}
+.scale-label{font-size:.82rem;font-weight:700;min-width:120px;flex-shrink:0;}
+.scale-track{flex:1;display:flex;gap:4px;}
+.scale-dot{flex:1;height:32px;border:2px solid #ddd;border-radius:3px;cursor:pointer;transition:all .15s;background:white;display:flex;align-items:center;justify-content:center;font-size:.72rem;color:#888;}
+.scale-dot:hover{border-color:#c9a84c;}
+.scale-dot.active{border-color:#1a1208;background:#1a1208;color:#c9a84c;font-weight:900;}
+.scale-ends{display:flex;justify-content:space-between;font-size:.72rem;color:#888;margin-top:-6px;margin-bottom:10px;padding:0 2px;}
+
+/* SUBMIT */
+.submit-btn{background:#1a1208;color:#c9a84c;border:none;padding:14px 40px;font-family:'Heebo',sans-serif;font-size:1rem;font-weight:700;cursor:pointer;box-shadow:3px 3px 0 #c9a84c;transition:all .15s;display:block;margin:30px auto 0;}
+.submit-btn:hover{transform:translate(-1px,-1px);box-shadow:4px 4px 0 #c9a84c;}
+.submit-btn:disabled{opacity:.5;cursor:not-allowed;}
+.success-msg{display:none;text-align:center;padding:30px;background:white;border:2px solid #1a1208;box-shadow:4px 4px 0 #1a1208;}
+.success-msg h2{font-family:'Frank Ruhl Libre',serif;font-size:1.8rem;margin-bottom:8px;}
+</style>
+</head>
+<body>
+<div style="position:sticky;top:0;z-index:9999;background:#1a1208;color:#c9a84c;text-align:center;padding:10px 20px;font-family:'Frank Ruhl Libre',serif;font-size:1rem;font-weight:900;border-bottom:3px solid #c9a84c;">👁 תצוגה מקדימה למורה — ללא שמירה</div>
+
+<div class="modal-bg" id="modalBg" style="display:none">
+  <div class="modal">
+    <h2>📝 כניסה למטלה</h2>
+    <div class="modal-field"><label>שם פרטי</label><input type="text" id="inp-first" placeholder="שם פרטי"></div>
+    <div class="modal-field"><label>שם משפחה</label><input type="text" id="inp-last" placeholder="שם משפחה"></div>
+    <div class="modal-field"><label>כתובת מייל</label><input type="email" id="inp-email" placeholder="your@email.com"></div>
+    <div class="modal-field">
+      <label>שכבה</label>
+      <select id="inp-class">
+        <option value="">— בחר שכבה —</option>
+        <option value="י׳">י׳</option><option value="יא׳">יא׳</option><option value="יב׳">יב׳</option>
+      </select>
+    </div>
+    <div class="modal-field" id="field-code"><label>קוד מורה</label><input type="text" id="inp-code" placeholder="קוד שקיבלת מהמורה"></div>
+    <button class="modal-btn" onclick="enterWorksheet()">כניסה →</button>
+    <div class="modal-err" id="modal-err">יש למלא את כל השדות</div>
+  </div>
+</div>
+
+<div class="prog-bar-wrap" id="progWrap" style="display:none;">
+  <div class="prog-inner">
+    <span class="prog-label">התקדמות</span>
+    <div class="prog-track"><div class="prog-fill" id="progFill" style="width:0%"></div></div>
+    <span class="prog-pct" id="progPct">0%</span>
+  </div>
+</div>
+
+<div class="masthead">
+  <div class="masthead-kicker">מטלה חוויתית · תקשורת וחברה</div>
+  <h1>ייצוג מגדרי</h1>
+  <div class="masthead-deck">ניתוח קליפ · כמות · אופי · דילמה</div>
+</div>
+
+<div class="content" id="mainContent" style="display:none;">
+
+  <!-- TASK 1: CHOOSE CLIP -->
+  <div class="task-card">
+    <div class="task-num">פעילות 1</div>
+    <div class="task-title">🎬 בחר קליפ לניתוח</div>
+    <div class="task-instruction">בחר אחד מהקליפים הבאים — או הצע קליפ שאתה מכיר ורוצה לנתח:</div>
+
+    <div class="clip-grid">
+      <div class="clip-choice" onclick="selectClip(this,'WAP — Cardi B','🐆','היפ-הופ','אמנית שחורה, קליפ מינית מוצהר, שליטה מלאה על ההפקה','https://www.youtube.com/watch?v=hsm4poTWjMs')">
+        <div class="cc-emoji">🐆</div>
+        <div class="cc-name">WAP</div>
+        <div class="cc-artist">Cardi B</div>
+        <div class="cc-genre">היפ-הופ</div>
+        <div class="cc-yt">▶ YouTube</div>
+      </div>
+      <div class="clip-choice" onclick="selectClip(this,'Formation — Beyoncé','👑','פופ/R&B','קליפ פוליטי-פמיניסטי, כוח נשי ללא מיניות מרכזית','https://www.youtube.com/watch?v=WDZJPJV__bQ')">
+        <div class="cc-emoji">👑</div>
+        <div class="cc-name">Formation</div>
+        <div class="cc-artist">Beyoncé</div>
+        <div class="cc-genre">פופ / R&B</div>
+        <div class="cc-yt">▶ YouTube</div>
+      </div>
+      <div class="clip-choice" onclick="selectClip(this,'Bad Guy — Billie Eilish','🖤','אינדי-פופ','קליפ שמאתגר את הנורמות — לבוש גדול, ביקורת עצמית','https://www.youtube.com/watch?v=DyDfgMOUjCI')">
+        <div class="cc-emoji">🖤</div>
+        <div class="cc-name">Bad Guy</div>
+        <div class="cc-artist">Billie Eilish</div>
+        <div class="cc-genre">אינדי-פופ</div>
+        <div class="cc-yt">▶ YouTube</div>
+      </div>
+      <div class="clip-choice" onclick="selectClip(this,'Blinding Lights — The Weeknd','🌃','פופ','גבר במרכז, נשים כרקע — ייצוג קלאסי ולא שוויוני','https://www.youtube.com/watch?v=4NRXx6U8ABQ')">
+        <div class="cc-emoji">🌃</div>
+        <div class="cc-name">Blinding Lights</div>
+        <div class="cc-artist">The Weeknd</div>
+        <div class="cc-genre">פופ</div>
+        <div class="cc-yt">▶ YouTube</div>
+      </div>
+      <div class="clip-choice" onclick="selectClip(this,'קליפ ישראלי לבחירתי','🎵','כל סגנון','בחר קליפ ישראלי שאתה מכיר','')">
+        <div class="cc-emoji">🎵</div>
+        <div class="cc-name">קליפ ישראלי</div>
+        <div class="cc-artist">לבחירתי</div>
+        <div class="cc-genre">כל סגנון</div>
+      </div>
+      <div class="clip-choice" onclick="selectClip(this,'קליפ אחר לבחירתי','⭐','כל סגנון','בחר קליפ שאתה רוצה לנתח','')">
+        <div class="cc-emoji">⭐</div>
+        <div class="cc-name">קליפ אחר</div>
+        <div class="cc-artist">לבחירתי</div>
+        <div class="cc-genre">כל סגנון</div>
+      </div>
+    </div>
+    <input type="hidden" id="t1-clip-key">
+
+    <div id="t1-clip-content" style="display:none;">
+      <div class="clip-selected-display" id="t1-clip-display"></div>
+      <a id="t1-yt-link" href="#" target="_blank" class="yt-watch-btn" style="display:none;">▶ צפה בקליפ ביוטיוב →</a>
+
+      <div class="lf-block">
+        <div class="lf-label"><span class="lf-q">א</span> שם הקליפ / אמן — <span class="lf-hint">אם בחרת "אחר"</span></div>
+        <div class="ta-wrap">
+          <textarea id="t1-clipname" rows="1" placeholder="שם הקליפ ושם האמן/ית..." oninput="autoResize(this);updateProgress()"></textarea>
+          <button class="mic-btn" onclick="startMic('t1-clipname',this)">🎤</button>
+        </div>
+      </div>
+
+      <div class="lf-block" style="margin-bottom:0;">
+        <div class="lf-label"><span class="lf-q">ב</span> תאר בקצרה את הקליפ — <span class="lf-hint">מה קורה בו? מי מופיע?</span></div>
+        <div class="ta-wrap">
+          <textarea id="t1-desc" placeholder="מה ראית? מי הדמויות? מה האווירה הכללית?" oninput="autoResize(this);updateProgress()"></textarea>
+          <button class="mic-btn" onclick="startMic('t1-desc',this)">🎤</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TASK 2: QUANTITY ANALYSIS -->
+  <div class="task-card" id="task2card" style="display:none;">
+    <div class="task-num">פעילות 2</div>
+    <div class="task-title">📊 ניתוח כמותי — מי מופיע?</div>
+    <div class="task-instruction">נתח את <strong>כמות</strong> הייצוג של כל מגדר בקליפ:</div>
+
+    <div class="scale-bar">
+      <div style="font-weight:700;font-size:.85rem;margin-bottom:4px;">נוכחות נשים בקליפ</div>
+      <div class="scale-track" id="scale-female">
+        <div class="scale-dot" onclick="setScale('female',1,this)">1</div>
+        <div class="scale-dot" onclick="setScale('female',2,this)">2</div>
+        <div class="scale-dot" onclick="setScale('female',3,this)">3</div>
+        <div class="scale-dot" onclick="setScale('female',4,this)">4</div>
+        <div class="scale-dot" onclick="setScale('female',5,this)">5</div>
+      </div>
+      <div class="scale-ends"><span>כמעט לא מופיעות</span><span>שוויוני</span><span>הן כמעט הכל</span></div>
+    </div>
+
+    <div class="scale-bar">
+      <div style="font-weight:700;font-size:.85rem;margin-bottom:4px;">נוכחות גברים בקליפ</div>
+      <div class="scale-track" id="scale-male">
+        <div class="scale-dot" onclick="setScale('male',1,this)">1</div>
+        <div class="scale-dot" onclick="setScale('male',2,this)">2</div>
+        <div class="scale-dot" onclick="setScale('male',3,this)">3</div>
+        <div class="scale-dot" onclick="setScale('male',4,this)">4</div>
+        <div class="scale-dot" onclick="setScale('male',5,this)">5</div>
+      </div>
+      <div class="scale-ends"><span>כמעט לא מופיעים</span><span>שוויוני</span><span>הם כמעט הכל</span></div>
+    </div>
+
+    <div class="lf-block" style="margin-bottom:0;">
+      <div class="lf-label"><span class="lf-q">↳</span> הסבר את הניקוד — <span class="lf-hint">מה ראית שגרם לך לתת את הציונים האלה?</span></div>
+      <div class="ta-wrap">
+        <textarea id="t2-explain" placeholder="לדוגמה: האמנית ועוד 4 רקדניות — כל הזמן על המסך. לא ראיתי גברים בכלל..." oninput="autoResize(this);updateProgress()"></textarea>
+        <button class="mic-btn" onclick="startMic('t2-explain',this)">🎤</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TASK 3: QUALITY ANALYSIS -->
+  <div class="task-card" id="task3card" style="display:none;">
+    <div class="task-num">פעילות 3</div>
+    <div class="task-title">🎭 ניתוח איכותי — איך הם מוצגים?</div>
+    <div class="task-instruction">נתח את <strong>אופי</strong> הייצוג של הנשים בקליפ:</div>
+
+    <div class="scale-bar">
+      <div style="font-weight:700;font-size:.85rem;margin-bottom:4px;">רמת מיניות גלויה</div>
+      <div class="scale-track" id="scale-sexual">
+        <div class="scale-dot" onclick="setScale('sexual',1,this)">1</div>
+        <div class="scale-dot" onclick="setScale('sexual',2,this)">2</div>
+        <div class="scale-dot" onclick="setScale('sexual',3,this)">3</div>
+        <div class="scale-dot" onclick="setScale('sexual',4,this)">4</div>
+        <div class="scale-dot" onclick="setScale('sexual',5,this)">5</div>
+      </div>
+      <div class="scale-ends"><span>אין בכלל</span><span>בינונית</span><span>גבוהה מאוד</span></div>
+    </div>
+
+    <div class="scale-bar">
+      <div style="font-weight:700;font-size:.85rem;margin-bottom:4px;">סוכנות / שליטה של הנשים</div>
+      <div class="scale-track" id="scale-agency">
+        <div class="scale-dot" onclick="setScale('agency',1,this)">1</div>
+        <div class="scale-dot" onclick="setScale('agency',2,this)">2</div>
+        <div class="scale-dot" onclick="setScale('agency',3,this)">3</div>
+        <div class="scale-dot" onclick="setScale('agency',4,this)">4</div>
+        <div class="scale-dot" onclick="setScale('agency',5,this)">5</div>
+      </div>
+      <div class="scale-ends"><span>פסיביות לחלוטין</span><span>בינוני</span><span>שולטות לגמרי</span></div>
+    </div>
+
+    <div class="lf-block">
+      <div class="lf-label"><span class="lf-q">1</span> תאר — <span class="lf-hint">כיצד לובשות הנשים? איך הן מתנהגות?</span></div>
+      <div class="ta-wrap">
+        <textarea id="t3-appearance" placeholder="תאר את הלבוש, תנועות, הבעות פנים, תפקיד בסיפור..." oninput="autoResize(this);updateProgress()"></textarea>
+        <button class="mic-btn" onclick="startMic('t3-appearance',this)">🎤</button>
+      </div>
+    </div>
+
+    <div class="lf-block" style="margin-bottom:0;">
+      <div class="lf-label"><span class="lf-q">2</span> פעיל או פסיבי? — <span class="lf-hint">האם הנשים מניעות את הסיפור?</span></div>
+      <div class="ta-wrap">
+        <textarea id="t3-active" placeholder="האם הנשים פועלות, מחליטות, מנהיגות? או שהן רקע לגבר?" oninput="autoResize(this);updateProgress()"></textarea>
+        <button class="mic-btn" onclick="startMic('t3-active',this)">🎤</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TASK 4: DILEMMA -->
+  <div class="task-card" id="task4card" style="display:none;">
+    <div class="task-num">פעילות 4</div>
+    <div class="task-title">⚖️ הדילמה — העצמה או חיפצון?</div>
+    <div class="task-instruction">לאחר ניתוח הקליפ — הגיע הזמן להביע עמדה בדילמה:</div>
+
+    <div style="background:#fff9e8;border:2px solid #c9a84c;padding:14px 16px;border-radius:2px;margin-bottom:16px;font-size:.88rem;line-height:1.7;">
+      <strong>🤔 הדילמה:</strong> כאשר אמנית מצליחה ועצמאית בוחרת להציג את עצמה בצורה מינית —
+      האם זו <strong>העצמה</strong> (שליטה, בחירה חופשית) — או <strong>חיפצון</strong> (כניעה לתעשייה, לדרישות השוק)?
+    </div>
+
+    <div class="lf-block">
+      <div class="lf-label"><span class="lf-q">א</span> עמדתך לגבי הקליפ שניתחת:</div>
+      <div class="radio-group">
+        <div class="radio-opt"><input type="radio" name="t4pos" id="t4emp" value="העצמה" onchange="updateProgress()"><label for="t4emp">💚 העצמה</label></div>
+        <div class="radio-opt"><input type="radio" name="t4pos" id="t4obj" value="חיפצון" onchange="updateProgress()"><label for="t4obj">🔴 חיפצון</label></div>
+        <div class="radio-opt"><input type="radio" name="t4pos" id="t4both" value="גם וגם" onchange="updateProgress()"><label for="t4both">⚖️ גם וגם</label></div>
+        <div class="radio-opt"><input type="radio" name="t4pos" id="t4none" value="לא ניתן לקבוע" onchange="updateProgress()"><label for="t4none">❓ קשה לקבוע</label></div>
+      </div>
+    </div>
+
+    <div class="lf-block">
+      <div class="lf-label"><span class="lf-q">ב</span> נמק — <span class="lf-hint">מה בקליפ גרם לך להחליט כך?</span></div>
+      <div class="ta-wrap">
+        <textarea id="t4-reason" placeholder="הצג ראיות מהקליפ שתומכות בעמדתך..." oninput="autoResize(this);updateProgress()"></textarea>
+        <button class="mic-btn" onclick="startMic('t4-reason',this)">🎤</button>
+      </div>
+    </div>
+
+    <div class="lf-block" style="margin-bottom:0;">
+      <div class="lf-label"><span class="lf-q">ג</span> האם לדעתך אמנית יכולה להצליח בלי להשתמש במיניות? — <span class="lf-hint">הצדק את תשובתך</span></div>
+      <div class="ta-wrap">
+        <textarea id="t4-success" placeholder="האם התעשייה מאפשרת זאת? הבא דוגמה..." oninput="autoResize(this);updateProgress()"></textarea>
+        <button class="mic-btn" onclick="startMic('t4-success',this)">🎤</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="success-msg" id="successMsg">
+    <div style="font-size:2.5rem;margin-bottom:10px;">✅</div>
+    <h2>המטלה נשלחה בהצלחה!</h2>
+    <p style="color:#555;font-size:.9rem;margin-top:6px;">תשובותיך נשמרו. ציונך יופיע בקרוב.</p>
+  </div>
+
+  <button class="submit-btn" id="submitBtn" onclick="submitWorksheet()">שלח מטלה →</button>
+</div>
+
+<script>
+// preview — no Firebase
+let student={},recognition=null;
+const scales={female:0,male:0,sexual:0,agency:0};
+
+function enterWorksheet(){
+  const first=document.getElementById('inp-first').value.trim();
+  const last=document.getElementById('inp-last').value.trim();
+  const email=document.getElementById('inp-email').value.trim();
+  const cls=document.getElementById('inp-class').value;
+  const code=document.getElementById('inp-code').value.trim().toLowerCase();
+  if(!first||!last||!email||!cls||!code){document.getElementById('modal-err').style.display='block';return;}
+  db.ref('teacher_codes').once('value').then(snap=>{
+    const codes=snap.val()||{};let tID='';
+    Object.keys(codes).forEach(k=>{if(k.startsWith(code+'_'))tID=codes[k];});
+    student={firstName:first,lastName:last,name:first+' '+last,email,class:cls,classCode:code,teacherID:tID};
+    document.getElementById('modalBg').style.display='none';
+    document.getElementById('progWrap').style.display='block';
+    document.getElementById('mainContent').style.display='block';
+    updateProgress();
+  });
+}
+
+function autoResize(el){el.style.height='auto';el.style.height=el.scrollHeight+'px';}
+
+function selectClip(el,name,emoji,genre,desc,ytUrl){
+  document.querySelectorAll('.clip-choice').forEach(c=>c.classList.remove('selected'));
+  el.classList.add('selected');
+  document.getElementById('t1-clip-key').value=name;
+  document.getElementById('t1-clip-display').innerHTML='<strong>'+emoji+' בחרת:</strong> '+name+' — '+desc;
+  const ytBtn=document.getElementById('t1-yt-link');
+  if(ytUrl){ytBtn.href=ytUrl;ytBtn.style.display='inline-flex';}
+  else{ytBtn.style.display='none';}
+  document.getElementById('t1-clip-content').style.display='block';
+  document.getElementById('task2card').style.display='block';
+  document.getElementById('task3card').style.display='block';
+  document.getElementById('task4card').style.display='block';
+  updateProgress();
+}
+
+function setScale(key,val,el){
+  const track=document.getElementById('scale-'+key);
+  track.querySelectorAll('.scale-dot').forEach(d=>d.classList.remove('active'));
+  el.classList.add('active');
+  scales[key]=val;
+  updateProgress();
+}
+
+const progressFields=[
+  ()=>document.getElementById('t1-clip-key').value,
+  ()=>document.getElementById('t1-desc').value.trim(),
+  ()=>scales.female>0?'x':'',
+  ()=>scales.male>0?'x':'',
+  ()=>document.getElementById('t2-explain').value.trim(),
+  ()=>scales.sexual>0?'x':'',
+  ()=>scales.agency>0?'x':'',
+  ()=>document.getElementById('t3-appearance').value.trim(),
+  ()=>document.getElementById('t3-active').value.trim(),
+  ()=>document.querySelector('input[name="t4pos"]:checked')?.value||'',
+  ()=>document.getElementById('t4-reason').value.trim(),
+  ()=>document.getElementById('t4-success').value.trim(),
+];
+
+function updateProgress(){
+  const filled=progressFields.filter(f=>f()!=='').length;
+  const pct=Math.round(filled/progressFields.length*100);
+  document.getElementById('progFill').style.width=pct+'%';
+  document.getElementById('progPct').textContent=pct+'%';
+}
+
+function startMic(targetId,btn){
+  if(!('webkitSpeechRecognition' in window||'SpeechRecognition' in window)){alert('הדפדפן לא תומך בזיהוי קול');return;}
+  if(recognition){recognition.stop();recognition=null;btn.classList.remove('recording');btn.textContent='🎤';return;}
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  recognition=new SR();recognition.lang='he-IL';recognition.continuous=true;recognition.interimResults=false;
+  btn.classList.add('recording');btn.textContent='⏹';
+  recognition.onresult=e=>{
+    const el=document.getElementById(targetId);
+    for(let i=e.resultIndex;i<e.results.length;i++) el.value+=e.results[i][0].transcript+' ';
+    autoResize(el);updateProgress();
+  };
+  recognition.onend=()=>{btn.classList.remove('recording');btn.textContent='🎤';recognition=null;};
+  alert("מיקרופון לא זמין בתצוגה מקדימה");return;
+}
+
+function submitWorksheet(){
+  const answers={
+    clip_chosen: document.getElementById('t1-clip-key').value,
+    clip_name: document.getElementById('t1-clipname').value.trim(),
+    clip_desc: document.getElementById('t1-desc').value.trim(),
+    quant_female: scales.female,
+    quant_male: scales.male,
+    quant_explain: document.getElementById('t2-explain').value.trim(),
+    qual_sexual: scales.sexual,
+    qual_agency: scales.agency,
+    qual_appearance: document.getElementById('t3-appearance').value.trim(),
+    qual_active: document.getElementById('t3-active').value.trim(),
+    dilemma_position: document.querySelector('input[name="t4pos"]:checked')?.value||'',
+    dilemma_reason: document.getElementById('t4-reason').value.trim(),
+    dilemma_success: document.getElementById('t4-success').value.trim(),
+  };
+  const sub={student:{...student,teacherID:student.teacherID||''},answers,submittedAt:Date.now()};
+  document.getElementById('submitBtn').disabled=true;
+  db.ref('tests/gender/').push(sub)
+    .then(()=>{document.getElementById('successMsg').style.display='block';document.getElementById('submitBtn').style.display='none';})
+    .catch(()=>{document.getElementById('submitBtn').disabled=false;alert('שגיאה בשמירה, נסה שוב.');});
+}
+
+document.addEventListener('paste',e=>{if(e.target.tagName==='TEXTAREA'){e.preventDefault();alert('אין להדביק — כתוב בעצמך!');}});
+</script>
+<script>
+window.addEventListener('DOMContentLoaded',function(){
+  if(typeof updateProgress==='function')updateProgress();
+});
+</script>
+</body>
+</html>

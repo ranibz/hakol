@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ייצוג מגדרי — דף תלמיד</title>
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@400;700;900&family=Heebo:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Heebo',sans-serif;background:#f5f0e8;color:#1a1208;direction:rtl;min-height:100vh;}
+.masthead{background:#1a1208;color:#f5f0e8;text-align:center;padding:18px 20px 14px;border-bottom:4px solid #c9a84c;}
+.masthead-kicker{font-size:.7rem;letter-spacing:3px;color:#c9a84c;margin-bottom:5px;}
+.masthead h1{font-family:'Frank Ruhl Libre',serif;font-size:clamp(2rem,6vw,3.5rem);font-weight:900;line-height:1;}
+.masthead-deck{font-size:.85rem;color:#aaa;margin-top:5px;}
+.rule{height:3px;background:linear-gradient(90deg,transparent,#c9a84c,transparent);}
+.quote-bar{background:#c9a84c;color:#1a1208;text-align:center;padding:9px 20px;font-family:'Frank Ruhl Libre',serif;font-size:.95rem;font-style:italic;font-weight:700;}
+.content{max-width:700px;margin:0 auto;padding:32px 16px 60px;}
+.intro-box{background:white;border:2px solid #1a1208;box-shadow:4px 4px 0 #1a1208;padding:20px 22px;margin-bottom:30px;}
+.intro-box h2{font-family:'Frank Ruhl Libre',serif;font-size:1.2rem;font-weight:900;margin-bottom:10px;}
+.intro-box p{font-size:.92rem;line-height:1.8;color:#333;margin-bottom:8px;}
+.steps-title{font-family:'Frank Ruhl Libre',serif;font-size:1.1rem;font-weight:900;margin-bottom:16px;}
+.step-card{display:flex;gap:16px;align-items:flex-start;background:white;border:2px solid #1a1208;box-shadow:3px 3px 0 #1a1208;padding:18px 20px;margin-bottom:14px;text-decoration:none;color:#1a1208;transition:transform .15s,box-shadow .15s;}
+.step-card:hover{transform:translate(-2px,-2px);box-shadow:5px 5px 0 #1a1208;}
+.step-num{background:#1a1208;color:#c9a84c;width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Frank Ruhl Libre',serif;font-size:1.1rem;font-weight:900;flex-shrink:0;}
+.step-title{font-family:'Frank Ruhl Libre',serif;font-size:1.05rem;font-weight:900;margin-bottom:4px;}
+.step-desc{font-size:.85rem;color:#555;line-height:1.6;}
+.step-arrow{margin-right:auto;font-size:1.2rem;opacity:.4;align-self:center;}
+.grades-card{display:flex;gap:16px;align-items:flex-start;background:#1a1208;border:2px solid #c9a84c;box-shadow:3px 3px 0 #c9a84c;padding:18px 20px;margin-bottom:14px;text-decoration:none;color:#f5f0e8;transition:transform .15s,box-shadow .15s;}
+.grades-card:hover{transform:translate(-2px,-2px);box-shadow:5px 5px 0 #c9a84c;}
+.grades-title{font-family:'Frank Ruhl Libre',serif;font-size:1.05rem;font-weight:900;margin-bottom:4px;color:#c9a84c;}
+.grades-desc{font-size:.85rem;color:#aaa;line-height:1.6;}
+</style>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+</head>
+<body>
+<div id="link-modal" style="position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:1000;display:flex;align-items:center;justify-content:center;padding:16px;">
+  <div style="background:#f5f0e8;border:3px solid #1a1208;box-shadow:6px 6px 0 #1a1208;padding:28px 24px;width:100%;max-width:420px;">
+    <div style="background:#1a1208;color:#c9a84c;text-align:center;padding:14px 20px;margin:-28px -24px 24px;font-family:'Frank Ruhl Libre',serif;font-size:1.3rem;font-weight:900;">יצירת קישור לתלמידים</div>
+    <div style="margin-bottom:14px;">
+      <label style="display:block;font-weight:700;font-size:.85rem;margin-bottom:5px;">טלפון (לאימות)</label>
+      <input type="tel" id="lm-phone" placeholder="מספר טלפון" style="direction:ltr;width:100%;padding:11px 13px;border:2px solid #1a1208;background:white;font-family:'Heebo',sans-serif;font-size:.95rem;outline:none;">
+    </div>
+    <div style="margin-bottom:14px;">
+      <label style="display:block;font-weight:700;font-size:.85rem;margin-bottom:5px;">קוד כיתה (לדוגמה: י1, יא2)</label>
+      <input type="text" id="lm-class" placeholder="קוד כיתה" style="width:100%;padding:11px 13px;border:2px solid #1a1208;background:white;font-family:'Heebo',sans-serif;font-size:.95rem;outline:none;">
+    </div>
+    <button onclick="createLink()" style="width:100%;padding:13px;background:#1a1208;color:#c9a84c;border:none;font-family:'Heebo',sans-serif;font-size:1rem;font-weight:700;cursor:pointer;margin-bottom:8px;">צור קישור לשיתוף ←</button>
+    <div id="lm-err" style="color:#c0392b;font-size:.85rem;text-align:center;display:none;margin-bottom:8px;"></div>
+    <div id="link-result" style="display:none;background:#f0fff0;border:2px solid #51cf66;padding:14px;margin-bottom:10px;">
+      <p style="font-size:.82rem;color:#555;margin-bottom:6px;">✅ הקישור מוכן לשליחה לתלמידים:</p>
+      <div id="link-url-text" style="font-size:.78rem;direction:ltr;text-align:left;word-break:break-all;background:white;border:1px solid #ccc;padding:8px;font-family:monospace;"></div>
+      <button onclick="copyLink()" id="copy-btn" style="margin-top:8px;padding:7px 16px;background:#51cf66;color:white;border:none;font-family:'Heebo',sans-serif;font-size:.88rem;font-weight:700;cursor:pointer;">📋 העתק קישור</button>
+    </div>
+    <button onclick="closeModal()" style="width:100%;padding:10px;background:#f5f0e8;color:#1a1208;border:2px solid #1a1208;font-family:'Heebo',sans-serif;font-size:.9rem;font-weight:700;cursor:pointer;">אני תלמיד — כניסה ישירה</button>
+  </div>
+</div>
+
+<div id="teacher-banner" style="display:none;background:#1a1208;color:#c9a84c;padding:8px 24px;text-align:center;font-size:.85rem;border-bottom:2px solid #c9a84c;">
+  המורה: <strong id="banner-name" style="color:white;"></strong> &nbsp;|&nbsp; קוד כיתה: <strong id="banner-code" style="color:white;letter-spacing:1px;"></strong>
+</div>
+<div class="masthead">
+  <div class="masthead-kicker">דף תלמיד · תקשורת וחברה</div>
+  <h1>ייצוג מגדרי</h1>
+  <div class="masthead-deck">קליפים · כמות · אופי · העצמה מול חיפצון</div>
+</div>
+<div class="rule"></div>
+<div class="quote-bar">"האם מיניות היא כלי של העצמה — או מחיר שמשלמים בדרך להצלחה?"</div>
+<div class="content">
+  <div class="intro-box">
+    <h2>על מה השיעור הזה?</h2>
+    <p>בשיעור זה נבחן כיצד <strong>מגדרים מוצגים בקליפים</strong> — כמה כל מגדר מופיע, ובאיזה אופן.</p>
+    <p>נתמקד בשאלה שמעסיקה את תעשיית המוזיקה: כאשר אמנית מצליחה <strong>בוחרת</strong> להציג את עצמה בצורה מינית — האם זו <strong>העצמה</strong> או <strong>חיפצון</strong>?</p>
+    <p>במטלה תנתח קליפ לבחירתך ותביע עמדה בדילמה.</p>
+  </div>
+  <div class="steps-title">📌 שלושת השלבים שלך</div>
+  <a href="gender-lesson.html" class="step-card" target="_blank">
+    <div class="step-num">1</div>
+    <div>
+      <div class="step-title">קרא את דף השיעור</div>
+      <div class="step-desc">הגדרות, ניתוח 4 קליפים אינטראקטיבי, ודמו הדילמה. לחץ על הקליפים וחקור.</div>
+    </div>
+    <span class="step-arrow">←</span>
+  </a>
+  <a href="gender-worksheet.html" id="link-worksheet" class="step-card" target="_blank">
+    <div class="step-num">2</div>
+    <div>
+      <div class="step-title">בצע את המטלה</div>
+      <div class="step-desc">בחר קליפ לניתוח — ניתוח כמותי, ניתוח איכותי, ועמדה בדילמה. 4 פעילויות.</div>
+    </div>
+    <span class="step-arrow">←</span>
+  </a>
+  <a href="../mygrades.html" id="link-mygrades" class="grades-card" target="_blank">
+    <div style="font-size:1.8rem;">⭐</div>
+    <div>
+      <div class="grades-title">הציונים שלי</div>
+      <div class="grades-desc">לאחר שהמורה יעריך את המטלה — כאן יופיע הציון שלך עם ההערות.</div>
+    </div>
+    <span class="step-arrow" style="color:#c9a84c;">←</span>
+  </a>
+</div>
+<script>
+const FC={apiKey:"AIzaSyCCHvn_ulmiyM56DuslNzNC0Ge6a8i2vhY",databaseURL:"https://tests-fd938-default-rtdb.europe-west1.firebasedatabase.app"};
+firebase.initializeApp(FC);
+const db=firebase.database();
+
+const _code=new URLSearchParams(location.search).get('code');
+if(_code){
+  document.getElementById('link-modal').style.display='none';
+  document.getElementById('link-worksheet').href='gender-worksheet.html?code='+encodeURIComponent(_code);
+  document.getElementById('link-mygrades').href='../mygrades.html?code='+encodeURIComponent(_code);
+  db.ref('teacher_codes').once('value').then(snap=>{
+    const codes=snap.val()||{};let tID='';
+    Object.keys(codes).forEach(k=>{if(k.startsWith(_code.toLowerCase()+'_'))tID=codes[k];});
+    if(!tID)return;
+    db.ref('teachers/'+tID).once('value').then(ts=>{
+      const t=ts.val();if(!t)return;
+      const name=(t.firstName&&t.lastName)?t.firstName+' '+t.lastName:(t.name||'');
+      if(name){
+        document.getElementById('banner-name').textContent=name;
+        document.getElementById('banner-code').textContent=_code;
+        document.getElementById('teacher-banner').style.display='block';
+      }
+    });
+  });
+}
+
+function createLink(){
+  const phone=document.getElementById('lm-phone').value.trim();
+  const classCode=document.getElementById('lm-class').value.trim().toLowerCase();
+  const err=document.getElementById('lm-err');
+  err.style.display='none';
+  if(!phone||!classCode){err.textContent='נא למלא טלפון וקוד כיתה';err.style.display='block';return;}
+  db.ref('teachers').once('value').then(snap=>{
+    let tID='';
+    snap.forEach(c=>{const t=c.val();if(t.phone===phone&&t.status==='approved')tID=c.key;});
+    if(!tID){err.textContent='טלפון לא נמצא או לא מאושר';err.style.display='block';return;}
+    db.ref('teacher_codes/'+classCode+'_'+tID).set(tID).then(()=>{
+      const url=location.origin+location.pathname+'?code='+encodeURIComponent(classCode);
+      document.getElementById('link-url-text').textContent=url;
+      document.getElementById('link-result').style.display='block';
+    });
+  });
+}
+
+function copyLink(){
+  navigator.clipboard.writeText(document.getElementById('link-url-text').textContent).then(()=>{
+    const btn=document.getElementById('copy-btn');btn.textContent='✅ הועתק!';
+    setTimeout(()=>btn.textContent='📋 העתק קישור',2000);
+  });
+}
+
+function closeModal(){document.getElementById('link-modal').style.display='none';}
+</script>
+</body>
+</html>

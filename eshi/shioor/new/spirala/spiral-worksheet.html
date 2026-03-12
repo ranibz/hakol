@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ספירלת השתיקה — מטלה</title>
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@400;700;900&family=Heebo:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Heebo',sans-serif;background:#f5f0e8;color:#1a1208;direction:rtl;}
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:1000;display:flex;align-items:center;justify-content:center;padding:16px;}
+.modal{background:#f5f0e8;border:3px solid #1a1208;box-shadow:6px 6px 0 #1a1208;padding:28px 24px;width:100%;max-width:420px;}
+.modal h2{font-family:'Frank Ruhl Libre',serif;font-size:1.5rem;font-weight:900;margin-bottom:18px;text-align:center;}
+.modal-field{margin-bottom:14px;}
+.modal-field label{display:block;font-weight:700;font-size:.85rem;margin-bottom:5px;}
+.modal-field input,.modal-field select{width:100%;padding:11px 13px;border:2px solid #1a1208;background:white;font-family:'Heebo',sans-serif;font-size:.95rem;outline:none;}
+.modal-field input:focus,.modal-field select:focus{border-color:#c9a84c;}
+.modal-field input[type="email"]{direction:ltr;text-align:left;}
+.modal-btn{width:100%;padding:13px;background:#1a1208;color:#c9a84c;border:none;font-family:'Heebo',sans-serif;font-size:1rem;font-weight:700;cursor:pointer;margin-top:6px;}
+.modal-btn:hover{opacity:.85;}
+.modal-err{color:#c0392b;font-size:.85rem;text-align:center;margin-top:8px;display:none;}
+.prog-bar-wrap{position:sticky;top:0;z-index:100;background:#1a1208;border-bottom:3px solid #c9a84c;}
+.prog-inner{display:flex;align-items:center;gap:12px;padding:10px 20px;}
+.prog-label{color:#c9a84c;font-size:.8rem;font-weight:700;white-space:nowrap;}
+.prog-track{flex:1;height:8px;background:rgba(255,255,255,.15);border-radius:4px;overflow:hidden;}
+.prog-fill{height:100%;background:#c9a84c;border-radius:4px;transition:width .4s;}
+.prog-pct{color:#c9a84c;font-size:.8rem;font-weight:700;white-space:nowrap;}
+.masthead{background:#1a1208;color:#f5f0e8;text-align:center;padding:14px 20px 10px;border-bottom:4px solid #c9a84c;}
+.masthead-kicker{font-size:.7rem;letter-spacing:3px;color:#c9a84c;margin-bottom:4px;}
+.masthead h1{font-family:'Frank Ruhl Libre',serif;font-size:clamp(1.6rem,4vw,2.4rem);font-weight:900;}
+.masthead-deck{font-size:.82rem;color:#aaa;margin-top:4px;}
+.content{max-width:820px;margin:0 auto;padding:28px 16px 60px;}
+.task-card{background:white;border:2px solid #1a1208;box-shadow:4px 4px 0 #1a1208;padding:22px;margin-bottom:28px;border-radius:2px;}
+.task-num{font-size:.7rem;letter-spacing:2px;color:#c9a84c;background:#1a1208;padding:3px 10px;display:inline-block;margin-bottom:8px;}
+.task-title{font-family:'Frank Ruhl Libre',serif;font-size:1.2rem;font-weight:900;margin-bottom:8px;}
+.task-instruction{font-size:.9rem;color:#444;line-height:1.75;margin-bottom:14px;}
+.lf-block{margin-bottom:14px;}
+.lf-label{font-weight:700;font-size:.88rem;margin-bottom:6px;display:flex;align-items:center;gap:8px;}
+.lf-q{background:#1a1208;color:#c9a84c;width:22px;height:22px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:900;flex-shrink:0;}
+.lf-hint{font-weight:400;color:#888;font-size:.82rem;}
+.ta-wrap{position:relative;}
+textarea{width:100%;min-height:80px;padding:12px 44px 12px 12px;border:2px solid #ddd;font-family:'Heebo',sans-serif;font-size:.9rem;resize:none;background:#fdfaf4;line-height:1.65;transition:border-color .2s;}
+textarea:focus{border-color:#c9a84c;outline:none;}
+.mic-btn{position:absolute;left:8px;top:8px;background:#1a1208;color:#c9a84c;border:none;width:32px;height:32px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:1rem;}
+.mic-btn.recording{background:#c0392b;animation:rp .8s infinite;}
+@keyframes rp{0%,100%{opacity:1}50%{opacity:.5}}
+.radio-group{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;}
+.radio-opt{flex:1;min-width:130px;}
+.radio-opt input{display:none;}
+.radio-opt label{display:block;border:2px solid #ddd;padding:10px 14px;cursor:pointer;text-align:center;font-weight:700;font-size:.85rem;transition:all .15s;background:white;}
+.radio-opt input:checked + label{border-color:#1a1208;background:#1a1208;color:#c9a84c;}
+.scenario-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-bottom:14px;}
+.scene-card{border:2px solid #ddd;padding:14px 10px;cursor:pointer;text-align:center;background:white;transition:all .18s;border-radius:4px;}
+.scene-card:hover{border-color:#c9a84c;transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,.08);}
+.scene-card.selected{border-color:#1a1208;background:#1a1208;color:#f5f0e8;transform:translateY(-2px);box-shadow:3px 3px 0 #c9a84c;}
+.scene-card.selected .scene-desc{color:#aaa;}
+.scene-icon{font-size:1.8rem;margin-bottom:6px;}
+.scene-title{font-weight:900;font-size:.88rem;margin-bottom:4px;}
+.scene-desc{font-size:.72rem;color:#888;line-height:1.4;}
+.selected-scene-display{background:#1a1208;color:#f5f0e8;padding:12px 16px;border-radius:4px;font-size:.88rem;line-height:1.6;border-right:4px solid #c9a84c;}
+.selected-scene-display strong{color:#c9a84c;}
+
+
+.scenario-item{border:2px solid #ddd;padding:12px;cursor:pointer;text-align:center;font-size:.82rem;background:white;transition:all .15s;line-height:1.4;}
+.scenario-item:hover{border-color:#c9a84c;}
+.scenario-item.selected{border-color:#1a1208;background:#1a1208;color:#c9a84c;}
+.submit-btn{background:#1a1208;color:#c9a84c;border:none;padding:14px 40px;font-family:'Heebo',sans-serif;font-size:1rem;font-weight:700;cursor:pointer;box-shadow:3px 3px 0 #c9a84c;transition:all .15s;display:block;margin:30px auto 0;}
+.submit-btn:hover{transform:translate(-1px,-1px);box-shadow:4px 4px 0 #c9a84c;}
+.submit-btn:disabled{opacity:.5;cursor:not-allowed;}
+.success-msg{display:none;text-align:center;padding:30px;background:white;border:2px solid #1a1208;box-shadow:4px 4px 0 #1a1208;}
+.success-msg h2{font-family:'Frank Ruhl Libre',serif;font-size:1.8rem;margin-bottom:8px;}
+</style>
+</head>
+<body>
+
+<div class="modal-bg" id="modalBg">
+  <div class="modal">
+    <h2>📝 כניסה למטלה</h2>
+    <div class="modal-field"><label>שם פרטי</label><input type="text" id="inp-first" placeholder="שם פרטי"></div>
+    <div class="modal-field"><label>שם משפחה</label><input type="text" id="inp-last" placeholder="שם משפחה"></div>
+    <div class="modal-field"><label>כתובת מייל</label><input type="email" id="inp-email" placeholder="your@email.com"></div>
+    <div class="modal-field">
+      <label>שכבה</label>
+      <select id="inp-class">
+        <option value="">— בחר שכבה —</option>
+        <option value="י׳">י׳</option>
+        <option value="יא׳">יא׳</option>
+        <option value="יב׳">יב׳</option>
+      </select>
+    </div>
+    <div class="modal-field" id="field-code"><label>קוד מורה</label><input type="text" id="inp-code" placeholder="קוד שקיבלת מהמורה"></div>
+    <button class="modal-btn" onclick="enterWorksheet()">כניסה →</button>
+    <div class="modal-err" id="modal-err">יש למלא את כל השדות</div>
+  </div>
+</div>
+
+<div class="prog-bar-wrap" id="progWrap" style="display:none;">
+  <div class="prog-inner">
+    <span class="prog-label">התקדמות</span>
+    <div class="prog-track"><div class="prog-fill" id="progFill" style="width:0%"></div></div>
+    <span class="prog-pct" id="progPct">0%</span>
+  </div>
+</div>
+
+<div class="masthead">
+  <div class="masthead-kicker">מטלה חוויתית · תקשורת וחברה</div>
+  <h1>ספירלת השתיקה</h1>
+  <div class="masthead-deck">זיהוי · ניתוח · חוויה אישית</div>
+</div>
+
+<div class="content" id="mainContent" style="display:none;">
+
+  <!-- TASK 1: SCENARIO BASED -->
+  <div class="task-card">
+    <div class="task-num">פעילות 1</div>
+    <div class="task-title">🤫 הספירלה מסביבך</div>
+    <div class="task-instruction">בחר תרחיש שמרגיש מוכר — ואז ענה על השאלות שיופיעו:</div>
+
+    <div class="scenario-grid" id="t1-scenarios">
+      <div class="scene-card" onclick="selectScene1(this,'כיתה','🏫','שיעור בכיתה — המורה שואל שאלה. כולם שותקים, אבל אתה יודע שהתשובה של הבן/בת כיתה שענה לא נכונה.')">
+        <div class="scene-icon">🏫</div>
+        <div class="scene-title">בכיתה</div>
+        <div class="scene-desc">המורה שואל — אתה לא מסכים עם מה שנאמר</div>
+      </div>
+      <div class="scene-card" onclick="selectScene1(this,'ווטסאפ','💬','קבוצת ווטסאפ של החברים. מישהו שולח דעה חריפה, כולם מגיבים בלייק. יש לך דעה שונה לגמרי.')">
+        <div class="scene-icon">💬</div>
+        <div class="scene-title">קבוצת ווטסאפ</div>
+        <div class="scene-desc">כולם מסכימים — רק אתה חושב אחרת</div>
+      </div>
+      <div class="scene-card" onclick="selectScene1(this,'אינסטגרם','📸','פוסט של חבר/ה עם דעה שנויה במחלוקת מקבל המון לייקים. אתה לא מסכים.')">
+        <div class="scene-icon">📸</div>
+        <div class="scene-title">אינסטגרם</div>
+        <div class="scene-desc">פוסט ויראלי — אתה לא מסכים עם המסר</div>
+      </div>
+      <div class="scene-card" onclick="selectScene1(this,'ארוחת שבת','🍽️','בארוחת שבת משפחתית, הנושא הפוליטי עולה. כולם בעד / נגד אותו דבר — חוץ ממך.')">
+        <div class="scene-icon">🍽️</div>
+        <div class="scene-title">ארוחת שבת</div>
+        <div class="scene-desc">משפחה — כולם בצד אחד פוליטית, חוץ ממך</div>
+      </div>
+      <div class="scene-card" onclick="selectScene1(this,'כדורגל','⚽','קבוצת חברים מדברת על שחקן/קבוצה. כולם רועשים בדעה אחת. אתה מרגיש הפוך.')">
+        <div class="scene-icon">⚽</div>
+        <div class="scene-title">חברים וספורט</div>
+        <div class="scene-desc">ויכוח על קבוצה — דעתך הפוכה מכולם</div>
+      </div>
+      <div class="scene-card" onclick="selectScene1(this,'כיתה_קנטור','😬','מישהו בכיתה מספר בדיחה על קבוצה מסוימת, כולם צוחקים. אתה מרגיש לא בנוח.')">
+        <div class="scene-icon">😬</div>
+        <div class="scene-title">בדיחה לא בסדר</div>
+        <div class="scene-desc">כולם צוחקים — ואתה לא מרגיש שזה בסדר</div>
+      </div>
+    </div>
+    <input type="hidden" id="t1-scene-key">
+
+    <div id="t1-questions" style="display:none;margin-top:20px;">
+      <div class="selected-scene-display" id="t1-scene-display"></div>
+
+      <div class="lf-block" style="margin-top:16px;">
+        <div class="lf-label"><span class="lf-q">1</span> <span id="t1-q1-label">מה עברה לך בראש באותו רגע?</span></div>
+        <div class="ta-wrap">
+          <textarea id="t1-situation" placeholder="כתוב מה חשבת, הרגשת, רצית לעשות..." oninput="autoResize(this);updateProgress()"></textarea>
+          <button class="mic-btn" onclick="startMic('t1-situation',this)">🎤</button>
+        </div>
+      </div>
+
+      <div class="lf-block">
+        <div class="lf-label"><span class="lf-q">2</span> <span id="t1-q2-label">שתקת? מדוע?</span></div>
+        <div class="ta-wrap">
+          <textarea id="t1-why" placeholder="פחד מביקורת? לא רצית להיות חריג? לא היה לך כוח?" oninput="autoResize(this);updateProgress()"></textarea>
+          <button class="mic-btn" onclick="startMic('t1-why',this)">🎤</button>
+        </div>
+      </div>
+
+      <div class="lf-block" style="margin-bottom:0;">
+        <div class="lf-label"><span class="lf-q">3</span> <span id="t1-q3-label">מה קרה בסוף?</span></div>
+        <div class="ta-wrap">
+          <textarea id="t1-result" placeholder="האם שתקת? דיברת? מה היתה התגובה?" oninput="autoResize(this);updateProgress()"></textarea>
+          <button class="mic-btn" onclick="startMic('t1-result',this)">🎤</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TASK 2: MEDIA SCENARIO -->
+  <div class="task-card">
+    <div class="task-num">פעילות 2</div>
+    <div class="task-title">📺 ספירלת השתיקה בתקשורת</div>
+    <div class="task-instruction">בחר נושא שסיקרה התקשורת — ונתח כיצד הוצגה בה ספירלת השתיקה:</div>
+
+    <div class="scenario-grid" id="t2-scenarios">
+      <div class="scene-card" onclick="selectScene2(this,'מלחמה','⚔️','סיקור מלחמה בתקשורת הישראלית — ערוץ חדשות ראשי')">
+        <div class="scene-icon">⚔️</div>
+        <div class="scene-title">סיקור מלחמה</div>
+        <div class="scene-desc">כיצד ערוצי החדשות מציגים עמדות בתקופת מלחמה</div>
+      </div>
+      <div class="scene-card" onclick="selectScene2(this,'רפורמה','⚖️','הרפורמה המשפטית — סיקור בתקשורת הישראלית')">
+        <div class="scene-icon">⚖️</div>
+        <div class="scene-title">רפורמה משפטית</div>
+        <div class="scene-desc">כיצד הוצגו שתי הצדדים בתקשורת</div>
+      </div>
+      <div class="scene-card" onclick="selectScene2(this,'בחירות','🗳️','סיקור בחירות — מי מקבל מקום, מי לא')">
+        <div class="scene-icon">🗳️</div>
+        <div class="scene-title">סיקור בחירות</div>
+        <div class="scene-desc">אילו מפלגות וקולות קיבלו זמן מסך</div>
+      </div>
+      <div class="scene-card" onclick="selectScene2(this,'אקלים','🌍','משבר האקלים — האם מוצגים ספקנים?')">
+        <div class="scene-icon">🌍</div>
+        <div class="scene-title">משבר האקלים</div>
+        <div class="scene-desc">האם קולות ספקניים מקבלים מקום?</div>
+      </div>
+      <div class="scene-card" onclick="selectScene2(this,'טכנולוגיה','🤖','AI ובינה מלאכותית — כיצד מסוקר הנושא')">
+        <div class="scene-icon">🤖</div>
+        <div class="scene-title">בינה מלאכותית</div>
+        <div class="scene-desc">האם הסיקור חד-צדדי? מי מביע חשש?</div>
+      </div>
+      <div class="scene-card" onclick="selectScene2(this,'ספורט','🏆','ספורטאי שהתבטא פוליטית — כיצד התקשורת הגיבה')">
+        <div class="scene-icon">🏆</div>
+        <div class="scene-title">ספורטאי פוליטי</div>
+        <div class="scene-desc">ספורטאי שהביע דעה — תגובת התקשורת</div>
+      </div>
+    </div>
+    <input type="hidden" id="t2-scene-key">
+
+    <div id="t2-questions" style="display:none;margin-top:20px;">
+      <div class="selected-scene-display" id="t2-scene-display"></div>
+
+      <div class="lf-block" style="margin-top:16px;">
+        <div class="lf-label"><span class="lf-q">1</span> <span id="t2-q1-label">איזו דעה הוצגה כ"דעת הרוב" בסיקור?</span></div>
+        <div class="ta-wrap">
+          <textarea id="t2-example" placeholder="מה התקשורת הציגה כעמדת הרוב / הקונצנזוס?" oninput="autoResize(this);updateProgress()"></textarea>
+          <button class="mic-btn" onclick="startMic('t2-example',this)">🎤</button>
+        </div>
+      </div>
+
+      <div class="lf-block">
+        <div class="lf-label"><span class="lf-q">2</span> <span id="t2-q2-label">איזו דעה הוצנעה?</span></div>
+        <div class="ta-wrap">
+          <textarea id="t2-majority" placeholder="מי לא קיבל מקום? איזה קול כמעט לא נשמע?" oninput="autoResize(this);updateProgress()"></textarea>
+          <button class="mic-btn" onclick="startMic('t2-majority',this)">🎤</button>
+        </div>
+      </div>
+
+      <div class="lf-block">
+        <div class="lf-label"><span class="lf-q">3</span> <span id="t2-q3-label">האם הכרת מישהו שחשב אחרת ושתק?</span></div>
+        <div class="ta-wrap">
+          <textarea id="t2-hidden" placeholder="מה ראית בסביבתך? האם אנשים הסתירו דעות?" oninput="autoResize(this);updateProgress()"></textarea>
+          <button class="mic-btn" onclick="startMic('t2-hidden',this)">🎤</button>
+        </div>
+      </div>
+
+      <div class="lf-block" style="margin-bottom:0;">
+        <div class="lf-label"><span class="lf-q">4</span> <span id="t2-q4-label">כיצד הסיקור השפיע על דעת הקהל?</span></div>
+        <div class="ta-wrap">
+          <textarea id="t2-effect" placeholder="האם השתיקה גרמה לשינוי בתפיסת הרוב? מה קרה?" oninput="autoResize(this);updateProgress()"></textarea>
+          <button class="mic-btn" onclick="startMic('t2-effect',this)">🎤</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TASK 3: DIGITAL -->
+  <div class="task-card">
+    <div class="task-num">פעילות 3</div>
+    <div class="task-title">האלגוריתם והספירלה</div>
+    <div class="task-instruction">בחר רשת חברתית ונתח כיצד האלגוריתם שלה יכול לייצר ספירלת שתיקה:</div>
+
+    <div style="margin-bottom:14px;">
+      <div style="font-weight:700;font-size:.88rem;margin-bottom:10px;">בחר רשת:</div>
+      <div class="scenario-list" id="t3-scenarios">
+        <div class="scenario-item" onclick="selectNetwork(this,'אינסטגרם')">📸<br>אינסטגרם</div>
+        <div class="scenario-item" onclick="selectNetwork(this,'טיקטוק')">🎵<br>טיקטוק</div>
+        <div class="scenario-item" onclick="selectNetwork(this,'יוטיוב')">▶️<br>יוטיוב</div>
+        <div class="scenario-item" onclick="selectNetwork(this,'טוויטר/X')">🐦<br>טוויטר / X</div>
+      </div>
+      <input type="hidden" id="t3-network">
+    </div>
+
+    <div id="t3-content" style="display:none;">
+      <div class="lf-block">
+        <div class="lf-label"><span class="lf-q">1</span> כיצד האלגוריתם מגביר קולות מסוימים? — <span class="lf-hint">מה הוא מדגים ומה הוא מצניע?</span></div>
+        <div class="ta-wrap">
+          <textarea id="t3-boost" placeholder="לדוגמה: ב-X פוסטים שמקבלים הרבה ריטוויטים..." oninput="autoResize(this);updateProgress()"></textarea>
+          <button class="mic-btn" onclick="startMic('t3-boost',this)">🎤</button>
+        </div>
+      </div>
+
+      <div class="lf-block" style="margin-bottom:0;">
+        <div class="lf-label"><span class="lf-q">2</span> כיצד זה מייצר ספירלת שתיקה? — <span class="lf-hint">איזה דפוס נוצר?</span></div>
+        <div class="ta-wrap">
+          <textarea id="t3-spiral" placeholder="מה קורה לאנשים שדעתם לא מקבלת חיזוק? האם הם ממשיכים לפרסם?" oninput="autoResize(this);updateProgress()"></textarea>
+          <button class="mic-btn" onclick="startMic('t3-spiral',this)">🎤</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TASK 4: BREAK THE SPIRAL -->
+  <div class="task-card">
+    <div class="task-num">פעילות 4</div>
+    <div class="task-title">שבירת הספירלה</div>
+    <div class="task-instruction">האם לדעתך אפשר לשבור את ספירלת השתיקה? כיצד?</div>
+
+    <div class="lf-block">
+      <div class="lf-label"><span class="lf-q">א</span> עמדתך — <span class="lf-hint">האם הספירלה ניתנת לשבירה?</span></div>
+      <div class="radio-group">
+        <div class="radio-opt"><input type="radio" name="t4pos" id="t4yes" value="כן" onchange="updateProgress()"><label for="t4yes">כן, ניתן לשבור</label></div>
+        <div class="radio-opt"><input type="radio" name="t4pos" id="t4no" value="לא" onchange="updateProgress()"><label for="t4no">לא, זה טבעי</label></div>
+        <div class="radio-opt"><input type="radio" name="t4pos" id="t4maybe" value="תלוי" onchange="updateProgress()"><label for="t4maybe">תלוי בהקשר</label></div>
+      </div>
+    </div>
+
+    <div class="lf-block" style="margin-bottom:0;">
+      <div class="lf-label"><span class="lf-q">ב</span> נמק והצע פתרון — <span class="lf-hint">מה יכול לעזור?</span></div>
+      <div class="ta-wrap">
+        <textarea id="t4-solution" placeholder="הצע דרכים פרקטיות לשבירת הספירלה — ברמת הפרט, הקבוצה, או התקשורת" oninput="autoResize(this);updateProgress()"></textarea>
+        <button class="mic-btn" onclick="startMic('t4-solution',this)">🎤</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="success-msg" id="successMsg">
+    <div style="font-size:2.5rem;margin-bottom:10px;">✅</div>
+    <h2>המטלה נשלחה בהצלחה!</h2>
+    <p style="color:#555;font-size:.9rem;margin-top:6px;">תשובותיך נשמרו. ציונך יופיע בקרוב.</p>
+  </div>
+
+  <button class="submit-btn" id="submitBtn" onclick="submitWorksheet()">שלח מטלה →</button>
+</div>
+
+<script>
+const FB_CONFIG={apiKey:"AIzaSyCCHvn_ulmiyM56DuslNzNC0Ge6a8i2vhY",databaseURL:"https://tests-fd938-default-rtdb.europe-west1.firebasedatabase.app"};
+firebase.initializeApp(FB_CONFIG);
+
+const _urlCode=new URLSearchParams(location.search).get('code');
+if(_urlCode){
+  document.getElementById('inp-code').value=_urlCode;
+  document.getElementById('field-code').style.display='none';
+}
+const db=firebase.database();
+let student={},recognition=null;
+
+function enterWorksheet(){
+  const first=document.getElementById('inp-first').value.trim();
+  const last=document.getElementById('inp-last').value.trim();
+  const email=document.getElementById('inp-email').value.trim();
+  const cls=document.getElementById('inp-class').value;
+  const code=(document.getElementById('inp-code').value||_urlCode||'').trim().toLowerCase();
+  if(!first||!last||!email||!cls||!code){document.getElementById('modal-err').style.display='block';return;}
+  db.ref('teacher_codes').once('value').then(snap=>{
+    const codes=snap.val()||{};
+    let teacherID='';
+    Object.keys(codes).forEach(k=>{if(k.startsWith(code+'_'))teacherID=codes[k];});
+    student={firstName:first,lastName:last,name:first+' '+last,email,class:cls,classCode:code,teacherID};
+    document.getElementById('modalBg').style.display='none';
+    document.getElementById('progWrap').style.display='block';
+    document.getElementById('mainContent').style.display='block';
+    updateProgress();
+  });
+}
+
+function autoResize(el){el.style.height='auto';el.style.height=el.scrollHeight+'px';}
+
+const progressFields=[
+  ()=>document.getElementById('t1-scene-key').value,
+  ()=>document.getElementById('t1-situation').value.trim(),
+  ()=>document.getElementById('t1-why').value.trim(),
+  ()=>document.getElementById('t1-result').value.trim(),
+  ()=>document.getElementById('t2-scene-key').value,
+  ()=>document.getElementById('t2-example').value.trim(),
+  ()=>document.getElementById('t2-majority').value.trim(),
+  ()=>document.getElementById('t2-hidden').value.trim(),
+  ()=>document.getElementById('t2-effect').value.trim(),
+  ()=>document.getElementById('t3-network').value,
+  ()=>document.getElementById('t3-boost').value.trim(),
+  ()=>document.getElementById('t3-spiral').value.trim(),
+  ()=>document.querySelector('input[name="t4pos"]:checked')?.value||'',
+  ()=>document.getElementById('t4-solution').value.trim(),
+];
+
+function updateProgress(){
+  const filled=progressFields.filter(f=>f()!=='').length;
+  const pct=Math.round(filled/progressFields.length*100);
+  document.getElementById('progFill').style.width=pct+'%';
+  document.getElementById('progPct').textContent=pct+'%';
+}
+
+function selectNetwork(el,name){
+  document.querySelectorAll('#t3-scenarios .scenario-item').forEach(i=>i.classList.remove('selected'));
+  el.classList.add('selected');
+  document.getElementById('t3-network').value=name;
+  document.getElementById('t3-content').style.display='block';
+  updateProgress();
+}
+
+const T1_SCENES = {
+  'כיתה':     {desc:'שיעור בכיתה — המורה שאל שאלה וכולם הסכימו עם תשובה שלדעתך שגויה.', q1:'מה עברה לך בראש — האם רצית לדבר?', q2:'למה שתקת / דיברת? מה חשבת שיקרה?', q3:'מה קרה בסוף? האם מישהו שבר את השתיקה?'},
+  'ווטסאפ':  {desc:'קבוצת ווטסאפ — חבר שלח דעה חריפה וכולם לחצו לייק. לך יש דעה שונה לגמרי.', q1:'מה הרגשת כשראית את הלייקים? האם זה השפיע עליך?', q2:'שלחת תגובה? אם לא — מה עצר אותך?', q3:'מה קרה לדעתך בקבוצה אחרי זה?'},
+  'אינסטגרם': {desc:'פוסט אינסטגרם ויראלי עם דעה שנויה במחלוקת — אלפי לייקים. אתה לא מסכים.', q1:'כשראית את מספר הלייקים — האם זה גרם לך לפקפק בדעתך?', q2:'האם הגבת? אם לא — מה פחדת שיקרה?', q3:'מה לדעתך קרה עם אנשים אחרים שחשבו כמוך?'},
+  'ארוחת שבת': {desc:'ארוחת שבת משפחתית — כולם בצד אחד פוליטית, חוץ ממך.', q1:'מה הרגשת? בדידות? לחץ להסכים?', q2:'שתקת או ניסית לדבר? מה קרה?', q3:'האם הדעה שלך השתנתה בגלל הלחץ החברתי?'},
+  'כדורגל':  {desc:'חברים ברעש על קבוצה — כולם בדעה אחת, ואתה הפוך לגמרי.', q1:'מה עשית — הצטרפת לחגיגה? שתקת? ניסית לוויכוח?', q2:'מה הייתה הסיבה לבחירה שלך?', q3:'איך הרגשת אחרי?'},
+  'כיתה_קנטור': {desc:'מישהו סיפר בדיחה לא בסדר — כולם צחקו, ואתה מרגיש לא בנוח.', q1:'מה הרגשת פנימה? כעס? אי-נוחות? לחץ לצחוק?', q2:'שתקת? צחקת? אמרת משהו? מה עצר אותך?', q3:'מה לדעתך קרה עם אחרים שגם הם לא אהבו?'}
+};
+
+const T2_SCENES = {
+  'מלחמה':    {desc:'סיקור מלחמה — ערוצי חדשות ראשיים בישראל בתקופת מלחמה.', q1:'איזו עמדה הוצגה כ"קונצנזוס"? מה הערוצים הדגישו?', q2:'איזו דעה כמעט לא הופיעה? מי לא קיבל מקום?', q3:'האם הכרת אנשים שחשבו אחרת ושתקו? מה ראית?', q4:'כיצד הסיקור השפיע לדעתך על דעת הקהל?'},
+  'רפורמה':   {desc:'הרפורמה המשפטית — אחד הנושאים הכי שנויים במחלוקת בישראל בשנים האחרונות.', q1:'כיצד הוצגה הרפורמה בתקשורת שאתה צורך? מה נחשב "הרוב"?', q2:'איזו עמדה קיבלה פחות מקום? מה הוצנע?', q3:'האם הרגשת שאנשים הסתירו דעות בעבודה / בית ספר?', q4:'האם לדעתך הסיקור יצר ספירלת שתיקה? כיצד?'},
+  'בחירות':   {desc:'סיקור בחירות — מי קיבל זמן מסך, מי לא, מה הוצג כ"מרכז".', q1:'אילו מפלגות / קולות שלטו בסיקור? מה נחשב "סביר"?', q2:'אילו קולות קיבלו פחות מקום? מי הוצנע?', q3:'האם הכרת בוחרים שהסתירו את העדפתם? מדוע?', q4:'כיצד לדעתך הסיקור השפיע על מי שהתכנן להצביע "אחרת"?'},
+  'אקלים':    {desc:'משבר האקלים — כיצד מסוקר הנושא ומי מביע ספקנות?', q1:'מה הוצג כ"עמדת המדע"? מה נחשב קונצנזוס?', q2:'האם ספקנים קיבלו במה? מה קרה כשדיברו?', q3:'האם הכרת אנשים שחשבו אחרת ולא אמרו?', q4:'כיצד הסיקור השפיע לדעתך על הדיון הציבורי?'},
+  'טכנולוגיה':{desc:'בינה מלאכותית — האם הסיקור בתקשורת מאוזן?', q1:'מה הוצג כ"עתיד הבלתי נמנע"? מה נחשב כ"התקדמות"?', q2:'מי הביע חשש? האם קיבל מקום?', q3:'האם הכרת אנשים שפחדו להביע חשש מ-AI?', q4:'כיצד הסיקור עיצב את דעת הקהל לדעתך?'},
+  'ספורט':    {desc:'ספורטאי שהתבטא פוליטית — כיצד תגובת התקשורת מייצרת ספירלה.', q1:'איזו עמדה הוצגה כ"מקובלת" לאחר ביטויו?', q2:'מי תמך בו בשקט? מי שתק מפחד?', q3:'האם ספורטאים אחרים שתקו אחרי זה?', q4:'מה המסר שהתקשורת העבירה לספורטאים אחרים?'}
+};
+
+function selectScene1(el, key, icon, desc){
+  document.querySelectorAll('#t1-scenarios .scene-card').forEach(c=>c.classList.remove('selected'));
+  el.classList.add('selected');
+  document.getElementById('t1-scene-key').value = key;
+  const s = T1_SCENES[key];
+  document.getElementById('t1-scene-display').innerHTML = '<strong>'+icon+' התרחיש שבחרת:</strong> '+s.desc;
+  document.getElementById('t1-q1-label').textContent = s.q1;
+  document.getElementById('t1-q2-label').textContent = s.q2;
+  document.getElementById('t1-q3-label').textContent = s.q3;
+  document.getElementById('t1-questions').style.display = 'block';
+  document.getElementById('t1-situation').value='';
+  document.getElementById('t1-why').value='';
+  document.getElementById('t1-result').value='';
+  document.getElementById('t1-questions').scrollIntoView({behavior:'smooth',block:'nearest'});
+  updateProgress();
+}
+
+function selectScene2(el, key, icon, desc){
+  document.querySelectorAll('#t2-scenarios .scene-card').forEach(c=>c.classList.remove('selected'));
+  el.classList.add('selected');
+  document.getElementById('t2-scene-key').value = key;
+  const s = T2_SCENES[key];
+  document.getElementById('t2-scene-display').innerHTML = '<strong>'+icon+' הנושא שבחרת:</strong> '+s.desc;
+  document.getElementById('t2-q1-label').textContent = s.q1;
+  document.getElementById('t2-q2-label').textContent = s.q2;
+  document.getElementById('t2-q3-label').textContent = s.q3;
+  document.getElementById('t2-q4-label').textContent = s.q4;
+  document.getElementById('t2-questions').style.display = 'block';
+  document.getElementById('t2-example').value='';
+  document.getElementById('t2-majority').value='';
+  document.getElementById('t2-hidden').value='';
+  document.getElementById('t2-effect').value='';
+  document.getElementById('t2-questions').scrollIntoView({behavior:'smooth',block:'nearest'});
+  updateProgress();
+}
+
+
+
+function startMic(targetId,btn){
+  if(!('webkitSpeechRecognition' in window||'SpeechRecognition' in window)){alert('הדפדפן לא תומך בזיהוי קול');return;}
+  if(recognition){recognition.stop();recognition=null;btn.classList.remove('recording');btn.textContent='🎤';return;}
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  recognition=new SR();recognition.lang='he-IL';recognition.continuous=true;recognition.interimResults=false;
+  btn.classList.add('recording');btn.textContent='⏹';
+  recognition.onresult=e=>{
+    const el=document.getElementById(targetId);
+    for(let i=e.resultIndex;i<e.results.length;i++) el.value+=e.results[i][0].transcript+' ';
+    autoResize(el);updateProgress();
+  };
+  recognition.onend=()=>{btn.classList.remove('recording');btn.textContent='🎤';recognition=null;};
+  recognition.start();
+}
+
+function submitWorksheet(){
+  const answers={
+    t1_scene:document.getElementById('t1-scene-key').value,
+    t1_situation:document.getElementById('t1-situation').value.trim(),
+    t1_why:document.getElementById('t1-why').value.trim(),
+    t1_result:document.getElementById('t1-result').value.trim(),
+    t2_scene:document.getElementById('t2-scene-key').value,
+    t2_example:document.getElementById('t2-example').value.trim(),
+    t2_majority:document.getElementById('t2-majority').value.trim(),
+    t2_hidden:document.getElementById('t2-hidden').value.trim(),
+    t2_effect:document.getElementById('t2-effect').value.trim(),
+    t3_network:document.getElementById('t3-network').value,
+    t3_boost:document.getElementById('t3-boost').value.trim(),
+    t3_spiral:document.getElementById('t3-spiral').value.trim(),
+    t4_position:document.querySelector('input[name="t4pos"]:checked')?.value||'',
+    t4_solution:document.getElementById('t4-solution').value.trim(),
+  };
+  const sub={student:{...student,teacherID:student.teacherID||""},answers,submittedAt:Date.now()};
+  document.getElementById('submitBtn').disabled=true;
+  db.ref('tests/spiral/').push(sub)
+    .then(()=>{document.getElementById('successMsg').style.display='block';document.getElementById('submitBtn').style.display='none';})
+    .catch(()=>{document.getElementById('submitBtn').disabled=false;alert('שגיאה בשמירה, נסה שוב.');});
+}
+
+document.addEventListener('paste',e=>{if(e.target.tagName==='TEXTAREA'){e.preventDefault();alert('אין להדביק — כתוב בעצמך!');}});
+</script>
+</body>
+</html>
