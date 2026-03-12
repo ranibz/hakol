@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>תקשורת מגויסת או ביקורתית — מטלה</title>
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@400;700;900&family=Heebo:wght@300;400;500;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<style>
+:root{--ink:#1a1208;--paper:#f5f0e8;--paper2:#e8e0cc;--accent:#1a3a6b;--accent2:#c9a84c;--sh:4px 4px 0 #1a1208;--sh2:2px 2px 0 #1a1208;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;min-height:100vh;}
+
+/* MODAL */
+.overlay{position:fixed;inset:0;background:rgba(26,18,8,.92);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px;}
+.modal-box{background:var(--paper);border:3px solid var(--ink);box-shadow:8px 8px 0 var(--ink);max-width:420px;width:100%;}
+.modal-head{background:var(--accent);color:white;padding:16px 20px;text-align:center;}
+.modal-head h2{font-family:'Frank Ruhl Libre',serif;font-size:20px;font-weight:900;}
+.modal-head p{font-size:11px;letter-spacing:2px;text-transform:uppercase;opacity:.8;margin-top:3px;}
+.modal-body{padding:24px;}
+.mf{margin-bottom:14px;}
+.mf label{display:block;font-size:10px;letter-spacing:2px;text-transform:uppercase;font-weight:700;color:#6b5d45;margin-bottom:5px;}
+.mf input,.mf select{width:100%;padding:10px 13px;border:2px solid var(--ink);background:white;font-family:'Heebo',sans-serif;font-size:14px;outline:none;}
+.mf input:focus,.mf select:focus{border-color:var(--accent);}
+.mbtn{width:100%;padding:12px;background:var(--accent);color:white;border:none;font-family:'Frank Ruhl Libre',serif;font-size:17px;font-weight:700;cursor:pointer;box-shadow:var(--sh2);}
+.mbtn:hover{background:var(--ink);}
+.merr{color:#8b1a1a;font-size:12px;font-weight:700;margin-top:8px;display:none;text-align:center;}
+
+/* PROGRESS BAR */
+.pbar{position:sticky;top:0;z-index:100;background:var(--ink);padding:8px 20px;display:flex;align-items:center;gap:12px;}
+.pbar-track{flex:1;height:7px;background:#444;}
+.pbar-fill{height:100%;background:var(--accent2);transition:width .4s;}
+.pbar-label{font-size:11px;color:var(--accent2);letter-spacing:1px;white-space:nowrap;}
+.pbar-pct{font-size:11px;color:white;}
+
+/* MASTHEAD */
+.masthead{background:var(--ink);color:var(--paper);border-bottom:4px solid var(--accent2);}
+.mhi{max-width:760px;margin:0 auto;padding:0 24px;}
+.mhti{text-align:center;padding:14px 0 8px;}
+.mhti h1{font-family:'Frank Ruhl Libre',serif;font-size:clamp(16px,3vw,30px);font-weight:900;}
+.mhti .sub{font-size:10px;letter-spacing:3px;text-transform:uppercase;color:var(--paper2);margin-top:3px;}
+.mhr{height:2px;background:var(--accent);margin-top:6px;}
+
+/* PAGE */
+.page{max-width:760px;margin:0 auto;padding:28px 20px 60px;}
+#mainpage{display:none;}
+.student-bar{background:white;border:2px solid var(--ink);box-shadow:var(--sh2);padding:10px 18px;margin-bottom:24px;display:flex;gap:16px;flex-wrap:wrap;font-size:13px;align-items:center;}
+.student-bar strong{color:var(--accent);}
+
+/* PHASES */
+.phase{display:none;}
+.phase.active{display:block;}
+
+/* ACTIVITY CARD */
+.act{background:white;border:2px solid var(--ink);box-shadow:var(--sh);margin-bottom:22px;overflow:hidden;}
+.act-header{background:var(--accent);color:white;padding:12px 20px;}
+.act-header h3{font-family:'Frank Ruhl Libre',serif;font-size:18px;font-weight:900;}
+.act-header .act-num{font-size:10px;letter-spacing:2px;text-transform:uppercase;opacity:.7;margin-bottom:2px;}
+.act-body{padding:20px;}
+.act-prompt{font-size:14px;line-height:1.7;color:#2a2010;margin-bottom:14px;border-right:4px solid var(--accent);padding-right:14px;}
+.act-sub{font-size:13px;color:#6b5d45;margin-bottom:10px;font-style:italic;}
+
+/* QUOTE BOX */
+.quote-box{background:var(--paper);border:2px solid var(--ink);padding:14px 18px;margin:12px 0;font-size:13px;line-height:1.7;border-right:5px solid var(--accent2);}
+.quote-source{font-size:11px;color:#8a7a5a;margin-top:6px;font-style:italic;}
+
+/* TEXTAREA */
+textarea{width:100%;border:2px solid var(--ink);padding:12px;font-family:'Heebo',sans-serif;font-size:14px;line-height:1.6;resize:none;background:white;min-height:90px;outline:none;}
+textarea:focus{border-color:var(--accent);}
+.mic-btn{display:inline-flex;align-items:center;gap:5px;padding:5px 12px;background:var(--ink);color:var(--accent2);border:none;font-family:'Heebo',sans-serif;font-size:11px;font-weight:700;cursor:pointer;margin-bottom:6px;}
+.mic-btn:hover{background:var(--accent);}
+.char-count{font-size:11px;color:#aaa;text-align:left;margin-top:3px;}
+
+/* CHIP SELECT */
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0;}
+.chip{padding:7px 16px;border:2px solid var(--ink);background:white;font-family:'Heebo',sans-serif;font-size:13px;cursor:pointer;font-weight:700;transition:all .15s;}
+.chip:hover,.chip.sel{background:var(--accent);color:white;}
+
+/* NAV BUTTONS */
+.nav-btns{display:flex;gap:12px;margin-top:28px;justify-content:space-between;}
+.nav-btn{padding:12px 28px;border:2px solid var(--ink);background:var(--ink);color:var(--paper);font-family:'Frank Ruhl Libre',serif;font-size:16px;font-weight:700;cursor:pointer;box-shadow:var(--sh2);}
+.nav-btn:hover{background:var(--accent);}
+.nav-btn.back{background:var(--paper2);color:var(--ink);}
+.nav-btn.back:hover{background:var(--paper);}
+
+/* SUCCESS */
+#phase-success{display:none;text-align:center;padding:40px 20px;}
+.success-icon{font-size:60px;margin-bottom:16px;}
+.success-title{font-family:'Frank Ruhl Libre',serif;font-size:28px;font-weight:900;margin-bottom:10px;}
+.success-sub{font-size:14px;color:#4a3d28;line-height:1.7;}
+
+footer{max-width:760px;margin:0 auto;border-top:3px double var(--ink);padding:14px 20px;text-align:center;font-size:11px;color:#8a7a5a;}
+</style>
+</head>
+<body>
+
+<!-- MODAL -->
+<div class="overlay" id="modal">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h2>כניסה למטלה</h2>
+      <p>תקשורת מגויסת או ביקורתית</p>
+    </div>
+    <div class="modal-body">
+      <div class="mf"><label>שם פרטי</label><input id="inp-fn" placeholder="שם פרטי"></div>
+      <div class="mf"><label>שם משפחה</label><input id="inp-ln" placeholder="שם משפחה"></div>
+      <div class="mf"><label>מייל</label><input id="inp-email" type="email" placeholder="your@email.com" style="direction:ltr;text-align:right;"></div>
+      <div class="mf">
+        <label>שכבה</label>
+        <select id="inp-grade">
+          <option value="">בחר שכבה</option>
+          <option>י׳</option><option>יא׳</option><option>יב׳</option>
+        </select>
+      </div>
+      <div class="mf" id="field-code">
+        <label>קוד מורה</label>
+        <input id="inp-code" placeholder="קוד שקיבלת מהמורה">
+      </div>
+      <div class="merr" id="modal-err"></div>
+      <button class="mbtn" onclick="enterPage()">כניסה למטלה ←</button>
+    </div>
+  </div>
+</div>
+
+<!-- PROGRESS BAR -->
+<div class="pbar" id="pbar">
+  <div class="pbar-track"><div class="pbar-fill" id="pfill" style="width:0%"></div></div>
+  <div class="pbar-label" id="plbl">שלב 1/3</div>
+  <div class="pbar-pct" id="ppct">0%</div>
+</div>
+
+<header class="masthead">
+  <div class="mhi">
+    <div class="mhti">
+      <h1>תקשורת מגויסת או ביקורתית?</h1>
+      <div class="sub">מטלה חוויתית</div>
+    </div>
+    <div class="mhr"></div>
+  </div>
+</header>
+
+<div class="page">
+<div id="mainpage">
+  <div class="student-bar">
+    <span>👤 <strong id="bname"></strong></span>
+    <span>🎓 <strong id="bcls"></strong></span>
+  </div>
+
+  <!-- PHASE 1 -->
+  <div class="phase active" id="phase-1">
+
+    <div class="act">
+      <div class="act-header">
+        <div class="act-num">פעילות א׳</div>
+        <h3>הטור שעורר שאלות</h3>
+      </div>
+      <div class="act-body">
+        <div class="act-prompt">קראו את הציטוטים מהטור בוואלה על תקשורת בזמן המלחמה מול איראן:</div>
+        <div class="quote-box">
+          "האם יכול להיות מצב בו אין אפילו עיתונאי אחד שמטיל ספק בהחלטות לפתוח במלחמה הנוכחית? איך יכול להיות שכלל הפרשנים והעיתונאים מציגים עמדה דומה כל כך?"
+          <div class="quote-source">מתוך טור בוואלה — תקשורת מגויסת או ביקורתית?</div>
+        </div>
+        <div class="act-sub">מה הרגשתם כשקראתם זאת לראשונה? האם הסכמתם, התנגדתם, תהיתם?</div>
+        <button class="mic-btn" onclick="startMic('ans_first_reaction',this)">🎤 כתיבה קולית</button>
+        <textarea id="ans_first_reaction" placeholder="תארו את תגובתכם הראשונית לטור..." oninput="ar(this);countChars(this)" onpaste="return false"></textarea>
+        <div class="char-count" id="cc_ans_first_reaction">0 תווים</div>
+      </div>
+    </div>
+
+    <div class="act">
+      <div class="act-header">
+        <div class="act-num">פעילות ב׳</div>
+        <h3>לאיזה צד אתם נוטים?</h3>
+      </div>
+      <div class="act-body">
+        <div class="act-prompt">בזמן מלחמה, מה לדעתכם תפקיד התקשורת? בחרו עמדה:</div>
+        <div class="chips" id="chips_position">
+          <div class="chip" onclick="selChip(this,'chips_position')">תקשורת ביקורתית — גם בזמן מלחמה</div>
+          <div class="chip" onclick="selChip(this,'chips_position')">גיוס חלקי — ביקורת כן, אבל עם מגבלות</div>
+          <div class="chip" onclick="selChip(this,'chips_position')">תקשורת מגויסת — הסולידריות קודמת</div>
+          <div class="chip" onclick="selChip(this,'chips_position')">תלוי בסוג המידע</div>
+        </div>
+        <div class="act-sub" style="margin-top:12px;">הסבירו את הבחירה שלכם — מה מנמק אותה?</div>
+        <button class="mic-btn" onclick="startMic('ans_position_reason',this)">🎤 כתיבה קולית</button>
+        <textarea id="ans_position_reason" placeholder="נמקו את עמדתכם..." oninput="ar(this);countChars(this)" onpaste="return false"></textarea>
+        <div class="char-count" id="cc_ans_position_reason">0 תווים</div>
+      </div>
+    </div>
+
+    <div class="nav-btns">
+      <div></div>
+      <button class="nav-btn" onclick="goPhase(2)">המשך ←</button>
+    </div>
+  </div>
+
+  <!-- PHASE 2 -->
+  <div class="phase" id="phase-2">
+
+    <div class="act">
+      <div class="act-header">
+        <div class="act-num">פעילות ג׳</div>
+        <h3>כתבים צבאיים — האם הם ביקורתיים?</h3>
+      </div>
+      <div class="act-body">
+        <div class="act-prompt">הטור מעלה שאלה: האם אחרי 7.10 הכתבים הצבאיים ממשיכים לתת אמון בגורמי הממסד הצבאי?</div>
+        <div class="act-sub">תנו דוגמה מהתקשורת שצפיתם בה — כתבה, ריאיון, פרשנות — שלדעתכם הייתה מגויסת מדי. תארו אותה ומה חסר בה:</div>
+        <button class="mic-btn" onclick="startMic('ans_example_media',this)">🎤 כתיבה קולית</button>
+        <textarea id="ans_example_media" placeholder="דוגמה מהתקשורת שנחשבת לדעתכם מגויסת מדי..." oninput="ar(this);countChars(this)" onpaste="return false"></textarea>
+        <div class="char-count" id="cc_ans_example_media">0 תווים</div>
+      </div>
+    </div>
+
+    <div class="act">
+      <div class="act-header">
+        <div class="act-num">פעילות ד׳</div>
+        <h3>ספירלת השתיקה בזמן מלחמה</h3>
+      </div>
+      <div class="act-body">
+        <div class="act-prompt">הטור שואל: "איך יכול להיות שכלל הפרשנים מציגים עמדה דומה כל כך?"</div>
+        <div class="quote-box">
+          ספירלת השתיקה — כשכולם רואים קונצנזוס, גם מי שחושב אחרת שותק. בזמן מלחמה: עיתונאי שמפקפק חושש שיראו בו בוגד.
+        </div>
+        <div class="act-sub">האם אתם מרגישים שהמלחמה הנוכחית יצרה סוג של ספירלת שתיקה? תנו דוגמה:</div>
+        <button class="mic-btn" onclick="startMic('ans_silence_spiral',this)">🎤 כתיבה קולית</button>
+        <textarea id="ans_silence_spiral" placeholder="האם חשתם שיש נושאים שאסור לדבר עליהם?..." oninput="ar(this);countChars(this)" onpaste="return false"></textarea>
+        <div class="char-count" id="cc_ans_silence_spiral">0 תווים</div>
+      </div>
+    </div>
+
+    <div class="nav-btns">
+      <button class="nav-btn back" onclick="goPhase(1)">→ חזרה</button>
+      <button class="nav-btn" onclick="goPhase(3)">המשך ←</button>
+    </div>
+  </div>
+
+  <!-- PHASE 3 -->
+  <div class="phase" id="phase-3">
+
+    <div class="act">
+      <div class="act-header">
+        <div class="act-num">פעילות ה׳</div>
+        <h3>אתם העורכים — מה תעשו?</h3>
+      </div>
+      <div class="act-body">
+        <div class="act-prompt">אתם עורכים ראשיים של אתר חדשות. יש בידיכם מידע מהימן שמבצע ישראלי נכשל. פרסום עלול לפגוע במורל הציבורי.</div>
+        <div class="act-sub">כתבו מה תחליטו לעשות, ומדוע. הסבירו איזה שיקולים קולעים:</div>
+        <button class="mic-btn" onclick="startMic('ans_editor_decision',this)">🎤 כתיבה קולית</button>
+        <textarea id="ans_editor_decision" placeholder="ההחלטה שלי כעורך..." oninput="ar(this);countChars(this)" onpaste="return false"></textarea>
+        <div class="char-count" id="cc_ans_editor_decision">0 תווים</div>
+      </div>
+    </div>
+
+    <div class="act">
+      <div class="act-header">
+        <div class="act-num">פעילות ו׳</div>
+        <h3>מה דעתי — לאחר השיעור</h3>
+      </div>
+      <div class="act-body">
+        <div class="act-prompt">בתחילת השיעור בחרתם עמדה. האם היא השתנתה? מה הוסיף השיעור לחשיבה שלכם?</div>
+        <div class="chips" id="chips_changed">
+          <div class="chip" onclick="selChip(this,'chips_changed')">דעתי התחזקה</div>
+          <div class="chip" onclick="selChip(this,'chips_changed')">דעתי השתנתה</div>
+          <div class="chip" onclick="selChip(this,'chips_changed')">אני יותר בספק עכשיו</div>
+          <div class="chip" onclick="selChip(this,'chips_changed')">הדילמה הפכה יותר מורכבת</div>
+        </div>
+        <div class="act-sub" style="margin-top:12px;">הסבירו:</div>
+        <button class="mic-btn" onclick="startMic('ans_reflection',this)">🎤 כתיבה קולית</button>
+        <textarea id="ans_reflection" placeholder="מה השתנה בחשיבה שלי..." oninput="ar(this);countChars(this)" onpaste="return false"></textarea>
+        <div class="char-count" id="cc_ans_reflection">0 תווים</div>
+      </div>
+    </div>
+
+    <div class="nav-btns">
+      <button class="nav-btn back" onclick="goPhase(2)">→ חזרה</button>
+      <button class="nav-btn" onclick="submitWS()">שלח מטלה ✓</button>
+    </div>
+  </div>
+
+  <!-- SUCCESS -->
+  <div id="phase-success">
+    <div class="success-icon">✅</div>
+    <div class="success-title">המטלה נשלחה!</div>
+    <div class="success-sub">תשובותיך הגיעו למורה. הציון יופיע בדף "הציונים שלי" לאחר ההערכה.</div>
+  </div>
+
+</div><!-- mainpage -->
+</div>
+
+<footer>הכל בכף היד • גליל מערבי • פיתוח: רני בן זאב</footer>
+
+<script>
+const FC={apiKey:"AIzaSyCCHvn_ulmiyM56DuslNzNC0Ge6a8i2vhY",authDomain:"tests-fd938.firebaseapp.com",databaseURL:"https://tests-fd938-default-rtdb.europe-west1.firebasedatabase.app",projectId:"tests-fd938"};
+firebase.initializeApp(FC);
+const db=firebase.database();
+
+const _urlCode=new URLSearchParams(location.search).get('code');
+if(_urlCode){
+  document.getElementById('inp-code').value=_urlCode;
+  document.getElementById('field-code').style.display='none';
+}
+
+let student={};
+let micRec=null;
+
+function enterPage(){
+  const fn=document.getElementById('inp-fn').value.trim();
+  const ln=document.getElementById('inp-ln').value.trim();
+  const email=document.getElementById('inp-email').value.trim().toLowerCase();
+  const grade=document.getElementById('inp-grade').value;
+  const code=document.getElementById('inp-code').value.trim().toLowerCase();
+  const err=document.getElementById('modal-err');
+  if(!fn||!ln||!email||!grade||!code){err.textContent='נא למלא את כל השדות';err.style.display='block';return;}
+
+  db.ref('teacher_codes').once('value').then(snap=>{
+    const codes=snap.val()||{};
+    let teacherID='';
+    Object.keys(codes).forEach(k=>{if(k.startsWith(code+'_')) teacherID=codes[k];});
+    student={name:fn+' '+ln,firstName:fn,lastName:ln,email,class:grade,classCode:code,teacherID};
+    document.getElementById('bname').textContent=fn+' '+ln;
+    document.getElementById('bcls').textContent=grade;
+    document.getElementById('modal').style.display='none';
+    document.getElementById('mainpage').style.display='block';
+    goPhase(1);
+  });
+}
+
+function goPhase(n){
+  document.querySelectorAll('.phase').forEach(p=>p.classList.remove('active'));
+  const ph=document.getElementById('phase-'+n);
+  if(ph) ph.classList.add('active');
+  window.scrollTo({top:0,behavior:'smooth'});
+  const tot=3;
+  const pct=Math.round((n/tot)*100);
+  document.getElementById('pfill').style.width=pct+'%';
+  document.getElementById('plbl').textContent='שלב '+n+'/'+tot;
+  document.getElementById('ppct').textContent=pct+'%';
+}
+
+function ar(el){el.style.height='auto';el.style.height=el.scrollHeight+'px';}
+
+function countChars(el){
+  const id='cc_'+el.id;
+  const cc=document.getElementById(id);
+  if(cc) cc.textContent=el.value.length+' תווים';
+}
+
+function selChip(btn,gid){
+  document.querySelectorAll('#'+gid+' .chip').forEach(c=>c.classList.remove('sel'));
+  btn.classList.add('sel');
+}
+
+function startMic(tid,btn){
+  if(!('webkitSpeechRecognition' in window||'SpeechRecognition' in window)){alert('הדפדפן לא תומך בזיהוי קול');return;}
+  if(micRec){micRec.stop();micRec=null;btn.textContent='🎤 כתיבה קולית';return;}
+  const Rec=window.SpeechRecognition||window.webkitSpeechRecognition;
+  micRec=new Rec();
+  micRec.lang='he-IL';micRec.continuous=true;micRec.interimResults=true;
+  const ta=document.getElementById(tid);
+  const base=ta.value;
+  micRec.onresult=e=>{
+    let t='';
+    for(let i=e.resultIndex;i<e.results.length;i++) t+=e.results[i][0].transcript;
+    ta.value=base+t;ar(ta);countChars(ta);
+  };
+  micRec.onend=()=>{micRec=null;btn.textContent='🎤 כתיבה קולית';};
+  micRec.start();
+  btn.textContent='⏹ עצור הקלטה';
+}
+
+function getChipVal(gid){
+  const sel=document.querySelector('#'+gid+' .chip.sel');
+  return sel?sel.textContent.trim():'';
+}
+
+function submitWS(){
+  const required=[
+    {id:'ans_first_reaction',label:'תגובה ראשונית'},
+    {id:'ans_position_reason',label:'עמדה ונימוק'},
+    {id:'ans_editor_decision',label:'החלטת עורך'},
+  ];
+  for(const r of required){
+    if(!document.getElementById(r.id).value.trim()){
+      alert('נא למלא: '+r.label);return;
+    }
+  }
+
+  const answers={
+    first_reaction:document.getElementById('ans_first_reaction').value.trim(),
+    position_chosen:getChipVal('chips_position'),
+    position_reason:document.getElementById('ans_position_reason').value.trim(),
+    example_media:document.getElementById('ans_example_media').value.trim(),
+    silence_spiral:document.getElementById('ans_silence_spiral').value.trim(),
+    editor_decision:document.getElementById('ans_editor_decision').value.trim(),
+    position_changed:getChipVal('chips_changed'),
+    reflection:document.getElementById('ans_reflection').value.trim(),
+  };
+
+  const data={student,answers,submittedAt:Date.now()};
+  db.ref('tests/engaged_media/').push(data).then(()=>{
+    document.querySelectorAll('.phase').forEach(p=>p.classList.remove('active'));
+    document.getElementById('phase-success').style.display='block';
+    window.scrollTo({top:0,behavior:'smooth'});
+  }).catch(()=>alert('שגיאה בשליחה, נסו שוב'));
+}
+</script>
+</body>
+</html>
