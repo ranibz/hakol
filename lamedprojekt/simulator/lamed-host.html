@@ -337,30 +337,14 @@ body{
 </head>
 <body>
 
-<!-- SETUP -->
-<div id="setup">
-  <div class="setup-card">
-    <div class="setup-logo">למ״ד</div>
-    <div class="setup-sub">הערכת עמיתים • עבודת גמר</div>
-    <div class="sf">
-      <label>שם המציג/ה</label>
-      <input id="presenter-name" placeholder="שם התלמיד/ה המציג/ה" onkeydown="if(event.key==='Enter')startSession()">
-    </div>
-    <div class="sf">
-      <label>שם הכיתה</label>
-      <input id="class-name" placeholder="לדוגמה: יב3" onkeydown="if(event.key==='Enter')startSession()">
-    </div>
-    <div class="serr" id="setup-err">נא למלא את כל השדות</div>
-    <button class="start-btn" onclick="goToEditor()">הגדר שאלות ←</button>
-  </div>
-</div>
-
-<!-- QUESTION EDITOR -->
-<div id="qeditor" style="display:none;flex-direction:column;">
+<!-- QUESTION EDITOR — מסך ראשון -->
+<div id="qeditor" style="display:flex;flex-direction:column;">
   <div style="max-width:660px;margin:40px auto;padding:0 24px;width:100%;">
     <div class="qe-card">
-      <div class="qe-title">שאלות ההצגה</div>
-      <div class="qe-sub">בחר סט מוכן או בנה שאלות בעצמך</div>
+      <div class="setup-logo" style="margin-bottom:4px;">למ״ד</div>
+      <div class="setup-sub" style="margin-bottom:24px;">הערכת עמיתים • עבודת גמר</div>
+      <div class="qe-title">בחר את השאלות</div>
+      <div class="qe-sub">שלב 1 מתוך 2 — תוכל לקבוע שם מציג/ה בשלב הבא</div>
       <div class="qe-tabs">
         <button class="qe-tab active" id="tab-preset" onclick="switchTab('preset')">✦ שאלות מוכנות</button>
         <button class="qe-tab" id="tab-custom" onclick="switchTab('custom')">✎ שאלות אישיות</button>
@@ -374,8 +358,7 @@ body{
           <div id="preview-items"></div>
         </div>
         <div class="qe-actions">
-          <button class="qe-back" onclick="backToSetup()">← חזרה</button>
-          <button class="qe-go" id="use-preset-btn" onclick="usePreset()" disabled style="opacity:.4;cursor:not-allowed;">בחר סט תחילה</button>
+          <button class="qe-go" id="use-preset-btn" onclick="presetToSetup()" disabled style="opacity:.4;cursor:not-allowed;">המשך — הזן שם מציג/ה ←</button>
         </div>
       </div>
 
@@ -385,11 +368,30 @@ body{
         <button class="add-q-btn" onclick="addRow()" id="add-q-btn">+ הוסף שאלה</button>
         <div class="qe-limit" id="q-limit">0 / 10 שאלות</div>
         <div class="qe-actions">
-          <button class="qe-back" onclick="backToSetup()">← חזרה</button>
-          <button class="qe-go" onclick="useCustom()">התחל עם שאלות אלה ←</button>
+          <button class="qe-go" onclick="customToSetup()">המשך — הזן שם מציג/ה ←</button>
         </div>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- SETUP — מסך שני -->
+<div id="setup" style="display:none;">
+  <div class="setup-card">
+    <div class="setup-logo">למ״ד</div>
+    <div class="setup-sub">שלב 2 מתוך 2</div>
+    <div class="sf">
+      <label>שם המציג/ה</label>
+      <input id="presenter-name" placeholder="שם התלמיד/ה המציג/ה" onkeydown="if(event.key==='Enter')startSession()">
+    </div>
+    <div class="sf">
+      <label>שם הכיתה</label>
+      <input id="class-name" placeholder="לדוגמה: יב3" onkeydown="if(event.key==='Enter')startSession()">
+    </div>
+    <div id="setup-qs-summary" style="background:rgba(124,92,252,.08);border:1px solid rgba(124,92,252,.2);border-radius:12px;padding:11px 16px;font-size:12px;color:rgba(255,255,255,.45);margin-bottom:18px;display:none;"></div>
+    <div class="serr" id="setup-err">נא למלא את כל השדות</div>
+    <button class="start-btn" onclick="startSession()">פתח סשן הצגה ←</button>
+    <button class="qe-back" style="width:100%;margin-top:10px;text-align:center;" onclick="backToEditor()">← חזרה לשאלות</button>
   </div>
 </div>
 
@@ -483,22 +485,37 @@ let selectedPresetId=null;
 let QS=[];
 let sessionId='',currentQ=-1,votesListener=null,presenterName='',className='',voteUrl='';
 
-// ─── SETUP ───
-function goToEditor(){
-  presenterName=document.getElementById('presenter-name').value.trim();
-  className=document.getElementById('class-name').value.trim();
-  if(!presenterName||!className){document.getElementById('setup-err').style.display='block';return;}
+// ─── SETUP / NAV ───
+function backToEditor(){
   document.getElementById('setup').style.display='none';
   document.getElementById('qeditor').style.display='flex';
-  renderSetGrid();
-  renderCustomRows();
-  // אם הגיע מהפורטל עם ?tab=
-  const tabParam=new URLSearchParams(location.search).get('tab');
-  if(tabParam==='custom') switchTab('custom');
 }
-function backToSetup(){
+function showSetup(){
+  // הצג סיכום שאלות נבחרות
+  const n=QS.length;
+  const ns=QS.filter(q=>q.type==='scale').length;
+  const no=QS.filter(q=>q.type==='open').length;
+  const sum=document.getElementById('setup-qs-summary');
+  if(sum){
+    sum.style.display='block';
+    sum.innerHTML=`✦ נבחרו ${n} שאלות — ${ns} דירוג, ${no} פתוחות`;
+  }
   document.getElementById('qeditor').style.display='none';
   document.getElementById('setup').style.display='flex';
+  setTimeout(()=>document.getElementById('presenter-name')?.focus(),100);
+}
+function presetToSetup(){
+  const p=PRESETS.find(x=>x.id===selectedPresetId);
+  if(!p)return;
+  QS=[...p.questions];
+  showSetup();
+}
+function customToSetup(){
+  document.querySelectorAll('.qe-input').forEach((el,i)=>{if(customRows[i])customRows[i].text=el.value.trim();});
+  const valid=customRows.filter(r=>r.text.trim());
+  if(!valid.length){alert('נא להוסיף לפחות שאלה אחת');return;}
+  QS=valid.map(r=>({type:r.type,text:r.text.trim()}));
+  showSetup();
 }
 
 // ─── TABS ───
@@ -544,12 +561,6 @@ function selectPreset(id){
   btn.disabled=false;btn.style.opacity='1';btn.style.cursor='pointer';
   btn.textContent='השתמש בסט זה ←';
 }
-function usePreset(){
-  const p=PRESETS.find(x=>x.id===selectedPresetId);
-  if(!p)return;
-  QS=[...p.questions];
-  startSession();
-}
 
 // ─── CUSTOM ───
 let customRows=[];
@@ -593,16 +604,12 @@ function toggleType(i){
   customRows[i].type=customRows[i].type==='scale'?'open':'scale';
   updateCustomUI();
 }
-function useCustom(){
-  document.querySelectorAll('.qe-input').forEach((el,i)=>{if(customRows[i])customRows[i].text=el.value.trim();});
-  const valid=customRows.filter(r=>r.text.trim());
-  if(!valid.length){alert('נא להוסיף לפחות שאלה אחת');return;}
-  QS=valid.map(r=>({type:r.type,text:r.text.trim()}));
-  startSession();
-}
 
 // ─── SESSION ───
 function startSession(){
+  presenterName=document.getElementById('presenter-name').value.trim();
+  className=document.getElementById('class-name').value.trim();
+  if(!presenterName||!className){document.getElementById('setup-err').style.display='block';return;}
   sessionId='lamed_'+Date.now();
   voteUrl=location.origin+location.pathname.replace('lamed-host.html','lamed-vote.html')+'?s='+sessionId;
   db.ref('lamed/sessions/'+sessionId).set({
@@ -791,6 +798,14 @@ function exportCSV(){
 }
 
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+// ─── INIT ───
+(function(){
+  renderSetGrid();
+  renderCustomRows();
+  const tab=new URLSearchParams(location.search).get('tab');
+  if(tab==='custom') switchTab('custom');
+})();
 </script>
 </body>
 </html>
