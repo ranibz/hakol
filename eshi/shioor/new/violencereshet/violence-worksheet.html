@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>אלימות ברשת — מטלה חוויתית</title>
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@400;700;900&family=Heebo:wght@300;400;500;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<style>
+:root{--paper:#f5f0e8;--paper-dark:#e8e0cc;--ink:#1a1208;--ink-light:#6b5d45;--accent:#8b1a1a;--green:#2d7a2d;--shadow:4px 4px 0 #1a1208;--shadow-sm:2px 2px 0 #1a1208;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;line-height:1.75;background-image:repeating-linear-gradient(0deg,transparent,transparent 27px,rgba(26,18,8,0.055) 27px,rgba(26,18,8,0.055) 28px);}
+.modal-overlay{position:fixed;inset:0;background:rgba(26,18,8,.92);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px;}
+.modal-box{background:var(--paper);border:3px solid var(--ink);box-shadow:8px 8px 0 var(--ink);max-width:460px;width:100%;padding:40px;max-height:90vh;overflow-y:auto;}
+.modal-head{background:var(--accent);color:var(--paper);text-align:center;padding:18px 24px;margin:-40px -40px 32px;}
+.modal-head h2{font-family:'Frank Ruhl Libre',serif;font-size:26px;font-weight:900;}
+.modal-head p{font-size:12px;letter-spacing:3px;text-transform:uppercase;opacity:.75;margin-top:5px;}
+.m-field{margin-bottom:18px;}
+.m-field label{display:block;font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:700;color:var(--ink-light);margin-bottom:6px;}
+.m-field input,.m-field select{width:100%;padding:12px 14px;border:2px solid var(--ink);background:white;font-family:'Heebo',sans-serif;font-size:16px;color:var(--ink);box-shadow:var(--shadow-sm);outline:none;}
+.m-btn{width:100%;padding:14px;background:var(--accent);color:var(--paper);border:none;font-family:'Frank Ruhl Libre',serif;font-size:20px;font-weight:700;cursor:pointer;box-shadow:var(--shadow);margin-top:6px;}
+.m-btn:hover{filter:brightness(1.15);}
+.m-err{color:#8b1a1a;font-size:13px;font-weight:700;margin-top:10px;display:none;text-align:center;}
+.prog-wrap{position:sticky;top:0;z-index:50;background:var(--ink);padding:6px 22px;display:flex;align-items:center;gap:14px;}
+.prog-track{flex:1;height:6px;background:#444;}
+.prog-fill{height:100%;background:var(--accent);transition:width .4s;}
+.prog-label{font-size:12px;color:var(--paper-dark);letter-spacing:1px;white-space:nowrap;}
+.masthead{background:var(--ink);color:var(--paper);border-bottom:6px double var(--paper-dark);}
+.mh-inner{max-width:860px;margin:0 auto;padding:0 24px;}
+.mh-top{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #444;font-size:12px;letter-spacing:1px;opacity:.65;}
+.mh-title{text-align:center;padding:20px 0 14px;}
+.mh-title h1{font-family:'Frank Ruhl Libre',serif;font-size:clamp(24px,5vw,50px);font-weight:900;line-height:1;}
+.mh-title p{font-size:12px;letter-spacing:4px;text-transform:uppercase;color:var(--paper-dark);margin-top:6px;}
+.mh-rule{height:3px;background:var(--paper-dark);margin-bottom:10px;}
+.badge-row{display:flex;justify-content:center;gap:28px;padding-bottom:12px;font-size:13px;}
+.badge-row strong{font-family:'Frank Ruhl Libre',serif;font-size:15px;}
+.page{max-width:860px;margin:0 auto;padding:36px 22px 80px;}
+.sec-head{border-top:3px solid var(--ink);border-bottom:1px solid var(--ink);padding:6px 0;margin:44px 0 20px;display:flex;align-items:center;gap:14px;}
+.sec-head .num{font-family:'Frank Ruhl Libre',serif;font-size:32px;font-weight:900;color:var(--accent);line-height:1;}
+.sec-head h2{font-family:'Frank Ruhl Libre',serif;font-size:21px;font-weight:700;}
+.sec-intro{font-size:15px;color:var(--ink-light);margin-bottom:20px;border-right:4px solid var(--accent);padding-right:14px;line-height:1.7;}
+.task{background:white;border:2px solid var(--ink);box-shadow:var(--shadow);padding:26px;margin-bottom:24px;}
+.task-title{font-family:'Frank Ruhl Libre',serif;font-size:19px;font-weight:700;border-bottom:1px solid var(--paper-dark);padding-bottom:10px;margin-bottom:16px;display:flex;align-items:center;gap:10px;}
+.task-instr{font-size:14.5px;color:var(--ink-light);margin-bottom:14px;line-height:1.65;}
+/* SCENARIO */
+.scenario{background:var(--paper-dark);border:2px solid var(--ink);padding:18px;margin-bottom:14px;}
+.scenario-tag{font-size:10px;letter-spacing:2px;text-transform:uppercase;font-weight:700;color:var(--ink-light);margin-bottom:6px;}
+.scenario-text{font-size:15px;line-height:1.7;font-family:'Frank Ruhl Libre',serif;}
+/* POST */
+.post-block{background:white;border:2px solid var(--ink);padding:16px;margin-bottom:14px;}
+.post-hdr{display:flex;align-items:center;gap:10px;margin-bottom:8px;}
+.post-avatar{width:36px;height:36px;background:var(--paper-dark);border:2px solid var(--ink);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;}
+.post-name{font-weight:700;font-size:13px;}
+.post-time{font-size:11px;color:var(--ink-light);}
+.post-text{font-size:14px;line-height:1.7;}
+/* CHOICE */
+.choice-row{display:flex;flex-wrap:wrap;gap:10px;margin:12px 0;}
+.choice-btn{flex:1;min-width:130px;padding:12px 10px;border:2px solid var(--ink);background:var(--paper);cursor:pointer;font-family:'Heebo',sans-serif;font-size:14px;font-weight:700;text-align:center;transition:all .15s;color:var(--ink);appearance:none;-webkit-appearance:none;}
+.choice-btn:hover{background:var(--paper-dark);}
+.choice-btn.chosen{background:var(--ink);color:var(--paper);}
+/* TEXTAREA */
+.ta-label{font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:700;color:var(--ink-light);margin-bottom:5px;margin-top:14px;display:block;}
+.ta-wrap{position:relative;margin-top:6px;}
+.ta-wrap textarea{width:100%;min-height:88px;padding:12px 46px 12px 14px;border:2px solid var(--ink);background:white;font-family:'Heebo',sans-serif;font-size:15px;color:var(--ink);resize:none;overflow:hidden;outline:none;line-height:1.65;}
+.ta-wrap textarea:focus{border-color:var(--accent);box-shadow:3px 3px 0 var(--accent);}
+.mic-btn{position:absolute;top:10px;left:10px;width:30px;height:30px;background:var(--ink);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--paper);border-radius:2px;}
+.mic-btn.recording{background:var(--accent);animation:pulse 1s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+.submit-area{margin-top:50px;text-align:center;border-top:3px double var(--ink);padding-top:30px;}
+.sub-btn{display:inline-block;padding:16px 56px;background:var(--ink);color:var(--paper);border:none;font-family:'Frank Ruhl Libre',serif;font-size:22px;font-weight:900;cursor:pointer;box-shadow:var(--shadow);transition:all .15s;}
+.sub-btn:hover{background:var(--accent);transform:translate(-3px,-3px);box-shadow:7px 7px 0 var(--ink);}
+.sub-btn:disabled{opacity:.5;cursor:not-allowed;transform:none;}
+.sub-msg{margin-top:14px;font-size:15px;font-weight:700;display:none;}
+.sub-msg.ok{color:var(--green);display:block;}
+.sub-msg.err{color:#8b1a1a;display:block;}
+@media(max-width:640px){.page{padding:20px 14px 60px;}.badge-row{gap:14px;font-size:12px;}.choice-btn{min-width:100%;}}
+</style>
+</head>
+<body>
+
+<div class="modal-overlay" id="modal">
+  <div class="modal-box">
+    <div class="modal-head"><h2>אלימות ברשת</h2><p>מטלה חוויתית</p></div>
+    <div style="display:flex;gap:8px;margin-bottom:16px;">
+      <div style="flex:1"><label style="display:block;font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:700;color:var(--ink-light);margin-bottom:5px;">שם פרטי</label><input id="inp-fn" type="text" placeholder="שם פרטי" autocomplete="off" style="width:100%;padding:11px 13px;border:2px solid var(--ink);background:white;font-family:'Heebo',sans-serif;font-size:15px;outline:none;box-shadow:2px 2px 0 #1a1208;"></div>
+      <div style="flex:1"><label style="display:block;font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:700;color:var(--ink-light);margin-bottom:5px;">שם משפחה</label><input id="inp-ln" type="text" placeholder="שם משפחה" autocomplete="off" style="width:100%;padding:11px 13px;border:2px solid var(--ink);background:white;font-family:'Heebo',sans-serif;font-size:15px;outline:none;box-shadow:2px 2px 0 #1a1208;"></div>
+    </div>
+    <div class="m-field"><label>כתובת מייל</label><input id="inp-email" type="email" placeholder="your@email.com" autocomplete="off" style="direction:ltr;text-align:left;"></div>
+    <div class="m-field"><label>שכבה</label>
+      <select id="inp-grade"><option value="">בחר/י שכבה...</option><option value="י">י׳</option><option value="יא">יא׳</option><option value="יב">יב׳</option></select>
+    </div>
+    <div class="m-field" id="field-code"><label>קוד מורה</label><input id="inp-code" type="text" placeholder="הקוד שקיבלת" autocomplete="off"></div>
+    <button class="m-btn" onclick="enterPage()">כניסה למטלה ←</button>
+    <div class="m-err" id="m-err">יש למלא את כל השדות.</div>
+  </div>
+</div>
+
+<div class="prog-wrap"><span class="prog-label" id="prog-label">0 / 3 שלבים</span><div class="prog-track"><div class="prog-fill" id="prog-fill" style="width:0%"></div></div></div>
+
+<header class="masthead">
+  <div class="mh-inner">
+    <div class="mh-top"><span>מטלה חוויתית • תקשורת ועיתונות</span><span>גליל מערבי</span></div>
+    <div class="mh-title"><h1>אלימות ברשת</h1><p>זהו, נתחו, הביעו עמדה — ושלחו למורה</p></div>
+    <div class="mh-rule"></div>
+    <div class="badge-row"><span>שם: <strong id="b-name">—</strong></span><span>שכבה: <strong id="b-class">—</strong></span><span id="b-email" style="font-size:11px;direction:ltr;opacity:.8"></span></div>
+  </div>
+</header>
+
+<div class="page" id="mainpage" style="display:none;">
+
+  <!-- שלב א: זיהוי סוגי בריונות -->
+  <div class="sec-head"><span class="num">א</span><h2>זיהוי סוגי בריונות ברשת</h2></div>
+  <p class="sec-intro">קראו כל תרחיש, זהו את סוג הבריונות וסבירו את בחירתכם על פי מה שלמדתם.</p>
+
+  <div class="task">
+    <div class="task-title"><span>🔍</span> פעילות 1 — תרחיש א׳</div>
+    <div class="scenario">
+      <div class="scenario-tag">📱 תרחיש</div>
+      <div class="scenario-text">נועם שיתף סיפור אישי מאוד בקבוצת וואטסאפ של חברים קרובים. אחד מחברי הקבוצה צילם את המסך ושלח לכל הכיתה, עם הוספת הודעה מלגלגת.</div>
+    </div>
+    <div style="font-size:14px;font-weight:700;margin-bottom:8px;">זהו: איזה סוג בריונות זה?</div>
+    <div class="choice-row" id="ca-choice">
+      <button type="button" class="choice-btn" onclick="choose('ca-choice',this,'מעקב (Stalking)')">מעקב</button>
+      <button type="button" class="choice-btn" onclick="choose('ca-choice',this,'פגיעה בפרטיות + השמצה')">פגיעה בפרטיות + השמצה</button>
+      <button type="button" class="choice-btn" onclick="choose('ca-choice',this,'התחזות')">התחזות</button>
+      <button type="button" class="choice-btn" onclick="choose('ca-choice',this,'חרם / נידוי')">חרם / נידוי</button>
+    </div>
+    <input type="hidden" id="a1-type">
+    <span class="ta-label">הסבירו: מה מגדיר את הפעולה הזו כסוג הבריונות שבחרתם?</span>
+    <div class="ta-wrap">
+      <textarea id="a1-explain" oninput="ar(this);trackProg()" onpaste="blockPaste(event)" placeholder="הסבירו לפי המאפיינים שלמדתם..."></textarea>
+      <button type="button" class="mic-btn" onclick="toggleMic(this,'a1-explain')">🎤</button>
+    </div>
+  </div>
+
+  <div class="task">
+    <div class="task-title"><span>🔍</span> פעילות 2 — תרחיש ב׳</div>
+    <div class="scenario">
+      <div class="scenario-tag">📱 תרחיש</div>
+      <div class="scenario-text">ליאת קיבלה בכל ערב הודעות ממספר לא מוכר — פעם "את מכוערת", פעם "אין לך חברים", פעם "כולם שונאים אותך". כשחסמה את המספר — הגיעו מספרים חדשים.</div>
+    </div>
+    <div style="font-size:14px;font-weight:700;margin-bottom:8px;">זהו: איזה סוג בריונות זה?</div>
+    <div class="choice-row" id="cb-choice">
+      <button type="button" class="choice-btn" onclick="choose('cb-choice',this,'הטרדה')">הטרדה</button>
+      <button type="button" class="choice-btn" onclick="choose('cb-choice',this,'פגיעה בפרטיות')">פגיעה בפרטיות</button>
+      <button type="button" class="choice-btn" onclick="choose('cb-choice',this,'רמאות / הונאה')">רמאות / הונאה</button>
+      <button type="button" class="choice-btn" onclick="choose('cb-choice',this,'השמצה')">השמצה</button>
+    </div>
+    <input type="hidden" id="a2-type">
+    <span class="ta-label">מה עושה את ההטרדה הזו "בריונות ברשת" ולא סתם מריבה רגילה?</span>
+    <div class="ta-wrap">
+      <textarea id="a2-explain" oninput="ar(this);trackProg()" onpaste="blockPaste(event)" placeholder="חשבו על מאפייני הרשת: אנונימיות, חוסר מנוס, חזרתיות..."></textarea>
+      <button type="button" class="mic-btn" onclick="toggleMic(this,'a2-explain')">🎤</button>
+    </div>
+  </div>
+
+  <div class="task">
+    <div class="task-title"><span>🔍</span> פעילות 3 — תרחיש ג׳</div>
+    <div class="scenario">
+      <div class="scenario-tag">📱 תרחיש</div>
+      <div class="scenario-text">תמר גילתה שמישהו פתח חשבון אינסטגרם עם שמה ותמונתה, ומפרסם ממנו תוכן מביך ושקרי שגורם לחברים שלה לחשוב שהיא כתבה דברים שמעולם לא אמרה.</div>
+    </div>
+    <div style="font-size:14px;font-weight:700;margin-bottom:8px;">זהו: איזה סוג בריונות זה?</div>
+    <div class="choice-row" id="cc-choice">
+      <button type="button" class="choice-btn" onclick="choose('cc-choice',this,'מעקב (Stalking)')">מעקב</button>
+      <button type="button" class="choice-btn" onclick="choose('cc-choice',this,'חרם / נידוי')">חרם / נידוי</button>
+      <button type="button" class="choice-btn" onclick="choose('cc-choice',this,'התחזות')">התחזות</button>
+      <button type="button" class="choice-btn" onclick="choose('cc-choice',this,'רמאות / הונאה')">רמאות / הונאה</button>
+    </div>
+    <input type="hidden" id="a3-type">
+    <span class="ta-label">מדוע התחזות כה מסוכנת לנפגע? פרטו לפחות שתי סכנות:</span>
+    <div class="ta-wrap">
+      <textarea id="a3-explain" oninput="ar(this);trackProg()" onpaste="blockPaste(event)" placeholder="חשבו: מה יכול לקרות למוניטין? לקשרים? לתחושת הזהות?"></textarea>
+      <button type="button" class="mic-btn" onclick="toggleMic(this,'a3-explain')">🎤</button>
+    </div>
+  </div>
+
+  <!-- שלב ב: ניתוח פוסט מסית -->
+  <div class="sec-head"><span class="num">ב</span><h2>ניתוח פוסט — הסתה ושיח שנאה</h2></div>
+  <p class="sec-intro">קראו את הפוסט הבא בעיון וענו על השאלות לפי מה שלמדתם על הסתה ושיח שנאה.</p>
+
+  <div class="task">
+    <div class="task-title"><span>📢</span> פעילות 4 — ניתוח פוסט</div>
+    <div class="post-block">
+      <div class="post-hdr">
+        <div class="post-avatar">👤</div>
+        <div><div class="post-name">משתמש (שם בדוי) • פייסבוק</div><div class="post-time">פורסם לפני שעה • 847 שיתופים</div></div>
+      </div>
+      <div class="post-text">
+        ״הנה עוד אירוע שמוכיח מה [קבוצה מסוימת] באמת רוצים — הם לא שייכים כאן ולעולם לא ישתלבו. ההיסטוריה מוכיחה: בכל מקום שהגיעו — הביאו כאוס. כל מי שחושב אחרת מוזמן לראות את הסטטיסטיקות. אנחנו חייבים להפסיק לתת להם לאיים על אורח חיינו. שתפו — הציבור צריך לדעת.״
+      </div>
+    </div>
+    <div style="font-size:14px;font-weight:700;margin-bottom:8px;">סווגו את הפוסט:</div>
+    <div class="choice-row" id="b1-choice">
+      <button type="button" class="choice-btn" onclick="choose('b1-choice',this,'ביקורת לגיטימית')">ביקורת לגיטימית</button>
+      <button type="button" class="choice-btn" onclick="choose('b1-choice',this,'שיח שנאה / הסתה')">שיח שנאה / הסתה</button>
+      <button type="button" class="choice-btn" onclick="choose('b1-choice',this,'מידע עובדתי')">מידע עובדתי</button>
+    </div>
+    <input type="hidden" id="b1-class">
+    <span class="ta-label">הסבירו את סיווגכם — מהם האלמנטים בפוסט שמגדירים אותו כך?</span>
+    <div class="ta-wrap">
+      <textarea id="b1-explain" oninput="ar(this);trackProg()" onpaste="blockPaste(event)" placeholder="ציינו: אילו ביטויים? איזו הכללה? מה מטרת הפוסט?"></textarea>
+      <button type="button" class="mic-btn" onclick="toggleMic(this,'b1-explain')">🎤</button>
+    </div>
+    <span class="ta-label" style="margin-top:16px;display:block;">מדוע הפוסט מסוכן גם ללא קריאה מפורשת לאלימות?</span>
+    <div class="ta-wrap">
+      <textarea id="b1-danger" oninput="ar(this);trackProg()" onpaste="blockPaste(event)" placeholder="הסבירו את מנגנון הסכנה: כיצד הסתה 'מתירה את דמם'?"></textarea>
+      <button type="button" class="mic-btn" onclick="toggleMic(this,'b1-danger')">🎤</button>
+    </div>
+    <span class="ta-label" style="margin-top:16px;display:block;">847 אנשים שיתפו את הפוסט. מה אחריותם? ומה הייתם עושים אם הפוסט היה עולה אצלכם בפיד?</span>
+    <div class="ta-wrap">
+      <textarea id="b1-share" oninput="ar(this);trackProg()" onpaste="blockPaste(event)" placeholder="חשבו: האם משתף = מסית? מה הייתם עושים? דיווח? תגובה? התעלמות?"></textarea>
+      <button type="button" class="mic-btn" onclick="toggleMic(this,'b1-share')">🎤</button>
+    </div>
+  </div>
+
+  <!-- שלב ג: עמדה אישית -->
+  <div class="sec-head"><span class="num">ג</span><h2>העמדה שלי — אחריות ברשת</h2></div>
+  <p class="sec-intro">שלב סיכום — הביעו עמדה אישית מנומקת.</p>
+
+  <div class="task">
+    <div class="task-title"><span>✍️</span> פעילות 5 — אחריות המשתמש</div>
+    <div class="task-instr">האינטרנט נותן לנו כוח רב — לפרסם, לשתף, להגיב. עם כוח בא אחריות.</div>
+    <span class="ta-label">האם נחשפתם לבריונות ברשת — כנפגע, כעד, או כצופה? תארו (ללא שמות) מה ראיתם ומה הרגשתם:</span>
+    <div class="ta-wrap">
+      <textarea id="c1-exp" oninput="ar(this);trackProg()" onpaste="blockPaste(event)" placeholder="ניתן לתאר מקרה שנחשפתם אליו, מבלי לציין שמות..." style="min-height:100px;"></textarea>
+      <button type="button" class="mic-btn" onclick="toggleMic(this,'c1-exp')">🎤</button>
+    </div>
+    <span class="ta-label" style="margin-top:16px;display:block;">לדעתכם, מי אחראי למלחמה בבריונות ברשת? דרגו לפי חשיבות והסבירו:</span>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin:12px 0;">
+      <div style="border:2px solid var(--ink);padding:12px;text-align:center;font-size:13px;background:var(--paper);">
+        <div style="font-size:24px;margin-bottom:4px;">👤</div>
+        <div style="font-family:'Frank Ruhl Libre',serif;font-weight:700;">המשתמש</div>
+      </div>
+      <div style="border:2px solid var(--ink);padding:12px;text-align:center;font-size:13px;background:var(--paper);">
+        <div style="font-size:24px;margin-bottom:4px;">📱</div>
+        <div style="font-family:'Frank Ruhl Libre',serif;font-weight:700;">הפלטפורמה</div>
+      </div>
+      <div style="border:2px solid var(--ink);padding:12px;text-align:center;font-size:13px;background:var(--paper);">
+        <div style="font-size:24px;margin-bottom:4px;">🏛️</div>
+        <div style="font-family:'Frank Ruhl Libre',serif;font-weight:700;">הממשלה</div>
+      </div>
+    </div>
+    <div class="ta-wrap">
+      <textarea id="c1-resp" oninput="ar(this);trackProg()" onpaste="blockPaste(event)" placeholder="מי הכי אחראי? מי פחות? הסבירו את עמדתכם..." style="min-height:100px;"></textarea>
+      <button type="button" class="mic-btn" onclick="toggleMic(this,'c1-resp')">🎤</button>
+    </div>
+    <span class="ta-label" style="margin-top:16px;display:block;">מהו כלל אחד שהייתם מציעים לעצמכם (ולחברים) להתנהגות אחראית ברשת?</span>
+    <div class="ta-wrap">
+      <textarea id="c1-rule" oninput="ar(this);trackProg()" onpaste="blockPaste(event)" placeholder='לדוגמה: "לפני שאני משתף — אני שואל: האם הייתי שולח את זה בפנים?"'></textarea>
+      <button type="button" class="mic-btn" onclick="toggleMic(this,'c1-rule')">🎤</button>
+    </div>
+  </div>
+
+  <div class="submit-area">
+    <p style="font-size:14px;color:var(--ink-light);margin-bottom:18px;">מלאו את כל השלבים ושלחו למורה</p>
+    <button type="button" class="sub-btn" onclick="submitWork()" id="sub-btn">◈ שלח עבודה למורה</button>
+    <div class="sub-msg" id="sub-msg"></div>
+  </div>
+</div>
+
+<script>
+const FC={apiKey:"AIzaSyCCHvn_ulmiyM56DuslNzNC0Ge6a8i2vhY",authDomain:"tests-fd938.firebaseapp.com",databaseURL:"https://tests-fd938-default-rtdb.europe-west1.firebasedatabase.app",projectId:"tests-fd938"};
+firebase.initializeApp(FC);const db=firebase.database();
+const _urlCode=new URLSearchParams(location.search).get('code');
+if(_urlCode){document.getElementById('inp-code').value=_urlCode;document.getElementById('field-code').style.display='none';}
+let student={},activeMic=null;
+function enterPage(){
+  const fn=document.getElementById('inp-fn').value.trim();const ln=document.getElementById('inp-ln').value.trim();
+  const email=document.getElementById('inp-email').value.trim().toLowerCase();const grade=document.getElementById('inp-grade').value;
+  const code=document.getElementById('inp-code').value.trim().toLowerCase();
+  if(!fn||!ln||!email||!grade||!code){document.getElementById('m-err').style.display='block';return;}
+  db.ref('teacher_codes').once('value').then(snap=>{
+    const codes=snap.val()||{};let tID='';
+    Object.keys(codes).forEach(k=>{if(k.startsWith(code+'_'))tID=codes[k];});
+    student={name:fn+' '+ln,firstName:fn,lastName:ln,email,class:grade,classCode:code,teacherID:tID};
+    document.getElementById('b-name').textContent=fn+' '+ln;document.getElementById('b-class').textContent=grade;
+    document.getElementById('b-email').textContent=email;document.getElementById('modal').style.display='none';
+    document.getElementById('mainpage').style.display='block';
+  });
+}
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&document.getElementById('modal').style.display!=='none')enterPage();});
+function ar(el){el.style.height='auto';el.style.height=el.scrollHeight+'px';}
+function blockPaste(e){e.preventDefault();alert('הדבקה אינה מותרת. יש לכתוב בעצמך.');}
+function choose(rowId,el,val){
+  document.querySelectorAll('#'+rowId+' .choice-btn').forEach(b=>b.classList.remove('chosen'));
+  el.classList.add('chosen');
+  // find hidden input by mapping rowId to input id
+  const map={'ca-choice':'a1-type','cb-choice':'a2-type','cc-choice':'a3-type','b1-choice':'b1-class'};
+  if(map[rowId])document.getElementById(map[rowId]).value=val;
+  trackProg();
+}
+function toggleMic(btn,id){
+  if(!('webkitSpeechRecognition'in window||'SpeechRecognition'in window)){alert('הדפדפן שלך אינו תומך. נסה Chrome.');return;}
+  if(activeMic){activeMic.rec.stop();activeMic.btn.classList.remove('recording');activeMic=null;return;}
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;const rec=new SR();
+  rec.lang='he-IL';rec.continuous=true;rec.interimResults=true;
+  const ta=document.getElementById(id);const base=ta.value;
+  rec.onresult=e=>{let f='',i='';for(let j=e.resultIndex;j<e.results.length;j++)e.results[j].isFinal?f+=e.results[j][0].transcript:i+=e.results[j][0].transcript;ta.value=base+f+i;ar(ta);trackProg();};
+  rec.onerror=rec.onend=()=>{btn.classList.remove('recording');activeMic=null;};
+  rec.start();btn.classList.add('recording');activeMic={rec,btn};
+}
+const TAS=['a1-explain','a2-explain','a3-explain','b1-explain','b1-danger','b1-share','c1-exp','c1-resp','c1-rule'];
+function trackProg(){
+  const filled=TAS.filter(id=>{const el=document.getElementById(id);return el&&el.value.trim().length>15;}).length;
+  const pct=Math.round(Math.min(filled,9)/9*100);const steps=Math.min(Math.round(pct/34),3);
+  document.getElementById('prog-fill').style.width=pct+'%';document.getElementById('prog-label').textContent=steps+' / 3 שלבים';
+}
+async function submitWork(){
+  const btn=document.getElementById('sub-btn');const msg=document.getElementById('sub-msg');
+  btn.disabled=true;btn.textContent='שולח...';
+  const answers={
+    a1_type:document.getElementById('a1-type').value,a1_explain:document.getElementById('a1-explain').value,
+    a2_type:document.getElementById('a2-type').value,a2_explain:document.getElementById('a2-explain').value,
+    a3_type:document.getElementById('a3-type').value,a3_explain:document.getElementById('a3-explain').value,
+    b1_class:document.getElementById('b1-class').value,b1_explain:document.getElementById('b1-explain').value,
+    b1_danger:document.getElementById('b1-danger').value,b1_share:document.getElementById('b1-share').value,
+    c1_exp:document.getElementById('c1-exp').value,c1_resp:document.getElementById('c1-resp').value,
+    c1_rule:document.getElementById('c1-rule').value
+  };
+  try{
+    await db.ref('tests/violence/').push({student:{...student},answers,submittedAt:Date.now()});
+    msg.className='sub-msg ok';msg.textContent='✓ העבודה נשלחה! המורה יראה אותה בקרוב.';btn.textContent='✓ נשלח';
+  }catch(e){
+    msg.className='sub-msg err';msg.textContent='שגיאה — בדקו חיבור לאינטרנט ונסו שוב.';btn.disabled=false;btn.textContent='◈ שלח עבודה למורה';
+  }
+}
+</script>
+</body>
+</html>
