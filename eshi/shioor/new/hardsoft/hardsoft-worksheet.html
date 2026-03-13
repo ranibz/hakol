@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>חדשות קשות ורכות — מטלה</title>
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@400;700;900&family=Heebo:wght@300;400;500;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<style>
+:root{--paper:#f5f0e8;--paper-dark:#e8e0cc;--ink:#1a1208;--ink-light:#6b5d45;--accent:#2a6496;--hard:#1a3a5c;--soft:#8b4513;--green:#2d7a2d;--shadow:4px 4px 0 #1a1208;--shadow-sm:2px 2px 0 #1a1208;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;line-height:1.75;background-image:repeating-linear-gradient(0deg,transparent,transparent 27px,rgba(26,18,8,0.055) 27px,rgba(26,18,8,0.055) 28px);}
+.modal-overlay{position:fixed;inset:0;background:rgba(26,18,8,.92);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px;}
+.modal-box{background:var(--paper);border:3px solid var(--ink);box-shadow:8px 8px 0 var(--ink);max-width:460px;width:100%;padding:40px;max-height:90vh;overflow-y:auto;}
+.modal-head{background:linear-gradient(to left,var(--soft) 50%,var(--hard) 50%);color:var(--paper);text-align:center;padding:18px 24px;margin:-40px -40px 32px;}
+.modal-head h2{font-family:'Frank Ruhl Libre',serif;font-size:26px;font-weight:900;}
+.m-field{margin-bottom:18px;}
+.m-field label{display:block;font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:700;color:var(--ink-light);margin-bottom:6px;}
+.m-field input,.m-field select{width:100%;padding:12px 14px;border:2px solid var(--ink);background:white;font-family:'Heebo',sans-serif;font-size:16px;color:var(--ink);box-shadow:var(--shadow-sm);outline:none;}
+.m-btn{width:100%;padding:14px;background:var(--hard);color:var(--paper);border:none;font-family:'Frank Ruhl Libre',serif;font-size:20px;font-weight:700;cursor:pointer;box-shadow:var(--shadow);margin-top:6px;}
+.m-err{color:#8b1a1a;font-size:13px;font-weight:700;margin-top:10px;display:none;text-align:center;}
+.prog-wrap{position:sticky;top:0;z-index:50;background:var(--ink);padding:6px 22px;display:flex;align-items:center;gap:14px;}
+.prog-track{flex:1;height:6px;background:#444;}
+.prog-fill{height:100%;background:linear-gradient(to left,var(--soft),var(--hard));transition:width .4s;}
+.prog-label{font-size:12px;color:var(--paper-dark);letter-spacing:1px;white-space:nowrap;}
+.masthead{background:var(--ink);color:var(--paper);border-bottom:6px double var(--paper-dark);}
+.mh-inner{max-width:860px;margin:0 auto;padding:0 24px;}
+.mh-top{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #444;font-size:12px;opacity:.65;}
+.mh-title{text-align:center;padding:20px 0 14px;}
+.mh-title h1{font-family:'Frank Ruhl Libre',serif;font-size:clamp(22px,5vw,48px);font-weight:900;line-height:1;}
+.mh-rule{height:4px;background:linear-gradient(to left,var(--soft) 50%,var(--hard) 50%);margin-bottom:4px;}
+.mh-rule2{height:1px;background:var(--paper-dark);margin-bottom:10px;}
+.badge-row{display:flex;justify-content:center;gap:28px;padding-bottom:12px;font-size:13px;}
+.badge-row strong{font-family:'Frank Ruhl Libre',serif;}
+.page{max-width:860px;margin:0 auto;padding:36px 22px 80px;}
+.sec-head{border-top:3px solid var(--ink);border-bottom:1px solid var(--ink);padding:6px 0;margin:44px 0 20px;display:flex;align-items:center;gap:14px;}
+.sec-head .num{font-family:'Frank Ruhl Libre',serif;font-size:32px;font-weight:900;color:var(--accent);line-height:1;}
+.sec-head h2{font-family:'Frank Ruhl Libre',serif;font-size:21px;font-weight:700;}
+.sec-intro{font-size:15px;color:var(--ink-light);margin-bottom:20px;border-right:4px solid var(--accent);padding-right:14px;line-height:1.7;}
+.task{background:white;border:2px solid var(--ink);box-shadow:var(--shadow);padding:26px;margin-bottom:24px;}
+.task-title{font-family:'Frank Ruhl Libre',serif;font-size:19px;font-weight:700;border-bottom:1px solid var(--paper-dark);padding-bottom:10px;margin-bottom:16px;display:flex;align-items:center;gap:10px;}
+/* NEWS ITEMS */
+.news-item-box{border:2px solid var(--ink);overflow:hidden;margin-bottom:16px;}
+.news-item-stripe{height:5px;}
+.news-item-body{padding:16px 18px;}
+.news-item-label{font-size:10px;letter-spacing:3px;text-transform:uppercase;color:var(--ink-light);margin-bottom:6px;}
+.news-item-text{font-family:'Frank Ruhl Libre',serif;font-size:18px;font-weight:700;line-height:1.35;margin-bottom:6px;}
+.news-item-meta{font-size:12px;color:var(--ink-light);}
+/* CHOICE */
+.choice-row{display:flex;gap:10px;margin:12px 0;}
+.choice-btn{flex:1;padding:12px;border:2px solid var(--ink);background:var(--paper);cursor:pointer;font-family:'Frank Ruhl Libre',serif;font-size:16px;font-weight:900;text-align:center;transition:all .15s;color:var(--ink);appearance:none;-webkit-appearance:none;}
+.choice-btn:hover{background:var(--paper-dark);}
+.choice-btn.chosen-hard{background:var(--hard);color:white;border-color:var(--hard);}
+.choice-btn.chosen-soft{background:var(--soft);color:white;border-color:var(--soft);}
+/* TEXT */
+.ta-label{font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:700;color:var(--ink-light);margin-bottom:5px;margin-top:14px;display:block;}
+.ta-wrap{position:relative;margin-top:6px;}
+.ta-wrap textarea{width:100%;min-height:88px;padding:12px 46px 12px 14px;border:2px solid var(--ink);background:white;font-family:'Heebo',sans-serif;font-size:15px;color:var(--ink);resize:none;overflow:hidden;outline:none;line-height:1.65;}
+.ta-wrap textarea:focus{border-color:var(--accent);box-shadow:3px 3px 0 var(--accent);}
+.mic-btn{position:absolute;top:10px;left:10px;width:30px;height:30px;background:var(--ink);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--paper);border-radius:2px;}
+.mic-btn.recording{background:var(--accent);animation:pulse 1s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+/* SUBMIT */
+.submit-area{margin-top:50px;text-align:center;border-top:3px double var(--ink);padding-top:30px;}
+.sub-btn{display:inline-block;padding:16px 56px;background:var(--ink);color:var(--paper);border:none;font-family:'Frank Ruhl Libre',serif;font-size:22px;font-weight:900;cursor:pointer;box-shadow:var(--shadow);transition:all .15s;}
+.sub-btn:hover{background:var(--hard);transform:translate(-3px,-3px);box-shadow:7px 7px 0 var(--ink);}
+.sub-btn:disabled{opacity:.5;cursor:not-allowed;transform:none;}
+.sub-msg{margin-top:14px;font-size:15px;font-weight:700;display:none;}
+.sub-msg.ok{color:var(--green);display:block;}
+.sub-msg.err{color:#8b1a1a;display:block;}
+@media(max-width:640px){.page{padding:20px 14px 60px;}}
+</style>
+</head>
+<body>
+<div class="modal-overlay" id="modal">
+  <div class="modal-box">
+    <div class="modal-head"><h2>חדשות קשות ורכות</h2><p style="font-size:12px;letter-spacing:3px;text-transform:uppercase;opacity:.8;margin-top:5px;">מטלה חוויתית</p></div>
+    <div style="display:flex;gap:8px;margin-bottom:16px;">
+      <div style="flex:1"><label style="display:block;font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:700;color:var(--ink-light);margin-bottom:5px;">שם פרטי</label><input id="inp-fn" type="text" placeholder="שם פרטי" style="width:100%;padding:11px 13px;border:2px solid var(--ink);background:white;font-family:'Heebo',sans-serif;font-size:15px;outline:none;box-shadow:2px 2px 0 #1a1208;"></div>
+      <div style="flex:1"><label style="display:block;font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:700;color:var(--ink-light);margin-bottom:5px;">שם משפחה</label><input id="inp-ln" type="text" placeholder="שם משפחה" style="width:100%;padding:11px 13px;border:2px solid var(--ink);background:white;font-family:'Heebo',sans-serif;font-size:15px;outline:none;box-shadow:2px 2px 0 #1a1208;"></div>
+    </div>
+    <div class="m-field"><label>כתובת מייל</label><input id="inp-email" type="email" placeholder="your@email.com" style="direction:ltr;text-align:left;"></div>
+    <div class="m-field"><label>שכבה</label><select id="inp-grade"><option value="">בחר/י...</option><option>י׳</option><option>יא׳</option><option>יב׳</option></select></div>
+    <div class="m-field" id="field-code"><label>קוד מורה</label><input id="inp-code" type="text" placeholder="הקוד שקיבלת"></div>
+    <button class="m-btn" onclick="enterPage()">כניסה למטלה ←</button>
+    <div class="m-err" id="m-err">יש למלא את כל השדות.</div>
+  </div>
+</div>
+<div class="prog-wrap"><span class="prog-label" id="prog-label">0 / 3 שלבים</span><div class="prog-track"><div class="prog-fill" id="prog-fill" style="width:0%"></div></div></div>
+<header class="masthead">
+  <div class="mh-inner">
+    <div class="mh-top"><span>מטלה חוויתית • תקשורת ועיתונות</span><span>גליל מערבי</span></div>
+    <div class="mh-title"><h1>חדשות קשות ורכות</h1></div>
+    <div class="mh-rule"></div><div class="mh-rule2"></div>
+    <div class="badge-row"><span>שם: <strong id="b-name">—</strong></span><span>שכבה: <strong id="b-class">—</strong></span></div>
+  </div>
+</header>
+<div class="page" id="mainpage" style="display:none;">
+
+  <!-- שלב א: סיווג וניתוח -->
+  <div class="sec-head"><span class="num">א</span><h2>סיווג וניתוח ידיעות</h2></div>
+  <p class="sec-intro">לפניכם 4 ידיעות חדשותיות. סווגו כל אחת — קשה או רכה — והסבירו.</p>
+
+  <!-- ידיעה 1 -->
+  <div class="task">
+    <div class="task-title"><span>📰</span> ידיעה 1</div>
+    <div class="news-item-box">
+      <div class="news-item-stripe" style="background:var(--hard);"></div>
+      <div class="news-item-body">
+        <div class="news-item-label">ידיעה חדשותית</div>
+        <div class="news-item-text">בנק ישראל הכריז על העלאת הריבית ב-0.5% — ל-4.75%. ההחלטה תיכנס לתוקף ב-1 לחודש הבא</div>
+        <div class="news-item-meta">כלכליסט • פרסום: 14:30</div>
+      </div>
+    </div>
+    <div style="font-size:14px;font-weight:700;margin-bottom:8px;">סיווג:</div>
+    <div class="choice-row" id="ch1">
+      <button type="button" class="choice-btn" onclick="chooseType('ch1',this,'קשה','a1-type')">🗞️ קשה</button>
+      <button type="button" class="choice-btn" onclick="chooseType('ch1',this,'רכה','a1-type')">❤️ רכה</button>
+    </div>
+    <input type="hidden" id="a1-type">
+    <span class="ta-label">הסבירו: מדוע? מה מאפיין ידיעה זו כקשה/רכה? מתי יפרסמו אותה?</span>
+    <div class="ta-wrap">
+      <textarea id="a1-explain" oninput="ar(this);trackProg()" onpaste="blockPaste(event)" placeholder="לדוגמה: זוהי חדשה קשה כי... היא חייבת להתפרסם מייד כי..."></textarea>
+      <button type="button" class="mic-btn" onclick="toggleMic(this,'a1-explain')">🎤</button>
+    </div>
+  </div>
+
+  <!-- ידיעה 2 -->
+  <div class="task">
+    <div class="task-title"><span>📰</span> ידיעה 2</div>
+    <div class="news-item-box">
+      <div class="news-item-stripe" style="background:var(--soft);"></div>
+      <div class="news-item-body">
+        <div class="news-item-label">ידיעה חדשותית</div>
+        <div class="news-item-text">יוסי, חייל שנפצע קשה בקרב בצפון הרצועה לפני שמונה חודשים, מספר לראשונה על תהליך ההחלמה הארוך — ועל הרגע שבו הבין שיחזור ללכת</div>
+        <div class="news-item-meta">ynet מוסף שישי • ראיון מצולם</div>
+      </div>
+    </div>
+    <div style="font-size:14px;font-weight:700;margin-bottom:8px;">סיווג:</div>
+    <div class="choice-row" id="ch2">
+      <button type="button" class="choice-btn" onclick="chooseType('ch2',this,'קשה','a2-type')">🗞️ קשה</button>
+      <button type="button" class="choice-btn" onclick="chooseType('ch2',this,'רכה','a2-type')">❤️ רכה</button>
+    </div>
+    <input type="hidden" id="a2-type">
+    <span class="ta-label">הסבירו: מה בידיעה זו מגלה שהיא קשה/רכה? כמה זמן עבר מהאירוע עד לפרסום — ומה זה אומר?</span>
+    <div class="ta-wrap">
+      <textarea id="a2-explain" oninput="ar(this);trackProg()" onpaste="blockPaste(event)" placeholder="שימו לב: 'שמונה חודשים', 'מוסף שישי' — מה זה אומר על הדחיפות?"></textarea>
+      <button type="button" class="mic-btn" onclick="toggleMic(this,'a2-explain')">🎤</button>
+    </div>
+  </div>
+
+  <!-- ידיעה 3 -->
+  <div class="task">
+    <div class="task-title"><span>📰</span> ידיעה 3</div>
+    <div class="news-item-box">
+      <div class="news-item-stripe" style="background:#555;"></div>
+      <div class="news-item-body">
+        <div class="news-item-label">ידיעה חדשותית — <strong>מאתגרת!</strong></div>
+        <div class="news-item-text">נבחרת ישראל הפסידה 2:1 לנבחרת פורטוגל בגמר אליפות אירופה לנוער</div>
+        <div class="news-item-meta">ספורט 5 • פרסום: מיד אחרי הסיום</div>
+      </div>
+    </div>
+    <div style="font-size:14px;font-weight:700;margin-bottom:8px;">סיווג:</div>
+    <div class="choice-row" id="ch3">
+      <button type="button" class="choice-btn" onclick="chooseType('ch3',this,'קשה','a3-type')">🗞️ קשה</button>
+      <button type="button" class="choice-btn" onclick="chooseType('ch3',this,'רכה','a3-type')">❤️ רכה</button>
+    </div>
+    <input type="hidden" id="a3-type">
+    <span class="ta-label">זו ידיעה מאתגרת — ספורט יכול להיות גם קשה וגם רכה. הסבירו את בחירתכם ונמקו.</span>
+    <div class="ta-wrap">
+      <textarea id="a3-explain" oninput="ar(this);trackProg()" onpaste="blockPaste(event)" placeholder="חשבו: 'פרסום מיד אחרי הסיום' — מה זה אומר על הדחיפות? האם התוצאה היא עובדה קשה?"></textarea>
+      <button type="button" class="mic-btn" onclick="toggleMic(this,'a3-explain')">🎤</button>
+    </div>
+  </div>
+
+  <!-- ידיעה 4 -->
+  <div class="task">
+    <div class="task-title"><span>📰</span> ידיעה 4</div>
+    <div class="news-item-box">
+      <div class="news-item-stripe" style="background:var(--soft);"></div>
+      <div class="news-item-body">
+        <div class="news-item-label">ידיעה חדשותית</div>
+        <div class="news-item-text">לאבא הזה יצאה ממנו נשמה: הכלבה "נאלה" חזרה לביתה בפתח תקווה לאחר שנעלמה לפני שלוש שנים — וזיהתה את בני המשפחה מייד</div>
+        <div class="news-item-meta">וואלה! בידור ורגש • תמונות ווידאו ויראלי</div>
+      </div>
+    </div>
+    <div style="font-size:14px;font-weight:700;margin-bottom:8px;">סיווג:</div>
+    <div class="choice-row" id="ch4">
+      <button type="button" class="choice-btn" onclick="chooseType('ch4',this,'קשה','a4-type')">🗞️ קשה</button>
+      <button type="button" class="choice-btn" onclick="chooseType('ch4',this,'רכה','a4-type')">❤️ רכה</button>
+    </div>
+    <input type="hidden" id="a4-type">
+    <span class="ta-label">מה הופך ידיעה "פשוטה" כמו חזרת כלב לחדשה? על מה היא מדברת רגשית?</span>
+    <div class="ta-wrap">
+      <textarea id="a4-explain" oninput="ar(this);trackProg()" onpaste="blockPaste(event)" placeholder="חשבו: מה הקהל אוהב בסיפור הזה? מדוע הוא הפך ויראלי?"></textarea>
+      <button type="button" class="mic-btn" onclick="toggleMic(this,'a4-explain')">🎤</button>
+    </div>
+  </div>
+
+  <!-- שלב ב: שיקול עורכי -->
+  <div class="sec-head"><span class="num">ב</span><h2>שיקול עורכי — מה, מתי ואיפה</h2></div>
+  <p class="sec-intro">עורך מהדורה צריך להחליט כיצד לבנות את מהדורת החדשות. לפניכם תרגיל שיקול דעת.</p>
+
+  <div class="task">
+    <div class="task-title"><span>🎬</span> פעילות 5 — בנו מהדורה</div>
+    <div style="background:var(--paper-dark);border:2px solid var(--ink);padding:16px 20px;margin-bottom:18px;font-size:15px;line-height:1.75;">
+      <strong>תרחיש:</strong> אתם עורכי מהדורת החדשות של ערוץ כלשהו. יש לכם 30 דקות. הנה הידיעות שהגיעו לחדר החדשות:
+      <ul style="padding-right:20px;margin-top:10px;font-size:14px;line-height:2;">
+        <li>ראש הממשלה הכריז על בחירות מוקדמות — לפני שעה</li>
+        <li>ילדה בת 8 ניצלה מטביעה בהתערבות מצילה בת 70</li>
+        <li>שריפה פרצה ביער חיפה — 200 דונם</li>
+        <li>זוג קשיש שהתגרש ב-1962 מצא זה את זו ברשתות ונישא שוב</li>
+        <li>הודעה על פתיחת קו רכבת חדש בשנה הבאה</li>
+      </ul>
+    </div>
+    <span class="ta-label">סדרו את הידיעות — מה יפתח את המהדורה? מה בסוף? הסבירו את ההיגיון.</span>
+    <div class="ta-wrap">
+      <textarea id="b1-order" oninput="ar(this);trackProg()" onpaste="blockPaste(event)" placeholder="1. ... (כי...)&#10;2. ... (כי...)&#10;3. ...&#10;4. ...&#10;5. ..." style="min-height:130px;"></textarea>
+      <button type="button" class="mic-btn" onclick="toggleMic(this,'b1-order')">🎤</button>
+    </div>
+    <span class="ta-label" style="margin-top:14px;display:block;">האם הידיעה על הזוג הקשיש תיכנס בכלל? מדוע? ואם כן — איפה ומתי?</span>
+    <div class="ta-wrap">
+      <textarea id="b1-soft" oninput="ar(this);trackProg()" onpaste="blockPaste(event)" placeholder="חשבו: האם דחיפות הידיעה משנה? האם עניין אנושי חזק מספיק לכניסה למהדורה?"></textarea>
+      <button type="button" class="mic-btn" onclick="toggleMic(this,'b1-soft')">🎤</button>
+    </div>
+  </div>
+
+  <!-- שלב ג: יצירה -->
+  <div class="sec-head"><span class="num">ג</span><h2>יצירה — כתבו ידיעה</h2></div>
+  <p class="sec-intro">כתבו ידיעה אחת — קשה ואחת — רכה על אותו אירוע בדיוק.</p>
+
+  <div class="task">
+    <div class="task-title"><span>✍️</span> פעילות 6 — אותו אירוע, שני סגנונות</div>
+    <div style="background:var(--paper-dark);border:2px solid var(--ink);padding:14px 18px;margin-bottom:16px;font-size:15px;line-height:1.75;">
+      <strong>האירוע:</strong> תאונת דרכים קשה בכביש 6 — שני נפגעים קשים, אחד מהם נהג שהיה בדרכו לחתונת ביתו.
+    </div>
+    <span class="ta-label">כתבו את הידיעה ה<strong>קשה</strong> — עובדתית, דחופה, ממוקדת:</span>
+    <div class="ta-wrap">
+      <textarea id="c1-hard" oninput="ar(this);trackProg()" onpaste="blockPaste(event)" placeholder="כותרת + 2-3 משפטים עובדתיים. מה קרה? מתי? אנה? מי נפגע?" style="min-height:90px;font-family:'Frank Ruhl Libre',serif;font-size:16px;"></textarea>
+      <button type="button" class="mic-btn" onclick="toggleMic(this,'c1-hard')">🎤</button>
+    </div>
+    <span class="ta-label" style="margin-top:16px;display:block;">כתבו את הידיעה ה<strong>רכה</strong> — רגשית, אנושית, מעמיקה:</span>
+    <div class="ta-wrap">
+      <textarea id="c1-soft" oninput="ar(this);trackProg()" onpaste="blockPaste(event)" placeholder="כותרת + 2-3 משפטים שמתמקדים בסיפור האנושי. מה הוא הרגיש? מה חיכה לו? מה אמרה המשפחה?" style="min-height:90px;font-family:'Frank Ruhl Libre',serif;font-size:16px;"></textarea>
+      <button type="button" class="mic-btn" onclick="toggleMic(this,'c1-soft')">🎤</button>
+    </div>
+    <span class="ta-label" style="margin-top:16px;display:block;">הסבירו: מה שיניתם בין שתי הגרסאות? מה ידיעה קשה מדגישה שרכה לא?</span>
+    <div class="ta-wrap">
+      <textarea id="c1-explain" oninput="ar(this);trackProg()" onpaste="blockPaste(event)" placeholder="הצביעו על ההבדלים: ניסוח, מה הודגש, מה הושמט, מה הרגש לעומת העובדה..."></textarea>
+      <button type="button" class="mic-btn" onclick="toggleMic(this,'c1-explain')">🎤</button>
+    </div>
+  </div>
+
+  <div class="submit-area">
+    <p style="font-size:14px;color:var(--ink-light);margin-bottom:18px;">מלאו את כל השלבים ושלחו למורה</p>
+    <button type="button" class="sub-btn" onclick="submitWork()" id="sub-btn">◈ שלח עבודה למורה</button>
+    <div class="sub-msg" id="sub-msg"></div>
+  </div>
+</div>
+
+<script>
+const FC={apiKey:"AIzaSyCCHvn_ulmiyM56DuslNzNC0Ge6a8i2vhY",authDomain:"tests-fd938.firebaseapp.com",databaseURL:"https://tests-fd938-default-rtdb.europe-west1.firebasedatabase.app",projectId:"tests-fd938"};
+firebase.initializeApp(FC);const db=firebase.database();
+const _urlCode=new URLSearchParams(location.search).get('code');
+if(_urlCode){document.getElementById('inp-code').value=_urlCode;document.getElementById('field-code').style.display='none';}
+let student={},activeMic=null;
+function enterPage(){
+  const fn=document.getElementById('inp-fn').value.trim(),ln=document.getElementById('inp-ln').value.trim();
+  const email=document.getElementById('inp-email').value.trim().toLowerCase(),grade=document.getElementById('inp-grade').value;
+  const code=document.getElementById('inp-code').value.trim().toLowerCase();
+  if(!fn||!ln||!email||!grade||!code){document.getElementById('m-err').style.display='block';return;}
+  db.ref('teacher_codes').once('value').then(snap=>{
+    const codes=snap.val()||{};let tID='';
+    Object.keys(codes).forEach(k=>{if(k.startsWith(code+'_'))tID=codes[k];});
+    student={name:fn+' '+ln,firstName:fn,lastName:ln,email,class:grade,classCode:code,teacherID:tID};
+    document.getElementById('b-name').textContent=fn+' '+ln;document.getElementById('b-class').textContent=grade;
+    document.getElementById('modal').style.display='none';document.getElementById('mainpage').style.display='block';
+  });
+}
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&document.getElementById('modal').style.display!=='none')enterPage();});
+function ar(el){el.style.height='auto';el.style.height=el.scrollHeight+'px';}
+function blockPaste(e){e.preventDefault();alert('הדבקה אינה מותרת. יש לכתוב בעצמך.');}
+function chooseType(rowId,btn,val,hiddenId){
+  document.querySelectorAll('#'+rowId+' .choice-btn').forEach(b=>{b.className='choice-btn';});
+  btn.classList.add(val==='קשה'?'chosen-hard':'chosen-soft');
+  document.getElementById(hiddenId).value=val;
+  trackProg();
+}
+function toggleMic(btn,id){
+  if(!('webkitSpeechRecognition'in window||'SpeechRecognition'in window)){alert('הדפדפן שלך אינו תומך. נסה Chrome.');return;}
+  if(activeMic){activeMic.rec.stop();activeMic.btn.classList.remove('recording');activeMic=null;return;}
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;const rec=new SR();
+  rec.lang='he-IL';rec.continuous=true;rec.interimResults=true;
+  const ta=document.getElementById(id);const base=ta.value;
+  rec.onresult=e=>{let f='',i='';for(let j=e.resultIndex;j<e.results.length;j++)e.results[j].isFinal?f+=e.results[j][0].transcript:i+=e.results[j][0].transcript;ta.value=base+f+i;ar(ta);trackProg();};
+  rec.onerror=rec.onend=()=>{btn.classList.remove('recording');activeMic=null;};
+  rec.start();btn.classList.add('recording');activeMic={rec,btn};
+}
+const TAS=['a1-explain','a2-explain','a3-explain','a4-explain','b1-order','b1-soft','c1-hard','c1-soft','c1-explain'];
+function trackProg(){
+  const filled=TAS.filter(id=>{const el=document.getElementById(id);return el&&el.value.trim().length>12;}).length;
+  const pct=Math.round(Math.min(filled,9)/9*100);const steps=Math.min(Math.round(pct/34),3);
+  document.getElementById('prog-fill').style.width=pct+'%';document.getElementById('prog-label').textContent=steps+' / 3 שלבים';
+}
+async function submitWork(){
+  const btn=document.getElementById('sub-btn'),msg=document.getElementById('sub-msg');
+  btn.disabled=true;btn.textContent='שולח...';
+  const answers={
+    a1_type:document.getElementById('a1-type').value,a1_explain:document.getElementById('a1-explain').value,
+    a2_type:document.getElementById('a2-type').value,a2_explain:document.getElementById('a2-explain').value,
+    a3_type:document.getElementById('a3-type').value,a3_explain:document.getElementById('a3-explain').value,
+    a4_type:document.getElementById('a4-type').value,a4_explain:document.getElementById('a4-explain').value,
+    b1_order:document.getElementById('b1-order').value,b1_soft:document.getElementById('b1-soft').value,
+    c1_hard:document.getElementById('c1-hard').value,c1_soft:document.getElementById('c1-soft').value,
+    c1_explain:document.getElementById('c1-explain').value
+  };
+  try{
+    await db.ref('tests/hardsoft/').push({student:{...student},answers,submittedAt:Date.now()});
+    msg.className='sub-msg ok';msg.textContent='✓ העבודה נשלחה! המורה יראה אותה בקרוב.';btn.textContent='✓ נשלח';
+  }catch(e){
+    msg.className='sub-msg err';msg.textContent='שגיאה — בדקו חיבור ונסו שוב.';btn.disabled=false;btn.textContent='◈ שלח עבודה למורה';
+  }
+}
+</script>
+</body>
+</html>
