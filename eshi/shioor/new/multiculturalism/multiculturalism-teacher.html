@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>רב-תרבותיות — סביבת מורה</title>
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@400;700;900&family=Heebo:wght@300;400;500;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<style>
+:root{--paper:#f5f0e8;--paper-dark:#e8e0cc;--ink:#1a1208;--ink-light:#6b5d45;--accent:#7c2d8e;--shadow:4px 4px 0 #1a1208;--shadow-sm:2px 2px 0 #1a1208;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;line-height:1.7;min-height:100vh;}
+.overlay{position:fixed;inset:0;background:rgba(26,18,8,.93);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px;}
+.login-box{background:var(--paper);border:3px solid var(--ink);box-shadow:8px 8px 0 var(--ink);max-width:400px;width:100%;padding:40px;}
+.login-head{background:var(--accent);color:var(--paper);text-align:center;padding:18px;margin:-40px -40px 32px;font-family:'Frank Ruhl Libre',serif;font-size:24px;font-weight:900;}
+.lf label{display:block;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--ink-light);margin-bottom:5px;font-weight:700;}
+.lf input{width:100%;padding:12px 14px;border:2px solid var(--ink);background:white;font-family:'Heebo',sans-serif;font-size:16px;outline:none;box-shadow:var(--shadow-sm);margin-bottom:16px;}
+.login-btn{width:100%;padding:14px;background:var(--accent);color:var(--paper);border:none;font-family:'Frank Ruhl Libre',serif;font-size:20px;font-weight:700;cursor:pointer;box-shadow:var(--shadow);}
+.login-btn:hover{filter:brightness(1.1);}
+.lerr{color:#8b1a1a;font-size:13px;margin-top:10px;text-align:center;display:none;}
+.reg-hint{text-align:center;margin-top:14px;font-size:13px;color:var(--ink-light);}
+.reg-hint a{color:var(--accent);}
+.masthead{background:var(--ink);color:var(--paper);border-bottom:4px double var(--paper-dark);}
+.mh-inner{max-width:1100px;margin:0 auto;padding:0 24px;}
+.mh-row{display:flex;justify-content:space-between;align-items:center;padding:14px 0;}
+.mh-title{font-family:'Frank Ruhl Libre',serif;font-size:26px;font-weight:900;}
+.mh-sub{font-size:12px;opacity:.5;letter-spacing:2px;margin-top:2px;}
+.logout-btn{padding:8px 18px;background:transparent;color:var(--paper);border:1px solid rgba(255,255,255,.3);font-family:'Heebo',sans-serif;font-size:14px;cursor:pointer;}
+.toolbar{background:var(--paper-dark);border-bottom:2px solid var(--ink);padding:12px 24px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;max-width:1100px;margin:0 auto;}
+.toolbar input,.toolbar select{padding:9px 12px;border:2px solid var(--ink);background:white;font-family:'Heebo',sans-serif;font-size:14px;outline:none;}
+.toolbar input{flex:1;min-width:160px;}
+.exp-btn{padding:9px 18px;background:var(--ink);color:var(--paper);border:none;font-family:'Frank Ruhl Libre',serif;font-size:15px;font-weight:700;cursor:pointer;white-space:nowrap;}
+.exp-btn:hover{background:var(--accent);}
+.page{max-width:1100px;margin:0 auto;padding:28px 24px 80px;}
+.count-bar{font-size:14px;color:var(--ink-light);margin-bottom:16px;}
+.table-wrap{border:2px solid var(--ink);box-shadow:var(--shadow);overflow:hidden;}
+.tbl{width:100%;border-collapse:collapse;}
+.tbl th{background:var(--ink);color:var(--paper);padding:10px 14px;text-align:right;font-family:'Frank Ruhl Libre',serif;font-size:14px;font-weight:700;white-space:nowrap;}
+.tbl td{padding:10px 14px;border-bottom:1px solid var(--paper-dark);font-size:14px;vertical-align:top;}
+.tbl tr:last-child td{border-bottom:none;}
+.tbl tr:hover td{background:#fdf8f2;}
+.row-btn{background:none;border:none;cursor:pointer;font-size:13px;color:var(--accent);font-weight:700;padding:0;}
+.grade-badge{font-weight:700;font-size:14px;}
+.grade-badge.graded{color:var(--accent);}
+.grade-badge.pending{color:var(--ink-light);}
+.expand-panel{display:none;padding:20px;background:var(--paper);border-top:2px dashed var(--paper-dark);}
+.expand-panel.open{display:block;}
+.ans-block{margin-bottom:16px;}
+.ans-label{font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:700;color:var(--ink-light);margin-bottom:4px;}
+.ans-text{font-size:14px;line-height:1.7;background:white;border:1px solid var(--paper-dark);padding:10px 12px;}
+.feedback-panel{background:var(--paper-dark);border:2px solid var(--ink);padding:16px;margin-top:16px;}
+.feedback-panel h4{font-family:'Frank Ruhl Libre',serif;font-size:16px;margin-bottom:12px;}
+.fb-row{display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap;}
+.fb-row input[type=number]{width:90px;padding:9px;border:2px solid var(--ink);background:white;font-size:15px;font-family:'Heebo',sans-serif;outline:none;}
+.fb-row textarea{flex:1;min-width:200px;padding:9px;border:2px solid var(--ink);background:white;font-size:14px;font-family:'Heebo',sans-serif;resize:none;outline:none;min-height:60px;}
+.save-btn{padding:10px 22px;background:var(--accent);color:white;border:none;font-family:'Frank Ruhl Libre',serif;font-size:16px;font-weight:700;cursor:pointer;white-space:nowrap;}
+.save-btn:hover{filter:brightness(1.1);}
+.empty-msg{text-align:center;padding:48px;color:var(--ink-light);font-size:16px;}
+@media(max-width:700px){.tbl th:nth-child(3),.tbl td:nth-child(3),.tbl th:nth-child(4),.tbl td:nth-child(4){display:none;}.page{padding:16px 12px 60px;}.toolbar{padding:10px 12px;}}
+</style>
+</head>
+<body>
+<div class="overlay" id="overlay">
+  <div class="login-box">
+    <div class="login-head">סביבת מורה — רב-תרבותיות</div>
+    <div class="lf">
+      <label>טלפון</label>
+      <input type="tel" id="inp-phone" placeholder="מספר טלפון" style="direction:ltr;">
+      <label>סיסמה</label>
+      <input type="password" id="inp-pass" placeholder="••••••••">
+    </div>
+    <button class="login-btn" onclick="login()">כניסה ←</button>
+    <div class="lerr" id="lerr"></div>
+    <div class="reg-hint">עדיין לא רשומים? <a href="../teacher-register.html">לחץ להרשמה</a></div>
+  </div>
+</div>
+<header class="masthead">
+  <div class="mh-inner">
+    <div class="mh-row">
+      <div><div class="mh-title">רב-תרבותיות — סביבת מורה</div><div class="mh-sub">גליל מערבי • תקשורת ועיתונות</div></div>
+      <button class="logout-btn" onclick="logout()">התנתקות</button>
+    </div>
+  </div>
+</header>
+<div class="toolbar">
+  <input type="text" id="search-input" placeholder="🔍 חיפוש לפי שם..." oninput="renderTable()">
+  <select id="filter-class" onchange="renderTable()"><option value="">כל הכיתות</option></select>
+  <button class="exp-btn" onclick="exportCSV()">ייצוא CSV ⬇</button>
+</div>
+<div class="page" id="main-page" style="display:none;">
+  <div class="count-bar" id="count-bar">טוען נתונים...</div>
+  <div class="table-wrap" id="table-wrap"><div class="empty-msg">טוען הגשות...</div></div>
+</div>
+<script>
+const FC={apiKey:"AIzaSyCCHvn_ulmiyM56DuslNzNC0Ge6a8i2vhY",authDomain:"tests-fd938.firebaseapp.com",databaseURL:"https://tests-fd938-default-rtdb.europe-west1.firebasedatabase.app",projectId:"tests-fd938"};
+firebase.initializeApp(FC);const db=firebase.database();
+let teacherID='',allData=[],openRow='';
+function login(){
+  const phone=document.getElementById('inp-phone').value.trim();const pass=document.getElementById('inp-pass').value.trim();
+  const err=document.getElementById('lerr');
+  if(!phone||!pass){err.textContent='נא למלא טלפון וסיסמה';err.style.display='block';return;}
+  db.ref('teachers').once('value').then(snap=>{
+    let found='';
+    snap.forEach(c=>{const t=c.val();if(t.password===pass&&t.phone===phone&&t.status==='approved')found=c.key;});
+    if(!found){err.textContent='סיסמה שגויה או משתמש לא מאושר';err.style.display='block';return;}
+    teacherID=found;document.getElementById('overlay').style.display='none';document.getElementById('main-page').style.display='block';loadData();
+  });
+}
+function logout(){teacherID='';document.getElementById('overlay').style.display='flex';document.getElementById('main-page').style.display='none';document.getElementById('inp-pass').value='';}
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&document.getElementById('overlay').style.display!=='none')login();});
+function loadData(){
+  db.ref('tests/multiculturalism').once('value').then(snap=>{
+    const raw=snap.val()||{};
+    allData=Object.entries(raw).map(([k,v])=>({key:k,...v})).filter(d=>d.student?.teacherID===teacherID);
+    allData.sort((a,b)=>b.submittedAt-a.submittedAt);
+    updateClasses();renderTable();
+  });
+}
+function updateClasses(){
+  const classes=[...new Set(allData.map(d=>d.student?.class).filter(Boolean))].sort();
+  const sel=document.getElementById('filter-class');const cur=sel.value;
+  sel.innerHTML='<option value="">כל הכיתות</option>';
+  classes.forEach(c=>sel.innerHTML+=`<option${c===cur?' selected':''}>${c}</option>`);
+}
+function renderTable(){
+  const search=document.getElementById('search-input').value.toLowerCase();
+  const cls=document.getElementById('filter-class').value;
+  const filtered=allData.filter(d=>{
+    const name=(d.student?.name||'').toLowerCase();
+    return (!search||name.includes(search))&&(!cls||d.student?.class===cls);
+  });
+  document.getElementById('count-bar').textContent=filtered.length+' הגשות מוצגות מתוך '+allData.length;
+  if(!filtered.length){document.getElementById('table-wrap').innerHTML='<div class="empty-msg">אין הגשות תואמות.</div>';return;}
+  const LABELS={a1_char:'דמות שנבחרה',a1_represent:'ייצוג הקבוצה',a1_circles:'מעגלי זהות',a1_stereo:'סטריאוטיפ/שבירה',b1_tags:'תגיות זהות אישיות',b1_explain:'הסבר תגיות',b1_media:'ייצוג בתקשורת',c1_israel:'עמדה על ישראל',c1_justify:'נימוק',c1_challenge:'האתגר הגדול'};
+  let html='<table class="tbl"><thead><tr><th>שם</th><th>שכבה</th><th>מייל</th><th>תאריך</th><th>ציון</th><th></th></tr></thead><tbody>';
+  filtered.forEach(d=>{
+    const dt=new Date(d.submittedAt).toLocaleDateString('he-IL');const fb=d.feedback||{};
+    const gradeHtml=fb.grade!==undefined?`<span class="grade-badge graded">✅ ${fb.grade}</span>`:`<span class="grade-badge pending">—</span>`;
+    html+=`<tr><td><strong>${d.student?.name||'—'}</strong></td><td>${d.student?.class||'—'}</td><td style="direction:ltr;font-size:12px;">${d.student?.email||'—'}</td><td>${dt}</td><td>${gradeHtml}</td><td><button class="row-btn" onclick="toggleRow('${d.key}')">פתח ▾</button></td></tr>
+    <tr id="exp-${d.key}" style="display:none;"><td colspan="6" style="padding:0;"><div class="expand-panel open">`;
+    const ans=d.answers||{};
+    Object.entries(LABELS).forEach(([k,label])=>{if(ans[k])html+=`<div class="ans-block"><div class="ans-label">${label}</div><div class="ans-text">${ans[k].replace(/\n/g,'<br>')}</div></div>`;});
+    html+=`<div class="feedback-panel"><h4>📝 הערכת מורה</h4>`;
+    if(fb.grade!==undefined)html+=`<div style="margin-bottom:10px;font-size:14px;color:var(--accent);">✅ ציון קיים: <strong>${fb.grade}</strong> — ${fb.comment||''}</div>`;
+    html+=`<div class="fb-row"><div><div style="font-size:11px;letter-spacing:1px;color:var(--ink-light);margin-bottom:4px;">ציון (0–100)</div><input type="number" id="grade-${d.key}" min="0" max="100" value="${fb.grade??''}" placeholder="0–100"></div><textarea id="comment-${d.key}" placeholder="הערה לתלמיד...">${fb.comment||''}</textarea><button class="save-btn" onclick="saveFeedback('${d.key}')">שמור ✓</button></div></div></div></td></tr>`;
+  });
+  html+='</tbody></table>';document.getElementById('table-wrap').innerHTML=html;
+}
+function toggleRow(key){
+  const row=document.getElementById('exp-'+key);if(!row)return;
+  const isOpen=row.style.display!=='none';
+  if(openRow&&openRow!==key){const prev=document.getElementById('exp-'+openRow);if(prev)prev.style.display='none';}
+  row.style.display=isOpen?'none':'table-row';openRow=isOpen?'':key;
+}
+function saveFeedback(key){
+  const rec=allData.find(d=>d.key===key);
+  const grade=parseInt(document.getElementById('grade-'+key).value);
+  const comment=document.getElementById('comment-'+key).value.trim();
+  if(isNaN(grade)||grade<0||grade>100){alert('ציון לא תקין (0–100)');return;}
+  db.ref('tests/multiculturalism/'+key+'/feedback').update({grade,comment,gradedAt:Date.now(),gradedBy:teacherID}).then(()=>{
+    if(rec)rec.feedback={grade,comment,gradedAt:Date.now()};renderTable();
+  });
+}
+function exportCSV(){
+  const cls=document.getElementById('filter-class').value;
+  const data=cls?allData.filter(d=>d.student?.class===cls):allData;
+  const ansKeys=['a1_char','a1_represent','a1_circles','a1_stereo','b1_tags','b1_explain','b1_media','c1_israel','c1_justify','c1_challenge'];
+  const headers=['שם','מייל','שכבה','קוד כיתה','תאריך','ציון','הערת מורה',...ansKeys];
+  const rows=data.map(d=>{
+    const dt=new Date(d.submittedAt).toLocaleString('he-IL');const fb=d.feedback||{};
+    return [d.student?.name||'',d.student?.email||'',d.student?.class||'',d.student?.classCode||'',dt,fb.grade??'',fb.comment||'',...ansKeys.map(k=>(d.answers?.[k]||'').replace(/\n/g,' '))].map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',');
+  });
+  const csv='\uFEFF'+headers.map(h=>'"'+h+'"').join(',')+'\n'+rows.join('\n');
+  const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);a.download='multiculturalism-'+new Date().toISOString().slice(0,10)+'.csv';a.click();
+}
+</script>
+</body>
+</html>
