@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>רישום מורה</title>
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@400;700;900&family=Heebo:wght@300;400;500;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<style>
+:root{--paper:#f5f0e8;--paper-dark:#e8e0cc;--ink:#1a1208;--ink-light:#6b5d45;--accent:#8b1a1a;--green:#2d7a2d;--shadow:4px 4px 0 #1a1208;--shadow-sm:2px 2px 0 #1a1208;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;
+  background-image:repeating-linear-gradient(0deg,transparent,transparent 27px,rgba(26,18,8,0.055) 27px,rgba(26,18,8,0.055) 28px);}
+
+.card{background:var(--paper);border:3px solid var(--ink);box-shadow:8px 8px 0 var(--ink);max-width:480px;width:100%;}
+
+.card-head{background:var(--ink);color:var(--paper);padding:24px 32px;}
+.card-head h1{font-family:'Frank Ruhl Libre',serif;font-size:32px;font-weight:900;line-height:1;}
+.card-head p{font-size:12px;letter-spacing:3px;text-transform:uppercase;opacity:.6;margin-top:6px;}
+
+.card-body{padding:32px;}
+
+.field{margin-bottom:20px;}
+.field label{display:block;font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:700;color:var(--ink-light);margin-bottom:7px;}
+.field input{width:100%;padding:13px 14px;border:2px solid var(--ink);background:white;font-family:'Heebo',sans-serif;font-size:16px;color:var(--ink);box-shadow:var(--shadow-sm);outline:none;transition:border-color .2s,box-shadow .2s;}
+.field input:focus{border-color:var(--accent);box-shadow:3px 3px 0 var(--accent);}
+
+.info-note{background:var(--paper-dark);border-right:4px solid var(--ink-light);padding:12px 16px;font-size:13px;color:var(--ink-light);line-height:1.6;margin-bottom:24px;}
+
+.submit-btn{width:100%;padding:15px;background:var(--ink);color:var(--paper);border:none;font-family:'Frank Ruhl Libre',serif;font-size:21px;font-weight:700;cursor:pointer;box-shadow:var(--shadow);transition:all .15s;}
+.submit-btn:hover{background:var(--accent);transform:translate(-2px,-2px);box-shadow:6px 6px 0 var(--ink);}
+.submit-btn:disabled{opacity:.5;cursor:not-allowed;transform:none;}
+
+.msg{margin-top:16px;padding:14px 16px;font-size:15px;font-weight:700;display:none;border:2px solid var(--ink);}
+.msg.ok{background:#e8f5e9;color:var(--green);display:block;}
+.msg.err{background:#fdecea;color:var(--accent);display:block;}
+.msg.pending{background:var(--paper-dark);color:var(--ink);display:block;}
+
+.already-link{text-align:center;margin-top:20px;font-size:14px;color:var(--ink-light);}
+.already-link a{color:var(--accent);font-weight:700;text-decoration:none;}
+.already-link a:hover{text-decoration:underline;}
+
+.footer{margin-top:28px;font-size:12px;color:var(--ink-light);text-align:center;}
+</style>
+</head>
+<body>
+
+<div class="card">
+  <div class="card-head">
+    <h1>רישום מורה</h1>
+    <p>גליל מערבי • שיעורי תקשורת ועיתונות</p>
+  </div>
+  <div class="card-body">
+
+    <div class="info-note">
+      הבקשה תועבר לאישור המנהל. לאחר האישור תוכלו להיכנס לסביבת המורה בכל המשימות הדיגיטליות.
+    </div>
+
+    <div class="field">
+      <label>שם מלא</label>
+      <input id="f-name" type="text" placeholder="שם ומשפחה" autocomplete="name">
+    </div>
+    <div class="field">
+      <label>בית ספר</label>
+      <input id="f-school" type="text" placeholder="שם בית הספר" autocomplete="organization">
+    </div>
+    <div class="field">
+      <label>טלפון</label>
+      <input id="f-phone" type="tel" placeholder="050-0000000" autocomplete="tel" dir="ltr" style="text-align:right;">
+    </div>
+    <div class="field">
+      <label>סיסמה מבוקשת</label>
+      <input id="f-pass" type="password" placeholder="בחרו סיסמה — לפחות 6 תווים" autocomplete="new-password">
+    </div>
+    <div class="field">
+      <label>אימות סיסמה</label>
+      <input id="f-pass2" type="password" placeholder="הקלידו שוב את הסיסמה" autocomplete="new-password">
+    </div>
+
+    <button class="submit-btn" id="sub-btn" onclick="submitRequest()">שלח בקשת רישום ←</button>
+    <div class="msg" id="msg"></div>
+    <div class="already-link">כבר רשומים? <a href="teacher-login.html">כניסה לסביבת המורה</a></div>
+  </div>
+</div>
+
+<div class="footer">פיתוח: רני בן זאב • גליל מערבי</div>
+
+<script>
+const firebaseConfig={apiKey:"AIzaSyCCHvn_ulmiyM56DuslNzNC0Ge6a8i2vhY",authDomain:"tests-fd938.firebaseapp.com",databaseURL:"https://tests-fd938-default-rtdb.europe-west1.firebasedatabase.app",projectId:"tests-fd938",storageBucket:"tests-fd938.firebasestorage.app",messagingSenderId:"586813097412",appId:"1:586813097412:web:39a71b3e0ea03573509091"};
+firebase.initializeApp(firebaseConfig);
+const db=firebase.database();
+
+async function submitRequest(){
+  const name=document.getElementById('f-name').value.trim();
+  const school=document.getElementById('f-school').value.trim();
+  const phone=document.getElementById('f-phone').value.trim();
+  const pass=document.getElementById('f-pass').value;
+  const pass2=document.getElementById('f-pass2').value;
+  const msg=document.getElementById('msg');
+  const btn=document.getElementById('sub-btn');
+
+  msg.className='msg';msg.style.display='none';
+
+  if(!name||!school||!phone||!pass||!pass2){
+    msg.className='msg err';msg.textContent='יש למלא את כל השדות.';return;
+  }
+  if(pass.length<6){
+    msg.className='msg err';msg.textContent='הסיסמה חייבת להכיל לפחות 6 תווים.';return;
+  }
+  if(pass!==pass2){
+    msg.className='msg err';msg.textContent='הסיסמאות אינן תואמות.';return;
+  }
+
+  btn.disabled=true;btn.textContent='שולח...';
+
+  try{
+    await db.ref('teacher_requests').push({
+      name,school,phone,
+      passwordRequested:pass,
+      status:'pending',
+      requestedAt:Date.now()
+    });
+    msg.className='msg ok';
+    msg.innerHTML='✓ הבקשה נשלחה בהצלחה!<br><span style="font-weight:400;font-size:14px;">המנהל יאשר אותה בקרוב ותוכלו להיכנס לסביבת המורה.</span>';
+    btn.textContent='✓ נשלח';
+  }catch(e){
+    msg.className='msg err';msg.textContent='שגיאה בשליחה — בדקו חיבור לאינטרנט ונסו שוב.';
+    btn.disabled=false;btn.textContent='שלח בקשת רישום ←';
+  }
+}
+document.addEventListener('keydown',e=>{if(e.key==='Enter')submitRequest();});
+</script>
+</body>
+</html>
