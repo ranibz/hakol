@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>סאטירה ודמוקרטיה — סביבת המורה</title>
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@300;400;500;700;900&family=Heebo:wght@300;400;500;700;800&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<style>
+:root{--ink:#1a1208;--paper:#f5f0e8;--accent:#c0392b;--muted:#6b5e4e;--shadow:4px 4px 0 #1a1208;--shadow-sm:2px 2px 0 #1a1208;--green:#2c7a3a;--blue:#1a3a6b;--serif:'Frank Ruhl Libre',serif;--sans:'Heebo',sans-serif}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:var(--sans);background:var(--paper);color:var(--ink)}
+/* LOGIN */
+#login-page{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+.lb{background:white;border:3px solid var(--ink);box-shadow:var(--shadow);max-width:400px;width:100%;padding:28px 24px}
+.lb h2{font-family:var(--serif);font-size:1.4rem;font-weight:900;margin-bottom:4px}
+.lb p{font-size:.82rem;color:var(--muted);margin-bottom:20px}
+.lf{margin-bottom:12px}
+.lf label{display:block;font-size:.72rem;font-weight:700;color:var(--muted);margin-bottom:4px}
+.lf input{width:100%;padding:10px 14px;border:2px solid var(--ink);background:var(--paper);font-family:var(--sans);font-size:.95rem;color:var(--ink);outline:none;transition:border-color .2s}
+.lf input:focus{border-color:var(--accent)}
+.lbtn{width:100%;padding:12px;background:var(--accent);color:white;border:none;font-family:var(--serif);font-size:1rem;font-weight:700;cursor:pointer;box-shadow:var(--shadow-sm);transition:all .15s}
+.lbtn:hover{background:#a93226;transform:translate(-1px,-1px)}
+.lerr{color:var(--accent);font-size:.8rem;margin-top:8px;min-height:1.2em}
+.lnote{font-size:.76rem;color:var(--muted);margin-top:12px;text-align:center}
+.lnote a{color:var(--accent)}
+/* APP */
+#app{display:none}
+.masthead{border-bottom:6px double var(--ink);padding:16px 20px;background:var(--paper);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px}
+.mh-left h1{font-family:var(--serif);font-size:1.3rem;font-weight:900}
+.mh-left p{font-size:.72rem;color:var(--muted)}
+.logout-btn{padding:6px 14px;border:2px solid var(--ink);background:var(--paper);font-family:var(--sans);font-size:.78rem;font-weight:700;cursor:pointer;transition:all .15s}
+.logout-btn:hover{background:var(--ink);color:var(--paper)}
+/* TOOLBAR */
+.toolbar{background:white;border-bottom:2px solid var(--ink);padding:12px 20px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;position:sticky;top:0;z-index:50}
+.tb-input{padding:8px 12px;border:2px solid var(--ink);background:var(--paper);font-family:var(--sans);font-size:.85rem;color:var(--ink);outline:none;min-width:160px}
+.tb-input:focus{border-color:var(--accent)}
+.tb-select{padding:8px 12px;border:2px solid var(--ink);background:var(--paper);font-family:var(--sans);font-size:.85rem;color:var(--ink);outline:none;cursor:pointer}
+.tb-btn{padding:8px 16px;border:2px solid var(--ink);background:var(--ink);color:var(--paper);font-family:var(--serif);font-size:.85rem;font-weight:700;cursor:pointer;transition:all .15s}
+.tb-btn:hover{background:var(--accent);border-color:var(--accent)}
+/* STATS */
+.stats-bar{padding:12px 20px;background:var(--paper);border-bottom:1px solid #ddd;display:flex;gap:20px;flex-wrap:wrap}
+.stat{font-size:.8rem;color:var(--muted)}.stat strong{color:var(--ink)}
+/* WRAP */
+.wrap{max-width:900px;margin:0 auto;padding:20px}
+/* TABLE */
+.tbl{width:100%;border-collapse:collapse}
+.tbl th{background:var(--ink);color:var(--paper);padding:10px 12px;font-family:var(--serif);font-size:.85rem;font-weight:700;text-align:right;border-left:1px solid rgba(255,255,255,.1)}
+.tbl td{padding:10px 12px;border-bottom:1px solid #ddd;font-size:.84rem;vertical-align:middle}
+.tbl tr:hover td{background:#faf7f2;cursor:pointer}
+.tbl tr.expanded td{background:#fffef0}
+/* BADGES */
+.badge{display:inline-block;padding:2px 10px;font-size:.7rem;font-weight:700;border:1px solid;border-radius:2px}
+.badge-topic{background:var(--accent-light,#f9e5e4);color:var(--accent);border-color:var(--accent)}
+.grade-badge{font-weight:800;font-size:.9rem}
+.grade-badge.graded{color:var(--green)}
+.grade-badge.ungraded{color:#aaa}
+/* EXPANDED */
+.exp-row td{padding:0!important}
+.exp-inner{padding:20px;background:#fffef0;border-bottom:2px solid var(--ink)}
+.answers-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px}
+@media(max-width:600px){.answers-grid{grid-template-columns:1fr}}
+.ans-item{background:white;border:1px solid #ddd;padding:10px 12px}
+.ans-label{font-size:.68rem;font-weight:700;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px}
+.ans-text{font-size:.85rem;line-height:1.6;white-space:pre-wrap}
+.feedback-panel{background:white;border:2px solid var(--ink);padding:14px;margin-top:4px}
+.fp-title{font-family:var(--serif);font-size:.95rem;font-weight:700;margin-bottom:12px}
+.fp-row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px;align-items:flex-end}
+.fp-row input[type=number]{width:90px;padding:8px 10px;border:2px solid var(--ink);background:var(--paper);font-family:var(--sans);font-size:1rem;font-weight:700;outline:none}
+.fp-row input:focus{border-color:var(--accent)}
+.fp-row textarea{flex:1;min-width:200px;padding:8px 10px;border:2px solid var(--ink);background:var(--paper);font-family:var(--sans);font-size:.85rem;outline:none;resize:none;min-height:60px}
+.fp-row textarea:focus{border-color:var(--accent)}
+.fp-save{padding:10px 20px;background:var(--accent);color:white;border:none;font-family:var(--serif);font-size:.9rem;font-weight:700;cursor:pointer;box-shadow:var(--shadow-sm);transition:all .15s}
+.fp-save:hover{background:#a93226;transform:translate(-1px,-1px)}
+.fp-saved{font-size:.78rem;color:var(--green);font-weight:700;margin-top:6px}
+.empty{text-align:center;padding:40px;color:var(--muted);font-size:.88rem}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-page">
+  <div class="lb">
+    <h2>🔐 כניסת מורה</h2>
+    <p>סביבת המורה — סאטירה ודמוקרטיה</p>
+    <div class="lf"><label>טלפון</label><input type="tel" id="l-phone" placeholder="05X-XXXXXXX" style="direction:ltr"></div>
+    <div class="lf"><label>סיסמה</label><input type="password" id="l-pass" placeholder="••••••" onkeydown="if(event.key==='Enter')doLogin()"></div>
+    <button class="lbtn" onclick="doLogin()">כניסה ←</button>
+    <div class="lerr" id="l-err"></div>
+    <div class="lnote"><a href="../teacher-register.html">הרשמה ראשונית למורים ←</a></div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <div class="masthead">
+    <div class="mh-left">
+      <h1>🎭 סאטירה ודמוקרטיה — סביבת המורה</h1>
+      <p id="teacher-label">שלום, </p>
+    </div>
+    <button class="logout-btn" onclick="doLogout()">התנתק</button>
+  </div>
+
+  <div class="toolbar">
+    <input class="tb-input" type="text" id="search-input" placeholder="🔍 חיפוש לפי שם..." oninput="renderTable()">
+    <select class="tb-select" id="filter-class" onchange="renderTable()"><option value="">כל הכיתות</option></select>
+    <button class="tb-btn" onclick="exportCSV()">ייצוא CSV ⬇</button>
+  </div>
+
+  <div class="stats-bar" id="stats-bar"></div>
+
+  <div class="wrap">
+    <table class="tbl" id="main-table">
+      <thead>
+        <tr>
+          <th>שם</th>
+          <th>מייל</th>
+          <th>שכבה</th>
+          <th>תאריך הגשה</th>
+          <th>ציון</th>
+        </tr>
+      </thead>
+      <tbody id="table-body"></tbody>
+    </table>
+    <div class="empty" id="empty-msg" style="display:none">אין הגשות עדיין</div>
+  </div>
+</div>
+
+<script>
+const FC={apiKey:"AIzaSyCCHvn_ulmiyM56DuslNzNC0Ge6a8i2vhY",authDomain:"tests-fd938.firebaseapp.com",databaseURL:"https://tests-fd938-default-rtdb.europe-west1.firebasedatabase.app",projectId:"tests-fd938"};
+firebase.initializeApp(FC);
+const db=firebase.database();
+
+const TOPICS={satira:'סאטירה ודמוקרטיה'};
+const ANSWER_LABELS={
+  first_impression:'תגובה ראשונית',
+  humor_theory:'תיאוריית הומור',
+  polysemy_analysis:'ניתוח פוליסמיות',
+  fact_vs_opinion:'עובדה מול דעה',
+  hegemony_analysis:'ניתוח הגמוניה',
+  satira_role_position:'עמדה אישית',
+  meme_analysis:'ניתוח מם',
+  write_satire:'כתיבת סאטירה'
+};
+
+let teacherID='',allData=[],expandedKey=null;
+
+function doLogin(){
+  const phone=document.getElementById('l-phone').value.trim();
+  const pass=document.getElementById('l-pass').value.trim();
+  if(!phone||!pass){document.getElementById('l-err').textContent='נא למלא טלפון וסיסמה';return;}
+  db.ref('teachers').orderByChild('phone').equalTo(phone).once('value').then(snap=>{
+    if(!snap.exists()){document.getElementById('l-err').textContent='מורה לא נמצא';return;}
+    snap.forEach(child=>{
+      const t=child.val();
+      if(t.password===pass&&t.status==='approved'){
+        teacherID=child.key;
+        document.getElementById('login-page').style.display='none';
+        document.getElementById('app').style.display='block';
+        const name=(t.firstName&&t.lastName)?t.firstName+' '+t.lastName:(t.name||phone);
+        document.getElementById('teacher-label').textContent='שלום, '+name;
+        loadData();
+      } else {
+        document.getElementById('l-err').textContent='סיסמה שגויה או חשבון לא מאושר';
+      }
+    });
+  });
+}
+function doLogout(){
+  teacherID='';allData=[];
+  document.getElementById('app').style.display='none';
+  document.getElementById('login-page').style.display='flex';
+  document.getElementById('l-pass').value='';
+}
+
+function loadData(){
+  const promises=Object.keys(TOPICS).map(topic=>
+    db.ref('tests/'+topic).once('value').then(snap=>{
+      const raw=snap.val()||{};
+      return Object.entries(raw).map(([k,v])=>({key:k,_topic:topic,_topicLabel:TOPICS[topic],...v}));
+    })
+  );
+  Promise.all(promises).then(results=>{
+    allData=results.flat().filter(d=>d.student?.teacherID===teacherID);
+    allData.sort((a,b)=>b.submittedAt-a.submittedAt);
+    renderTable();
+  });
+}
+
+function renderTable(){
+  const search=document.getElementById('search-input').value.toLowerCase();
+  const cls=document.getElementById('filter-class').value;
+  const classes=[...new Set(allData.map(d=>d.student?.class).filter(Boolean))].sort();
+  const sel=document.getElementById('filter-class');const cur=sel.value;
+  sel.innerHTML='<option value="">כל הכיתות</option>';
+  classes.forEach(c=>sel.innerHTML+=`<option${c===cur?' selected':''}>${c}</option>`);
+
+  const filtered=allData.filter(d=>{
+    const name=(d.student?.name||'').toLowerCase();
+    return(!search||name.includes(search))&&(!cls||d.student?.class===cls);
+  });
+
+  // stats
+  const graded=filtered.filter(d=>d.feedback?.grade!=null).length;
+  document.getElementById('stats-bar').innerHTML=
+    `<div class="stat">סה"כ הגשות: <strong>${filtered.length}</strong></div>`+
+    `<div class="stat">הוערכו: <strong style="color:var(--green)">${graded}</strong></div>`+
+    `<div class="stat">ממתינות: <strong style="color:var(--accent)">${filtered.length-graded}</strong></div>`;
+
+  const tbody=document.getElementById('table-body');
+  tbody.innerHTML='';
+  if(!filtered.length){document.getElementById('empty-msg').style.display='block';return;}
+  document.getElementById('empty-msg').style.display='none';
+
+  filtered.forEach(d=>{
+    const dt=new Date(d.submittedAt).toLocaleString('he-IL',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'});
+    const fb=d.feedback||{};
+    const gradeBadge=fb.grade!=null
+      ?`<span class="grade-badge graded">✅ ${fb.grade}</span>`
+      :`<span class="grade-badge ungraded">—</span>`;
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td><strong>${d.student?.name||''}</strong></td><td style="direction:ltr;font-size:.78rem">${d.student?.email||''}</td><td>${d.student?.class||''}</td><td style="font-size:.78rem">${dt}</td><td>${gradeBadge}</td>`;
+    tr.onclick=()=>toggleExpand(d,tr);
+    tbody.appendChild(tr);
+    if(expandedKey===d.key){
+      const expTr=document.createElement('tr');
+      expTr.className='exp-row';
+      expTr.innerHTML=`<td colspan="5">${buildExpanded(d)}</td>`;
+      tbody.appendChild(expTr);
+      bindFeedback(d);
+    }
+  });
+}
+
+function toggleExpand(d,tr){
+  expandedKey=(expandedKey===d.key)?null:d.key;
+  renderTable();
+  if(expandedKey){
+    const rows=document.getElementById('table-body').querySelectorAll('tr');
+    rows.forEach(r=>{if(r.querySelector('strong')?.textContent===d.student?.name)r.scrollIntoView({behavior:'smooth',block:'start'});});
+  }
+}
+
+function buildExpanded(d){
+  const ans=d.answers||{};
+  const ansHtml=Object.entries(ANSWER_LABELS).map(([k,lbl])=>{
+    const val=ans[k]||'—';
+    return`<div class="ans-item"><div class="ans-label">${lbl}</div><div class="ans-text">${val}</div></div>`;
+  }).join('');
+  const fb=d.feedback||{};
+  const savedNote=fb.grade!=null?`<div class="fp-saved">✅ הוערך: ${fb.grade} | ${fb.comment||'ללא הערה'} (${new Date(fb.gradedAt||0).toLocaleString('he-IL')})</div>`:'';
+  return`<div class="exp-inner">
+    <div class="answers-grid">${ansHtml}</div>
+    <div class="feedback-panel">
+      <div class="fp-title">✏️ הערכה</div>
+      ${savedNote}
+      <div class="fp-row">
+        <div><label style="font-size:.7rem;font-weight:700;color:var(--muted);display:block;margin-bottom:4px">ציון 0-100</label>
+        <input type="number" id="grade-${d.key}" min="0" max="100" value="${fb.grade!=null?fb.grade:''}" placeholder="0-100"></div>
+        <textarea id="comment-${d.key}" placeholder="הערה לתלמיד...">${fb.comment||''}</textarea>
+      </div>
+      <button class="fp-save" onclick="saveFeedback('${d.key}')">שמור הערכה ✓</button>
+    </div>
+  </div>`;
+}
+
+function bindFeedback(d){}
+
+function saveFeedback(key){
+  const rec=allData.find(d=>d.key===key);
+  const topic=rec?._topic||'satira';
+  const grade=parseInt(document.getElementById('grade-'+key).value);
+  const comment=document.getElementById('comment-'+key).value.trim();
+  if(isNaN(grade)||grade<0||grade>100){alert('ציון לא תקין (0-100)');return;}
+  db.ref('tests/'+topic+'/'+key+'/feedback').update({grade,comment,gradedAt:Date.now(),gradedBy:teacherID}).then(()=>{
+    if(rec)rec.feedback={grade,comment,gradedAt:Date.now()};
+    renderTable();
+  });
+}
+
+function exportCSV(){
+  const cls=document.getElementById('filter-class').value;
+  const data=cls?allData.filter(d=>d.student?.class===cls):allData;
+  const ansKeys=Object.keys(ANSWER_LABELS);
+  const headers=['שם','מייל','שכבה','קוד כיתה','תאריך','ציון','הערת מורה',...Object.values(ANSWER_LABELS)];
+  const rows=data.map(d=>{
+    const dt=new Date(d.submittedAt).toLocaleString('he-IL');
+    const fb=d.feedback||{};
+    const ans=d.answers||{};
+    return[d.student?.name||'',d.student?.email||'',d.student?.class||'',d.student?.classCode||'',dt,fb.grade??'',fb.comment||'',...ansKeys.map(k=>(ans[k]||'').replace(/\n/g,' '))].map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',');
+  });
+  const csv='\uFEFF'+headers.map(h=>'"'+h+'"').join(',')+'\n'+rows.join('\n');
+  const a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+  a.download='satira-'+new Date().toISOString().slice(0,10)+'.csv';a.click();
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>סאטירה ודמוקרטיה — מטלה</title>
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@300;400;500;700;900&family=Heebo:wght@300;400;500;700;800&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<style>
+:root{--ink:#1a1208;--paper:#f5f0e8;--accent:#c0392b;--muted:#6b5e4e;--shadow:4px 4px 0 #1a1208;--shadow-sm:2px 2px 0 #1a1208;--green:#2c7a3a;--blue:#1a3a6b;--gold:#b8860b;--serif:'Frank Ruhl Libre',serif;--sans:'Heebo',sans-serif}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:var(--sans);background:var(--paper);color:var(--ink)}
+/* MODAL */
+#modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:999;padding:20px}
+.mbox{background:white;border:3px solid var(--ink);box-shadow:var(--shadow);max-width:440px;width:100%;padding:28px 24px}
+.mbox h2{font-family:var(--serif);font-size:1.5rem;font-weight:900;margin-bottom:4px}
+.mbox p{font-size:.82rem;color:var(--muted);margin-bottom:20px}
+.mf{margin-bottom:14px}
+.mf label{display:block;font-size:.72rem;font-weight:700;color:var(--muted);margin-bottom:4px;letter-spacing:.5px}
+.mf input,.mf select{width:100%;padding:10px 14px;border:2px solid var(--ink);background:var(--paper);font-family:var(--sans);font-size:.95rem;color:var(--ink);outline:none;transition:border-color .2s}
+.mf input:focus,.mf select:focus{border-color:var(--accent)}
+.mbtn{width:100%;padding:13px;background:var(--accent);color:white;border:none;font-family:var(--serif);font-size:1rem;font-weight:700;cursor:pointer;box-shadow:var(--shadow-sm);transition:all .15s;margin-top:4px}
+.mbtn:hover{background:#a93226;transform:translate(-1px,-1px)}
+.merr{color:var(--accent);font-size:.8rem;margin-top:8px;min-height:1.2em}
+/* PBAR */
+.pbar{position:sticky;top:0;z-index:100;background:var(--ink);padding:10px 20px;display:flex;align-items:center;gap:12px}
+.plbl{color:var(--paper);font-family:var(--serif);font-size:.85rem;font-weight:700;white-space:nowrap}
+.ptrack{flex:1;height:6px;background:rgba(255,255,255,.2);border-radius:3px;overflow:hidden}
+.pfill{height:100%;background:var(--accent);border-radius:3px;transition:width .4s}
+.ppct{color:var(--paper);font-size:.72rem;font-weight:700;white-space:nowrap}
+/* HEADER */
+#mhead{background:var(--paper);border-bottom:4px double var(--ink);padding:14px 20px;text-align:center}
+.mh-name{font-size:.72rem;color:var(--muted);letter-spacing:2px;margin-bottom:2px}
+.mh-title{font-family:var(--serif);font-size:1.4rem;font-weight:900}
+/* LAYOUT */
+#mainpage{max-width:700px;margin:0 auto;padding:24px 20px 60px}
+.phase{display:none}.phase.active{display:block}
+.phase-title{font-family:var(--serif);font-size:1.25rem;font-weight:700;border-bottom:3px double var(--ink);padding-bottom:8px;margin-bottom:22px;display:flex;align-items:center;gap:10px}
+.pt-num{background:var(--accent);color:white;width:32px;height:32px;display:inline-flex;align-items:center;justify-content:center;font-size:1rem;font-weight:900;flex-shrink:0}
+/* ACT */
+.act{border:2px solid var(--ink);box-shadow:var(--shadow-sm);background:white;margin-bottom:20px;overflow:hidden}
+.act-head{background:var(--ink);color:var(--paper);padding:10px 16px;font-family:var(--serif);font-size:.95rem;font-weight:700}
+.act-body{padding:16px}
+.act-q{font-size:.92rem;margin-bottom:10px;line-height:1.7;font-weight:500}
+.act-hint{font-size:.78rem;color:var(--muted);margin-bottom:12px;padding:8px 12px;background:var(--paper);border-right:3px solid var(--muted);line-height:1.6}
+/* TEXTAREA */
+textarea{width:100%;min-height:88px;padding:10px 14px;border:2px solid var(--ink);background:var(--paper);font-family:var(--sans);font-size:.9rem;color:var(--ink);resize:none;outline:none;transition:border-color .2s;line-height:1.65}
+textarea:focus{border-color:var(--accent)}
+textarea.sm{min-height:72px}
+.mic-row{display:flex;align-items:center;gap:8px;margin-top:7px}
+.mic-btn{background:white;border:2px solid var(--ink);padding:6px 12px;font-size:.78rem;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:5px;transition:all .15s;font-family:var(--sans)}
+.mic-btn:hover{background:var(--ink);color:white}
+.mic-btn.rec{background:var(--accent);color:white;border-color:var(--accent)}
+.mic-status{font-size:.74rem;color:var(--muted)}
+/* DILEMMA HEADER */
+.dilemma-q{background:var(--accent);color:white;border:2px solid var(--ink);box-shadow:var(--shadow-sm);padding:14px 18px;margin-bottom:20px;font-family:var(--serif);font-size:1rem;font-weight:700;text-align:center;line-height:1.5}
+/* OPTION BLOCKS */
+.opt-block{border:2px solid var(--ink);box-shadow:var(--shadow-sm);background:white;margin-bottom:20px;overflow:hidden}
+.opt-header{display:flex;align-items:stretch;border-bottom:2px solid var(--ink)}
+.opt-badge{padding:10px 14px;font-size:.7rem;font-weight:700;letter-spacing:1.5px;writing-mode:vertical-rl;text-orientation:mixed;display:flex;align-items:center;justify-content:center;min-width:36px;border-left:2px solid var(--ink)}
+.opt-a .opt-badge{background:var(--accent);color:white}
+.opt-b .opt-badge{background:var(--blue);color:white}
+.opt-title{padding:12px 14px;font-family:var(--serif);font-size:.95rem;font-weight:700;line-height:1.4;flex:1}
+.opt-a .opt-title{color:var(--accent)}
+.opt-b .opt-title{color:var(--blue)}
+.opt-a .opt-header{background:#fff4f4}
+.opt-b .opt-header{background:#f0f4ff}
+/* PROS CONS GRID */
+.pc-grid{display:grid;grid-template-columns:1fr 1fr;gap:0}
+.pc-col{padding:14px 16px}
+.pc-col:first-child{border-left:2px solid var(--ink)}
+.pc-label{font-size:.68rem;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;margin-bottom:8px;display:flex;align-items:center;gap:5px}
+.pc-label.pros{color:var(--green)}
+.pc-label.cons{color:var(--accent)}
+/* VERDICT */
+.verdict-block{border:3px solid var(--ink);box-shadow:var(--shadow);background:white;margin-bottom:20px;overflow:hidden}
+.verdict-head{background:var(--ink);color:var(--paper);padding:12px 16px;font-family:var(--serif);font-size:1rem;font-weight:700}
+.verdict-body{padding:18px}
+.vq{font-size:.92rem;font-weight:600;margin-bottom:10px;line-height:1.65}
+.vh{font-size:.78rem;color:var(--muted);padding:8px 12px;background:var(--paper);border-right:3px solid var(--ink);line-height:1.6;margin-bottom:12px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+.chip{border:2px solid var(--ink);padding:7px 16px;font-size:.84rem;font-weight:700;cursor:pointer;transition:all .15s;background:white}
+.chip:hover{background:var(--paper)}
+.chip.sel-a{background:var(--accent);color:white;border-color:var(--accent)}
+.chip.sel-b{background:var(--blue);color:white;border-color:var(--blue)}
+.chip.sel-ab{background:#555;color:white;border-color:#555}
+/* PRICE */
+.price-block{border:2px solid var(--gold);box-shadow:2px 2px 0 var(--gold);background:#fffbf0;overflow:hidden;margin-bottom:20px}
+.price-head{background:var(--gold);color:white;padding:10px 16px;font-family:var(--serif);font-size:.95rem;font-weight:700}
+.price-body{padding:16px}
+/* NAV */
+.nav-btns{display:flex;gap:10px;margin-top:22px;flex-wrap:wrap}
+.nbtn{padding:12px 24px;border:2px solid var(--ink);font-family:var(--serif);font-size:.9rem;font-weight:700;cursor:pointer;box-shadow:var(--shadow-sm);transition:all .15s}
+.nbtn:hover{transform:translate(-1px,-1px);box-shadow:3px 3px 0 var(--ink)}
+.nbtn.primary{background:var(--accent);color:white}
+.nbtn.secondary{background:var(--paper);color:var(--ink)}
+/* SUCCESS */
+#phase-success{display:none;text-align:center;padding:50px 20px}
+#phase-success .big{font-size:3rem;margin-bottom:14px}
+#phase-success h2{font-family:var(--serif);font-size:2rem;font-weight:900;margin-bottom:8px}
+@media(max-width:520px){
+  .pc-grid{grid-template-columns:1fr}
+  .pc-col:first-child{border-left:none;border-bottom:2px solid var(--ink)}
+  .opt-badge{writing-mode:horizontal-tb;min-width:auto;padding:8px 12px}
+}
+</style>
+</head>
+<body>
+
+<!-- MODAL -->
+<div id="modal">
+  <div class="mbox">
+    <h2>סאטירה ודמוקרטיה</h2>
+    <p>מלאו את הפרטים כדי להתחיל</p>
+    <div class="mf"><label>שם פרטי</label><input id="inp-fn" placeholder="שם פרטי" autocomplete="off"></div>
+    <div class="mf"><label>שם משפחה</label><input id="inp-ln" placeholder="שם משפחה" autocomplete="off"></div>
+    <div class="mf"><label>מייל</label><input id="inp-email" type="email" style="direction:ltr" placeholder="your@email.com"></div>
+    <div class="mf">
+      <label>שכבה</label>
+      <select id="inp-grade">
+        <option value="">בחר שכבה</option>
+        <option>י׳</option><option>יא׳</option><option>יב׳</option>
+      </select>
+    </div>
+    <div class="mf" id="field-code" style="display:none">
+      <label>קוד כיתה</label>
+      <input id="inp-code" placeholder="קוד שקיבלת מהמורה" autocomplete="off">
+    </div>
+    <button class="mbtn" onclick="enterPage()">▶ התחל</button>
+    <div class="merr" id="modal-err"></div>
+  </div>
+</div>
+
+<!-- PBAR -->
+<div class="pbar" id="pbar" style="display:none">
+  <span class="plbl" id="plbl">שלב 1/2</span>
+  <div class="ptrack"><div class="pfill" id="pfill" style="width:0%"></div></div>
+  <span class="ppct" id="ppct">0%</span>
+</div>
+
+<!-- HEADER -->
+<div id="mhead" style="display:none">
+  <div class="mh-name">🎭 <span id="bname"></span> | כיתה: <span id="bcls"></span></div>
+  <div class="mh-title">סאטירה ודמוקרטיה — ניתוח דילמה</div>
+</div>
+
+<!-- MAIN -->
+<div id="mainpage" style="display:none">
+
+  <!-- שלב א: תגובה ראשונית -->
+  <div class="phase" id="phase-1">
+    <div class="phase-title"><span class="pt-num">א</span>תגובה ראשונית</div>
+
+    <div class="act">
+      <div class="act-head">🎬 צפייה ותגובה — המערכון ושתי הדעות</div>
+      <div class="act-body">
+        <p class="act-q">צפיתם במערכון מ״ארץ נהדרת״ וקראתם את שתי הדעות. מה הייתה תגובתכם הראשונה? — תארו את מה שהרגשתם ונסו להסביר מה עורר זאת.</p>
+        <div class="act-hint">💡 אין תשובה נכונה. מה חשתם <em>לפני</em> שהתחלתם לנתח — צחוק? אי-נוחות? זדהות? כעס?</div>
+        <textarea id="first_impression" oninput="ar(this)" onpaste="return false" placeholder="תגובתי הראשונית היתה..."></textarea>
+        <div class="mic-row"><button class="mic-btn" onclick="mic('first_impression',this)">🎤 הכתבה</button><span class="mic-status" id="st-first_impression"></span></div>
+      </div>
+    </div>
+
+    <div class="nav-btns">
+      <button class="nbtn primary" onclick="goP(2)">לניתוח הדילמה ←</button>
+    </div>
+  </div>
+
+  <!-- שלב ב: ניתוח דילמה -->
+  <div class="phase" id="phase-2">
+    <div class="phase-title"><span class="pt-num">ב</span>ניתוח דילמה</div>
+
+    <div class="dilemma-q">האם סאטירה פוליטית ממלאת תפקיד דמוקרטי לגיטימי — או שהיא עצמה כלי הגמוני?</div>
+
+    <!-- אפשרות א -->
+    <div class="opt-block opt-a">
+      <div class="opt-header">
+        <div class="opt-badge">א</div>
+        <div class="opt-title">סאטירה חד-צדדית היא תקשורת מגויסת<br><span style="font-weight:400;font-size:.82rem;color:var(--muted)">עמדת ליבסקינד</span></div>
+      </div>
+      <div class="pc-grid">
+        <div class="pc-col">
+          <div class="pc-label pros">✅ יתרונות</div>
+          <textarea id="pros_a" class="sm" oninput="ar(this)" onpaste="return false" placeholder="מה חזק בעמדה זו?&#10;מה היא מצליחה להוכיח?"></textarea>
+          <div class="mic-row"><button class="mic-btn" onclick="mic('pros_a',this)">🎤</button><span class="mic-status" id="st-pros_a"></span></div>
+        </div>
+        <div class="pc-col">
+          <div class="pc-label cons">❌ חסרונות</div>
+          <textarea id="cons_a" class="sm" oninput="ar(this)" onpaste="return false" placeholder="מה חלש בעמדה זו?&#10;מה קשה לה להסביר?"></textarea>
+          <div class="mic-row"><button class="mic-btn" onclick="mic('cons_a',this)">🎤</button><span class="mic-status" id="st-cons_a"></span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- אפשרות ב -->
+    <div class="opt-block opt-b">
+      <div class="opt-header">
+        <div class="opt-badge">ב</div>
+        <div class="opt-title">הסאטירה מערערת הגמוניה — זה תפקידה<br><span style="font-weight:400;font-size:.82rem;color:var(--muted)">עמדת כותב התגובה</span></div>
+      </div>
+      <div class="pc-grid">
+        <div class="pc-col">
+          <div class="pc-label pros">✅ יתרונות</div>
+          <textarea id="pros_b" class="sm" oninput="ar(this)" onpaste="return false" placeholder="מה חזק בעמדה זו?&#10;מה היא מצליחה להוכיח?"></textarea>
+          <div class="mic-row"><button class="mic-btn" onclick="mic('pros_b',this)">🎤</button><span class="mic-status" id="st-pros_b"></span></div>
+        </div>
+        <div class="pc-col">
+          <div class="pc-label cons">❌ חסרונות</div>
+          <textarea id="cons_b" class="sm" oninput="ar(this)" onpaste="return false" placeholder="מה חלש בעמדה זו?&#10;מה קשה לה להסביר?"></textarea>
+          <div class="mic-row"><button class="mic-btn" onclick="mic('cons_b',this)">🎤</button><span class="mic-status" id="st-cons_b"></span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- הכרעה -->
+    <div class="verdict-block">
+      <div class="verdict-head">⚖️ הכרעתי</div>
+      <div class="verdict-body">
+        <div class="vq">עם איזו עמדה אתם מסכימים יותר?</div>
+        <div class="chips" id="verdict-chips">
+          <div class="chip" onclick="pickV(this,'a')">אפשרות א׳ — עמדת ליבסקינד</div>
+          <div class="chip" onclick="pickV(this,'b')">אפשרות ב׳ — עמדת כותב התגובה</div>
+          <div class="chip" onclick="pickV(this,'ab')">שתיהן חלקית</div>
+        </div>
+        <div class="vq">נמקו את הכרעתכם — השתמשו לפחות בשני מושגים מהחומר:</div>
+        <div class="vh">💡 מושגים רלוונטיים: סאטירה, תפקידי הסאטירה, הגמוניה תרבותית, פוליסמיות, חופש ביטוי, אחריותיות התקשורת, תקשורת מגויסת.</div>
+        <textarea id="verdict_reasoning" oninput="ar(this)" onpaste="return false" placeholder="הכרעתי היא... כי... לראיה..."></textarea>
+        <div class="mic-row"><button class="mic-btn" onclick="mic('verdict_reasoning',this)">🎤 הכתבה</button><span class="mic-status" id="st-verdict_reasoning"></span></div>
+      </div>
+    </div>
+
+    <!-- המחיר -->
+    <div class="price-block">
+      <div class="price-head">💸 המחיר שאני משלם על קביעתי</div>
+      <div class="price-body">
+        <p class="vq">כל עמדה שבחרתם — יש לה מחיר. מה אתם מוותרים או מקבלים על עצמכם?</p>
+        <div class="vh">💡 לדוגמה: בחרתם א׳ — אתם למעשה מגבילים את מרחב הביקורת הסאטירית. בחרתם ב׳ — אתם מקבלים שסאטירה יכולה להפיץ מסרים מוטים ללא אחריות. מה המחיר <em>שלכם</em>?</div>
+        <textarea id="verdict_price" oninput="ar(this)" onpaste="return false" placeholder="המחיר שאני משלם על קביעתי הוא..."></textarea>
+        <div class="mic-row"><button class="mic-btn" onclick="mic('verdict_price',this)">🎤 הכתבה</button><span class="mic-status" id="st-verdict_price"></span></div>
+      </div>
+    </div>
+
+    <div class="nav-btns">
+      <button class="nbtn secondary" onclick="goP(1)">→ חזרה</button>
+      <button class="nbtn primary" onclick="submitWS()">💾 שליחה ←</button>
+    </div>
+  </div>
+
+  <!-- הצלחה -->
+  <div id="phase-success">
+    <div class="big">🎭</div>
+    <h2>המטלה נשלחה!</h2>
+    <p style="margin-top:8px;color:var(--muted)">תודה <strong id="success-name"></strong>. עבודתך התקבלה ותסומן בקרוב.</p>
+    <p style="margin-top:16px;font-size:.82rem"><a href="../mygrades.html" id="link-grades" style="color:var(--accent);font-weight:700">לצפייה בציונים ←</a></p>
+  </div>
+
+</div><!-- /mainpage -->
+
+<script>
+const FC={apiKey:"AIzaSyCCHvn_ulmiyM56DuslNzNC0Ge6a8i2vhY",authDomain:"tests-fd938.firebaseapp.com",databaseURL:"https://tests-fd938-default-rtdb.europe-west1.firebasedatabase.app",projectId:"tests-fd938"};
+firebase.initializeApp(FC);
+const db=firebase.database();
+
+const _urlCode=new URLSearchParams(location.search).get('code');
+if(_urlCode){
+  document.getElementById('inp-code').value=_urlCode;
+  document.getElementById('field-code').style.display='none';
+}
+
+let student={},verdictChoice='';
+
+function enterPage(){
+  const fn=document.getElementById('inp-fn').value.trim();
+  const ln=document.getElementById('inp-ln').value.trim();
+  const email=document.getElementById('inp-email').value.trim().toLowerCase();
+  const grade=document.getElementById('inp-grade').value;
+  const code=document.getElementById('inp-code').value.trim().toLowerCase();
+  if(!fn||!ln||!email||!grade){document.getElementById('modal-err').textContent='נא למלא את כל השדות';return;}
+  db.ref('teacher_codes').once('value').then(snap=>{
+    const codes=snap.val()||{};let teacherID='';
+    Object.keys(codes).forEach(k=>{if(k.startsWith(code+'_'))teacherID=codes[k];});
+    student={name:fn+' '+ln,firstName:fn,lastName:ln,email,class:grade,classCode:code,teacherID};
+    document.getElementById('modal').style.display='none';
+    document.getElementById('pbar').style.display='flex';
+    document.getElementById('mhead').style.display='block';
+    document.getElementById('mainpage').style.display='block';
+    document.getElementById('bname').textContent=fn+' '+ln;
+    document.getElementById('bcls').textContent=grade;
+    document.getElementById('link-grades').href='../mygrades.html?code='+encodeURIComponent(code);
+    goP(1);
+  });
+}
+
+function goP(n){
+  document.querySelectorAll('.phase').forEach(p=>p.classList.remove('active'));
+  const ph=document.getElementById('phase-'+n);
+  if(ph)ph.classList.add('active');
+  window.scrollTo({top:0,behavior:'smooth'});
+  const tot=2,pct=Math.round((n/tot)*100);
+  document.getElementById('plbl').textContent='שלב '+n+'/'+tot;
+  document.getElementById('pfill').style.width=pct+'%';
+  document.getElementById('ppct').textContent=pct+'%';
+}
+
+function ar(el){el.style.height='auto';el.style.height=el.scrollHeight+'px';}
+
+let activeRec=null;
+function mic(tid,btn){
+  if(activeRec&&activeRec.state==='recording'){activeRec.stop();return;}
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){document.getElementById('st-'+tid).textContent='זיהוי קול לא נתמך';return;}
+  const rec=new SR();rec.lang='he-IL';rec.interimResults=false;activeRec=rec;
+  btn.classList.add('rec');btn.textContent='⏹ עצור';
+  document.getElementById('st-'+tid).textContent='🔴 מקליט...';
+  rec.onresult=ev=>{const t=ev.results[0][0].transcript;const ta=document.getElementById(tid);ta.value+=(ta.value?' ':'')+t;ar(ta);};
+  rec.onend=()=>{btn.classList.remove('rec');btn.textContent='🎤 הכתבה';document.getElementById('st-'+tid).textContent='';activeRec=null;};
+  rec.onerror=()=>{btn.classList.remove('rec');btn.textContent='🎤 הכתבה';document.getElementById('st-'+tid).textContent='שגיאה — נסה שוב';activeRec=null;};
+  rec.start();
+}
+
+function pickV(el,key){
+  document.querySelectorAll('#verdict-chips .chip').forEach(c=>{c.className='chip';});
+  el.classList.add(key==='a'?'sel-a':key==='b'?'sel-b':'sel-ab');
+  verdictChoice=key;
+}
+
+function submitWS(){
+  const fields=['first_impression','pros_a','cons_a','pros_b','cons_b','verdict_reasoning','verdict_price'];
+  for(const f of fields){if(!document.getElementById(f).value.trim()){alert('נא להשלים את כל השדות לפני השליחה');return;}}
+  if(!verdictChoice){alert('נא לבחור הכרעה');return;}
+  const vLabel=verdictChoice==='a'?'אפשרות א׳ — ליבסקינד':verdictChoice==='b'?'אפשרות ב׳ — כותב התגובה':'שתיהן חלקית';
+  const answers={
+    first_impression:document.getElementById('first_impression').value.trim(),
+    dilemma_pros_a:document.getElementById('pros_a').value.trim(),
+    dilemma_cons_a:document.getElementById('cons_a').value.trim(),
+    dilemma_pros_b:document.getElementById('pros_b').value.trim(),
+    dilemma_cons_b:document.getElementById('cons_b').value.trim(),
+    verdict_choice:vLabel,
+    verdict_reasoning:document.getElementById('verdict_reasoning').value.trim(),
+    verdict_price:document.getElementById('verdict_price').value.trim()
+  };
+  db.ref('tests/satira/').push({student,answers,submittedAt:Date.now()}).then(()=>{
+    document.querySelectorAll('.phase').forEach(p=>p.classList.remove('active'));
+    document.getElementById('phase-success').style.display='block';
+    document.getElementById('success-name').textContent=student.firstName;
+    document.getElementById('pfill').style.width='100%';
+    document.getElementById('ppct').textContent='100%';
+    document.getElementById('plbl').textContent='הושלם ✓';
+    window.scrollTo({top:0,behavior:'smooth'});
+  }).catch(()=>alert('שגיאה בשליחה — בדוק חיבור אינטרנט'));
+}
+</script>
+</body>
+</html>
