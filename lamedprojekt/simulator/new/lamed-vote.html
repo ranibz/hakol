@@ -8,50 +8,430 @@
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 <style>
-:root { --primary: #6366f1; --accent: #f5a623; --bg: #0f172a; }
+:root{
+  --ink:#0d0d14;--ink2:#13131f;--ink3:#1a1a2c;
+  --surface:#1e1e30;--surface2:#252540;
+  --v:#8b5cf6;--v2:#6d28d9;--v3:#a78bfa;
+  --lime:#a3e635;--cyan:#22d3ee;--rose:#fb7185;--amber:#fbbf24;
+  --text:#f0efff;--muted:rgba(240,239,255,.45);--dim:rgba(240,239,255,.22);
+}
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+html{height:100%;}
 body{
-  font-family:'Heebo',sans-serif; background:var(--bg); color:white;
-  background-image: radial-gradient(at 50% -20%, rgba(99,102,241,0.15) 0%, transparent 80%);
-  min-height:100vh; display:flex; flex-direction:column;
+  font-family:'Heebo',sans-serif;
+  background:var(--ink);color:var(--text);
+  display:flex;flex-direction:column;
+  min-height:100vh;min-height:100dvh;
+  background-image:
+    radial-gradient(ellipse 100% 55% at 50% -10%,rgba(139,92,246,.2) 0%,transparent 60%),
+    radial-gradient(ellipse 70% 45% at 90% 110%,rgba(34,211,238,.1) 0%,transparent 50%),
+    radial-gradient(ellipse 60% 40% at 10% 90%,rgba(251,113,133,.07) 0%,transparent 45%);
 }
 
-.screen { padding: 30px 20px; display:none; flex-direction:column; align-items:center; text-align:center; animation: slideUp 0.4s ease; }
-.screen.active { display:flex; }
-@keyframes slideUp { from { opacity:0; transform: translateY(20px); } to { opacity:1; transform: translateY(0); } }
-
-.q-card {
-  background: rgba(255, 255, 255, 0.05); backdrop-filter: blur(15px); border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 24px; padding: 25px; margin-bottom: 25px; width: 100%;
+/* SCREENS */
+.screen{
+  display:none;flex:1;flex-direction:column;align-items:center;justify-content:center;
+  padding:20px 16px;
+  padding-top:calc(20px + env(safe-area-inset-top));
+  padding-bottom:calc(20px + env(safe-area-inset-bottom));
+  animation:fadeUp .4s ease both;
 }
-.q-card-text { font-family: 'Syne', sans-serif; font-size: 20px; font-weight: 700; }
+.screen.active{display:flex;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(16px);}to{opacity:1;transform:translateY(0);}}
 
-.snum {
-  aspect-ratio: 1; display:flex; align-items:center; justify-content:center;
-  background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1);
-  border-radius: 18px; font-family: 'Syne', sans-serif; font-size: 22px; font-weight: 800;
-  transition: 0.2s; color: rgba(255,255,255,0.5);
+/* TOP STRIP */
+.top-strip{
+  position:fixed;top:0;left:0;right:0;z-index:100;height:3px;
+  background:linear-gradient(90deg,var(--v),var(--cyan),var(--amber),var(--v));
+  background-size:300% 100%;animation:shimmer 4s linear infinite;
 }
-.snum.sel { background: var(--primary); color: white; transform: scale(1.1); box-shadow: 0 0 20px rgba(99,102,241,0.4); border-color: transparent; }
+@keyframes shimmer{to{background-position:-300% 0;}}
 
-.send-btn {
-  width: 100%; padding: 18px; background: linear-gradient(135deg, var(--primary), #4338ca);
-  border: none; border-radius: 18px; color: white; font-family: 'Syne', sans-serif; font-size: 18px; font-weight: 800;
+/* LOGO */
+.logo-mark{
+  font-family:'Syne',sans-serif;font-size:11px;font-weight:800;
+  letter-spacing:3px;text-transform:uppercase;color:var(--dim);
+  position:fixed;top:14px;right:16px;
 }
-.send-btn:disabled { opacity: 0.3; }
 
-.pulse-ring { width:80px; height:80px; border-radius:50%; background: var(--primary); animation: pulse 2s infinite; margin-bottom:30px; }
-@keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(99,102,241,0.4); } 70% { box-shadow: 0 0 0 20px rgba(99,102,241,0); } 100% { box-shadow: 0 0 0 0 rgba(99,102,241,0); } }
+/* ══ WAITING ══ */
+#waiting{text-align:center;}
+.pulse-ring{
+  width:80px;height:80px;border-radius:50%;
+  border:2px solid rgba(139,92,246,.4);
+  display:flex;align-items:center;justify-content:center;
+  margin:0 auto 28px;position:relative;
+}
+.pulse-ring::before{
+  content:'';position:absolute;inset:-10px;border-radius:50%;
+  border:1.5px solid rgba(139,92,246,.2);animation:pulsering 2s ease-out infinite;
+}
+.pulse-ring::after{
+  content:'';position:absolute;inset:-22px;border-radius:50%;
+  border:1px solid rgba(139,92,246,.1);animation:pulsering 2s ease-out .5s infinite;
+}
+@keyframes pulsering{0%{transform:scale(.8);opacity:0;}50%{opacity:1;}100%{transform:scale(1.3);opacity:0;}}
+.pulse-dot{
+  width:22px;height:22px;border-radius:50%;
+  background:linear-gradient(135deg,var(--v),var(--cyan));
+  box-shadow:0 0 20px rgba(139,92,246,.6);
+}
+#waiting h2{
+  font-family:'Syne',sans-serif;font-size:clamp(24px,6vw,32px);font-weight:800;
+  margin-bottom:10px;
+  background:linear-gradient(135deg,#c4b5fd,var(--cyan));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+}
+#waiting .w-sub{font-size:14px;color:var(--muted);margin-bottom:24px;line-height:1.6;}
+.presenter-chip{
+  display:inline-flex;align-items:center;gap:8px;
+  background:rgba(139,92,246,.12);border:1px solid rgba(139,92,246,.3);
+  padding:10px 20px;border-radius:100px;font-size:13px;color:rgba(240,239,255,.7);
+  box-shadow:0 0 20px rgba(139,92,246,.15);
+}
+.presenter-chip span{color:var(--amber);font-weight:800;}
+
+/* ══ QUESTION ══ */
+#question{
+  padding-top:80px;justify-content:flex-start;
+  overflow-y:auto;-webkit-overflow-scrolling:touch;
+}
+.q-meta{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:16px;width:100%;max-width:480px;
+}
+.q-label{
+  font-size:10px;letter-spacing:2.5px;text-transform:uppercase;
+  color:#c4b5fd;font-weight:800;
+}
+.q-pip-row{display:flex;gap:5px;flex-wrap:wrap;max-width:60%;}
+.q-pip{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.1);transition:all .3s;flex-shrink:0;}
+.q-pip.done{background:var(--lime);}
+.q-pip.active{background:var(--v3);box-shadow:0 0 8px rgba(167,139,250,.8);}
+
+.q-card{
+  background:var(--surface);border:1px solid rgba(139,92,246,.2);
+  border-radius:20px;padding:20px 18px;
+  width:100%;max-width:480px;margin-bottom:20px;
+  box-shadow:0 4px 28px rgba(139,92,246,.12),inset 0 1px 0 rgba(255,255,255,.05);
+}
+.q-card-text{
+  font-family:'Syne',sans-serif;font-size:clamp(16px,4.5vw,22px);
+  font-weight:800;line-height:1.35;letter-spacing:-.3px;color:var(--text);
+}
+
+/* ══ SCALE ══ */
+.scale-poles{
+  display:flex;justify-content:space-between;
+  font-size:11px;color:var(--muted);
+  margin-bottom:10px;width:100%;max-width:480px;font-weight:700;letter-spacing:.5px;
+}
+.scale-grid{
+  display:grid;grid-template-columns:repeat(6,1fr);
+  gap:8px;width:100%;max-width:480px;margin-bottom:0;
+}
+.snum{
+  aspect-ratio:1;display:flex;align-items:center;justify-content:center;
+  font-family:'Syne',sans-serif;font-size:clamp(16px,4.5vw,22px);font-weight:800;
+  border-radius:14px;cursor:pointer;
+  background:var(--surface);border:1.5px solid rgba(255,255,255,.1);
+  color:rgba(240,239,255,.4);transition:all .18s;user-select:none;
+  min-width:0;min-height:52px;
+}
+.snum:active{transform:scale(.86);}
+.snum.sel{color:#fff;transform:scale(1.08);border-color:transparent;}
+.snum.low{--c:#fb7185;}
+.snum.mid{--c:#fbbf24;}
+.snum.high{--c:#a3e635;}
+.snum.sel.low{background:var(--c);box-shadow:0 0 24px rgba(251,113,133,.55);}
+.snum.sel.mid{background:var(--c);box-shadow:0 0 24px rgba(251,191,36,.55);}
+.snum.sel.high{background:var(--c);box-shadow:0 0 24px rgba(163,230,53,.55);}
+.scale-row2-wrap{
+  display:grid;grid-template-columns:repeat(5,1fr);
+  gap:8px;width:100%;max-width:480px;margin-top:8px;margin-bottom:20px;
+}
+
+.send-btn{
+  width:100%;max-width:480px;padding:17px;
+  background:linear-gradient(135deg,var(--v),var(--v2));
+  color:#fff;border:none;font-family:'Syne',sans-serif;font-size:17px;font-weight:800;
+  letter-spacing:.5px;cursor:pointer;border-radius:16px;
+  transition:all .2s;
+  box-shadow:0 6px 24px rgba(109,40,217,.45);
+  min-height:56px;
+}
+.send-btn:active{transform:scale(.97);}
+.send-btn:disabled{
+  background:rgba(255,255,255,.06);color:rgba(255,255,255,.2);
+  box-shadow:none;cursor:not-allowed;
+}
+
+/* OPEN */
+.open-ta{
+  width:100%;max-width:480px;min-height:120px;
+  background:var(--surface);border:1.5px solid rgba(255,255,255,.1);
+  border-radius:16px;padding:16px;resize:none;
+  font-family:'Heebo',sans-serif;font-size:16px;
+  color:var(--text);outline:none;margin-bottom:16px;transition:border-color .2s,box-shadow .2s;
+  -webkit-appearance:none;
+}
+.open-ta:focus{
+  border-color:var(--v3);
+  box-shadow:0 0 0 4px rgba(139,92,246,.2),0 0 20px rgba(139,92,246,.1);
+}
+.open-ta::placeholder{color:var(--dim);}
+
+/* ══ VOTED ══ */
+#voted{text-align:center;}
+.check-anim{
+  width:80px;height:80px;border-radius:50%;
+  background:linear-gradient(135deg,rgba(163,230,53,.15),rgba(34,211,238,.1));
+  border:2px solid rgba(163,230,53,.35);
+  display:flex;align-items:center;justify-content:center;
+  font-size:32px;margin:0 auto 24px;
+  animation:popIn .4s cubic-bezier(.34,1.56,.64,1) both;
+  box-shadow:0 0 32px rgba(163,230,53,.2);
+}
+@keyframes popIn{from{transform:scale(0);opacity:0;}to{transform:scale(1);opacity:1;}}
+#voted h2{
+  font-family:'Syne',sans-serif;font-size:clamp(24px,6vw,30px);font-weight:800;
+  margin-bottom:10px;
+  background:linear-gradient(135deg,var(--lime),var(--cyan));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+}
+#voted p{font-size:14px;color:var(--muted);margin-bottom:28px;line-height:1.6;}
+.next-dots{display:flex;gap:8px;justify-content:center;}
+.next-dot{width:7px;height:7px;border-radius:50%;background:rgba(255,255,255,.1);}
+.next-dot:nth-child(1){animation:blink 1.2s 0s infinite;}
+.next-dot:nth-child(2){animation:blink 1.2s .2s infinite;}
+.next-dot:nth-child(3){animation:blink 1.2s .4s infinite;}
+@keyframes blink{0%,100%{opacity:.15;}50%{opacity:1;background:var(--v3);}}
+
+/* ══ DONE ══ */
+#done{text-align:center;}
+.done-emblem{
+  width:90px;height:90px;border-radius:50%;
+  background:linear-gradient(135deg,rgba(139,92,246,.25),rgba(34,211,238,.15));
+  border:1px solid rgba(139,92,246,.3);
+  display:flex;align-items:center;justify-content:center;
+  font-size:36px;margin:0 auto 24px;
+  box-shadow:0 0 40px rgba(139,92,246,.2);
+}
+#done h2{
+  font-family:'Syne',sans-serif;font-size:clamp(24px,6vw,32px);font-weight:800;
+  margin-bottom:10px;
+  background:linear-gradient(135deg,#c4b5fd,var(--amber));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+}
+#done p{font-size:14px;color:var(--muted);line-height:1.6;}
+
+/* ══ NO SESSION ══ */
+#no-session{text-align:center;}
+#no-session h2{
+  font-family:'Syne',sans-serif;font-size:22px;font-weight:800;
+  color:rgba(240,239,255,.4);margin-bottom:8px;
+}
+#no-session p{font-size:13px;color:var(--dim);}
+
+/* ══ CREDIT & BOTTOM ══ */
+.credit-footer{
+  position:fixed;bottom:8px;left:0;right:0;
+  text-align:center;font-size:10px;letter-spacing:1.5px;
+  color:var(--dim);font-weight:500;
+}
+.btm{position:fixed;bottom:0;left:0;right:0;height:1px;background:rgba(255,255,255,.05);}
+
+/* ══ PAGE HEADER ══ */
+.page-header{
+  position:fixed;top:3px;left:0;right:0;z-index:90;
+  text-align:center;padding:10px 16px 8px;
+  background:rgba(13,13,20,.75);backdrop-filter:blur(16px);
+  border-bottom:1px solid rgba(255,255,255,.06);
+}
+.page-title{
+  font-family:'Syne',sans-serif;font-size:16px;font-weight:800;
+  background:linear-gradient(135deg,#c4b5fd,#fbbf24);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+  line-height:1.2;
+}
+.page-sub{
+  font-size:10px;letter-spacing:2.5px;text-transform:uppercase;
+  color:rgba(240,239,255,.35);font-weight:600;margin-top:2px;
+}
 </style>
 </head>
 <body>
-<div id="waiting" class="screen active">
-  <div class="pulse-ring"></div>
-  <h2 style="font-family:'Syne';">ממתין להצגה</h2>
-  <p style="opacity:0.6;">המורה יפתח את השאלה הראשונה מיד...</p>
+
+<div class="top-strip"></div>
+<div class="page-header">
+  <div class="page-title">הערכת עמיתים</div>
+  <div class="page-sub">תקשורת וחברה</div>
 </div>
+
+<div id="no-session" class="screen">
+  <div style="font-size:40px;margin-bottom:20px;opacity:.3;">⛓</div>
+  <h2>קישור לא תקין</h2>
+  <p>קבל קישור מהמורה ונסה שוב</p>
+</div>
+
+<div id="waiting" class="screen">
+  <div class="pulse-ring"><div class="pulse-dot"></div></div>
+  <h2>ממתין להצגה</h2>
+  <div class="w-sub">המורה יפתח את ההצבעה בקרוב</div>
+  <div class="presenter-chip">מציג/ה: <span id="w-presenter">—</span></div>
+</div>
+
+<div id="question" class="screen">
+  <div class="q-meta">
+    <div class="q-label" id="q-num-label"></div>
+    <div class="q-pip-row" id="q-dots"></div>
+  </div>
+  <div class="q-card">
+    <div class="q-card-text" id="q-text"></div>
+  </div>
+  <div id="q-body" style="width:100%;display:flex;flex-direction:column;align-items:center;"></div>
+</div>
+
+<div id="voted" class="screen">
+  <div class="check-anim">✓</div>
+  <h2>נשלח!</h2>
+  <p>ממתין לשאלה הבאה</p>
+  <div class="next-dots">
+    <div class="next-dot"></div><div class="next-dot"></div><div class="next-dot"></div>
+  </div>
+</div>
+
+<div id="done" class="screen">
+  <div class="done-emblem">🎓</div>
+  <h2>תודה רבה!</h2>
+  <p>ההצגה הסתיימה.<br>תגובותיך נשמרו.</p>
+</div>
+
+<div class="credit-footer">פיתוח: רני בן זאב</div>
+<div class="btm"></div>
+
 <script>
-// ה-JS המקורי של lamed-vote.html נשאר כאן
+const FC={apiKey:"AIzaSyCCHvn_ulmiyM56DuslNzNC0Ge6a8i2vhY",authDomain:"tests-fd938.firebaseapp.com",databaseURL:"https://tests-fd938-default-rtdb.europe-west1.firebasedatabase.app",projectId:"tests-fd938"};
+firebase.initializeApp(FC);
+const db=firebase.database();
+
+const DEFAULT_QS=[
+  {type:'scale',text:'עד כמה הדילמה האישית הוצגה בצורה ברורה?'},
+  {type:'scale',text:'עד כמה הדילמה המקצועית הייתה מובנת?'},
+  {type:'scale',text:'עד כמה החקר של העבודה נראה ברור, רציני ומעמיק?'},
+  {type:'scale',text:'עד כמה התובנות מהחקר היו מעניינות ומשמעותיות?'},
+  {type:'scale',text:'עד כמה נעשה שימוש במושגים מתחום התקשורת?'},
+  {type:'scale',text:'עד כמה העבודה מתייחסת לנושאים חברתיים?'},
+  {type:'scale',text:'עד כמה ההצגה של העבודה הייתה ברורה ומסודרת?'},
+  {type:'scale',text:'עד כמה נושא העבודה חשוב בעינייך?'},
+  {type:'open',text:'מה היה החלק הכי ברור בעבודה?'},
+  {type:'open',text:'מה היה החלק שהיה צריך להסביר קצת יותר?'},
+];
+let QS=DEFAULT_QS;
+
+const params=new URLSearchParams(location.search);
+const sessionId=params.get('s');
+const voterId='v_'+Math.random().toString(36).slice(2,10);
+let curQ=-1;
+
+function show(id){
+  document.querySelectorAll('.screen').forEach(s=>{
+    s.classList.remove('active');
+    s.style.display='none';
+  });
+  const el=document.getElementById(id);
+  el.style.display='flex';
+  requestAnimationFrame(()=>el.classList.add('active'));
+}
+
+if(!sessionId){show('no-session');}
+else{
+  db.ref('lamed/sessions/'+sessionId+'/voters/'+voterId).set(true);
+  // load session once to get custom questions, then listen for status
+  db.ref('lamed/sessions/'+sessionId).once('value').then(snap=>{
+    if(!snap.exists()){show('no-session');return;}
+    const s=snap.val();
+    if(s.questions && Array.isArray(s.questions) && s.questions.length){
+      QS=s.questions;
+    }
+    // now start live listener
+    db.ref('lamed/sessions/'+sessionId).on('value',snap2=>{
+      if(!snap2.exists()){show('no-session');return;}
+      const s2=snap2.val();
+      if(s2.status==='waiting'){
+        show('waiting');
+        const wp=document.getElementById('w-presenter');
+        if(wp)wp.textContent=s2.presenter||'—';
+      } else if(s2.status==='question'){
+        if(s2.currentQ!==curQ){
+          curQ=s2.currentQ;
+          renderQ(curQ,s2.questionType);
+        }
+      } else if(s2.status==='done'){
+        show('done');
+      }
+    });
+  });
+}
+
+function renderQ(idx,type){
+  const q=QS[idx];
+  if(!q){show('waiting');return;}
+  const dots=QS.map((_,i)=>`<div class="q-pip${i<idx?' done':i===idx?' active':''}"></div>`).join('');
+  document.getElementById('q-num-label').textContent=`שאלה ${idx+1} / ${QS.length}`;
+  document.getElementById('q-dots').innerHTML=dots;
+  document.getElementById('q-text').textContent=q.text;
+  const body=document.getElementById('q-body');
+  if(type==='scale'||q.type==='scale'){
+    const row1=Array.from({length:6},(_,i)=>{
+      const cls=i<=3?'low':'mid';
+      return `<div class="snum ${cls}" onclick="pickNum(${i},this)">${i}</div>`;
+    }).join('');
+    const row2=Array.from({length:5},(_,i)=>{
+      const n=i+6;
+      const cls=n<=6?'mid':'high';
+      return `<div class="snum ${cls}" onclick="pickNum(${n},this)">${n}</div>`;
+    }).join('');
+    body.innerHTML=`
+      <div class="scale-poles" style="width:100%;max-width:480px;"><span>כלל לא</span><span>מאוד</span></div>
+      <div class="scale-grid">${row1}</div>
+      <div class="scale-row2-wrap">${row2}</div>
+      <button class="send-btn" id="sbtn" disabled onclick="sendScale()">שלח דירוג ←</button>`;
+    window._sel=null;
+  } else {
+    body.innerHTML=`
+      <textarea class="open-ta" id="ota" placeholder="כתוב/י את תשובתך..."></textarea>
+      <button class="send-btn" onclick="sendOpen()">שלח ←</button>`;
+  }
+  show('question');
+}
+
+function pickNum(n,el){
+  window._sel=n;
+  document.querySelectorAll('.snum').forEach(e=>{
+    const v=parseInt(e.textContent);
+    e.classList.toggle('sel',v===n);
+  });
+  const b=document.getElementById('sbtn');
+  if(b)b.disabled=false;
+}
+
+function sendScale(){
+  if(window._sel===null)return;
+  const b=document.getElementById('sbtn');if(b)b.disabled=true;
+  db.ref('lamed/sessions/'+sessionId+'/votes/'+curQ+'/'+voterId)
+    .set({rating:window._sel,sentAt:Date.now()})
+    .then(()=>show('voted'));
+}
+
+function sendOpen(){
+  const ta=document.getElementById('ota');
+  const ans=ta?.value.trim();
+  if(!ans)return;
+  db.ref('lamed/sessions/'+sessionId+'/votes/'+curQ+'/'+voterId)
+    .set({answer:ans,sentAt:Date.now()})
+    .then(()=>show('voted'));
+}
 </script>
 </body>
 </html>
