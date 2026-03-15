@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>הערכת עמיתים — תקשורת וחברה</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Heebo:wght@300;400;600;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<style>
+:root {
+  --primary: #8b5cf6; /* סגול ניאון עז */
+  --accent: #ec4899;  /* ורוד פוקסיה עז */
+  --bg: #020617;     /* שחור-כחול עמוק */
+  --glass-border: rgba(255, 255, 255, 0.25);
+}
+
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+
+body {
+  font-family: 'Heebo', sans-serif;
+  background-color: var(--bg);
+  color: #f8fafc;
+  min-height: 100vh;
+  background-image: 
+    radial-gradient(at 0% 0%, hsla(260,100%,15%,1) 0, transparent 50%), 
+    radial-gradient(at 100% 100%, hsla(320,100%,15%,1) 0, transparent 50%);
+  background-attachment: fixed;
+}
+
+.box-3d {
+  background: rgba(30, 41, 59, 0.6);
+  backdrop-filter: blur(15px);
+  border: 1px solid var(--glass-border);
+  border-radius: 28px;
+  box-shadow: 0 12px 0 rgba(0, 0, 0, 0.4), 0 24px 50px rgba(0,0,0,0.6);
+  transition: all 0.2s ease;
+}
+
+header {
+  padding: 16px; border-bottom: 1px solid var(--glass-border);
+  display: flex; justify-content: space-between; align-items: center;
+  background: rgba(2, 6, 23, 0.8); backdrop-filter: blur(10px);
+  position: sticky; top: 0; z-index: 100;
+}
+
+#qeditor, #setup, #host { padding: 24px 16px 100px; max-width: 900px; margin: 0 auto; display: none; flex-direction: column; gap: 24px; }
+
+.title-main { font-family: 'Syne'; font-size: clamp(32px, 8vw, 56px); line-height: 1; background: linear-gradient(to bottom, #fff, var(--primary)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-align: center; }
+.title-sub { font-family: 'Syne'; font-size: 14px; color: var(--accent); letter-spacing: 4px; margin-top: 6px; text-transform: uppercase; font-weight: 800; text-align: center; }
+
+.btn-3d {
+  display: block; width: 100%; padding: 20px;
+  font-family: 'Syne'; font-size: 18px; font-weight: 800;
+  text-align: center; text-decoration: none; border-radius: 20px;
+  border: none; cursor: pointer; color: #fff;
+  background: linear-gradient(135deg, var(--primary), #6d28d9);
+  box-shadow: 0 8px 0 #4c1d95, 0 15px 25px rgba(109, 40, 217, 0.5);
+  transition: all 0.1s;
+}
+.btn-3d:active { transform: translateY(4px); box-shadow: 0 4px 0 #4c1d95, 0 8px 15px rgba(109, 40, 217, 0.5); }
+.btn-3d.sec { background: rgba(255,255,255,0.08); border: 2px solid var(--glass-border); box-shadow: 0 8px 0 rgba(0,0,0,0.5); }
+.btn-3d:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.qe-tabs { display: flex; gap: 10px; margin-bottom: 24px; }
+.qe-tab { flex: 1; padding: 14px; border-radius: 14px; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); color: #fff; cursor: pointer; font-weight: 700; }
+.qe-tab.active { background: var(--primary); border-color: transparent; }
+
+input { width: 100%; padding: 18px; background: rgba(255,255,255,0.07); border: 2px solid var(--glass-border); border-radius: 16px; color: #fff; margin-bottom: 16px; outline: none; font-size: 16px; }
+
+.set-card { background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); border-radius: 20px; padding: 20px; cursor: pointer; text-align: right; }
+.set-card.selected { border-color: var(--primary); background: rgba(139, 92, 246, 0.15); box-shadow: 0 0 15px var(--primary); }
+
+.preview-item { display: flex; align-items: center; gap: 12px; padding: 10px; border-bottom: 1px solid var(--glass-border); font-size: 14px; }
+.preview-item:last-child { border-bottom: none; }
+.preview-type { font-size: 10px; font-weight: 800; background: var(--accent); padding: 2px 6px; border-radius: 4px; }
+
+footer { text-align: center; padding: 40px 16px; font-size: 14px; color: rgba(255,255,255,0.4); border-top: 1px solid var(--glass-border); margin-top: 40px; font-weight: 600; }
+
+#host { display: none; }
+</style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h2 style="font-family:'Syne'; font-size: 18px; color: var(--primary);">הערכת עמיתים</h2>
+    <p style="font-size: 10px; color: var(--accent); font-weight: 800; letter-spacing: 1px;">תקשורת וחברה</p>
+  </div>
+  <button onclick="location.reload()" style="background:none; border:1px solid var(--glass-border); color:white; padding:6px 12px; border-radius:10px; font-size:12px;">סשן חדש</button>
+</header>
+
+<div id="qeditor" style="display:flex;">
+  <div style="margin-bottom: 32px;">
+    <h1 class="title-main">הערכת עמיתים</h1>
+    <p class="title-sub">תקשורת וחברה</p>
+  </div>
+  <div class="box-3d" style="padding: 32px 24px;">
+    <h3 style="font-family:'Syne'; margin-bottom:20px; text-align: center;">שלב 1: בחירת שאלות</h3>
+    <div class="qe-tabs">
+      <button class="qe-tab active" id="tab-preset" onclick="switchTab('preset')">מוכנות</button>
+      <button class="qe-tab" id="tab-custom" onclick="switchTab('custom')">אישיות</button>
+    </div>
+    
+    <div id="panel-preset">
+       <div id="set-grid" style="display:grid; gap:16px; margin-bottom:24px;"></div>
+       <div id="preset-preview" class="box-3d" style="display:none; margin-bottom:24px; padding:16px; box-shadow:none; background:rgba(255,255,255,0.05);">
+         <div style="font-size:11px; opacity:0.5; letter-spacing:2px; margin-bottom:12px;">תצוגת שאלות בסט:</div>
+         <div id="preview-items"></div>
+       </div>
+       <button class="btn-3d" id="use-preset-btn" onclick="presetToSetup()" disabled>המשך לשם המציג ←</button>
+    </div>
+
+    <div id="panel-custom" style="display:none;">
+       <div id="custom-rows" style="display:flex; flex-direction:column; gap:10px; margin-bottom:20px;"></div>
+       <button class="btn-3d sec" onclick="addRow()">+ הוסף שאלה</button>
+       <button class="btn-3d" style="margin-top: 12px;" onclick="customToSetup()">המשך לשם המציג ←</button>
+    </div>
+  </div>
+</div>
+
+<div id="setup">
+  <div class="box-3d" style="padding: 32px 24px;">
+    <h3 style="font-family:'Syne'; margin-bottom:24px; text-align: center;">שלב 2: פרטי ההצגה</h3>
+    <input id="presenter-name" placeholder="שם המציג/ה">
+    <input id="class-name" placeholder="כיתה (למשל: יב תקשורת)">
+    <button class="btn-3d" onclick="startSession()">פתח סשן הצגה ←</button>
+    <button class="btn-3d sec" style="margin-top:12px;" onclick="backToEditor()">חזרה לשאלות</button>
+  </div>
+</div>
+
+<div id="host">
+  <div class="box-3d" style="padding:24px; text-align:center; margin-bottom: 24px;">
+    <div id="presenter-display" style="font-family:'Syne'; font-size:32px; font-weight:800; color: var(--primary);"></div>
+    <div id="class-display" style="font-size:14px; opacity:0.6; margin-top: 4px;"></div>
+    <div style="margin-top: 12px; font-size: 14px; font-weight: 700;">👥 <span id="voter-count-num">0</span> מדרגים</div>
+  </div>
+  <div id="stage"></div>
+</div>
+
+<footer>פיתוח רני בן זאב</footer>
+
+<script>
+const FC={apiKey:"AIzaSyCCHvn_ulmiyM56DuslNzNC0Ge6a8i2vhY",authDomain:"tests-fd938.firebaseapp.com",databaseURL:"https://tests-fd938-default-rtdb.europe-west1.firebasedatabase.app",projectId:"tests-fd938"};
+firebase.initializeApp(FC);
+const db=firebase.database();
+
+const PRESETS=[
+  {
+    id:'gemr',icon:'🎓',
+    title:'הערכת עמיתים — פרויקט למד',
+    desc:'דילמה, חקר, תובנות, מושגי תקשורת',
+    questions:[
+      {type:'scale',text:'עד כמה הדילמה האישית הוצגה בצורה ברורה?'},
+      {type:'scale',text:'עד כמה הדילמה המקצועית הייתה מובנת?'},
+      {type:'scale',text:'עד כמה החקר של העבודה נראה ברור, רציני ומעמיק?'},
+      {type:'scale',text:'עד כמה התובנות מהחקר היו מעניינות ומשמעותיות?'},
+      {type:'scale',text:'עד כמה נעשה שימוש במושגים מתחום התקשורת?'},
+      {type:'scale',text:'עד כמה העבודה מתייחסת לנושאים חברתיים?'},
+      {type:'scale',text:'עד כמה ההצגה של העבודה הייתה ברורה ומסודרת?'},
+      {type:'scale',text:'עד כמה נושא העבודה חשוב בעינייך?'},
+      {type:'open',text:'מה היה החלק הכי ברור בעבודה?'},
+      {type:'open',text:'מה היה החלק שהיה צריך להסביר קצת יותר?'},
+    ]
+  },
+];
+
+let selectedPresetId=null, QS=[], sessionId='', currentQ=-1, presenterName='', className='', voteUrl='';
+
+function switchTab(tab){
+  document.getElementById('tab-preset').classList.toggle('active',tab==='preset');
+  document.getElementById('tab-custom').classList.toggle('active',tab==='custom');
+  document.getElementById('panel-preset').style.display=tab==='preset'?'block':'none';
+  document.getElementById('panel-custom').style.display=tab==='custom'?'block':'none';
+}
+
+function renderSetGrid(){
+  document.getElementById('set-grid').innerHTML=PRESETS.map(p=>`
+    <div class="set-card" id="sc-${p.id}" onclick="selectPreset('${p.id}')">
+      <div style="font-size:24px; margin-bottom:8px;">${p.icon}</div>
+      <div style="font-weight:800; font-size:16px; color:var(--primary);">${p.title}</div>
+      <div style="font-size:12px; opacity:0.7;">${p.desc}</div>
+    </div>`).join('');
+}
+
+function selectPreset(id){
+  selectedPresetId=id;
+  document.querySelectorAll('.set-card').forEach(el=>el.classList.remove('selected'));
+  document.getElementById('sc-'+id)?.classList.add('selected');
+  
+  const p=PRESETS.find(x=>x.id===id);
+  if(!p) return;
+  
+  // הצגת השאלות למטה
+  const preview = document.getElementById('preset-preview');
+  const items = document.getElementById('preview-items');
+  preview.style.display = 'block';
+  items.innerHTML = p.questions.map((q,i)=>`
+    <div class="preview-item">
+      <div style="width:20px; opacity:0.4; font-weight:800;">${i+1}</div>
+      <div style="flex:1;">${q.text}</div>
+      <div class="preview-type">${q.type==='scale'?'1-10':'✍'}</div>
+    </div>
+  `).join('');
+  
+  document.getElementById('use-preset-btn').disabled=false;
+}
+
+function presetToSetup(){
+  const p=PRESETS.find(x=>x.id===selectedPresetId);
+  if(p) { QS=[...p.questions]; showSetup(); }
+}
+
+let customRows=[{text:'',type:'scale'}];
+function updateCustomUI(){
+  document.getElementById('custom-rows').innerHTML=customRows.map((r,i)=>`
+    <div class="box-3d" style="padding:12px; display:flex; gap:10px; align-items:center; margin-bottom:8px; box-shadow: none;">
+      <input style="margin-bottom:0; flex:1;" placeholder="השאלה..." value="${r.text}" oninput="customRows[${i}].text=this.value">
+      <button onclick="toggleType(${i})" style="font-size:10px; background:none; border:1px solid var(--glass-border); color:white; padding:4px; border-radius:8px;">${r.type==='scale'?'1-10':'פתוחה'}</button>
+      <button onclick="delRow(${i})" style="color:red; background:none; border:none; font-weight:800;">✕</button>
+    </div>`).join('');
+}
+function addRow(){ if(customRows.length<10){ customRows.push({text:'',type:'scale'}); updateCustomUI(); } }
+function delRow(i){ if(customRows.length>1){ customRows.splice(i,1); updateCustomUI(); } }
+function toggleType(i){ customRows[i].type=customRows[i].type==='scale'?'open':'scale'; updateCustomUI(); }
+function customToSetup(){
+  QS=customRows.filter(r=>r.text.trim()).map(r=>({type:r.type,text:r.text.trim()}));
+  if(QS.length) showSetup(); else alert('הזן לפחות שאלה אחת');
+}
+
+function showSetup(){ document.getElementById('qeditor').style.display='none'; document.getElementById('setup').style.display='flex'; }
+function backToEditor(){ document.getElementById('setup').style.display='none'; document.getElementById('qeditor').style.display='flex'; }
+
+function startSession(){
+  presenterName=document.getElementById('presenter-name').value.trim();
+  className=document.getElementById('class-name').value.trim();
+  if(!presenterName||!className) return;
+  sessionId='lamed_'+Date.now();
+  voteUrl=location.origin+location.pathname.replace('lamed-host.html','lamed-vote.html')+'?s='+sessionId;
+  db.ref('lamed/sessions/'+sessionId).set({
+    presenter:presenterName,className,startedAt:Date.now(),status:'waiting',currentQ:-1,
+    questions:QS.map(q=>({text:q.text,type:q.type}))
+  }).then(()=>{
+    document.getElementById('setup').style.display='none';
+    document.getElementById('host').style.display='flex';
+    document.getElementById('presenter-display').textContent=presenterName;
+    document.getElementById('class-display').textContent=className;
+    db.ref('lamed/sessions/'+sessionId+'/voters').on('value',snap=>document.getElementById('voter-count-num').textContent=snap.exists()?Object.keys(snap.val()).length:0);
+    showWaiting();
+  });
+}
+
+function showWaiting(){
+  db.ref('lamed/sessions/'+sessionId).update({status:'waiting',currentQ:-1});
+  document.getElementById('stage').innerHTML=`
+    <div style="text-align:center;">
+      <div class="box-3d" style="padding:24px; margin-bottom:24px;">
+        <div style="font-size:14px; margin-bottom:12px;">הקישור לתלמידים:</div>
+        <button class="btn-3d sec" onclick="copyLink(this)">📋 העתק קישור</button>
+      </div>
+      <button class="btn-3d" onclick="goToQuestion(0)">התחל הצגה ←</button>
+    </div>`;
+}
+
+function copyLink(btn){
+  navigator.clipboard.writeText(voteUrl).then(()=>{btn.textContent='✓ הועתק!'; setTimeout(()=>btn.textContent='📋 העתק קישור',2000);});
+}
+
+function goToQuestion(idx){
+  if(idx>=QS.length){ showSummary(); return; }
+  currentQ=idx; const q=QS[idx];
+  db.ref('lamed/sessions/'+sessionId).update({status:'question',currentQ:idx,questionType:q.type});
+  if(q.type==='scale') renderScale(idx); else renderOpen(idx);
+}
+
+function renderScale(idx){
+  const q=QS[idx];
+  document.getElementById('stage').innerHTML=`
+    <div class="box-3d" style="padding:24px; text-align:center;">
+      <div style="font-size:12px; color:var(--accent); margin-bottom:12px;">שאלה ${idx+1} מתוך ${QS.length}</div>
+      <div style="font-size:24px; font-weight:800; margin-bottom:24px; line-height:1.2;">${q.text}</div>
+      <div style="font-size:64px; font-weight:800; color:var(--primary);" id="avg-big">—</div>
+      <div style="font-size:12px; opacity:0.5; margin-bottom:32px;">ממוצע נוכחי</div>
+      <div style="display:flex; gap:12px;">
+        ${idx>0?`<button class="btn-3d sec" onclick="goToQuestion(${idx-1})">חזרה</button>`:''}
+        <button class="btn-3d" onclick="goToQuestion(${idx+1})">${idx<QS.length-1?'הבא ←':'סיכום'}</button>
+      </div>
+    </div>`;
+  db.ref('lamed/sessions/'+sessionId+'/votes/'+idx).on('value',snap=>{
+    const v=Object.values(snap.val()||{}).filter(x=>x.rating!==undefined).map(x=>x.rating);
+    if(v.length){
+      const avg=(v.reduce((a,b)=>a+b,0)/v.length).toFixed(1);
+      document.getElementById('avg-big').textContent=avg;
+    }
+  });
+}
+
+function renderOpen(idx){
+  const q=QS[idx];
+  document.getElementById('stage').innerHTML=`
+    <div class="box-3d" style="padding:24px; text-align:center;">
+      <div style="font-size:24px; font-weight:800; margin-bottom:24px;">${q.text}</div>
+      <div id="open-list" style="text-align:right; margin-bottom:24px;"></div>
+      <button class="btn-3d" onclick="goToQuestion(${idx+1})">${idx<QS.length-1?'הבא ←':'סיכום'}</button>
+    </div>`;
+  db.ref('lamed/sessions/'+sessionId+'/votes/'+idx).on('value',snap=>{
+    const ans=Object.values(snap.val()||{}).filter(x=>x.answer).map(x=>x.answer);
+    document.getElementById('open-list').innerHTML=ans.map(a=>`<div class="box-3d" style="padding:12px; margin-bottom:8px; font-size:14px; box-shadow:none; background:rgba(255,255,255,0.05);">${a}</div>`).join('');
+  });
+}
+
+function showSummary(){
+  db.ref('lamed/sessions/'+sessionId).update({status:'done'});
+  document.getElementById('stage').innerHTML=`
+    <div class="box-3d" style="padding:24px; text-align:center;">
+      <h2 style="font-family:'Syne'; margin-bottom:24px;">ההצגה הסתיימה!</h2>
+      <button class="btn-3d" onclick="exportCSV()">⬇ הורד סיכום CSV</button>
+      <button class="btn-3d sec" style="margin-top:12px;" onclick="location.reload()">הצגה חדשה</button>
+    </div>`;
+}
+
+function exportCSV(){
+  db.ref('lamed/sessions/'+sessionId+'/votes').once('value').then(snap=>{
+    const all=snap.val()||{};
+    let rows=['"שאלה","ממוצע / תשובה"'];
+    QS.forEach((q,i)=>{
+      const v=Object.values(all[i]||{});
+      if(q.type==='scale'){
+        const r=v.filter(x=>x.rating!==undefined).map(x=>x.rating);
+        if(r.length) rows.push(`"${q.text}","${(r.reduce((a,b)=>a+b,0)/r.length).toFixed(2)}"`);
+      } else {
+        v.filter(x=>x.answer).forEach(x=>rows.push(`"${q.text}","${x.answer.replace(/"/g,'""')}"`));
+      }
+    });
+    const a=document.createElement('a'); a.href='data:text/csv;charset=utf-8,'+encodeURIComponent('\uFEFF'+rows.join('\n'));
+    a.download=`lamed-${presenterName}.csv`; a.click();
+  });
+}
+
+renderSetGrid();
+updateCustomUI();
+</script>
+</body>
+</html>

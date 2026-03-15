@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>הערכת עמיתים — תקשורת וחברה</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=Heebo:wght@300;400;600;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<style>
+:root {
+  --primary: #8b5cf6; /* סגול ניאון עז */
+  --accent: #ec4899;  /* ורוד פוקסיה עז */
+  --bg: #020617;     /* שחור-כחול עמוק */
+  --glass-border: rgba(255, 255, 255, 0.2);
+}
+
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+
+body {
+  font-family: 'Heebo', sans-serif;
+  background-color: var(--bg);
+  color: #f8fafc;
+  min-height: 100vh;
+  background-image: 
+    radial-gradient(at 0% 0%, hsla(260,100%,15%,1) 0, transparent 50%), 
+    radial-gradient(at 100% 100%, hsla(320,100%,15%,1) 0, transparent 50%);
+  background-attachment: fixed;
+  overflow-x: hidden;
+}
+
+/* LOGIN OVERLAY */
+.overlay {
+  position: fixed; inset: 0; z-index: 200;
+  background: rgba(2, 6, 23, 0.98);
+  backdrop-filter: blur(20px);
+  display: flex; align-items: center; justify-content: center; padding: 16px;
+}
+
+.login-card {
+  background: rgba(30, 41, 59, 0.7);
+  border: 2px solid var(--glass-border);
+  border-radius: 28px; padding: 40px 20px;
+  max-width: 400px; width: 100%;
+  box-shadow: 0 30px 60px rgba(0,0,0,0.8), inset 0 0 20px rgba(139, 92, 246, 0.2);
+  text-align: center;
+}
+
+/* 3D EFFECT BASE */
+.box-3d {
+  background: rgba(30, 41, 59, 0.5);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--glass-border);
+  border-radius: 24px;
+  box-shadow: 0 10px 0 rgba(0, 0, 0, 0.4), 0 20px 40px rgba(0,0,0,0.5);
+  transition: all 0.2s ease;
+}
+
+/* HEADER */
+header {
+  padding: 16px; border-bottom: 1px solid var(--glass-border);
+  display: flex; justify-content: space-between; align-items: center;
+  background: rgba(2, 6, 23, 0.8); backdrop-filter: blur(10px);
+  position: sticky; top: 0; z-index: 100;
+}
+
+.header-titles h1 { font-family: 'Syne'; font-size: 18px; color: var(--primary); }
+.header-titles p { font-size: 10px; color: var(--accent); letter-spacing: 1.5px; }
+
+/* HERO */
+.page { padding: 24px 16px 80px; max-width: 1000px; margin: 0 auto; }
+
+.main-title-sec { margin-bottom: 32px; text-align: center; }
+.main-title-sec h1 { font-family: 'Syne'; font-size: 42px; line-height: 1; background: linear-gradient(to bottom, #fff, var(--primary)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+.main-title-sec p { font-family: 'Syne'; font-size: 14px; color: var(--accent); letter-spacing: 3px; margin-top: 4px; }
+
+.hero-3d {
+  padding: 32px 20px; margin-bottom: 32px;
+  display: flex; flex-direction: column; gap: 32px;
+}
+
+.hero-content h2 { font-family: 'Syne'; font-size: 32px; line-height: 1.1; margin-bottom: 12px; }
+.hero-content p { font-size: 15px; color: rgba(255,255,255,0.6); margin-bottom: 24px; }
+
+/* BUTTONS */
+.btn-row { display: flex; flex-direction: column; gap: 12px; }
+.btn-3d {
+  display: block; width: 100%; padding: 18px;
+  font-family: 'Syne'; font-size: 18px; font-weight: 800;
+  text-align: center; text-decoration: none; border-radius: 18px;
+  border: none; cursor: pointer; color: #fff;
+  background: linear-gradient(135deg, var(--primary), #6d28d9);
+  box-shadow: 0 6px 0 #4c1d95, 0 12px 20px rgba(109, 40, 217, 0.4);
+  transition: all 0.1s;
+}
+.btn-3d:active { transform: translateY(4px); box-shadow: 0 2px 0 #4c1d95, 0 4px 10px rgba(109, 40, 217, 0.4); }
+.btn-3d.sec { background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); box-shadow: 0 6px 0 rgba(0,0,0,0.5); }
+
+/* STATS */
+.stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.stat-box { padding: 16px; text-align: center; }
+.stat-box .n { font-family: 'Syne'; font-size: 32px; color: var(--primary); }
+.stat-box .l { font-size: 10px; opacity: 0.5; letter-spacing: 2px; text-transform: uppercase; }
+
+/* UNITS */
+.sec-title { font-family:'Syne'; font-size: 12px; color: var(--accent); letter-spacing: 3px; margin: 32px 0 16px; display: flex; align-items: center; gap: 12px; }
+.sec-title::after { content:''; flex:1; height:1px; background: var(--glass-border); }
+
+.units-grid { display: grid; grid-template-columns: 1fr; gap: 16px; }
+.unit-card { overflow: hidden; }
+.uc-top { padding: 20px; }
+.uc-title { font-family: 'Syne'; font-size: 18px; margin-top: 8px; }
+.uc-links { display: flex; background: rgba(0,0,0,0.3); border-top: 1px solid var(--glass-border); }
+.uc-link { flex: 1; padding: 14px; text-align: center; font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.5); text-decoration: none; border-left: 1px solid var(--glass-border); }
+.uc-link:last-child { border-left: none; }
+
+/* FOOTER */
+footer { text-align: center; padding: 40px 16px; font-size: 13px; color: rgba(255,255,255,0.3); border-top: 1px solid var(--glass-border); margin-top: 40px; }
+
+/* TABLET/DESKTOP */
+@media(min-width: 768px) {
+  .hero-3d { flex-direction: row; padding: 48px; gap: 48px; align-items: center; }
+  .btn-row { flex-direction: row; }
+  .btn-3d { width: auto; padding: 18px 36px; }
+  .stats-grid { grid-template-columns: 1fr; width: 180px; }
+  .units-grid { grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+  .main-title-sec { text-align: right; }
+}
+
+input { width: 100%; padding: 16px; background: rgba(255,255,255,0.05); border: 2px solid var(--glass-border); border-radius: 14px; color: #fff; margin-bottom: 16px; outline: none; }
+</style>
+</head>
+<body>
+
+<div class="overlay" id="overlay">
+  <div class="login-card box-3d">
+    <h1 style="font-family:'Syne'; font-size:42px; color:var(--primary);">הערכת עמיתים</h1>
+    <p style="font-family:'Syne'; color:var(--accent); letter-spacing:2px; margin-bottom:32px;">תקשורת וחברה</p>
+    <input id="inp-phone" type="tel" placeholder="מספר טלפון" style="direction:ltr; text-align:right;">
+    <input id="inp-pass" type="password" placeholder="סיסמה">
+    <button class="btn-3d" style="width:100%" onclick="login()">כניסה ←</button>
+  </div>
+</div>
+
+<header>
+  <div class="header-titles">
+    <h1>הערכת עמיתים</h1>
+    <p>תקשורת וחברה</p>
+  </div>
+  <button onclick="logout()" style="background:none; border:1px solid var(--glass-border); color:white; padding:6px 12px; border-radius:10px; font-size:12px;">יציאה</button>
+</header>
+
+<div class="page" id="main-page" style="display:none;">
+  <div class="main-title-sec">
+    <h1>הערכת עמיתים</h1>
+    <p>תקשורת וחברה</p>
+  </div>
+
+  <div class="hero-3d box-3d">
+    <div class="hero-content">
+      <div style="background:rgba(139, 92, 246, 0.2); display:inline-block; padding:4px 12px; border-radius:100px; font-size:10px; color:var(--primary); font-weight:800; margin-bottom:12px; letter-spacing:1.5px;">LIVE SIMULATOR</div>
+      <h2>הערכה חיה<br>בזמן אמת</h2>
+      <p>נהל את שיעורי הערכת העמיתים בצורה חכמה מהסמארטפון או מהמחשב.</p>
+      <div class="btn-row">
+        <a href="lamed-host.html?tab=preset" class="btn-3d">שאלות מוכנות ←</a>
+        <a href="lamed-host.html?tab=custom" class="btn-3d sec">שאלות אישיות</a>
+      </div>
+    </div>
+    <div class="stats-grid">
+      <div class="stat-box box-3d">
+        <div class="n">10</div>
+        <div class="l">שאלות</div>
+      </div>
+      <div class="stat-box box-3d">
+        <div class="n">Live</div>
+        <div class="l">סנכרון</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sec-title">יחידות לימוד וכלים</div>
+  <div class="units-grid">
+    <div class="unit-card box-3d">
+      <div class="uc-top">
+        <div style="width:40px; height:4px; background:var(--primary); border-radius:2px;"></div>
+        <div class="uc-title">הכחדה סימבולית</div>
+      </div>
+      <div class="uc-links">
+        <a href="#" class="uc-link">שיעור</a>
+        <a href="#" class="uc-link">הגשות</a>
+        <a href="#" class="uc-link">מדריך</a>
+      </div>
+    </div>
+    <div class="unit-card box-3d">
+      <div class="uc-top">
+        <div style="width:40px; height:4px; background:var(--accent); border-radius:2px;"></div>
+        <div class="uc-title">בעלות צולבת</div>
+      </div>
+      <div class="uc-links">
+        <a href="#" class="uc-link">שיעור</a>
+        <a href="#" class="uc-link">הגשות</a>
+        <a href="#" class="uc-link">מדריך</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer>
+  פיתוח רני בן זאב
+</footer>
+
+<script>
+const FC={apiKey:"AIzaSyCCHvn_ulmiyM56DuslNzNC0Ge6a8i2vhY",authDomain:"tests-fd938.firebaseapp.com",databaseURL:"https://tests-fd938-default-rtdb.europe-west1.firebasedatabase.app",projectId:"tests-fd938"};
+firebase.initializeApp(FC);
+const db=firebase.database();
+
+function login(){
+  const phone=document.getElementById('inp-phone').value.trim();
+  const pass=document.getElementById('inp-pass').value.trim();
+  if(!phone||!pass)return;
+  db.ref('teachers').once('value').then(snap=>{
+    let found=false;
+    snap.forEach(c=>{
+      const t=c.val();
+      if(t.password===pass&&t.phone===phone&&t.status==='approved') found=true;
+    });
+    if(found){
+      document.getElementById('overlay').style.display='none';
+      document.getElementById('main-page').style.display='block';
+    } else alert('פרטים שגויים');
+  });
+}
+function logout(){ location.reload(); }
+</script>
+</body>
+</html>
