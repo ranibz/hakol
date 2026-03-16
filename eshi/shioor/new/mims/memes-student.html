@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>מימס — דף התלמיד</title>
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@400;700;900&family=Heebo:wght@300;400;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#f5f0e8;color:#1a1208;font-family:'Heebo',sans-serif;min-height:100vh}
+/* LINK MODAL */
+#link-modal{position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:999;display:flex;align-items:center;justify-content:center;padding:16px}
+.lm-box{background:#f5f0e8;border:3px solid #1a1208;box-shadow:6px 6px 0 #1a1208;padding:28px 24px;width:100%;max-width:400px}
+.lm-box h2{font-family:'Frank Ruhl Libre',serif;font-size:1.5rem;margin-bottom:6px}
+.lm-box p{font-size:13px;color:#555;margin-bottom:18px}
+.lm-field{margin-bottom:14px}
+.lm-field label{display:block;font-size:12px;font-weight:700;margin-bottom:4px;letter-spacing:.5px}
+.lm-field input{width:100%;border:2px solid #1a1208;padding:9px 12px;font-family:'Heebo',sans-serif;font-size:14px;background:#fff;box-shadow:2px 2px 0 #1a1208}
+.lm-btn{width:100%;background:#2a9d8f;color:#fff;border:2px solid #1a1208;box-shadow:3px 3px 0 #1a1208;padding:11px;font-family:'Frank Ruhl Libre',serif;font-size:1rem;font-weight:700;cursor:pointer;margin-bottom:10px}
+.lm-btn:hover{transform:translate(-1px,-1px);box-shadow:4px 4px 0 #1a1208}
+.lm-btn.secondary{background:#fff;color:#1a1208}
+#url-box{display:none;background:#e8f5f3;border:2px solid #2a9d8f;padding:12px;margin-top:12px}
+#url-box p{font-size:12px;color:#1a6b5e;margin-bottom:6px}
+#generated-url{font-size:12px;direction:ltr;word-break:break-all;background:#fff;padding:6px;border:1px solid #2a9d8f;display:block;margin-bottom:8px}
+.copy-btn{background:#1a1208;color:#fff;border:none;padding:6px 14px;font-size:12px;cursor:pointer}
+/* TEACHER BANNER */
+#teacher-banner{display:none;background:#1a1208;color:#c9a84c;padding:8px 24px;text-align:center;font-size:13px;border-bottom:2px solid #2a9d8f}
+/* MASTHEAD */
+.masthead{border-top:4px double #1a1208;border-bottom:4px double #1a1208;padding:18px 20px;text-align:center}
+.platform{font-size:11px;letter-spacing:3px;color:#2a9d8f;font-weight:700}
+.masthead h1{font-family:'Frank Ruhl Libre',serif;font-size:clamp(2rem,6vw,3.5rem);font-weight:900}
+/* CONTENT */
+.container{max-width:700px;margin:0 auto;padding:24px 16px}
+.welcome-box{background:#fff;border:2px solid #1a1208;border-right:6px solid #2a9d8f;box-shadow:4px 4px 0 #1a1208;padding:20px;margin-bottom:24px}
+.welcome-box h2{font-family:'Frank Ruhl Libre',serif;font-size:1.3rem;margin-bottom:10px}
+.welcome-box p{font-size:14px;line-height:1.7;margin-bottom:8px}
+.steps{list-style:none;margin:16px 0;padding:0}
+.steps li{display:flex;gap:12px;align-items:flex-start;padding:10px 0;border-bottom:1px solid #e0dace;font-size:14px}
+.steps li:last-child{border:none}
+.step-num{background:#2a9d8f;color:#fff;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0}
+.cta-btn{display:block;background:#2a9d8f;color:#fff;border:3px solid #1a1208;box-shadow:4px 4px 0 #1a1208;padding:16px 24px;text-align:center;font-family:'Frank Ruhl Libre',serif;font-size:1.2rem;font-weight:900;text-decoration:none;letter-spacing:1px;margin-bottom:16px;transition:all .15s}
+.cta-btn:hover{transform:translate(-2px,-2px);box-shadow:6px 6px 0 #1a1208}
+.secondary-link{display:block;text-align:center;font-size:13px;color:#2a9d8f;padding:10px;border:2px solid #2a9d8f;text-decoration:none;margin-bottom:24px}
+.secondary-link:hover{background:#e8f5f3}
+.topic-info{background:#1a1208;color:#f5f0e8;padding:18px 20px;margin-bottom:24px}
+.topic-info h3{font-family:'Frank Ruhl Libre',serif;font-size:1.1rem;color:#2a9d8f;margin-bottom:8px}
+.topic-info p{font-size:13px;line-height:1.7;color:#ccc}
+footer{text-align:center;padding:20px;font-size:12px;color:#888;border-top:2px double #1a1208}
+</style>
+</head>
+<body>
+
+<!-- LINK MODAL (למורה ליצור קישור) -->
+<div id="link-modal">
+  <div class="lm-box">
+    <h2>יצירת קישור לתלמידים</h2>
+    <p>מורים — הזינו את פרטיכם ליצירת קישור מותאם לכיתה</p>
+    <div class="lm-field"><label>מספר טלפון (רשום במערכת)</label><input type="tel" id="lm-phone" placeholder="05X-XXXXXXX" style="direction:ltr"></div>
+    <div class="lm-field"><label>קוד כיתה (לדוגמה: י1א)</label><input type="text" id="lm-code" placeholder="קוד כיתה"></div>
+    <div id="lm-err" style="color:#c0392b;font-size:13px;min-height:18px;margin-bottom:8px"></div>
+    <button class="lm-btn" onclick="createLink()">צור קישור ←</button>
+    <button class="lm-btn secondary" onclick="closeModal()">אני תלמיד — כניסה ישירה</button>
+    <div id="url-box">
+      <p>📋 העתק את הקישור ושלח לתלמידים:</p>
+      <span id="generated-url"></span>
+      <button class="copy-btn" onclick="copyUrl()">העתק ←</button>
+    </div>
+  </div>
+</div>
+
+<!-- TEACHER BANNER -->
+<div id="teacher-banner">
+  המורה: <strong id="banner-name" style="color:white"></strong>
+  &nbsp;|&nbsp;
+  קוד כיתה: <strong id="banner-code" style="color:white;letter-spacing:1px"></strong>
+</div>
+
+<div class="masthead">
+  <div class="platform">הכל באחורי — חינוך תקשורת ומדיה</div>
+  <h1>מימס</h1>
+</div>
+
+<div class="container">
+
+  <div class="topic-info">
+    <h3>על מה השיעור?</h3>
+    <p>מם הוא תוכן שמתפשט ברשת, משתנה בכל העברה, ומשקף את הרגשות הציבוריים של הקהילה. בשיעור זה תחקרו ממים, תנתחו אותם ותיצרו בעצמכם.</p>
+  </div>
+
+  <div class="welcome-box">
+    <h2>שלבי העבודה</h2>
+    <ul class="steps">
+      <li><div class="step-num">1</div><div>צפו בשיעור האינטראקטיבי — למדו על ממים, ויראלי ומקור המושג</div></li>
+      <li><div class="step-num">2</div><div>בצעו את המטלה — תארו מם, נתחו אותו ויצרו גרסה חדשה</div></li>
+      <li><div class="step-num">3</div><div>שלחו את המטלה — המורה יראה את תשובותיכם ויוסיף הערכה</div></li>
+    </ul>
+  </div>
+
+  <a href="memes-worksheet.html" id="link-worksheet" class="cta-btn">לחצו כאן להתחלת המטלה ←</a>
+  <a href="../mygrades.html" id="link-mygrades" class="secondary-link">הציונים שלי ⭐</a>
+
+</div>
+
+<footer>פיתוח: רני בן זאב | גליל מערבי</footer>
+
+<script>
+const FC={apiKey:"AIzaSyCCHvn_ulmiyM56DuslNzNC0Ge6a8i2vhY",authDomain:"tests-fd938.firebaseapp.com",databaseURL:"https://tests-fd938-default-rtdb.europe-west1.firebasedatabase.app",projectId:"tests-fd938"};
+firebase.initializeApp(FC);
+const db=firebase.database();
+
+const _code=new URLSearchParams(location.search).get('code');
+if(_code){
+  document.getElementById('link-modal').style.display='none';
+  document.getElementById('link-worksheet').href='memes-worksheet.html?code='+encodeURIComponent(_code);
+  document.getElementById('link-mygrades').href='../mygrades.html?code='+encodeURIComponent(_code);
+  db.ref('teacher_codes').once('value').then(snap=>{
+    const codes=snap.val()||{};
+    let tID='';
+    Object.keys(codes).forEach(k=>{if(k.startsWith(_code.toLowerCase()+'_'))tID=codes[k];});
+    if(!tID)return;
+    db.ref('teachers/'+tID).once('value').then(ts=>{
+      const t=ts.val();if(!t)return;
+      const name=(t.firstName&&t.lastName)?t.firstName+' '+t.lastName:(t.name||'');
+      if(name){
+        document.getElementById('banner-name').textContent=name;
+        document.getElementById('banner-code').textContent=_code;
+        document.getElementById('teacher-banner').style.display='block';
+      }
+    });
+  });
+}
+
+function createLink(){
+  const phone=document.getElementById('lm-phone').value.trim();
+  const code=document.getElementById('lm-code').value.trim().toLowerCase();
+  const err=document.getElementById('lm-err');
+  if(!phone||!code){err.textContent='נא למלא טלפון וקוד כיתה';return;}
+  db.ref('teachers').once('value').then(snap=>{
+    let teacherKey='';
+    snap.forEach(child=>{
+      const t=child.val();
+      if(t.phone===phone&&t.status==='approved')teacherKey=child.key;
+    });
+    if(!teacherKey){err.textContent='מורה לא נמצא או לא מאושר';return;}
+    db.ref('teacher_codes/'+code+'_'+teacherKey).set(teacherKey).then(()=>{
+      const url=location.origin+location.pathname+'?code='+encodeURIComponent(code);
+      document.getElementById('generated-url').textContent=url;
+      document.getElementById('url-box').style.display='block';
+      err.textContent='';
+    });
+  });
+}
+
+function closeModal(){
+  document.getElementById('link-modal').style.display='none';
+}
+
+function copyUrl(){
+  const url=document.getElementById('generated-url').textContent;
+  navigator.clipboard.writeText(url).then(()=>alert('הקישור הועתק!')).catch(()=>{
+    const ta=document.createElement('textarea');ta.value=url;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);alert('הקישור הועתק!');
+  });
+}
+</script>
+</body>
+</html>

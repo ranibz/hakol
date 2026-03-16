@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>צילום אייקוני — סביבת מורה</title>
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@400;700;900&family=Heebo:wght@300;400;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#f5f0e8;color:#1a1208;font-family:'Heebo',sans-serif}
+/* modal */
+#modal{position:fixed;inset:0;background:#1a1208cc;z-index:999;display:flex;align-items:center;justify-content:center;padding:16px}
+.modal-box{background:#f5f0e8;border:3px solid #1a1208;box-shadow:6px 6px 0 #1a3a6b;padding:28px 24px;width:100%;max-width:380px}
+.modal-box h2{font-family:'Frank Ruhl Libre',serif;font-size:1.3rem;margin-bottom:16px;text-align:center;border-bottom:2px solid #1a3a6b;padding-bottom:10px}
+.mf{margin-bottom:12px}
+.mf label{display:block;font-size:12px;font-weight:700;letter-spacing:1px;color:#1a3a6b;margin-bottom:4px}
+.mf input{width:100%;border:2px solid #1a1208;background:#fff;padding:9px 12px;font-family:'Heebo',sans-serif;font-size:14px;outline:none}
+.mf input:focus{border-color:#1a3a6b}
+#modal-err{color:#c0392b;font-size:13px;margin-bottom:8px;min-height:18px}
+.btn-login{width:100%;background:#1a3a6b;color:#fff;border:none;padding:12px;font-family:'Frank Ruhl Libre',serif;font-size:1rem;cursor:pointer;box-shadow:3px 3px 0 #1a1208;letter-spacing:1px}
+.btn-login:hover{background:#122a52}
+.register-link{text-align:center;margin-top:10px;font-size:13px}
+.register-link a{color:#1a3a6b}
+/* header */
+.site-header{background:#1a1208;color:#f5f0e8;padding:12px 20px;display:flex;align-items:center;justify-content:space-between}
+.site-header h1{font-family:'Frank Ruhl Libre',serif;font-size:1.2rem}
+.site-header .tid{font-size:12px;color:#c9a84c}
+/* toolbar */
+.toolbar{background:#fff;border-bottom:2px solid #1a1208;padding:12px 16px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;position:sticky;top:0;z-index:50}
+.toolbar input[type=text]{border:2px solid #1a1208;padding:7px 12px;font-family:'Heebo',sans-serif;font-size:13px;outline:none;min-width:160px}
+.toolbar select{border:2px solid #1a1208;padding:7px 10px;font-family:'Heebo',sans-serif;font-size:13px;outline:none;background:#fff;cursor:pointer}
+.btn-csv{background:#1a3a6b;color:#fff;border:none;padding:7px 16px;font-family:'Frank Ruhl Libre',serif;font-size:13px;cursor:pointer;box-shadow:2px 2px 0 #1a1208;white-space:nowrap}
+.btn-csv:hover{background:#122a52}
+.count-badge{font-size:12px;color:#555;margin-right:auto}
+/* table */
+.container{max-width:1000px;margin:0 auto;padding:16px}
+.submissions-list{display:flex;flex-direction:column;gap:10px}
+.sub-row{background:#fff;border:2px solid #1a1208;box-shadow:3px 3px 0 #1a1208}
+.sub-row-head{display:flex;align-items:center;gap:10px;padding:10px 14px;cursor:pointer;flex-wrap:wrap}
+.sub-row-head:hover{background:#f0ece0}
+.topic-badge{font-size:11px;font-weight:700;padding:3px 8px;border-radius:2px;color:#fff;white-space:nowrap}
+.student-name{font-weight:700;font-size:14px;flex:1;min-width:120px}
+.student-meta{font-size:12px;color:#666;flex:1;min-width:120px}
+.sub-date{font-size:11px;color:#888;white-space:nowrap}
+.grade-badge{font-size:13px;font-weight:700;white-space:nowrap}
+.grade-badge.graded{color:#1a7a1a}
+.grade-badge.ungraded{color:#aaa}
+.expand-icon{color:#888;font-size:14px;transition:transform .2s;margin-right:auto}
+/* expanded */
+.sub-row-body{display:none;border-top:2px solid #eee;padding:16px}
+.sub-row-body.open{display:block}
+.answers-grid{display:grid;gap:10px;margin-bottom:16px}
+.answer-item{background:#f5f0e8;border-right:4px solid #1a3a6b;padding:10px 12px}
+.answer-item .a-label{font-size:11px;font-weight:700;color:#1a3a6b;letter-spacing:1px;margin-bottom:4px}
+.answer-item .a-text{font-size:13px;line-height:1.6;white-space:pre-wrap}
+.feedback-panel{background:#fffbe6;border:2px solid #f59e0b;padding:14px}
+.feedback-panel h4{font-size:13px;font-weight:700;margin-bottom:10px;color:#92400e}
+.feedback-panel input[type=number]{width:100px;border:2px solid #1a1208;padding:6px 10px;font-family:'Heebo',sans-serif;font-size:14px;margin-left:8px}
+.feedback-panel textarea{width:100%;border:2px solid #1a1208;padding:8px 10px;font-family:'Heebo',sans-serif;font-size:13px;margin-top:8px;resize:vertical;min-height:60px}
+.btn-save{background:#1a3a6b;color:#fff;border:none;padding:8px 20px;font-family:'Frank Ruhl Libre',serif;font-size:13px;cursor:pointer;box-shadow:2px 2px 0 #1a1208;margin-top:8px}
+.btn-save:hover{background:#122a52}
+.save-ok{color:#1a7a1a;font-size:12px;margin-top:4px;display:none}
+.empty{text-align:center;color:#888;padding:40px;font-size:14px}
+footer{text-align:center;font-size:12px;color:#888;padding:20px;border-top:2px solid #ddd;margin-top:20px}
+</style>
+</head>
+<body>
+
+<div id="modal">
+  <div class="modal-box">
+    <h2>🔐 סביבת המורה</h2>
+    <div class="mf"><label>טלפון</label><input type="tel" id="inp-phone" placeholder="050-0000000" style="direction:ltr;text-align:left"></div>
+    <div class="mf"><label>סיסמה</label><input type="password" id="inp-pass" placeholder="סיסמה אישית"></div>
+    <div id="modal-err"></div>
+    <button class="btn-login" onclick="teacherLogin()">כניסה ←</button>
+    <div class="register-link"><a href="../teacher-register.html">עדיין לא רשומים? לחץ כאן להרשמה</a></div>
+  </div>
+</div>
+
+<div class="site-header">
+  <h1>📸 סביבת מורה — צילום אייקוני</h1>
+  <span class="tid" id="tid-display"></span>
+</div>
+
+<div class="toolbar">
+  <input type="text" id="search-input" placeholder="🔍 חיפוש לפי שם..." oninput="renderTable()">
+  <select id="filter-topic" onchange="renderTable()">
+    <option value="">— כל הנושאים —</option>
+    <option value="tzilum_aiconi">צילום אייקוני</option>
+    <option value="ownership">בעלות צולבת</option>
+    <option value="determinism">דטרמיניזם טכנולוגי</option>
+    <option value="msagur">מסגור תקשורתי</option>
+    <option value="symbolic_annihilation">הכחדה סימבולית</option>
+    <option value="uses_and_gratifications">שימושים וסיפוקים</option>
+    <option value="violence">תיאוריות אלימות</option>
+    <option value="gender">ייצוג מגדרי</option>
+    <option value="stereotype">סטריאוטיפים</option>
+    <option value="denotation">דנוטציה וקונוטציה</option>
+    <option value="reyting">רייטינג</option>
+    <option value="praklit">עיתונאי פרקליט ושומר סף</option>
+  </select>
+  <select id="filter-class" onchange="renderTable()">
+    <option value="">כל הכיתות</option>
+  </select>
+  <button class="btn-csv" onclick="exportCSV()">ייצוא CSV ⬇</button>
+  <span class="count-badge" id="count-badge"></span>
+</div>
+
+<div class="container">
+  <div class="submissions-list" id="submissions-list">
+    <div class="empty">טוען נתונים...</div>
+  </div>
+</div>
+
+<footer>פיתוח: רני בן זאב | hakolbakaf.co.il</footer>
+
+<script>
+const FC={apiKey:"AIzaSyCCHvn_ulmiyM56DuslNzNC0Ge6a8i2vhY",authDomain:"tests-fd938.firebaseapp.com",databaseURL:"https://tests-fd938-default-rtdb.europe-west1.firebasedatabase.app",projectId:"tests-fd938"};
+firebase.initializeApp(FC);
+const db=firebase.database();
+
+const TOPICS={
+  'tzilum_aiconi':'צילום אייקוני',
+  'ownership':'בעלות צולבת',
+  'determinism':'דטרמיניזם טכנולוגי',
+  'msagur':'מסגור תקשורתי',
+  'symbolic_annihilation':'הכחדה סימבולית',
+  'uses_and_gratifications':'שימושים וסיפוקים',
+  'violence':'תיאוריות אלימות',
+  'gender':'ייצוג מגדרי',
+  'stereotype':'סטריאוטיפים',
+  'denotation':'דנוטציה וקונוטציה',
+  'reyting':'רייטינג',
+  'praklit':'עיתונאי פרקליט ושומר סף'
+};
+
+const TOPIC_COLORS={
+  'tzilum_aiconi':'#1a3a6b',
+  'ownership':'#5a1a1a',
+  'determinism':'#1a5a5a',
+  'msagur':'#1a5c1a',
+  'symbolic_annihilation':'#5a3a1a',
+  'uses_and_gratifications':'#4a1a5a',
+  'violence':'#8b1a1a',
+  'gender':'#1a3a8b',
+  'stereotype':'#5a5a1a',
+  'denotation':'#2a2a6b',
+  'reyting':'#6b2a1a',
+  'praklit':'#1a4a2a'
+};
+
+const ANSWER_LABELS={
+  first_impression:'רושם ראשוני',
+  traits_selected:'מאפיינים שנבחרו',
+  traits_explanation:'הסבר מאפיינים',
+  denotation_connotation:'דנוטציה וקונוטציה',
+  who_benefits:'מי מרוויח',
+  digital_age:'עידן דיגיטלי',
+  personal_example:'דוגמה אישית'
+};
+
+let teacherID='';
+let allData=[];
+
+function teacherLogin(){
+  const phone=document.getElementById('inp-phone').value.trim();
+  const pass=document.getElementById('inp-pass').value.trim();
+  const err=document.getElementById('modal-err');
+  if(!phone||!pass){err.textContent='נא למלא טלפון וסיסמה';return;}
+  db.ref('teachers').once('value').then(snap=>{
+    let foundKey='';
+    snap.forEach(child=>{
+      const t=child.val();
+      if(t.password===pass&&t.phone===phone&&t.status==='approved')foundKey=child.key;
+    });
+    if(!foundKey){err.textContent='סיסמה שגויה או משתמש לא מאושר';return;}
+    teacherID=foundKey;
+    document.getElementById('tid-display').textContent='מזוהה: '+teacherID;
+    document.getElementById('modal').style.display='none';
+    loadData();
+  });
+}
+
+function loadData(){
+  const promises=Object.keys(TOPICS).map(topic=>
+    db.ref('tests/'+topic).once('value').then(snap=>{
+      const raw=snap.val()||{};
+      return Object.entries(raw).map(([k,v])=>({key:k,_topic:topic,_topicLabel:TOPICS[topic],...v}));
+    })
+  );
+  Promise.all(promises).then(results=>{
+    allData=results.flat().filter(d=>d.student?.teacherID===teacherID);
+    allData.sort((a,b)=>b.submittedAt-a.submittedAt);
+    renderTable();
+  });
+}
+
+function renderTable(){
+  const search=document.getElementById('search-input').value.toLowerCase();
+  const topic=document.getElementById('filter-topic').value;
+  const cls=document.getElementById('filter-class').value;
+  const base=topic?allData.filter(d=>d._topic===topic):allData;
+
+  // update class dropdown
+  const classes=[...new Set(base.map(d=>d.student?.class).filter(Boolean))].sort();
+  const sel=document.getElementById('filter-class');
+  const cur=sel.value;
+  sel.innerHTML='<option value="">כל הכיתות</option>';
+  classes.forEach(c=>sel.innerHTML+=`<option${c===cur?' selected':''}>${c}</option>`);
+
+  const filtered=base.filter(d=>{
+    const name=(d.student?.name||'').toLowerCase();
+    return(!search||name.includes(search))&&(!cls||d.student?.class===cls);
+  });
+
+  document.getElementById('count-badge').textContent=filtered.length+' הגשות';
+  const list=document.getElementById('submissions-list');
+
+  if(!filtered.length){list.innerHTML='<div class="empty">אין הגשות תואמות</div>';return;}
+
+  list.innerHTML=filtered.map(d=>{
+    const dt=new Date(d.submittedAt).toLocaleString('he-IL');
+    const fb=d.feedback||{};
+    const graded=fb.grade!=null;
+    const color=TOPIC_COLORS[d._topic]||'#1a3a6b';
+    const answerKeys=Object.keys(d.answers||{});
+    const answersHtml=answerKeys.map(k=>`
+      <div class="answer-item">
+        <div class="a-label">${ANSWER_LABELS[k]||k}</div>
+        <div class="a-text">${escHtml(d.answers[k]||'')}</div>
+      </div>`).join('');
+    return `
+    <div class="sub-row" id="row-${d.key}">
+      <div class="sub-row-head" onclick="toggleRow('${d.key}')">
+        <span class="topic-badge" style="background:${color}">${d._topicLabel}</span>
+        <span class="student-name">${escHtml(d.student?.name||'')}</span>
+        <span class="student-meta">${escHtml(d.student?.email||'')} | ${d.student?.class||''}</span>
+        <span class="sub-date">${dt}</span>
+        <span class="grade-badge ${graded?'graded':'ungraded'}">${graded?'✅ '+fb.grade:'—'}</span>
+        <span class="expand-icon" id="icon-${d.key}">▾</span>
+      </div>
+      <div class="sub-row-body" id="body-${d.key}">
+        <div class="answers-grid">${answersHtml}</div>
+        <div class="feedback-panel">
+          <h4>הערכת מורה</h4>
+          <label>ציון (0-100):</label>
+          <input type="number" id="grade-${d.key}" min="0" max="100" value="${graded?fb.grade:''}" placeholder="0-100">
+          <textarea id="comment-${d.key}" placeholder="הערה לתלמיד...">${fb.comment||''}</textarea>
+          <button class="btn-save" onclick="saveFeedback('${d.key}')">שמור הערכה ✓</button>
+          <div class="save-ok" id="ok-${d.key}">✅ נשמר בהצלחה</div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleRow(key){
+  const body=document.getElementById('body-'+key);
+  const icon=document.getElementById('icon-'+key);
+  if(body.classList.contains('open')){body.classList.remove('open');icon.textContent='▾';}
+  else{body.classList.add('open');icon.textContent='▴';}
+}
+
+function saveFeedback(key){
+  const rec=allData.find(d=>d.key===key);
+  const topic=rec?._topic||'tzilum_aiconi';
+  const grade=parseInt(document.getElementById('grade-'+key).value);
+  const comment=document.getElementById('comment-'+key).value.trim();
+  if(isNaN(grade)||grade<0||grade>100){alert('ציון לא תקין');return;}
+  db.ref('tests/'+topic+'/'+key+'/feedback').update({grade,comment,gradedAt:Date.now(),gradedBy:teacherID}).then(()=>{
+    if(rec)rec.feedback={grade,comment,gradedAt:Date.now()};
+    const ok=document.getElementById('ok-'+key);
+    ok.style.display='block';
+    setTimeout(()=>{ok.style.display='none';renderTable();},1500);
+  });
+}
+
+function exportCSV(){
+  const topic=document.getElementById('filter-topic').value;
+  const cls=document.getElementById('filter-class').value;
+  const base=topic?allData.filter(d=>d._topic===topic):allData;
+  const data=cls?base.filter(d=>d.student?.class===cls):base;
+  const answerKeys=[...new Set(data.flatMap(d=>Object.keys(d.answers||{})))];
+  const headers=['שם','מייל','שכבה','קוד כיתה','נושא','תאריך','ציון','הערת מורה',...answerKeys.map(k=>ANSWER_LABELS[k]||k)];
+  const rows=data.map(d=>{
+    const dt=new Date(d.submittedAt).toLocaleString('he-IL');
+    const fb=d.feedback||{};
+    return[d.student?.name||'',d.student?.email||'',d.student?.class||'',d.student?.classCode||'',d._topicLabel||'',dt,fb.grade??'',fb.comment||'',...answerKeys.map(k=>(d.answers?.[k]||'').replace(/\n/g,' '))].map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',');
+  });
+  const csv='\uFEFF'+headers.map(h=>'"'+h+'"').join(',')+'\n'+rows.join('\n');
+  const a=document.createElement('a');
+  a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+  a.download='tzilum_aiconi-'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click();
+}
+
+function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+</script>
+</body>
+</html>

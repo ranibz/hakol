@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>צילום אייקוני — דף התלמיד</title>
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@400;700;900&family=Heebo:wght@300;400;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#f5f0e8;color:#1a1208;font-family:'Heebo',sans-serif}
+/* link modal */
+#link-modal{position:fixed;inset:0;background:#1a1208ee;z-index:999;display:flex;align-items:center;justify-content:center;padding:16px}
+.lm-box{background:#f5f0e8;border:3px solid #1a1208;box-shadow:6px 6px 0 #1a3a6b;padding:28px 24px;width:100%;max-width:400px}
+.lm-box h2{font-family:'Frank Ruhl Libre',serif;font-size:1.3rem;margin-bottom:4px;text-align:center}
+.lm-box .sub{font-size:13px;color:#555;text-align:center;margin-bottom:18px;border-bottom:2px solid #1a3a6b;padding-bottom:10px}
+.lm-box label{display:block;font-size:12px;font-weight:700;letter-spacing:1px;color:#1a3a6b;margin-bottom:4px;margin-top:10px}
+.lm-box input{width:100%;border:2px solid #1a1208;background:#fff;padding:9px 12px;font-family:'Heebo',sans-serif;font-size:14px;outline:none}
+.lm-box input:focus{border-color:#1a3a6b}
+.lm-err{color:#c0392b;font-size:13px;margin-top:6px;min-height:18px}
+.btn-create{width:100%;background:#1a3a6b;color:#fff;border:none;padding:11px;font-family:'Frank Ruhl Libre',serif;font-size:1rem;cursor:pointer;box-shadow:3px 3px 0 #1a1208;margin-top:14px;letter-spacing:1px}
+.btn-create:hover{background:#122a52}
+.btn-student{width:100%;background:#f5f0e8;color:#1a1208;border:2px solid #1a1208;padding:9px;font-family:'Heebo',sans-serif;font-size:13px;cursor:pointer;margin-top:8px}
+.btn-student:hover{background:#e8e0d0}
+#url-box{display:none;margin-top:14px;background:#fff;border:2px solid #1a3a6b;padding:12px;word-break:break-all}
+#url-box .url-label{font-size:11px;font-weight:700;color:#1a3a6b;margin-bottom:4px}
+#generated-url{font-size:13px;color:#1a1208;direction:ltr;text-align:left}
+.btn-copy{background:#1a1208;color:#fff;border:none;padding:6px 14px;font-size:12px;cursor:pointer;margin-top:8px}
+/* teacher banner */
+#teacher-banner{display:none;background:#1a1208;color:#c9a84c;padding:8px 24px;text-align:center;font-size:13px;border-bottom:2px solid #1a3a6b}
+/* masthead */
+.masthead{border-top:4px double #1a1208;border-bottom:4px double #1a1208;text-align:center;padding:22px 16px 14px}
+.masthead .sub2{font-size:12px;letter-spacing:3px;color:#1a3a6b;margin-bottom:4px}
+.masthead h1{font-family:'Frank Ruhl Libre',serif;font-size:clamp(1.8rem,5vw,2.8rem);font-weight:900}
+.container{max-width:680px;margin:0 auto;padding:24px 16px 60px}
+/* instructions */
+.instructions{background:#fff;border:2px solid #1a1208;box-shadow:4px 4px 0 #1a1208;padding:20px;margin-bottom:24px}
+.instructions h2{font-family:'Frank Ruhl Libre',serif;font-size:1.2rem;margin-bottom:12px;color:#1a3a6b;border-bottom:2px solid #1a3a6b;padding-bottom:6px}
+.instructions ol{padding-right:20px;line-height:2}
+.instructions ol li{font-size:14px}
+/* links */
+.links-section{display:flex;flex-direction:column;gap:12px}
+.link-card{display:block;background:#1a3a6b;color:#fff;text-decoration:none;padding:16px 20px;box-shadow:4px 4px 0 #1a1208;border-radius:2px;transition:transform .15s,box-shadow .15s}
+.link-card:hover{transform:translate(-2px,-2px);box-shadow:6px 6px 0 #1a1208}
+.link-card .lc-icon{font-size:1.6rem;margin-bottom:4px}
+.link-card .lc-title{font-family:'Frank Ruhl Libre',serif;font-size:1.1rem;font-weight:700}
+.link-card .lc-desc{font-size:12px;opacity:.85;margin-top:2px}
+.link-card.grades{background:#1a1208}
+footer{text-align:center;font-size:12px;color:#888;padding:20px;border-top:2px solid #ddd;margin-top:20px}
+</style>
+</head>
+<body>
+
+<!-- מודל יצירת קישור -->
+<div id="link-modal">
+  <div class="lm-box">
+    <h2>📸 הצילום האייקוני</h2>
+    <div class="sub">יצירת קישור לתלמידים</div>
+    <label>מספר טלפון (שרשמת בהרשמה)</label>
+    <input type="tel" id="lm-phone" placeholder="050-0000000" style="direction:ltr">
+    <label>קוד כיתה (לדוגמה: י1א)</label>
+    <input type="text" id="lm-code" placeholder="י1א">
+    <div class="lm-err" id="lm-err"></div>
+    <button class="btn-create" onclick="createLink()">צור קישור לתלמידים ←</button>
+    <button class="btn-student" onclick="closeModal()">אני תלמיד — כניסה ישירה</button>
+    <div id="url-box">
+      <div class="url-label">קישור לשליחה לתלמידים:</div>
+      <div id="generated-url"></div>
+      <button class="btn-copy" onclick="copyUrl()">העתק קישור 📋</button>
+    </div>
+  </div>
+</div>
+
+<!-- באנר מורה -->
+<div id="teacher-banner">
+  המורה: <strong id="banner-name" style="color:white;"></strong>
+  &nbsp;|&nbsp;
+  קוד כיתה: <strong id="banner-code" style="color:white;letter-spacing:1px;"></strong>
+</div>
+
+<div class="masthead">
+  <div class="sub2">לימודי תקשורת — הכל בקאדר</div>
+  <h1>הצילום האייקוני</h1>
+</div>
+
+<div class="container">
+  <div class="instructions">
+    <h2>הנחיות לתלמיד</h2>
+    <ol>
+      <li>לחצו על הקישור למטה כדי להיכנס למטלה</li>
+      <li>הזינו את שמכם, אימייל ושכבה</li>
+      <li>השיבו על כל הפעילויות בשלושת השלבים</li>
+      <li>בסוף השלב השלישי — לחצו "הגשה סופית"</li>
+    </ol>
+  </div>
+
+  <div class="links-section">
+    <a href="tzilum_aiconi-worksheet.html" id="link-worksheet" class="link-card">
+      <div class="lc-icon">📝</div>
+      <div class="lc-title">לחצו כאן להתחלת המטלה ←</div>
+      <div class="lc-desc">מטלה בנושא הצילום האייקוני — 3 שלבים</div>
+    </a>
+
+    <a href="../mygrades.html" id="link-mygrades" class="link-card grades">
+      <div class="lc-icon">⭐</div>
+      <div class="lc-title">הציונים שלי</div>
+      <div class="lc-desc">צפייה בציונים ובמשוב המורה</div>
+    </a>
+  </div>
+</div>
+
+<footer>פיתוח: רני בן זאב | hakolbakaf.co.il</footer>
+
+<script>
+const FC={apiKey:"AIzaSyCCHvn_ulmiyM56DuslNzNC0Ge6a8i2vhY",authDomain:"tests-fd938.firebaseapp.com",databaseURL:"https://tests-fd938-default-rtdb.europe-west1.firebasedatabase.app",projectId:"tests-fd938"};
+firebase.initializeApp(FC);
+const db=firebase.database();
+
+const _code=new URLSearchParams(location.search).get('code');
+if(_code){
+  document.getElementById('link-modal').style.display='none';
+  document.getElementById('link-worksheet').href='tzilum_aiconi-worksheet.html?code='+encodeURIComponent(_code);
+  document.getElementById('link-mygrades').href='../mygrades.html?code='+encodeURIComponent(_code);
+  db.ref('teacher_codes').once('value').then(snap=>{
+    const codes=snap.val()||{};
+    let tID='';
+    Object.keys(codes).forEach(k=>{if(k.startsWith(_code.toLowerCase()+'_'))tID=codes[k];});
+    if(!tID)return;
+    db.ref('teachers/'+tID).once('value').then(ts=>{
+      const t=ts.val();if(!t)return;
+      const name=(t.firstName&&t.lastName)?t.firstName+' '+t.lastName:(t.name||'');
+      if(name){
+        document.getElementById('banner-name').textContent=name;
+        document.getElementById('banner-code').textContent=_code;
+        document.getElementById('teacher-banner').style.display='block';
+      }
+    });
+  });
+}
+
+function createLink(){
+  const phone=document.getElementById('lm-phone').value.trim();
+  const code=document.getElementById('lm-code').value.trim().toLowerCase();
+  const err=document.getElementById('lm-err');
+  if(!phone||!code){err.textContent='נא למלא טלפון וקוד כיתה';return;}
+  err.textContent='';
+  db.ref('teachers').once('value').then(snap=>{
+    let teacherKey='';
+    snap.forEach(child=>{
+      const t=child.val();
+      if(t.phone===phone&&t.status==='approved')teacherKey=child.key;
+    });
+    if(!teacherKey){err.textContent='מורה לא נמצא או לא מאושר';return;}
+    db.ref('teacher_codes/'+code+'_'+teacherKey).set(teacherKey).then(()=>{
+      const url=location.origin+location.pathname+'?code='+encodeURIComponent(code);
+      document.getElementById('generated-url').textContent=url;
+      document.getElementById('url-box').style.display='block';
+    });
+  });
+}
+
+function closeModal(){document.getElementById('link-modal').style.display='none';}
+
+function copyUrl(){
+  const url=document.getElementById('generated-url').textContent;
+  navigator.clipboard.writeText(url).then(()=>alert('הקישור הועתק!'));
+}
+</script>
+</body>
+</html>

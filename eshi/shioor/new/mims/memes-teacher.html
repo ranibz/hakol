@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>מימס — סביבת מורה</title>
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@400;700;900&family=Heebo:wght@300;400;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#f5f0e8;color:#1a1208;font-family:'Heebo',sans-serif;min-height:100vh}
+#modal{position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:999;display:flex;align-items:center;justify-content:center;padding:16px}
+.modal-box{background:#f5f0e8;border:3px solid #1a1208;box-shadow:6px 6px 0 #1a1208;padding:28px 24px;width:100%;max-width:380px}
+.modal-box h2{font-family:'Frank Ruhl Libre',serif;font-size:1.5rem;margin-bottom:18px;border-bottom:3px solid #2a9d8f;padding-bottom:8px}
+.mf{margin-bottom:14px}
+.mf label{display:block;font-size:12px;font-weight:700;margin-bottom:4px}
+.mf input{width:100%;border:2px solid #1a1208;padding:9px 12px;font-family:'Heebo',sans-serif;font-size:14px;background:#fff;box-shadow:2px 2px 0 #1a1208}
+#modal-err{color:#c0392b;font-size:13px;min-height:18px;margin-bottom:8px}
+.login-btn{background:#2a9d8f;color:#fff;border:2px solid #1a1208;box-shadow:3px 3px 0 #1a1208;padding:11px 24px;font-family:'Heebo',sans-serif;font-size:15px;font-weight:700;cursor:pointer;width:100%}
+.register-link{text-align:center;margin-top:14px;font-size:13px}
+.register-link a{color:#2a9d8f}
+.masthead{border-top:4px double #1a1208;border-bottom:4px double #1a1208;padding:12px 20px;text-align:center;background:#1a1208;color:#f5f0e8}
+.masthead .platform{font-size:11px;letter-spacing:3px;color:#2a9d8f}
+.masthead h1{font-family:'Frank Ruhl Libre',serif;font-size:clamp(1.4rem,4vw,2.2rem);font-weight:900}
+#dashboard{display:none}
+.container{max-width:960px;margin:0 auto;padding:20px 16px}
+.toolbar{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:18px;align-items:center}
+.toolbar input,.toolbar select{border:2px solid #1a1208;padding:8px 12px;font-family:'Heebo',sans-serif;font-size:13px;background:#fff;box-shadow:2px 2px 0 #1a1208}
+.toolbar input{flex:1;min-width:180px}
+.exp-btn{background:#1a1208;color:#fff;border:2px solid #1a1208;box-shadow:2px 2px 0 #555;padding:8px 16px;font-family:'Heebo',sans-serif;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap}
+.exp-btn:hover{background:#2a9d8f}
+.count-label{font-size:13px;color:#555;padding:8px 0}
+table{width:100%;border-collapse:collapse;background:#fff;border:2px solid #1a1208;box-shadow:4px 4px 0 #1a1208}
+thead{background:#1a1208;color:#f5f0e8}
+thead th{padding:10px 12px;font-family:'Frank Ruhl Libre',serif;font-size:13px;font-weight:700;text-align:right;border-left:1px solid #333}
+tbody tr{border-bottom:2px solid #e0dace;cursor:pointer;transition:background .15s}
+tbody tr:hover{background:#f0ece0}
+tbody tr.expanded{background:#e8f5f3}
+td{padding:10px 12px;font-size:13px;vertical-align:middle;border-left:1px solid #e0dace}
+.badge{display:inline-block;padding:3px 8px;font-size:11px;font-weight:700;border:1px solid #1a1208;letter-spacing:.5px}
+.grade-ok{color:#1a7a4a;font-weight:700}
+.grade-no{color:#aaa}
+.expand-row{display:none;background:#f9f7f2}
+.expand-row td{padding:16px 20px}
+.expand-row.open{display:table-row}
+.answers-grid{display:grid;gap:10px;margin-bottom:16px}
+.ans-item{background:#fff;border:1px solid #ccc;padding:12px}
+.ans-label{font-size:11px;color:#2a9d8f;font-weight:700;letter-spacing:.5px;margin-bottom:4px}
+.ans-text{font-size:13px;line-height:1.6;white-space:pre-wrap}
+.feedback-panel{background:#fffbea;border:2px solid #f59e0b;padding:16px;margin-top:8px}
+.feedback-panel h4{font-family:'Frank Ruhl Libre',serif;margin-bottom:12px}
+.fp-row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.fp-row input[type=number]{width:100px;border:2px solid #1a1208;padding:7px 10px;font-family:'Heebo',sans-serif;font-size:14px}
+.fp-row textarea{flex:1;min-width:200px;border:2px solid #1a1208;padding:7px 10px;font-family:'Heebo',sans-serif;font-size:13px;resize:none;min-height:60px}
+.save-btn{background:#2a9d8f;color:#fff;border:2px solid #1a1208;box-shadow:2px 2px 0 #1a1208;padding:8px 18px;font-family:'Heebo',sans-serif;font-size:13px;font-weight:700;cursor:pointer}
+.save-btn:hover{transform:translate(-1px,-1px);box-shadow:3px 3px 0 #1a1208}
+.existing-feedback{background:#e8f5f3;border:1px solid #2a9d8f;padding:10px;margin-bottom:10px;font-size:13px}
+footer{text-align:center;padding:20px;font-size:12px;color:#888;border-top:2px double #1a1208;margin-top:32px}
+@media(max-width:600px){.toolbar{flex-direction:column}.toolbar input,.toolbar select{width:100%}}
+</style>
+</head>
+<body>
+
+<div id="modal">
+  <div class="modal-box">
+    <h2>🔐 כניסת מורה — מימס</h2>
+    <div class="mf"><label>טלפון</label><input type="tel" id="inp-phone" placeholder="05X-XXXXXXX" style="direction:ltr;text-align:left"></div>
+    <div class="mf"><label>סיסמה אישית</label><input type="password" id="inp-pass" placeholder="סיסמה"></div>
+    <div id="modal-err"></div>
+    <button class="login-btn" onclick="teacherLogin()">כניסה ←</button>
+    <div class="register-link"><a href="../teacher-register.html">עדיין לא רשומים? לחץ כאן להרשמה</a></div>
+  </div>
+</div>
+
+<div class="masthead">
+  <div class="platform">הכל באחורי — חינוך תקשורת ומדיה</div>
+  <h1>סביבת מורה — מימס</h1>
+</div>
+
+<div id="dashboard">
+  <div class="container">
+    <div class="toolbar">
+      <input type="text" id="search-input" placeholder="🔍 חיפוש לפי שם..." oninput="renderTable()">
+      <select id="filter-topic" onchange="renderTable()">
+        <option value="">— כל הנושאים —</option>
+        <option value="memes">מימס</option>
+        <option value="ownership">בעלות צולבת</option>
+        <option value="determinism">דטרמיניזם טכנולוגי</option>
+        <option value="msagur">מסגור תקשורתי</option>
+        <option value="symbolic_annihilation">הכחדה סימבולית</option>
+        <option value="uses_and_gratifications">שימושים וסיפוקים</option>
+        <option value="violence">תיאוריות אלימות</option>
+        <option value="gender">ייצוג מגדרי</option>
+        <option value="stereotype">סטריאוטיפים</option>
+        <option value="denotation">דנוטציה וקונוטציה</option>
+        <option value="reyting">רייטינג</option>
+        <option value="konotazia">קונוטציה</option>
+        <option value="praklit">עיתונאי פרקליט ושומר סף</option>
+      </select>
+      <select id="filter-class" onchange="renderTable()">
+        <option value="">כל הכיתות</option>
+      </select>
+      <button class="exp-btn" onclick="exportCSV()">ייצוא CSV ⬇</button>
+    </div>
+    <div class="count-label" id="count-label"></div>
+    <table id="main-table">
+      <thead>
+        <tr>
+          <th>נושא</th>
+          <th>שם</th>
+          <th>מייל</th>
+          <th>שכבה</th>
+          <th>תאריך</th>
+          <th>ציון</th>
+        </tr>
+      </thead>
+      <tbody id="table-body"></tbody>
+    </table>
+  </div>
+</div>
+
+<footer>פיתוח: רני בן זאב | גליל מערבי</footer>
+
+<script>
+const FC={apiKey:"AIzaSyCCHvn_ulmiyM56DuslNzNC0Ge6a8i2vhY",authDomain:"tests-fd938.firebaseapp.com",databaseURL:"https://tests-fd938-default-rtdb.europe-west1.firebasedatabase.app",projectId:"tests-fd938"};
+firebase.initializeApp(FC);
+const db=firebase.database();
+
+const TOPICS={
+  'memes':'מימס',
+  'ownership':'בעלות צולבת',
+  'determinism':'דטרמיניזם טכנולוגי',
+  'msagur':'מסגור תקשורתי',
+  'symbolic_annihilation':'הכחדה סימבולית',
+  'uses_and_gratifications':'שימושים וסיפוקים',
+  'violence':'תיאוריות אלימות',
+  'gender':'ייצוג מגדרי',
+  'stereotype':'סטריאוטיפים',
+  'denotation':'דנוטציה וקונוטציה',
+  'reyting':'רייטינג',
+  'konotazia':'קונוטציה',
+  'praklit':'עיתונאי פרקליט ושומר סף'
+};
+
+const TOPIC_COLORS={
+  'memes':'#2a9d8f','ownership':'#1a5c8a','determinism':'#6a0572',
+  'msagur':'#c0392b','symbolic_annihilation':'#e67e22','uses_and_gratifications':'#27ae60',
+  'violence':'#8e44ad','gender':'#2980b9','stereotype':'#d35400',
+  'denotation':'#16a085','reyting':'#c0392b','praklit':'#2c3e50'
+};
+
+const ANSWER_LABELS={
+  describe:'תיאור המם שבחרתם',
+  viral_or_meme:'ויראלי או מם?',
+  why_spread:'למה התפשט?',
+  new_version:'גרסה חדשה שיצרתם',
+  meme_function:'פונקציה של הגרסה',
+  dawkins_connection:'קשר לדוקינס',
+  social_analysis:'ניתוח מם ישראלי',
+  personal_opinion:'עמדה אישית'
+};
+
+let teacherID='';
+let allData=[];
+
+function teacherLogin(){
+  const phone=document.getElementById('inp-phone').value.trim();
+  const pass=document.getElementById('inp-pass').value.trim();
+  const err=document.getElementById('modal-err');
+  if(!phone||!pass){err.textContent='נא למלא טלפון וסיסמה';return;}
+  db.ref('teachers').once('value').then(snap=>{
+    let foundKey='';
+    snap.forEach(child=>{
+      const t=child.val();
+      if(t.password===pass&&t.phone===phone&&t.status==='approved')foundKey=child.key;
+    });
+    if(!foundKey){err.textContent='סיסמה שגויה או משתמש לא מאושר';return;}
+    teacherID=foundKey;
+    document.getElementById('modal').style.display='none';
+    document.getElementById('dashboard').style.display='block';
+    loadData();
+  });
+}
+
+function loadData(){
+  const promises=Object.keys(TOPICS).map(topic=>
+    db.ref('tests/'+topic).once('value').then(snap=>{
+      const raw=snap.val()||{};
+      return Object.entries(raw).map(([k,v])=>({key:k,_topic:topic,_topicLabel:TOPICS[topic],...v}));
+    })
+  );
+  Promise.all(promises).then(results=>{
+    allData=results.flat().filter(d=>d.student?.teacherID===teacherID);
+    allData.sort((a,b)=>b.submittedAt-a.submittedAt);
+    renderTable();
+  });
+}
+
+function renderTable(){
+  const search=document.getElementById('search-input').value.toLowerCase();
+  const topic=document.getElementById('filter-topic').value;
+  const cls=document.getElementById('filter-class').value;
+  const base=topic?allData.filter(d=>d._topic===topic):allData;
+
+  const classes=[...new Set(base.map(d=>d.student?.class).filter(Boolean))].sort();
+  const sel=document.getElementById('filter-class');
+  const cur=sel.value;
+  sel.innerHTML='<option value="">כל הכיתות</option>';
+  classes.forEach(c=>sel.innerHTML+=`<option${c===cur?' selected':''}>${c}</option>`);
+
+  const filtered=base.filter(d=>{
+    const name=(d.student?.name||'').toLowerCase();
+    return(!search||name.includes(search))&&(!cls||d.student?.class===cls);
+  });
+
+  document.getElementById('count-label').textContent='מציג '+filtered.length+' הגשות';
+  const tbody=document.getElementById('table-body');
+  tbody.innerHTML='';
+
+  filtered.forEach(d=>{
+    const dt=new Date(d.submittedAt).toLocaleString('he-IL');
+    const fb=d.feedback||{};
+    const gradeHtml=fb.grade!=null
+      ?`<span class="grade-ok">✅ ${fb.grade}</span>`
+      :`<span class="grade-no">—</span>`;
+    const color=TOPIC_COLORS[d._topic]||'#1a1208';
+
+    const tr=document.createElement('tr');
+    tr.innerHTML=`
+      <td><span class="badge" style="background:${color};color:white;border-color:${color}">${d._topicLabel}</span></td>
+      <td>${d.student?.name||''}</td>
+      <td style="direction:ltr;font-size:12px">${d.student?.email||''}</td>
+      <td>${d.student?.class||''}</td>
+      <td style="font-size:12px">${dt}</td>
+      <td>${gradeHtml}</td>`;
+
+    const expandTr=document.createElement('tr');
+    expandTr.className='expand-row';
+    expandTr.id='exp-'+d.key;
+
+    let answersHtml='<div class="answers-grid">';
+    Object.entries(d.answers||{}).forEach(([k,v])=>{
+      if(v){
+        answersHtml+=`<div class="ans-item"><div class="ans-label">${ANSWER_LABELS[k]||k}</div><div class="ans-text">${v}</div></div>`;
+      }
+    });
+    answersHtml+='</div>';
+
+    let existingFb='';
+    if(fb.grade!=null){
+      existingFb=`<div class="existing-feedback">✅ ציון קיים: <strong>${fb.grade}</strong>${fb.comment?' | הערה: '+fb.comment:''}</div>`;
+    }
+
+    expandTr.innerHTML=`<td colspan="6">
+      ${answersHtml}
+      ${existingFb}
+      <div class="feedback-panel">
+        <h4>הערכה</h4>
+        <div class="fp-row">
+          <input type="number" id="grade-${d.key}" min="0" max="100" placeholder="ציון 0-100" value="${fb.grade??''}">
+          <textarea id="comment-${d.key}" placeholder="הערה לתלמיד...">${fb.comment||''}</textarea>
+        </div>
+        <button class="save-btn" onclick="saveFeedback('${d.key}')">שמור הערכה ✓</button>
+      </div>
+    </td>`;
+
+    tr.addEventListener('click',()=>{
+      const isOpen=expandTr.classList.contains('open');
+      document.querySelectorAll('.expand-row.open').forEach(r=>r.classList.remove('open'));
+      document.querySelectorAll('tbody tr').forEach(r=>r.classList.remove('expanded'));
+      if(!isOpen){expandTr.classList.add('open');tr.classList.add('expanded');}
+    });
+
+    tbody.appendChild(tr);
+    tbody.appendChild(expandTr);
+  });
+}
+
+function saveFeedback(key){
+  const rec=allData.find(d=>d.key===key);
+  const topic=rec?._topic||'memes';
+  const grade=parseInt(document.getElementById('grade-'+key).value);
+  const comment=document.getElementById('comment-'+key).value.trim();
+  if(isNaN(grade)||grade<0||grade>100){alert('ציון לא תקין');return;}
+  db.ref('tests/'+topic+'/'+key+'/feedback').update({
+    grade,comment,gradedAt:Date.now(),gradedBy:teacherID
+  }).then(()=>{
+    if(rec)rec.feedback={grade,comment,gradedAt:Date.now()};
+    renderTable();
+    alert('הערכה נשמרה!');
+  });
+}
+
+function exportCSV(){
+  const topic=document.getElementById('filter-topic').value;
+  const cls=document.getElementById('filter-class').value;
+  const base=topic?allData.filter(d=>d._topic===topic):allData;
+  const data=cls?base.filter(d=>d.student?.class===cls):base;
+
+  const answerKeys=[...new Set(data.flatMap(d=>Object.keys(d.answers||{})))];
+  const answerLabels=answerKeys.map(k=>ANSWER_LABELS[k]||k);
+  const headers=['שם','מייל','שכבה','קוד כיתה','נושא','תאריך','ציון','הערת מורה',...answerLabels];
+
+  const rows=data.map(d=>{
+    const dt=new Date(d.submittedAt).toLocaleString('he-IL');
+    const fb=d.feedback||{};
+    return[
+      d.student?.name||'',d.student?.email||'',d.student?.class||'',
+      d.student?.classCode||'',d._topicLabel||'',dt,
+      fb.grade??'',fb.comment||'',
+      ...answerKeys.map(k=>(d.answers?.[k]||'').replace(/\n/g,' '))
+    ].map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',');
+  });
+
+  const csv='\uFEFF'+headers.map(h=>'"'+h+'"').join(',')+'\n'+rows.join('\n');
+  const a=document.createElement('a');
+  a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+  a.download='memes-'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click();
+}
+
+document.addEventListener('keydown',e=>{if(e.key==='Enter'&&document.getElementById('modal').style.display!=='none')teacherLogin();});
+</script>
+</body>
+</html>
