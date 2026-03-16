@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>תיק הפקה דיגיטלי - מגמת וידאוקאסט</title>
+    <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;700;900&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #2563eb; --secondary: #1e293b;
+            --y11-color: #10b981;
+            --y12-color: #6366f1;
+            --bg-body: #f8fafc; --bg-card: #ffffff; --text-main: #334155; --border: #e2e8f0;
+            --success: #10b981; --danger: #ef4444; --warn: #f59e0b;
+        }
+
+        body { font-family: 'Heebo', sans-serif; margin: 0; background-color: var(--bg-body); color: var(--text-main); display: flex; height: 100vh; overflow: hidden; }
+
+        /* Sidebar */
+        nav { width: 300px; background-color: var(--secondary); color: white; display: flex; flex-direction: column; padding: 20px 0; flex-shrink: 0; overflow-y: auto; transition: 0.3s; z-index: 100; }
+        .nav-header { text-align: center; padding-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); margin-bottom: 10px; position: relative; }
+        .nav-item { padding: 12px 25px; cursor: pointer; transition: 0.2s; display: flex; justify-content: space-between; align-items: center; font-weight: 500; }
+        .nav-item:hover { background-color: rgba(255,255,255,0.1); }
+        .nav-item.active { background-color: var(--primary); border-right: 4px solid white; }
+        .submenu { display: none; background-color: rgba(0,0,0,0.3); }
+        .submenu.open { display: block; }
+        .nav-sub-item { padding: 10px 35px 10px 20px; font-size: 0.9rem; color: rgba(255,255,255,0.8); cursor: pointer; border-right: 3px solid transparent; }
+        .nav-sub-item:hover { color: white; background: rgba(255,255,255,0.05); }
+        .nav-sub-item.active { color: white; font-weight: bold; }
+        .mobile-toggle { display: none; position: absolute; left: 20px; top: 0px; font-size: 1.5rem; cursor: pointer; color: white; }
+
+        /* Main */
+        main { flex-grow: 1; padding: 30px; overflow-y: auto; position: relative; }
+        .header-bar { background: white; padding: 15px 30px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; position: sticky; top: 0; z-index: 10; }
+
+        /* Cards & Inputs */
+        .card { background: white; padding: 30px; border-radius: 16px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 25px; border: 1px solid var(--border); overflow-x: hidden; }
+        .card h2 { margin-top: 0; border-bottom: 2px solid var(--bg-body); padding-bottom: 15px; color: var(--secondary); }
+        .card h3 { color: var(--primary); margin-bottom: 15px; }
+        input[type="text"], input[type="date"], textarea, select { width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid var(--border); border-radius: 8px; font-family: inherit; background: #f8fafc; box-sizing: border-box; }
+        input[type="text"]:focus, textarea:focus { outline: none; border-color: var(--primary); background: white; }
+
+        /* Tables */
+        .table-container { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; margin-bottom: 15px; min-width: 600px; }
+        th { text-align: right; background: #f1f5f9; padding: 12px; border-bottom: 2px solid var(--border); font-weight: bold; }
+        td { padding: 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+
+        /* Checklists */
+        .checklist-item { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid #f1f5f9; }
+        .checklist-item input[type="checkbox"] { width: 20px; height: 20px; margin: 0; flex-shrink: 0; }
+
+        /* Buttons */
+        .btn { padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; border: none; display: inline-flex; align-items: center; gap: 8px; font-size: 1rem; font-family: inherit; }
+        .btn-save { background: var(--primary); color: white; }
+        .btn-save:hover { background: #1d4ed8; }
+        .btn-back { background: #e2e8f0; color: var(--secondary); }
+        .btn-back:hover { background: #cbd5e1; }
+        .actions { display: flex; gap: 10px; }
+
+        /* Firebase status indicator */
+        .save-status { font-size: 0.85rem; padding: 6px 14px; border-radius: 20px; font-weight: 600; display: flex; align-items: center; gap: 6px; transition: all 0.3s; }
+        .save-status.idle    { background: #f1f5f9; color: #64748b; }
+        .save-status.saving  { background: #fef9c3; color: #92400e; }
+        .save-status.saved   { background: #dcfce7; color: #166534; }
+        .save-status.error   { background: #fee2e2; color: #991b1b; }
+
+        /* Group code box */
+        .group-code-bar { background: #1e293b; color: white; padding: 12px 30px; border-radius: 10px; margin-bottom: 20px; display: flex; align-items: center; gap: 15px; flex-wrap: wrap; }
+        .group-code-bar label { font-size: 0.9rem; opacity: 0.8; white-space: nowrap; }
+        .group-code-input { background: white; border: 1px solid rgba(255,255,255,0.3); border-radius: 8px; color: #1e293b; padding: 8px 14px; font-family: inherit; font-size: 1rem; flex: 1; min-width: 180px; }
+        .group-code-input::placeholder { color: #94a3b8; }
+        .btn-load { background: var(--primary); color: white; padding: 8px 18px; border-radius: 8px; border: none; cursor: pointer; font-family: inherit; font-weight: bold; white-space: nowrap; }
+
+        /* Student Tabs */
+        .branch-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 20px; margin-top: 20px; }
+        .card-3d { background: white; border: 3px solid var(--secondary); border-radius: 12px; padding: 20px; text-align: center; cursor: pointer; box-shadow: 6px 6px 0px var(--secondary); transition: 0.1s; }
+        .card-3d:active { transform: translate(4px, 4px); box-shadow: 2px 2px 0px var(--secondary); }
+        .card-3d.y11 { border-color: var(--y11-color); box-shadow: 6px 6px 0px var(--y11-color); color: var(--y11-color); }
+        .card-3d.y12 { border-color: var(--y12-color); box-shadow: 6px 6px 0px var(--y12-color); color: var(--y12-color); }
+
+        /* Sections */
+        .content-section { display: none; animation: fadeIn 0.3s; }
+        .content-section.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .info-box { background: #eff6ff; border-right: 4px solid var(--primary); padding: 15px; border-radius: 8px; margin-bottom: 20px; font-size: 0.95rem; line-height: 1.6; }
+
+        /* Mobile */
+        @media (max-width: 768px) {
+            body { flex-direction: column; overflow: auto; height: auto; }
+            nav { width: 100%; height: auto; max-height: 70px; overflow: hidden; position: sticky; top: 0; padding: 10px 0; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
+            nav.mobile-open { max-height: 80vh; overflow-y: auto; }
+            .mobile-toggle { display: block; top: 5px; }
+            .nav-header h2 { font-size: 1.2rem; margin-top: 5px; }
+            .nav-header p { display: none; }
+            main { padding: 15px; width: 100%; box-sizing: border-box; }
+            .header-bar { flex-direction: column; gap: 15px; text-align: center; padding: 15px; }
+            .actions { width: 100%; justify-content: center; }
+            .card { padding: 15px; }
+            .branch-grid { grid-template-columns: 1fr 1fr; }
+            .table-container { width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; border: 1px solid #eee; }
+            .form-grid { grid-template-columns: 1fr !important; }
+            .group-code-bar { flex-direction: column; align-items: stretch; }
+        }
+    </style>
+</head>
+<body>
+
+<nav id="sidebar">
+    <div class="nav-header">
+        <i class="fas fa-bars mobile-toggle" onclick="toggleMobileMenu()"></i>
+        <h2><i class="fas fa-film"></i> מגמת וידאוקאסט</h2>
+        <p>תיק הפקה שנתי</p>
+    </div>
+    <div class="nav-item active" onclick="showSection('cover-page')"><span><i class="fas fa-home"></i> דף שער</span></div>
+
+    <div class="nav-item" onclick="toggleSub('menu-y11', this)"><span><i class="fas fa-seedling"></i> פרוייקטון (י"א)</span><i class="fas fa-chevron-down"></i></div>
+    <div id="menu-y11" class="submenu">
+        <div class="nav-sub-item" onclick="showSection('y11-s1')">1. גיבוש ונושא</div>
+        <div class="nav-sub-item" onclick="showSection('y11-s2')">2. תחקיר</div>
+        <div class="nav-sub-item" onclick="showSection('y11-s3')">3. הפקה אישית</div>
+        <div class="nav-sub-item" onclick="showSection('y11-s4')">4. הכנות לאולפן</div>
+        <div class="nav-sub-item" onclick="showSection('y11-s5')">5. עריכה</div>
+        <div class="nav-sub-item" onclick="showSection('y11-s6')">6. הפצה</div>
+    </div>
+
+    <div class="nav-item" onclick="toggleSub('menu-y12', this)"><span><i class="fas fa-graduation-cap"></i> פרויקט גמר (י"ב)</span><i class="fas fa-chevron-down"></i></div>
+    <div id="menu-y12" class="submenu">
+        <div class="nav-sub-item" onclick="showSection('y12-intro')">מבוא ומטרות</div>
+        <div class="nav-sub-item" onclick="showSection('y12-sa')">א. תחקיר שטח</div>
+        <div class="nav-sub-item" onclick="showSection('y12-sb')">ב. הכנה לצילום</div>
+        <div class="nav-sub-item" onclick="showSection('y12-sc')">ג. צילום חוץ</div>
+        <div class="nav-sub-item" onclick="showSection('y12-sd')">ד. עריכת כתבה</div>
+        <div class="nav-sub-item" onclick="showSection('y12-se')">ה. אינטגרציה (Master)</div>
+        <div class="nav-sub-item" onclick="showSection('y12-sf')">ו. הפצה סופית</div>
+        <div class="nav-sub-item" onclick="showSection('y12-sg')">ז. בינה מלאכותית</div>
+    </div>
+</nav>
+
+<main id="main-content">
+
+    <!-- Group Code Bar -->
+    <!-- קוד ביה"ס מוטמע - לא גלוי לתלמיד -->
+    <input type="hidden" id="school-prefix-input" value="260489">
+    <div class="group-code-bar">
+        <label><i class="fas fa-school"></i> קוד ביה"ס: 260489</label>
+        <label><i class="fas fa-key"></i> קוד קבוצה:</label>
+        <input class="group-code-input" type="text" id="group-code-input" placeholder="הזינו קוד קבוצה (למשל: צוות_אלף)..." oninput="this.value = this.value.replace(/\s/g,'')">
+        <button class="btn-load" onclick="loadFromFirebase()"><i class="fas fa-cloud-download-alt"></i> טען נתונים</button>
+        <span class="save-status idle" id="save-status"></span>
+    </div>
+
+    <div class="header-bar">
+        <h1 id="page-title">תיק הפקה וידאוקאסט</h1>
+        <div class="actions">
+            <button class="btn btn-save" onclick="saveToFirebase()"><i class="fas fa-cloud-upload-alt"></i> שמור פרויקט</button>
+        </div>
+    </div>
+
+    <!-- Cover Page -->
+    <div id="cover-page" class="content-section active">
+        <div style="text-align:center; margin-bottom:20px;">
+            <img src="1.jpg" alt="תיק הפקה וידאוקאסט" style="max-width:100%; max-height:300px; border-radius:16px; object-fit:cover; box-shadow:0 4px 20px rgba(0,0,0,0.1);">
+        </div>
+        <div class="card">
+            <h2>👥 הרכב הקבוצה</h2>
+            <p>הזינו את השמות פעם אחת – הם יסונכרנו לכל התיק.</p>
+            <div class="form-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                <input type="text" id="s1_name" placeholder="שם תלמיד 1..." oninput="syncNames()">
+                <input type="text" id="s2_name" placeholder="שם תלמיד 2..." oninput="syncNames()">
+                <input type="text" id="s3_name" placeholder="שם תלמיד 3..." oninput="syncNames()">
+                <input type="text" id="s4_name" placeholder="שם תלמיד 4..." oninput="syncNames()">
+            </div>
+        </div>
+        <div class="card">
+            <h2>📌 נושא הקבוצה</h2>
+            <label>נושא-העל של הקבוצה:</label>
+            <input type="text" id="group_topic" placeholder="נושא הפרויקט המשותף...">
+            <label>שנת לימוד:</label>
+            <select id="group_year">
+                <option value="">בחרו שנה</option>
+                <option value="תשפה">תשפ"ה</option>
+                <option value="תשפו">תשפ"ו</option>
+                <option value="תשפז">תשפ"ז</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- y11 s1 -->
+    <div id="y11-s1" class="content-section">
+        <div class="card" style="border-top: 5px solid var(--y11-color);">
+            <h2>🌿 שלב 1: גיבוש ונושא</h2>
+            <div class="info-box"><strong>מטרה:</strong> לגבש קבוצה סביב נושא משותף בעל ערך חברתי ותקשורתי.</div>
+            <h3>הצהרת כוונות</h3>
+            <label>נושא העל (במשפט):</label>
+            <input type="text" id="y11_topic">
+            <label>פירוט קצר:</label>
+            <textarea id="y11_desc" rows="4"></textarea>
+        </div>
+    </div>
+
+    <!-- y11 s2 -->
+    <div id="y11-s2" class="content-section">
+        <div class="card" style="border-top: 5px solid var(--y11-color);">
+            <h2>🔍 שלב 2: תחקיר מעמיק</h2>
+            <div class="info-box">
+                <strong>מטרה:</strong> לחקור את נושא-העל שבחרתם ממגוון זוויות – חברתיות, היסטוריות ותקשורתיות – על מנת להעמיק את ההבנה, לחדד את כיווני החקירה ולהתכונן לשלבי התסריט וההפקה.
+            </div>
+
+            <h3>📰 1. סיקור תקשורתי במדיה המסורתית</h3>
+            <p style="font-size:0.9rem; color:#64748b; margin-bottom:12px;">טלוויזיה, עיתונות, רדיו, אתרי חדשות – ציינו שני מקורות בנושא</p>
+
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width:5%">#</th>
+                            <th style="width:20%">כותרת הכתבה / המקור</th>
+                            <th style="width:20%">קישור</th>
+                            <th style="width:25%">סיכום עיקרי הדברים</th>
+                            <th style="width:30%">הערות והתחברות אישית לנושא</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td style="text-align:center;font-weight:bold;">1</td>
+                            <td><textarea id="y11_media_src1_title" rows="3" placeholder="כותרת וגוף מקור..."></textarea></td>
+                            <td><input type="text" id="y11_media_src1_url" placeholder="https://..."></td>
+                            <td><textarea id="y11_media_src1_summary" rows="3" placeholder="סיכום עיקרי הדברים..."></textarea></td>
+                            <td><textarea id="y11_media_src1_notes" rows="3" placeholder="הערות והתחברות אישית..."></textarea></td>
+                        </tr>
+                        <tr>
+                            <td style="text-align:center;font-weight:bold;">2</td>
+                            <td><textarea id="y11_media_src2_title" rows="3" placeholder="כותרת וגוף מקור..."></textarea></td>
+                            <td><input type="text" id="y11_media_src2_url" placeholder="https://..."></td>
+                            <td><textarea id="y11_media_src2_summary" rows="3" placeholder="סיכום עיקרי הדברים..."></textarea></td>
+                            <td><textarea id="y11_media_src2_notes" rows="3" placeholder="הערות והתחברות אישית..."></textarea></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <h3 style="margin-top:25px;">🌍 2. הקשרים רחבים (חברתי, היסטורי, תרבותי, כלכלי)</h3>
+
+            <label>מתי בעבר הנושא הזה עלה לכותרות?</label>
+            <textarea id="y11_context_history" rows="5" placeholder="פרטו אירועים היסטוריים, תקופות, מדינות..."></textarea>
+
+            <label>האם יש הבדלים בין מגזרים או קבוצות בחברה?</label>
+            <textarea id="y11_context_groups" rows="5" placeholder="כלכליים, אתניים, דתיים, מגדריים..."></textarea>
+
+            <label>מה מקומו של הנושא בתרבות הישראלית?</label>
+            <textarea id="y11_context_israel" rows="5" placeholder="כיצד הנושא בא לידי ביטוי בחברה הישראלית..."></textarea>
+        </div>
+    </div>
+
+    <!-- y11 s3 -->
+    <div id="y11-s3" class="content-section">
+        <div class="card" style="border-top: 5px solid var(--y11-color);">
+            <h2>🎙️ שלב 3: הפקת וידאוקאסט אישי</h2>
+            <div class="info-box">
+                <strong>מטרה:</strong> לפתח תוצר אישי בתוך מסגרת קבוצתית. כל תלמיד יבחר תת-נושא אישי, יבצע עליו תחקיר עצמאי, יאתר מרואיין מתאים ויפיק פרק אישי ראשון.
+            </div>
+        </div>
+        <h3>בחרו את התיק האישי:</h3>
+        <div id="grid-y11-s3" class="branch-grid"></div>
+    </div>
+
+    <!-- y11 s4 -->
+    <div id="y11-s4" class="content-section">
+        <div class="card" style="border-top: 5px solid var(--y11-color);">
+            <h2>🎬 שלב 4: הכנות לראיון באולפן</h2>
+            <div class="info-box">
+                <strong>מטרה:</strong> להיערך מקצועית וטכנית ליום הצילום כדי למנוע תקלות.
+                <ul>
+                    <li>לבדוק את ציוד הצילום: מצלמות, חצובות, כרטיסי זיכרון, סוללות.</li>
+                    <li>להכין את האולפן: תאורה, כרומקי, סידור מקום ישיבה.</li>
+                    <li>לתאם עם המרואיין שעת הגעה ונושאים.</li>
+                    <li>לחלק תפקידים בצוות.</li>
+                </ul>
+            </div>
+        </div>
+        <h3>בחרו את דף ההפקה האישי:</h3>
+        <div id="grid-y11-s4" class="branch-grid"></div>
+    </div>
+
+    <!-- y11 s5 -->
+    <div id="y11-s5" class="content-section">
+        <div class="card" style="border-top: 5px solid var(--y11-color);">
+            <h2>🎞️ שלב 5: עריכת הפרק האישי</h2>
+            <div class="info-box">
+                <strong>המטרה הסופית:</strong> לקיחת הראיון המלא שצולם באולפן ויצירת <strong>תקציר ראיון</strong> של החלקים החשובים. אורך כ-5 דקות.
+            </div>
+        </div>
+        <h3>בחרו את יומן העריכה האישי:</h3>
+        <div id="grid-y11-s5" class="branch-grid"></div>
+    </div>
+
+    <!-- y11 s6 -->
+    <div id="y11-s6" class="content-section">
+        <div class="card" style="border-top: 5px solid var(--y11-color);">
+            <h2>📢 שלב 6: הפצת התוצר</h2>
+            <div class="info-box">
+                <strong>העלאת התוצרים:</strong> בחרו פלטפורמה (YouTube/Spotify). הקפידו על שם ברור, תיאור קצר, תגיות ותמונה מייצגת (Thumbnail).
+            </div>
+            <h3>טבלת קישורים:</h3>
+            <div class="table-container">
+                <table>
+                    <thead><tr><th>שם התלמיד</th><th>קישור לפרוייקטון</th></tr></thead>
+                    <tbody id="table-y11-s6"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- y12 intro -->
+    <div id="y12-intro" class="content-section">
+        <div class="card" style="border-top: 5px solid var(--y12-color);">
+            <h2>📖 פרויקט הגמר – וידאוקאסט עיתונאי</h2>
+            <div class="info-box">
+                פרויקט הגמר מהווה את השלב המסכם. מטרתו להרחיב את הפרויקטון מי"א לכתבה עיתונאית מלאה (10–15 דקות) המשלבת ראיון אולפן וכתבת שטח.
+                <br><strong>מטרות:</strong> שילוב אישי וקבוצתי, פיתוח מיומנויות עיתונאיות, חשיבה ביקורתית והפצה מקצועית.
+            </div>
+            <h3>שלבי העבודה (י"ב):</h3>
+            <div class="table-container">
+                <table>
+                    <tr><td><strong>שלב א:</strong> תכנון ותחקיר שטח</td><td>תכנון הכתבה המורחבת, Shot List</td></tr>
+                    <tr><td><strong>שלב ב:</strong> הכנה לצילום</td><td>ציוד, גיבויים, שאלות</td></tr>
+                    <tr><td><strong>שלב ג:</strong> צילום חוץ</td><td>ראיונות שטח, B-roll, סאונד</td></tr>
+                    <tr><td><strong>שלב ד:</strong> עריכת כתבת חוץ</td><td>כתבה עצמאית של 5 דקות</td></tr>
+                    <tr><td><strong>שלב ה:</strong> אינטגרציה (Master)</td><td>שילוב אולפן ושטח, קריינות, סגיר</td></tr>
+                    <tr><td><strong>שלב ו:</strong> הפצה</td><td>הגשה סופית</td></tr>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- y12 sa -->
+    <div id="y12-sa" class="content-section">
+        <div class="card" style="border-top: 5px solid var(--y12-color);">
+            <h2>שלב א: תכנון ותחקיר מקדים</h2>
+            <div class="info-box">
+                <strong>מטרה:</strong> להבין את הסיפור, מי מספר אותו ואיך.<br>
+                <strong>ביצוע:</strong> לנסח שאלת חקר, תחקיר על מקום ודמויות, הכנת Shot List ותיאום מול מצולמים.
+            </div>
+        </div>
+        <h3>תיקי תחקיר אישיים:</h3>
+        <div id="grid-y12-sa" class="branch-grid"></div>
+    </div>
+
+    <!-- y12 sb -->
+    <div id="y12-sb" class="content-section">
+        <div class="card" style="border-top: 5px solid var(--y12-color);">
+            <h2>שלב ב: הכנה לצילומי חוץ</h2>
+            <div class="info-box">
+                <strong>מטרה:</strong> להגיע ליום הצילום מאורגן ומוכן טכנית.<br>
+                <strong>ביצוע:</strong> בדיקת ציוד (מצלמות, סאונד, תאורה), הכנת גיבויים (סוללות, כרטיסים), הכנת שאלות ודפי תחקיר.
+            </div>
+        </div>
+        <h3>תיקי הכנה אישיים:</h3>
+        <div id="grid-y12-sb" class="branch-grid"></div>
+    </div>
+
+    <!-- y12 sc -->
+    <div id="y12-sc" class="content-section">
+        <div class="card" style="border-top: 5px solid var(--y12-color);">
+            <h2>שלב ג: צילום חוץ</h2>
+            <div class="info-box">
+                <strong>מטרה:</strong> לאסוף חומרים איכותיים. לצלם ראיונות נקיים, B-roll ו-Nat Sound.<br>
+                <strong>ארגון:</strong> שמירת קבצים בתיקיות מסודרות (Camera, Audio, B-roll).
+            </div>
+        </div>
+        <h3>יומני צילום אישיים:</h3>
+        <div id="grid-y12-sc" class="branch-grid"></div>
+    </div>
+
+    <!-- y12 sd -->
+    <div id="y12-sd" class="content-section">
+        <div class="card" style="border-top: 5px solid var(--y12-color);">
+            <h2>שלב ד: עריכת כתבת החוץ (5 דקות)</h2>
+            <div class="info-box">
+                <strong>מטרה:</strong> לבנות כתבה עצמאית קצרה עם התחלה-אמצע-סוף.<br>
+                <strong>ביצוע:</strong> סנכרון וידאו וסאונד, בחירת קטעים חזקים, עריכה ל-5 דקות, הוספת Lower Thirds ומוזיקה.
+            </div>
+        </div>
+        <h3>יומני עריכת שטח:</h3>
+        <div id="grid-y12-sd" class="branch-grid"></div>
+    </div>
+
+    <!-- y12 se -->
+    <div id="y12-se" class="content-section">
+        <div class="card" style="border-top: 5px solid var(--y12-color);">
+            <h2>שלב ה: עריכת התוצר הסופי (Master Sequence)</h2>
+            <div class="info-box">
+                <strong>מטרה:</strong> לשלב את הראיון המקוצר (י"א) עם כתבת השטח (י"ב) לכתבה אחת זורמת.<br>
+                <strong>הוראות:</strong> לפתוח Master Sequence, להיעזר בתמלול, לשלב קטעי אולפן ושטח, להוסיף קריינות במעברים.
+            </div>
+        </div>
+        <h3>תיקי אינטגרציה אישיים:</h3>
+        <div id="grid-y12-se" class="branch-grid"></div>
+    </div>
+
+    <!-- y12 sf -->
+    <div id="y12-sf" class="content-section">
+        <div class="card" style="border-top: 5px solid var(--y12-color);">
+            <h2>📢 שלב ו: הפצת התוצר</h2>
+            <div class="info-box">
+                הגעתם לסוף הדרך! זהו רגע של גאווה. כל תלמיד יוסיף כאן את הקישור לכתבה המוגמרת (YouTube/Spotify/אתר המגמה).
+            </div>
+            <h3>טבלת קישורים סופית:</h3>
+            <div class="table-container">
+                <table>
+                    <thead><tr><th>שם התלמיד</th><th>קישור לפרויקט הגמר</th></tr></thead>
+                    <tbody id="table-y12-sf"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- y12 sg -->
+    <div id="y12-sg" class="content-section">
+        <div class="card" style="border-top: 5px solid var(--y12-color);">
+            <h2>🤖 שלב ז: שימוש בבינה מלאכותית</h2>
+            <div class="info-box">
+                השימוש ב-AI הוא כעזר בלבד (חידוד רעיונות, השראה, ניסוח). האחריות על התוכן היא שלכם. עליכם לתעד את השימוש בכלי.
+            </div>
+        </div>
+        <h3>תיעוד שימוש אישי ב-AI:</h3>
+        <div id="grid-y12-sg" class="branch-grid"></div>
+    </div>
+
+    <div id="dynamic-student-pages"></div>
+</main>
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script>
+    // ─── Firebase Init ───────────────────────────────────────────
+    const firebaseConfig = {
+        apiKey: "AIzaSyBJyeuuFvxESxhSc9afONXBV5LV1dWuhzI",
+        authDomain: "videokast-c49fd.firebaseapp.com",
+        databaseURL: "https://videokast-c49fd-default-rtdb.europe-west1.firebasedatabase.app",
+        projectId: "videokast-c49fd",
+        storageBucket: "videokast-c49fd.firebasestorage.app",
+        messagingSenderId: "879400139172",
+        appId: "1:879400139172:web:5cb51b1e37702e532a6931"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    // ─── Status helper ────────────────────────────────────────────
+    function setStatus(type, text) {
+        const el = document.getElementById('save-status');
+        el.className = 'save-status ' + type;
+        const icons = { idle:'fa-circle-dot', saving:'fa-spinner fa-spin', saved:'fa-check-circle', error:'fa-exclamation-circle' };
+        el.innerHTML = `<i class="fas ${icons[type]}"></i> ${text}`;
+    }
+
+    // ─── Navigation ───────────────────────────────────────────────
+    function toggleSub(menuId, el) {
+        const menu = document.getElementById(menuId);
+        menu.classList.toggle('open');
+        el.querySelector('.fa-chevron-down').style.transform = menu.classList.contains('open') ? 'rotate(180deg)' : 'rotate(0deg)';
+    }
+
+    function toggleMobileMenu() {
+        document.getElementById('sidebar').classList.toggle('mobile-open');
+    }
+
+    function showSection(id) {
+        document.querySelectorAll('.content-section').forEach(s => s.classList.remove('active'));
+        const target = document.getElementById(id);
+        if (target) target.classList.add('active');
+        document.getElementById('sidebar').classList.remove('mobile-open');
+        const h2 = target ? target.querySelector('h2') : null;
+        document.getElementById('page-title').innerText = h2 ? h2.innerText : 'תיק הפקה';
+        document.getElementById('main-content').scrollTop = 0;
+    }
+
+    // ─── Names sync ───────────────────────────────────────────────
+    function syncNames() {
+        for (let i = 1; i <= 4; i++) {
+            const nameEl = document.getElementById(`s${i}_name`);
+            const name = nameEl ? nameEl.value || `תלמיד ${i}` : `תלמיד ${i}`;
+            document.querySelectorAll(`.name-display-${i}`).forEach(el => el.innerText = name);
+            const f1 = document.getElementById(`dist_y11_n_${i}`); if (f1) f1.value = name;
+            const f2 = document.getElementById(`dist_y12_n_${i}`); if (f2) f2.value = name;
+        }
+    }
+
+    // ─── Collect all form data ────────────────────────────────────
+    function collectData() {
+        const data = {};
+        document.querySelectorAll('input[id], textarea[id]').forEach(el => {
+            if (!el.id) return;
+            data[el.id] = el.type === 'checkbox' ? el.checked : el.value;
+        });
+        // also selects
+        document.querySelectorAll('select[id]').forEach(el => {
+            data[el.id] = el.value;
+        });
+        return data;
+    }
+
+    // ─── Apply loaded data ────────────────────────────────────────
+    function applyData(data) {
+        if (!data) return;
+        Object.keys(data).forEach(key => {
+            const el = document.getElementById(key);
+            if (!el) return;
+            if (el.type === 'checkbox') el.checked = (data[key] === true || data[key] === 'true');
+            else el.value = data[key];
+        });
+        syncNames();
+    }
+
+    // ─── Full code = prefix_group ─────────────────────────────────
+    function getFullCode() {
+        const prefix = document.getElementById('school-prefix-input').value.trim();
+        const code   = document.getElementById('group-code-input').value.trim();
+        if (!prefix || !code) return null;
+        return prefix + '_' + code;
+    }
+
+    // ─── Save to Firebase ─────────────────────────────────────────
+    function saveToFirebase() {
+        const code = getFullCode();
+        if (!code) {
+            alert('נא להזין קוד בית ספר וקוד קבוצה לפני השמירה.');
+            return;
+        }
+        setStatus('saving', 'שומר...');
+        const data = collectData();
+        data['_saved_at'] = new Date().toISOString();
+        db.ref(`portfolios/${code}`).set(data)
+            .then(() => setStatus('saved', 'נשמר בהצלחה ✓'))
+            .catch(err => { console.error(err); setStatus('error', 'שגיאה בשמירה'); });
+    }
+
+    // ─── Load from Firebase ───────────────────────────────────────
+    function loadFromFirebase() {
+        const code = getFullCode();
+        if (!code) { alert('נא להזין קוד בית ספר וקוד קבוצה.'); return; }
+        setStatus('saving', 'טוען...');
+        db.ref(`portfolios/${code}`).once('value')
+            .then(snap => {
+                const data = snap.val();
+                if (!data) {
+                    setStatus('idle', 'קוד חדש – מוכן לשמירה');
+                    alert(`קוד קבוצה "${code}" עדיין ריק – מלאו את הטופס ולחצו שמור.`);
+                } else {
+                    applyData(data);
+                    setStatus('saved', `נטען: ${code}`);
+                }
+            })
+            .catch(err => { console.error(err); setStatus('error', 'שגיאה בטעינה'); });
+    }
+
+    // ─── Dynamic student pages ────────────────────────────────────
+    function generateStudentPages() {
+        const container = document.getElementById('dynamic-student-pages');
+        let html = '';
+
+        for (let i = 1; i <= 4; i++) {
+
+            // י"א שלב 3
+            html += `
+            <div id="page-y11-s3-st${i}" class="content-section">
+                <div class="card" style="border-top:5px solid var(--y11-color)">
+                    <h2>✍️ י"א שלב 3: תכנון אישי - <span class="name-display-${i}"></span></h2>
+                    <div class="info-box">התלמיד יבחר תת-נושא שנגזר מנושא-העל, הכולל זווית ביקורתית או דילמה.</div>
+                    <label>תת הנושא שבחרת:</label><input type="text" id="y11_s3_sub_${i}">
+                    <label>הדילמה המרכזית (ביקורתית/חברתית/ערכית):</label><textarea id="y11_s3_dil_${i}" rows="3"></textarea>
+                    <label>החיבור האישי לנושא:</label><textarea id="y11_s3_conn_${i}" rows="3"></textarea>
+                </div>
+
+                <div class="card" style="border-top:5px solid var(--y11-color)">
+                    <h3>🎙️ זיהוי מרואיין רלוונטי</h3>
+                    <div class="info-box">בחרו מרואיין שיוכל לתרום לנושא מנקודת מבט אישית או מקצועית. סוגי מרואיינים אפשריים: מומחה/ת, יוצר/ת, פעיל/ה חברתי/ת, בעל/ת סיפור אישי ועוד.</div>
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr><th>שם המרואיין הפוטנציאלי</th><th>תפקיד / סיבת הבחירה בו</th></tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><input type="text" id="y11_s3_int_name_${i}" placeholder="שם המרואיין..."></td>
+                                    <td><textarea id="y11_s3_int_reason_${i}" rows="3" placeholder="תפקידו/ה ולמה בחרת דווקא אותו/ה..."></textarea></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <label>תחקיר על המרואיין (רקע, עיסוק, רלוונטיות לנושא):</label>
+                    <textarea id="y11_s3_int_research_${i}" rows="4" placeholder="מה מצאת על המרואיין? מה הופך אותו/ה למתאים/ה?"></textarea>
+                </div>
+
+                <div class="card" style="border-top:5px solid var(--y11-color)">
+                    <h3>❓ הכנת שאלות עומק לראיון</h3>
+                    <div class="info-box">הכינו לפחות 5 שאלות עומק – שאלות פתוחות שמזמינות סיפור אישי, עמדה או ניתוח.</div>
+                    ${[1,2,3,4,5].map(q => `
+                    <div style="display:flex; align-items:flex-start; gap:10px; margin-bottom:10px;">
+                        <span style="font-weight:bold; padding-top:12px; min-width:20px;">${q}.</span>
+                        <textarea id="y11_s3_q${q}_${i}" rows="2" placeholder="שאלה ${q}..." style="flex:1; margin-bottom:0;"></textarea>
+                    </div>`).join('')}
+                </div>
+
+                <button class="btn btn-back" onclick="showSection('y11-s3')"><i class="fas fa-arrow-right"></i> חזרה לתפריט</button>
+            </div>`;
+
+            // י"א שלב 4
+            html += `
+            <div id="page-y11-s4-st${i}" class="content-section">
+                <div class="card" style="border-top:5px solid var(--y11-color)">
+                    <h2>🎬 י"א שלב 4: הפקה בפועל - <span class="name-display-${i}"></span></h2>
+                    <h3>📅 ביצוע יום הצילום</h3>
+                    <div class="table-container">
+                    <table><thead><tr><th>תאריך</th><th>מקום</th><th>ציוד נדרש</th><th>משימות</th></tr></thead><tbody>
+                    <tr><td><input type="date" id="y11_s4_d_${i}"></td><td><input type="text" id="y11_s4_loc_${i}"></td><td><input type="text" id="y11_s4_eq_${i}"></td><td><input type="text" id="y11_s4_task_${i}"></td></tr>
+                    </tbody></table></div>
+                    <h3>👥 חלוקת תפקידים</h3>
+                    <div class="table-container">
+                    <table><thead><tr><th>תפקיד</th><th>שם</th><th>הערות</th></tr></thead><tbody>
+                    <tr><td>צלם</td><td><input type="text" id="y11_s4_r1_${i}"></td><td><input type="text" id="y11_s4_n1_${i}"></td></tr>
+                    <tr><td>סאונד</td><td><input type="text" id="y11_s4_r2_${i}"></td><td><input type="text" id="y11_s4_n2_${i}"></td></tr>
+                    <tr><td>מפיק</td><td><input type="text" id="y11_s4_r3_${i}"></td><td><input type="text" id="y11_s4_n3_${i}"></td></tr>
+                    </tbody></table></div>
+                    <label>סיכום שלב ההקלטה (רפלקציה אישית):</label><textarea id="y11_s4_ref_${i}" rows="4"></textarea>
+                </div>
+                <button class="btn btn-back" onclick="showSection('y11-s4')"><i class="fas fa-arrow-right"></i> חזרה לתפריט</button>
+            </div>`;
+
+            // י"א שלב 5
+            html += `
+            <div id="page-y11-s5-st${i}" class="content-section">
+                <div class="card" style="border-top:5px solid var(--y11-color)">
+                    <h2>🎞️ י"א שלב 5: יומן עריכה - <span class="name-display-${i}"></span></h2>
+                    <h3>🛠️ שלבי העריכה:</h3>
+                    <div class="checklist-item"><input type="checkbox" id="y11_s5_c1_${i}"> <label>הכנסת חומרי גלם לפרמייר</label></div>
+                    <div class="checklist-item"><input type="checkbox" id="y11_s5_c2_${i}"> <label>סנכרון סאונד (Synchronize)</label></div>
+                    <div class="checklist-item"><input type="checkbox" id="y11_s5_c3_${i}"> <label>הפעלת כרומאקי (Ultra Key)</label></div>
+                    <div class="checklist-item"><input type="checkbox" id="y11_s5_c4_${i}"> <label>קיצור הראיון ל-5 דקות</label></div>
+                    <div class="checklist-item"><input type="checkbox" id="y11_s5_c5_${i}"> <label>מולטיקאמרה (Multi-Camera)</label></div>
+                    <div class="checklist-item"><input type="checkbox" id="y11_s5_c6_${i}"> <label>צילום פתיח וסגיר</label></div>
+                    <div class="checklist-item"><input type="checkbox" id="y11_s5_c7_${i}"> <label>אריזה (גרפיקה, כותרות)</label></div>
+                    <h3>📝 תסריט עריכה:</h3>
+                    <div class="table-container">
+                    <table><thead><tr><th>חלק</th><th>ויזואל</th><th>אודיו</th></tr></thead><tbody>
+                    <tr><td>פתיח</td><td><textarea id="y11_s5_tv1_${i}"></textarea></td><td><textarea id="y11_s5_ta1_${i}"></textarea></td></tr>
+                    <tr><td>גוף הראיון</td><td><textarea id="y11_s5_tv2_${i}"></textarea></td><td><textarea id="y11_s5_ta2_${i}"></textarea></td></tr>
+                    <tr><td>סגיר</td><td><textarea id="y11_s5_tv3_${i}"></textarea></td><td><textarea id="y11_s5_ta3_${i}"></textarea></td></tr>
+                    </tbody></table></div>
+                </div>
+                <button class="btn btn-back" onclick="showSection('y11-s5')"><i class="fas fa-arrow-right"></i> חזרה לתפריט</button>
+            </div>`;
+
+            // י"ב שלב א
+            html += `
+            <div id="page-y12-sa-st${i}" class="content-section">
+                <div class="card" style="border-top:5px solid var(--y12-color)">
+                    <h2>🔎 י"ב שלב א': תחקיר שטח - <span class="name-display-${i}"></span></h2>
+                    <label>מה נצלם?</label><textarea id="y12_sa_q1_${i}" rows="3"></textarea>
+                    <label>למה זה חשוב?</label><textarea id="y12_sa_q2_${i}" rows="3"></textarea>
+                    <label>מי יופיע בכתבה?</label><textarea id="y12_sa_q3_${i}" rows="3"></textarea>
+                    <label>מה הסיפור? (המסר העיקרי)</label><textarea id="y12_sa_q4_${i}" rows="3"></textarea>
+                    <label>מה האתגרים? (זמן, מזג אוויר, אישורים)</label><textarea id="y12_sa_q5_${i}" rows="3"></textarea>
+                </div>
+                <button class="btn btn-back" onclick="showSection('y12-sa')"><i class="fas fa-arrow-right"></i> חזרה לתפריט</button>
+            </div>`;
+
+            // י"ב שלב ב
+            html += `
+            <div id="page-y12-sb-st${i}" class="content-section">
+                <div class="card" style="border-top:5px solid var(--y12-color)">
+                    <h2>🎬 י"ב שלב ב': הכנה מעשית - <span class="name-display-${i}"></span></h2>
+                    <h3>📅 לוח זמנים לצילומים</h3>
+                    <div class="table-container">
+                    <table><thead><tr><th>תאריך</th><th>מיקום</th><th>סוג צילום</th><th>הערות</th></tr></thead><tbody>
+                    <tr><td><input type="date" id="y12_sb_d1_${i}"></td><td><input type="text" id="y12_sb_l1_${i}"></td><td><input type="text" id="y12_sb_t1_${i}"></td><td><input type="text" id="y12_sb_n1_${i}"></td></tr>
+                    </tbody></table></div>
+                    <h3>🎥 ציוד נדרש</h3>
+                    <div class="table-container">
+                    <table><thead><tr><th>פריט</th><th>פירוט</th></tr></thead><tbody>
+                    <tr><td>מצלמה</td><td><input type="text" id="y12_sb_e1_${i}"></td></tr>
+                    <tr><td>חצובה</td><td><input type="text" id="y12_sb_e2_${i}"></td></tr>
+                    <tr><td>סאונד</td><td><input type="text" id="y12_sb_e3_${i}"></td></tr>
+                    <tr><td>הערות</td><td><input type="text" id="y12_sb_e4_${i}"></td></tr>
+                    </tbody></table></div>
+                </div>
+                <button class="btn btn-back" onclick="showSection('y12-sb')"><i class="fas fa-arrow-right"></i> חזרה לתפריט</button>
+            </div>`;
+
+            // י"ב שלב ג
+            html += `
+            <div id="page-y12-sc-st${i}" class="content-section">
+                <div class="card" style="border-top:5px solid var(--y12-color)">
+                    <h2>🎬 י"ב שלב ג': יומן צילום - <span class="name-display-${i}"></span></h2>
+                    <h3>👥 חלוקת תפקידים בשטח</h3>
+                    <div class="table-container">
+                    <table><thead><tr><th>תפקיד</th><th>שם התלמיד</th></tr></thead><tbody>
+                    <tr><td>במאי</td><td><input type="text" id="y12_sc_r1_${i}"></td></tr>
+                    <tr><td>צלם</td><td><input type="text" id="y12_sc_r2_${i}"></td></tr>
+                    <tr><td>מקליט</td><td><input type="text" id="y12_sc_r3_${i}"></td></tr>
+                    </tbody></table></div>
+                    <h3>🧠 רפלקציה</h3>
+                    <label>תכנון מול ביצוע:</label><textarea id="y12_sc_ref1_${i}" rows="3"></textarea>
+                    <label>קשיים ואתגרים:</label><textarea id="y12_sc_ref2_${i}" rows="3"></textarea>
+                    <label>עבודת צוות:</label><textarea id="y12_sc_ref3_${i}" rows="3"></textarea>
+                    <label>לימוד להמשך:</label><textarea id="y12_sc_ref4_${i}" rows="3"></textarea>
+                </div>
+                <button class="btn btn-back" onclick="showSection('y12-sc')"><i class="fas fa-arrow-right"></i> חזרה לתפריט</button>
+            </div>`;
+
+            // י"ב שלב ד
+            html += `
+            <div id="page-y12-sd-st${i}" class="content-section">
+                <div class="card" style="border-top:5px solid var(--y12-color)">
+                    <h2>🎞️ י"ב שלב ד': עריכת שטח - <span class="name-display-${i}"></span></h2>
+                    <h3>🛠️ שלבי עריכה:</h3>
+                    <div class="checklist-item"><input type="checkbox" id="y12_sd_c1_${i}"> <label>הכנסת חומרי גלם (מצלמה ראשית/משנית, סאונד, אווירה)</label></div>
+                    <div class="checklist-item"><input type="checkbox" id="y12_sd_c2_${i}"> <label>סנכרון סאונד חיצוני עם וידאו</label></div>
+                    <div class="checklist-item"><input type="checkbox" id="y12_sd_c3_${i}"> <label>סנכרון מצלמה שניה (אם יש)</label></div>
+                    <div class="checklist-item"><input type="checkbox" id="y12_sd_c4_${i}"> <label>מיון ועריכה לתוצר של כ-5 דקות</label></div>
+                    <label>הערות עריכה:</label><textarea id="y12_sd_notes_${i}" rows="4"></textarea>
+                </div>
+                <button class="btn btn-back" onclick="showSection('y12-sd')"><i class="fas fa-arrow-right"></i> חזרה לתפריט</button>
+            </div>`;
+
+            // י"ב שלב ה
+            html += `
+            <div id="page-y12-se-st${i}" class="content-section">
+                <div class="card" style="border-top:5px solid var(--y12-color)">
+                    <h2>🎞️ י"ב שלב ה': אינטגרציה (Master) - <span class="name-display-${i}"></span></h2>
+                    <div class="info-box"><strong>שילוב הראיון והכתבה:</strong> חבר שני חלקים שונים לנרטיב אחד. ניתן להיעזר ב-AI להצעת סדר סיפור (פתיחה-גוף-סיום).</div>
+                    <h3>📝 תסריט עריכה משולב</h3>
+                    <label>פתיח לנושא הוידאוקאסט:</label><textarea id="y12_se_intro_${i}" rows="3"></textarea>
+                    <label>קריינויות מקשרות בין חלקי הראיון לכתבה:</label><textarea id="y12_se_trans_${i}" rows="3"></textarea>
+                    <label>סגיר (סיכום וטור דעה אישי):</label><textarea id="y12_se_outro_${i}" rows="3"></textarea>
+                    <div class="checklist-item"><input type="checkbox" id="y12_se_fine_${i}"> <label>ביצעתי Fine Cut ואיזון סאונד סופי</label></div>
+                </div>
+                <button class="btn btn-back" onclick="showSection('y12-se')"><i class="fas fa-arrow-right"></i> חזרה לתפריט</button>
+            </div>`;
+
+            // י"ב שלב ז
+            html += `
+            <div id="page-y12-sg-st${i}" class="content-section">
+                <div class="card" style="border-top:5px solid var(--y12-color)">
+                    <h2>🤖 י"ב שלב ז': תיעוד AI - <span class="name-display-${i}"></span></h2>
+                    <label>באיזה כלי השתמשת? (ChatGPT, D-ID, Midjourney וכו')</label>
+                    <input type="text" id="y12_ai_tool_${i}">
+                    <label>מה ביקשת מהכלי? (פרומפט):</label><textarea id="y12_ai_req_${i}" rows="3"></textarea>
+                    <label>מה קיבלת? (טקסט, תמונה, תמלול):</label><textarea id="y12_ai_res_${i}" rows="3"></textarea>
+                    <label>איך זה עזר לך? (חיסכון בזמן, השראה):</label><textarea id="y12_ai_help_${i}" rows="3"></textarea>
+                    <label>הערכה אישית (האם התוצר היה מדויק?):</label><textarea id="y12_ai_eval_${i}" rows="3"></textarea>
+                </div>
+                <button class="btn btn-back" onclick="showSection('y12-sg')"><i class="fas fa-arrow-right"></i> חזרה לתפריט</button>
+            </div>`;
+        }
+
+        container.innerHTML = html;
+    }
+
+    // ─── Create student grid buttons ──────────────────────────────
+    function createButtons() {
+        const grids = [
+            {id:'grid-y11-s3', prefix:'y11-s3', icon:'fa-user-pen',        cls:'y11'},
+            {id:'grid-y11-s4', prefix:'y11-s4', icon:'fa-video',           cls:'y11'},
+            {id:'grid-y11-s5', prefix:'y11-s5', icon:'fa-scissors',        cls:'y11'},
+            {id:'grid-y12-sa', prefix:'y12-sa', icon:'fa-magnifying-glass', cls:'y12'},
+            {id:'grid-y12-sb', prefix:'y12-sb', icon:'fa-toolbox',         cls:'y12'},
+            {id:'grid-y12-sc', prefix:'y12-sc', icon:'fa-camera',          cls:'y12'},
+            {id:'grid-y12-sd', prefix:'y12-sd', icon:'fa-scissors',        cls:'y12'},
+            {id:'grid-y12-se', prefix:'y12-se', icon:'fa-layer-group',     cls:'y12'},
+            {id:'grid-y12-sg', prefix:'y12-sg', icon:'fa-robot',           cls:'y12'},
+        ];
+
+        grids.forEach(grid => {
+            const el = document.getElementById(grid.id);
+            if (!el) return;
+            el.innerHTML = '';
+            for (let i = 1; i <= 4; i++) {
+                el.innerHTML += `
+                <div class="card-3d ${grid.cls}" onclick="showSection('page-${grid.prefix}-st${i}')">
+                    <i class="fas ${grid.icon}"></i><br>
+                    <span class="name-display-${i}">תלמיד ${i}</span>
+                </div>`;
+            }
+        });
+
+        // distribution tables
+        let h11 = '', h12 = '';
+        for (let i = 1; i <= 4; i++) {
+            h11 += `<tr><td><input type="text" id="dist_y11_n_${i}" readonly></td><td><input type="text" id="dist_y11_l_${i}" placeholder="לינק..."></td></tr>`;
+            h12 += `<tr><td><input type="text" id="dist_y12_n_${i}" readonly></td><td><input type="text" id="dist_y12_l_${i}" placeholder="לינק..."></td></tr>`;
+        }
+        const t11 = document.getElementById('table-y11-s6'); if (t11) t11.innerHTML = h11;
+        const t12 = document.getElementById('table-y12-sf'); if (t12) t12.innerHTML = h12;
+    }
+
+    // ─── Init ─────────────────────────────────────────────────────
+    window.onload = function () {
+        generateStudentPages();
+        createButtons();
+        syncNames();
+
+        // טעינה אוטומטית אם הגיע קוד קבוצה מה-URL (פורמט: prefix_group)
+        const urlParams = new URLSearchParams(window.location.search);
+        const groupFromUrl = urlParams.get('group');
+        if (groupFromUrl) {
+            const firstUnderscore = groupFromUrl.indexOf('_');
+            if (firstUnderscore > -1) {
+                document.getElementById('school-prefix-input').value = groupFromUrl.slice(0, firstUnderscore);
+                document.getElementById('group-code-input').value = groupFromUrl.slice(firstUnderscore + 1);
+            } else {
+                document.getElementById('group-code-input').value = groupFromUrl;
+            }
+            loadFromFirebase();
+        } else {
+            setStatus('idle', '');
+        }
+    };
+</script>
+</body>
+</html>
