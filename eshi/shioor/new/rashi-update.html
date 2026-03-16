@@ -24,17 +24,20 @@ input[type=file]{display:none}
 .fields{display:none}
 .btn{padding:12px 24px;border:none;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;width:100%;margin-top:12px;font-family:Arial,sans-serif}
 .btn-go{background:#8b5cf6;color:white}
+.btn-add{background:#0f172a;color:#8b5cf6;border:2px solid #8b5cf6;margin-top:8px}
 .btn-dl{background:#22c55e;color:white}
 .err{color:#f87171;font-size:13px;margin-top:8px;padding:8px 12px;background:#1a0a0a;border-radius:6px;display:none}
 .result{background:#0a2a14;border:2px solid #22c55e;border-radius:8px;padding:16px;margin-top:12px;display:none}
 .result-title{font-size:13px;color:#86efac;font-weight:700;margin-bottom:12px}
 .snippet{font-family:monospace;font-size:12px;background:#020617;padding:10px;border-radius:4px;color:#67e8f9;white-space:pre-wrap;direction:ltr;text-align:left;margin-bottom:8px}
 .found-badge{display:inline-block;background:#1e3a5f;border:1px solid #3b82f6;color:#93c5fd;padding:4px 10px;border-radius:6px;font-size:12px;margin-top:8px}
+.added-list{margin-top:12px}
+.added-item{font-size:12px;color:#86efac;font-family:monospace;padding:3px 0;direction:ltr;text-align:left}
 </style>
 </head>
 <body>
-<h1>עדכון דף ראשי — הוספת קישור למושג</h1>
-<div class="sub">העלה את rashi.html, בחר מושג קיים, הוסף שם תיקיה — קבל קובץ מעודכן</div>
+<h1>עדכון דף ראשי — הוספת קישורים למושגים</h1>
+<div class="sub">העלה את rashi.html, הוסף מושגים, הורד קובץ מעודכן</div>
 
 <div class="card">
   <h2>שלב א — העלאת הקובץ</h2>
@@ -46,7 +49,7 @@ input[type=file]{display:none}
 </div>
 
 <div class="card fields" id="fields">
-  <h2>שלב ב — בחר מושג והוסף נתיב</h2>
+  <h2>שלב ב — הוסף מושגים</h2>
   <label>שם המושג (מהרשימה)</label>
   <input type="text" id="nm" placeholder="התחל להקליד..." list="concepts-list" oninput="onConceptInput()">
   <datalist id="concepts-list"></datalist>
@@ -54,23 +57,30 @@ input[type=file]{display:none}
   <label>שם התיקיה</label>
   <input type="text" id="ur" placeholder="למשל: bitooy_hagbalot" style="direction:ltr">
   <div class="err" id="er"></div>
-  <button class="btn btn-go" onclick="generate()">צור קובץ מעודכן ⬇</button>
+  <button class="btn btn-go" onclick="addOne()">➕ הוסף מושג</button>
+
+  <div class="added-list" id="added-list"></div>
 </div>
 
 <div class="result" id="res">
-  <div class="result-title">✅ מה עודכן:</div>
+  <div class="result-title">✅ מוכן להורדה:</div>
   <div class="snippet" id="s1"></div>
   <button class="btn btn-dl" id="bdl">📥 הורד rashi.html מעודכן</button>
+  <button class="btn btn-add" onclick="addMore()">➕ הוסף מושג נוסף</button>
 </div>
 
 <script>
-var fileContent=null, allConcepts=[], linksEndIndex=-1;
+var fileContent=null, allConcepts=[];
+var linksStartIdx=-1, linksEndIdx=-1;
+var pendingContent=null; // tracks content with all additions so far
+var addedItems=[];
 
 function handleFile(file){
   if(!file||!file.name.endsWith('.html')){alert('יש לבחור קובץ HTML');return;}
   var r=new FileReader();
   r.onload=function(e){
     fileContent=e.target.result;
+    pendingContent=fileContent;
     document.getElementById('dz').classList.add('loaded');
     document.getElementById('dt').textContent='נטען: '+file.name;
     document.getElementById('dt').classList.add('ok');
@@ -81,43 +91,36 @@ function handleFile(file){
 
 function parseConcepts(){
   allConcepts=[];
+  linksStartIdx=pendingContent.indexOf('const links');
+  linksEndIdx=pendingContent.indexOf('const arenas');
+  if(linksStartIdx===-1||linksEndIdx===-1){alert('מבנה לא תקין');return;}
 
-  // Find concepts by looking for each arena's concepts array
-  // Use line-by-line approach to avoid regex issues with nested brackets
-  var lines=fileContent.split('\n');
+  var lines=pendingContent.split('\n');
   var inConcepts=false;
-  var conceptPattern=/\"([^\"]+)\"/g;
-
+  var pat=/\"([^\"]+)\"/g;
   for(var i=0;i<lines.length;i++){
     var line=lines[i];
-    if(line.indexOf('concepts:')>-1 && line.indexOf('[')>-1){
-      inConcepts=true;
-    }
+    if(line.indexOf('concepts:')>-1&&line.indexOf('[')>-1) inConcepts=true;
     if(inConcepts){
       var m;
-      while((m=conceptPattern.exec(line))!==null){
-        var val=m[1];
-        if(val && val.length>1 && !allConcepts.includes(val)){
-          allConcepts.push(val);
-        }
+      while((m=pat.exec(line))!==null){
+        var v=m[1];
+        if(v&&v.length>1&&!allConcepts.includes(v)) allConcepts.push(v);
       }
       if(line.indexOf(']')>-1) inConcepts=false;
     }
   }
 
-  // Populate datalist
   var dl=document.getElementById('concepts-list');
   dl.innerHTML='';
   allConcepts.forEach(function(c){
-    var opt=document.createElement('option');
-    opt.value=c;
-    dl.appendChild(opt);
+    var o=document.createElement('option');o.value=c;dl.appendChild(o);
   });
 
   if(allConcepts.length>0){
     document.getElementById('fields').style.display='block';
-  } else {
-    alert('לא נמצאו מושגים בקובץ — ודא שזהו rashi.html הנכון');
+  }else{
+    alert('לא נמצאו מושגים');
   }
 }
 
@@ -125,22 +128,41 @@ function onConceptInput(){
   var name=document.getElementById('nm').value.trim();
   var info=document.getElementById('found-info');
   if(!name){info.innerHTML='';return;}
-  // Check if already has a link in links{}
-  var linksStart=fileContent.indexOf('const links');
-  var linksEnd=fileContent.indexOf('const arenas');
-  var linksBlock=linksStart>-1&&linksEnd>-1?fileContent.slice(linksStart,linksEnd):'';
+  var linksBlock=pendingContent.slice(linksStartIdx,linksEndIdx);
   var hasLink=linksBlock.indexOf('"'+name+'"')>-1;
   var inConcepts=allConcepts.includes(name);
   if(hasLink){
     info.innerHTML='<div class="found-badge">⚠️ למושג זה כבר יש קישור — ייוחלף</div>';
-  } else if(inConcepts){
+  }else if(inConcepts){
     info.innerHTML='<div class="found-badge">✅ מושג נמצא — ייווסף קישור</div>';
-  } else {
+  }else{
     info.innerHTML='<div class="found-badge" style="border-color:#f87171;color:#f87171">⚠️ מושג לא נמצא ברשימה</div>';
   }
 }
 
-function generate(){
+function applyToContent(content, name, url){
+  // Re-find boundaries in current content
+  var ls=content.indexOf('const links');
+  var le=content.indexOf('const arenas');
+  var before=content.slice(0,ls);
+  var linksBlock=content.slice(ls,le);
+  var after=content.slice(le);
+
+  var escaped=name.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+  if(new RegExp('"'+escaped+'"\\s*:').test(linksBlock)){
+    linksBlock=linksBlock.replace(
+      new RegExp('("'+escaped+'"\\s*:\\s*")[^"]+(")'),'$1'+url+'$2'
+    );
+  }else{
+    var closeIdx=linksBlock.lastIndexOf('};');
+    linksBlock=linksBlock.slice(0,closeIdx)+
+      '        "'+name+'": "'+url+'"\n    '+
+      linksBlock.slice(closeIdx);
+  }
+  return before+linksBlock+after;
+}
+
+function addOne(){
   var name=document.getElementById('nm').value.trim();
   var folder=document.getElementById('ur').value.trim().replace(/\/+$/,'');
   var url=folder+'/index.html';
@@ -149,43 +171,39 @@ function generate(){
   if(!folder){er.textContent='חסר שם תיקיה';er.style.display='block';return;}
   er.style.display='none';
 
-  // Work on content — only modify links{}, never touch arenas[]
-  var content=fileContent;
+  pendingContent=applyToContent(pendingContent,name,url);
+  // Update indices for next addition
+  linksStartIdx=pendingContent.indexOf('const links');
+  linksEndIdx=pendingContent.indexOf('const arenas');
 
-  var linksStart=content.indexOf('const links');
-  var linksEnd=content.indexOf('const arenas');
-  if(linksStart===-1||linksEnd===-1){
-    er.textContent='מבנה links לא נמצא בקובץ';er.style.display='block';return;
-  }
-  var linksBlock=content.slice(linksStart,linksEnd);
+  addedItems.push('"'+name+'": "'+url+'"');
 
-  // Escape name for regex
-  var escaped=name.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+  // Update added list display
+  var list=document.getElementById('added-list');
+  list.innerHTML='<div style="font-size:11px;color:#64748b;margin-bottom:4px;margin-top:12px">נוספו עד כה:</div>'+
+    addedItems.map(function(x){return '<div class="added-item">'+x+'</div>';}).join('');
 
-  if(new RegExp('"'+escaped+'"\\s*:').test(linksBlock)){
-    // Replace existing URL — only within links block
-    var newLinksBlock=linksBlock.replace(
-      new RegExp('("'+escaped+'"\\s*:\\s*")[^"]+(")'),'$1'+url+'$2'
-    );
-    content=content.slice(0,linksStart)+newLinksBlock+content.slice(linksEnd);
-  } else {
-    // Add before closing }; of links
-    // Find the }; that closes links{} — it's just before "const arenas"
-    var insertMarker='    };\n\n    const arenas';
-    if(content.indexOf(insertMarker)===-1){
-      er.textContent='לא נמצא מיקום הוספה — ודא שזהו הקובץ הנכון';er.style.display='block';return;
-    }
-    content=content.replace(insertMarker,'        "'+name+'": "'+url+'"\n    };\n\n    const arenas');
-  }
+  // Clear fields
+  document.getElementById('nm').value='';
+  document.getElementById('ur').value='';
+  document.getElementById('found-info').innerHTML='';
 
-  document.getElementById('s1').textContent='"'+name+'": "'+url+'"';
+  // Update result
+  document.getElementById('s1').textContent=addedItems.join('\n');
   document.getElementById('res').style.display='block';
 
-  var blob=new Blob([content],{type:'text/html;charset=utf-8'});
+  // Update download blob
+  var blob=new Blob([pendingContent],{type:'text/html;charset=utf-8'});
   var dlUrl=URL.createObjectURL(blob);
   document.getElementById('bdl').onclick=function(){
     var a=document.createElement('a');a.href=dlUrl;a.download='rashi.html';a.click();
   };
+}
+
+function addMore(){
+  // Scroll back to fields and focus
+  document.getElementById('fields').scrollIntoView({behavior:'smooth'});
+  setTimeout(function(){document.getElementById('nm').focus();},400);
 }
 </script>
 </body>
