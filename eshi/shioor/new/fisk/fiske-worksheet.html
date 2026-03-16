@@ -508,20 +508,20 @@ body{background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;lin
 <script>
 const FC={apiKey:"AIzaSyCCHvn_ulmiyM56DuslNzNC0Ge6a8i2vhY",authDomain:"tests-fd938.firebaseapp.com",databaseURL:"https://tests-fd938-default-rtdb.europe-west1.firebasedatabase.app",projectId:"tests-fd938"};
 firebase.initializeApp(FC);
-
-const _urlCode=new URLSearchParams(location.search).get('code');
-if(_urlCode){
-  document.getElementById('inp-code').value=_urlCode;
-  document.getElementById('field-code').style.display='none';
-}
 const db=firebase.database();
+
+// URL CODE
+const _urlCode=new URLSearchParams(location.search).get("code");
+if(_urlCode){
+  document.getElementById("inp-code").value=_urlCode;
+  document.getElementById("field-code").style.display="none";
+}
 
 // MODAL VALIDATION
 ['inp-fn','inp-ln','inp-email','inp-code'].forEach(id=>document.getElementById(id).addEventListener('input',checkReady));
 document.getElementById('inp-grade').addEventListener('change',checkReady);
 function checkReady(){
-  const codeOk=_urlCode||document.getElementById('inp-code').value.trim();
-  const ok=['inp-fn','inp-ln','inp-email'].every(id=>document.getElementById(id).value.trim())&&document.getElementById('inp-grade').value&&codeOk;
+  const ok=['inp-fn','inp-ln','inp-email','inp-code'].every(id=>document.getElementById(id).value.trim())&&document.getElementById('inp-grade').value;
   document.getElementById('enter-btn').disabled=!ok;
 }
 
@@ -531,14 +531,20 @@ function enterWS(){
   const ln=document.getElementById('inp-ln').value.trim();
   const email=document.getElementById('inp-email').value.trim().toLowerCase();
   const cls=document.getElementById('inp-grade').value;
-  const code=(document.getElementById('inp-code').value||_urlCode||'').trim().toLowerCase();
-  if(!fn||!ln||!email||!cls||!code)return;
+  const code=document.getElementById('inp-code').value.trim().toLowerCase();
+  if(!fn||!ln||!email||!cls||!code){document.getElementById('modal-err').style.display='block';return;}
   db.ref('teacher_codes').once('value').then(snap=>{
     const codes=snap.val()||{};
     let teacherID='';
     Object.keys(codes).forEach(k=>{if(k.startsWith(code+'_'))teacherID=codes[k];});
     student={name:fn+' '+ln,firstName:fn,lastName:ln,email,class:cls,classCode:code,teacherID};
-    document.getElementById('overlay').style.display='none';
+    document.getElementById('modal').style.display='none';
+  document.getElementById('pbar').style.display='flex';
+  document.getElementById('mhead').style.display='block';
+  document.getElementById('mainpage').style.display='block';
+    document.getElementById('bname').textContent=student.name;
+    document.getElementById('bcls').textContent=cls;
+    setP(1);
   });
 }
 
@@ -674,7 +680,7 @@ function submitWS(){
     'ה11_נמען_שונה': v('q5c'),
     'ה12_סיכום': v('q5d'),
   };
-  const data={student:{name:student.name,firstName:student.firstName,lastName:student.lastName,email:student.email,class:student.class,classCode:student.classCode,teacherID:student.teacherID||''},answers,submittedAt:Date.now()};
+  const data={student:{name:student.name,firstName:student.firstName,lastName:student.lastName,email:student.email,class:student.class,classCode:student.classCode,teacherID:student.teacherID},answers,submittedAt:Date.now()};
   const key=(student.email+'_'+Date.now()).replace(/[.#$\/\[\]@ ]/g,'_');
   db.ref('tests/fiske/'+key).set(data)
     .then(()=>{document.querySelectorAll('.phase').forEach(p=>p.classList.remove('active'));document.getElementById('phase-success').classList.add('active');document.getElementById('pfill').style.width='100%';document.getElementById('ppct').textContent='100%';document.getElementById('plbl').textContent='הושלם ✓';})
