@@ -25,6 +25,7 @@ body{background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;lin
 .mf{margin-bottom:12px;}
 .mf label{display:block;font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:700;color:var(--ink-light);margin-bottom:4px;}
 .mf input{width:100%;padding:10px 13px;border:2px solid var(--ink);background:white;font-family:'Heebo',sans-serif;font-size:15px;outline:none;}
+#field-code{display:none;}
 .mbtn{width:100%;padding:11px;background:var(--ink);color:var(--paper);border:none;font-family:'Frank Ruhl Libre',serif;font-size:17px;font-weight:700;cursor:pointer;box-shadow:var(--shadow);}
 .mbtn:hover{background:var(--accent);}
 .merr{color:var(--accent);font-size:13px;font-weight:700;text-align:center;margin-top:8px;display:none;}
@@ -54,10 +55,12 @@ footer{text-align:center;margin-top:40px;padding-top:12px;border-top:3px double 
   <div class="mbox">
     <h2>⭐ הציונים שלי<br><small style="font-size:14px;font-weight:400;font-family:'Heebo'">דילמה עיתונאית</small></h2>
     <div class="mf"><label>כתובת מייל</label><input id="inp-email" type="email" placeholder="your@email.com" style="direction:ltr;text-align:left;" onkeydown="if(event.key==='Enter')lookup()"></div>
+    <div class="mf" id="field-code"><label>קוד מורה</label><input id="inp-code" type="text" placeholder="קוד שקיבלת מהמורה"></div>
     <button class="mbtn" onclick="lookup()">הצג ציונים ←</button>
     <div class="merr" id="merr">לא נמצאו הגשות לכתובת זו.</div>
   </div>
 </div>
+
 <header class="masthead">
   <div class="mhi">
     <div class="mht"><span>הציונים שלי • תקשורת ועיתונות</span><span>גליל מערבי</span></div>
@@ -66,17 +69,30 @@ footer{text-align:center;margin-top:40px;padding-top:12px;border-top:3px double 
   </div>
 </header>
 <div class="page" id="page" style="display:none"></div>
+
 <script>
 const FC={apiKey:"AIzaSyCCHvn_ulmiyM56DuslNzNC0Ge6a8i2vhY",authDomain:"tests-fd938.firebaseapp.com",databaseURL:"https://tests-fd938-default-rtdb.europe-west1.firebasedatabase.app",projectId:"tests-fd938"};
 firebase.initializeApp(FC);
 const db=firebase.database();
 
+const _urlCode=new URLSearchParams(location.search).get('code');
+if(_urlCode){
+  document.getElementById('inp-code').value=_urlCode;
+  // field-code hidden by default via CSS
+}
+
 function lookup(){
   const email=document.getElementById('inp-email').value.trim().toLowerCase();
+  const code=document.getElementById('inp-code').value.trim().toLowerCase();
   if(!email)return;
   db.ref('tests/dilemma').once('value').then(snap=>{
     const found=[];
-    snap.forEach(c=>{const d=c.val();d._key=c.key;if((d.student?.email||'').toLowerCase()===email)found.push(d);});
+    snap.forEach(c=>{
+      const d=c.val();d._key=c.key;
+      const emailMatch=(d.student?.email||'').toLowerCase()===email;
+      const codeMatch=!code||(d.student?.classCode||'').toLowerCase()===code;
+      if(emailMatch&&codeMatch)found.push(d);
+    });
     if(!found.length){document.getElementById('merr').style.display='block';return;}
     document.getElementById('modal').style.display='none';
     document.getElementById('page').style.display='block';
@@ -85,12 +101,14 @@ function lookup(){
       const s=d.student||{};
       const date=d.submittedAt?new Date(d.submittedAt).toLocaleString('he-IL'):'—';
       const ans=d.answers||{};
+      const fb=d.feedback||{};
       const ansHtml=Object.entries(ans).map(([q,v])=>`<div class="ans-row"><div class="ans-q">${q.replace(/_/g,' ')}</div><div class="ans-v">${v||'(ריק)'}</div></div>`).join('');
-      const gradeHtml=d.grade!==undefined
-        ?`<div class="grade-circle">${d.grade}</div>`
+      const gradeHtml=fb.grade!==undefined
+        ?`<div class="grade-circle">${fb.grade}</div>`
         :`<div class="grade-circle" style="color:var(--ink-light);font-size:14px">ממתין</div>`;
-      const fbHtml=d.feedback?`<div class="gc-feedback"><div class="gc-fb-lbl">💬 הערת המורה</div><div class="gc-fb-text">${d.feedback}</div></div>`:
-        d.grade===undefined?`<div class="gc-pending">המטלה הוגשה — הציון יעודכן בקרוב.</div>`:'';
+      const fbHtml=fb.comment
+        ?`<div class="gc-feedback"><div class="gc-fb-lbl">💬 הערת המורה</div><div class="gc-fb-text">${fb.comment}</div></div>`
+        :fb.grade===undefined?`<div class="gc-pending">המטלה הוגשה — הציון יעודכן בקרוב.</div>`:'';
       return `<div class="grade-card">
         <div class="gc-top">
           <div><div class="gc-name">⚖️ דילמה עיתונאית</div><div class="gc-meta">${s.class||''} | ${date}</div></div>
