@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>עדכון דף ראשי</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Arial,sans-serif;background:#0f172a;color:#f1f5f9;padding:30px 20px;min-height:100vh;direction:rtl}
+h1{font-size:20px;font-weight:900;color:#c4b5fd;margin-bottom:6px}
+.sub{font-size:13px;color:#64748b;margin-bottom:24px}
+.card{background:#1e293b;border:1px solid #334155;border-radius:10px;padding:20px;margin-bottom:16px}
+.card h2{font-size:13px;font-weight:700;color:#94a3b8;letter-spacing:1px;text-transform:uppercase;margin-bottom:14px}
+label{display:block;font-size:12px;font-weight:700;color:#94a3b8;margin-bottom:5px;margin-top:12px}
+input[type=text]{width:100%;padding:10px 12px;background:#0f172a;border:2px solid #334155;color:#f1f5f9;font-size:15px;border-radius:6px}
+input[type=text]:focus{outline:none;border-color:#8b5cf6}
+.drop-zone{border:2px dashed #334155;border-radius:8px;padding:28px;text-align:center;cursor:pointer;transition:.2s;margin-bottom:4px}
+.drop-zone:hover{border-color:#8b5cf6;background:#1a0f3a}
+.drop-zone.loaded{border-color:#22c55e;background:#0a2a14}
+.drop-icon{font-size:32px;margin-bottom:8px}
+.drop-text{font-size:14px;font-weight:700;color:#94a3b8}
+.drop-text.ok{color:#22c55e}
+input[type=file]{display:none}
+.fields{display:none}
+.btn{padding:12px 24px;border:none;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer;width:100%;margin-top:12px;font-family:Arial,sans-serif}
+.btn-go{background:#8b5cf6;color:white}
+.btn-dl{background:#22c55e;color:white}
+.err{color:#f87171;font-size:13px;margin-top:8px;padding:8px 12px;background:#1a0a0a;border-radius:6px;display:none}
+.result{background:#0a2a14;border:2px solid #22c55e;border-radius:8px;padding:16px;margin-top:12px;display:none}
+.result-title{font-size:13px;color:#86efac;font-weight:700;margin-bottom:12px}
+.snippet{font-family:monospace;font-size:12px;background:#020617;padding:10px;border-radius:4px;color:#67e8f9;white-space:pre-wrap;direction:ltr;text-align:left;margin-bottom:8px}
+.found-badge{display:inline-block;background:#1e3a5f;border:1px solid #3b82f6;color:#93c5fd;padding:4px 10px;border-radius:6px;font-size:12px;margin-top:8px}
+.datalist-wrap{position:relative}
+</style>
+</head>
+<body>
+<h1>עדכון דף ראשי — הוספת קישור למושג</h1>
+<div class="sub">העלה את rashi.html, בחר מושג קיים, הוסף נתיב — קבל קובץ מעודכן</div>
+
+<div class="card">
+  <h2>שלב א — העלאת הקובץ</h2>
+  <div class="drop-zone" id="dz" onclick="document.getElementById('fi').click()">
+    <div class="drop-icon">📄</div>
+    <div class="drop-text" id="dt">לחץ כאן ובחר את rashi.html</div>
+  </div>
+  <input type="file" id="fi" accept=".html" onchange="handleFile(this.files[0])">
+</div>
+
+<div class="card fields" id="fields">
+  <h2>שלב ב — בחר מושג והוסף נתיב</h2>
+  <label>שם המושג (מהרשימה)</label>
+  <div class="datalist-wrap">
+    <input type="text" id="nm" placeholder="התחל להקליד..." list="concepts-list" oninput="onConceptInput()">
+    <datalist id="concepts-list"></datalist>
+  </div>
+  <div id="found-info"></div>
+  <label>נתיב (URL יחסי)</label>
+  <input type="text" id="ur" placeholder="למשל: bitooy_hagbalot/bitooy_hagbalot-student.html" style="direction:ltr">
+  <div class="err" id="er"></div>
+  <button class="btn btn-go" onclick="generate()">צור קובץ מעודכן ⬇</button>
+</div>
+
+<div class="result" id="res">
+  <div class="result-title">✅ מה עודכן:</div>
+  <div class="snippet" id="s1"></div>
+  <button class="btn btn-dl" id="bdl">📥 הורד rashi.html מעודכן</button>
+</div>
+
+<script>
+var fileContent=null, allConcepts=[];
+
+function handleFile(file){
+  if(!file||!file.name.endsWith('.html')){alert('יש לבחור קובץ HTML');return;}
+  var r=new FileReader();
+  r.onload=function(e){
+    fileContent=e.target.result;
+    document.getElementById('dz').classList.add('loaded');
+    document.getElementById('dt').textContent='נטען: '+file.name;
+    document.getElementById('dt').classList.add('ok');
+    parseConcepts();
+  };
+  r.readAsText(file,'UTF-8');
+}
+
+function parseConcepts(){
+  // Extract all concepts from arenas array
+  allConcepts=[];
+  var conceptRegex=/"([^"]+)"/g;
+  var arenasMatch=fileContent.match(/const arenas\s*=\s*\[([\s\S]*?)\];\s*\n/);
+  if(!arenasMatch) return;
+  var arenasText=arenasMatch[1];
+  // Extract per-arena concepts arrays
+  var arenaBlocks=arenasText.match(/concepts:\s*\[([^\]]+)\]/g)||[];
+  arenaBlocks.forEach(function(block){
+    var m;
+    while((m=conceptRegex.exec(block))!==null){
+      if(m[1] && !allConcepts.includes(m[1])) allConcepts.push(m[1]);
+    }
+  });
+  // Populate datalist
+  var dl=document.getElementById('concepts-list');
+  dl.innerHTML='';
+  allConcepts.forEach(function(c){
+    var opt=document.createElement('option');
+    opt.value=c; dl.appendChild(opt);
+  });
+  document.getElementById('fields').style.display='block';
+}
+
+function onConceptInput(){
+  var name=document.getElementById('nm').value.trim();
+  var info=document.getElementById('found-info');
+  if(!name){info.innerHTML='';return;}
+  // Check if already has a link
+  var hasLink=fileContent.indexOf('"'+name+'"'+':', fileContent.indexOf('const links'))>-1 &&
+              fileContent.indexOf('const arenas')>fileContent.indexOf('"'+name+'"'+':');
+  info.innerHTML=hasLink
+    ? '<div class="found-badge">⚠️ למושג זה כבר יש קישור — ייוחלף</div>'
+    : '<div class="found-badge">✅ מושג נמצא ברשימה</div>';
+}
+
+function generate(){
+  var name=document.getElementById('nm').value.trim();
+  var url=document.getElementById('ur').value.trim();
+  var er=document.getElementById('er');
+  if(!name){er.textContent='חסר שם מושג';er.style.display='block';return;}
+  if(!url){er.textContent='חסר נתיב';er.style.display='block';return;}
+  er.style.display='none';
+
+  var content=fileContent;
+
+  // Check if already in links — if so replace, else add
+  var linksStart=content.indexOf('const links');
+  var linksEnd=content.indexOf('const arenas');
+  var linksBlock=content.slice(linksStart,linksEnd);
+  var existingEntry=new RegExp('"'+name.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'"\\s*:');
+
+  if(existingEntry.test(linksBlock)){
+    // Replace existing URL
+    content=content.replace(
+      new RegExp('("'+name.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'"\\s*:\\s*")[^"]+(")'),'$1'+url+'$2'
+    );
+  } else {
+    // Add new entry before closing };
+    var marker='    };\n\n    const arenas';
+    if(content.indexOf(marker)===-1){er.textContent='מבנה לא תקין';er.style.display='block';return;}
+    content=content.replace(marker,'        "'+name+'": "'+url+'"\n    };\n\n    const arenas');
+  }
+
+  document.getElementById('s1').textContent='"'+name+'": "'+url+'"';
+  document.getElementById('res').style.display='block';
+
+  var blob=new Blob([content],{type:'text/html;charset=utf-8'});
+  var dlUrl=URL.createObjectURL(blob);
+  document.getElementById('bdl').onclick=function(){
+    var a=document.createElement('a');a.href=dlUrl;a.download='rashi.html';a.click();
+  };
+}
+</script>
+</body>
+</html>
