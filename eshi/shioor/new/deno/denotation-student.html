@@ -5,10 +5,35 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>דנוטציה וקונוטציה — דף תלמיד</title>
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@400;700;900&family=Heebo:wght@300;400;500;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 <style>
 :root{--paper:#f5f0e8;--paper-dark:#e8e0cc;--ink:#1a1208;--ink-light:#6b5d45;--accent:#8b1a1a;--shadow:4px 4px 0 #1a1208;--shadow-sm:2px 2px 0 #1a1208;}
 *{margin:0;padding:0;box-sizing:border-box;}
 body{background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;line-height:1.75;min-height:100vh;background-image:repeating-linear-gradient(0deg,transparent,transparent 27px,rgba(26,18,8,0.06) 27px,rgba(26,18,8,0.06) 28px);}
+
+/* LINK MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(26,18,8,.93);z-index:1000;display:flex;align-items:center;justify-content:center;padding:16px;}
+.modal-box{background:var(--paper);border:3px solid var(--ink);box-shadow:8px 8px 0 var(--ink);max-width:440px;width:100%;padding:36px;}
+.modal-head{background:var(--ink);color:var(--paper);text-align:center;padding:14px 20px;margin:-36px -36px 24px;font-family:'Frank Ruhl Libre',serif;font-size:22px;font-weight:900;}
+.mf{margin-bottom:14px;}
+.mf label{display:block;font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:700;color:var(--ink-light);margin-bottom:4px;}
+.mf input{width:100%;padding:11px 13px;border:2px solid var(--ink);background:white;font-family:'Heebo',sans-serif;font-size:15px;color:var(--ink);outline:none;}
+.mf input:focus{border-color:var(--accent);}
+.m-btn{width:100%;padding:12px;background:var(--ink);color:var(--paper);border:none;font-family:'Frank Ruhl Libre',serif;font-size:16px;font-weight:700;cursor:pointer;box-shadow:var(--shadow);margin-top:4px;}
+.m-btn:hover{background:var(--accent);}
+.m-btn.secondary{background:var(--paper-dark);color:var(--ink);border:2px solid var(--ink);margin-top:10px;}
+.m-btn.secondary:hover{background:var(--paper);}
+.m-err{color:var(--accent);font-size:12px;margin-top:8px;text-align:center;display:none;}
+.url-result{background:white;border:2px solid #2d7a2d;padding:12px 14px;margin-top:14px;display:none;}
+.url-result p{font-size:12px;color:var(--ink-light);margin-bottom:6px;}
+.url-box{font-size:12px;direction:ltr;text-align:left;word-break:break-all;background:var(--paper-dark);border:1px solid var(--ink);padding:8px;font-family:monospace;margin-bottom:8px;}
+.copy-btn{padding:7px 16px;background:#2d7a2d;color:white;border:none;font-family:'Frank Ruhl Libre',serif;font-size:13px;font-weight:700;cursor:pointer;width:100%;}
+.copy-btn:hover{background:#1a5c1a;}
+
+/* TEACHER BANNER */
+#teacher-banner{display:none;background:#1a1208;color:#c9a84c;padding:8px 24px;text-align:center;font-size:13px;border-bottom:2px solid var(--accent);}
+
 .masthead{background:var(--ink);color:var(--paper);border-bottom:6px double var(--paper-dark);}
 .mh-inner{max-width:700px;margin:0 auto;padding:0 24px;}
 .mh-top{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #444;font-size:12px;letter-spacing:1px;opacity:.65;}
@@ -32,34 +57,40 @@ body{background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;lin
 .btn-secondary:hover{background:var(--paper);transform:translate(-2px,-2px);box-shadow:4px 4px 0 var(--ink);}
 .footer{margin-top:48px;border-top:2px solid var(--ink);padding-top:16px;font-size:13px;color:var(--ink-light);text-align:center;}
 </style>
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 </head>
 <body>
-<div id="link-modal" style="position:fixed;inset:0;background:rgba(26,18,8,.93);z-index:1000;display:flex;align-items:center;justify-content:center;padding:16px;">
-  <div style="background:#f5f0e8;border:3px solid #1a1208;box-shadow:8px 8px 0 #1a1208;max-width:440px;width:100%;padding:36px;">
-    <div style="background:#1a1208;color:#f5f0e8;text-align:center;padding:14px 20px;margin:-36px -36px 24px;font-family:'Frank Ruhl Libre',serif;font-size:22px;font-weight:900;">יצירת קישור לתלמידים</div>
-    <div style="margin-bottom:14px;">
-      <label style="display:block;font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:700;color:#6b5d45;margin-bottom:4px;">טלפון (לאימות)</label>
-      <input type="tel" id="lm-phone" placeholder="מספר טלפון" style="direction:ltr;width:100%;padding:11px 13px;border:2px solid #1a1208;background:white;font-family:'Heebo',sans-serif;font-size:15px;outline:none;">
+
+<!-- LINK MODAL -->
+<div class="modal-overlay" id="link-modal">
+  <div class="modal-box">
+    <div class="modal-head">יצירת קישור לתלמידים</div>
+    <p style="font-size:13px;color:var(--ink-light);margin-bottom:16px;line-height:1.6;">הזינו את פרטיכם ליצירת קישור אישי לכיתה שלכם.</p>
+    <div class="mf">
+      <label>טלפון (לאימות)</label>
+      <input type="tel" id="lm-phone" placeholder="05X-XXXXXXX" style="direction:ltr">
     </div>
-    <div style="margin-bottom:14px;">
-      <label style="display:block;font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:700;color:#6b5d45;margin-bottom:4px;">קוד כיתה</label>
-      <input type="text" id="lm-class" placeholder="לדוגמה: י1, יא2" style="width:100%;padding:11px 13px;border:2px solid #1a1208;background:white;font-family:'Heebo',sans-serif;font-size:15px;outline:none;">
+    <div class="mf">
+      <label>קוד כיתה</label>
+      <input type="text" id="lm-class" placeholder="לדוגמה: י1, יא2">
     </div>
-    <button onclick="createLink()" style="width:100%;padding:12px;background:#1a1208;color:#f5f0e8;border:none;font-family:'Frank Ruhl Libre',serif;font-size:17px;font-weight:700;cursor:pointer;box-shadow:4px 4px 0 #1a1208;margin-bottom:8px;">צור קישור לשיתוף ←</button>
-    <div id="lm-err" style="color:#8b1a1a;font-size:12px;text-align:center;display:none;margin-bottom:8px;"></div>
-    <div id="link-result" style="display:none;background:#f0fff0;border:2px solid #2d7a2d;padding:14px;margin-bottom:10px;">
-      <p style="font-size:12px;color:#6b5d45;margin-bottom:6px;">✅ הקישור מוכן לשליחה לתלמידים:</p>
-      <div id="link-url-text" style="font-size:12px;direction:ltr;text-align:left;word-break:break-all;background:white;border:1px solid #ccc;padding:8px;font-family:monospace;"></div>
-      <button onclick="copyLink()" id="copy-btn" style="margin-top:8px;padding:7px 16px;background:#2d7a2d;color:white;border:none;font-family:'Frank Ruhl Libre',serif;font-size:14px;font-weight:700;cursor:pointer;">📋 העתק קישור</button>
+    <button class="m-btn" onclick="createLink()">צור קישור לשיתוף ←</button>
+    <div class="m-err" id="lm-err"></div>
+    <div class="url-result" id="link-result">
+      <p>✅ הקישור מוכן לשליחה לתלמידים:</p>
+      <div class="url-box" id="link-url-text"></div>
+      <button class="copy-btn" onclick="copyLink()" id="copy-btn">📋 העתק קישור</button>
     </div>
-    <button onclick="closeModal()" style="width:100%;padding:11px;background:#e8e0cc;color:#1a1208;border:2px solid #1a1208;font-family:'Frank Ruhl Libre',serif;font-size:15px;font-weight:700;cursor:pointer;">אני תלמיד — כניסה ישירה</button>
+    <button class="m-btn secondary" onclick="closeModal()">אני תלמיד — כניסה ישירה</button>
   </div>
 </div>
-<div id="teacher-banner" style="display:none;background:#1a1208;color:#c9a84c;padding:8px 24px;text-align:center;font-size:13px;border-bottom:2px solid #8b1a1a;">
-  המורה: <strong id="banner-name" style="color:white;"></strong> &nbsp;|&nbsp; קוד כיתה: <strong id="banner-code" style="color:white;letter-spacing:1px;"></strong>
+
+<!-- TEACHER BANNER -->
+<div id="teacher-banner">
+  <span>המורה: <strong id="banner-name" style="color:white;"></strong></span>
+  &nbsp;|&nbsp;
+  <span>קוד כיתה: <strong id="banner-code" style="color:white;letter-spacing:1px;"></strong></span>
 </div>
+
 <header class="masthead">
   <div class="mh-inner">
     <div class="mh-top"><span>תקשורת ועיתונות • גליל מערבי</span><span>דף תלמיד</span></div>
@@ -68,10 +99,11 @@ body{background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;lin
     <div class="mh-tagline">"כל תמונה מספרת שני סיפורים — מה שנראה, ומה שמורגש"</div>
   </div>
 </header>
+
 <div class="page">
   <div class="info-box">
     <strong>שלום! — לפני שמתחילים</strong>
-    בשיעור זה תלמדו כיצד כל צילום מכיל שתי רמות של משמעות: <strong>דנוטציה</strong> — מה שאנו רואים בפועל, ו<strong>קונוטציה</strong> — הפרשנות והמשמעויות התרבותיות שהתמונה מעלה. קיבלתם קוד מהמורה? שמרו אותו — תצטרכו אותו בעבודה.
+    בשיעור זה תלמדו כיצד כל צילום מכיל שתי רמות של משמעות: <strong>דנוטציה</strong> — מה שאנו רואים בפועל, ו<strong>קונוטציה</strong> — הפרשנות והמשמעויות התרבותיות שהתמונה מעלה.
   </div>
   <div class="steps-title">מה עושים — לפי הסדר</div>
   <div class="step">
@@ -86,7 +118,7 @@ body{background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;lin
     <div class="step-num">2</div>
     <div>
       <div class="step-title">מלאו את המטלה החוויתית</div>
-      <div class="step-desc">המטלה כוללת שלושה סעיפים — ניתוח דנוטטיבי, גילוי קונוטציות, ויישום על תמונה מחייכם. <strong>תזדקקו לשם פרטי, שם משפחה, מייל, שכבה וקוד המורה בכניסה.</strong> אין להדביק — יש לכתוב בעצמכם.</div>
+      <div class="step-desc">המטלה כוללת שלושה סעיפים — ניתוח דנוטטיבי, גילוי קונוטציות, ויישום על תמונה מחייכם. אין להדביק — יש לכתוב בעצמכם.</div>
       <a href="denotation-worksheet.html" id="link-worksheet" class="btn btn-primary">✏ למטלה ←</a>
     </div>
   </div>
@@ -100,10 +132,12 @@ body{background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;lin
   </div>
   <div class="footer">גליל מערבי • שיעורי תקשורת ועיתונות</div>
 </div>
+
 <script>
 const FC={apiKey:"AIzaSyCCHvn_ulmiyM56DuslNzNC0Ge6a8i2vhY",databaseURL:"https://tests-fd938-default-rtdb.europe-west1.firebasedatabase.app"};
 firebase.initializeApp(FC);
 const db=firebase.database();
+
 const _code=new URLSearchParams(location.search).get('code');
 if(_code){
   document.getElementById('link-modal').style.display='none';
@@ -111,15 +145,20 @@ if(_code){
   document.getElementById('link-mygrades').href='../mygrades.html?code='+encodeURIComponent(_code);
   db.ref('teacher_codes').once('value').then(snap=>{
     const codes=snap.val()||{};let tID='';
-    Object.keys(codes).forEach(k=>{if(k.startsWith(_code.toLowerCase()+'_'))tID=codes[k];});
+    Object.keys(codes).forEach(k=>{if(!tID&&k.startsWith(_code.toLowerCase()+'_'))tID=codes[k];});
     if(!tID)return;
     db.ref('teachers/'+tID).once('value').then(ts=>{
       const t=ts.val();if(!t)return;
       const name=(t.firstName&&t.lastName)?t.firstName+' '+t.lastName:(t.name||'');
-      if(name){document.getElementById('banner-name').textContent=name;document.getElementById('banner-code').textContent=_code;document.getElementById('teacher-banner').style.display='block';}
+      if(name){
+        document.getElementById('banner-name').textContent=name;
+        document.getElementById('banner-code').textContent=_code;
+        document.getElementById('teacher-banner').style.display='block';
+      }
     });
   });
 }
+
 function createLink(){
   const phone=document.getElementById('lm-phone').value.trim();
   const classCode=document.getElementById('lm-class').value.trim().toLowerCase();
@@ -127,21 +166,28 @@ function createLink(){
   if(!phone||!classCode){err.textContent='נא למלא טלפון וקוד כיתה';err.style.display='block';return;}
   db.ref('teachers').once('value').then(snap=>{
     let tID='';
-    snap.forEach(c=>{const t=c.val();if(t.phone===phone&&t.status==='approved')tID=c.key;});
+    snap.forEach(c=>{
+      if(tID) return; // ← תיקון הבאג
+      const t=c.val();
+      if(t.phone===phone&&t.status==='approved')tID=c.key;
+    });
     if(!tID){err.textContent='טלפון לא נמצא או לא מאושר';err.style.display='block';return;}
-    db.ref('teacher_codes/'+classCode+'_'+tID).set(tID).then(()=>{
-      const url=location.origin+location.pathname+'?code='+encodeURIComponent(classCode);
+    const code=classCode.replace(/[^a-z0-9א-ת]/g,'');
+    db.ref('teacher_codes/'+code+'_'+tID).set(tID).then(()=>{
+      const url=location.origin+location.pathname+'?code='+encodeURIComponent(code);
       document.getElementById('link-url-text').textContent=url;
       document.getElementById('link-result').style.display='block';
     });
   });
 }
+
 function copyLink(){
   navigator.clipboard.writeText(document.getElementById('link-url-text').textContent).then(()=>{
     const btn=document.getElementById('copy-btn');btn.textContent='✅ הועתק!';
     setTimeout(()=>btn.textContent='📋 העתק קישור',2000);
   });
 }
+
 function closeModal(){document.getElementById('link-modal').style.display='none';}
 </script>
 </body>
