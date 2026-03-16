@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>הון שלטון עיתון — דף התלמיד</title>
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@400;700;900&family=Heebo:wght@300;400;500;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--accent:#4a2060;--ink:#1a1208;--paper:#f5f0e8;--shadow:4px 4px 0 #1a1208;--shadow-sm:2px 2px 0 #1a1208}
+body{background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;min-height:100vh}
+
+.masthead{border-top:4px solid var(--ink);border-bottom:4px solid var(--ink);padding:10px 20px;text-align:center}
+.masthead::after{content:'';display:block;border-top:1px solid var(--ink);margin-top:5px}
+.platform-name{font-size:11px;letter-spacing:3px;color:var(--accent);font-weight:700;text-transform:uppercase}
+.topic-name{font-family:'Frank Ruhl Libre',serif;font-size:clamp(26px,5vw,46px);font-weight:900;letter-spacing:-1px}
+.divider{height:6px;border-top:2px solid var(--ink);border-bottom:2px solid var(--ink)}
+
+/* LINK MODAL */
+.lm-overlay{position:fixed;inset:0;background:rgba(26,18,8,.85);z-index:1000;display:flex;align-items:center;justify-content:center;padding:16px}
+.lm-box{background:var(--paper);border:3px solid var(--ink);box-shadow:var(--shadow);width:100%;max-width:400px;padding:24px}
+.lm-title{font-family:'Frank Ruhl Libre',serif;font-size:20px;font-weight:900;margin-bottom:4px}
+.lm-sub{font-size:13px;color:#555;margin-bottom:20px;line-height:1.5}
+.lmf{margin-bottom:14px}
+.lmf label{display:block;font-size:12px;font-weight:700;letter-spacing:.5px;margin-bottom:4px;color:var(--accent)}
+.lmf input{width:100%;padding:10px 12px;border:2px solid var(--ink);background:#fffdf5;font-family:'Heebo',sans-serif;font-size:15px;box-shadow:var(--shadow-sm)}
+.lmf input:focus{outline:2px solid var(--accent)}
+.btn-create{width:100%;padding:12px;background:var(--accent);color:white;border:2px solid var(--ink);box-shadow:var(--shadow-sm);font-family:'Frank Ruhl Libre',serif;font-size:17px;font-weight:700;cursor:pointer;letter-spacing:1px;margin-bottom:10px}
+.btn-create:hover{background:#3a1050}
+.btn-student-entry{width:100%;padding:10px;background:#fffdf5;border:2px solid var(--ink);box-shadow:var(--shadow-sm);font-family:'Heebo',sans-serif;font-size:14px;font-weight:600;cursor:pointer}
+.btn-student-entry:hover{background:#f0eaff}
+.url-box{display:none;margin-top:14px;background:#f0eaff;border:2px solid var(--accent);padding:12px}
+.url-box-label{font-size:12px;font-weight:700;color:var(--accent);margin-bottom:6px}
+.url-text{font-size:12px;direction:ltr;word-break:break-all;background:white;padding:8px;border:1px solid var(--ink);font-family:monospace}
+.btn-copy{margin-top:8px;padding:8px 16px;background:var(--accent);color:white;border:none;font-family:'Heebo',sans-serif;font-size:13px;font-weight:700;cursor:pointer;letter-spacing:.5px}
+.lm-err{color:#c0392b;font-size:13px;font-weight:700;min-height:18px;margin-bottom:6px}
+
+/* TEACHER BANNER */
+.teacher-banner{display:none;background:var(--accent);color:white;padding:12px 20px;text-align:center;font-family:'Frank Ruhl Libre',serif;font-size:15px;font-weight:700;letter-spacing:.5px}
+.teacher-banner span{opacity:.8;font-size:13px;font-weight:400;margin-right:8px}
+
+/* CONTENT */
+.content{max-width:680px;margin:0 auto;padding:28px 16px}
+.welcome-box{border:2px solid var(--ink);box-shadow:var(--shadow);background:#fffdf5;padding:22px;margin-bottom:24px}
+.welcome-title{font-family:'Frank Ruhl Libre',serif;font-size:22px;font-weight:900;margin-bottom:12px}
+.welcome-text{font-size:15px;line-height:1.7;color:#333}
+
+.steps-title{font-family:'Frank Ruhl Libre',serif;font-size:18px;font-weight:700;letter-spacing:1px;margin-bottom:16px;border-bottom:2px solid var(--ink);padding-bottom:6px}
+.step-cards{display:flex;flex-direction:column;gap:12px}
+.step-card{border:2px solid var(--ink);box-shadow:var(--shadow-sm);background:#fffdf5;padding:16px;display:flex;gap:14px;align-items:flex-start}
+.step-num{width:36px;height:36px;background:var(--accent);color:white;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:'Frank Ruhl Libre',serif;font-size:16px;font-weight:700;flex-shrink:0}
+.step-body{flex:1}
+.step-body strong{display:block;font-size:15px;font-weight:700;margin-bottom:4px}
+.step-body p{font-size:13px;color:#555;line-height:1.5}
+
+.action-links{margin-top:24px;display:flex;flex-direction:column;gap:12px}
+.action-link{display:flex;align-items:center;gap:14px;border:2px solid var(--ink);box-shadow:var(--shadow-sm);padding:14px 18px;text-decoration:none;color:var(--ink);background:#fffdf5;font-family:'Frank Ruhl Libre',serif;font-size:17px;font-weight:700;transition:.15s}
+.action-link:hover{transform:translate(-2px,-2px);box-shadow:6px 6px 0 var(--ink)}
+.action-link .link-icon{font-size:24px}
+.action-link .link-sub{font-size:12px;color:#555;font-family:'Heebo',sans-serif;font-weight:400;display:block;margin-top:2px}
+.action-link-main{background:var(--accent);color:white;border-color:var(--accent)}
+.action-link-main .link-sub{color:rgba(255,255,255,.8)}
+.action-link-main:hover{box-shadow:6px 6px 0 var(--ink)}
+
+footer{text-align:center;padding:20px;font-size:12px;color:#888;border-top:2px solid var(--ink);letter-spacing:1px;margin-top:16px}
+</style>
+</head>
+<body>
+
+<div class="masthead">
+  <div class="platform-name">הכל בקאף — חינוך תקשורתי</div>
+  <div class="topic-name">הון · שלטון · עיתון</div>
+</div>
+<div class="divider"></div>
+
+<!-- TEACHER BANNER -->
+<div class="teacher-banner" id="teacher-banner">
+  <span>מורה:</span> <span id="banner-name"></span> &nbsp;|&nbsp; קוד: <span id="banner-code"></span>
+</div>
+
+<!-- LINK CREATION MODAL -->
+<div class="lm-overlay" id="link-modal">
+  <div class="lm-box">
+    <div class="lm-title">🔗 יצירת קישור לתלמידים</div>
+    <div class="lm-sub">הזן/י את פרטיך כמורה כדי ליצור קישור מותאם לכיתה</div>
+    <div class="lmf">
+      <label>מספר טלפון (שרשמת בהרשמה)</label>
+      <input type="tel" id="lm-phone" placeholder="050-0000000" style="direction:ltr">
+    </div>
+    <div class="lmf">
+      <label>קוד כיתה (לדוגמה: י1א)</label>
+      <input type="text" id="lm-code" placeholder="י1א">
+    </div>
+    <div class="lm-err" id="lm-err"></div>
+    <button class="btn-create" onclick="createLink()">צור קישור ←</button>
+    <button class="btn-student-entry" onclick="closeModal()">אני תלמיד/ה — כניסה ישירה</button>
+    <div class="url-box" id="url-box">
+      <div class="url-box-label">📎 הקישור לתלמידים:</div>
+      <div class="url-text" id="generated-url"></div>
+      <button class="btn-copy" onclick="copyUrl()">📋 העתק קישור</button>
+    </div>
+  </div>
+</div>
+
+<!-- STUDENT CONTENT -->
+<div class="content">
+  <div class="welcome-box">
+    <div class="welcome-title">שלום! ברוכ/ה הבא/ה לשיעור על הון · שלטון · עיתון</div>
+    <div class="welcome-text">
+      בשיעור זה תחקור/י את הקשרים בין שלושת כוחות העל של מדינה דמוקרטית — ההון, השלטון והתקשורת — וכיצד הם משפיעים זה על זה ועל מה שאתה/את קורא/ת ורואה בחדשות.
+    </div>
+  </div>
+
+  <div class="steps-title">כיצד ממשיכים?</div>
+  <div class="step-cards">
+    <div class="step-card">
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <strong>📖 קרא/י את השיעור האינטראקטיבי</strong>
+        <p>חקור/י את המושגים, נסה/י את ההדמיות וענה/י על שאלות ההרהור</p>
+      </div>
+    </div>
+    <div class="step-card">
+      <div class="step-num">2</div>
+      <div class="step-body">
+        <strong>✍️ השלם/י את המטלה</strong>
+        <p>מלא/י את 3 שלבי המטלה ושלח/י. ניתן להשתמש במיקרופון לדיבור לטקסט</p>
+      </div>
+    </div>
+    <div class="step-card">
+      <div class="step-num">3</div>
+      <div class="step-body">
+        <strong>📊 צפה/י בציון שלך</strong>
+        <p>לאחר שהמורה יבדוק את המטלה, תוכל/י לצפות בציון ובהערות</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="action-links">
+    <a href="hon_shilton_iton-lesson.html" class="action-link">
+      <span class="link-icon">📖</span>
+      <span>
+        השיעור האינטראקטיבי
+        <span class="link-sub">הון, שלטון, עיתון — מושגים ודמוזות</span>
+      </span>
+    </a>
+    <a href="hon_shilton_iton-worksheet.html" id="link-worksheet" class="action-link action-link-main">
+      <span class="link-icon">✍️</span>
+      <span>
+        למטלה — לחצו כאן
+        <span class="link-sub">3 שלבים, שמירה אוטומטית ב-Firebase</span>
+      </span>
+    </a>
+    <a href="../mygrades.html" id="link-mygrades" class="action-link">
+      <span class="link-icon">📊</span>
+      <span>
+        הציונים שלי
+        <span class="link-sub">לצפייה בציונים והערות המורה</span>
+      </span>
+    </a>
+  </div>
+</div>
+
+<footer>פיתוח: רני בן זאב | גליל מערבי | hakolbakaf.co.il</footer>
+
+<script>
+const FC = {
+  apiKey: "AIzaSyCCHvn_ulmiyM56DuslNzNC0Ge6a8i2vhY",
+  authDomain: "tests-fd938.firebaseapp.com",
+  databaseURL: "https://tests-fd938-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "tests-fd938"
+};
+firebase.initializeApp(FC);
+const db = firebase.database();
+
+const _code = new URLSearchParams(location.search).get('code');
+if (_code) {
+  document.getElementById('link-modal').style.display = 'none';
+
+  document.getElementById('link-worksheet').href = 'hon_shilton_iton-worksheet.html?code=' + encodeURIComponent(_code);
+  document.getElementById('link-mygrades').href  = '../mygrades.html?code=' + encodeURIComponent(_code);
+
+  db.ref('teacher_codes').once('value').then(snap => {
+    const codes = snap.val() || {};
+    let tID = '';
+    Object.keys(codes).forEach(k => {
+      if (k.startsWith(_code.toLowerCase() + '_')) tID = codes[k];
+    });
+    if (!tID) return;
+    db.ref('teachers/' + tID).once('value').then(ts => {
+      const t = ts.val(); if (!t) return;
+      const name = (t.firstName && t.lastName) ? t.firstName + ' ' + t.lastName : (t.name || '');
+      if (name) {
+        document.getElementById('banner-name').textContent = name;
+        document.getElementById('banner-code').textContent = _code;
+        document.getElementById('teacher-banner').style.display = 'block';
+      }
+    });
+  });
+}
+
+function createLink() {
+  const phone = document.getElementById('lm-phone').value.trim();
+  const code  = document.getElementById('lm-code').value.trim().toLowerCase();
+  if (!phone || !code) { document.getElementById('lm-err').textContent = 'נא למלא טלפון וקוד כיתה'; return; }
+  db.ref('teachers').once('value').then(snap => {
+    let teacherKey = '';
+    snap.forEach(child => {
+      const t = child.val();
+      if (t.phone === phone && t.status === 'approved') teacherKey = child.key;
+    });
+    if (!teacherKey) { document.getElementById('lm-err').textContent = 'מורה לא נמצא או לא מאושר'; return; }
+    db.ref('teacher_codes/' + code + '_' + teacherKey).set(teacherKey).then(() => {
+      const url = location.origin + location.pathname + '?code=' + encodeURIComponent(code);
+      document.getElementById('generated-url').textContent = url;
+      document.getElementById('url-box').style.display = 'block';
+    });
+  });
+}
+
+function closeModal() {
+  document.getElementById('link-modal').style.display = 'none';
+}
+
+function copyUrl() {
+  const url = document.getElementById('generated-url').textContent;
+  navigator.clipboard.writeText(url).then(() => alert('הקישור הועתק!'));
+}
+</script>
+</body>
+</html>

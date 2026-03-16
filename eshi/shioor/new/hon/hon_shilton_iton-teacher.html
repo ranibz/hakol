@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>הון שלטון עיתון — סביבת מורה</title>
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@400;700;900&family=Heebo:wght@300;400;500;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--accent:#4a2060;--ink:#1a1208;--paper:#f5f0e8;--shadow:4px 4px 0 #1a1208;--shadow-sm:2px 2px 0 #1a1208}
+body{background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif}
+
+.masthead{border-top:4px solid var(--ink);border-bottom:4px solid var(--ink);padding:10px 20px;text-align:center}
+.masthead::after{content:'';display:block;border-top:1px solid var(--ink);margin-top:5px}
+.platform-name{font-size:11px;letter-spacing:3px;color:var(--accent);font-weight:700;text-transform:uppercase}
+.topic-name{font-family:'Frank Ruhl Libre',serif;font-size:clamp(22px,4vw,38px);font-weight:900;letter-spacing:-1px}
+.divider{height:6px;border-top:2px solid var(--ink);border-bottom:2px solid var(--ink)}
+
+/* AUTH MODAL */
+.modal-overlay{position:fixed;inset:0;background:rgba(26,18,8,.8);z-index:1000;display:flex;align-items:center;justify-content:center;padding:16px}
+.modal-box{background:var(--paper);border:3px solid var(--ink);box-shadow:var(--shadow);width:100%;max-width:380px;padding:24px}
+.modal-title{font-family:'Frank Ruhl Libre',serif;font-size:20px;font-weight:900;margin-bottom:4px;text-align:center}
+.modal-sub{font-size:13px;color:#555;text-align:center;margin-bottom:18px}
+.mf{margin-bottom:14px}
+.mf label{display:block;font-size:12px;font-weight:700;letter-spacing:.5px;margin-bottom:4px;color:var(--accent)}
+.mf input{width:100%;padding:10px 12px;border:2px solid var(--ink);background:#fffdf5;font-family:'Heebo',sans-serif;font-size:15px;box-shadow:var(--shadow-sm)}
+.mf input:focus{outline:2px solid var(--accent)}
+.modal-err{color:#c0392b;font-size:13px;font-weight:700;min-height:18px;margin-bottom:6px;text-align:center}
+.btn-login{width:100%;padding:12px;background:var(--accent);color:white;border:2px solid var(--ink);box-shadow:var(--shadow-sm);font-family:'Frank Ruhl Libre',serif;font-size:17px;font-weight:700;cursor:pointer;letter-spacing:1px}
+.btn-login:hover{background:#3a1050}
+.register-link{text-align:center;margin-top:12px;font-size:13px;color:#555}
+.register-link a{color:var(--accent);font-weight:700;text-decoration:underline}
+
+/* DASHBOARD */
+#dashboard{display:none;max-width:960px;margin:0 auto;padding:20px 16px}
+.toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:16px;padding:12px;border:2px solid var(--ink);box-shadow:var(--shadow-sm);background:#fffdf5}
+.toolbar input[type=text]{padding:8px 12px;border:2px solid var(--ink);font-family:'Heebo',sans-serif;font-size:14px;background:#fffdf5;min-width:160px}
+.toolbar select{padding:8px 12px;border:2px solid var(--ink);font-family:'Heebo',sans-serif;font-size:14px;background:#fffdf5}
+.toolbar input:focus,.toolbar select:focus{outline:2px solid var(--accent)}
+.btn-csv{padding:9px 18px;background:var(--accent);color:white;border:2px solid var(--ink);box-shadow:var(--shadow-sm);font-family:'Heebo',sans-serif;font-size:13px;font-weight:700;cursor:pointer;letter-spacing:.5px}
+.btn-csv:hover{background:#3a1050}
+
+.stats-bar{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+.stat-box{border:2px solid var(--ink);box-shadow:var(--shadow-sm);background:#fffdf5;padding:10px 16px;flex:1;min-width:100px;text-align:center}
+.stat-num{font-family:'Frank Ruhl Libre',serif;font-size:28px;font-weight:900;color:var(--accent)}
+.stat-lbl{font-size:11px;font-weight:700;letter-spacing:.5px;color:#666;text-transform:uppercase}
+
+/* TABLE */
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse;font-size:13px}
+thead tr{background:var(--accent);color:white}
+th{padding:10px 12px;text-align:right;font-family:'Frank Ruhl Libre',serif;font-weight:700;border:1px solid var(--ink);white-space:nowrap}
+td{padding:9px 12px;border:1px solid #ccc;vertical-align:top}
+tr:nth-child(even) td{background:#f9f5ff}
+tr:hover td{background:#f0eaff}
+.cursor-row{cursor:pointer}
+
+.topic-badge{display:inline-block;padding:2px 8px;font-size:10px;font-weight:700;letter-spacing:.5px;border:1px solid;border-radius:2px;background:#f9f5ff;color:var(--accent);border-color:var(--accent)}
+.grade-chip{font-weight:700;font-size:13px}
+.grade-chip.graded{color:#1a5c1a}
+.grade-chip.ungraded{color:#999}
+
+/* EXPANDED ROW */
+.exp-row{display:none}
+.exp-row.open{display:table-row}
+.exp-cell{padding:16px;background:#f9f5ff;border:2px solid var(--accent)}
+.answers-grid{display:grid;gap:10px;margin-bottom:16px}
+.ans-item{border-right:3px solid var(--accent);padding:8px 12px;background:#fffdf5;font-size:13px;line-height:1.6}
+.ans-item .ans-q{font-weight:700;color:var(--accent);font-size:12px;margin-bottom:4px}
+.feedback-panel{border:2px solid var(--ink);padding:14px;background:#fffdf5;box-shadow:var(--shadow-sm)}
+.feedback-title{font-family:'Frank Ruhl Libre',serif;font-size:15px;font-weight:700;margin-bottom:10px}
+.feedback-row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-start}
+.feedback-row input[type=number]{width:90px;padding:8px;border:2px solid var(--ink);font-size:15px;font-family:'Heebo',sans-serif;background:#fffdf5}
+.feedback-row textarea{flex:1;padding:8px;border:2px solid var(--ink);font-family:'Heebo',sans-serif;font-size:13px;background:#fffdf5;resize:none;min-height:56px}
+.btn-save{padding:9px 18px;background:#1a5c1a;color:white;border:2px solid var(--ink);box-shadow:var(--shadow-sm);font-family:'Heebo',sans-serif;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap}
+.btn-save:hover{background:#144814}
+.saved-tag{color:#1a5c1a;font-weight:700;font-size:12px;margin-top:4px}
+
+.empty-msg{text-align:center;padding:40px;color:#888;font-size:15px}
+
+footer{text-align:center;padding:20px;font-size:12px;color:#888;border-top:2px solid var(--ink);letter-spacing:1px;margin-top:16px}
+</style>
+</head>
+<body>
+
+<div class="masthead">
+  <div class="platform-name">הכל בקאף — סביבת מורה</div>
+  <div class="topic-name">הון · שלטון · עיתון</div>
+</div>
+<div class="divider"></div>
+
+<!-- AUTH MODAL -->
+<div class="modal-overlay" id="modal">
+  <div class="modal-box">
+    <div class="modal-title">🔐 כניסת מורה</div>
+    <div class="modal-sub">הזן/י טלפון וסיסמה להתחברות</div>
+    <div class="mf">
+      <label>מספר טלפון</label>
+      <input id="inp-phone" type="tel" style="direction:ltr" placeholder="050-0000000">
+    </div>
+    <div class="mf">
+      <label>סיסמה</label>
+      <input id="inp-pass" type="password" placeholder="••••••">
+    </div>
+    <div class="modal-err" id="modal-err"></div>
+    <button class="btn-login" onclick="doLogin()">כניסה ←</button>
+    <div class="register-link">
+      מורה חדש/ה? <a href="../teacher-register.html">הרשמה כאן</a>
+    </div>
+  </div>
+</div>
+
+<!-- DASHBOARD -->
+<div id="dashboard">
+  <div class="stats-bar">
+    <div class="stat-box"><div class="stat-num" id="stat-total">0</div><div class="stat-lbl">הגשות</div></div>
+    <div class="stat-box"><div class="stat-num" id="stat-graded">0</div><div class="stat-lbl">הוערכו</div></div>
+    <div class="stat-box"><div class="stat-num" id="stat-avg">—</div><div class="stat-lbl">ממוצע</div></div>
+  </div>
+
+  <div class="toolbar">
+    <input type="text" id="search-input" placeholder="🔍 חיפוש לפי שם..." oninput="renderTable()">
+    <select id="filter-topic" onchange="renderTable()">
+      <option value="">— כל הנושאים —</option>
+      <option value="hon_shilton_iton">הון שלטון עיתון</option>
+    </select>
+    <select id="filter-class" onchange="renderTable()">
+      <option value="">כל הכיתות</option>
+    </select>
+    <button class="btn-csv" onclick="exportCSV()">ייצוא CSV ⬇</button>
+  </div>
+
+  <div class="table-wrap">
+    <table id="main-table">
+      <thead>
+        <tr>
+          <th>נושא</th>
+          <th>שם</th>
+          <th>מייל</th>
+          <th>שכבה</th>
+          <th>תאריך</th>
+          <th>ציון</th>
+        </tr>
+      </thead>
+      <tbody id="table-body"></tbody>
+    </table>
+    <div class="empty-msg" id="empty-msg" style="display:none">אין הגשות תואמות</div>
+  </div>
+</div>
+
+<footer>פיתוח: רני בן זאב | גליל מערבי | hakolbakaf.co.il</footer>
+
+<script>
+const FC = {
+  apiKey: "AIzaSyCCHvn_ulmiyM56DuslNzNC0Ge6a8i2vhY",
+  authDomain: "tests-fd938.firebaseapp.com",
+  databaseURL: "https://tests-fd938-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "tests-fd938"
+};
+firebase.initializeApp(FC);
+const db = firebase.database();
+
+const TOPICS = { hon_shilton_iton: 'הון שלטון עיתון' };
+
+let allData = [];
+let teacherID = '';
+
+function doLogin() {
+  const phone = document.getElementById('inp-phone').value.trim();
+  const pass  = document.getElementById('inp-pass').value.trim();
+  if (!phone || !pass) { document.getElementById('modal-err').textContent = 'נא למלא טלפון וסיסמה'; return; }
+  db.ref('teachers').orderByChild('phone').equalTo(phone).once('value').then(snap => {
+    if (!snap.exists()) { document.getElementById('modal-err').textContent = 'מורה לא נמצא'; return; }
+    let found = false;
+    snap.forEach(child => {
+      const t = child.val();
+      if (t.password === pass && t.status === 'approved') {
+        found = true;
+        teacherID = child.key;
+      }
+    });
+    if (!found) { document.getElementById('modal-err').textContent = 'סיסמה שגויה או חשבון לא מאושר'; return; }
+    document.getElementById('modal').style.display = 'none';
+    document.getElementById('dashboard').style.display = 'block';
+    loadData();
+  });
+}
+
+function loadData() {
+  const promises = Object.keys(TOPICS).map(topic =>
+    db.ref('tests/' + topic).once('value').then(snap => {
+      const raw = snap.val() || {};
+      return Object.entries(raw).map(([k, v]) => ({ key: k, _topic: topic, _topicLabel: TOPICS[topic], ...v }));
+    })
+  );
+  Promise.all(promises).then(results => {
+    allData = results.flat().filter(d => d.student?.teacherID === teacherID);
+    allData.sort((a, b) => b.submittedAt - a.submittedAt);
+    renderTable();
+  });
+}
+
+function renderTable() {
+  const search = document.getElementById('search-input').value.toLowerCase();
+  const topic  = document.getElementById('filter-topic').value;
+  const cls    = document.getElementById('filter-class').value;
+  const base   = topic ? allData.filter(d => d._topic === topic) : allData;
+
+  // update class dropdown
+  const classes = [...new Set(base.map(d => d.student?.class).filter(Boolean))].sort();
+  const sel = document.getElementById('filter-class');
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">כל הכיתות</option>';
+  classes.forEach(c => sel.innerHTML += `<option${c === cur ? ' selected' : ''}>${c}</option>`);
+
+  const filtered = base.filter(d => {
+    const name = (d.student?.name || '').toLowerCase();
+    return (!search || name.includes(search)) && (!cls || d.student?.class === cls);
+  });
+
+  // stats
+  document.getElementById('stat-total').textContent = filtered.length;
+  const graded = filtered.filter(d => d.feedback?.grade != null);
+  document.getElementById('stat-graded').textContent = graded.length;
+  if (graded.length) {
+    const avg = Math.round(graded.reduce((s, d) => s + d.feedback.grade, 0) / graded.length);
+    document.getElementById('stat-avg').textContent = avg;
+  } else {
+    document.getElementById('stat-avg').textContent = '—';
+  }
+
+  const tbody = document.getElementById('table-body');
+  document.getElementById('empty-msg').style.display = filtered.length ? 'none' : 'block';
+  document.getElementById('main-table').style.display = filtered.length ? '' : 'none';
+  tbody.innerHTML = '';
+
+  filtered.forEach(d => {
+    const dt = new Date(d.submittedAt).toLocaleString('he-IL');
+    const fb = d.feedback || {};
+    const gradeHtml = fb.grade != null
+      ? `<span class="grade-chip graded">✅ ${fb.grade}</span>`
+      : `<span class="grade-chip ungraded">—</span>`;
+
+    const mainRow = document.createElement('tr');
+    mainRow.className = 'cursor-row';
+    mainRow.innerHTML = `
+      <td><span class="topic-badge">${d._topicLabel}</span></td>
+      <td><strong>${d.student?.name || ''}</strong></td>
+      <td style="direction:ltr;font-size:12px">${d.student?.email || ''}</td>
+      <td>${d.student?.class || ''}</td>
+      <td style="font-size:12px">${dt}</td>
+      <td>${gradeHtml}</td>
+    `;
+    mainRow.onclick = () => toggleExpand(d.key);
+    tbody.appendChild(mainRow);
+
+    // expanded row
+    const expRow = document.createElement('tr');
+    expRow.className = 'exp-row';
+    expRow.id = 'exp-' + d.key;
+    const ansHtml = Object.entries(d.answers || {}).map(([k, v]) => `
+      <div class="ans-item">
+        <div class="ans-q">${k}</div>
+        <div>${v || '<em>ריק</em>'}</div>
+      </div>
+    `).join('');
+    const existingFb = fb.grade != null ? `ציון קיים: ${fb.grade} | הערה: ${fb.comment || '—'}` : '';
+    expRow.innerHTML = `
+      <td colspan="6" class="exp-cell">
+        <div class="answers-grid">${ansHtml}</div>
+        <div class="feedback-panel">
+          <div class="feedback-title">✏️ הערכה</div>
+          ${existingFb ? `<div class="saved-tag">${existingFb}</div>` : ''}
+          <div class="feedback-row">
+            <input type="number" id="grade-${d.key}" min="0" max="100" placeholder="ציון" value="${fb.grade ?? ''}">
+            <textarea id="comment-${d.key}" placeholder="הערה לתלמיד...">${fb.comment || ''}</textarea>
+            <button class="btn-save" onclick="saveFeedback('${d.key}')">שמור ✓</button>
+          </div>
+          <div class="saved-tag" id="saved-tag-${d.key}"></div>
+        </div>
+      </td>
+    `;
+    tbody.appendChild(expRow);
+  });
+}
+
+function toggleExpand(key) {
+  const row = document.getElementById('exp-' + key);
+  if (!row) return;
+  row.classList.toggle('open');
+}
+
+function saveFeedback(key) {
+  const rec   = allData.find(d => d.key === key);
+  const topic = rec?._topic || 'hon_shilton_iton';
+  const grade = parseInt(document.getElementById('grade-' + key).value);
+  const comment = document.getElementById('comment-' + key).value.trim();
+  if (isNaN(grade) || grade < 0 || grade > 100) { alert('ציון לא תקין (0-100)'); return; }
+  db.ref('tests/' + topic + '/' + key + '/feedback').update({
+    grade, comment, gradedAt: Date.now(), gradedBy: teacherID
+  }).then(() => {
+    if (rec) rec.feedback = { grade, comment, gradedAt: Date.now() };
+    document.getElementById('saved-tag-' + key).textContent = '✅ נשמר בהצלחה';
+    renderTable();
+  });
+}
+
+function exportCSV() {
+  const topic = document.getElementById('filter-topic').value;
+  const cls   = document.getElementById('filter-class').value;
+  const base  = topic ? allData.filter(d => d._topic === topic) : allData;
+  const data  = cls ? base.filter(d => d.student?.class === cls) : base;
+
+  const answerKeys = [...new Set(data.flatMap(d => Object.keys(d.answers || {})))];
+  const headers = ['שם', 'מייל', 'שכבה', 'קוד כיתה', 'נושא', 'תאריך', 'ציון', 'הערת מורה', ...answerKeys];
+
+  const rows = data.map(d => {
+    const dt = new Date(d.submittedAt).toLocaleString('he-IL');
+    const fb = d.feedback || {};
+    return [
+      d.student?.name || '', d.student?.email || '', d.student?.class || '',
+      d.student?.classCode || '', d._topicLabel || '', dt,
+      fb.grade ?? '', fb.comment || '',
+      ...answerKeys.map(k => (d.answers?.[k] || '').replace(/\n/g, ' '))
+    ].map(v => '"' + String(v).replace(/"/g, '""') + '"').join(',');
+  });
+
+  const csv = '\uFEFF' + headers.map(h => '"' + h + '"').join(',') + '\n' + rows.join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = 'hon_shilton_iton-' + new Date().toISOString().slice(0, 10) + '.csv';
+  a.click();
+}
+</script>
+</body>
+</html>
