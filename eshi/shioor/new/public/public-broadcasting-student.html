@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>שידור ציבורי — דף הסטודנט</title>
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@400;700;900&family=Heebo:wght@300;400;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<style>
+  :root{--accent:#8B1A1A;--paper:#f5f0e8;--ink:#1a1208;--border:#c8b89a;--muted:#7a6a52;}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Heebo',sans-serif;background:var(--paper);color:var(--ink);}
+  #link-modal{position:fixed;inset:0;background:rgba(10,6,2,.85);display:flex;align-items:center;justify-content:center;z-index:999;}
+  .lm-box{background:white;border-top:6px solid var(--accent);padding:28px 26px;width:min(420px,92vw);border-radius:2px;}
+  .lm-box h2{font-family:'Frank Ruhl Libre',serif;font-size:20px;margin-bottom:6px;}
+  .lm-box .lm-sub{font-size:13px;color:var(--muted);margin-bottom:20px;}
+  .mf{margin-bottom:12px;}
+  .mf label{display:block;font-size:12px;font-weight:700;color:var(--accent);margin-bottom:4px;}
+  .mf input{width:100%;border:1px solid var(--border);padding:9px 12px;font-family:'Heebo',sans-serif;font-size:14px;background:var(--paper);border-radius:2px;}
+  .lm-err{color:#c00;font-size:12px;margin-bottom:8px;display:none;}
+  .btn-gen{width:100%;background:var(--accent);color:white;border:none;padding:12px;font-family:'Frank Ruhl Libre',serif;font-size:16px;font-weight:700;cursor:pointer;border-radius:2px;margin-bottom:10px;}
+  .btn-gen:hover{background:#6b1010;}
+  .btn-student{width:100%;background:transparent;color:var(--muted);border:1px solid var(--border);padding:9px;font-family:'Heebo',sans-serif;font-size:13px;cursor:pointer;border-radius:2px;}
+  .btn-student:hover{background:var(--paper);}
+  .link-result{background:#f0f8f0;border:1px solid #a0c8a0;padding:12px;margin-top:12px;border-radius:2px;display:none;}
+  .link-result p{font-size:12px;color:#2a6a2a;margin-bottom:6px;font-weight:700;}
+  .link-url{font-size:11px;color:#333;word-break:break-all;direction:ltr;text-align:left;background:white;border:1px solid #ccc;padding:6px 8px;border-radius:2px;cursor:pointer;display:block;}
+  .copy-note{font-size:11px;color:#555;margin-top:4px;}
+  #teacher-banner{display:none;background:#1a1208;color:#c9a84c;padding:8px 24px;text-align:center;font-size:13px;border-bottom:2px solid var(--accent);}
+  header{background:var(--ink);color:var(--paper);padding:16px 24px;border-bottom:4px solid var(--accent);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;}
+  header h1{font-family:'Frank Ruhl Libre',serif;font-size:clamp(18px,4vw,26px);}
+  header .back{color:var(--border);font-size:13px;text-decoration:none;}
+  header .back:hover{color:white;}
+  .content{max-width:720px;margin:0 auto;padding:30px 20px 60px;}
+  .step{background:white;border:1px solid var(--border);border-right:4px solid var(--accent);padding:18px 20px;margin-bottom:14px;display:flex;gap:16px;align-items:flex-start;}
+  .step-num{background:var(--accent);color:white;font-family:'Frank Ruhl Libre',serif;font-size:18px;font-weight:700;min-width:34px;height:34px;display:flex;align-items:center;justify-content:center;border-radius:50%;flex-shrink:0;}
+  .step-body h3{font-family:'Frank Ruhl Libre',serif;font-size:17px;margin-bottom:6px;}
+  .step-body p{font-size:13px;color:var(--muted);line-height:1.7;}
+  .btn-link{display:inline-block;background:var(--accent);color:white;padding:10px 20px;font-family:'Frank Ruhl Libre',serif;font-size:15px;font-weight:700;text-decoration:none;border-radius:2px;margin-top:10px;}
+  .btn-link:hover{background:#6b1010;}
+  .btn-link.secondary{background:transparent;color:var(--accent);border:2px solid var(--accent);}
+  .btn-link.secondary:hover{background:var(--accent);color:white;}
+  footer{text-align:center;padding:16px;font-size:11px;color:var(--muted);border-top:1px solid var(--border);}
+</style>
+</head>
+<body>
+
+<div id="link-modal">
+  <div class="lm-box">
+    <h2>🔗 יצירת קישור לכיתה</h2>
+    <p class="lm-sub">מורה — הזן פרטים ליצירת קישור עם קוד כיתה עבור תלמידיך.</p>
+    <div class="mf"><label>טלפון (כפי שנרשמת)</label><input id="lm-phone" type="tel" placeholder="05X-XXXXXXX" style="direction:ltr"></div>
+    <div class="mf"><label>קוד כיתה (אותיות לועזיות + מספרים)</label><input id="lm-class" type="text" placeholder="lior10a" style="direction:ltr;text-transform:lowercase"></div>
+    <div class="lm-err" id="lm-err"></div>
+    <button class="btn-gen" onclick="generateLink()">צור קישור ←</button>
+    <button class="btn-student" onclick="closeLinkModal()">אני תלמיד/ה — כניסה ישירה</button>
+    <div class="link-result" id="link-result">
+      <p>✅ הקישור מוכן — שלח לתלמידים:</p>
+      <span class="link-url" id="gen-url" onclick="copyURL()"></span>
+      <div class="copy-note" id="copy-note">לחץ על הקישור להעתקה</div>
+    </div>
+  </div>
+</div>
+
+<div id="teacher-banner">
+  <span>המורה: <strong id="banner-name" style="color:white;"></strong></span>
+  &nbsp;|&nbsp;
+  <span>קוד כיתה: <strong id="banner-code" style="color:white;letter-spacing:1px;"></strong></span>
+</div>
+
+<header>
+  <h1>שידור ציבורי</h1>
+  <a href="index.html" class="back">← חזרה לדף הנושא</a>
+</header>
+
+<div class="content">
+  <div class="step">
+    <div class="step-num">1</div>
+    <div class="step-body">
+      <h3>קראו את חומר השיעור</h3>
+      <p>עברו על דף השיעור שמסביר את מאפייני השידור הציבורי, מימון, יתרונות, חסרונות וחוק השידור.</p>
+      <a href="public-broadcasting-lesson.html" class="btn-link secondary">לדף השיעור →</a>
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-num">2</div>
+    <div class="step-body">
+      <h3>מלאו את המטלה</h3>
+      <p>המטלה כוללת 3 שלבים: הבנה והגדרה, ניתוח יתרונות וחסרונות, וחשיבה ביקורתית.</p>
+      <a href="public-broadcasting-worksheet.html" id="link-worksheet" class="btn-link">לפתיחת המטלה →</a>
+    </div>
+  </div>
+  <div class="step">
+    <div class="step-num">3</div>
+    <div class="step-body">
+      <h3>צפו בציונים ומשוב</h3>
+      <p>לאחר שהמורה יעיין בהגשה תוכלו לצפות במשוב אישי.</p>
+      <a href="../mygrades.html" id="link-mygrades" class="btn-link secondary">לצפייה בציונים →</a>
+    </div>
+  </div>
+</div>
+
+<footer>פיתוח: רני בן זאב | hakolbakaf.co.il</footer>
+
+<script>
+const FC={apiKey:"AIzaSyCCHvn_ulmiyM56DuslNzNC0Ge6a8i2vhY",databaseURL:"https://tests-fd938-default-rtdb.europe-west1.firebasedatabase.app",projectId:"tests-fd938"};
+firebase.initializeApp(FC);
+const db=firebase.database();
+
+const _code=new URLSearchParams(location.search).get('code');
+if(_code){
+  document.getElementById('link-modal').style.display='none';
+  document.getElementById('link-worksheet').href='public-broadcasting-worksheet.html?code='+encodeURIComponent(_code);
+  document.getElementById('link-mygrades').href='../mygrades.html?code='+encodeURIComponent(_code);
+  db.ref('teacher_codes').once('value').then(snap=>{
+    const codes=snap.val()||{};
+    let teacherID='';
+    Object.keys(codes).forEach(k=>{if(k.startsWith(_code.toLowerCase()+'_'))teacherID=codes[k];});
+    if(!teacherID)return;
+    db.ref('teachers/'+teacherID).once('value').then(ts=>{
+      const t=ts.val();if(!t)return;
+      const name=(t.firstName&&t.lastName)?t.firstName+' '+t.lastName:(t.name||'');
+      if(name){
+        document.getElementById('banner-name').textContent=name;
+        document.getElementById('banner-code').textContent=_code;
+        document.getElementById('teacher-banner').style.display='block';
+      }
+    });
+  });
+}
+
+function generateLink(){
+  const phone=document.getElementById('lm-phone').value.trim().replace(/\D/g,'');
+  const classCode=document.getElementById('lm-class').value.trim().toLowerCase().replace(/\s/g,'');
+  const err=document.getElementById('lm-err');
+  if(!phone||!classCode){err.textContent='נא למלא טלפון וקוד כיתה';err.style.display='block';return;}
+  db.ref('teachers').once('value').then(snap=>{
+    let foundKey='';
+    snap.forEach(child=>{
+      if(foundKey)return;
+      const t=child.val();
+      if(t.phone&&t.phone.replace(/\D/g,'')=== phone&&t.status==='approved')foundKey=child.key;
+    });
+    if(!foundKey){err.textContent='לא נמצא מורה עם הטלפון הזה או שהמשתמש לא מאושר';err.style.display='block';return;}
+    err.style.display='none';
+    const codeKey=classCode+'_'+foundKey;
+    db.ref('teacher_codes/'+codeKey).set(foundKey).then(()=>{
+      const url=location.origin+location.pathname+'?code='+encodeURIComponent(classCode);
+      document.getElementById('gen-url').textContent=url;
+      document.getElementById('link-result').style.display='block';
+    });
+  });
+}
+function copyURL(){
+  const url=document.getElementById('gen-url').textContent;
+  navigator.clipboard.writeText(url).then(()=>{
+    document.getElementById('copy-note').textContent='✅ הועתק!';
+    setTimeout(()=>{document.getElementById('copy-note').textContent='לחץ על הקישור להעתקה';},2000);
+  });
+}
+function closeLinkModal(){document.getElementById('link-modal').style.display='none';}
+</script>
+</body>
+</html>
