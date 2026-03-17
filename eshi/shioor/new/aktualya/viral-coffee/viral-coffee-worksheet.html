@@ -1,0 +1,303 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>הבריסטה הוויראלית — מטלה</title>
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@400;700;900&family=Heebo:wght@300;400;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<style>
+  :root{--accent:#8B1A1A;--paper:#f5f0e8;--ink:#1a1208;--border:#c8b89a;--muted:#7a6a52;}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Heebo',sans-serif;background:var(--paper);color:var(--ink);}
+  #modal{position:fixed;inset:0;background:rgba(10,6,2,.85);display:flex;align-items:center;justify-content:center;z-index:999;}
+  .modal-box{background:white;border-top:6px solid var(--accent);padding:32px 28px;width:min(420px,92vw);border-radius:2px;}
+  .modal-box h2{font-family:'Frank Ruhl Libre',serif;font-size:22px;margin-bottom:6px;}
+  .modal-box p{font-size:13px;color:var(--muted);margin-bottom:20px;}
+  .mf{margin-bottom:14px;}
+  .mf label{display:block;font-size:12px;font-weight:700;color:var(--accent);margin-bottom:4px;letter-spacing:.5px;}
+  .mf input,.mf select{width:100%;border:1px solid var(--border);padding:9px 12px;font-family:'Heebo',sans-serif;font-size:14px;background:var(--paper);border-radius:2px;color:var(--ink);}
+  .mf input:focus,.mf select:focus{outline:2px solid var(--accent);}
+  .modal-err{color:#c00;font-size:12px;margin-bottom:10px;display:none;}
+  .btn-enter{width:100%;background:var(--accent);color:white;border:none;padding:12px;font-family:'Frank Ruhl Libre',serif;font-size:16px;font-weight:700;cursor:pointer;border-radius:2px;}
+  .btn-enter:hover{background:#6b1010;}
+  .pbar{position:sticky;top:0;background:var(--ink);color:white;padding:8px 20px;display:flex;align-items:center;gap:12px;z-index:100;}
+  #plbl{font-family:'Frank Ruhl Libre',serif;font-size:14px;min-width:80px;}
+  .ptrack{flex:1;height:6px;background:#333;border-radius:3px;}
+  .pfill{height:100%;background:var(--accent);border-radius:3px;transition:width .4s;}
+  #ppct{font-size:12px;color:#aaa;min-width:36px;text-align:left;}
+  #bname{font-size:13px;font-weight:700;}
+  #bcls{font-size:11px;color:#aaa;}
+  #mhead{background:var(--ink);color:var(--paper);padding:14px 24px;border-bottom:4px solid var(--accent);}
+  #mhead h1{font-family:'Frank Ruhl Libre',serif;font-size:clamp(18px,4vw,26px);}
+  #mainpage{max-width:780px;margin:0 auto;padding:28px 18px 60px;}
+  .phase{display:none;}
+  .phase.active{display:block;}
+  .phase-title{font-family:'Frank Ruhl Libre',serif;font-size:24px;font-weight:900;color:var(--accent);border-bottom:2px solid var(--accent);padding-bottom:6px;margin-bottom:20px;}
+  .phase-intro{background:white;border-right:4px solid var(--accent);padding:14px 18px;font-size:14px;line-height:1.8;margin-bottom:24px;}
+  .qblock{background:white;border:1px solid var(--border);padding:18px 20px;margin-bottom:18px;}
+  .qnum{font-size:11px;font-weight:700;color:var(--accent);letter-spacing:1px;margin-bottom:6px;}
+  .qtext{font-size:15px;font-weight:700;margin-bottom:12px;line-height:1.6;}
+  .qsub{font-size:13px;color:var(--muted);margin-bottom:10px;line-height:1.7;}
+  .ws-ta{width:100%;border:1px solid var(--border);padding:10px 12px;font-family:'Heebo',sans-serif;font-size:14px;line-height:1.7;background:#fafaf8;resize:none;overflow:hidden;min-height:90px;border-radius:2px;color:var(--ink);}
+  .ws-ta:focus{outline:2px solid var(--accent);}
+  .mic-row{display:flex;align-items:center;gap:8px;margin-top:6px;}
+  .mic-btn{background:none;border:1px solid var(--border);padding:5px 12px;font-size:13px;cursor:pointer;border-radius:2px;color:var(--muted);display:flex;align-items:center;gap:5px;}
+  .mic-btn.recording{background:#fee2e2;border-color:#f00;color:#c00;}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;}
+  .chip{padding:6px 14px;border:2px solid var(--border);border-radius:2px;font-size:13px;cursor:pointer;background:white;transition:all .15s;}
+  .chip.sel{background:var(--accent);color:white;border-color:var(--accent);}
+  .nav-row{display:flex;justify-content:space-between;margin-top:28px;gap:10px;}
+  .btn-nav{background:var(--ink);color:white;border:none;padding:12px 28px;font-family:'Frank Ruhl Libre',serif;font-size:15px;cursor:pointer;border-radius:2px;flex:1;max-width:200px;}
+  .btn-nav:hover{background:var(--accent);}
+  .btn-submit{background:var(--accent);color:white;border:none;padding:12px 28px;font-family:'Frank Ruhl Libre',serif;font-size:16px;font-weight:700;cursor:pointer;border-radius:2px;width:100%;margin-top:20px;}
+  .btn-submit:hover{background:#6b1010;}
+  #phase-success{text-align:center;padding:50px 20px;font-family:'Frank Ruhl Libre',serif;}
+  #phase-success .tick{font-size:60px;margin-bottom:16px;}
+  #phase-success h2{font-size:28px;color:var(--accent);margin-bottom:10px;}
+  #phase-success p{font-size:15px;color:var(--muted);}
+  footer{text-align:center;padding:16px;font-size:11px;color:var(--muted);border-top:1px solid var(--border);}
+</style>
+</head>
+<body>
+
+<div id="modal">
+  <div class="modal-box">
+    <h2>כניסה למטלה</h2>
+    <p>הבריסטה הוויראלית — מלאו את הפרטים</p>
+    <div class="mf"><label>שם פרטי</label><input id="inp-fn" type="text" placeholder="שם פרטי"></div>
+    <div class="mf"><label>שם משפחה</label><input id="inp-ln" type="text" placeholder="שם משפחה"></div>
+    <div class="mf"><label>אימייל</label><input id="inp-email" type="email" placeholder="example@school.il" style="direction:ltr"></div>
+    <div class="mf"><label>כיתה</label>
+      <select id="inp-grade">
+        <option value="">בחר כיתה</option>
+        <option>י׳1</option><option>י׳2</option><option>י׳3</option>
+        <option>יא׳1</option><option>יא׳2</option><option>יא׳3</option>
+        <option>יב׳1</option><option>יב׳2</option><option>יב׳3</option>
+      </select>
+    </div>
+    <div class="mf" id="field-code"><label>קוד מורה</label><input id="inp-code" type="text" placeholder="קוד שקיבלת מהמורה" style="direction:ltr"></div>
+    <div class="modal-err" id="modal-err"></div>
+    <button class="btn-enter" onclick="enterPage()">כניסה →</button>
+  </div>
+</div>
+
+<div class="pbar" id="pbar" style="display:none;">
+  <div><div id="bname"></div><div id="bcls"></div></div>
+  <div id="plbl">שלב 1/3</div>
+  <div class="ptrack"><div class="pfill" id="pfill" style="width:33%"></div></div>
+  <div id="ppct">33%</div>
+</div>
+
+<header id="mhead" style="display:none;">
+  <h1>הבריסטה הוויראלית — מטלה</h1>
+</header>
+
+<div id="mainpage" style="display:none;">
+
+  <!-- PHASE 1 -->
+  <div class="phase active" id="phase-1">
+    <div class="phase-title">שלב א׳ — הבנת האירוע</div>
+    <div class="phase-intro">
+      מרץ 2026: נתניהו מפרסם סרטון מבית קפה בסטף. בתוך פחות מיממה — 44 מיליון צפיות, הבריסטה הצעירה הופכת לויראלית, ומתפרצת סערת פייק ניוז. בשלב זה נבחן את הבנתכם את האירוע ומושגיו.
+    </div>
+
+    <div class="qblock">
+      <div class="qnum">שאלה 1</div>
+      <div class="qtext">מה הפך את הסרטון לויראלי כל כך? ציינו לפחות שלושה גורמים.</div>
+      <div class="mic-row"><button class="mic-btn" id="mic-q1" onclick="mic('q1-ans',this)">🎙 הכתבה</button></div>
+      <textarea class="ws-ta" id="q1-ans" placeholder="כתבו כאן..." oninput="ar(this)" onpaste="return false"></textarea>
+    </div>
+
+    <div class="qblock">
+      <div class="qnum">שאלה 2</div>
+      <div class="qtext">איזה מושג מתאים לטענה שהסרטון נוצר ב-AI?</div>
+      <div class="chips" id="g-q2">
+        <div class="chip" onclick="selOne(this,'g-q2')">ספין תקשורתי</div>
+        <div class="chip" onclick="selOne(this,'g-q2')">פייק ניוז</div>
+        <div class="chip" onclick="selOne(this,'g-q2')">אלימות ברשת</div>
+        <div class="chip" onclick="selOne(this,'g-q2')">מסגור</div>
+      </div>
+      <div class="qsub" style="margin-top:12px;">הסבירו בקצרה מדוע:</div>
+      <div class="mic-row"><button class="mic-btn" id="mic-q2" onclick="mic('q2-exp',this)">🎙 הכתבה</button></div>
+      <textarea class="ws-ta" id="q2-exp" placeholder="הסבירו..." oninput="ar(this)" onpaste="return false"></textarea>
+    </div>
+
+    <div class="qblock">
+      <div class="qnum">שאלה 3</div>
+      <div class="qtext">אותו ביקור סוּפַּר בדרכים שונות לגמרי. תנו דוגמה לשני מסגורים שונים של אותו אירוע.</div>
+      <div class="mic-row"><button class="mic-btn" id="mic-q3" onclick="mic('q3-ans',this)">🎙 הכתבה</button></div>
+      <textarea class="ws-ta" id="q3-ans" placeholder="כתבו כאן..." oninput="ar(this)" onpaste="return false"></textarea>
+    </div>
+
+    <div class="nav-row">
+      <div></div>
+      <button class="btn-nav" onclick="goP(2)">שלב הבא ←</button>
+    </div>
+  </div>
+
+  <!-- PHASE 2 -->
+  <div class="phase" id="phase-2">
+    <div class="phase-title">שלב ב׳ — ניתוח פרטיות ואלימות ברשת</div>
+
+    <div class="qblock">
+      <div class="qnum">שאלה 4</div>
+      <div class="qtext">הבריסטה בת ה-17 הפכה לויראלית ללא הסכמתה. מי לדעתכם אחראי לכך?</div>
+      <div class="chips" id="g-q4">
+        <div class="chip" onclick="selOne(this,'g-q4')">הצלם שפרסם</div>
+        <div class="chip" onclick="selOne(this,'g-q4')">הגולשים ששיתפו</div>
+        <div class="chip" onclick="selOne(this,'g-q4')">לשכת ראש הממשלה</div>
+        <div class="chip" onclick="selOne(this,'g-q4')">אחריות משותפת לכולם</div>
+      </div>
+      <div class="qsub" style="margin-top:12px;">נמקו:</div>
+      <div class="mic-row"><button class="mic-btn" id="mic-q4" onclick="mic('q4-exp',this)">🎙 הכתבה</button></div>
+      <textarea class="ws-ta" id="q4-exp" placeholder="נמקו..." oninput="ar(this)" onpaste="return false"></textarea>
+    </div>
+
+    <div class="qblock">
+      <div class="qnum">שאלה 5</div>
+      <div class="qtext">גולשים יצרו תמונות AI של הבריסטה ללא רשותה. האם לדעתכם זה מקובל?</div>
+      <div class="chips" id="g-q5">
+        <div class="chip" onclick="selOne(this,'g-q5')">כן, זה מותר — הפנים שלה ציבוריות</div>
+        <div class="chip" onclick="selOne(this,'g-q5')">לא, זו פגיעה בפרטיות</div>
+        <div class="chip" onclick="selOne(this,'g-q5')">תלוי בשימוש שנעשה</div>
+      </div>
+      <div class="mic-row"><button class="mic-btn" id="mic-q5" onclick="mic('q5-exp',this)">🎙 הכתבה</button></div>
+      <textarea class="ws-ta" id="q5-exp" placeholder="הסבירו..." oninput="ar(this)" onpaste="return false"></textarea>
+    </div>
+
+    <div class="qblock">
+      <div class="qnum">שאלה 6</div>
+      <div class="qtext">בית הקפה קיבל אלפי ביקורות שנאה בגוגל שפגעו בדירוגו. האם גוגל אחראית לסנן אותן? מדוע?</div>
+      <div class="mic-row"><button class="mic-btn" id="mic-q6" onclick="mic('q6-ans',this)">🎙 הכתבה</button></div>
+      <textarea class="ws-ta" id="q6-ans" placeholder="כתבו כאן..." oninput="ar(this)" onpaste="return false"></textarea>
+    </div>
+
+    <div class="nav-row">
+      <button class="btn-nav" onclick="goP(1)">→ חזרה</button>
+      <button class="btn-nav" onclick="goP(3)">שלב הבא ←</button>
+    </div>
+  </div>
+
+  <!-- PHASE 3 -->
+  <div class="phase" id="phase-3">
+    <div class="phase-title">שלב ג׳ — חשיבה ביקורתית</div>
+
+    <div class="qblock">
+      <div class="qnum">שאלה 7</div>
+      <div class="qtext">ממ הוא דרך שהרשת "מעכלת" אירועים. הביאו דוגמה לממ שנוצר מהאירוע והסבירו מה הוא מפשט ומה הוא מאבד.</div>
+      <div class="mic-row"><button class="mic-btn" id="mic-q7" onclick="mic('q7-ans',this)">🎙 הכתבה</button></div>
+      <textarea class="ws-ta" id="q7-ans" placeholder="כתבו כאן..." oninput="ar(this)" onpaste="return false"></textarea>
+    </div>
+
+    <div class="qblock">
+      <div class="qnum">שאלה 8</div>
+      <div class="qtext">המוסד הישראלי התערב בשיח ויראלי לתקן פייק ניוז. האם לדעתכם זה תפקידו?</div>
+      <div class="chips" id="g-q8">
+        <div class="chip" onclick="selOne(this,'g-q8')">כן — כשהאמת חשובה לביטחון המדינה</div>
+        <div class="chip" onclick="selOne(this,'g-q8')">לא — מוסד לא אמור להתערב בשיח ציבורי</div>
+        <div class="chip" onclick="selOne(this,'g-q8')">תלוי בנסיבות</div>
+      </div>
+      <div class="mic-row"><button class="mic-btn" id="mic-q8" onclick="mic('q8-exp',this)">🎙 הכתבה</button></div>
+      <textarea class="ws-ta" id="q8-exp" placeholder="נמקו..." oninput="ar(this)" onpaste="return false"></textarea>
+    </div>
+
+    <div class="qblock">
+      <div class="qnum">שאלה 9</div>
+      <div class="qtext">אם הייתם הבריסטה — מה הייתם עושים? האם הייתם מנצלים את הויראליות, מתעלמים ממנה, או מנסים לבלום אותה?</div>
+      <div class="mic-row"><button class="mic-btn" id="mic-q9" onclick="mic('q9-ans',this)">🎙 הכתבה</button></div>
+      <textarea class="ws-ta" id="q9-ans" placeholder="כתבו כאן..." oninput="ar(this)" onpaste="return false"></textarea>
+    </div>
+
+    <div class="nav-row">
+      <button class="btn-nav" onclick="goP(2)">→ חזרה</button>
+      <div></div>
+    </div>
+    <button class="btn-submit" onclick="submitWS()">שליחת המטלה ✓</button>
+  </div>
+
+  <div id="phase-success" style="display:none;">
+    <div class="tick">✅</div>
+    <h2>המטלה נשלחה בהצלחה!</h2>
+    <p>תשובותיך נשמרו. המורה יעיין בהן ויחזיר משוב.</p>
+  </div>
+
+</div>
+
+<footer>פיתוח: רני בן זאב | hakolbakaf.co.il</footer>
+
+<script>
+const FC={apiKey:"AIzaSyCCHvn_ulmiyM56DuslNzNC0Ge6a8i2vhY",databaseURL:"https://tests-fd938-default-rtdb.europe-west1.firebasedatabase.app",projectId:"tests-fd938"};
+firebase.initializeApp(FC);
+const db=firebase.database();
+const TOPIC='viral-coffee';
+let student={},micRec=null;
+
+const _urlCode=new URLSearchParams(location.search).get('code');
+if(_urlCode){document.getElementById('inp-code').value=_urlCode;document.getElementById('field-code').style.display='none';}
+
+function ar(el){el.style.height='auto';el.style.height=el.scrollHeight+'px';}
+function goP(n){document.querySelectorAll('.phase').forEach(p=>p.classList.remove('active'));document.getElementById('phase-'+n).classList.add('active');window.scrollTo({top:0,behavior:'smooth'});setP(n);}
+function setP(n){const ls=['שלב 1/3','שלב 2/3','שלב 3/3'],ps=[33,66,100];document.getElementById('plbl').textContent=ls[n-1];document.getElementById('pfill').style.width=ps[n-1]+'%';document.getElementById('ppct').textContent=ps[n-1]+'%';}
+function selOne(btn,gid){document.querySelectorAll('#'+gid+' .chip').forEach(c=>c.classList.remove('sel'));btn.classList.add('sel');}
+
+function mic(tid,btn){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){alert('הדפדפן אינו תומך בהכתבה');return;}
+  if(micRec){micRec.stop();micRec=null;btn.classList.remove('recording');btn.textContent='🎙 הכתבה';return;}
+  const rec=new SR();rec.lang='he-IL';rec.continuous=true;rec.interimResults=false;
+  rec.onresult=e=>{const ta=document.getElementById(tid);ta.value+=Array.from(e.results).slice(e.resultIndex).map(r=>r[0].transcript).join('');ar(ta);};
+  rec.onend=()=>{micRec=null;btn.classList.remove('recording');btn.textContent='🎙 הכתבה';};
+  rec.start();micRec=rec;btn.classList.add('recording');btn.textContent='⏹ עצור';
+}
+
+function enterPage(){
+  const fn=document.getElementById('inp-fn').value.trim();
+  const ln=document.getElementById('inp-ln').value.trim();
+  const email=document.getElementById('inp-email').value.trim();
+  const grade=document.getElementById('inp-grade').value;
+  const code=document.getElementById('inp-code').value.trim().toLowerCase();
+  const err=document.getElementById('modal-err');
+  if(!fn||!ln||!email||!grade||(!code&&!_urlCode)){err.textContent='נא למלא את כל השדות';err.style.display='block';return;}
+  db.ref('teacher_codes').once('value').then(snap=>{
+    const codes=snap.val()||{};
+    let teacherID='';
+    Object.keys(codes).forEach(k=>{if(k.startsWith(code+'_'))teacherID=codes[k];});
+    student={name:fn+' '+ln,firstName:fn,lastName:ln,email,class:grade,classCode:code,teacherID};
+    document.getElementById('modal').style.display='none';
+    document.getElementById('pbar').style.display='flex';
+    document.getElementById('mhead').style.display='block';
+    document.getElementById('mainpage').style.display='block';
+    document.getElementById('bname').textContent=fn+' '+ln;
+    document.getElementById('bcls').textContent=grade;
+    setP(1);
+  });
+}
+
+function submitWS(){
+  const answers={
+    q1:document.getElementById('q1-ans').value.trim(),
+    q2_concept:document.querySelector('#g-q2 .chip.sel')?.textContent||'',
+    q2_exp:document.getElementById('q2-exp').value.trim(),
+    q3:document.getElementById('q3-ans').value.trim(),
+    q4_responsible:document.querySelector('#g-q4 .chip.sel')?.textContent||'',
+    q4_exp:document.getElementById('q4-exp').value.trim(),
+    q5_ai:document.querySelector('#g-q5 .chip.sel')?.textContent||'',
+    q5_exp:document.getElementById('q5-exp').value.trim(),
+    q6:document.getElementById('q6-ans').value.trim(),
+    q7:document.getElementById('q7-ans').value.trim(),
+    q8_mossad:document.querySelector('#g-q8 .chip.sel')?.textContent||'',
+    q8_exp:document.getElementById('q8-exp').value.trim(),
+    q9:document.getElementById('q9-ans').value.trim(),
+  };
+  const data={student,answers,submittedAt:Date.now()};
+  db.ref('tests/'+TOPIC).push(data).then(()=>{
+    document.querySelectorAll('.phase').forEach(p=>{p.classList.remove('active');p.style.display='none';});
+    document.getElementById('phase-success').style.display='block';
+    document.getElementById('pfill').style.width='100%';
+  }).catch(e=>alert('שגיאה: '+e.message));
+}
+</script>
+</body>
+</html>
