@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>צ׳ק ליסט מטלות</title>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700;800;900&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Heebo',sans-serif;background:#f0f4f8;color:#1a2340;min-height:100vh;}
+
+/* ── AUTH SCREENS ── */
+.auth-screen{position:fixed;inset:0;background:#0f172a;z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;}
+.auth-card{background:#1e293b;border:1px solid rgba(255,255,255,.1);border-radius:20px;padding:36px 32px;width:100%;max-width:380px;text-align:center;}
+.auth-logo{font-size:38px;margin-bottom:10px;}
+.auth-title{color:white;font-size:22px;font-weight:900;margin-bottom:4px;}
+.auth-sub{color:#64748b;font-size:13px;margin-bottom:24px;}
+.auth-input{width:100%;padding:12px 16px;border-radius:10px;border:1.5px solid rgba(255,255,255,.1);background:rgba(255,255,255,.05);color:white;font-family:'Heebo',sans-serif;font-size:15px;outline:none;margin-bottom:10px;text-align:center;transition:border-color .2s;}
+.auth-input:focus{border-color:rgba(99,102,241,.5);}
+.auth-input::placeholder{color:#475569;}
+.auth-btn{width:100%;padding:13px;border-radius:10px;border:none;background:linear-gradient(135deg,#1d5fa8,#2d3a6b);color:white;font-family:'Heebo',sans-serif;font-size:16px;font-weight:700;cursor:pointer;margin-top:6px;transition:opacity .2s;}
+.auth-btn:hover{opacity:.9;}
+.auth-btn.secondary{background:rgba(255,255,255,.08);margin-top:8px;font-size:14px;}
+.auth-err{color:#ef4444;font-size:13px;margin-top:8px;min-height:18px;}
+.auth-tabs{display:flex;gap:0;margin-bottom:22px;border:1px solid rgba(255,255,255,.1);border-radius:10px;overflow:hidden;}
+.auth-tab{flex:1;padding:10px;background:transparent;border:none;color:#64748b;font-family:'Heebo',sans-serif;font-size:14px;font-weight:700;cursor:pointer;transition:all .2s;}
+.auth-tab.active{background:rgba(99,102,241,.2);color:#a5b4fc;}
+
+/* ── PENDING SCREEN ── */
+.pending-screen{position:fixed;inset:0;background:#0f172a;z-index:9999;display:flex;align-items:center;justify-content:center;padding:20px;}
+.pending-card{background:#1e293b;border:1px solid rgba(251,191,36,.2);border-radius:20px;padding:40px 32px;width:100%;max-width:360px;text-align:center;}
+
+/* ── MAIN APP ── */
+header{background:linear-gradient(135deg,#1a2340,#2d3a6b);color:white;padding:14px 20px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;}
+.header-left h1{font-size:18px;font-weight:900;}
+.header-left p{font-size:11px;opacity:.5;margin-top:2px;}
+.header-btns{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+.hbtn{padding:8px 15px;border-radius:8px;font-family:'Heebo',sans-serif;font-size:13px;font-weight:700;cursor:pointer;border:none;transition:all .15s;white-space:nowrap;}
+.hbtn.lock{background:#f59e0b;color:#1a2340;}
+.hbtn.lock:hover{background:#fbbf24;}
+.hbtn.lock.locked{background:#ef4444;color:white;}
+.hbtn.closeday{background:#22c55e;color:white;}
+.hbtn.closeday:hover{background:#16a34a;}
+.hbtn.ghost{background:rgba(255,255,255,.12);color:white;}
+.hbtn.ghost:hover{background:rgba(255,255,255,.22);}
+.sync-dot{width:8px;height:8px;border-radius:50%;background:#94a3b8;display:inline-block;margin-left:6px;transition:background .3s;}
+.sync-dot.ok{background:#22c55e;}
+.sync-dot.err{background:#ef4444;}
+.lock-banner{display:none;background:#fef3c7;border-bottom:2px solid #f59e0b;padding:8px 20px;font-size:13px;font-weight:700;color:#92400e;align-items:center;gap:8px;}
+.lock-banner.show{display:flex;}
+.tabs{display:flex;background:white;border-bottom:2px solid #e2e8f0;flex-wrap:wrap;}
+.tab{padding:11px 24px;font-family:'Heebo',sans-serif;font-size:14px;font-weight:700;border:none;background:none;cursor:pointer;border-bottom:3px solid transparent;color:#64748b;transition:all .15s;}
+.tab:hover{color:#1a2340;background:#f8fafc;}
+.tab.active{color:#1d5fa8;border-bottom-color:#1d5fa8;background:#f0f6ff;}
+.stats-bar{background:white;border-bottom:2px solid #e2e8f0;padding:10px 20px;display:flex;gap:18px;flex-wrap:wrap;align-items:center;}
+.stat{font-size:13px;font-weight:600;color:#64748b;}
+.stat strong{font-size:20px;font-weight:900;margin-left:3px;}
+.stat.done strong{color:#16a34a;}
+.stat.notdone strong{color:#dc2626;}
+.stat.total strong{color:#1d5fa8;}
+.stat.none strong{color:#94a3b8;}
+.stat.partial strong{color:#ca8a04;}
+.progress-wrap{flex:1;min-width:100px;height:8px;background:#e2e8f0;border-radius:4px;overflow:hidden;}
+.progress-fill{height:100%;background:linear-gradient(90deg,#16a34a,#4ade80);border-radius:4px;transition:width .4s;}
+.toolbar{background:#f8fafc;border-bottom:1px solid #e2e8f0;padding:10px 20px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+.toolbar input{padding:8px 13px;border:2px solid #e2e8f0;border-radius:8px;font-family:'Heebo',sans-serif;font-size:14px;outline:none;width:190px;background:white;}
+.toolbar input:focus{border-color:#1d5fa8;}
+.fbtn{padding:6px 13px;border-radius:20px;border:2px solid #e2e8f0;background:white;font-family:'Heebo',sans-serif;font-size:12px;font-weight:700;cursor:pointer;color:#64748b;transition:all .15s;}
+.fbtn:hover{border-color:#94a3b8;}
+.fbtn.active{border-color:#1d5fa8;background:#e8f0fb;color:#1d5fa8;}
+.class-panel{display:none;padding:16px 20px;}
+.class-panel.active{display:block;}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(195px,1fr));gap:9px;}
+.student{border-radius:10px;padding:12px 15px;cursor:pointer;transition:all .15s;border:2px solid transparent;display:flex;align-items:center;justify-content:space-between;gap:8px;user-select:none;}
+.student.none{background:white;border-color:#e2e8f0;color:#475569;}
+.student.none:hover:not(.lk){border-color:#94a3b8;background:#f8fafc;}
+.student.done{background:#dcfce7;border-color:#86efac;color:#14532d;}
+.student.done:hover:not(.lk){background:#bbf7d0;}
+.student.notdone{background:#fee2e2;border-color:#fca5a5;color:#7f1d1d;}
+.student.partial{background:#fef9c3;border-color:#fde047;color:#713f12;}
+.student.partial:hover:not(.lk){background:#fef08a;}
+.student.notdone:hover:not(.lk){background:#fecaca;}
+.student.lk{cursor:default;}
+.student-name{font-size:13px;font-weight:700;line-height:1.3;}
+.student-icon{font-size:18px;flex-shrink:0;}
+.loading{text-align:center;padding:40px;color:#94a3b8;font-size:15px;}
+
+/* ── OVERLAYS ── */
+.overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:200;align-items:flex-start;justify-content:center;padding:30px 16px;overflow-y:auto;}
+.overlay.show{display:flex;}
+.obox{background:white;border-radius:16px;max-width:580px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.3);overflow:hidden;max-height:90vh;display:flex;flex-direction:column;}
+.ohead{background:linear-gradient(135deg,#1a2340,#2d3a6b);color:white;padding:15px 20px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;}
+.ohead h2{font-size:17px;font-weight:800;}
+.xbtn{background:rgba(255,255,255,.15);border:none;color:white;font-size:16px;cursor:pointer;border-radius:6px;width:30px;height:30px;display:flex;align-items:center;justify-content:center;}
+.xbtn:hover{background:rgba(255,255,255,.28);}
+.obody{padding:16px;overflow-y:auto;}
+.hempty{text-align:center;padding:40px;color:#94a3b8;font-size:14px;}
+.hday{border:2px solid #e2e8f0;border-radius:10px;margin-bottom:10px;overflow:hidden;}
+.hday-head{background:#f8fafc;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;}
+.hday-head:hover{background:#f0f6ff;}
+.hday-date{font-size:13px;font-weight:800;}
+.hday-nums{display:flex;gap:10px;font-size:12px;font-weight:800;}
+.hday-nums .g{color:#16a34a;} .hday-nums .r{color:#dc2626;} .hday-nums .gr{color:#94a3b8;}
+.hday-body{display:none;padding:12px 14px;border-top:1px solid #e2e8f0;}
+.hday.open .hday-body{display:block;}
+.hcls{margin-bottom:12px;}
+.hcls-title{font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:#64748b;margin-bottom:6px;}
+.hnamesrow{margin-bottom:6px;}
+.hnamesrow-lbl{font-size:11px;font-weight:800;margin-bottom:4px;}
+.hnamesrow-lbl.g{color:#16a34a;} .hnamesrow-lbl.r{color:#dc2626;} .hnamesrow-lbl.gr{color:#94a3b8;}
+.hnames{display:flex;flex-wrap:wrap;gap:5px;}
+.hname{padding:3px 10px;border-radius:12px;font-size:12px;font-weight:700;}
+.hname.done{background:#dcfce7;color:#14532d;}
+.hname.notdone{background:#fee2e2;color:#7f1d1d;}
+.hname.none{background:#f1f5f9;color:#64748b;}
+.hname.partial{background:#fef9c3;color:#713f12;}
+.hdel{margin-top:10px;padding:5px 12px;background:#fee2e2;color:#dc2626;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;}
+.hdel:hover{background:#fecaca;}
+.confirm-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:300;align-items:center;justify-content:center;}
+.confirm-overlay.show{display:flex;}
+.cbox{background:white;border-radius:14px;padding:28px 24px;max-width:340px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.3);text-align:center;}
+.cbox h3{font-size:18px;font-weight:900;margin-bottom:8px;}
+.cbox p{font-size:14px;color:#64748b;line-height:1.65;margin-bottom:20px;}
+.cbtns{display:flex;gap:10px;justify-content:center;}
+.cbtn{padding:10px 22px;border-radius:8px;font-family:'Heebo',sans-serif;font-size:14px;font-weight:700;cursor:pointer;border:none;}
+.cbtn.yes{background:#22c55e;color:white;}
+.cbtn.yes:hover{background:#16a34a;}
+.cbtn.no{background:#f1f5f9;color:#1a2340;border:2px solid #e2e8f0;}
+.cbtn.no:hover{background:#e2e8f0;}
+.toast{position:fixed;bottom:24px;right:24px;background:#1a2340;color:white;padding:12px 20px;border-radius:10px;font-size:14px;font-weight:700;z-index:999;box-shadow:0 8px 24px rgba(0,0,0,.3);transition:opacity .4s;pointer-events:none;}
+
+/* ── ADMIN ── */
+.admin-login-box{background:white;border-radius:14px;padding:28px 24px;max-width:340px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.3);text-align:center;}
+.admin-login-box h3{font-size:18px;font-weight:900;margin-bottom:8px;}
+.admin-login-box p{font-size:13px;color:#64748b;margin-bottom:16px;}
+.admin-panel-box{background:white;border-radius:16px;max-width:700px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.3);overflow:hidden;max-height:92vh;display:flex;flex-direction:column;}
+.admin-section{border:2px solid #e2e8f0;border-radius:10px;margin-bottom:14px;overflow:hidden;}
+.admin-section-head{background:#f8fafc;padding:10px 14px;font-size:13px;font-weight:800;letter-spacing:.5px;display:flex;justify-content:space-between;align-items:center;}
+.admin-cls-block{padding:14px;}
+.admin-students-list{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;}
+.admin-student-tag{background:#f1f5f9;border:1.5px solid #e2e8f0;border-radius:20px;padding:4px 10px;font-size:12px;font-weight:600;display:flex;align-items:center;gap:5px;}
+.admin-student-tag .rm{background:none;border:none;color:#ef4444;cursor:pointer;font-size:13px;padding:0;line-height:1;}
+.admin-add-row{display:flex;gap:6px;margin-top:6px;}
+.admin-add-row input{flex:1;padding:8px 12px;border:2px solid #e2e8f0;border-radius:8px;font-family:'Heebo',sans-serif;font-size:13px;outline:none;}
+.admin-add-row input:focus{border-color:#6366f1;}
+.admin-add-row button{padding:8px 14px;background:#6366f1;color:white;border:none;border-radius:8px;font-family:'Heebo',sans-serif;font-size:13px;font-weight:700;cursor:pointer;}
+.add-cls-row{display:flex;gap:8px;padding:14px;}
+.add-cls-row input{flex:1;padding:9px 13px;border:2px solid #e2e8f0;border-radius:8px;font-family:'Heebo',sans-serif;font-size:13px;outline:none;}
+.delbtn{background:#fee2e2;color:#dc2626;border:none;border-radius:6px;padding:5px 11px;font-size:12px;font-weight:700;cursor:pointer;}
+.delbtn:hover{background:#fecaca;}
+.teacher-card{background:white;border:2px solid #e2e8f0;border-radius:10px;padding:14px 16px;margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;}
+.teacher-card.pending{border-right:4px solid #f59e0b;}
+.teacher-card.approved{border-right:4px solid #22c55e;}
+.teacher-info{flex:1;}
+.teacher-name{font-weight:800;font-size:15px;}
+.teacher-meta{font-size:12px;color:#64748b;margin-top:2px;}
+.teacher-actions{display:flex;gap:6px;}
+.appbtn{padding:7px 14px;border-radius:8px;border:none;font-family:'Heebo',sans-serif;font-size:13px;font-weight:700;cursor:pointer;}
+.appbtn.approve{background:#dcfce7;color:#15803d;}
+.appbtn.approve:hover{background:#bbf7d0;}
+.appbtn.revoke{background:#fef9c3;color:#92400e;}
+.appbtn.revoke:hover{background:#fef08a;}
+.appbtn.del{background:#fee2e2;color:#dc2626;}
+.appbtn.del:hover{background:#fecaca;}
+.admin-tabs{display:flex;border-bottom:2px solid #e2e8f0;margin-bottom:16px;}
+.admin-tab{padding:10px 18px;border:none;background:none;font-family:'Heebo',sans-serif;font-size:14px;font-weight:700;cursor:pointer;border-bottom:3px solid transparent;color:#64748b;}
+.admin-tab.active{color:#6366f1;border-bottom-color:#6366f1;}
+</style>
+</head>
+<body>
+
+<!-- ══ AUTH SCREEN ══ -->
+<div class="auth-screen" id="authScreen">
+  <div class="auth-card">
+    <div class="auth-logo">✅</div>
+    <div class="auth-title">צ׳ק ליסט מטלות</div>
+    <div class="auth-sub">כניסה למורים רשומים</div>
+
+    <input class="auth-input" type="tel" id="loginPhone" placeholder="טלפון" dir="ltr" autocomplete="off" style="margin-top:16px;">
+    <input class="auth-input" type="password" id="loginPass" placeholder="סיסמה" autocomplete="off">
+    <button class="auth-btn" onclick="doLogin()">כניסה</button>
+
+    <div class="auth-err" id="authErr"></div>
+    <div style="margin-top:14px;font-size:12px;color:#475569;">
+      עדיין לא רשומים? <a href="../teacher-register.html" style="color:#a5b4fc;">לחץ כאן להרשמה</a>
+    </div>
+  </div>
+</div>
+
+<!-- ══ MAIN APP ══ -->
+<div id="mainApp" style="display:none;">
+
+<header>
+  <div class="header-left">
+    <h1>✅ צ׳ק ליסט מטלות <span class="sync-dot" id="syncDot"></span></h1>
+    <p id="hdate">—</p>
+  </div>
+  <div class="header-btns">
+    <span id="teacherBadge" style="background:rgba(255,255,255,.12);padding:6px 12px;border-radius:8px;font-size:13px;font-weight:700;"></span>
+    <button class="hbtn ghost" onclick="showHistory()">📋 היסטוריה</button>
+    <button class="hbtn ghost" onclick="doExport()">⬇️ ייצוא</button>
+    <button class="hbtn closeday" onclick="askCloseDay()">📁 סגור יום</button>
+    <button class="hbtn lock" id="lockBtn" onclick="toggleLock()">🔓 נעל</button>
+    <button class="hbtn" style="background:#6366f1;color:white;" onclick="showAdmin()">⚙️ אדמין</button>
+    <button class="hbtn" style="background:rgba(239,68,68,.2);color:#fca5a5;" onclick="doLogout()">יציאה</button>
+  </div>
+</header>
+
+<div class="lock-banner" id="lockBanner">🔒 המצב נעול — לחץ "בטל נעילה" כדי לערוך</div>
+
+<div class="tabs" id="tabsBar">
+  <span style="padding:12px 20px;color:#94a3b8;font-size:14px;">אין כיתות — הוסף מפאנל האדמין</span>
+</div>
+
+<div class="stats-bar">
+  <div class="stat total">סה״כ <strong id="st-total">0</strong></div>
+  <div class="stat done">✅ ביצעו <strong id="st-done">0</strong></div>
+  <div class="stat notdone">❌ לא ביצעו <strong id="st-notdone">0</strong></div>
+  <div class="stat none">○ לא סומן <strong id="st-none">0</strong></div>
+  <div class="stat partial">⚠️ חלקי <strong id="st-partial">0</strong></div>
+  <div class="progress-wrap"><div class="progress-fill" id="prog" style="width:0%"></div></div>
+</div>
+
+<div class="toolbar">
+  <input type="text" id="search" placeholder="🔍 חיפוש שם..." oninput="renderAll()">
+  <button class="fbtn active" onclick="setFilter('all',this)">הכל</button>
+  <button class="fbtn" onclick="setFilter('done',this)">✅ ביצעו</button>
+  <button class="fbtn" onclick="setFilter('notdone',this)">❌ לא ביצעו</button>
+  <button class="fbtn" onclick="setFilter('none',this)">○ לא סומן</button>
+  <button class="fbtn" onclick="setFilter('partial',this)">⚠️ חלקי</button>
+</div>
+
+<div id="classPanels"></div>
+
+<!-- History -->
+<div class="overlay" id="histPanel">
+  <div class="obox">
+    <div class="ohead"><h2>📋 היסטוריה</h2><button class="xbtn" onclick="hideHistory()">✕</button></div>
+    <div class="obody" id="histBody"></div>
+  </div>
+</div>
+
+<!-- Confirm close day -->
+<div class="confirm-overlay" id="confirmPanel">
+  <div class="cbox">
+    <h3>📁 סגור יום</h3>
+    <p>המצב הנוכחי יישמר בהיסטוריה והרשימה תתאפס. להמשיך?</p>
+    <div class="cbtns">
+      <button class="cbtn yes" onclick="doCloseDay()">כן, שמור וסגור</button>
+      <button class="cbtn no" onclick="hideConfirm()">ביטול</button>
+    </div>
+  </div>
+</div>
+
+<!-- Admin login -->
+<div class="confirm-overlay" id="adminLoginPanel">
+  <div class="admin-login-box">
+    <h3>⚙️ כניסת מנהל</h3>
+    <p>סיסמת מנהל מערכת</p>
+    <input type="password" id="adminPassInput" placeholder="סיסמה..." style="width:100%;padding:10px 14px;border-radius:8px;border:2px solid #e2e8f0;font-family:'Heebo',sans-serif;font-size:15px;outline:none;text-align:center;margin-bottom:12px;" onkeyup="if(event.key==='Enter')checkAdminPass()">
+    <div class="cbtns">
+      <button class="cbtn yes" onclick="checkAdminPass()">כניסה</button>
+      <button class="cbtn no" onclick="hideAdmin()">ביטול</button>
+    </div>
+    <div id="adminPassErr" style="color:#ef4444;font-size:13px;margin-top:8px;min-height:16px;"></div>
+  </div>
+</div>
+
+<!-- Admin panel -->
+<div class="overlay" id="adminPanel">
+  <div class="admin-panel-box">
+    <div class="ohead" style="background:linear-gradient(135deg,#4f46e5,#7c3aed);">
+      <h2>⚙️ ניהול מערכת</h2>
+      <button class="xbtn" onclick="hideAdminPanel()">✕</button>
+    </div>
+    <div class="obody">
+      <div class="admin-tabs">
+        <button class="admin-tab active" onclick="switchAdminTab('classes',this)">📚 כיתות</button>
+        <button class="admin-tab" onclick="switchAdminTab('settings',this)">🔑 הגדרות</button>
+      </div>
+      <div id="adminTabClasses"></div>
+      <div id="adminTabSettings" style="display:none;"></div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /mainApp -->
+
+<script>
+// ── FIREBASE ──────────────────────────────────────────────────
+// checklist-teachers: נתוני כיתות וצ'ק ליסט
+const FC = {
+  apiKey: "AIzaSyCgFfzwakxbVF6ZLFIbPBC6VpSBlKMY7lY",
+  authDomain: "checklist-teachers.firebaseapp.com",
+  databaseURL: "https://checklist-teachers-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "checklist-teachers",
+  storageBucket: "checklist-teachers.firebasestorage.app",
+  messagingSenderId: "71625695058",
+  appId: "1:71625695058:web:cfa9d658b4d04fe956e48b"
+};
+// tests-fd938: אימות מורים קיימים
+const FC_AUTH = {
+  apiKey: "AIzaSyCCHvn_ulmiyM56DuslNzNC0Ge6a8i2vhY",
+  authDomain: "tests-fd938.firebaseapp.com",
+  databaseURL: "https://tests-fd938-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "tests-fd938"
+};
+
+firebase.initializeApp(FC);
+const db       = firebase.database();
+const appAuth  = firebase.initializeApp(FC_AUTH, 'auth');
+const dbAuth   = appAuth.database();
+
+const ADMIN_PASS_REF = db.ref('admin_config/password');
+
+// ── APP STATE ─────────────────────────────────────────────────
+let currentTeacher = null;
+let CLASSES = {};
+let state   = {};
+let locked  = false;
+let curCls  = null;
+let filter  = 'all';
+let ready   = false;
+let classesUnsub = null;
+let stateUnsub   = null;
+let lockUnsub    = null;
+
+// per-teacher refs (set after login)
+let STATE_REF, LOCK_REF, HIST_REF, CLASSES_REF;
+
+// ── AUTH TAB SWITCH ───────────────────────────────────────────
+// (לא נדרש יותר – רק כניסה)
+
+// Enter key support
+document.addEventListener('keyup', e => {
+  if (e.key === 'Enter') {
+    if (document.getElementById('authScreen').style.display !== 'none') doLogin();
+  }
+});
+
+// ── LOGIN (מול tests-fd938) ───────────────────────────────────
+function doLogin() {
+  const phone = document.getElementById('loginPhone').value.trim();
+  const pass  = document.getElementById('loginPass').value.trim();
+  const errEl = document.getElementById('authErr');
+  errEl.textContent = '';
+  if (!phone || !pass) return errEl.textContent = 'נא למלא טלפון וסיסמה';
+
+  errEl.textContent = 'מתחבר...';
+  dbAuth.ref('teachers').once('value', snap => {
+    let foundKey = null, foundData = null;
+    snap.forEach(child => {
+      if (foundKey) return;
+      const t = child.val();
+      if (t.phone === phone && t.password === pass && t.status === 'approved') {
+        foundKey = child.key; foundData = t;
+      }
+    });
+    if (!foundKey) return errEl.textContent = 'טלפון/סיסמה שגויים או המשתמש לא מאושר';
+    currentTeacher = { key: foundKey, name: foundData.name || foundData.firstName + ' ' + foundData.lastName, ...foundData };
+    enterApp();
+  });
+}
+
+// ── ENTER APP ─────────────────────────────────────────────────
+function enterApp() {
+  document.getElementById('authScreen').style.display    = 'none';
+  document.getElementById('pendingScreen').style.display = 'none';
+  document.getElementById('mainApp').style.display       = 'block';
+  document.getElementById('teacherBadge').textContent    = '👤 ' + currentTeacher.name;
+  document.getElementById('hdate').textContent = new Date().toLocaleDateString('he-IL', {weekday:'long', year:'numeric', month:'long', day:'numeric'});
+
+  const base    = 'teachers/' + currentTeacher.key;
+  STATE_REF   = db.ref(base + '/state');
+  LOCK_REF    = db.ref(base + '/locked');
+  HIST_REF    = db.ref(base + '/history');
+  CLASSES_REF = db.ref(base + '/classes');
+
+  // listeners
+  stateUnsub = STATE_REF.on('value', snap => {
+    state = snap.val() || {};
+    ready = true;
+    setSyncDot(true);
+    renderAll();
+  });
+  lockUnsub = LOCK_REF.on('value', snap => {
+    locked = snap.val() === true;
+    const btn = document.getElementById('lockBtn');
+    const ban = document.getElementById('lockBanner');
+    btn.textContent = locked ? '🔒 בטל נעילה' : '🔓 נעל';
+    btn.classList.toggle('locked', locked);
+    ban.classList.toggle('show', locked);
+    renderAll();
+  });
+  classesUnsub = CLASSES_REF.on('value', snap => {
+    const data = snap.val() || {};
+    CLASSES = {};
+    Object.keys(data).sort().forEach(k => {
+      CLASSES[k] = {
+        label: data[k].label,
+        students: Array.isArray(data[k].students) ? data[k].students : Object.values(data[k].students || {})
+      };
+    });
+    rebuildTabs();
+    rebuildPanels();
+    renderAll();
+  });
+  db.ref('.info/connected').on('value', snap => setSyncDot(snap.val()===true));
+}
+
+// ── LOGOUT ────────────────────────────────────────────────────
+function doLogout() {
+  if (classesUnsub) CLASSES_REF.off('value', classesUnsub);
+  if (stateUnsub)   STATE_REF.off('value', stateUnsub);
+  if (lockUnsub)    LOCK_REF.off('value', lockUnsub);
+  currentTeacher = null; CLASSES = {}; state = {}; locked = false; curCls = null; ready = false;
+  document.getElementById('mainApp').style.display    = 'none';
+  document.getElementById('authScreen').style.display = 'flex';
+  document.getElementById('loginPhone').value = '';
+  document.getElementById('loginPass').value  = '';
+  document.getElementById('authErr').textContent = '';
+}
+
+// ── SYNC DOT ──────────────────────────────────────────────────
+function setSyncDot(ok) {
+  const d = document.getElementById('syncDot');
+  d.className = 'sync-dot ' + (ok ? 'ok' : 'err');
+}
+
+// ── TABS / PANELS ─────────────────────────────────────────────
+function rebuildTabs() {
+  const bar  = document.getElementById('tabsBar');
+  const keys = Object.keys(CLASSES);
+  bar.innerHTML = keys.length
+    ? keys.map((k,i) => `<button class="tab${i===0?' active':''}" onclick="switchTab('${k}',this)">${CLASSES[k].label}</button>`).join('')
+    : '<span style="padding:12px 20px;color:#94a3b8;font-size:14px;">אין כיתות — הוסף מפאנל האדמין</span>';
+  if (!curCls || !CLASSES[curCls]) curCls = keys[0] || null;
+}
+
+function rebuildPanels() {
+  const c = document.getElementById('classPanels');
+  const keys = Object.keys(CLASSES);
+  c.innerHTML = keys.map((k,i) =>
+    `<div class="class-panel${i===0?' active':''}" id="panel-${k}"><div class="grid" id="grid-${k}"><div class="loading">טוען...</div></div></div>`
+  ).join('');
+}
+
+function switchTab(cls, btn) {
+  curCls = cls;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  document.querySelectorAll('.class-panel').forEach(p => p.classList.remove('active'));
+  const p = document.getElementById('panel-' + cls);
+  if (p) p.classList.add('active');
+  updateStats();
+}
+
+function setFilter(f, btn) {
+  filter = f;
+  document.querySelectorAll('.fbtn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderAll();
+}
+
+// ── STATE OPS ─────────────────────────────────────────────────
+function fbKey(cls, name) { return cls + '_' + name.replace(/[.#$\[\]/]/g,'_'); }
+function get(cls, name)   { return state[fbKey(cls,name)] || 'none'; }
+
+function cycleStatus(cls, name) {
+  if (locked || !ready) return;
+  const cur  = get(cls, name);
+  const next = cur==='none'?'done':cur==='done'?'partial':cur==='partial'?'notdone':'none';
+  const upd  = {}; upd[fbKey(cls,name)] = next;
+  STATE_REF.update(upd).catch(() => showToast('❌ שגיאת שמירה'));
+}
+
+function toggleLock() { LOCK_REF.set(!locked); }
+
+// ── RENDER ────────────────────────────────────────────────────
+function renderGrid(cls) {
+  const el = document.getElementById('grid-' + cls);
+  if (!el || !ready || !CLASSES[cls]) return;
+  const q  = (document.getElementById('search')||{}).value?.trim().toLowerCase() || '';
+  let list = CLASSES[cls].students;
+  if (q)            list = list.filter(n => n.toLowerCase().includes(q));
+  if (filter!=='all') list = list.filter(n => get(cls,n) === filter);
+  const lk = locked ? ' lk' : '';
+  el.innerHTML = list.length
+    ? list.map(n => {
+        const s  = get(cls,n);
+        const ic = s==='done'?'✅':s==='notdone'?'❌':s==='partial'?'⚠️':'○';
+        return `<div class="student ${s}${lk}" onclick="cycleStatus('${cls}','${n.replace(/'/g,"\\'")}')">
+          <div class="student-name">${n}</div><div class="student-icon">${ic}</div></div>`;
+      }).join('')
+    : '<div style="padding:20px;color:#94a3b8;font-size:14px">אין תוצאות</div>';
+}
+
+function updateStats() {
+  if (!curCls || !CLASSES[curCls]) return;
+  const list    = CLASSES[curCls].students;
+  const done    = list.filter(n => get(curCls,n)==='done').length;
+  const notdone = list.filter(n => get(curCls,n)==='notdone').length;
+  const partial = list.filter(n => get(curCls,n)==='partial').length;
+  const none    = list.length - done - notdone - partial;
+  document.getElementById('st-total').textContent   = list.length;
+  document.getElementById('st-done').textContent    = done;
+  document.getElementById('st-notdone').textContent = notdone;
+  document.getElementById('st-partial').textContent = partial;
+  document.getElementById('st-none').textContent    = none;
+  document.getElementById('prog').style.width = (list.length ? Math.round(done/list.length*100) : 0) + '%';
+}
+
+function renderAll() { Object.keys(CLASSES).forEach(k => renderGrid(k)); updateStats(); }
+
+// ── CLOSE DAY ─────────────────────────────────────────────────
+function askCloseDay() { document.getElementById('confirmPanel').classList.add('show'); }
+function hideConfirm() { document.getElementById('confirmPanel').classList.remove('show'); }
+
+function doCloseDay() {
+  const now  = new Date();
+  const snap = {
+    date: now.toLocaleDateString('he-IL',{weekday:'long',year:'numeric',month:'long',day:'numeric'}) + ' ' +
+          now.toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'}),
+    ts: now.getTime(), classes: {}
+  };
+  for (const [cls, data] of Object.entries(CLASSES)) {
+    snap.classes[cls] = { label: data.label, students: {} };
+    data.students.forEach(n => { snap.classes[cls].students[n] = get(cls,n); });
+  }
+  HIST_REF.push(snap)
+    .then(() => STATE_REF.remove())
+    .then(() => LOCK_REF.set(false))
+    .then(() => { hideConfirm(); showToast('✅ היום נשמר! הרשימה אופסה.'); })
+    .catch(() => showToast('❌ שגיאה'));
+}
+
+// ── HISTORY ───────────────────────────────────────────────────
+function showHistory() {
+  HIST_REF.once('value').then(snap => {
+    const raw  = snap.val();
+    const hist = raw ? Object.entries(raw).reverse().map(([k,v]) => ({...v,_key:k})) : [];
+    const body = document.getElementById('histBody');
+    if (!hist.length) { body.innerHTML = '<div class="hempty">📭 אין היסטוריה</div>'; }
+    else {
+      body.innerHTML = hist.map((entry,i) => {
+        let td=0,tn=0,to=0;
+        const clsHtml = Object.entries(entry.classes||{}).map(([,cd]) => {
+          const entries = Object.entries(cd.students||{});
+          const done  = entries.filter(([,v])=>v==='done').map(([n])=>n);
+          const notd  = entries.filter(([,v])=>v==='notdone').map(([n])=>n);
+          const none  = entries.filter(([,v])=>v==='none').map(([n])=>n);
+          const part  = entries.filter(([,v])=>v==='partial').map(([n])=>n);
+          td+=done.length; tn+=notd.length; to+=none.length;
+          return `<div class="hcls"><div class="hcls-title">${cd.label}</div>
+            ${done.length?`<div class="hnamesrow"><div class="hnamesrow-lbl g">✅ ביצעו (${done.length})</div><div class="hnames">${done.map(n=>`<span class="hname done">${n}</span>`).join('')}</div></div>`:''}
+            ${notd.length?`<div class="hnamesrow"><div class="hnamesrow-lbl r">❌ לא ביצעו (${notd.length})</div><div class="hnames">${notd.map(n=>`<span class="hname notdone">${n}</span>`).join('')}</div></div>`:''}
+            ${part.length?`<div class="hnamesrow"><div class="hnamesrow-lbl" style="color:#ca8a04">⚠️ חלקי (${part.length})</div><div class="hnames">${part.map(n=>`<span class="hname partial">${n}</span>`).join('')}</div></div>`:''}
+            ${none.length?`<div class="hnamesrow"><div class="hnamesrow-lbl gr">○ לא סומן (${none.length})</div><div class="hnames">${none.map(n=>`<span class="hname none">${n}</span>`).join('')}</div></div>`:''}
+          </div>`;
+        }).join('');
+        return `<div class="hday" id="hd${i}">
+          <div class="hday-head" onclick="document.getElementById('hd${i}').classList.toggle('open')">
+            <div class="hday-date">📅 ${entry.date}</div>
+            <div class="hday-nums"><span class="g">✅ ${td}</span><span class="r">❌ ${tn}</span><span class="gr">○ ${to}</span></div>
+          </div>
+          <div class="hday-body">${clsHtml}<button class="hdel" onclick="delHist('${entry._key}')">🗑️ מחק</button></div>
+        </div>`;
+      }).join('');
+    }
+    document.getElementById('histPanel').classList.add('show');
+  });
+}
+function hideHistory() { document.getElementById('histPanel').classList.remove('show'); }
+function delHist(key) { if (!confirm('למחוק?')) return; HIST_REF.child(key).remove().then(() => showHistory()); }
+
+// ── EXPORT ────────────────────────────────────────────────────
+function doExport() {
+  const now   = new Date().toLocaleString('he-IL');
+  const lines = ['צ׳ק ליסט מטלות — ' + now,'='.repeat(40)];
+  for (const [cls, data] of Object.entries(CLASSES)) {
+    lines.push('\n' + data.label, '-'.repeat(30));
+    const done = data.students.filter(n => get(cls,n)==='done');
+    const notd = data.students.filter(n => get(cls,n)==='notdone');
+    const none = data.students.filter(n => get(cls,n)==='none');
+    lines.push('✅ ביצעו: '+(done.join(', ')||'—'));
+    lines.push('❌ לא ביצעו: '+(notd.join(', ')||'—'));
+    lines.push('○ לא סומן: '+(none.join(', ')||'—'));
+  }
+  const a = document.createElement('a');
+  a.href = 'data:text/plain;charset=utf-8,\uFEFF' + encodeURIComponent(lines.join('\n'));
+  a.download = 'checklist_' + Date.now() + '.txt';
+  a.click();
+}
+
+// ── ADMIN ─────────────────────────────────────────────────────
+function showAdmin() {
+  document.getElementById('adminPassInput').value = '';
+  document.getElementById('adminPassErr').textContent = '';
+  document.getElementById('adminLoginPanel').classList.add('show');
+  setTimeout(() => document.getElementById('adminPassInput').focus(), 100);
+}
+function hideAdmin() { document.getElementById('adminLoginPanel').classList.remove('show'); }
+
+function checkAdminPass() {
+  const entered = document.getElementById('adminPassInput').value.trim();
+  ADMIN_PASS_REF.once('value', snap => {
+    const saved = snap.val() || 'admin';
+    if (entered === saved) { hideAdmin(); openAdminPanel(); }
+    else document.getElementById('adminPassErr').textContent = 'סיסמה שגויה';
+  });
+}
+
+function openAdminPanel() {
+  switchAdminTab('classes', document.querySelector('.admin-tab'));
+  document.getElementById('adminPanel').classList.add('show');
+}
+function hideAdminPanel() { document.getElementById('adminPanel').classList.remove('show'); }
+
+function switchAdminTab(tab, btn) {
+  document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  document.getElementById('adminTabClasses').style.display  = tab==='classes'  ? '' : 'none';
+  document.getElementById('adminTabSettings').style.display = tab==='settings' ? '' : 'none';
+  if (tab==='classes')  renderAdminClasses();
+  if (tab==='settings') renderAdminSettings();
+}
+
+// ── ADMIN: TEACHERS ───────────────────────────────────────────
+function renderAdminTeachers() {
+  const el = document.getElementById('adminTabTeachers');
+  TEACHERS_REF.once('value', snap => {
+    const all     = snap.val() || {};
+    const pending  = Object.entries(all).filter(([,t]) => t.status==='pending');
+    const approved = Object.entries(all).filter(([,t]) => t.status==='approved');
+
+    let html = '';
+
+    // ממתינים
+    html += `<div class="admin-section">
+      <div class="admin-section-head">⏳ ממתינים לאישור <span style="background:#fef3c7;color:#92400e;padding:2px 8px;border-radius:10px;font-size:11px;">${pending.length}</span></div>
+      <div style="padding:12px;">`;
+    if (!pending.length) html += '<div style="color:#94a3b8;font-size:13px;padding:8px 0;">אין בקשות ממתינות</div>';
+    pending.forEach(([k,t]) => {
+      html += `<div class="teacher-card pending">
+        <div class="teacher-info">
+          <div class="teacher-name">${t.name}</div>
+          <div class="teacher-meta">📞 ${t.phone} &nbsp;|&nbsp; 🕐 ${new Date(t.requestedAt).toLocaleString('he-IL')}</div>
+        </div>
+        <div class="teacher-actions">
+          <button class="appbtn approve" onclick="approveTeacher('${k}')">✓ אשר</button>
+          <button class="appbtn del" onclick="deleteTeacher('${k}')">✕ מחק</button>
+        </div>
+      </div>`;
+    });
+    html += '</div></div>';
+
+    // מאושרים
+    html += `<div class="admin-section">
+      <div class="admin-section-head">✅ מורים פעילים <span style="background:#dcfce7;color:#15803d;padding:2px 8px;border-radius:10px;font-size:11px;">${approved.length}</span></div>
+      <div style="padding:12px;">`;
+    if (!approved.length) html += '<div style="color:#94a3b8;font-size:13px;padding:8px 0;">אין מורים מאושרים עדיין</div>';
+    approved.forEach(([k,t]) => {
+      html += `<div class="teacher-card approved">
+        <div class="teacher-info">
+          <div class="teacher-name">${t.name}</div>
+          <div class="teacher-meta">📞 ${t.phone}</div>
+        </div>
+        <div class="teacher-actions">
+          <button class="appbtn revoke" onclick="revokeTeacher('${k}')">השהה</button>
+          <button class="appbtn del" onclick="deleteTeacher('${k}')">מחק</button>
+        </div>
+      </div>`;
+    });
+    html += '</div></div>';
+
+    el.innerHTML = html;
+  });
+}
+
+function approveTeacher(key) {
+  TEACHERS_REF.child(key).update({ status: 'approved', approvedAt: Date.now() })
+    .then(() => { showToast('✅ מורה אושר'); renderAdminTeachers(); });
+}
+function revokeTeacher(key) {
+  if (!confirm('להשהות מורה זה?')) return;
+  TEACHERS_REF.child(key).update({ status: 'pending' })
+    .then(() => { showToast('הושהה'); renderAdminTeachers(); });
+}
+function deleteTeacher(key) {
+  if (!confirm('למחוק מורה זה לגמרי? הכיתות וההיסטוריה שלו יימחקו!')) return;
+  TEACHERS_REF.child(key).remove()
+    .then(() => db.ref('teachers/' + key).remove())
+    .then(() => { showToast('נמחק'); renderAdminTeachers(); });
+}
+
+// ── ADMIN: CLASSES ────────────────────────────────────────────
+function renderAdminClasses() {
+  const el   = document.getElementById('adminTabClasses');
+  const keys = Object.keys(CLASSES);
+  let html = `<div class="admin-section">
+    <div class="admin-section-head">➕ הוספת כיתה חדשה</div>
+    <div class="add-cls-row">
+      <input type="text" id="newClsLabel" placeholder="שם הכיתה...">
+      <button onclick="addNewClass()" style="padding:9px 16px;background:#6366f1;color:white;border:none;border-radius:8px;font-family:'Heebo',sans-serif;font-weight:700;cursor:pointer;">הוסף</button>
+    </div>
+  </div>`;
+
+  keys.forEach(k => {
+    const cls  = CLASSES[k];
+    const tags = cls.students.map(n =>
+      `<div class="admin-student-tag">${n}<button class="rm" onclick="removeStudent('${k}','${n.replace(/'/g,"\\'")}')">✕</button></div>`
+    ).join('');
+    html += `<div class="admin-section">
+      <div class="admin-section-head">
+        <span>📚 ${cls.label} <span style="font-size:11px;color:#94a3b8;">(${cls.students.length} תלמידים)</span></span>
+        <button class="delbtn" onclick="deleteClass('${k}')">🗑️ מחק</button>
+      </div>
+      <div class="admin-cls-block">
+        <div class="admin-students-list">${tags||'<span style="color:#94a3b8;font-size:13px;">אין תלמידים</span>'}</div>
+        <div class="admin-add-row">
+          <input type="text" id="newst-${k}" placeholder="שם תלמיד/ה חדש/ה...">
+          <button onclick="addStudent('${k}')">➕</button>
+        </div>
+        <div style="margin-top:8px;">
+          <label style="display:inline-flex;align-items:center;gap:7px;padding:7px 14px;background:#f0fdf4;border:2px solid #86efac;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700;color:#15803d;">
+            📊 העלה Excel
+            <input type="file" accept=".xlsx,.xls,.csv" style="display:none;" onchange="importExcel('${k}',this)">
+          </label>
+        </div>
+      </div>
+    </div>`;
+  });
+
+  el.innerHTML = html;
+}
+
+function addNewClass() {
+  const label = document.getElementById('newClsLabel').value.trim();
+  if (!label) return showToast('נא למלא שם כיתה');
+  const key = 'cls_' + Date.now();
+  CLASSES_REF.child(key).set({ label, students: [] }).then(() => {
+    showToast('✅ כיתה נוספה');
+    document.getElementById('newClsLabel').value = '';
+  });
+}
+
+function deleteClass(key) {
+  if (!confirm(`למחוק את "${CLASSES[key]?.label}"?`)) return;
+  CLASSES_REF.child(key).remove().then(() => showToast('🗑️ נמחק'));
+}
+
+function addStudent(cls) {
+  const inp  = document.getElementById('newst-' + cls);
+  const name = inp.value.trim();
+  if (!name) return;
+  const updated = [...(CLASSES[cls]?.students||[]), name];
+  CLASSES_REF.child(cls + '/students').set(updated).then(() => { inp.value = ''; showToast('✅ נוסף'); renderAdminClasses(); });
+}
+
+function removeStudent(cls, name) {
+  if (!confirm(`להסיר את ${name}?`)) return;
+  const updated = (CLASSES[cls]?.students||[]).filter(n => n !== name);
+  CLASSES_REF.child(cls + '/students').set(updated).then(() => { showToast('הוסר'); renderAdminClasses(); });
+}
+
+function importExcel(cls, input) {
+  const file = input.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const wb    = XLSX.read(new Uint8Array(e.target.result), {type:'array'});
+      const rows  = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header:1, defval:''});
+      let names   = rows.map(r => (r[0]||'').toString().trim()).filter(n => n);
+      if (names.length && /שם|name/i.test(names[0])) names = names.slice(1);
+      if (!names.length) return showToast('לא נמצאו שמות');
+      const merged = [...new Set([...(CLASSES[cls]?.students||[]), ...names])];
+      CLASSES_REF.child(cls + '/students').set(merged).then(() => {
+        showToast('✅ יובאו ' + names.length + ' שמות');
+        input.value = '';
+        renderAdminClasses();
+      });
+    } catch { showToast('❌ שגיאה בקריאת הקובץ'); }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// ── ADMIN: SETTINGS ───────────────────────────────────────────
+function renderAdminSettings() {
+  document.getElementById('adminTabSettings').innerHTML = `
+    <div class="admin-section">
+      <div class="admin-section-head">🔑 שינוי סיסמת מנהל</div>
+      <div class="add-cls-row">
+        <input type="password" id="newAdminPass" placeholder="סיסמה חדשה..." dir="ltr">
+        <button onclick="changeAdminPass()" style="padding:9px 16px;background:#1a2340;color:white;border:none;border-radius:8px;font-family:'Heebo',sans-serif;font-weight:700;cursor:pointer;">שמור</button>
+      </div>
+    </div>`;
+}
+
+function changeAdminPass() {
+  const p = document.getElementById('newAdminPass').value.trim();
+  if (!p || p.length < 3) return showToast('סיסמה קצרה מדי');
+  ADMIN_PASS_REF.set(p).then(() => { showToast('✅ סיסמה עודכנה'); document.getElementById('newAdminPass').value=''; });
+}
+
+// ── TOAST ─────────────────────────────────────────────────────
+function showToast(msg) {
+  const t = document.createElement('div');
+  t.className = 'toast'; t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => { t.style.opacity='0'; setTimeout(()=>t.remove(),400); }, 2800);
+}
+</script>
+</body>
+</html>
