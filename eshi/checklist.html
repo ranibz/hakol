@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>צ׳ק ליסט מטלות</title>
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700;800;900&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 <style>
@@ -109,6 +110,28 @@ header{background:linear-gradient(135deg,#1a2340,#2d3a6b);color:white;padding:14
 .cbtn.no:hover{background:#e2e8f0;}
 /* TOAST */
 .toast{position:fixed;bottom:24px;right:24px;background:#1a2340;color:white;padding:12px 20px;border-radius:10px;font-size:14px;font-weight:700;z-index:999;box-shadow:0 8px 24px rgba(0,0,0,.3);transition:opacity .4s;pointer-events:none;}
+/* ADMIN PANEL */
+.admin-login-box{background:white;border-radius:14px;padding:28px 24px;max-width:340px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.3);text-align:center;}
+.admin-login-box h3{font-size:18px;font-weight:900;margin-bottom:8px;}
+.admin-login-box p{font-size:13px;color:#64748b;margin-bottom:16px;}
+.admin-panel-box{background:white;border-radius:16px;max-width:660px;width:100%;box-shadow:0 20px 60px rgba(0,0,0,.3);overflow:hidden;max-height:90vh;display:flex;flex-direction:column;}
+.admin-section{border:2px solid #e2e8f0;border-radius:10px;margin-bottom:14px;overflow:hidden;}
+.admin-section-head{background:#f8fafc;padding:10px 14px;font-size:13px;font-weight:800;letter-spacing:.5px;display:flex;justify-content:space-between;align-items:center;}
+.admin-cls-block{padding:14px;}
+.admin-cls-title{font-size:15px;font-weight:800;color:#1a2340;margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;}
+.admin-students-list{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;}
+.admin-student-tag{background:#f1f5f9;border:1.5px solid #e2e8f0;border-radius:20px;padding:4px 10px;font-size:12px;font-weight:600;display:flex;align-items:center;gap:5px;}
+.admin-student-tag .rm{background:none;border:none;color:#ef4444;cursor:pointer;font-size:13px;padding:0;line-height:1;}
+.admin-add-row{display:flex;gap:6px;margin-top:6px;}
+.admin-add-row input{flex:1;padding:8px 12px;border:2px solid #e2e8f0;border-radius:8px;font-family:'Heebo',sans-serif;font-size:13px;outline:none;}
+.admin-add-row input:focus{border-color:#6366f1;}
+.admin-add-row button{padding:8px 14px;background:#6366f1;color:white;border:none;border-radius:8px;font-family:'Heebo',sans-serif;font-size:13px;font-weight:700;cursor:pointer;}
+.admin-add-row button:hover{background:#4f46e5;}
+.add-cls-row{display:flex;gap:8px;padding:14px;}
+.add-cls-row input{flex:1;padding:9px 13px;border:2px solid #e2e8f0;border-radius:8px;font-family:'Heebo',sans-serif;font-size:13px;outline:none;}
+.add-cls-row input:focus{border-color:#6366f1;}
+.delbtn{background:#fee2e2;color:#dc2626;border:none;border-radius:6px;padding:5px 11px;font-size:12px;font-weight:700;cursor:pointer;}
+.delbtn:hover{background:#fecaca;}
 </style>
 </head>
 <body>
@@ -123,12 +146,13 @@ header{background:linear-gradient(135deg,#1a2340,#2d3a6b);color:white;padding:14
     <button class="hbtn ghost" onclick="doExport()">⬇️ ייצוא</button>
     <button class="hbtn closeday" onclick="askCloseDay()">📁 סגור יום</button>
     <button class="hbtn lock" id="lockBtn" onclick="toggleLock()">🔓 נעל</button>
+    <button class="hbtn" style="background:#6366f1;color:white;" onclick="showAdmin()">⚙️ אדמין</button>
   </div>
 </header>
 
 <div class="lock-banner" id="lockBanner">🔒 המצב נעול — לחץ "בטל נעילה" כדי לערוך</div>
 
-<div class="tabs">
+<div class="tabs" id="tabsBar">
   <button class="tab active" onclick="switchTab('y10',this)">י׳ תקשורת למד</button>
   <button class="tab" onclick="switchTab('y11',this)">יא׳ תקשורת למד</button>
 </div>
@@ -151,8 +175,35 @@ header{background:linear-gradient(135deg,#1a2340,#2d3a6b);color:white;padding:14
   <button class="fbtn" onclick="setFilter('partial',this)">⚠️ חלקי</button>
 </div>
 
-<div class="class-panel active" id="panel-y10"><div class="grid" id="grid-y10"><div class="loading">טוען...</div></div></div>
-<div class="class-panel" id="panel-y11"><div class="grid" id="grid-y11"><div class="loading">טוען...</div></div></div>
+<div id="classPanels">
+  <div class="class-panel active" id="panel-y10"><div class="grid" id="grid-y10"><div class="loading">טוען...</div></div></div>
+  <div class="class-panel" id="panel-y11"><div class="grid" id="grid-y11"><div class="loading">טוען...</div></div></div>
+</div>
+
+<!-- Admin Login -->
+<div class="confirm-overlay" id="adminLoginPanel">
+  <div class="admin-login-box">
+    <h3>⚙️ כניסת מנהל</h3>
+    <p>הזינו סיסמת מנהל לניהול כיתות ותלמידים</p>
+    <input type="password" class="inline-input" id="adminPassInput" placeholder="סיסמה..." style="width:100%;margin-bottom:12px;padding:10px 14px;border-radius:8px;border:2px solid #e2e8f0;font-family:'Heebo',sans-serif;font-size:15px;outline:none;text-align:center;" onkeyup="if(event.key==='Enter')checkAdminPass()">
+    <div class="cbtns">
+      <button class="cbtn yes" onclick="checkAdminPass()">כניסה</button>
+      <button class="cbtn no" onclick="hideAdmin()">ביטול</button>
+    </div>
+    <div id="adminPassErr" style="color:#ef4444;font-size:13px;margin-top:8px;min-height:16px;"></div>
+  </div>
+</div>
+
+<!-- Admin Panel -->
+<div class="overlay" id="adminPanel">
+  <div class="admin-panel-box">
+    <div class="ohead" style="background:linear-gradient(135deg,#4f46e5,#7c3aed);">
+      <h2>⚙️ ניהול כיתות ותלמידים</h2>
+      <button class="xbtn" onclick="hideAdminPanel()">✕</button>
+    </div>
+    <div class="obody" id="adminBody"></div>
+  </div>
+</div>
 
 <!-- History -->
 <div class="overlay" id="histPanel">
@@ -187,28 +238,75 @@ const FC = {
 };
 firebase.initializeApp(FC);
 const db = firebase.database();
-const STATE_REF = db.ref('checklist/state');
-const LOCK_REF  = db.ref('checklist/locked');
-const HIST_REF  = db.ref('checklist/history');
+const STATE_REF   = db.ref('checklist/state');
+const LOCK_REF    = db.ref('checklist/locked');
+const HIST_REF    = db.ref('checklist/history');
+const CLASSES_REF = db.ref('checklist/classes');
+const ADMIN_PASS  = 'checklist/admin_password';
 
-// ─── DATA ────────────────────────────────────────────────────
-const CLASSES = {
+// ─── DEFAULT CLASSES (כתיבה ראשונית לפייראבייס אם ריק) ──────
+const DEFAULT_CLASSES = {
   y10: { label:'י׳ תקשורת למד', students:['אלוף יקוטי רוני','בורוכוביץ סיון','גולדשטיין נועה','דהן יקיר','דהן ליאל','דטיאשוילי גולן','דרעי אנאל','ולצר ליהי','טגנר גאיה','טגנר יהלי','טובלי ליאם','לוי תהל','מוסרי שנהב','מלכה טליה','משולם נועה','נחום ירדן','נפתלי אלמוג','עמר ירין טרז','פינטו שירה','ציטרון מליסה בתאל','קנטור גאיה','קרמר הילה','ראדה יהלי','שרעבי טליה'] },
   y11: { label:'יא׳ תקשורת למד', students:['ברש יסמין','גוגולשוילי ליאל תמר','גרה בגי נרקיס','דהן שחר רבקה','דוידי אילון אפרים','דרעי נטע רחל','הופמן עמית','הלפר נוגה','זפרודסקי גיא','ישראל נועם','לוי ליאור','מידן תומר','מיזן רום','מרסיאנו איתי חי','עסיס אביה','פלדמן טליה','פנחס נועה',"פרנג'י לוטם",'צדק שירה','שלוש ליאן','שמאי הלל'] }
 };
 
-let state  = {};   // { "y10_שם": "done"|"notdone"|"none" }
+let CLASSES = {};
+let state  = {};
 let locked = false;
-let curCls = 'y10';
+let curCls = null;
 let filter = 'all';
 let ready  = false;
+
+// ─── LOAD CLASSES FROM FIREBASE ─────────────────────────────
+CLASSES_REF.once('value', snap => {
+  const saved = snap.val();
+  if (!saved) {
+    // כתיבה ראשונית
+    CLASSES_REF.set(DEFAULT_CLASSES).then(() => loadClasses());
+  } else {
+    loadClasses();
+  }
+});
+
+function loadClasses() {
+  CLASSES_REF.on('value', snap => {
+    const data = snap.val() || DEFAULT_CLASSES;
+    CLASSES = {};
+    // שמר סדר לפי מפתח
+    Object.keys(data).sort().forEach(k => {
+      CLASSES[k] = {
+        label: data[k].label,
+        students: Array.isArray(data[k].students) ? data[k].students : Object.values(data[k].students || {})
+      };
+    });
+    rebuildTabs();
+    rebuildPanels();
+    renderAll();
+  });
+}
+
+function rebuildTabs() {
+  const bar = document.getElementById('tabsBar');
+  const keys = Object.keys(CLASSES);
+  bar.innerHTML = keys.map((k, i) =>
+    `<button class="tab${i === 0 ? ' active' : ''}" onclick="switchTab('${k}',this)">${CLASSES[k].label}</button>`
+  ).join('');
+  if (!curCls || !CLASSES[curCls]) curCls = keys[0] || null;
+}
+
+function rebuildPanels() {
+  const container = document.getElementById('classPanels');
+  const keys = Object.keys(CLASSES);
+  container.innerHTML = keys.map((k, i) =>
+    `<div class="class-panel${i === 0 ? ' active' : ''}" id="panel-${k}"><div class="grid" id="grid-${k}"><div class="loading">טוען...</div></div></div>`
+  ).join('');
+}
 
 // ─── FIREBASE LISTENERS ──────────────────────────────────────
 function fbKey(cls, name) {
   return cls + '_' + name.replace(/[.#$\[\]/]/g, '_');
 }
 
-// Listen to state changes in real-time
 STATE_REF.on('value', snap => {
   state = snap.val() || {};
   ready = true;
@@ -256,13 +354,14 @@ function toggleLock() {
 
 // ─── RENDER ──────────────────────────────────────────────────
 function renderGrid(cls) {
-  if (!ready) return;
+  const gridEl = document.getElementById('grid-' + cls);
+  if (!gridEl || !ready || !CLASSES[cls]) return;
   const q = document.getElementById('search').value.trim().toLowerCase();
   let list = CLASSES[cls].students;
   if (q) list = list.filter(n => n.toLowerCase().includes(q));
   if (filter !== 'all') list = list.filter(n => get(cls, n) === filter);
   const lk = locked ? ' lk' : '';
-  document.getElementById('grid-' + cls).innerHTML = list.length
+  gridEl.innerHTML = list.length
     ? list.map(n => {
         const s = get(cls, n);
         const ic = s === 'done' ? '✅' : s === 'notdone' ? '❌' : s === 'partial' ? '⚠️' : '○';
@@ -275,6 +374,7 @@ function renderGrid(cls) {
 }
 
 function updateStats() {
+  if (!curCls || !CLASSES[curCls]) return;
   const list = CLASSES[curCls].students;
   const done    = list.filter(n => get(curCls, n) === 'done').length;
   const notdone = list.filter(n => get(curCls, n) === 'notdone').length;
@@ -288,14 +388,18 @@ function updateStats() {
   document.getElementById('prog').style.width = (list.length ? Math.round(done / list.length * 100) : 0) + '%';
 }
 
-function renderAll() { renderGrid('y10'); renderGrid('y11'); updateStats(); }
+function renderAll() {
+  Object.keys(CLASSES).forEach(k => renderGrid(k));
+  updateStats();
+}
 
 function switchTab(cls, btn) {
   curCls = cls;
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-  btn.classList.add('active');
+  if (btn) btn.classList.add('active');
   document.querySelectorAll('.class-panel').forEach(p => p.classList.remove('active'));
-  document.getElementById('panel-' + cls).classList.add('active');
+  const panel = document.getElementById('panel-' + cls);
+  if (panel) panel.classList.add('active');
   updateStats();
 }
 
@@ -304,6 +408,168 @@ function setFilter(f, btn) {
   document.querySelectorAll('.fbtn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   renderAll();
+}
+
+// ─── ADMIN ───────────────────────────────────────────────────
+function showAdmin() {
+  document.getElementById('adminPassInput').value = '';
+  document.getElementById('adminPassErr').textContent = '';
+  document.getElementById('adminLoginPanel').classList.add('show');
+  setTimeout(() => document.getElementById('adminPassInput').focus(), 100);
+}
+
+function hideAdmin() {
+  document.getElementById('adminLoginPanel').classList.remove('show');
+}
+
+function checkAdminPass() {
+  const entered = document.getElementById('adminPassInput').value.trim();
+  db.ref(ADMIN_PASS).once('value', snap => {
+    const saved = snap.val() || 'admin';
+    if (entered === saved) {
+      hideAdmin();
+      openAdminPanel();
+    } else {
+      document.getElementById('adminPassErr').textContent = 'סיסמה שגויה';
+    }
+  });
+}
+
+function openAdminPanel() {
+  renderAdminBody();
+  document.getElementById('adminPanel').classList.add('show');
+}
+
+function hideAdminPanel() {
+  document.getElementById('adminPanel').classList.remove('show');
+}
+
+function renderAdminBody() {
+  const body = document.getElementById('adminBody');
+  const keys = Object.keys(CLASSES);
+
+  let html = `
+    <div class="admin-section">
+      <div class="admin-section-head"><span>➕ הוספת כיתה חדשה</span></div>
+      <div class="add-cls-row">
+        <input type="text" id="newClsLabel" placeholder='שם כיתה (למשל: יב׳ תקשורת)' style="flex:2;">
+        <button onclick="addNewClass()" style="padding:9px 16px;background:#6366f1;color:white;border:none;border-radius:8px;font-family:'Heebo',sans-serif;font-weight:700;cursor:pointer;">הוסף כיתה</button>
+      </div>
+    </div>`;
+
+  keys.forEach(k => {
+    const cls = CLASSES[k];
+    const tags = cls.students.map(n =>
+      `<div class="admin-student-tag">${n}<button class="rm" onclick="removeStudent('${k}','${n.replace(/'/g,"\\'")}')">✕</button></div>`
+    ).join('');
+    html += `
+      <div class="admin-section">
+        <div class="admin-section-head">
+          <span>📚 ${cls.label} <span style="font-size:11px;color:#94a3b8;">(${cls.students.length} תלמידים)</span></span>
+          <button class="delbtn" onclick="deleteClass('${k}')">🗑️ מחק כיתה</button>
+        </div>
+        <div class="admin-cls-block">
+          <div class="admin-students-list">${tags || '<span style="color:#94a3b8;font-size:13px;">אין תלמידים</span>'}</div>
+          <div class="admin-add-row">
+            <input type="text" id="newst-${k}" placeholder="שם תלמיד/ה חדש/ה...">
+            <button onclick="addStudent('${k}')">➕ הוסף</button>
+          </div>
+          <div style="margin-top:8px;">
+            <label style="display:inline-flex;align-items:center;gap:7px;padding:7px 14px;background:#f0fdf4;border:2px solid #86efac;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700;color:#15803d;">
+              📊 העלה Excel עם שמות
+              <input type="file" accept=".xlsx,.xls,.csv" style="display:none;" onchange="importExcelToClass('${k}',this)">
+            </label>
+          </div>
+        </div>
+      </div>`;
+  });
+
+  html += `
+    <div class="admin-section">
+      <div class="admin-section-head"><span>🔑 שינוי סיסמת מנהל</span></div>
+      <div class="add-cls-row">
+        <input type="password" id="newAdminPass" placeholder="סיסמה חדשה..." dir="ltr">
+        <button onclick="changeAdminPass()" style="padding:9px 16px;background:#1a2340;color:white;border:none;border-radius:8px;font-family:'Heebo',sans-serif;font-weight:700;cursor:pointer;">שמור</button>
+      </div>
+    </div>`;
+
+  body.innerHTML = html;
+}
+
+function addNewClass() {
+  const label = document.getElementById('newClsLabel').value.trim();
+  if (!label) return showToast('נא למלא שם כיתה');
+  // מזהה אוטומטי: cls_ + timestamp
+  const key = 'cls_' + Date.now();
+  CLASSES_REF.child(key).set({ label, students: [] }).then(() => {
+    showToast('✅ כיתה נוספה');
+    document.getElementById('newClsLabel').value = '';
+  });
+}
+
+function importExcelToClass(cls, input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+      const sheet = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+      // שלוף את כל הערכים מעמודה ראשונה, דלג על שורה ראשונה אם זו כותרת
+      let names = rows.map(r => (r[0] || '').toString().trim()).filter(n => n);
+      // אם השורה הראשונה נראית כמו כותרת (לא שם) – דלג עליה
+      if (names.length && /שם|name/i.test(names[0])) names = names.slice(1);
+      if (!names.length) return showToast('לא נמצאו שמות בקובץ');
+      const existing = CLASSES[cls]?.students || [];
+      const merged = [...new Set([...existing, ...names])];
+      CLASSES_REF.child(cls + '/students').set(merged).then(() => {
+        showToast('✅ יובאו ' + names.length + ' שמות');
+        input.value = '';
+        renderAdminBody();
+      });
+    } catch(err) {
+      showToast('❌ שגיאה בקריאת הקובץ');
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function deleteClass(key) {
+  if (!confirm(`למחוק את הכיתה "${CLASSES[key]?.label}"? הנתונים בפייראבייס לא יימחקו.`)) return;
+  CLASSES_REF.child(key).remove().then(() => showToast('🗑️ כיתה נמחקה'));
+}
+
+function addStudent(cls) {
+  const inp = document.getElementById('newst-' + cls);
+  const name = inp.value.trim();
+  if (!name) return;
+  const current = CLASSES[cls]?.students || [];
+  if (current.includes(name)) return showToast('שם זה כבר קיים');
+  const updated = [...current, name];
+  CLASSES_REF.child(cls + '/students').set(updated).then(() => {
+    inp.value = '';
+    showToast('✅ ' + name + ' נוסף/ה');
+    renderAdminBody();
+  });
+}
+
+function removeStudent(cls, name) {
+  if (!confirm(`להסיר את ${name} מהכיתה?`)) return;
+  const updated = (CLASSES[cls]?.students || []).filter(n => n !== name);
+  CLASSES_REF.child(cls + '/students').set(updated).then(() => {
+    showToast('הוסר');
+    renderAdminBody();
+  });
+}
+
+function changeAdminPass() {
+  const p = document.getElementById('newAdminPass').value.trim();
+  if (!p || p.length < 3) return showToast('סיסמה חייבת להיות לפחות 3 תווים');
+  db.ref(ADMIN_PASS).set(p).then(() => {
+    showToast('✅ הסיסמה עודכנה');
+    document.getElementById('newAdminPass').value = '';
+  });
 }
 
 // ─── CLOSE DAY ───────────────────────────────────────────────
