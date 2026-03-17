@@ -204,7 +204,8 @@ header{background:linear-gradient(135deg,#1a2340,#2d3a6b);color:white;padding:14
     <button class="hbtn ghost" onclick="doExport()">⬇️ ייצוא</button>
     <button class="hbtn closeday" onclick="askCloseDay()">📁 סגור יום</button>
     <button class="hbtn lock" id="lockBtn" onclick="toggleLock()">🔓 נעל</button>
-    <button class="hbtn" style="background:#6366f1;color:white;" onclick="showAdmin()">⚙️ אדמין</button>
+    <button class="hbtn" style="background:#6366f1;color:white;" onclick="openAdminPanel()">📚 ניהול כיתות</button>
+    <button class="hbtn" style="background:#1a2340;color:#94a3b8;border:1px solid #334155;" onclick="showSuperAdmin()">🔧 מנהל</button>
     <button class="hbtn" style="background:rgba(239,68,68,.2);color:#fca5a5;" onclick="doLogout()">יציאה</button>
   </div>
 </header>
@@ -255,17 +256,30 @@ header{background:linear-gradient(135deg,#1a2340,#2d3a6b);color:white;padding:14
   </div>
 </div>
 
-<!-- Admin login -->
-<div class="confirm-overlay" id="adminLoginPanel">
+<!-- Super Admin login -->
+<div class="confirm-overlay" id="superAdminLoginPanel">
   <div class="admin-login-box">
-    <h3>⚙️ כניסת מנהל</h3>
-    <p>סיסמת מנהל מערכת</p>
-    <input type="password" id="adminPassInput" placeholder="סיסמה..." style="width:100%;padding:10px 14px;border-radius:8px;border:2px solid #e2e8f0;font-family:'Heebo',sans-serif;font-size:15px;outline:none;text-align:center;margin-bottom:12px;" onkeyup="if(event.key==='Enter')checkAdminPass()">
+    <h3>🔧 כניסת מנהל מערכת</h3>
+    <p>סיסמת מנהל ראשית</p>
+    <input type="password" id="superAdminPassInput" placeholder="סיסמה..." style="width:100%;padding:10px 14px;border-radius:8px;border:2px solid #e2e8f0;font-family:'Heebo',sans-serif;font-size:15px;outline:none;text-align:center;margin-bottom:12px;" onkeyup="if(event.key==='Enter')checkSuperAdminPass()">
     <div class="cbtns">
-      <button class="cbtn yes" onclick="checkAdminPass()">כניסה</button>
-      <button class="cbtn no" onclick="hideAdmin()">ביטול</button>
+      <button class="cbtn yes" onclick="checkSuperAdminPass()">כניסה</button>
+      <button class="cbtn no" onclick="hideSuperAdmin()">ביטול</button>
     </div>
-    <div id="adminPassErr" style="color:#ef4444;font-size:13px;margin-top:8px;min-height:16px;"></div>
+    <div id="superAdminPassErr" style="color:#ef4444;font-size:13px;margin-top:8px;min-height:16px;"></div>
+  </div>
+</div>
+
+<!-- Super Admin panel -->
+<div class="overlay" id="superAdminPanel">
+  <div class="admin-panel-box" style="max-width:800px;">
+    <div class="ohead" style="background:linear-gradient(135deg,#1a2340,#0f172a);">
+      <h2>🔧 ניהול מערכת — כל המורים</h2>
+      <button class="xbtn" onclick="hideSuperAdminPanel()">✕</button>
+    </div>
+    <div class="obody" id="superAdminBody">
+      <div style="text-align:center;padding:40px;color:#94a3b8;">טוען...</div>
+    </div>
   </div>
 </div>
 
@@ -367,10 +381,12 @@ function doLogin() {
 
 // ── ENTER APP ─────────────────────────────────────────────────
 function enterApp() {
-  document.getElementById('authScreen').style.display    = 'none';
-  document.getElementById('pendingScreen').style.display = 'none';
-  document.getElementById('mainApp').style.display       = 'block';
-  document.getElementById('teacherBadge').textContent    = '👤 ' + currentTeacher.name;
+  document.getElementById('authScreen').style.display = 'none';
+  document.getElementById('mainApp').style.display    = 'block';
+  const name = currentTeacher.name ||
+    ((currentTeacher.firstName || '') + ' ' + (currentTeacher.lastName || '')).trim() ||
+    'מורה';
+  document.getElementById('teacherBadge').textContent = '👤 ' + name;
   document.getElementById('hdate').textContent = new Date().toLocaleDateString('he-IL', {weekday:'long', year:'numeric', month:'long', day:'numeric'});
 
   const base    = 'teachers/' + currentTeacher.key;
@@ -595,26 +611,11 @@ function doExport() {
   a.click();
 }
 
-// ── ADMIN ─────────────────────────────────────────────────────
-function showAdmin() {
-  document.getElementById('adminPassInput').value = '';
-  document.getElementById('adminPassErr').textContent = '';
-  document.getElementById('adminLoginPanel').classList.add('show');
-  setTimeout(() => document.getElementById('adminPassInput').focus(), 100);
-}
-function hideAdmin() { document.getElementById('adminLoginPanel').classList.remove('show'); }
-
-function checkAdminPass() {
-  const entered = document.getElementById('adminPassInput').value.trim();
-  ADMIN_PASS_REF.once('value', snap => {
-    const saved = snap.val() || 'admin';
-    if (entered === saved) { hideAdmin(); openAdminPanel(); }
-    else document.getElementById('adminPassErr').textContent = 'סיסמה שגויה';
-  });
-}
+// ── CLASSES PANEL (ישיר, ללא סיסמה) ─────────────────────────
+function showAdmin() { openAdminPanel(); }  // backward compat
 
 function openAdminPanel() {
-  switchAdminTab('classes', document.querySelector('.admin-tab'));
+  renderAdminClasses();
   document.getElementById('adminPanel').classList.add('show');
 }
 function hideAdminPanel() { document.getElementById('adminPanel').classList.remove('show'); }
@@ -626,6 +627,112 @@ function switchAdminTab(tab, btn) {
   document.getElementById('adminTabSettings').style.display = tab==='settings' ? '' : 'none';
   if (tab==='classes')  renderAdminClasses();
   if (tab==='settings') renderAdminSettings();
+}
+
+// ── SUPER ADMIN ───────────────────────────────────────────────
+function showSuperAdmin() {
+  document.getElementById('superAdminPassInput').value = '';
+  document.getElementById('superAdminPassErr').textContent = '';
+  document.getElementById('superAdminLoginPanel').classList.add('show');
+  setTimeout(() => document.getElementById('superAdminPassInput').focus(), 100);
+}
+function hideSuperAdmin() { document.getElementById('superAdminLoginPanel').classList.remove('show'); }
+function hideSuperAdminPanel() { document.getElementById('superAdminPanel').classList.remove('show'); }
+
+function checkSuperAdminPass() {
+  const entered = document.getElementById('superAdminPassInput').value.trim();
+  ADMIN_PASS_REF.once('value', snap => {
+    const saved = snap.val() || 'admin';
+    if (entered === saved) {
+      hideSuperAdmin();
+      openSuperAdminPanel();
+    } else {
+      document.getElementById('superAdminPassErr').textContent = 'סיסמה שגויה';
+    }
+  });
+}
+
+function openSuperAdminPanel() {
+  document.getElementById('superAdminPanel').classList.add('show');
+  renderSuperAdminBody();
+}
+
+function renderSuperAdminBody() {
+  const body = document.getElementById('superAdminBody');
+  body.innerHTML = '<div style="text-align:center;padding:30px;color:#94a3b8;">טוען...</div>';
+
+  // טען את כל המורים מ-tests-fd938
+  dbAuth.ref('teachers').once('value', tSnap => {
+    const teachers = tSnap.val() || {};
+    const approved = Object.entries(teachers).filter(([,t]) => t.status === 'approved');
+
+    // לכל מורה טען את הכיתות שלו מ-checklist-teachers
+    const promises = approved.map(([k, t]) =>
+      db.ref('teachers/' + k + '/classes').once('value').then(cSnap => ({
+        key: k, teacher: t, classes: cSnap.val() || {}
+      }))
+    );
+
+    Promise.all(promises).then(results => {
+      if (!results.length) {
+        body.innerHTML = '<div style="text-align:center;padding:40px;color:#94a3b8;">אין מורים מאושרים במערכת</div>';
+        return;
+      }
+
+      let html = `<div style="margin-bottom:16px;font-size:13px;color:#64748b;">${results.length} מורים פעילים במערכת</div>`;
+
+      results.forEach(({ key, teacher, classes }) => {
+        const name = teacher.name || ((teacher.firstName||'') + ' ' + (teacher.lastName||'')).trim();
+        const clsKeys = Object.keys(classes);
+        const totalStudents = clsKeys.reduce((sum, k) => {
+          const sts = classes[k].students;
+          return sum + (Array.isArray(sts) ? sts.length : Object.keys(sts||{}).length);
+        }, 0);
+
+        html += `<div class="admin-section">
+          <div class="admin-section-head">
+            <span>👤 ${name} <span style="font-size:11px;color:#94a3b8;">📞 ${teacher.phone}</span></span>
+            <span style="font-size:12px;color:#64748b;">${clsKeys.length} כיתות · ${totalStudents} תלמידים</span>
+          </div>`;
+
+        if (!clsKeys.length) {
+          html += '<div style="padding:12px 14px;color:#94a3b8;font-size:13px;">אין כיתות</div>';
+        } else {
+          html += '<div style="padding:12px 14px;">';
+          clsKeys.forEach(ck => {
+            const cls = classes[ck];
+            const sts = Array.isArray(cls.students) ? cls.students : Object.values(cls.students||{});
+            html += `<div style="margin-bottom:8px;">
+              <strong style="font-size:13px;">📚 ${cls.label}</strong>
+              <span style="font-size:12px;color:#94a3b8;margin-right:8px;">(${sts.length} תלמידים)</span>
+              <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:4px;">
+                ${sts.map(n => `<span style="background:#f1f5f9;border:1px solid #e2e8f0;border-radius:12px;padding:2px 8px;font-size:11px;">${n}</span>`).join('')}
+              </div>
+            </div>`;
+          });
+          html += '</div>';
+        }
+        html += '</div>';
+      });
+
+      // שינוי סיסמת מנהל
+      html += `<div class="admin-section">
+        <div class="admin-section-head">🔑 שינוי סיסמת מנהל מערכת</div>
+        <div class="add-cls-row">
+          <input type="password" id="newSuperPass" placeholder="סיסמה חדשה..." dir="ltr">
+          <button onclick="changeSuperPass()" style="padding:9px 16px;background:#1a2340;color:white;border:none;border-radius:8px;font-family:'Heebo',sans-serif;font-weight:700;cursor:pointer;">שמור</button>
+        </div>
+      </div>`;
+
+      body.innerHTML = html;
+    });
+  });
+}
+
+function changeSuperPass() {
+  const p = document.getElementById('newSuperPass').value.trim();
+  if (!p || p.length < 3) return showToast('סיסמה קצרה מדי');
+  ADMIN_PASS_REF.set(p).then(() => { showToast('✅ סיסמה עודכנה'); document.getElementById('newSuperPass').value = ''; });
 }
 
 // ── ADMIN: TEACHERS ───────────────────────────────────────────
