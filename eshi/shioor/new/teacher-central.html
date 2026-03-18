@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>סביבת מורה — כל המטלות</title>
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@400;700;900&family=Heebo:wght@300;400;500;700;800;900&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<style>
+:root {
+  --paper: #f5f0e8;
+  --ink: #1a1208;
+  --accent: #8B1A1A;
+  --accent2: #c9a84c;
+  --muted: #6b5f50;
+  --border: #c8b89a;
+  --card-bg: #fffdf7;
+  --shadow: 3px 3px 0 #1a1208;
+  --shadow-sm: 2px 2px 0 #1a1208;
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:'Heebo',sans-serif; background:var(--paper); color:var(--ink); min-height:100vh; }
+
+/* ── LOGIN MODAL ── */
+#login-overlay {
+  position:fixed; inset:0; background:rgba(26,18,8,0.85);
+  z-index:9999; display:flex; align-items:center; justify-content:center;
+  backdrop-filter:blur(3px);
+}
+.login-box {
+  background:var(--card-bg); border:3px solid var(--ink);
+  box-shadow:6px 6px 0 var(--ink); padding:40px 36px;
+  max-width:420px; width:90%; text-align:center;
+}
+.login-masthead {
+  font-family:'Frank Ruhl Libre',serif;
+  border-top:4px double var(--ink); border-bottom:4px double var(--ink);
+  padding:10px 0; margin-bottom:24px;
+}
+.login-masthead h1 { font-size:22px; font-weight:900; letter-spacing:1px; }
+.login-masthead p { font-size:12px; color:var(--muted); margin-top:4px; letter-spacing:2px; text-transform:uppercase; }
+.login-field { margin-bottom:14px; text-align:right; }
+.login-field label { display:block; font-size:12px; font-weight:700; color:var(--muted); margin-bottom:5px; letter-spacing:1px; text-transform:uppercase; }
+.login-field input {
+  width:100%; padding:11px 14px; border:2px solid var(--ink);
+  font-family:'Heebo',sans-serif; font-size:15px; background:var(--paper);
+  outline:none; transition:box-shadow .15s;
+}
+.login-field input:focus { box-shadow:var(--shadow-sm); }
+.btn-login {
+  width:100%; padding:13px; background:var(--ink); color:var(--paper);
+  border:none; font-family:'Frank Ruhl Libre',serif; font-size:16px;
+  font-weight:700; cursor:pointer; letter-spacing:1px; margin-top:6px;
+  transition:opacity .15s;
+}
+.btn-login:hover { opacity:.85; }
+.login-err { color:var(--accent); font-size:13px; margin-top:10px; display:none; }
+.register-link { margin-top:16px; font-size:12px; color:var(--muted); }
+.register-link a { color:var(--accent); }
+
+/* ── HEADER ── */
+header {
+  background:var(--ink); color:var(--paper);
+  border-bottom:4px solid var(--accent2);
+  padding:0 28px;
+}
+.header-inner {
+  max-width:1200px; margin:0 auto;
+  display:flex; align-items:center; justify-content:space-between;
+  padding:14px 0;
+}
+.header-brand { font-family:'Frank Ruhl Libre',serif; }
+.header-brand h1 { font-size:20px; font-weight:900; letter-spacing:1px; }
+.header-brand p { font-size:11px; color:var(--accent2); letter-spacing:2px; margin-top:2px; }
+.header-meta { display:flex; align-items:center; gap:14px; }
+.teacher-badge {
+  background:rgba(201,168,76,.15); border:1px solid var(--accent2);
+  padding:6px 14px; font-size:13px; font-weight:700; color:var(--accent2);
+}
+.btn-logout {
+  background:transparent; border:2px solid rgba(245,240,232,.3);
+  color:var(--paper); padding:7px 16px; font-family:'Heebo',sans-serif;
+  font-size:13px; font-weight:700; cursor:pointer; transition:all .15s;
+}
+.btn-logout:hover { background:rgba(245,240,232,.1); }
+
+/* ── TOOLBAR ── */
+.toolbar {
+  background:var(--card-bg); border-bottom:3px double var(--border);
+  padding:14px 28px; position:sticky; top:0; z-index:100;
+}
+.toolbar-inner {
+  max-width:1200px; margin:0 auto;
+  display:flex; gap:12px; flex-wrap:wrap; align-items:center;
+}
+.toolbar input, .toolbar select {
+  padding:9px 13px; border:2px solid var(--ink);
+  font-family:'Heebo',sans-serif; font-size:14px; background:var(--paper);
+  outline:none; min-width:160px;
+}
+.toolbar input:focus, .toolbar select:focus { box-shadow:var(--shadow-sm); }
+.toolbar input { flex:1; min-width:200px; }
+.btn-csv {
+  background:var(--ink); color:var(--paper);
+  border:none; padding:9px 18px; font-family:'Heebo',sans-serif;
+  font-size:13px; font-weight:700; cursor:pointer; letter-spacing:.5px;
+  transition:opacity .15s; white-space:nowrap;
+}
+.btn-csv:hover { opacity:.8; }
+.count-badge {
+  background:var(--accent); color:white;
+  padding:5px 12px; font-size:12px; font-weight:800;
+  letter-spacing:.5px; white-space:nowrap;
+}
+
+/* ── STATS BAR ── */
+.stats-bar {
+  background:var(--ink); color:var(--paper); padding:10px 28px;
+  border-bottom:3px solid var(--accent2);
+}
+.stats-inner {
+  max-width:1200px; margin:0 auto;
+  display:flex; gap:28px; flex-wrap:wrap; align-items:center;
+}
+.stat { text-align:center; }
+.stat-num { font-family:'Frank Ruhl Libre',serif; font-size:22px; font-weight:900; color:var(--accent2); }
+.stat-lbl { font-size:10px; letter-spacing:2px; text-transform:uppercase; color:rgba(245,240,232,.6); }
+
+/* ── MAIN ── */
+main { max-width:1200px; margin:0 auto; padding:24px 28px 60px; }
+
+/* ── LOADING ── */
+.loading-msg {
+  text-align:center; padding:80px 20px;
+  font-family:'Frank Ruhl Libre',serif; font-size:18px; color:var(--muted);
+}
+.loading-msg span { display:block; font-size:12px; letter-spacing:2px; margin-top:8px; text-transform:uppercase; }
+
+/* ── TABLE ── */
+.table-wrap { overflow-x:auto; }
+table {
+  width:100%; border-collapse:collapse;
+  background:var(--card-bg); border:2px solid var(--ink);
+  box-shadow:var(--shadow);
+}
+thead { background:var(--ink); color:var(--paper); }
+thead th {
+  padding:12px 14px; font-family:'Frank Ruhl Libre',serif;
+  font-size:13px; font-weight:700; letter-spacing:.5px;
+  text-align:right; white-space:nowrap;
+}
+tbody tr { border-bottom:1px solid var(--border); transition:background .1s; }
+tbody tr:hover { background:#f0ead8; }
+tbody td { padding:11px 14px; font-size:13px; vertical-align:middle; }
+.td-topic {
+  background:rgba(139,26,26,.06);
+  font-weight:700; font-size:12px; color:var(--accent);
+  letter-spacing:.3px; white-space:nowrap;
+}
+.td-name { font-weight:700; }
+.td-class {
+  background:rgba(201,168,76,.08);
+  font-size:12px; font-weight:700; color:#7a6020;
+  text-align:center;
+}
+.td-date { font-size:11px; color:var(--muted); white-space:nowrap; }
+.td-answers { max-width:300px; }
+.answers-list { display:flex; flex-direction:column; gap:4px; }
+.answer-item {
+  font-size:11px; background:#f5efe0;
+  border-right:3px solid var(--border);
+  padding:4px 8px; line-height:1.5;
+}
+.answer-key { font-weight:700; color:var(--muted); font-size:10px; }
+.td-feedback { min-width:220px; }
+.feedback-row { display:flex; gap:6px; align-items:center; }
+.inp-grade {
+  width:60px; padding:6px 8px; border:2px solid var(--ink);
+  font-family:'Heebo',sans-serif; font-size:13px; text-align:center;
+  background:var(--paper);
+}
+.inp-feedback {
+  flex:1; padding:6px 9px; border:2px solid var(--ink);
+  font-family:'Heebo',sans-serif; font-size:12px; background:var(--paper);
+}
+.inp-grade:focus, .inp-feedback:focus { outline:none; box-shadow:var(--shadow-sm); }
+.btn-save {
+  background:var(--ink); color:var(--paper);
+  border:none; padding:7px 12px; font-family:'Heebo',sans-serif;
+  font-size:12px; font-weight:700; cursor:pointer; white-space:nowrap;
+}
+.btn-save:hover { background:var(--accent); }
+.saved-indicator { font-size:11px; color:var(--accent); font-weight:700; display:none; margin-top:3px; }
+.grade-badge {
+  display:inline-block; background:var(--accent2); color:var(--ink);
+  padding:2px 8px; font-size:12px; font-weight:800; margin-left:4px;
+}
+
+/* ── EMPTY STATE ── */
+.empty-state {
+  text-align:center; padding:60px 20px;
+  font-family:'Frank Ruhl Libre',serif; font-size:16px; color:var(--muted);
+  border:2px dashed var(--border); background:var(--card-bg);
+}
+
+/* ── FOOTER ── */
+footer {
+  text-align:center; padding:18px;
+  font-size:11px; color:var(--muted); letter-spacing:1px;
+  border-top:2px solid var(--border);
+}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-overlay">
+  <div class="login-box">
+    <div class="login-masthead">
+      <h1>סביבת מורה מרכזית</h1>
+      <p>תקשורת וחברה — כל המטלות</p>
+    </div>
+    <div class="login-field">
+      <label>טלפון</label>
+      <input type="tel" id="inp-phone" placeholder="05XXXXXXXX" dir="ltr" autocomplete="off">
+    </div>
+    <div class="login-field">
+      <label>סיסמה</label>
+      <input type="password" id="inp-pass" placeholder="סיסמה אישית" autocomplete="off"
+        onkeyup="if(event.key==='Enter')doLogin()">
+    </div>
+    <button class="btn-login" onclick="doLogin()">כניסה ←</button>
+    <div class="login-err" id="login-err"></div>
+    <div class="register-link">
+      עדיין לא רשומים? <a href="../../teacher-register.html">לחץ כאן להרשמה</a>
+    </div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app" style="display:none;">
+
+<header>
+  <div class="header-inner">
+    <div class="header-brand">
+      <h1>📋 סביבת מורה — כל המטלות</h1>
+      <p>תקשורת וחברה | נתוני הגשות בזמן אמת</p>
+    </div>
+    <div class="header-meta">
+      <div class="teacher-badge" id="teacher-name">—</div>
+      <button class="btn-logout" onclick="doLogout()">יציאה</button>
+    </div>
+  </div>
+</header>
+
+<div class="stats-bar">
+  <div class="stats-inner">
+    <div class="stat">
+      <div class="stat-num" id="stat-topics">0</div>
+      <div class="stat-lbl">נושאים</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num" id="stat-total">0</div>
+      <div class="stat-lbl">הגשות</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num" id="stat-graded">0</div>
+      <div class="stat-lbl">עם ציון</div>
+    </div>
+    <div class="stat">
+      <div class="stat-num" id="stat-classes">0</div>
+      <div class="stat-lbl">כיתות</div>
+    </div>
+  </div>
+</div>
+
+<div class="toolbar">
+  <div class="toolbar-inner">
+    <input type="text" id="search-input" placeholder="🔍 חיפוש לפי שם תלמיד..." oninput="renderTable()">
+    <select id="filter-topic" onchange="onTopicChange()">
+      <option value="">— כל הנושאים —</option>
+    </select>
+    <select id="filter-class" onchange="renderTable()">
+      <option value="">כל הכיתות</option>
+    </select>
+    <div class="count-badge" id="count-badge">0 הגשות</div>
+    <button class="btn-csv" onclick="exportCSV()">⬇ ייצוא CSV</button>
+  </div>
+</div>
+
+<main>
+  <div id="content">
+    <div class="loading-msg">⏳ טוען נתונים...<span>אנא המתן</span></div>
+  </div>
+</main>
+
+<footer>פיתוח: רני בן זאב | סביבת מורה מרכזית — כל הנושאים</footer>
+
+</div><!-- /app -->
+
+<script>
+// ── FIREBASE ──────────────────────────────────────────────────
+const FC = {
+  apiKey: "AIzaSyCCHvn_ulmiyM56DuslNzNC0Ge6a8i2vhY",
+  authDomain: "tests-fd938.firebaseapp.com",
+  databaseURL: "https://tests-fd938-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "tests-fd938"
+};
+firebase.initializeApp(FC);
+const db = firebase.database();
+
+let teacherID = '';
+let teacherName = '';
+let allData = [];   // כל ההגשות
+
+// ── LOGIN ─────────────────────────────────────────────────────
+function doLogin() {
+  const phone = document.getElementById('inp-phone').value.trim();
+  const pass  = document.getElementById('inp-pass').value.trim();
+  const err   = document.getElementById('login-err');
+  err.style.display = 'none';
+  if (!phone || !pass) { err.textContent = 'נא למלא טלפון וסיסמה'; err.style.display = 'block'; return; }
+
+  err.textContent = 'מתחבר...'; err.style.display = 'block';
+
+  db.ref('teachers').once('value').then(snap => {
+    let foundKey = '', foundData = null;
+    snap.forEach(child => {
+      if (foundKey) return;
+      const t = child.val();
+      if (t.phone === phone && t.password === pass && t.status === 'approved') {
+        foundKey = child.key; foundData = t;
+      }
+    });
+    if (!foundKey) {
+      err.textContent = 'טלפון/סיסמה שגויים או המשתמש לא מאושר';
+      err.style.display = 'block'; return;
+    }
+    teacherID   = foundKey;
+    teacherName = foundData.name || (foundData.firstName||'') + ' ' + (foundData.lastName||'');
+    document.getElementById('login-overlay').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    document.getElementById('teacher-name').textContent = '👤 ' + teacherName;
+    loadAllData();
+  });
+}
+
+function doLogout() {
+  teacherID = ''; teacherName = ''; allData = [];
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('login-overlay').style.display = 'flex';
+  document.getElementById('inp-phone').value = '';
+  document.getElementById('inp-pass').value  = '';
+}
+
+// ── LOAD DATA ─────────────────────────────────────────────────
+function loadAllData() {
+  document.getElementById('content').innerHTML =
+    '<div class="loading-msg">⏳ שואב נתונים מכל הנושאים...<span>אנא המתן</span></div>';
+
+  // שאב את כל הנושאים דינמית מ-tests/
+  db.ref('tests').once('value').then(testsSnap => {
+    const testsVal = testsSnap.val() || {};
+    const topics   = Object.keys(testsVal);
+
+    if (!topics.length) {
+      document.getElementById('content').innerHTML =
+        '<div class="empty-state">אין נתונים במערכת עדיין</div>';
+      return;
+    }
+
+    // מלא dropdown נושאים
+    const sel = document.getElementById('filter-topic');
+    sel.innerHTML = '<option value="">— כל הנושאים —</option>';
+    topics.forEach(t => sel.innerHTML += `<option value="${t}">${t}</option>`);
+    document.getElementById('stat-topics').textContent = topics.length;
+
+    // אסוף הגשות של המורה הזה מכל הנושאים
+    allData = [];
+    topics.forEach(topic => {
+      const topicSubs = testsVal[topic] || {};
+      Object.entries(topicSubs).forEach(([key, val]) => {
+        if (val?.student?.teacherID === teacherID) {
+          allData.push({ key, _topic: topic, ...val });
+        }
+      });
+    });
+
+    // מיין לפי תאריך הגשה (חדש ראשון)
+    allData.sort((a, b) => (b.submittedAt || 0) - (a.submittedAt || 0));
+
+    updateStats();
+    renderTable();
+  });
+}
+
+// ── STATS ─────────────────────────────────────────────────────
+function updateStats() {
+  const topics  = [...new Set(allData.map(d => d._topic))];
+  const classes = [...new Set(allData.map(d => d.student?.class).filter(Boolean))];
+  const graded  = allData.filter(d => d.feedback?.grade != null).length;
+  document.getElementById('stat-total').textContent   = allData.length;
+  document.getElementById('stat-graded').textContent  = graded;
+  document.getElementById('stat-classes').textContent = classes.length;
+}
+
+// ── FILTER / RENDER ───────────────────────────────────────────
+function onTopicChange() {
+  // עדכן dropdown כיתות לפי נושא נבחר
+  const topic = document.getElementById('filter-topic').value;
+  const relevant = topic ? allData.filter(d => d._topic === topic) : allData;
+  const classes = [...new Set(relevant.map(d => d.student?.class).filter(Boolean))].sort();
+  const selCls = document.getElementById('filter-class');
+  const prev = selCls.value;
+  selCls.innerHTML = '<option value="">כל הכיתות</option>';
+  classes.forEach(c => selCls.innerHTML += `<option${c===prev?' selected':''}>${c}</option>`);
+  renderTable();
+}
+
+function getFiltered() {
+  const search = document.getElementById('search-input').value.toLowerCase().trim();
+  const topic  = document.getElementById('filter-topic').value;
+  const cls    = document.getElementById('filter-class').value;
+  return allData.filter(d => {
+    const name = (d.student?.name || '').toLowerCase();
+    return (!search || name.includes(search))
+        && (!topic  || d._topic === topic)
+        && (!cls    || d.student?.class === cls);
+  });
+}
+
+function renderTable() {
+  const filtered = getFiltered();
+  document.getElementById('count-badge').textContent = filtered.length + ' הגשות';
+
+  if (!filtered.length) {
+    document.getElementById('content').innerHTML =
+      '<div class="empty-state">לא נמצאו הגשות התואמות את הסינון</div>';
+    return;
+  }
+
+  let rows = '';
+  filtered.forEach(d => {
+    const name     = escH(d.student?.name || d.student?.firstName + ' ' + d.student?.lastName || '—');
+    const cls      = escH(d.student?.class || '—');
+    const date     = d.submittedAt ? new Date(d.submittedAt).toLocaleDateString('he-IL',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'}) : '—';
+    const grade    = d.feedback?.grade  ?? '';
+    const fbText   = d.feedback?.text   || d.feedback?.comment || '';
+    const topicLbl = escH(d._topic);
+
+    // תשובות
+    let answersHtml = '';
+    if (d.answers && typeof d.answers === 'object') {
+      answersHtml = '<div class="answers-list">' +
+        Object.entries(d.answers).map(([k,v]) =>
+          v ? `<div class="answer-item"><span class="answer-key">${escH(k)}: </span>${escH(String(v))}</div>` : ''
+        ).join('') + '</div>';
+    } else if (d.text) {
+      answersHtml = `<div class="answer-item">${escH(d.text)}</div>`;
+    }
+
+    rows += `<tr id="row-${d.key}">
+      <td class="td-topic">${topicLbl}</td>
+      <td class="td-name">${name}</td>
+      <td class="td-class">${cls}</td>
+      <td class="td-date">${date}</td>
+      <td class="td-answers">${answersHtml || '—'}</td>
+      <td class="td-feedback">
+        <div class="feedback-row">
+          <input class="inp-grade" type="number" id="grade-${escH(d.key)}" value="${grade}" placeholder="ציון" min="0" max="100">
+          <input class="inp-feedback" type="text" id="fb-${escH(d.key)}" value="${escH(fbText)}" placeholder="פידבק...">
+          <button class="btn-save" onclick="saveFeedback('${escH(d.key)}','${escH(d._topic)}')">💾</button>
+        </div>
+        <div class="saved-indicator" id="saved-${escH(d.key)}">✓ נשמר</div>
+        ${grade !== '' ? `<span class="grade-badge">${grade}</span>` : ''}
+      </td>
+    </tr>`;
+  });
+
+  document.getElementById('content').innerHTML = `
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>נושא</th>
+            <th>שם תלמיד</th>
+            <th>כיתה</th>
+            <th>תאריך</th>
+            <th>תשובות</th>
+            <th>ציון ופידבק</th>
+          </tr>
+        </thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+}
+
+// ── SAVE FEEDBACK ─────────────────────────────────────────────
+function saveFeedback(key, topic) {
+  const gradeEl = document.getElementById('grade-' + key);
+  const fbEl    = document.getElementById('fb-' + key);
+  const grade   = gradeEl?.value.trim();
+  const text    = fbEl?.value.trim();
+  const upd     = {};
+  if (grade !== '') upd.grade = Number(grade);
+  if (text)         upd.text  = text;
+  if (!Object.keys(upd).length) return;
+
+  db.ref('tests/' + topic + '/' + key + '/feedback').update(upd).then(() => {
+    const ind = document.getElementById('saved-' + key);
+    if (ind) { ind.style.display = 'block'; setTimeout(() => ind.style.display='none', 2500); }
+    // עדכן allData
+    const d = allData.find(x => x.key === key);
+    if (d) { d.feedback = { ...(d.feedback||{}), ...upd }; updateStats(); }
+  });
+}
+
+// ── CSV ───────────────────────────────────────────────────────
+function exportCSV() {
+  const filtered = getFiltered();
+  if (!filtered.length) return alert('אין נתונים לייצוא');
+  const BOM = '\uFEFF';
+  const headers = ['נושא','שם','כיתה','תאריך','ציון','פידבק'];
+  const rows = filtered.map(d => {
+    const name  = d.student?.name || (d.student?.firstName||'') + ' ' + (d.student?.lastName||'');
+    const cls   = d.student?.class || '';
+    const date  = d.submittedAt ? new Date(d.submittedAt).toLocaleString('he-IL') : '';
+    const grade = d.feedback?.grade ?? '';
+    const fb    = d.feedback?.text || d.feedback?.comment || '';
+    return [d._topic, name, cls, date, grade, fb].map(v => `"${String(v||'').replace(/"/g,'""')}"`).join(',');
+  });
+  const csv = BOM + [headers.join(','), ...rows].join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = 'teacher_all_' + Date.now() + '.csv';
+  a.click();
+}
+
+// ── UTILS ─────────────────────────────────────────────────────
+function escH(s) {
+  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// Enter on login
+document.getElementById('inp-pass').addEventListener('keyup', e => {
+  if (e.key === 'Enter') doLogin();
+});
+</script>
+</body>
+</html>
