@@ -167,9 +167,10 @@ if (_code) {
 
   db.ref('teacher_codes').once('value').then(snap => {
     const codes = snap.val() || {};
-    let tID = '';
+    let tID = '', foundCode = false;
     Object.keys(codes).forEach(k => {
-      if (k.startsWith(_code.toLowerCase() + '_')) tID = codes[k];
+      if (foundCode) return;
+      if (k.startsWith(_code.toLowerCase() + '_')) { tID = codes[k]; foundCode = true; }
     });
     if (!tID) return;
     db.ref('teachers/' + tID).once('value').then(ts => {
@@ -189,10 +190,13 @@ function createLink() {
   const code  = document.getElementById('lm-code').value.trim().toLowerCase();
   if (!phone || !code) { document.getElementById('lm-err').textContent = 'נא למלא טלפון וקוד כיתה'; return; }
   db.ref('teachers').once('value').then(snap => {
-    let teacherKey = '';
+    let teacherKey = '', foundKey = false;
     snap.forEach(child => {
+      if (foundKey) return;
       const t = child.val();
-      if (t.phone === phone && t.status === 'approved') teacherKey = child.key;
+      if (t.phone && t.phone.replace(/\D/g,'') === phone.replace(/\D/g,'') && t.status === 'approved') {
+        teacherKey = child.key; foundKey = true;
+      }
     });
     if (!teacherKey) { document.getElementById('lm-err').textContent = 'מורה לא נמצא או לא מאושר'; return; }
     db.ref('teacher_codes/' + code + '_' + teacherKey).set(teacherKey).then(() => {
