@@ -102,8 +102,8 @@ if(_code){
   document.getElementById('link-worksheet').href='photojournalism-worksheet.html?code='+encodeURIComponent(_code);
   document.getElementById('link-mygrades').href='../mygrades.html?code='+encodeURIComponent(_code);
   db.ref('teacher_codes').once('value').then(snap=>{
-    const codes=snap.val()||{};let tID='';
-    Object.keys(codes).forEach(k=>{if(k.startsWith(_code.toLowerCase()+'_'))tID=codes[k];});
+    const codes=snap.val()||{};let tID='',foundCode=false;
+    Object.keys(codes).forEach(k=>{if(foundCode)return;if(k.startsWith(_code.toLowerCase()+'_')){tID=codes[k];foundCode=true;}});
     if(!tID)return;
     db.ref('teachers/'+tID).once('value').then(ts=>{
       const t=ts.val();if(!t)return;
@@ -113,11 +113,11 @@ if(_code){
   });
 }
 function createLink(){
-  const phone=document.getElementById('lm-phone').value.trim(),classCode=document.getElementById('lm-class').value.trim().toLowerCase();
+  const phone=document.getElementById('lm-phone').value.trim().replace(/\D/g,''),classCode=document.getElementById('lm-class').value.trim().toLowerCase();
   const err=document.getElementById('lm-err');err.style.display='none';
   if(!phone||!classCode){err.textContent='נא למלא טלפון וקוד כיתה';err.style.display='block';return;}
   db.ref('teachers').once('value').then(snap=>{
-    let tID='';snap.forEach(c=>{const t=c.val();if(t.phone===phone&&t.status==='approved')tID=c.key;});
+    let tID='',foundKey=false;snap.forEach(c=>{if(foundKey)return;const t=c.val();if(t.phone&&t.phone.replace(/\D/g,'')=== phone.replace(/\D/g,'')&&t.status==='approved'){tID=c.key;foundKey=true;}});
     if(!tID){err.textContent='טלפון לא נמצא או לא מאושר';err.style.display='block';return;}
     db.ref('teacher_codes/'+classCode+'_'+tID).set(tID).then(()=>{
       const url=location.origin+location.pathname+'?code='+encodeURIComponent(classCode);
