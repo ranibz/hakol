@@ -145,6 +145,7 @@ footer{text-align:center;margin-top:48px;padding-top:14px;border-top:3px double 
     </div>
   </div>
 </div>
+
 <script>
 firebase.initializeApp({apiKey:"AIzaSyCCHvn_ulmiyM56DuslNzNC0Ge6a8i2vhY",databaseURL:"https://tests-fd938-default-rtdb.europe-west1.firebasedatabase.app"});
 const db=firebase.database();
@@ -155,7 +156,7 @@ if(_code){
   document.getElementById('link-mygrades').href='../mygrades.html?code='+encodeURIComponent(_code);
   db.ref('teacher_codes').once('value').then(snap=>{
     const codes=snap.val()||{};let tid='';
-    Object.keys(codes).forEach(k=>{if(k.startsWith(_code.toLowerCase()+'_'))tid=codes[k];});
+    Object.keys(codes).forEach(k=>{if(tid)return;if(k.startsWith(_code.toLowerCase()+'_'))tid=codes[k];});
     if(!tid)return;
     db.ref('teachers/'+tid).once('value').then(ts=>{
       const t=ts.val();if(!t)return;
@@ -171,7 +172,12 @@ function generateStudentLink(){
   if(!phone||!code){err.textContent='יש למלא טלפון וקוד כיתה.';err.style.display='block';return;}
   db.ref('teachers').once('value').then(snap=>{
     let teacherID='';
-    snap.forEach(child=>{const t=child.val();if((t.phone||'').replace(/[-\s]/g,'')===phone.replace(/[-\s]/g,'')&&t.status==='approved')teacherID=child.key;});
+    snap.forEach(child=>{
+      if(teacherID) return;  // תיקון: early exit למניעת דריסה
+      const t=child.val();
+      if((t.phone||'').replace(/[-\s]/g,'')===phone.replace(/[-\s]/g,'')&&t.status==='approved')
+        teacherID=child.key;
+    });
     if(!teacherID){err.textContent='הטלפון לא נמצא במערכת.';err.style.display='block';return;}
     db.ref('teacher_codes/'+code+'_'+teacherID).set(teacherID).then(()=>{
       const url=location.href.split('?')[0]+'?code='+encodeURIComponent(code);
