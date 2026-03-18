@@ -85,6 +85,7 @@ textarea:focus{border-color:#1a3a6b}
         <option>י׳</option><option>יא׳</option><option>יב׳</option>
       </select>
     </div>
+    <div class="mf" id="field-code" style="display:none"><label>קוד מורה</label><input id="inp-code" style="direction:ltr" placeholder="קוד שקיבלת מהמורה"></div>
     <div id="modal-err"></div>
     <button class="btn-enter" onclick="enterPage()">כניסה למטלה ←</button>
   </div>
@@ -296,18 +297,27 @@ document.getElementById('img-moon').src   = IMG_MOON;
 
 let student={};
 
+const _urlCode=new URLSearchParams(location.search).get('code');
+if(_urlCode){document.getElementById('inp-code').value=_urlCode;}
+
 function enterPage(){
   const fn=document.getElementById('inp-fn').value.trim();
   const ln=document.getElementById('inp-ln').value.trim();
   const email=document.getElementById('inp-email').value.trim().toLowerCase();
   const grade=document.getElementById('inp-grade').value;
+  const code=document.getElementById('inp-code').value.trim().toLowerCase();
   const err=document.getElementById('modal-err');
   if(!fn||!ln||!email||!grade){err.textContent='נא למלא את כל השדות';return;}
-  student={name:fn+' '+ln,firstName:fn,lastName:ln,email,class:grade};
-  document.getElementById('modal').style.display='none';
-  document.getElementById('mainpage').style.display='block';
-  document.getElementById('bname').textContent=fn+' '+ln;
-  goP(1);
+  db.ref('teacher_codes').once('value').then(snap=>{
+    const codes=snap.val()||{};
+    let teacherID='',foundTeacher=false;
+    Object.keys(codes).forEach(k=>{if(foundTeacher)return;if(k.startsWith(code+'_')){teacherID=codes[k];foundTeacher=true;}});
+    student={name:fn+' '+ln,firstName:fn,lastName:ln,email,class:grade,classCode:code,teacherID};
+    document.getElementById('modal').style.display='none';
+    document.getElementById('mainpage').style.display='block';
+    document.getElementById('bname').textContent=fn+' '+ln;
+    goP(1);
+  });
 }
 
 function goP(n){
@@ -357,7 +367,7 @@ function submitWS(){
     moon_connotation:document.getElementById('moon_connotation').value.trim(),
     most_iconic:document.getElementById('most_iconic').value.trim()
   };
-  db.ref('tests/tzilum_aiconi/').push({student,answers,submittedAt:Date.now()}).then(()=>{
+  db.ref('tests/tzilum_aiconi/').push({student,teacherID:student.teacherID||'',answers,submittedAt:Date.now()}).then(()=>{
     document.getElementById('mainpage').style.display='none';
     document.getElementById('phase-success').style.display='block';
   }).catch(e=>{alert('שגיאה בשמירה: '+e.message);});
