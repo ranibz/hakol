@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ילידים ומהגרים דיגיטליים — דף התלמיד</title>
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@400;700;900&family=Heebo:wght@300;400;500;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#f5f0e8;color:#1a1208;font-family:'Heebo',sans-serif;min-height:100vh}
+.masthead{border-top:4px solid #1a1208;border-bottom:4px solid #1a1208;padding:14px 20px;text-align:center}
+.masthead .platform{font-family:'Frank Ruhl Libre',serif;font-size:12px;letter-spacing:3px;color:#1a4d6e}
+.masthead h1{font-family:'Frank Ruhl Libre',serif;font-size:clamp(1.4rem,5vw,2.4rem);font-weight:900}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:200;display:flex;align-items:center;justify-content:center;padding:16px}
+.modal-box{background:#f5f0e8;border:3px solid #1a1208;box-shadow:6px 6px 0 #1a1208;padding:28px;max-width:420px;width:100%}
+.modal-box h2{font-family:'Frank Ruhl Libre',serif;font-size:1.3rem;font-weight:900;margin-bottom:6px;text-align:center}
+.modal-box p{font-size:13px;color:#555;text-align:center;margin-bottom:16px;line-height:1.6}
+.mf{margin-bottom:12px}
+.mf label{display:block;font-size:13px;font-weight:700;margin-bottom:4px}
+.mf input{width:100%;padding:9px 12px;border:2px solid #1a1208;background:#fff;font-family:'Heebo',sans-serif;font-size:14px}
+.mf input:focus{outline:none;border-color:#1a4d6e}
+.btn-create{width:100%;padding:12px;background:#1a4d6e;color:#fff;border:2px solid #1a1208;box-shadow:4px 4px 0 #1a1208;font-family:'Frank Ruhl Libre',serif;font-size:16px;font-weight:700;cursor:pointer;margin-bottom:10px;letter-spacing:1px}
+.btn-create:hover{background:#0f3352}
+.btn-student{width:100%;padding:10px;background:#fff;border:2px solid #999;font-family:'Heebo',sans-serif;font-size:14px;cursor:pointer;color:#555}
+.btn-student:hover{border-color:#1a1208;color:#1a1208}
+.url-box{background:#e8f0f8;border:2px solid #1a4d6e;padding:14px;margin-top:14px;display:none}
+.url-box label{font-size:12px;font-weight:700;display:block;margin-bottom:6px}
+.url-box .url-text{font-size:13px;word-break:break-all;background:#fff;padding:8px;border:1px solid #ccc;direction:ltr;text-align:left}
+.copy-btn{margin-top:8px;padding:8px 16px;background:#1a4d6e;color:#fff;border:none;cursor:pointer;font-size:13px;font-family:'Heebo',sans-serif}
+.teacher-banner{background:#1a4d6e;color:#fff;text-align:center;padding:10px 20px;font-family:'Frank Ruhl Libre',serif;font-size:14px;font-weight:700;letter-spacing:1px;display:none}
+.container{max-width:680px;margin:0 auto;padding:24px 16px 60px}
+.intro-box{background:#fff;border:2px solid #1a1208;box-shadow:4px 4px 0 #1a1208;padding:18px 20px;margin-bottom:24px;border-right:6px solid #1a4d6e}
+.intro-box h2{font-family:'Frank Ruhl Libre',serif;font-size:1.2rem;font-weight:700;margin-bottom:8px}
+.intro-box p{font-size:14px;line-height:1.8}
+.links-section h3{font-family:'Frank Ruhl Libre',serif;font-size:1.1rem;font-weight:700;margin-bottom:12px;border-bottom:2px solid #1a4d6e;padding-bottom:6px}
+.link-card{display:flex;align-items:center;gap:14px;background:#fff;border:2px solid #1a1208;box-shadow:4px 4px 0 #1a1208;padding:14px 18px;margin-bottom:12px;text-decoration:none;color:#1a1208;transition:all .2s}
+.link-card:hover{transform:translate(-2px,-2px);box-shadow:6px 6px 0 #1a1208}
+.link-card .lc-icon{font-size:26px;flex-shrink:0}
+.link-card .lc-body .lc-title{font-family:'Frank Ruhl Libre',serif;font-size:15px;font-weight:700}
+.link-card .lc-body .lc-desc{font-size:13px;color:#555;margin-top:2px}
+.link-card.primary{background:#1a4d6e;color:#fff;border-color:#1a1208}
+.link-card.primary .lc-body .lc-desc{color:#b8cfe0}
+footer{text-align:center;padding:16px;font-size:12px;color:#888;border-top:1px solid #ccc}
+</style>
+</head>
+<body>
+
+<div id="link-modal" class="modal-overlay">
+  <div class="modal-box">
+    <h2>🔗 יצירת קישור לתלמידים</h2>
+    <p>הזינו את פרטיכם ליצירת קישור מותאם אישית לשיתוף עם הכיתה</p>
+    <div class="mf"><label>מספר טלפון</label><input type="tel" id="lm-phone" placeholder="05X-XXXXXXX" style="direction:ltr"></div>
+    <div class="mf"><label>קוד כיתה (לדוגמה: י1א)</label><input type="text" id="lm-code" placeholder="קוד כיתה"></div>
+    <button class="btn-create" onclick="createLink()">צור קישור ←</button>
+    <button class="btn-student" onclick="closeModal()">אני תלמיד — כניסה ישירה</button>
+    <div class="url-box" id="url-box">
+      <label>הקישור שלך לשיתוף עם התלמידים:</label>
+      <div class="url-text" id="generated-url"></div>
+      <button class="copy-btn" onclick="copyUrl()">📋 העתק קישור</button>
+    </div>
+  </div>
+</div>
+
+<div id="teacher-banner" class="teacher-banner"></div>
+
+<div class="masthead">
+  <div class="platform">הכול בכף — תקשורת וחברה</div>
+  <h1>ילידים ומהגרים דיגיטליים</h1>
+</div>
+
+<div class="container">
+  <div class="intro-box">
+    <h2>ברוכים הבאים לשיעור</h2>
+    <p>במטלה זו תחקרו את הפער הדיגיטלי בין ילידים למהגרים — ותבחנו את עצמכם: מי אתם בנוף הדיגיטלי?</p>
+  </div>
+  <div class="links-section">
+    <h3>קישורים לפעילות</h3>
+    <a class="link-card primary" id="link-worksheet" href="digital_natives-worksheet.html">
+      <div class="lc-icon">📝</div>
+      <div class="lc-body">
+        <div class="lc-title">מטלה — ילידים ומהגרים</div>
+        <div class="lc-desc">לחצו כאן להתחלת המטלה</div>
+      </div>
+    </a>
+    <a class="link-card" id="link-mygrades" href="../mygrades.html">
+      <div class="lc-icon">📊</div>
+      <div class="lc-body">
+        <div class="lc-title">הציונים שלי</div>
+        <div class="lc-desc">צפייה בציונים ובמשוב המורה</div>
+      </div>
+    </a>
+    <a class="link-card" href="digital_natives-lesson.html">
+      <div class="lc-icon">📖</div>
+      <div class="lc-body">
+        <div class="lc-title">חזרה לשיעור</div>
+        <div class="lc-desc">חומר עזר — מושגים ודוגמאות</div>
+      </div>
+    </a>
+  </div>
+</div>
+
+<footer>פיתוח: רני בן זאב | הכול בכף</footer>
+
+<script>
+const FC={apiKey:"AIzaSyCCHvn_ulmiyM56DuslNzNC0Ge6a8i2vhY",authDomain:"tests-fd938.firebaseapp.com",databaseURL:"https://tests-fd938-default-rtdb.europe-west1.firebasedatabase.app",projectId:"tests-fd938"};
+firebase.initializeApp(FC);
+const db=firebase.database();
+const _code=new URLSearchParams(location.search).get('code');
+if(_code){
+  document.getElementById('link-modal').style.display='none';
+  document.getElementById('link-worksheet').href='digital_natives-worksheet.html?code='+encodeURIComponent(_code);
+  document.getElementById('link-mygrades').href='../mygrades.html?code='+encodeURIComponent(_code);
+  db.ref('teacher_codes/'+_code).once('value').then(snap=>{
+    const tID=snap.val();
+    if(!tID)return;
+    db.ref('teachers/'+tID).once('value').then(ts=>{
+      const t=ts.val();if(!t)return;
+      const name=(t.firstName&&t.lastName)?t.firstName+' '+t.lastName:(t.name||'');
+      if(name){const banner=document.getElementById('teacher-banner');banner.textContent='👋 שלום! דף זה נוצר על ידי המורה '+name;banner.style.display='block';}
+    });
+  });
+}
+function createLink(){
+  const phone=document.getElementById('lm-phone').value.trim().replace(/\D/g,'');
+  const code=document.getElementById('lm-code').value.trim();
+  if(!phone||!code){alert('נא להזין טלפון וקוד כיתה');return;}
+  db.ref('teachers').once('value').then(snap=>{
+    let teacherKey='',foundKey=false;
+    snap.forEach(child=>{if(foundKey)return;const t=child.val();if(t.phone&&t.phone.replace(/\D/g,'')=== phone&&t.status==='approved'){teacherKey=child.key;foundKey=true;}});
+    if(!teacherKey){alert('מורה לא נמצא או לא מאושר');return;}
+    db.ref('teacher_codes/'+code+'_'+teacherKey).set(teacherKey).then(()=>{
+      const url=location.origin+location.pathname+'?code='+encodeURIComponent(code+'_'+teacherKey);
+      document.getElementById('generated-url').textContent=url;
+      document.getElementById('url-box').style.display='block';
+    });
+  });
+}
+function closeModal(){document.getElementById('link-modal').style.display='none';}
+function copyUrl(){navigator.clipboard.writeText(document.getElementById('generated-url').textContent).then(()=>alert('הקישור הועתק!'));}
+</script>
+</body>
+</html>

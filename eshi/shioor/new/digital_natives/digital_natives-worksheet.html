@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ילידים ומהגרים דיגיטליים — מטלה</title>
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@400;700;900&family=Heebo:wght@300;400;500;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#f5f0e8;color:#1a1208;font-family:'Heebo',sans-serif}
+.masthead{border-top:4px solid #1a1208;border-bottom:4px solid #1a1208;padding:12px 20px;text-align:center}
+.masthead .platform{font-family:'Frank Ruhl Libre',serif;font-size:12px;letter-spacing:3px;color:#1a4d6e}
+.masthead h1{font-family:'Frank Ruhl Libre',serif;font-size:clamp(1.4rem,4vw,2rem);font-weight:900}
+.pbar{position:sticky;top:0;z-index:100;background:#fff;border-bottom:2px solid #1a1208;padding:8px 16px;display:flex;align-items:center;gap:12px;font-size:13px}
+#plbl{font-family:'Frank Ruhl Libre',serif;font-weight:700;white-space:nowrap}
+.pbar-track{flex:1;height:8px;background:#ddd;border:1px solid #999;overflow:hidden}
+.pbar-fill{height:100%;background:#1a4d6e;transition:width .4s}
+#ppct{font-size:12px;color:#1a4d6e;font-weight:700;white-space:nowrap}
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:200;display:flex;align-items:center;justify-content:center;padding:16px}
+.modal-box{background:#f5f0e8;border:3px solid #1a1208;box-shadow:6px 6px 0 #1a1208;padding:28px;max-width:420px;width:100%}
+.modal-box h2{font-family:'Frank Ruhl Libre',serif;font-size:1.4rem;font-weight:900;margin-bottom:16px;text-align:center;border-bottom:2px solid #1a4d6e;padding-bottom:8px}
+.mf{margin-bottom:12px}
+.mf label{display:block;font-size:13px;font-weight:700;margin-bottom:4px}
+.mf input,.mf select{width:100%;padding:9px 12px;border:2px solid #1a1208;background:#fff;font-family:'Heebo',sans-serif;font-size:14px}
+.mf input:focus,.mf select:focus{outline:none;border-color:#1a4d6e}
+.modal-err{color:#c0392b;font-size:13px;min-height:18px;margin-bottom:8px}
+.btn-enter{width:100%;padding:12px;background:#1a4d6e;color:#fff;border:2px solid #1a1208;box-shadow:4px 4px 0 #1a1208;font-family:'Frank Ruhl Libre',serif;font-size:16px;font-weight:700;cursor:pointer;letter-spacing:1px;margin-top:4px}
+.btn-enter:hover{background:#0f3352}
+#mainpage{display:none}
+.container{max-width:720px;margin:0 auto;padding:20px 16px 60px}
+.phase{display:none}
+.phase.active{display:block}
+.phase-title{font-family:'Frank Ruhl Libre',serif;font-size:1.4rem;font-weight:900;border-right:5px solid #1a4d6e;padding-right:12px;margin-bottom:16px}
+.activity{background:#fff;border:2px solid #1a1208;box-shadow:4px 4px 0 #1a1208;padding:18px 20px;margin-bottom:20px}
+.activity-num{display:inline-block;background:#1a4d6e;color:#fff;font-family:'Frank Ruhl Libre',serif;font-size:12px;padding:2px 8px;margin-bottom:8px;letter-spacing:1px}
+.activity h3{font-family:'Frank Ruhl Libre',serif;font-size:1rem;font-weight:700;margin-bottom:10px;line-height:1.5}
+.activity p{font-size:14px;line-height:1.8;margin-bottom:10px;color:#333}
+.mic-wrap{display:flex;gap:8px;align-items:flex-start}
+.mic-wrap textarea{flex:1}
+textarea{width:100%;padding:10px;border:2px solid #1a1208;background:#fff;font-family:'Heebo',sans-serif;font-size:14px;line-height:1.7;resize:none;min-height:90px}
+textarea:focus{outline:none;border-color:#1a4d6e}
+.mic-btn{background:#fff;border:2px solid #1a1208;box-shadow:2px 2px 0 #1a1208;padding:8px 10px;cursor:pointer;font-size:16px;flex-shrink:0;transition:all .2s}
+.mic-btn:hover{background:#1a4d6e;color:#fff}
+.mic-btn.recording{background:#c0392b;color:#fff;animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.6}}
+.chip-group{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.chip{padding:6px 14px;border:2px solid #1a1208;background:#fff;font-size:13px;cursor:pointer;font-family:'Heebo',sans-serif;transition:all .2s}
+.chip:hover{background:#f0ebe0}
+.chip.sel{background:#1a4d6e;color:#fff;box-shadow:2px 2px 0 #1a1208}
+.nav-btns{display:flex;gap:12px;margin-top:20px}
+.btn-nav{flex:1;padding:12px;border:2px solid #1a1208;box-shadow:4px 4px 0 #1a1208;font-family:'Frank Ruhl Libre',serif;font-size:15px;font-weight:700;cursor:pointer;transition:all .2s;background:#fff}
+.btn-nav:hover{transform:translate(-2px,-2px);box-shadow:6px 6px 0 #1a1208}
+.btn-next{background:#1a4d6e;color:#fff}
+.btn-submit{background:#1a1208;color:#f5f0e8;width:100%;padding:14px;border:2px solid #1a1208;box-shadow:4px 4px 0 #1a4d6e;font-family:'Frank Ruhl Libre',serif;font-size:17px;font-weight:700;cursor:pointer;margin-top:20px;letter-spacing:1px}
+.btn-submit:hover{background:#1a4d6e}
+#phase-success{display:none;text-align:center;padding:40px 20px}
+#phase-success .big{font-family:'Frank Ruhl Libre',serif;font-size:3rem}
+#phase-success h2{font-family:'Frank Ruhl Libre',serif;font-size:1.6rem;margin:12px 0 8px}
+/* mini-scale */
+.scale-wrap{display:flex;align-items:center;gap:8px;margin-top:10px}
+.scale-label{font-size:12px;color:#555;flex-shrink:0;width:80px}
+.scale-label.right{text-align:right}
+.scale-label.left{text-align:left}
+input[type=range]{flex:1;accent-color:#1a4d6e}
+.scale-val{font-family:'Frank Ruhl Libre',serif;font-size:15px;font-weight:700;color:#1a4d6e;width:30px;text-align:center;flex-shrink:0}
+footer{text-align:center;padding:16px;font-size:12px;color:#888;border-top:1px solid #ccc}
+</style>
+</head>
+<body>
+
+<div id="modal" class="modal-overlay">
+  <div class="modal-box">
+    <h2>כניסה — ילידים ומהגרים</h2>
+    <div class="mf"><label>שם פרטי</label><input id="inp-fn" placeholder="שם פרטי"></div>
+    <div class="mf"><label>שם משפחה</label><input id="inp-ln" placeholder="שם משפחה"></div>
+    <div class="mf"><label>מייל</label><input id="inp-email" type="email" style="direction:ltr" placeholder="your@email.com"></div>
+    <div class="mf"><label>שכבה</label>
+      <select id="inp-grade">
+        <option value="">בחר שכבה</option>
+        <option>י׳</option><option>יא׳</option><option>יב׳</option>
+      </select>
+    </div>
+    <div class="mf" id="field-code"><label>קוד מורה</label><input id="inp-code" placeholder="קוד שקיבלת מהמורה"></div>
+    <div class="modal-err" id="modal-err"></div>
+    <button class="btn-enter" onclick="enterPage()">כניסה למטלה ←</button>
+  </div>
+</div>
+
+<div class="masthead">
+  <div class="platform">הכול בכף — תקשורת וחברה</div>
+  <h1>ילידים ומהגרים דיגיטליים — מטלה</h1>
+</div>
+
+<div class="pbar" id="pbar">
+  <span id="plbl">שלב 1/3</span>
+  <div class="pbar-track"><div class="pbar-fill" id="pfill" style="width:33%"></div></div>
+  <span id="ppct">33%</span>
+</div>
+
+<div id="mainpage">
+<div class="container">
+  <div style="background:#e8f0f8;border:1px solid #1a4d6e;padding:10px 14px;font-size:13px;margin-bottom:20px">
+    שלום <strong id="bname"></strong> | כיתה: <span id="bcls"></span>
+  </div>
+
+  <!-- שלב 1 -->
+  <div class="phase active" id="phase-1">
+    <div class="phase-title">שלב א׳ — אני בעולם הדיגיטלי</div>
+
+    <div class="activity">
+      <div class="activity-num">פעילות 1</div>
+      <h3>לאיזו קטגוריה אתם משתייכים — ולמה?</h3>
+      <p>לפי ההגדרה, נולדתם אחרי 1980 — אז אתם "ילידים דיגיטליים". אבל האם אתם מרגישים כך? בחרו:</p>
+      <div class="chip-group" id="identity-chips">
+        <div class="chip" onclick="selOne(this,'identity-chips')">🖥️ יליד דיגיטלי מובהק</div>
+        <div class="chip" onclick="selOne(this,'identity-chips')">🔀 בינוני — קצת מכל אחד</div>
+        <div class="chip" onclick="selOne(this,'identity-chips')">✈️ יליד שמרגיש כמו מהגר</div>
+      </div>
+      <div style="margin-top:12px">
+        <label style="font-size:13px;font-weight:700;display:block;margin-bottom:4px">הסבירו את הבחירה שלכם בדוגמה מהחיים:</label>
+        <div class="mic-wrap">
+          <textarea id="ans_identity" onpaste="return false" oninput="ar(this)" placeholder="לדוגמה: אני מרגיש יליד כי... / אני לא מרגיש כל כך יליד כי..."></textarea>
+          <button class="mic-btn" onclick="mic('ans_identity',this)">🎤</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="activity">
+      <div class="activity-num">פעילות 2</div>
+      <h3>חישבו על מישהו קרוב אליכם שנולד לפני 1980 — הורה, סבא/סבתא, מורה</h3>
+      <p>תארו מצב ספציפי שבו ראיתם את הפער הדיגיטלי — מה הם התקשו בו, ואיך הרגשתם מולם?</p>
+      <div class="mic-wrap">
+        <textarea id="ans_gap_observation" onpaste="return false" oninput="ar(this)" placeholder="תארו את המצב: מה קרה? מי היה שם? מה אמרו? מה הרגשתם?"></textarea>
+        <button class="mic-btn" onclick="mic('ans_gap_observation',this)">🎤</button>
+      </div>
+    </div>
+
+    <div class="nav-btns">
+      <button class="btn-nav btn-next" onclick="goP(2)">המשך לשלב ב׳ ←</button>
+    </div>
+  </div>
+
+  <!-- שלב 2 -->
+  <div class="phase" id="phase-2">
+    <div class="phase-title">שלב ב׳ — ניתוח ההפרדה</div>
+
+    <div class="activity">
+      <div class="activity-num">פעילות 3</div>
+      <h3>מהפכת הכוחות — מי "יודע יותר" היום?</h3>
+      <p>בעבר, המבוגרים היו בעלי הידע. הדיגיטל שינה את זה. דרגו כמה לדעתכם הפכה השפה הדיגיטלית את יחסי הכוחות:</p>
+      <div class="scale-wrap">
+        <span class="scale-label right">שינוי קטן</span>
+        <input type="range" id="ans_power_shift" min="1" max="10" value="5" oninput="document.getElementById('pshift-val').textContent=this.value">
+        <span class="scale-val" id="pshift-val">5</span>
+        <span class="scale-label left">שינוי גדול מאוד</span>
+      </div>
+      <div style="margin-top:12px">
+        <label style="font-size:13px;font-weight:700;display:block;margin-bottom:4px">נמקו — האם זה בריא שצעירים "יודעים יותר" מהוריהם בתחום הזה?</label>
+        <div class="mic-wrap">
+          <textarea id="ans_power_reasoning" onpaste="return false" oninput="ar(this)" placeholder="מה היתרונות? מה החסרונות? תנו דוגמה..."></textarea>
+          <button class="mic-btn" onclick="mic('ans_power_reasoning',this)">🎤</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="activity">
+      <div class="activity-num">פעילות 4</div>
+      <h3>בחרו תחום שבו ההפרדה בין ילידים למהגרים ברורה ביותר לדעתכם:</h3>
+      <div class="chip-group" id="domain-chips">
+        <div class="chip" onclick="selOne(this,'domain-chips')">📰 צריכת חדשות</div>
+        <div class="chip" onclick="selOne(this,'domain-chips')">💬 תקשורת בין-אישית</div>
+        <div class="chip" onclick="selOne(this,'domain-chips')">🛒 קניות ושירותים</div>
+        <div class="chip" onclick="selOne(this,'domain-chips')">👥 רשתות חברתיות</div>
+        <div class="chip" onclick="selOne(this,'domain-chips')">🏫 למידה וחינוך</div>
+        <div class="chip" onclick="selOne(this,'domain-chips')">💼 עבודה ופרנסה</div>
+      </div>
+      <div style="margin-top:12px">
+        <label style="font-size:13px;font-weight:700;display:block;margin-bottom:4px">הסבירו: מה בדיוק שונה בין הגישה של יליד לגישה של מהגר בתחום שבחרתם?</label>
+        <div class="mic-wrap">
+          <textarea id="ans_domain_difference" onpaste="return false" oninput="ar(this)" placeholder="תנו דוגמה קונקרטית משני הצדדים..."></textarea>
+          <button class="mic-btn" onclick="mic('ans_domain_difference',this)">🎤</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="nav-btns">
+      <button class="btn-nav" onclick="goP(1)">→ חזרה</button>
+      <button class="btn-nav btn-next" onclick="goP(3)">המשך לשלב ג׳ ←</button>
+    </div>
+  </div>
+
+  <!-- שלב 3 -->
+  <div class="phase" id="phase-3">
+    <div class="phase-title">שלב ג׳ — רשתות חברתיות ועמדה ביקורתית</div>
+
+    <div class="activity">
+      <div class="activity-num">פעילות 5</div>
+      <h3>עבור ילידים דיגיטליים, הרשת החברתית היא לא "וירטואלי" — זה המקום שבו החיים מתנהלים</h3>
+      <p>האם אתם מסכימים? בחרו עמדה ונמקו:</p>
+      <div class="chip-group" id="virtual-chips">
+        <div class="chip" onclick="selOne(this,'virtual-chips')">מסכים לגמרי — הרשת היא החיים שלי</div>
+        <div class="chip" onclick="selOne(this,'virtual-chips')">מסכים חלקית — חשובה אך לא הכל</div>
+        <div class="chip" onclick="selOne(this,'virtual-chips')">לא מסכים — המציאות האמיתית קודמת</div>
+      </div>
+      <div style="margin-top:12px">
+        <label style="font-size:13px;font-weight:700;display:block;margin-bottom:4px">הסבירו בדוגמה מחייכם ברשתות:</label>
+        <div class="mic-wrap">
+          <textarea id="ans_social_reality" onpaste="return false" oninput="ar(this)" placeholder="תארו: כמה שעות אתם ברשת? מה אתם עושים שם? מה הרגשות שעולים?"></textarea>
+          <button class="mic-btn" onclick="mic('ans_social_reality',this)">🎤</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="activity">
+      <div class="activity-num">פעילות 6 — שאלת סיכום</div>
+      <h3>האם ההפרדה בין "ילידים" ל"מהגרים" עדיין רלוונטית ב-2024?</h3>
+      <p>פרנסקי כתב את המושג ב-2001. מאז עברו 23 שנים ושינויים טכנולוגיים עצומים. האם המסגרת הזו עדיין שימושית?</p>
+      <div class="chip-group" id="relevant-chips">
+        <div class="chip" onclick="selOne(this,'relevant-chips')">כן — עדיין תקפה ורלוונטית</div>
+        <div class="chip" onclick="selOne(this,'relevant-chips')">חלקית — צריך לעדכן אותה</div>
+        <div class="chip" onclick="selOne(this,'relevant-chips')">לא — מיושנת, נחוצה מסגרת חדשה</div>
+      </div>
+      <div style="margin-top:12px">
+        <label style="font-size:13px;font-weight:700;display:block;margin-bottom:4px">נמקו עם דוגמאות:</label>
+        <div class="mic-wrap">
+          <textarea id="ans_relevance" onpaste="return false" oninput="ar(this)" placeholder="מה עדיין תקף? מה השתנה? אם הייתם מעדכנים — מה הייתם משנים?"></textarea>
+          <button class="mic-btn" onclick="mic('ans_relevance',this)">🎤</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="nav-btns">
+      <button class="btn-nav" onclick="goP(2)">→ חזרה</button>
+    </div>
+    <button class="btn-submit" onclick="submitWS()">שליחת המטלה ✓</button>
+  </div>
+
+  <div id="phase-success">
+    <div class="big">✅</div>
+    <h2>המטלה נשלחה בהצלחה!</h2>
+    <p style="font-size:14px;color:#555;margin-top:8px">תגובת המורה תופיע בעמוד הציונים שלך.</p>
+  </div>
+</div>
+</div>
+
+<footer>פיתוח: רני בן זאב | הכול בכף</footer>
+
+<script>
+const FC={apiKey:"AIzaSyCCHvn_ulmiyM56DuslNzNC0Ge6a8i2vhY",authDomain:"tests-fd938.firebaseapp.com",databaseURL:"https://tests-fd938-default-rtdb.europe-west1.firebasedatabase.app",projectId:"tests-fd938"};
+firebase.initializeApp(FC);
+const db=firebase.database();
+const _urlCode=new URLSearchParams(location.search).get('code');
+if(_urlCode){document.getElementById('inp-code').value=_urlCode;document.getElementById('field-code').style.display='none';}
+let student={};
+function enterPage(){
+  const fn=document.getElementById('inp-fn').value.trim();
+  const ln=document.getElementById('inp-ln').value.trim();
+  const email=document.getElementById('inp-email').value.trim().toLowerCase();
+  const grade=document.getElementById('inp-grade').value;
+  const code=document.getElementById('inp-code').value.trim();
+  if(!fn||!ln||!email||!grade||!code){document.getElementById('modal-err').textContent='נא למלא את כל השדות';return;}
+  db.ref('teacher_codes/'+code).once('value').then(snap=>{
+    const teacherID=snap.val()||'';
+    const displayCode=code.includes('_')?code.split('_')[0]:code;
+    student={name:fn+' '+ln,firstName:fn,lastName:ln,email,class:grade,classCode:displayCode,teacherID};
+    document.getElementById('modal').style.display='none';
+    document.getElementById('mainpage').style.display='block';
+    document.getElementById('bname').textContent=fn+' '+ln;
+    document.getElementById('bcls').textContent=grade;
+    goP(1);
+  });
+}
+function goP(n){
+  document.querySelectorAll('.phase').forEach(p=>p.classList.remove('active'));
+  const ph=document.getElementById('phase-'+n);if(ph)ph.classList.add('active');
+  window.scrollTo({top:0,behavior:'smooth'});setP(n);
+}
+function setP(n){
+  const tot=3,pct=Math.round((n/tot)*100);
+  document.getElementById('plbl').textContent='שלב '+n+'/'+tot;
+  document.getElementById('pfill').style.width=pct+'%';
+  document.getElementById('ppct').textContent=pct+'%';
+}
+function ar(el){el.style.height='auto';el.style.height=el.scrollHeight+'px';}
+function toggleChip(btn,gid,max){const sel=[...document.querySelectorAll('#'+gid+' .chip.sel')];if(btn.classList.contains('sel')){btn.classList.remove('sel');return;}if(sel.length>=max)return;btn.classList.add('sel');}
+function selOne(btn,gid){document.querySelectorAll('#'+gid+' .chip').forEach(c=>c.classList.remove('sel'));btn.classList.add('sel');}
+let recognition=null;
+function mic(tid,btn){
+  if(!('webkitSpeechRecognition' in window||'SpeechRecognition' in window)){alert('הדפדפן אינו תומך בזיהוי קול');return;}
+  if(recognition){recognition.stop();recognition=null;btn.classList.remove('recording');return;}
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  recognition=new SR();recognition.lang='he-IL';recognition.continuous=true;recognition.interimResults=false;
+  recognition.onresult=e=>{const ta=document.getElementById(tid);for(let i=e.resultIndex;i<e.results.length;i++){if(e.results[i].isFinal)ta.value+=(ta.value?' ':'')+e.results[i][0].transcript;}ar(ta);};
+  recognition.onend=()=>{recognition=null;btn.classList.remove('recording');};
+  recognition.start();btn.classList.add('recording');
+}
+function getChips(gid){return[...document.querySelectorAll('#'+gid+' .chip.sel')].map(c=>c.textContent.trim()).join(', ');}
+function submitWS(){
+  const answers={
+    identity_choice:getChips('identity-chips'),
+    identity:document.getElementById('ans_identity').value.trim(),
+    gap_observation:document.getElementById('ans_gap_observation').value.trim(),
+    power_shift_score:document.getElementById('ans_power_shift').value,
+    power_reasoning:document.getElementById('ans_power_reasoning').value.trim(),
+    domain_choice:getChips('domain-chips'),
+    domain_difference:document.getElementById('ans_domain_difference').value.trim(),
+    social_reality_position:getChips('virtual-chips'),
+    social_reality:document.getElementById('ans_social_reality').value.trim(),
+    relevance_position:getChips('relevant-chips'),
+    relevance:document.getElementById('ans_relevance').value.trim()
+  };
+  const required=['identity','gap_observation','power_reasoning','domain_difference','social_reality','relevance'];
+  for(const k of required){if(!answers[k]){alert('נא למלא את כל השדות לפני שליחה');return;}}
+  const data={student:{...student},teacherID:student.teacherID,answers,submittedAt:Date.now()};
+  db.ref('tests/digital_natives/').push(data).then(()=>{
+    document.querySelectorAll('.phase').forEach(p=>p.classList.remove('active'));
+    document.getElementById('phase-success').style.display='block';
+    window.scrollTo({top:0,behavior:'smooth'});
+  }).catch(()=>alert('שגיאה בשליחה — בדוק חיבור לאינטרנט'));
+}
+</script>
+</body>
+</html>
