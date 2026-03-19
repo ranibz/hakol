@@ -140,17 +140,16 @@ if(_code){
   document.getElementById('link-modal').style.display='none';
   document.getElementById('link-worksheet').href='exclusion-worksheet.html?code='+encodeURIComponent(_code);
   document.getElementById('link-mygrades').href='../mygrades.html?code='+encodeURIComponent(_code);
-  db.ref('teacher_codes').once('value').then(snap=>{
-    const codes=snap.val()||{};
-    let tid='';
-    Object.keys(codes).forEach(k=>{if(tid)return;if(k.startsWith(_code.toLowerCase()+'_'))tid=codes[k];});
+  db.ref('teacher_codes/'+_code).once('value').then(snap=>{
+    const tid=snap.val();
     if(!tid)return;
+    const displayCode=_code.includes('_')?_code.split('_')[0]:_code;
     db.ref('teachers/'+tid).once('value').then(ts=>{
       const t=ts.val();if(!t)return;
       const name=(t.firstName&&t.lastName)?t.firstName+' '+t.lastName:(t.name||'');
       if(name){
         document.getElementById('banner-name').textContent=name;
-        document.getElementById('banner-code').textContent=_code;
+        document.getElementById('banner-code').textContent=displayCode;
         document.getElementById('teacher-banner').style.display='block';
       }
     });
@@ -159,7 +158,7 @@ if(_code){
 
 function generateStudentLink(){
   const phone=document.getElementById('lm-phone').value.trim();
-  const code=document.getElementById('lm-code').value.trim().toLowerCase();
+  const code=document.getElementById('lm-code').value.trim();
   const err=document.getElementById('lm-err');
   err.style.display='none';
   if(!phone||!code){err.textContent='יש למלא טלפון וקוד כיתה.';err.style.display='block';return;}
@@ -172,7 +171,7 @@ function generateStudentLink(){
     });
     if(!teacherID){err.textContent='הטלפון לא נמצא במערכת.';err.style.display='block';return;}
     db.ref('teacher_codes/'+code+'_'+teacherID).set(teacherID).then(()=>{
-      const url=location.href.split('?')[0]+'?code='+encodeURIComponent(code);
+      const url=location.href.split('?')[0]+'?code='+encodeURIComponent(code+'_'+teacherID);
       document.getElementById('lm-url').value=url;
       document.getElementById('lm-result').style.display='block';
     });
