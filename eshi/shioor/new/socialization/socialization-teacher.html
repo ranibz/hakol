@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>חיברות — סביבת מורה</title>
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@400;700;900&family=Heebo:wght@300;400;500;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#f5f0e8;color:#1a1208;font-family:'Heebo',sans-serif}
+.masthead{border-top:4px solid #1a1208;border-bottom:4px solid #1a1208;padding:12px 20px;text-align:center}
+.masthead .platform{font-family:'Frank Ruhl Libre',serif;font-size:12px;letter-spacing:3px;color:#2d5986}
+.masthead h1{font-family:'Frank Ruhl Libre',serif;font-size:clamp(1.3rem,4vw,2rem);font-weight:900}
+
+/* Login */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:200;display:flex;align-items:center;justify-content:center;padding:16px}
+.modal-box{background:#f5f0e8;border:3px solid #1a1208;box-shadow:6px 6px 0 #1a1208;padding:28px;max-width:380px;width:100%}
+.modal-box h2{font-family:'Frank Ruhl Libre',serif;font-size:1.3rem;font-weight:900;margin-bottom:16px;text-align:center;border-bottom:2px solid #2d5986;padding-bottom:8px}
+.mf{margin-bottom:12px}
+.mf label{display:block;font-size:13px;font-weight:700;margin-bottom:4px}
+.mf input{width:100%;padding:9px 12px;border:2px solid #1a1208;background:#fff;font-family:'Heebo',sans-serif;font-size:14px}
+.mf input:focus{outline:none;border-color:#2d5986}
+.modal-err{color:#c0392b;font-size:13px;min-height:18px;margin-bottom:6px}
+.btn-login{width:100%;padding:12px;background:#2d5986;color:#fff;border:2px solid #1a1208;box-shadow:4px 4px 0 #1a1208;font-family:'Frank Ruhl Libre',serif;font-size:16px;font-weight:700;cursor:pointer}
+.btn-login:hover{background:#1a3a5c}
+.reg-link{display:block;text-align:center;margin-top:12px;font-size:13px;color:#2d5986;text-decoration:none}
+.reg-link:hover{text-decoration:underline}
+
+/* Dashboard */
+#dashboard{display:none}
+.container{max-width:960px;margin:0 auto;padding:20px 16px 60px}
+.toolbar{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:16px;align-items:center}
+.toolbar input{padding:8px 12px;border:2px solid #1a1208;font-family:'Heebo',sans-serif;font-size:14px;flex:1;min-width:180px}
+.toolbar select{padding:8px 12px;border:2px solid #1a1208;font-family:'Heebo',sans-serif;font-size:14px;background:#fff}
+.btn-csv{padding:8px 16px;background:#1a1208;color:#f5f0e8;border:none;font-family:'Frank Ruhl Libre',serif;font-size:14px;cursor:pointer;white-space:nowrap}
+.btn-csv:hover{background:#2d5986}
+.stats-row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+.stat{background:#fff;border:2px solid #1a1208;box-shadow:2px 2px 0 #1a1208;padding:10px 16px;flex:1;min-width:100px;text-align:center}
+.stat .sval{font-family:'Frank Ruhl Libre',serif;font-size:1.6rem;font-weight:900;color:#2d5986}
+.stat .slbl{font-size:12px;color:#666}
+table{width:100%;border-collapse:collapse;font-size:14px}
+thead th{background:#1a1208;color:#f5f0e8;padding:10px 12px;text-align:right;font-family:'Frank Ruhl Libre',serif;font-weight:700;font-size:13px}
+tbody tr{border-bottom:1px solid #ddd;cursor:pointer;transition:background .15s}
+tbody tr:hover{background:#f0ebe0}
+tbody tr.expanded{background:#e8f0f8}
+td{padding:10px 12px;vertical-align:middle}
+.badge{display:inline-block;padding:2px 8px;font-size:11px;font-weight:700;color:#fff;background:#2d5986;border:1px solid #1a1208}
+.grade-ok{color:#27ae60;font-weight:700}
+.grade-no{color:#aaa}
+.expand-row{display:none}
+.expand-row.open{display:table-row}
+.expand-cell{padding:0!important}
+.expand-inner{padding:16px 20px;background:#f8f6f0;border-bottom:2px solid #2d5986}
+.ans-block{margin-bottom:14px}
+.ans-label{font-size:12px;font-weight:700;color:#2d5986;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+.ans-text{font-size:14px;line-height:1.7;background:#fff;padding:10px;border:1px solid #ccc}
+.feedback-panel{background:#fffde7;border:2px solid #f59e0b;padding:14px;margin-top:12px}
+.feedback-panel h4{font-family:'Frank Ruhl Libre',serif;font-size:14px;font-weight:700;margin-bottom:10px;color:#92400e}
+.fp-row{display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap}
+.fp-row input[type=number]{width:90px;padding:8px;border:2px solid #1a1208;font-size:15px;font-family:'Frank Ruhl Libre',serif;font-weight:700;text-align:center}
+.fp-row textarea{flex:1;min-width:200px;padding:8px;border:2px solid #1a1208;font-family:'Heebo',sans-serif;font-size:14px;resize:none;height:60px}
+.btn-save{padding:8px 18px;background:#2d5986;color:#fff;border:2px solid #1a1208;box-shadow:2px 2px 0 #1a1208;font-family:'Frank Ruhl Libre',serif;font-size:14px;font-weight:700;cursor:pointer;white-space:nowrap}
+.btn-save:hover{background:#1a3a5c}
+.saved-note{font-size:12px;color:#27ae60;font-weight:700;display:none}
+footer{text-align:center;padding:16px;font-size:12px;color:#888;border-top:1px solid #ccc}
+</style>
+</head>
+<body>
+
+<div id="login-modal" class="modal-overlay">
+  <div class="modal-box">
+    <h2>🔐 כניסת מורה</h2>
+    <div class="mf"><label>מספר טלפון</label><input type="tel" id="inp-phone" placeholder="05X-XXXXXXX" style="direction:ltr"></div>
+    <div class="mf"><label>סיסמה</label><input type="password" id="inp-pass" placeholder="סיסמה"></div>
+    <div class="modal-err" id="login-err"></div>
+    <button class="btn-login" onclick="doLogin()">כניסה ←</button>
+    <a class="reg-link" href="../teacher-register.html">אין לך חשבון? הרשמה כמורה</a>
+  </div>
+</div>
+
+<div class="masthead">
+  <div class="platform">הכול בכף — תקשורת וחברה</div>
+  <h1>חיברות — סביבת מורה</h1>
+</div>
+
+<div id="dashboard">
+  <div class="container">
+    <div style="font-size:13px;color:#555;margin-bottom:16px">שלום <strong id="teacher-name"></strong></div>
+
+    <div class="toolbar">
+      <input type="text" id="search-input" placeholder="🔍 חיפוש לפי שם..." oninput="renderTable()">
+      <select id="filter-topic" onchange="renderTable()">
+        <option value="">— כל הנושאים —</option>
+        <option value="socialization">חיברות</option>
+      </select>
+      <select id="filter-class" onchange="renderTable()">
+        <option value="">כל הכיתות</option>
+      </select>
+      <button class="btn-csv" onclick="exportCSV()">ייצוא CSV ⬇</button>
+    </div>
+
+    <div class="stats-row">
+      <div class="stat"><div class="sval" id="stat-total">0</div><div class="slbl">הגשות</div></div>
+      <div class="stat"><div class="sval" id="stat-graded">0</div><div class="slbl">הוערכו</div></div>
+      <div class="stat"><div class="sval" id="stat-avg">—</div><div class="slbl">ממוצע</div></div>
+    </div>
+
+    <table id="main-table">
+      <thead>
+        <tr>
+          <th>נושא</th><th>שם תלמיד</th><th>מייל</th><th>שכבה</th><th>תאריך</th><th>ציון</th>
+        </tr>
+      </thead>
+      <tbody id="table-body"></tbody>
+    </table>
+    <div id="empty-msg" style="text-align:center;padding:30px;color:#888;display:none">אין הגשות להצגה</div>
+  </div>
+</div>
+
+<footer>פיתוח: רני בן זאב | הכול בכף</footer>
+
+<script>
+const FC={
+  apiKey:"AIzaSyCCHvn_ulmiyM56DuslNzNC0Ge6a8i2vhY",
+  authDomain:"tests-fd938.firebaseapp.com",
+  databaseURL:"https://tests-fd938-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId:"tests-fd938"
+};
+firebase.initializeApp(FC);
+const db=firebase.database();
+
+const TOPICS={socialization:{label:'חיברות',color:'#2d5986'}};
+let teacherID='',allData=[];
+
+function doLogin(){
+  const phone=document.getElementById('inp-phone').value.trim().replace(/\D/g,'');
+  const pass=document.getElementById('inp-pass').value.trim();
+  if(!phone||!pass){document.getElementById('login-err').textContent='נא למלא טלפון וסיסמה';return;}
+  db.ref('teachers').once('value').then(snap=>{
+    let found=false,foundKey='',foundData=null;
+    snap.forEach(child=>{
+      if(found) return;
+      const t=child.val();
+      if(t.phone&&t.phone.replace(/\D/g,'')===phone&&t.password===pass&&t.status==='approved'){
+        found=true;foundKey=child.key;foundData=t;
+      }
+    });
+    if(!found){document.getElementById('login-err').textContent='פרטים שגויים או חשבון לא מאושר';return;}
+    teacherID=foundKey;
+    const name=(foundData.firstName&&foundData.lastName)?foundData.firstName+' '+foundData.lastName:(foundData.name||'');
+    document.getElementById('teacher-name').textContent=name;
+    document.getElementById('login-modal').style.display='none';
+    document.getElementById('dashboard').style.display='block';
+    loadData();
+  });
+}
+
+function loadData(){
+  const promises=Object.keys(TOPICS).map(topic=>
+    db.ref('tests/'+topic).once('value').then(snap=>{
+      const arr=[];
+      snap.forEach(child=>{
+        const d=child.val();
+        arr.push({...d,key:child.key,_topic:topic,_topicLabel:TOPICS[topic].label});
+      });
+      return arr;
+    })
+  );
+  Promise.all(promises).then(results=>{
+    allData=results.flat().filter(d=>d.student?.teacherID===teacherID||d.teacherID===teacherID);
+    allData.sort((a,b)=>b.submittedAt-a.submittedAt);
+    renderTable();
+  });
+}
+
+function renderTable(){
+  const search=document.getElementById('search-input').value.toLowerCase();
+  const topic=document.getElementById('filter-topic').value;
+  const cls=document.getElementById('filter-class').value;
+  const base=topic?allData.filter(d=>d._topic===topic):allData;
+
+  const classes=[...new Set(base.map(d=>d.student?.class).filter(Boolean))].sort();
+  const sel=document.getElementById('filter-class');
+  const cur=sel.value;
+  sel.innerHTML='<option value="">כל הכיתות</option>';
+  classes.forEach(c=>sel.innerHTML+=`<option${c===cur?' selected':''}>${c}</option>`);
+
+  const filtered=base.filter(d=>{
+    const name=(d.student?.name||'').toLowerCase();
+    return(!search||name.includes(search))&&(!cls||d.student?.class===cls);
+  });
+
+  const graded=filtered.filter(d=>d.feedback?.grade!==undefined);
+  document.getElementById('stat-total').textContent=filtered.length;
+  document.getElementById('stat-graded').textContent=graded.length;
+  if(graded.length){
+    const avg=Math.round(graded.reduce((s,d)=>s+d.feedback.grade,0)/graded.length);
+    document.getElementById('stat-avg').textContent=avg;
+  } else document.getElementById('stat-avg').textContent='—';
+
+  const tbody=document.getElementById('table-body');
+  tbody.innerHTML='';
+  document.getElementById('empty-msg').style.display=filtered.length?'none':'block';
+
+  filtered.forEach(d=>{
+    const dt=new Date(d.submittedAt).toLocaleDateString('he-IL');
+    const tInfo=TOPICS[d._topic]||{label:d._topic,color:'#999'};
+    const gradeCell=d.feedback?.grade!==undefined
+      ?`<span class="grade-ok">✅ ${d.feedback.grade}</span>`
+      :`<span class="grade-no">—</span>`;
+
+    const tr=document.createElement('tr');
+    tr.innerHTML=`
+      <td><span class="badge" style="background:${tInfo.color}">${tInfo.label}</span></td>
+      <td><strong>${d.student?.name||''}</strong></td>
+      <td style="font-size:12px;direction:ltr;text-align:right">${d.student?.email||''}</td>
+      <td>${d.student?.class||''}</td>
+      <td style="font-size:12px">${dt}</td>
+      <td>${gradeCell}</td>
+    `;
+    tr.onclick=()=>toggleRow(d.key,d,exRow);
+
+    const exRow=document.createElement('tr');
+    exRow.className='expand-row';
+    exRow.id='ex-'+d.key;
+    const exCell=document.createElement('td');
+    exCell.colSpan=6;
+    exCell.className='expand-cell';
+    exCell.innerHTML=buildExpand(d);
+    exRow.appendChild(exCell);
+
+    tbody.appendChild(tr);
+    tbody.appendChild(exRow);
+  });
+}
+
+function toggleRow(key,d,exRow){
+  const el=document.getElementById('ex-'+key);
+  if(!el) return;
+  el.classList.toggle('open');
+}
+
+const ANS_LABELS={
+  agent_choices:'סוכני חיברות שנבחרו',
+  agent_explain:'הסבר על הסוכן המשמעותי',
+  memory:'זיכרון חיברות',
+  media_topic:'תחום השפעת תקשורת',
+  media_example:'דוגמה מהתקשורת',
+  pleasure_repetition:'הנאה וחזרתיות',
+  responsibility_position:'עמדה על אחריות תקשורת',
+  responsibility:'נימוק עמדה',
+  global_local:'מקומי מול גלובלי'
+};
+
+function buildExpand(d){
+  const ans=d.answers||{};
+  let html='<div class="expand-inner">';
+  Object.keys(ANS_LABELS).forEach(k=>{
+    if(ans[k]) html+=`<div class="ans-block"><div class="ans-label">${ANS_LABELS[k]}</div><div class="ans-text">${ans[k]}</div></div>`;
+  });
+  const fb=d.feedback||{};
+  html+=`<div class="feedback-panel">
+    <h4>📝 הערכה</h4>
+    <div class="fp-row">
+      <input type="number" id="grade-${d.key}" min="0" max="100" placeholder="ציון" value="${fb.grade!==undefined?fb.grade:''}">
+      <textarea id="comment-${d.key}" placeholder="הערה לתלמיד...">${fb.comment||''}</textarea>
+      <button class="btn-save" onclick="saveFeedback('${d.key}','${d._topic}')">שמור ✓</button>
+    </div>
+    <span class="saved-note" id="saved-${d.key}">✅ נשמר!</span>
+  </div></div>`;
+  return html;
+}
+
+function saveFeedback(key,topic){
+  const grade=parseInt(document.getElementById('grade-'+key).value);
+  const comment=(document.getElementById('comment-'+key).value||'').trim();
+  if(isNaN(grade)||grade<0||grade>100){alert('ציון לא תקין (0–100)');return;}
+  db.ref('tests/'+(topic||'socialization')+'/'+key+'/feedback').update({
+    grade,comment,gradedAt:Date.now(),gradedBy:teacherID
+  }).then(()=>{
+    const rec=allData.find(d=>d.key===key);
+    if(rec) rec.feedback={grade,comment,gradedAt:Date.now()};
+    const note=document.getElementById('saved-'+key);
+    if(note){note.style.display='inline';setTimeout(()=>note.style.display='none',2000);}
+    renderTable();
+    // re-open row
+    setTimeout(()=>{const el=document.getElementById('ex-'+key);if(el)el.classList.add('open');},50);
+  });
+}
+
+function exportCSV(){
+  const topic=document.getElementById('filter-topic').value;
+  const cls=document.getElementById('filter-class').value;
+  const base=topic?allData.filter(d=>d._topic===topic):allData;
+  const data=cls?base.filter(d=>d.student?.class===cls):base;
+  const answerKeys=[...new Set(data.flatMap(d=>Object.keys(d.answers||{})))];
+  const headers=['שם','מייל','שכבה','קוד כיתה','נושא','תאריך','ציון','הערת מורה',...answerKeys];
+  const rows=data.map(d=>{
+    const dt=new Date(d.submittedAt).toLocaleString('he-IL');
+    const fb=d.feedback||{};
+    return[
+      d.student?.name||'',d.student?.email||'',d.student?.class||'',
+      d.student?.classCode||'',d._topicLabel||'',dt,
+      fb.grade??'',fb.comment||'',
+      ...answerKeys.map(k=>(d.answers?.[k]||'').replace(/\n/g,' '))
+    ].map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',');
+  });
+  const csv='\uFEFF'+headers.map(h=>'"'+h+'"').join(',')+'\n'+rows.join('\n');
+  const a=document.createElement('a');
+  a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(csv);
+  a.download='socialization-'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click();
+}
+
+document.getElementById('inp-pass').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
+</script>
+</body>
+</html>
