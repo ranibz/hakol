@@ -147,22 +147,21 @@ if(_code){
   document.getElementById('link-modal').style.display='none';
   document.getElementById('link-worksheet').href='violence-worksheet.html?code='+encodeURIComponent(_code);
   document.getElementById('link-mygrades').href='../mygrades.html?code='+encodeURIComponent(_code);
-  db.ref('teacher_codes').once('value').then(snap=>{
-    const codes=snap.val()||{};
-    let teacherID='';
-    Object.keys(codes).forEach(k=>{if(teacherID)return;if(k.startsWith(_code.toLowerCase()+'_'))teacherID=codes[k];});
+  db.ref('teacher_codes/'+_code).once('value').then(snap=>{
+    const teacherID=snap.val();
     if(!teacherID)return;
+    const displayCode=_code.includes('_')?_code.split('_')[0]:_code;
     db.ref('teachers/'+teacherID).once('value').then(ts=>{
       const t=ts.val();if(!t)return;
       const name=(t.firstName&&t.lastName)?t.firstName+' '+t.lastName:(t.name||'');
-      if(name){document.getElementById('banner-name').textContent=name;document.getElementById('banner-code').textContent=_code;document.getElementById('teacher-banner').style.display='block';}
+      if(name){document.getElementById('banner-name').textContent=name;document.getElementById('banner-code').textContent=displayCode;document.getElementById('teacher-banner').style.display='block';}
     });
   });
 }
 
 function createLink(){
   const phone=document.getElementById('lm-phone').value.trim();
-  const classCode=document.getElementById('lm-class').value.trim().toLowerCase();
+  const classCode=document.getElementById('lm-class').value.trim();
   const err=document.getElementById('lm-err');
   err.style.display='none';
   if(!phone||!classCode){err.textContent='נא למלא טלפון וקוד כיתה';err.style.display='block';return;}
@@ -171,7 +170,7 @@ function createLink(){
     snap.forEach(child=>{if(teacherID)return;const t=child.val();if(t.phone===phone&&t.status==='approved')teacherID=child.key;});
     if(!teacherID){err.textContent='טלפון לא נמצא או משתמש לא מאושר';err.style.display='block';return;}
     db.ref('teacher_codes/'+classCode+'_'+teacherID).set(teacherID).then(()=>{
-      const url=location.origin+location.pathname+'?code='+encodeURIComponent(classCode);
+      const url=location.origin+location.pathname+'?code='+encodeURIComponent(classCode+'_'+teacherID);
       document.getElementById('link-url-text').textContent=url;
       document.getElementById('link-result').style.display='block';
     });
