@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>הבריסטה הוויראלית — דף המורה</title>
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@400;700;900&family=Heebo:wght@300;400;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<style>
+  :root{--accent:#8B1A1A;--paper:#f5f0e8;--ink:#1a1208;--border:#c8b89a;--muted:#7a6a52;}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'Heebo',sans-serif;background:#f0ece4;color:var(--ink);}
+  #modal{position:fixed;inset:0;background:rgba(10,6,2,.9);display:flex;align-items:center;justify-content:center;z-index:999;}
+  .modal-box{background:white;border-top:6px solid var(--accent);padding:32px 28px;width:min(380px,92vw);border-radius:2px;}
+  .modal-box h2{font-family:'Frank Ruhl Libre',serif;font-size:22px;margin-bottom:6px;}
+  .modal-box p{font-size:13px;color:var(--muted);margin-bottom:20px;}
+  .mf{margin-bottom:14px;}
+  .mf label{display:block;font-size:12px;font-weight:700;color:var(--accent);margin-bottom:4px;}
+  .mf input{width:100%;border:1px solid var(--border);padding:9px 12px;font-family:'Heebo',sans-serif;font-size:14px;background:var(--paper);border-radius:2px;}
+  .mf input:focus{outline:2px solid var(--accent);}
+  .modal-err{color:#c00;font-size:12px;margin-bottom:10px;display:none;}
+  .btn-login{width:100%;background:var(--accent);color:white;border:none;padding:12px;font-family:'Frank Ruhl Libre',serif;font-size:16px;font-weight:700;cursor:pointer;border-radius:2px;}
+  .btn-login:hover{background:#6b1010;}
+  .register-link{text-align:center;margin-top:12px;font-size:12px;}
+  .register-link a{color:var(--accent);}
+  header{background:var(--ink);color:var(--paper);padding:14px 24px;border-bottom:4px solid var(--accent);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;}
+  header h1{font-family:'Frank Ruhl Libre',serif;font-size:clamp(16px,3vw,22px);}
+  header .back{color:var(--border);font-size:13px;text-decoration:none;}
+  .toolbar{background:white;border-bottom:1px solid var(--border);padding:12px 20px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;}
+  .toolbar input,.toolbar select{border:1px solid var(--border);padding:8px 12px;font-family:'Heebo',sans-serif;font-size:13px;background:var(--paper);border-radius:2px;color:var(--ink);}
+  .toolbar input{flex:1;min-width:140px;max-width:240px;}
+  .btn-csv{background:var(--accent);color:white;border:none;padding:8px 16px;font-family:'Heebo',sans-serif;font-size:13px;cursor:pointer;border-radius:2px;margin-right:auto;}
+  .btn-csv:hover{background:#6b1010;}
+  .stats-bar{background:var(--ink);color:var(--paper);padding:8px 20px;font-size:12px;display:flex;gap:20px;flex-wrap:wrap;}
+  .stats-bar span{color:#aaa;} .stats-bar strong{color:#c9a84c;}
+  .table-wrap{overflow-x:auto;padding:16px;}
+  table{width:100%;border-collapse:collapse;font-size:13px;background:white;}
+  th{background:var(--ink);color:white;padding:10px 12px;font-family:'Frank Ruhl Libre',serif;font-size:13px;text-align:right;position:sticky;top:0;}
+  td{padding:10px 12px;border-bottom:1px solid var(--border);vertical-align:top;}
+  tr:hover td{background:#faf6f0;}
+  .tag-topic{display:inline-block;font-size:10px;font-weight:700;padding:2px 8px;background:var(--paper);border:1px solid var(--border);border-radius:10px;color:var(--muted);}
+  .btn-expand{background:none;border:1px solid var(--border);padding:4px 10px;font-size:12px;cursor:pointer;border-radius:2px;color:var(--accent);}
+  .btn-expand:hover{background:var(--paper);}
+  .exp-row{display:none;}
+  .exp-row td{background:#fff9f0 !important;padding:16px 20px;}
+  .exp-content{max-width:700px;}
+  .exp-section{margin-bottom:16px;}
+  .exp-section h4{font-family:'Frank Ruhl Libre',serif;color:var(--accent);font-size:15px;margin-bottom:8px;border-bottom:1px solid var(--border);padding-bottom:4px;}
+  .exp-field{margin-bottom:8px;font-size:13px;line-height:1.7;}
+  .exp-field strong{color:var(--ink);display:inline-block;min-width:130px;}
+  .fb-area{width:100%;border:1px solid var(--border);padding:8px 10px;font-family:'Heebo',sans-serif;font-size:13px;min-height:70px;resize:vertical;background:white;border-radius:2px;}
+  .fb-row{display:flex;align-items:center;gap:10px;margin-top:6px;flex-wrap:wrap;}
+  .score-inp{border:1px solid var(--border);padding:6px 10px;width:80px;font-family:'Heebo',sans-serif;font-size:13px;text-align:center;border-radius:2px;}
+  .btn-save{background:var(--accent);color:white;border:none;padding:6px 16px;font-family:'Heebo',sans-serif;font-size:13px;cursor:pointer;border-radius:2px;}
+  .save-ok{font-size:12px;color:green;display:none;}
+  .empty-state{text-align:center;padding:50px;color:var(--muted);font-size:15px;}
+  footer{text-align:center;padding:14px;font-size:11px;color:var(--muted);border-top:1px solid var(--border);margin-top:10px;}
+</style>
+</head>
+<body>
+
+<div id="modal">
+  <div class="modal-box">
+    <h2>כניסת מורה</h2>
+    <p>הבריסטה הוויראלית — מערכת ניהול הגשות</p>
+    <div class="mf"><label>טלפון</label><input type="tel" id="inp-phone" placeholder="05X-XXXXXXX" style="direction:ltr"></div>
+    <div class="mf"><label>סיסמה אישית</label><input type="password" id="inp-pass" placeholder="סיסמה"></div>
+    <div class="modal-err" id="modal-err"></div>
+    <button class="btn-login" onclick="teacherLogin()">כניסה →</button>
+    <div class="register-link"><a href="../teacher-register.html">עדיין לא רשומים? לחץ כאן להרשמה</a></div>
+  </div>
+</div>
+
+<header>
+  <h1>דף המורה — הבריסטה הוויראלית</h1>
+  <a href="index.html" class="back">← חזרה לנושא</a>
+</header>
+
+<div class="toolbar" id="toolbar" style="display:none;">
+  <input type="text" id="search-input" placeholder="🔍 חיפוש לפי שם..." oninput="renderTable()">
+  <select id="filter-topic" onchange="renderTable()">
+    <option value="">— כל הנושאים —</option>
+    <option value="viral-coffee">הבריסטה הוויראלית</option>
+    <option value="public-broadcasting">שידור ציבורי</option>
+    <option value="communication-process">מרכיבי תהליך התקשורת</option>
+    <option value="ownership">בעלות צולבת</option>
+    <option value="msagur">מסגור תקשורתי</option>
+    <option value="reyting">רייטינג</option>
+  </select>
+  <select id="filter-class" onchange="renderTable()"><option value="">כל הכיתות</option></select>
+  <button class="btn-csv" onclick="exportCSV()">ייצוא CSV ⬇</button>
+</div>
+
+<div class="stats-bar" id="stats-bar" style="display:none;">
+  <div><span>סה״כ: </span><strong id="stat-total">0</strong></div>
+  <div><span>נושא: </span><strong id="stat-topic">—</strong></div>
+  <div><span>כיתה: </span><strong id="stat-class">—</strong></div>
+</div>
+
+<div class="table-wrap" id="table-wrap" style="display:none;">
+  <table>
+    <thead><tr><th>שם</th><th>כיתה</th><th>נושא</th><th>תאריך</th><th>ציון</th><th>פרטים</th></tr></thead>
+    <tbody id="tbody"></tbody>
+  </table>
+  <div class="empty-state" id="empty-state" style="display:none;">לא נמצאו הגשות</div>
+</div>
+
+<footer>פיתוח: רני בן זאב | hakolbakaf.co.il</footer>
+
+<script>
+const FC={apiKey:"AIzaSyCCHvn_ulmiyM56DuslNzNC0Ge6a8i2vhY",databaseURL:"https://tests-fd938-default-rtdb.europe-west1.firebasedatabase.app",projectId:"tests-fd938"};
+firebase.initializeApp(FC);
+const db=firebase.database();
+const TOPICS={'viral-coffee':'הבריסטה הוויראלית','public-broadcasting':'שידור ציבורי','communication-process':'מרכיבי תהליך התקשורת','ownership':'בעלות צולבת','msagur':'מסגור תקשורתי','reyting':'רייטינג'};
+let teacherID='',allData=[];
+
+function teacherLogin(){
+  const pass=document.getElementById('inp-pass').value.trim();
+  const phone=document.getElementById('inp-phone').value.trim();
+  const err=document.getElementById('modal-err');
+  if(!pass||!phone){err.textContent='נא למלא טלפון וסיסמה';err.style.display='block';return;}
+  db.ref('teachers').once('value').then(snap=>{
+    let foundKey='';
+    snap.forEach(child=>{if(foundKey)return;const t=child.val();const ph=t.phone?t.phone.replace(/\D/g,''):'';if(ph===phone.replace(/\D/g,'')&&t.password===pass&&t.status==='approved')foundKey=child.key;});
+    if(!foundKey){err.textContent='סיסמה שגויה או משתמש לא מאושר';err.style.display='block';return;}
+    teacherID=foundKey;
+    document.getElementById('modal').style.display='none';
+    document.getElementById('toolbar').style.display='flex';
+    document.getElementById('stats-bar').style.display='flex';
+    document.getElementById('table-wrap').style.display='block';
+    loadData();
+  });
+}
+
+function loadData(){
+  Promise.all(Object.keys(TOPICS).map(topic=>db.ref('tests/'+topic).once('value').then(snap=>{const raw=snap.val()||{};return Object.entries(raw).map(([k,v])=>({key:k,_topic:topic,_topicLabel:TOPICS[topic],...v}));}))).then(results=>{
+    allData=results.flat().filter(d=>d.student?.teacherID===teacherID);renderTable();
+  });
+}
+
+function renderTable(){
+  const search=document.getElementById('search-input').value.toLowerCase();
+  const cls=document.getElementById('filter-class').value;
+  const topic=document.getElementById('filter-topic').value;
+  const rel=topic?allData.filter(d=>d._topic===topic):allData;
+  const classes=[...new Set(rel.map(d=>d.student?.class).filter(Boolean))].sort();
+  const sel=document.getElementById('filter-class');const cur=sel.value;
+  sel.innerHTML='<option value="">כל הכיתות</option>';
+  classes.forEach(c=>sel.innerHTML+=`<option${c===cur?' selected':''}>${c}</option>`);
+  const filtered=rel.filter(d=>{const name=(d.student?.name||'').toLowerCase();return(!search||name.includes(search))&&(!cls||d.student?.class===cls);});
+  document.getElementById('stat-total').textContent=filtered.length;
+  document.getElementById('stat-topic').textContent=topic?TOPICS[topic]:'הכל';
+  document.getElementById('stat-class').textContent=cls||'הכל';
+  const tbody=document.getElementById('tbody');tbody.innerHTML='';
+  if(!filtered.length){document.getElementById('empty-state').style.display='block';return;}
+  document.getElementById('empty-state').style.display='none';
+  filtered.sort((a,b)=>(b.submittedAt||0)-(a.submittedAt||0));
+  filtered.forEach(d=>{
+    const date=d.submittedAt?new Date(d.submittedAt).toLocaleDateString('he-IL'):'—';
+    const score=d.feedback?.score??'—';
+    const a=d.answers||{};
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td><strong>${d.student?.name||'—'}</strong><br><span style="font-size:11px;color:#888;">${d.student?.email||''}</span></td><td>${d.student?.class||'—'}</td><td><span class="tag-topic">${d._topicLabel}</span></td><td>${date}</td><td>${score}</td><td><button class="btn-expand" onclick="toggleRow('${d.key}')">פתח ▾</button></td>`;
+    tbody.appendChild(tr);
+    const expTr=document.createElement('tr');expTr.className='exp-row';expTr.id='exp-'+d.key;
+    expTr.innerHTML=`<td colspan="6"><div class="exp-content">
+      <div class="exp-section"><h4>שלב א׳ — הבנת האירוע</h4>
+        <div class="exp-field"><strong>ש1 — גורמי ויראליות:</strong> ${a.q1||'—'}</div>
+        <div class="exp-field"><strong>ש2 — מושג:</strong> ${a.q2_concept||'—'}</div>
+        <div class="exp-field"><strong>ש2 — הסבר:</strong> ${a.q2_exp||'—'}</div>
+        <div class="exp-field"><strong>ש3 — מסגורים:</strong> ${a.q3||'—'}</div>
+      </div>
+      <div class="exp-section"><h4>שלב ב׳ — פרטיות ואלימות</h4>
+        <div class="exp-field"><strong>ש4 — אחראי:</strong> ${a.q4_responsible||'—'}</div>
+        <div class="exp-field"><strong>ש4 — נימוק:</strong> ${a.q4_exp||'—'}</div>
+        <div class="exp-field"><strong>ש5 — AI:</strong> ${a.q5_ai||'—'}</div>
+        <div class="exp-field"><strong>ש5 — הסבר:</strong> ${a.q5_exp||'—'}</div>
+        <div class="exp-field"><strong>ש6 — גוגל:</strong> ${a.q6||'—'}</div>
+      </div>
+      <div class="exp-section"><h4>שלב ג׳ — חשיבה ביקורתית</h4>
+        <div class="exp-field"><strong>ש7 — ממים:</strong> ${a.q7||'—'}</div>
+        <div class="exp-field"><strong>ש8 — מוסד:</strong> ${a.q8_mossad||'—'}</div>
+        <div class="exp-field"><strong>ש8 — נימוק:</strong> ${a.q8_exp||'—'}</div>
+        <div class="exp-field"><strong>ש9 — אם הייתי:</strong> ${a.q9||'—'}</div>
+      </div>
+      <div class="exp-section"><h4>משוב מורה</h4>
+        <textarea class="fb-area" id="fb-text-${d.key}" placeholder="כתוב משוב...">${d.feedback?.text||''}</textarea>
+        <div class="fb-row">
+          <label style="font-size:12px;font-weight:700;">ציון:</label>
+          <input class="score-inp" type="number" id="fb-score-${d.key}" min="0" max="100" value="${d.feedback?.score||''}">
+          <button class="btn-save" onclick="saveFeedback('${d.key}')">שמור</button>
+          <span class="save-ok" id="ok-${d.key}">✓ נשמר</span>
+        </div>
+      </div>
+    </div></td>`;
+    tbody.appendChild(expTr);
+  });
+}
+
+function toggleRow(key){const row=document.getElementById('exp-'+key);row.style.display=row.style.display==='table-row'?'none':'table-row';}
+
+function saveFeedback(key){
+  const topic=allData.find(d=>d.key===key)?._topic||'viral-coffee';
+  const text=document.getElementById('fb-text-'+key).value.trim();
+  const score=document.getElementById('fb-score-'+key).value;
+  db.ref('tests/'+topic+'/'+key+'/feedback').set({text,score:score?Number(score):null,savedAt:Date.now(),teacherID}).then(()=>{
+    const ok=document.getElementById('ok-'+key);ok.style.display='inline';setTimeout(()=>{ok.style.display='none';},2000);
+    const d=allData.find(x=>x.key===key);if(d)d.feedback={text,score:score?Number(score):null};renderTable();
+  });
+}
+
+function exportCSV(){
+  const rows=[['שם','אימייל','כיתה','נושא','תאריך','ציון','ש1','ש2-מושג','ש2-הסבר','ש3','ש4-אחראי','ש4-נימוק','ש5-AI','ש5-הסבר','ש6','ש7','ש8-מוסד','ש8-נימוק','ש9','משוב']];
+  allData.forEach(d=>{const a=d.answers||{};rows.push([d.student?.name,d.student?.email,d.student?.class,d._topicLabel,d.submittedAt?new Date(d.submittedAt).toLocaleDateString('he-IL'):'',d.feedback?.score||'',a.q1,a.q2_concept,a.q2_exp,a.q3,a.q4_responsible,a.q4_exp,a.q5_ai,a.q5_exp,a.q6,a.q7,a.q8_mossad,a.q8_exp,a.q9,d.feedback?.text||''].map(v=>'"'+String(v||'').replace(/"/g,'""')+'"'));});
+  const blob=new Blob(['\uFEFF'+rows.map(r=>r.join(',')).join('\n')],{type:'text/csv;charset=utf-8;'});
+  const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='viral-coffee-submissions.csv';a.click();
+}
+</script>
+</body>
+</html>
