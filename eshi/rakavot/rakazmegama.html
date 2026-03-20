@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>מערכת שיבוץ רכז - כניסה מאובטחת</title>
+    <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;700;900&family=Secular+One&display=swap" rel="stylesheet">
+    <style>
+        :root { --bg: #f8fafc; --primary: #6366f1; --indigo-bg: #f5f3ff; --green-bg: #f0fdf4; --indigo-border: #6366f1; --green-border: #10b981; --admin: #1e293b; }
+        body { font-family: 'Heebo', sans-serif; background: var(--bg); margin: 0; padding: 20px; direction: rtl; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        
+        .login-bar { background: var(--admin); color: white; padding: 15px 30px; border-radius: 20px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
+        .input-card { background: #fff; padding: 35px; border-radius: 30px; border: 2px solid #e2e8f0; margin-bottom: 40px; display: none; }
+        
+        .grade-box { background: #fff; border: 2px solid #cbd5e1; border-radius: 40px; padding: 35px; margin-bottom: 40px; box-shadow: 10px 10px 0px rgba(0,0,0,0.02); }
+        .grade-title { font-family: 'Secular One'; font-size: 32px; border-bottom: 3px solid #f1f5f9; padding-bottom: 10px; margin-bottom: 20px; }
+        
+        /* עיצוב שורות צבועות */
+        .row-section { padding: 15px; border-radius: 20px; margin-bottom: 20px; border: 1px solid rgba(0,0,0,0.05); }
+        .row-Indigo { background: var(--indigo-bg); border-right: 8px solid var(--indigo-border); }
+        .row-Green { background: var(--green-bg); border-right: 8px solid var(--green-border); }
+        
+        .row-label { font-weight: 900; font-size: 18px; margin-bottom: 15px; padding-right: 5px; }
+        .row-Indigo .row-label { color: #4338ca; }
+        .row-Green .row-label { color: #15803d; }
+
+        .cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 15px; }
+        .teacher-card { background: white; border-radius: 20px; padding: 20px; position: relative; box-shadow: 0 4px 6px rgba(0,0,0,0.05); border: 1px solid #f1f5f9; }
+        .teacher-card h3 { margin: 0 0 5px 0; font-size: 18px; }
+        .del-btn { position: absolute; top: 10px; left: 10px; background: #fee2e2; color: #ef4444; border: none; width: 25px; height: 25px; border-radius: 50%; cursor: pointer; font-weight: bold; }
+        
+        input, select { padding: 12px; border: 2px solid #f1f5f9; border-radius: 12px; width: 100%; background: #f8fafc; outline: none; font-family: inherit; }
+        .btn-add { background: var(--primary); color: white; border: none; padding: 15px; border-radius: 15px; cursor: pointer; font-weight: 900; transition: 0.2s; }
+        .btn-add:hover { background: #4f46e5; }
+        
+        #error-screen { display: none; text-align: center; padding: 100px; color: #64748b; }
+    </style>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getDatabase, ref, push, onValue, remove } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+        
+        const firebaseConfig = { apiKey: "AIzaSyCvvXDGHLBQKEPvkSQ8p8rdyGgUQc9NHOY", databaseURL: "https://rakevet-65218-default-rtdb.europe-west1.firebasedatabase.app" };
+        const app = initializeApp(firebaseConfig); const db = getDatabase(app);
+
+        // שליפת שם המגמה מהכתובת (URL)
+        const urlParams = new URLSearchParams(window.location.search);
+        const deptUrl = urlParams.get('dept');
+
+        let deptConfig = null;
+        let allEntries = [];
+        let isAuthorized = false;
+
+        // בדיקה אם נכנסו דרך קישור תקין
+        if (!deptUrl) {
+            document.getElementById('error-screen').style.display = 'block';
+        } else {
+            document.getElementById('main-container').style.display = 'block';
+            document.getElementById('displayDept').innerText = deptUrl;
+            loadSystemData();
+        }
+
+        function loadSystemData() {
+            // 1. טעינת הגדרות התשתית והצוות (מה שהמנהלת הפדגוגית קבעה)
+            onValue(ref(db, `config/departments/${deptUrl}`), (snap) => {
+                deptConfig = snap.val();
+                if(deptConfig) {
+                    updateFormOptions();
+                    updateDisplay();
+                } else {
+                    document.getElementById('dashboard').innerHTML = `<div style="padding:40px; text-align:center; color:#94a3b8;">המגמה <b>${deptUrl}</b> טרם הוגדרה במערכת ע"י המנהלת הפדגוגית.</div>`;
+                }
+            });
+
+            // 2. טעינת כל השיבוצים הקיימים
+            onValue(ref(db, 'rakevet_v3'), (snap) => {
+                allEntries = snap.val() ? Object.keys(snap.val()).map(k => ({id: k, ...snap.val()[k]})) : [];
+                updateDisplay();
+            });
+        }
+
+        function updateFormOptions() {
+            // עדכון רשימת מורים (רק הצוות המאושר)
+            const tSel = document.getElementById('inTeacher');
+            tSel.innerHTML = '<option value="">— בחר מורה מהצוות —</option>';
+            if(deptConfig.teachers) {
+                deptConfig.teachers.forEach(t => tSel.innerHTML += `<option value="${t}">${t}</option>`);
+            }
+
+            // עדכון רשימת מקצועות (מכל השורות שהוגדרו)
+            const sSel = document.getElementById('inSubject');
+            sSel.innerHTML = '<option value="">— בחר מקצוע —</option>';
+            if(deptConfig.structure) {
+                Object.values(deptConfig.structure).forEach(row => {
+                    row.subjects.forEach(subj => sSel.innerHTML += `<option value="${subj}">${subj}</option>`);
+                });
+            }
+        }
+
+        window.checkPassword = () => {
+            if(document.getElementById('passField').value === "1234") {
+                isAuthorized = true;
+                document.getElementById('admin-section').style.display = 'block';
+                document.getElementById('login-ui').style.display = 'none';
+                updateDisplay();
+            } else {
+                alert("סיסמה שגויה");
+            }
+        };
+
+        window.addEntry = () => {
+            if(!isAuthorized) return;
+            const entry = {
+                dept: deptUrl,
+                year: "תשפז",
+                grade: document.getElementById('inGrade').value,
+                subject: document.getElementById('inSubject').value,
+                teacher: document.getElementById('inTeacher').value,
+                contact: parseFloat(document.getElementById('inContact').value) || 0,
+                bonus: parseFloat(document.getElementById('inBonus').value) || 0
+            };
+            if(entry.teacher && entry.subject) {
+                push(ref(db, 'rakevet_v3'), entry);
+            } else {
+                alert("חובה לבחור מורה ומקצוע מהרשימה");
+            }
+        };
+
+        window.deleteEntry = (id) => confirm("למחוק שיבוץ זה?") && remove(ref(db, `rakevet_v3/${id}`));
+
+        window.updateDisplay = () => {
+            const dash = document.getElementById('dashboard');
+            dash.innerHTML = '';
+            if(!deptConfig || !deptConfig.structure) return;
+
+            // מעבר על שכבות י, יא, יב
+            ['י', 'יא', 'יב'].forEach(g => {
+                const gradeData = allEntries.filter(e => e.grade === g && e.dept === deptUrl);
+                const box = document.createElement('div');
+                box.className = 'grade-box';
+                let html = `<h2 class="grade-title">שכבת ${g}</h2>`;
+
+                // רינדור לפי השורות שהוגדרו בתשתית
+                Object.keys(deptConfig.structure).forEach((rowKey, idx) => {
+                    const row = deptConfig.structure[rowKey];
+                    const rowEntries = gradeData.filter(e => row.subjects.includes(e.subject));
+                    const colorClass = (idx === 0) ? 'row-Indigo' : (idx === 1) ? 'row-Green' : 'row-section';
+                    
+                    html += `<div class="row-section ${colorClass}">
+                                <div class="row-label">${row.label}</div>
+                                <div class="cards-grid">`;
+                    
+                    if(rowEntries.length === 0) {
+                        html += `<div style="color:#94a3b8; font-style:italic; padding:10px;">אין שיבוצים רשומים</div>`;
+                    } else {
+                        html += rowEntries.map(d => `
+                            <div class="teacher-card">
+                                <h3>${d.teacher}</h3>
+                                <div style="color:var(--primary); font-weight:700; font-size:14px;">${d.subject}</div>
+                                <div style="display:flex; justify-content:space-between; margin-top:15px; font-weight:900; background:#f8fafc; padding:8px; border-radius:10px;">
+                                    <span>מגע: ${d.contact}</span>
+                                    <span>גמול: ${d.bonus}</span>
+                                </div>
+                                ${isAuthorized ? `<button class="del-btn" onclick="deleteEntry('${d.id}')">✕</button>` : ''}
+                            </div>
+                        `).join('');
+                    }
+                    html += `</div></div>`;
+                });
+                box.innerHTML = html;
+                dash.appendChild(box);
+            });
+        }
+    </script>
+</head>
+<body>
+    <!-- מסך שגיאה אם אין מחלקה בקישור -->
+    <div id="error-screen">
+        <h1>גישה נדחתה</h1>
+        <p>נא להיכנס דרך הקישור האישי ששלחה המנהלת הפדגוגית.</p>
+    </div>
+
+    <!-- ממשק השיבוץ -->
+    <div id="main-container" class="container" style="display:none;">
+        <div class="login-bar">
+            <span style="font-weight: 800; font-size: 24px;">שיבוץ מגמת: <span id="displayDept" style="color:#818cf8;"></span></span>
+            <div id="login-ui">
+                <input type="password" id="passField" placeholder="סיסמת רכז" style="width:120px; padding:8px; border:none; border-radius:8px;"> 
+                <button onclick="checkPassword()" class="btn-add" style="padding:8px 20px; border-radius:8px; font-size:14px;">כניסה לשיבוץ</button>
+            </div>
+        </div>
+
+        <!-- טופס הוספת שיבוץ -->
+        <div id="admin-section" class="input-card">
+            <h3 style="margin-top:0; margin-bottom:20px; border-bottom:1px solid #eee; padding-bottom:10px;">הוספת שיבוץ מורה למשרה</h3>
+            <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(130px,1fr)); gap:15px; align-items:flex-end;">
+                <div><label>שכבה</label><select id="inGrade"><option value="י">י'</option><option value="יא">י"א</option><option value="יב">י"ב</option></select></div>
+                <div><label>מורה מהצוות</label><select id="inTeacher"></select></div>
+                <div><label>מקצוע/תחום</label><select id="inSubject"></select></div>
+                <div><label>שעות מגע</label><input type="number" id="inContact" value="4" step="0.5"></div>
+                <div><label>שעות גמול</label><input type="number" id="inBonus" value="0" step="0.5"></div>
+                <button onclick="addEntry()" class="btn-add">בצע שיבוץ +</button>
+            </div>
+        </div>
+
+        <!-- לוח התצוגה -->
+        <div id="dashboard">טוען נתונים מהגדרות המנהלת...</div>
+    </div>
+</body>
+</html>
