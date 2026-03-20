@@ -2,183 +2,152 @@
 <html lang="he" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <title>ניהול מערכת — Master Admin (גרסת עריכה)</title>
+    <title>ניהול פדגוגי — הקמת מגמות</title>
     <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700;900&family=Secular+One&display=swap" rel="stylesheet">
     <style>
-        :root { --admin-bg: #0f172a; --primary: #6366f1; --accent: #10b981; --edit: #f59e0b; }
-        body { font-family: 'Heebo', sans-serif; background: #f8fafc; color: #1e293b; direction: rtl; padding: 0; margin: 0; }
-        .admin-header { background: var(--admin-bg); color: white; padding: 25px 40px; display: flex; justify-content: space-between; align-items: center; }
-        .container { max-width: 1200px; margin: 40px auto; padding: 0 20px; }
-        #login-overlay { position: fixed; inset: 0; background: var(--admin-bg); z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; }
-        .login-card { background: rgba(255,255,255,0.1); padding: 40px; border-radius: 30px; backdrop-filter: blur(10px); text-align: center; border: 1px solid rgba(255,255,255,0.2); }
-        .admin-card { background: white; border-radius: 30px; padding: 30px; border: 1px solid #e2e8f0; margin-bottom: 30px; box-shadow: 0 4px 6px rgba(0,0,0,0.02); }
-        .card-title { font-family: 'Secular One'; font-size: 24px; margin-bottom: 20px; border-bottom: 2px solid #f1f5f9; padding-bottom: 10px; }
-        input { padding: 12px; border: 2px solid #f1f5f9; border-radius: 12px; font-size: 15px; width: 100%; margin-bottom: 15px; background: #f8fafc; outline: none; }
-        .btn { padding: 12px 25px; border-radius: 12px; border: none; cursor: pointer; font-weight: 800; transition: 0.2s; width: 100%; }
+        :root { --primary: #6366f1; --accent: #10b981; --bg: #f8fafc; }
+        body { font-family: 'Heebo', sans-serif; background: var(--bg); direction: rtl; padding: 20px; margin: 0; }
+        .container { max-width: 900px; margin: 0 auto; }
+        
+        .setup-card { background: white; border-radius: 30px; padding: 40px; border: 1px solid #e2e8f0; box-shadow: 0 10px 25px rgba(0,0,0,0.05); }
+        .card-title { font-family: 'Secular One'; font-size: 28px; margin-bottom: 25px; color: #1e293b; border-bottom: 3px solid #f1f5f9; padding-bottom: 10px; }
+        
+        label { display: block; font-weight: 800; margin-bottom: 8px; color: #475569; font-size: 14px; }
+        select, input { padding: 14px; border: 2px solid #f1f5f9; border-radius: 15px; width: 100%; margin-bottom: 20px; outline: none; background: #f8fafc; font-size: 16px; }
+        select:focus, input:focus { border-color: var(--primary); background: white; }
+
+        .btn { padding: 15px 30px; border-radius: 15px; border: none; cursor: pointer; font-weight: 900; width: 100%; font-size: 16px; transition: 0.2s; }
         .btn-primary { background: var(--primary); color: white; }
-        .btn-accent { background: var(--accent); color: white; margin-top: 20px; font-size: 18px; }
-        .btn-edit-mode { background: var(--edit) !important; }
-        .teacher-selector { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; background: #f1f5f9; padding: 20px; border-radius: 15px; margin-bottom: 20px; max-height: 200px; overflow-y: auto; }
-        .teacher-option { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 700; }
-        .dept-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 20px; }
-        .dept-card { background: white; border-radius: 25px; padding: 25px; border: 1px solid #e2e8f0; position: relative; }
-        .teacher-tag { display: inline-block; background: #eef2ff; color: var(--primary); padding: 2px 8px; border-radius: 6px; font-size: 11px; margin: 2px; font-weight: 800; }
-        .card-tools { position: absolute; top: 15px; left: 15px; display: flex; gap: 10px; }
-        .tool-btn { background: none; border: none; cursor: pointer; font-size: 18px; padding: 5px; border-radius: 5px; }
-        .tool-btn:hover { background: #f1f5f9; }
-        footer { text-align: center; padding: 40px; color: #64748b; font-size: 14px; border-top: 1px solid #e2e8f0; margin-top: 50px; }
+        .btn-accent { background: var(--accent); color: white; margin-top: 10px; }
+        
+        .form-section { background: #f1f5f9; padding: 25px; border-radius: 20px; margin-bottom: 20px; display: none; animation: slideIn 0.4s ease; }
+        @keyframes slideIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .teacher-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; background: white; padding: 15px; border-radius: 15px; border: 2px solid #f1f5f9; margin-bottom: 20px; max-height: 150px; overflow-y: auto; }
+        .teacher-opt { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; }
+        
+        footer { text-align: center; padding: 40px; color: #94a3b8; font-size: 12px; }
     </style>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getDatabase, ref, push, onValue, remove, set } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+        import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
         
-        const firebaseConfig = { 
-            apiKey: "AIzaSyCvvXDGHLBQKEPvkSQ8p8rdyGgUQc9NHOY", 
-            authDomain: "rakevet-65218.firebaseapp.com", 
-            databaseURL: "https://rakevet-65218-default-rtdb.europe-west1.firebasedatabase.app", 
-            projectId: "rakevet-65218", 
-            appId: "1:1096554736743:web:b2e78ba157117e1c44f8c2" 
-        };
+        const firebaseConfig = { apiKey: "AIzaSyCvvXDGHLBQKEPvkSQ8p8rdyGgUQc9NHOY", authDomain: "rakevet-65218.firebaseapp.com", databaseURL: "https://rakevet-65218-default-rtdb.europe-west1.firebasedatabase.app", projectId: "rakevet-65218", appId: "1:1096554736743:web:b2e78ba157117e1c44f8c2" };
+        const app = initializeApp(firebaseConfig); const db = getDatabase(app);
 
-        const app = initializeApp(firebaseConfig);
-        const db = getDatabase(app);
-        
-        let editingDeptId = null; // משתנה למעקב אחרי עריכה
-        let allDepts = {};
+        // 1. טעינת רשימת המנהלות הפדגוגיות מהדאטהבייס (הגדרות המנהלת)
+        onValue(ref(db, 'config/pm_list'), (snap) => {
+            const list = snap.val() || ["מנהלת פדגוגית 1", "מנהלת פדגוגית 2", "מנהלת פדגוגית 3", "מנהלת פדגוגית 4", "מנהלת פדגוגית 5"];
+            const sel = document.getElementById('mgrSelect');
+            sel.innerHTML = '<option value="">— בחרי את שמך מהרשימה —</option>';
+            list.forEach(name => {
+                sel.innerHTML += `<option value="${name}">${name}</option>`;
+            });
+        });
 
-        window.tryLogin = () => {
-            if(document.getElementById('adminPass').value === "1234") 
-                document.getElementById('login-overlay').style.display = 'none';
-            else alert("סיסמה שגויה");
-        };
-
-        window.addTeacher = () => {
-            const name = document.getElementById('tName').value;
-            if(name) { push(ref(db, 'config/teachers'), { name, maxHours: document.getElementById('tHours').value }); document.getElementById('tName').value = ''; }
-        };
-
+        // 2. טעינת מאגר המורים הכללי של בית הספר
         onValue(ref(db, 'config/teachers'), (snap) => {
-            const table = document.getElementById('teachersTable');
-            const selector = document.getElementById('teacher-selector');
-            table.innerHTML = ''; selector.innerHTML = '';
+            const grid = document.getElementById('teacher-grid');
+            grid.innerHTML = '';
             if(snap.val()) {
-                Object.entries(snap.val()).forEach(([id, t]) => {
-                    table.innerHTML += `<tr><td><b>${t.name}</b></td><td>${t.maxHours} ש'</td><td style="color:red; cursor:pointer;" onclick="deleteItem('config/teachers/${id}')">✕</td></tr>`;
-                    selector.innerHTML += `<label class="teacher-option"><input type="checkbox" name="deptT" value="${t.name}"> ${t.name}</label>`;
+                Object.values(snap.val()).forEach(t => {
+                    grid.innerHTML += `<label class="teacher-opt"><input type="checkbox" name="deptT" value="${t.name}"> ${t.name}</label>`;
                 });
             }
         });
 
-        // פונקציית טעינה לעריכה
-        window.loadForEdit = (id) => {
-            editingDeptId = id;
-            const d = allDepts[id];
-            document.getElementById('dName').value = d.name;
-            document.getElementById('r1Name').value = d.row1.label;
-            document.getElementById('r1Subs').value = d.row1.subjects.join(', ');
-            document.getElementById('r2Name').value = d.row2.label;
-            document.getElementById('r2Subs').value = d.row2.subjects.join(', ');
-            
-            // סימון מורים
-            document.querySelectorAll('input[name="deptT"]').forEach(cb => {
-                cb.checked = (d.teachers || []).includes(cb.value);
-            });
+        // 3. טעינת המקצועות המשויכים למנהלת שנבחרה
+        window.loadMySubjects = () => {
+            const pmName = document.getElementById('mgrSelect').value;
+            if(!pmName) {
+                document.getElementById('setup-form').style.display = 'none';
+                return;
+            }
 
-            document.getElementById('submitBtn').innerText = "עדכן מגמה קיימת";
-            document.getElementById('submitBtn').classList.add('btn-edit-mode');
-            window.scrollTo({ top: 0, behavior: 'smooth' });
+            onValue(ref(db, 'config/pm_assignments/' + pmName), (snap) => {
+                const subjects = snap.val() || [];
+                const subSel = document.getElementById('subjectSelect');
+                subSel.innerHTML = '<option value="">— בחרי מקצוע להקמה —</option>';
+                
+                if(subjects.length === 0) {
+                    alert("לא נמצאו מקצועות המשויכים אלייך. פני למנהלת ביה\"ס.");
+                } else {
+                    subjects.forEach(s => subSel.innerHTML += `<option value="${s}">${s}</option>`);
+                    document.getElementById('setup-form').style.display = 'block';
+                }
+            });
         };
 
+        // 4. שמירת הגדרות המגמה
         window.saveDept = () => {
-            const name = document.getElementById('dName').value;
+            const deptName = document.getElementById('subjectSelect').value;
+            const pmName = document.getElementById('mgrSelect').value;
             const selectedTeachers = Array.from(document.querySelectorAll('input[name="deptT"]:checked')).map(cb => cb.value);
-            if(!name) { alert("חובה להזין שם מגמה!"); return; }
+            
+            if(!deptName) return alert("חובה לבחור מקצוע");
+            if(selectedTeachers.length === 0) return alert("חובה לבחור לפחות מורה אחד לצוות המגמה");
 
-            const deptData = {
-                name: name,
+            const data = {
+                name: deptName,
+                manager: pmName,
                 teachers: selectedTeachers,
-                row1: { label: document.getElementById('r1Name').value, subjects: document.getElementById('r1Subs').value.split(',').map(s => s.trim()) },
-                row2: { label: document.getElementById('r2Name').value, subjects: document.getElementById('r2Subs').value.split(',').map(s => s.trim()) }
+                row1: { 
+                    label: document.getElementById('r1Name').value, 
+                    subjects: document.getElementById('r1Subs').value.split(',').map(s => s.trim()) 
+                },
+                row2: { 
+                    label: document.getElementById('r2Name').value, 
+                    subjects: document.getElementById('r2Subs').value.split(',').map(s => s.trim()) 
+                }
             };
 
-            if(editingDeptId) {
-                // עדכון קיימת
-                set(ref(db, 'config/departments/' + editingDeptId), deptData).then(() => {
-                    alert("המגמה עודכנה בהצלחה!");
-                    resetForm();
-                });
-            } else {
-                // הקמת חדשה
-                push(ref(db, 'config/departments'), deptData).then(() => {
-                    alert("המגמה הוקמה בהצלחה!");
-                    resetForm();
-                });
-            }
-        };
-
-        function resetForm() {
-            editingDeptId = null;
-            document.getElementById('dName').value = '';
-            document.getElementById('submitBtn').innerText = "צור מגמה ושייך צוות +";
-            document.getElementById('submitBtn').classList.remove('btn-edit-mode');
-            document.querySelectorAll('input[name="deptT"]').forEach(cb => cb.checked = false);
-        }
-
-        onValue(ref(db, 'config/departments'), (snap) => {
-            const grid = document.getElementById('deptGrid');
-            grid.innerHTML = '';
-            allDepts = snap.val() || {};
-            Object.entries(allDepts).forEach(([id, d]) => {
-                const tList = d.teachers || [];
-                grid.innerHTML += `
-                    <div class="dept-card">
-                        <div class="card-tools">
-                            <button class="tool-btn" onclick="loadForEdit('${id}')" title="ערוך מגמה">✏️</button>
-                            <button class="tool-btn" onclick="deleteItem('config/departments/${id}')" style="color:red" title="מחק מגמה">🗑️</button>
-                        </div>
-                        <h3 style="font-family:'Secular One'; margin-top:10px;">📁 ${d.name}</h3>
-                        <div style="margin:10px 0;">${tList.map(t => `<span class="teacher-tag">${t}</span>`).join('')}</div>
-                        <div style="font-size:13px; color:#64748b; margin-bottom:15px;">
-                            <b>${d.row1.label}:</b> ${d.row1.subjects.join(', ')}<br>
-                            <b>${d.row2.label}:</b> ${d.row2.subjects.join(', ')}
-                        </div>
-                        <a href="coordinator.html?dept=${encodeURIComponent(d.name)}" 
-                           style="display:block; background:var(--admin-bg); color:white; text-align:center; padding:12px; border-radius:12px; text-decoration:none; font-weight:800;">
-                           מעבר לשיבוץ רכז ➔
-                        </a>
-                    </div>`;
+            set(ref(db, 'config/departments/' + deptName), data).then(() => {
+                alert("הגדרות המגמה נשמרו בהצלחה! הרכז יכול להתחיל בשיבוץ.");
             });
-        });
-
-        window.deleteItem = (p) => confirm("למחוק?") && remove(ref(db, p));
+        };
     </script>
 </head>
 <body>
-    <div id="login-overlay"><div class="login-card"><h1>Master Admin</h1><input type="password" id="adminPass" placeholder="סיסמה" style="text-align:center; margin-bottom:15px;"><br><button class="btn btn-accent" style="width:150px;" onclick="tryLogin()">כניסה</button></div></div>
-    <header class="admin-header"><h1>לוח בקרה וניהול — רכז על</h1></header>
-    <div class="container">
-        <div style="display:grid; grid-template-columns: 1fr 2fr; gap:30px;">
-            <div class="admin-card">
-                <h2 class="card-title">מאגר מורים כללי</h2>
-                <input type="text" id="tName" placeholder="שם המורה">
-                <input type="number" id="tHours" value="24"><button class="btn btn-primary" onclick="addTeacher()">הוסף למאגר +</button>
-                <table style="width:100%; margin-top:20px; text-align:right;"><thead><tr style="font-size:12px; color:#64748b;"><th>שם</th><th>תקן</th><th></th></tr></thead><tbody id="teachersTable"></tbody></table>
-            </div>
-            <div class="admin-card">
-                <h2 class="card-title">הקמת/עריכת מגמה ומבנה פדגוגי</h2>
-                <label>שם המגמה</label><input type="text" id="dName">
-                <label><b>בחר צוות מורים למגמה:</b></label><div id="teacher-selector" class="teacher-selector"></div>
-                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
-                    <div style="background:#f8fafc; padding:20px; border-radius:20px;"><label>שורה 1: שם</label><input type="text" id="r1Name" value="תקשורת וחברה"><label>מקצועות</label><input type="text" id="r1Subs" value="תקשורת למד, תקשורת מבחן"></div>
-                    <div style="background:#f8fafc; padding:20px; border-radius:20px;"><label>שורה 2: שם</label><input type="text" id="r2Name" value="הפקות"><label>מקצועות</label><input type="text" id="r2Subs" value="מדיה 3 יח״ל, מדיה 5 יח״ל"></div>
+
+<div class="container">
+    <div class="setup-card">
+        <h1 class="card-title">מרכז בקרה פדגוגי</h1>
+        
+        <label>1. הזדהות מנהלת פדגוגית:</label>
+        <select id="mgrSelect" onchange="loadMySubjects()"></select>
+
+        <div id="setup-form" style="display:none; margin-top:20px; border-top:2px solid #f1f5f9; padding-top:25px;">
+            
+            <label>2. בחרי מקצוע לניהול והקמה:</label>
+            <select id="subjectSelect"></select>
+
+            <label>3. בחרי צוות מורים למגמה זו:</label>
+            <div id="teacher-grid" class="teacher-grid"></div>
+
+            <label>4. הגדרת מבנה פדגוגי (שורות ומקצועות):</label>
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
+                <div class="form-section" style="display:block; background:#f0f7ff;">
+                    <label>שורה 1: שם קטגוריה</label>
+                    <input type="text" id="r1Name" value="ליבה ועיוני">
+                    <label>מקצועות בשורה זו (מופרדים בפסיק)</label>
+                    <input type="text" id="r1Subs" placeholder="למשל: תקשורת וחברה, עבודת גמר">
                 </div>
-                <button id="submitBtn" class="btn btn-accent" onclick="saveDept()">צור מגמה ושייך צוות +</button>
+                <div class="form-section" style="display:block; background:#f0fff4;">
+                    <label>שורה 2: שם קטגוריה</label>
+                    <input type="text" id="r2Name" value="התמחות והפקה">
+                    <label>מקצועות בשורה זו (מופרדים בפסיק)</label>
+                    <input type="text" id="r2Subs" placeholder="למשל: רדיו, קולנוע, ניו-מדיה">
+                </div>
             </div>
+
+            <button class="btn btn-primary" onclick="saveDept()">שמור הגדרות מגמה ושחרר לשיבוץ רכז ➔</button>
+            <a href="coordinator.html" style="display:block; text-align:center; margin-top:20px; color:#64748b; text-decoration:none; font-size:13px; font-weight:700;">➔ מעבר ללוח השיבוץ (לרכזים)</a>
         </div>
-        <h2 style="font-family:'Secular One'; margin:40px 0 20px;">מגמות פעילות במערכת</h2>
-        <div id="deptGrid" class="dept-grid"></div>
     </div>
-    <footer>פיתוח מערכת: רני בן זאב</footer>
+
+    <footer>פיתוח מערכת: רני בן זאב | גרסה פדגוגית היררכית 2.0</footer>
+</div>
+
 </body>
 </html>

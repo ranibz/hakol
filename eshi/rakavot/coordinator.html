@@ -2,210 +2,98 @@
 <html lang="he" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <title>מערכת רכז — פירוט שעות וסטטיסטיקה</title>
+    <title>מערכת רכז — שיבוץ וסטטיסטיקה</title>
     <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700;900&family=Secular+One&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root { --bg: #f8fafc; --primary: #6366f1; --magama: #ecfdf5; --magama-border: #10b981; }
-        * { margin:0; padding:0; box-sizing:border-box; }
-        body { font-family: 'Heebo', sans-serif; background: var(--bg); direction: rtl; padding: 20px; }
+        body { font-family: 'Heebo', sans-serif; background: var(--bg); direction: rtl; padding: 20px; margin: 0; }
         .container { max-width: 1200px; margin: 0 auto; }
         .login-bar { background: #1e293b; color: white; padding: 15px 30px; border-radius: 20px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
         .nav-bar { display: flex; justify-content: space-between; align-items: center; background: #fff; padding: 20px 30px; border-radius: 20px; border: 1px solid #e2e8f0; margin-bottom: 30px; }
         .input-card { background: #fff; padding: 35px; border-radius: 30px; border: 2px solid #e2e8f0; margin-bottom: 40px; display: none; }
-        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 15px; align-items: flex-end; }
-        .grade-box { background: #fff; border: 2px solid #cbd5e1; border-radius: 40px; padding: 35px; margin-bottom: 40px; box-shadow: 10px 10px 0px rgba(0,0,0,0.01); }
+        .grade-box { background: #fff; border: 2px solid #cbd5e1; border-radius: 40px; padding: 35px; margin-bottom: 40px; box-shadow: 10px 10px 0px rgba(0,0,0,0.02); }
         .grade-title { font-family: 'Secular One'; font-size: 32px; margin-bottom: 20px; border-bottom: 3px solid #f1f5f9; padding-bottom: 10px; }
         .row-header { font-size: 15px; font-weight: 900; color: #475569; margin: 25px 0 10px; border-bottom: 2px solid #e2e8f0; }
         .cards-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 15px; }
         .teacher-card { background: white; border-radius: 20px; padding: 20px; position: relative; border: 1px solid rgba(0,0,0,0.05); }
-        .del-btn { position: absolute; top: 12px; left: 12px; background: #fee2e2; color: #ef4444; border: none; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; }
-        .summary-pill { background: #fff; padding: 18px 30px; border-radius: 100px; margin-top: 25px; border: 3px solid var(--magama-border); display: flex; justify-content: space-between; font-weight: 900; font-size: 19px; }
-
-        /* Stats Modal */
-        #stats-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 2000; padding: 40px; overflow-y: auto; }
-        .modal-content { background: white; max-width: 1100px; margin: 0 auto; padding: 40px; border-radius: 40px; position: relative; }
-        .stats-table { width: 100%; border-collapse: collapse; margin-top: 30px; font-size: 14px; text-align: center; }
-        .stats-table th { background: #f8fafc; padding: 12px; border: 1px solid #e2e8f0; font-weight: 900; color: #1e293b; }
-        .stats-table td { padding: 10px; border: 1px solid #e2e8f0; }
-        .year-header { background: #eef2ff !important; color: var(--primary); font-size: 16px; }
-
-        input, select { padding: 10px; border: 2px solid #f1f5f9; border-radius: 10px; width:100%; outline:none; }
-        footer { text-align: center; padding: 40px; color: #64748b; font-size: 14px; border-top: 1px solid #e2e8f0; margin-top: 50px; }
+        .del-btn { position: absolute; top: 10px; left: 10px; background: #fee2e2; color: #ef4444; border: none; width: 25px; height: 25px; border-radius: 50%; cursor: pointer; }
+        .summary-pill { background: #fff; padding: 20px; border-radius: 100px; border: 3px solid var(--magama-border); display: flex; justify-content: space-around; font-weight: 900; font-size: 20px; margin-top: 20px; }
+        #stats-modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.8); z-index: 2000; padding: 40px; overflow-y: auto; }
+        .modal-content { background: white; max-width: 1000px; margin: 0 auto; padding: 40px; border-radius: 30px; position: relative; }
+        input, select { padding: 10px; border: 2px solid #f1f5f9; border-radius: 10px; width: 100%; background: #f8fafc; outline: none; }
+        .btn-stats { background: #10b981; color: white; border: none; padding: 10px 20px; border-radius: 12px; cursor: pointer; font-weight: 800; }
+        .btn-portal { background: #f1f5f9; color: #1e293b; text-decoration: none; padding: 10px 20px; border-radius: 12px; font-weight: 800; border: 1px solid #e2e8f0; font-size: 14px; }
     </style>
-
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getDatabase, ref, push, onValue, remove } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
-        
-        const firebaseConfig = { 
-            apiKey: "AIzaSyCvvXDGHLBQKEPvkSQ8p8rdyGgUQc9NHOY", 
-            authDomain: "rakevet-65218.firebaseapp.com", 
-            databaseURL: "https://rakevet-65218-default-rtdb.europe-west1.firebasedatabase.app", 
-            projectId: "rakevet-65218", 
-            appId: "1:1096554736743:web:b2e78ba157117e1c44f8c2" 
-        };
-
-        const app = initializeApp(firebaseConfig);
-        const db = getDatabase(app);
-
+        const firebaseConfig = { apiKey: "AIzaSyCvvXDGHLBQKEPvkSQ8p8rdyGgUQc9NHOY", authDomain: "rakevet-65218.firebaseapp.com", databaseURL: "https://rakevet-65218-default-rtdb.europe-west1.firebasedatabase.app", projectId: "rakevet-65218", appId: "1:1096554736743:web:b2e78ba157117e1c44f8c2" };
+        const app = initializeApp(firebaseConfig); const db = getDatabase(app);
         const urlParams = new URLSearchParams(window.location.search);
         const currentDeptName = urlParams.get('dept') || "תקשורת";
-        
-        let allEntries = []; let isAuthorized = false; let deptConfig = null; let myChart = null;
-
         document.addEventListener('DOMContentLoaded', () => { document.getElementById('deptLabel').innerText = currentDeptName; });
-
+        let allEntries = []; let isAuthorized = false; let deptConfig = null; let myChart = null;
         onValue(ref(db, 'config/departments'), (snap) => {
-            const depts = snap.val();
-            if(depts) {
+            const depts = snap.val(); if(depts) {
                 deptConfig = Object.values(depts).find(d => d.name === currentDeptName);
                 if(deptConfig) updateFormUI();
             }
         });
-
         function updateFormUI() {
-            const sub = document.getElementById('inSubject'); if(!sub) return;
-            sub.innerHTML = '';
-            const allSubs = [...(deptConfig.row1.subjects || []), ...(deptConfig.row2.subjects || [])];
+            const sub = document.getElementById('inSubject'); sub.innerHTML = '';
+            const allSubs = [...(deptConfig.row1?.subjects || []), ...(deptConfig.row2?.subjects || [])];
             allSubs.forEach(s => sub.innerHTML += `<option value="${s}">${s}</option>`);
-            
-            const tSelect = document.getElementById('inTeacher');
-            tSelect.innerHTML = '<option value="">— בחר מורה —</option>';
+            const tSel = document.getElementById('inTeacher'); tSel.innerHTML = '<option value="">— בחר מורה —</option>';
             const teachers = Array.isArray(deptConfig.teachers) ? deptConfig.teachers : Object.values(deptConfig.teachers || {});
-            teachers.forEach(tName => tSelect.innerHTML += `<option value="${tName}">${tName}</option>`);
+            teachers.forEach(t => tSel.innerHTML += `<option value="${t}">${t}</option>`);
             updateDisplay();
         }
-
-        window.checkPassword = () => {
-            if(document.getElementById('passField').value === "1234") {
-                isAuthorized = true; document.getElementById('admin-section').style.display = 'block'; document.getElementById('login-ui').style.display = 'none'; updateDisplay();
-            } else alert("סיסמה שגויה");
-        };
-
-        window.deleteEntry = (id) => confirm("למחוק שיבוץ?") && remove(ref(db, `rakevet_v3/${id}`));
-
-        window.addEntry = () => {
-            if(!isAuthorized) return;
-            const entry = {
-                dept: currentDeptName,
-                year: document.getElementById('inYear').value,
-                grade: document.getElementById('inGrade').value,
-                subject: document.getElementById('inSubject').value,
-                teacher: document.getElementById('inTeacher').value,
-                contact: parseFloat(document.getElementById('inContact').value) || 0,
-                bonus: parseFloat(document.getElementById('inBonus').value) || 0
-            };
-            if(entry.teacher) push(ref(db, 'rakevet_v3'), entry);
-        };
-
-        onValue(ref(db, 'rakevet_v3'), (snap) => {
-            allEntries = snap.val() ? Object.keys(snap.val()).map(k => ({id: k, ...snap.val()[k]})) : [];
-            updateDisplay();
-        });
-
-        window.updateDisplay = () => {
-            const year = document.getElementById('viewYear').value;
-            const filtered = allEntries.filter(e => e.year === year && (e.dept === currentDeptName || (!e.dept && currentDeptName === "תקשורת")));
-            render(filtered, year);
-        };
-
+        window.checkPassword = () => { if(document.getElementById('passField').value === "1234") { isAuthorized = true; document.getElementById('admin-section').style.display = 'block'; document.getElementById('login-ui').style.display = 'none'; updateDisplay(); } };
+        window.deleteEntry = (id) => confirm("למחוק שיבוץ?") && remove(ref(db, `rakevet_v3/${id}`)).then(() => alert("נמחק"));
+        window.addEntry = () => { if(!isAuthorized) return; const entry = { dept: currentDeptName, year: document.getElementById('inYear').value, grade: document.getElementById('inGrade').value, subject: document.getElementById('inSubject').value, teacher: document.getElementById('inTeacher').value, contact: parseFloat(document.getElementById('inContact').value) || 0, bonus: parseFloat(document.getElementById('inBonus').value) || 0 }; if(entry.teacher) push(ref(db, 'rakevet_v3'), entry); };
+        onValue(ref(db, 'rakevet_v3'), (snap) => { allEntries = snap.val() ? Object.keys(snap.val()).map(k => ({id: k, ...snap.val()[k]})) : []; updateDisplay(); });
+        window.updateDisplay = () => { const year = document.getElementById('viewYear').value; const filtered = allEntries.filter(e => e.year === year && (e.dept === currentDeptName || (!e.dept && currentDeptName === "תקשורת"))); render(filtered, year); };
         function render(entries, year) {
-            const dash = document.getElementById('dashboard'); if(!dash || !deptConfig) return;
-            dash.innerHTML = '';
-            const tLoad = {}; let mContact = 0, mBonus = 0;
-
+            const dash = document.getElementById('dashboard'); dash.innerHTML = ''; if(!deptConfig) return;
+            const tLoad = {}; let mC = 0, mB = 0;
             ['י', 'יא', 'יב'].forEach(g => {
                 const gradeData = entries.filter(e => e.grade === g);
-                const r1Subs = deptConfig.row1.subjects || [];
-                const r2Subs = deptConfig.row2.subjects || [];
-                const r1Data = gradeData.filter(e => r1Subs.includes(e.subject));
-                const r2Data = gradeData.filter(e => r2Subs.includes(e.subject));
-                
-                gradeData.forEach(e => {
-                    if(!tLoad[e.teacher]) tLoad[e.teacher] = { c: 0, b: 0 };
-                    tLoad[e.teacher].c += e.contact; tLoad[e.teacher].b += e.bonus;
-                });
-                mContact += gradeData.reduce((s,d) => s + d.contact, 0); mBonus += gradeData.reduce((s,d) => s + d.bonus, 0);
-
+                const r1Data = gradeData.filter(e => (deptConfig.row1?.subjects || []).includes(e.subject));
+                const r2Data = gradeData.filter(e => (deptConfig.row2?.subjects || []).includes(e.subject));
+                gradeData.forEach(e => { if(!tLoad[e.teacher]) tLoad[e.teacher]={c:0,b:0}; tLoad[e.teacher].c += e.contact; tLoad[e.teacher].b += e.bonus; });
+                mC += gradeData.reduce((s,d)=>s+d.contact,0); mB += gradeData.reduce((s,d)=>s+d.bonus,0);
                 const box = document.createElement('div'); box.className = 'grade-box';
-                box.innerHTML = `<h2 class="grade-title">שכבת ${g} — ${year}</h2>
-                    <div class="row-header">${deptConfig.row1.label}</div><div class="cards-grid">${renderCards(r1Data, 2)}</div>
-                    <div class="row-header">${deptConfig.row2.label}</div><div class="cards-grid">${renderCards(r2Data, 3)}</div>`;
+                box.innerHTML = `<h2 class="grade-title">שכבת ${g} — ${year}</h2><div class="row-header">${deptConfig.row1?.label}</div><div class="cards-grid">${renderCards(r1Data, 2)}</div><div class="row-header">${deptConfig.row2?.label}</div><div class="cards-grid">${renderCards(r2Data, 3)}</div>`;
                 dash.appendChild(box);
             });
-            renderSummaries(tLoad, mContact, mBonus, year);
+            renderSummaries(tLoad, mC, mB, year);
         }
-
         function renderCards(list, slots) {
-            let html = list.map(d => `<div class="teacher-card"><h3>${d.teacher}</h3><div style="color:var(--primary); font-weight:700;">${d.subject}</div><div style="display:flex; justify-content:space-between; margin-top:10px; font-weight:900;"><span>מגע: ${d.contact}</span><span>גמול: ${d.bonus}</span></div>${isAuthorized ? `<button class="del-btn" onclick="deleteEntry('${d.id}')">🗑️</button>` : ''}</div>`).join('');
-            for(let i = list.length; i < slots; i++) html += '<div class="teacher-card" style="border:2px dashed #cbd5e1; opacity:0.4; height:100px; display:flex; align-items:center; justify-content:center; color:#cbd5e1; font-weight:800;">פנוי</div>';
+            let html = list.map(d => `<div class="teacher-card"><h3>${d.teacher}</h3><div style="color:var(--primary);font-weight:700;">${d.subject}</div><div style="display:flex;justify-content:space-between;margin-top:10px;font-weight:900;"><span>מגע: ${d.contact}</span><span>גמול: ${d.bonus}</span></div>${isAuthorized ? `<button class="del-btn" onclick="deleteEntry('${d.id}')">✕</button>` : ''}</div>`).join('');
+            for(let i=list.length; i<slots; i++) html += `<div class="teacher-card" style="border:2px dashed #cbd5e1;opacity:0.5;height:100px;display:flex;align-items:center;justify-content:center;font-weight:800;color:#cbd5e1;">פנוי</div>`;
             return html;
         }
-
         function renderSummaries(load, c, b, year) {
-            const area = document.getElementById('summary-area'); if(!area) return;
+            const area = document.getElementById('summary-area');
             area.innerHTML = `
-                <div class="grade-box" style="background:white;">
-                    <h2 class="grade-title">ריכוז משרות — ${currentDeptName}</h2>
-                    <table style="width:100%; text-align:right; border-collapse:collapse;">
-                        <thead><tr style="color:#64748b;"><th>מורה</th><th>מגע</th><th>גמול</th><th>סה"כ</th></tr></thead>
-                        <tbody>${Object.keys(load).map(t => `<tr><td style="padding:10px; font-weight:900;">${t}</td><td>${load[t].c}</td><td>${load[t].b}</td><td style="font-weight:900; color:var(--primary);">${load[t].c+load[t].b}</td></tr>`).join('')}</tbody>
-                    </table>
+                <div class="grade-box">
+                    <h2 class="grade-title">ריכוז משרות — ${year}</h2>
+                    <table style="width:100%;text-align:right;"><thead><tr><th>מורה</th><th>מגע</th><th>גמול</th><th>סה"כ</th></tr></thead>
+                    <tbody>${Object.keys(load).map(t => `<tr><td style="font-weight:900;">${t}</td><td>${load[t].c}</td><td>${load[t].b}</td><td style="color:var(--primary);font-weight:900;">${load[t].c+load[t].b}</td></tr>`).join('')}</tbody></table>
                 </div>
-                <div class="grade-box" style="background:var(--magama); border-color:var(--magama-border);">
-                    <div class="grade-title">סיכום מגמה ${year}</div>
-                    <div class="summary-pill"><span>מגע: ${c}</span><span>גמול: ${b}</span><span>סה"כ: ${c+b}</span></div>
-                </div>`;
+                <div class="summary-pill"><span>מגע: ${c}</span><span>גמול: ${b}</span><span>סה"כ: ${c+b}</span></div>`;
         }
-
-        // --- סטטיסטיקה מפורטת (השיפור המבוקש) ---
-        window.toggleStats = function() {
-            const m = document.getElementById('stats-modal');
-            m.style.display = m.style.display === 'block' ? 'none' : 'block';
+        window.toggleStats = () => {
+            const m = document.getElementById('stats-modal'); m.style.display = m.style.display === 'block' ? 'none' : 'block';
             if(m.style.display === 'block') {
-                const ctx = document.getElementById('chart').getContext('2d');
-                if(myChart) myChart.destroy();
-                
-                const teachers = deptConfig.teachers || [];
-                const stats = {}; teachers.forEach(t => { 
-                    stats[t] = { o: { c: 0, b: 0 }, z: { c: 0, b: 0 } }; 
-                    allEntries.filter(e => e.teacher === t && (e.dept === currentDeptName || (!e.dept && currentDeptName === "תקשורת"))).forEach(e => {
-                        const y = e.year === 'תשפו' ? 'o' : 'z'; stats[t][y].c += e.contact; stats[t][y].b += e.bonus;
-                    });
-                });
-
-                myChart = new Chart(ctx, {
-                    type: 'bar',
-                    data: { labels: teachers, datasets: [
-                        { label: 'תשפ"ו (סה"כ)', data: teachers.map(t => stats[t].o.c + stats[t].o.b), backgroundColor: 'rgba(99, 102, 241, 0.4)' },
-                        { label: 'תשפ"ז (סה"כ)', data: teachers.map(t => stats[t].z.c + stats[t].z.b), backgroundColor: 'rgba(16, 185, 129, 0.6)' }
-                    ]}
-                });
-
-                // בניית טבלת הפירוט
-                let tableHtml = `<table class="stats-table">
-                    <thead>
-                        <tr>
-                            <th rowspan="2">מורה</th>
-                            <th colspan="3" class="year-header">תשפ"ו</th>
-                            <th colspan="3" class="year-header">תשפ"ז</th>
-                        </tr>
-                        <tr>
-                            <th>מגע</th><th>גמול</th><th>סה"כ</th>
-                            <th>מגע</th><th>גמול</th><th>סה"כ</th>
-                        </tr>
-                    </thead>
-                    <tbody>`;
-                teachers.forEach(t => {
-                    const o = stats[t].o; const z = stats[t].z;
-                    tableHtml += `<tr>
-                        <td style="font-weight:900;">${t}</td>
-                        <td>${o.c}</td><td>${o.b}</td><td style="font-weight:800; background:#f8fafc;">${o.c+o.b}</td>
-                        <td>${z.c}</td><td>${z.b}</td><td style="font-weight:900; background:#f0fdf4; color:#166534;">${z.c+z.b}</td>
-                    </tr>`;
-                });
-                document.getElementById('stats-table-container').innerHTML = tableHtml + `</tbody></table>`;
+                const ctx = document.getElementById('chart').getContext('2d'); if(myChart) myChart.destroy();
+                const teachers = deptConfig.teachers || []; const stats = {};
+                teachers.forEach(t => { stats[t] = { o: { c: 0, b: 0 }, z: { c: 0, b: 0 } }; allEntries.filter(e => e.teacher === t && (e.dept === currentDeptName || (!e.dept && currentDeptName === "תקשורת"))).forEach(e => { const y = e.year === 'תשפו' ? 'o' : 'z'; stats[t][y].c += e.contact; stats[t][y].b += e.bonus; }); });
+                myChart = new Chart(ctx, { type: 'bar', data: { labels: teachers, datasets: [{ label: 'תשפ"ו', data: teachers.map(t => stats[t].o.c + stats[t].o.b), backgroundColor: 'rgba(99, 102, 241, 0.5)' }, { label: 'תשפ"ז', data: teachers.map(t => stats[t].z.c + stats[t].z.b), backgroundColor: 'rgba(16, 185, 129, 0.5)' }] } });
+                let h = `<table style="width:100%;text-align:center;border-collapse:collapse;margin-top:20px;"><thead><tr style="background:#f8fafc;"><th>מורה</th><th>מגע</th><th>גמול</th><th>סה"כ (פ"ז)</th></tr></thead><tbody>`;
+                teachers.forEach(t => { const z = stats[t].z; h += `<tr style="border-bottom:1px solid #eee;"><td>${t}</td><td>${z.c}</td><td>${z.b}</td><td style="font-weight:900;">${z.c+z.b}</td></tr>`; });
+                document.getElementById('stats-table-container').innerHTML = h + `</tbody></table>`;
             }
         };
     </script>
@@ -214,34 +102,31 @@
     <div class="container">
         <div class="login-bar">
             <span style="font-weight: 800; font-size: 20px;">רכז: <span id="deptLabel"></span></span>
-            <div id="login-ui"><input type="password" id="passField" placeholder="סיסמה" style="width:100px; text-align:center;"> <button onclick="checkPassword()" style="background:var(--primary); color:white; border:none; padding:8px 15px; border-radius:8px; cursor:pointer; font-weight:800;">כניסה</button></div>
+            <div id="login-ui"><input type="password" id="passField" placeholder="סיסמה" style="width:100px;text-align:center;padding:5px;border-radius:8px;border:none;"> <button onclick="checkPassword()" style="background:var(--primary);color:white;border:none;padding:8px 15px;border-radius:8px;cursor:pointer;font-weight:800;">כניסה</button></div>
         </div>
-
         <div class="nav-bar">
             <div><label>שנה:</label> <select id="viewYear" onchange="updateDisplay()" style="width:auto;"><option value="תשפו">תשפ"ו</option><option value="תשפז" selected>תשפ"ז</option></select></div>
             <div style="display:flex; gap:10px;">
-                <button onclick="toggleStats()" style="background:#10b981; color:white; border:none; padding:10px 20px; border-radius:12px; cursor:pointer; font-weight:800;">📊 סטטיסטיקה מפורטת</button>
-                <a href="bakara2.html" style="text-decoration:none; background:#f1f5f9; padding:10px 20px; border-radius:12px; color:#1e293b; font-weight:800;">➔ פורטל</a>
+                <button onclick="toggleStats()" class="btn-stats">📊 סטטיסטיקה ודוחות</button>
+                <a href="principal.html" class="btn-portal" style="background:#eef2ff; color:#6366f1; border-color:#dbeafe;">📈 דוח מנהלת</a>
+                <a href="bakara.html" class="btn-portal">➔ פורטל</a>
             </div>
         </div>
-
         <div id="admin-section" class="input-card">
-            <div class="form-grid">
+            <div class="form-grid" style="display:grid;grid-template-columns:repeat(auto-fit, minmax(140px,1fr));gap:15px;align-items:flex-end;">
                 <div><label>שנה</label><select id="inYear"><option value="תשפו">תשפ"ו</option><option value="תשפז" selected>תשפ"ז</option></select></div>
                 <div><label>שכבה</label><select id="inGrade"><option value="י">י'</option><option value="יא">י"א</option><option value="יב">י"ב</option></select></div>
                 <div><label>מקצוע</label><select id="inSubject"></select></div>
                 <div><label>מורה</label><select id="inTeacher"></select></div>
                 <div><label>מגע</label><input type="number" id="inContact" value="4"></div>
                 <div><label>גמול</label><select id="inBonus"><option value="0">0</option><option value="1">1</option><option value="1.5">1.5</option><option value="2">2</option><option value="2.5">2.5</option><option value="3">3</option><option value="3.5">3.5</option><option value="4.5">4.5</option></select></div>
-                <button onclick="addEntry()" style="background:var(--primary); color:white; border:none; padding:12px; border-radius:12px; cursor:pointer; font-weight:900;">הוסף +</button>
+                <button onclick="addEntry()" style="background:var(--primary);color:white;border:none;padding:12px;border-radius:12px;cursor:pointer;font-weight:900;">בצע שיבוץ +</button>
             </div>
         </div>
-
-        <div id="dashboard"></div>
+        <div id="dashboard">טוען...</div>
         <div id="summary-area"></div>
         <footer>פיתוח מערכת: רני בן זאב</footer>
     </div>
-    
-    <div id="stats-modal"><div class="modal-content"><span onclick="toggleStats()" style="position:absolute; top:20px; left:20px; cursor:pointer; font-size:24px; background:#f1f5f9; width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center;">✕</span><canvas id="chart" style="max-height:350px;"></canvas><div id="stats-table-container"></div></div></div>
+    <div id="stats-modal"><div class="modal-content"><span onclick="toggleStats()" style="position:absolute;top:20px;left:20px;cursor:pointer;">✕</span><canvas id="chart"></canvas><div id="stats-table-container"></div></div></div>
 </body>
 </html>
