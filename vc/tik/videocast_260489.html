@@ -147,6 +147,14 @@
         <label><i class="fas fa-school"></i> קוד ביה"ס: 260489</label>
         <label><i class="fas fa-key"></i> קוד קבוצה:</label>
         <input class="group-code-input" type="text" id="group-code-input" placeholder="הזינו קוד קבוצה (למשל: צוות_אלף)..." oninput="this.value = this.value.replace(/\s/g,'')">
+        <label><i class="fas fa-user"></i> אני:</label>
+        <select class="group-code-input" id="student-self-select" style="flex:0 0 auto; min-width:130px;">
+            <option value="">בחרו תלמיד...</option>
+            <option value="1">תלמיד 1</option>
+            <option value="2">תלמיד 2</option>
+            <option value="3">תלמיד 3</option>
+            <option value="4">תלמיד 4</option>
+        </select>
         <button class="btn-load" onclick="loadFromFirebase()"><i class="fas fa-cloud-download-alt"></i> טען נתונים</button>
         <span class="save-status idle" id="save-status"></span>
     </div>
@@ -480,24 +488,40 @@
 
     // ─── Names sync ───────────────────────────────────────────────
     function syncNames() {
+        const sel = document.getElementById('student-self-select');
         for (let i = 1; i <= 4; i++) {
             const nameEl = document.getElementById(`s${i}_name`);
             const name = nameEl ? nameEl.value || `תלמיד ${i}` : `תלמיד ${i}`;
             document.querySelectorAll(`.name-display-${i}`).forEach(el => el.innerText = name);
             const f1 = document.getElementById(`dist_y11_n_${i}`); if (f1) f1.value = name;
             const f2 = document.getElementById(`dist_y12_n_${i}`); if (f2) f2.value = name;
+            // עדכון שמות ב-select
+            if (sel && sel.options[i]) sel.options[i].text = name;
         }
     }
 
-    // ─── Collect all form data ────────────────────────────────────
-    function collectData() {
+    // ─── Collect form data ────────────────────────────────────────
+    // אם studentNum מועבר — אוסף שדות קבוצתיים + שדות אישיים של אותו תלמיד בלבד
+    // אם לא מועבר — אוסף הכל (לשימוש פנימי בלבד)
+    function collectData(studentNum) {
         const data = {};
+        const personalSuffix = studentNum ? `_${studentNum}` : null;
+
         document.querySelectorAll('input[id], textarea[id]').forEach(el => {
             if (!el.id) return;
+            if (personalSuffix) {
+                // האם זה שדה אישי של תלמיד אחר? — דלג
+                const isPersonal = /_(1|2|3|4)$/.test(el.id);
+                if (isPersonal && !el.id.endsWith(personalSuffix)) return;
+            }
             data[el.id] = el.type === 'checkbox' ? el.checked : el.value;
         });
-        // also selects
         document.querySelectorAll('select[id]').forEach(el => {
+            if (!el.id) return;
+            if (personalSuffix) {
+                const isPersonal = /_(1|2|3|4)$/.test(el.id);
+                if (isPersonal && !el.id.endsWith(personalSuffix)) return;
+            }
             data[el.id] = el.value;
         });
         return data;
@@ -530,10 +554,16 @@
             alert('נא להזין קוד בית ספר וקוד קבוצה לפני השמירה.');
             return;
         }
+        const studentNum = document.getElementById('student-self-select').value;
+        if (!studentNum) {
+            alert('נא לבחור את מספר התלמיד שלך (אני: תלמיד 1/2/3/4) לפני השמירה.');
+            return;
+        }
         setStatus('saving', 'שומר...');
-        const data = collectData();
+        const data = collectData(studentNum);
         data['_saved_at'] = new Date().toISOString();
-        db.ref(`portfolios/${code}`).set(data)
+        // update() — מעדכן רק את המפתחות הרלוונטיים, לא פוגע בתלמידים אחרים
+        db.ref(`portfolios/${code}`).update(data)
             .then(() => setStatus('saved', 'נשמר בהצלחה ✓'))
             .catch(err => { console.error(err); setStatus('error', 'שגיאה בשמירה'); });
     }
