@@ -2,7 +2,7 @@
 <html lang="he" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <title>ניהול פדגוגי - ריכוז משרות ות"ש</title>
+    <title>ניהול פדגוגי - הגדרות ובקרה רב-שנתית</title>
     <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;700;900&display=swap" rel="stylesheet">
     <style>
         :root { --p1: #6366f1; --p1-bg: #f5f3ff; --p2: #10b981; --p2-bg: #f0fdf4; --bg: #f1f5f9; --admin: #1e293b; --white: #ffffff; --danger: #ef4444; }
@@ -22,21 +22,28 @@
         input, select { padding: 10px; border-radius: 10px; border: 1px solid #cbd5e1; font-family: inherit; }
         .btn-primary { background: var(--p1); color: white; border: none; padding: 10px 20px; border-radius: 10px; cursor: pointer; font-weight: 700; }
         .btn-save { background: var(--admin); color: white; width: 100%; padding: 20px; border-radius: 15px; font-size: 18px; font-weight: 900; cursor: pointer; border: none; }
+        
+        /* מוניטור ושכבות פסטל */
         .grade-monitor-box { border-radius: 25px; padding: 20px; margin-bottom: 20px; border: 1px solid rgba(0,0,0,0.05); }
         .grade-y { background-color: #f5f3ff; border-right: 10px solid #6366f1; }
         .grade-ya { background-color: #f0fdf4; border-right: 10px solid #10b981; }
         .grade-yb { background-color: #fff7ed; border-right: 10px solid #f97316; }
+        
         .monitor-table { width: 100%; border-collapse: collapse; background: white; border-radius: 15px; overflow: hidden; font-size: 14px; }
         .monitor-table th { background: #f8fafc; color: #64748b; padding: 10px; text-align: right; }
         .monitor-table td { padding: 10px; border-bottom: 1px solid #f1f5f9; }
+        
+        /* טבלת משרות */
         .job-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }
         .job-table th { background: #1e293b; color: white; padding: 12px; text-align: right; }
         .job-table td { padding: 10px; border: 1px solid #eee; background: white; }
         .input-inline { border: 1px solid #ddd; padding: 6px; border-radius: 6px; width: 100%; box-sizing: border-box; }
-        .num-in { width: 70px; text-align: center; font-weight: bold; color: var(--p1); }
         .percentage-bar-bg { background: #eee; border-radius: 10px; height: 10px; width: 100%; margin-top: 5px; overflow: hidden; }
         .percentage-bar-fill { height: 100%; transition: 0.5s; }
         .summary-box { display: flex; justify-content: space-around; background: var(--admin); color: white; padding: 25px; border-radius: 20px; margin-bottom: 25px; }
+        .share-box { background: #fffbeb; border: 1px solid #f59e0b; padding: 15px; border-radius: 15px; margin-top: 10px; }
+        .tag { background: #334155; color: white; padding: 4px 10px; border-radius: 20px; font-size: 13px; display: flex; align-items: center; gap: 5px; margin: 2px; }
+        .tag button { border: none; background: none; color: #ff4d4d; cursor: pointer; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -79,7 +86,7 @@
             </div>
             <div class="card" id="sharingCard" style="display:none;">
                 <h2>3. קישור אישי לרכז המגמה</h2>
-                <div style="background: #fffbeb; padding:15px; border-radius:15px; border:1px solid #f59e0b;">
+                <div class="share-box">
                     <input type="text" id="shareUrl" readonly style="width:75%; background:#fff;">
                     <button onclick="copyCoordLink()" class="btn-primary" style="background:#f59e0b;">העתק קישור</button>
                 </div>
@@ -88,14 +95,25 @@
         </div>
 
         <div id="tab-monitor" class="tab-content" style="display:none;">
+            <!-- בורר שנה למוניטור -->
+            <div class="card" style="background: #f8fafc; border: 2px solid var(--p1);">
+                <label><b>בחר שנת לימודים למעקב ובקרה:</b></label>
+                <select id="monitorYear" onchange="renderMonitor()" style="width:200px; font-weight:800; margin-right:15px;">
+                    <option value="תשפז" selected>תשפ"ז (שנה הבאה)</option>
+                    <option value="תשפו">תשפ"ו (שנה נוכחית)</option>
+                </select>
+            </div>
+
             <div id="monitorContainer"></div>
+            
             <div class="summary-box">
                 <div>סה"כ מגע: <span id="sumC" style="color:var(--p2); font-size:26px;">0</span></div>
                 <div>סה"כ גמול: <span id="sumB" style="color:var(--p2); font-size:26px;">0</span></div>
-                <div>סה"כ שעות תקן: <span id="sumT" style="color:var(--p2); font-size:26px;">0</span></div>
+                <div>סה"כ תקן: <span id="sumT" style="color:var(--p2); font-size:26px;">0</span></div>
             </div>
+
             <div class="card">
-                <h2 style="color:var(--p1)">ריכוז משרות, ת"ש ועומסים (בסיס 25 שעות)</h2>
+                <h2 style="color:var(--p1)">ריכוז משרות, ת"ש ועומסים לשנה הנבחרת</h2>
                 <div style="overflow-x: auto;"><div id="jobTableContainer"></div></div>
             </div>
         </div>
@@ -108,7 +126,8 @@
     const firebaseConfig = { apiKey: "AIzaSyCvvXDGHLBQKEPvkSQ8p8rdyGgUQc9NHOY", databaseURL: "https://rakevet-65218-default-rtdb.europe-west1.firebasedatabase.app" };
     const app = initializeApp(firebaseConfig); const db = getDatabase(app);
 
-    let MY_NAME = "", MY_DEPTS = [], currentSubject = "", allTeachers = [], selectedTeachers = [], allPlacements = [], deptConfig = null, extraInfo = {};
+    let MY_NAME = "", MY_DEPTS = [], currentSubject = "";
+    let allTeachers = [], selectedTeachers = [], allPlacements = [], deptConfig = null, extraInfo = {};
 
     onValue(ref(db, 'school_admin/pedagogical_managers'), snap => {
         const data = snap.val(); if (!data) return;
@@ -187,13 +206,17 @@
     function renderMonitor() {
         const container = document.getElementById('monitorContainer');
         container.innerHTML = ''; if(!deptConfig || !deptConfig.structure) return;
-        const filtered = allPlacements.filter(p => p.dept === currentSubject);
+
+        const selectedYear = document.getElementById('monitorYear').value;
+        const filtered = allPlacements.filter(p => p.dept === currentSubject && p.year === selectedYear);
+        
         const grades = [{ id: 'י', label: "שכבת י'", class: 'grade-y' }, { id: 'יא', label: "שכבת י\"א", class: 'grade-ya' }, { id: 'יב', label: "שכבת י\"ב", class: 'grade-yb' }];
         let grandC = 0, grandB = 0; const teacherLoads = {};
+
         grades.forEach(g => {
             const gradeData = filtered.filter(p => p.grade === g.id); if(gradeData.length === 0) return;
             const gradeBox = document.createElement('div'); gradeBox.className = `grade-monitor-box ${g.class}`;
-            let html = `<div style="font-size:18px; font-weight:900; margin-bottom:10px;">${g.label}</div>`;
+            let html = `<div style="font-size:18px; font-weight:900; margin-bottom:10px;">${g.label} - ${selectedYear}</div>`;
             Object.keys(deptConfig.structure).forEach(rowKey => {
                 const rowInfo = deptConfig.structure[rowKey]; const rowData = gradeData.filter(p => rowInfo.subjects.includes(p.subject));
                 if(rowData.length > 0) {
@@ -217,29 +240,26 @@
 
     function renderJobPercentageTable(deptLoads) {
         const container = document.getElementById('jobTableContainer');
-        let html = `<table class="job-table"><thead><tr><th>שם המורה</th><th>שעות מגמה</th><th>תפקיד נוסף</th><th>שעות תפקיד</th><th>מקצוע נוסף</th><th>שעות ת"ש</th><th>סה"כ שעות</th><th>% משרה</th></tr></thead><tbody>`;
+        let html = `<table class="job-table"><thead><tr><th>מורה</th><th>שעות מגמה</th><th>תפקיד נוסף</th><th>שעות תפקיד</th><th>מקצוע נוסף</th><th>שעות ת"ש</th><th>סה"כ</th><th>% משרה</th></tr></thead><tbody>`;
         Object.keys(deptLoads).sort().forEach(t => {
             const deptHrs = deptLoads[t] || 0;
             const tInfo = extraInfo[t] || { role: "", hours: 0, extraSubject: "", welfareHours: 0 };
             const totalHrs = deptHrs + parseFloat(tInfo.hours || 0) + parseFloat(tInfo.welfareHours || 0);
-            
-            // --- תיקון אחוזי המשרה כאן: ללא הגבלה של 120 ---
             const realPerc = (totalHrs / 25) * 100;
             const displayPerc = realPerc.toFixed(0);
             const barColor = realPerc > 100 ? '#ef4444' : realPerc > 85 ? '#f59e0b' : '#10b981';
-            const visualWidth = Math.min(realPerc, 100);
 
             html += `<tr>
                 <td><b>${t}</b></td>
                 <td style="text-align:center;">${deptHrs.toFixed(1)}</td>
                 <td><input type="text" class="input-inline" value="${tInfo.role || ''}" onchange="saveExtra('${t}', 'role', this.value)" placeholder="רכזת"></td>
-                <td><input type="number" step="0.5" class="input-inline num-in" value="${tInfo.hours || 0}" onchange="saveExtra('${t}', 'hours', this.value)"></td>
+                <td><input type="number" step="0.5" class="input-inline" value="${tInfo.hours || 0}" onchange="saveExtra('${t}', 'hours', this.value)"></td>
                 <td><input type="text" class="input-inline" value="${tInfo.extraSubject || ''}" onchange="saveExtra('${t}', 'extraSubject', this.value)" placeholder="תנך"></td>
-                <td style="background:#fff7ed;"><input type="number" step="0.5" class="input-inline num-in" value="${tInfo.welfareHours || 0}" onchange="saveExtra('${t}', 'welfareHours', this.value)" style="color:#c2410c;"></td>
-                <td style="font-weight:900; text-align:center; background:#f8fafc;">${totalHrs.toFixed(1)}</td>
+                <td style="background:#fff7ed;"><input type="number" step="0.5" class="input-inline" value="${tInfo.welfareHours || 0}" onchange="saveExtra('${t}', 'welfareHours', this.value)" style="color:#c2410c;"></td>
+                <td style="font-weight:900; text-align:center;">${totalHrs.toFixed(1)}</td>
                 <td style="width:140px;">
                     <div style="font-size:11px; font-weight:bold; color:${barColor};">${displayPerc}%</div>
-                    <div class="percentage-bar-bg"><div class="percentage-bar-fill" style="width:${visualWidth}%; background:${barColor}"></div></div>
+                    <div class="percentage-bar-bg"><div class="percentage-bar-fill" style="width:${Math.min(realPerc,100)}%; background:${barColor}"></div></div>
                 </td>
             </tr>`;
         });
