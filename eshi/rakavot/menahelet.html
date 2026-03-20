@@ -2,78 +2,112 @@
 <html lang="he" dir="rtl">
 <head>
     <meta charset="UTF-8">
-    <title>מרכז שליטה מנהלת ביה"ס</title>
+    <title>מרכז שליטה מנהלת - Drill Down</title>
     <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;700;900&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        :root { --admin: #1e293b; --primary: #6366f1; --bg: #f1f5f9; --white: #ffffff; --success: #10b981; }
+        :root { --admin: #1e293b; --primary: #6366f1; --bg: #f1f5f9; --white: #ffffff; --success: #10b981; --p1: #6366f1; --p1-bg: #f5f3ff; --p2: #10b981; --p2-bg: #f0fdf4; }
         body { font-family: 'Heebo', sans-serif; background: var(--bg); margin: 0; padding: 20px; direction: rtl; }
         .container { max-width: 1400px; margin: 0 auto; }
         .header { background: var(--admin); color: white; padding: 25px 40px; border-radius: 20px; margin-bottom: 25px; display: flex; justify-content: space-between; align-items: center; }
+        
         .grid-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px; }
         .stat-card { background: white; padding: 20px; border-radius: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); text-align: center; border-top: 5px solid var(--primary); }
         .stat-card .val { font-size: 36px; font-weight: 900; color: var(--admin); }
-        .main-grid { display: grid; grid-template-columns: 400px 1fr; gap: 30px; align-items: start; }
+
+        .main-grid { display: grid; grid-template-columns: 350px 1fr; gap: 30px; align-items: start; }
         .card { background: var(--white); padding: 25px; border-radius: 25px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); border: 1px solid #e2e8f0; margin-bottom: 25px; }
-        h2 { margin-top: 0; font-size: 22px; border-bottom: 3px solid #f1f5f9; padding-bottom: 12px; margin-bottom: 20px; }
-        .setup-section { background: #f8fafc; padding: 20px; border-radius: 15px; border: 1px solid #e2e8f0; margin-bottom: 20px; }
-        input, select { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #cbd5e1; margin-bottom: 12px; box-sizing: border-box; font-family: inherit; }
-        .btn-add { background: var(--primary); color: white; border: none; width: 100%; padding: 14px; border-radius: 12px; font-weight: 800; cursor: pointer; }
-        .btn-success { background: var(--success); color: white; border: none; width: 100%; padding: 14px; border-radius: 12px; font-weight: 800; cursor: pointer; }
-        .pm-item { background: #ffffff; padding: 15px; border-radius: 15px; margin-bottom: 12px; border: 1px solid #e2e8f0; border-right: 6px solid var(--primary); position: relative; }
-        .del-pm { position: absolute; left: 10px; top: 10px; background: none; border: none; color: #f43f5e; cursor: pointer; font-weight: bold; }
-        .summary-table { width: 100%; border-collapse: collapse; text-align: right; margin-top: 10px; }
-        .summary-table th { background: #f8fafc; padding: 18px; border-bottom: 2px solid #e2e8f0; color: #475569; font-weight: 800; }
-        .summary-table td { padding: 18px; border-bottom: 1px solid #f1f5f9; font-size: 16px; }
+        
+        /* טבלת סיכום לחיצה */
+        .summary-table { width: 100%; border-collapse: collapse; text-align: right; }
+        .summary-table th { background: #f8fafc; padding: 15px; border-bottom: 2px solid #e2e8f0; }
+        .summary-table td { padding: 15px; border-bottom: 1px solid #f1f5f9; cursor: pointer; transition: 0.2s; }
+        .summary-table tr:hover td { background: #eef2ff; color: var(--primary); }
+
+        /* Modal - חלון צף לפרטים */
+        #drillModal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 1000; padding: 40px; overflow-y: auto; backdrop-filter: blur(5px); }
+        .modal-content { background: var(--bg); max-width: 1100px; margin: 0 auto; border-radius: 30px; padding: 30px; position: relative; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); }
+        .close-modal { position: absolute; left: 25px; top: 25px; font-size: 30px; cursor: pointer; background: white; border-radius: 50%; width: 45px; height: 45px; display: flex; align-items: center; justify-content: center; border: 1px solid #ddd; }
+
+        /* עיצוב המוניטור בתוך המודל (מועתק מרכזת פדגוגית) */
+        .grade-monitor-box { border-radius: 20px; padding: 20px; margin-bottom: 15px; background: white; border-right: 8px solid #ddd; }
+        .grade-y { border-right-color: #6366f1; background-color: #f5f3ff; }
+        .grade-ya { border-right-color: #10b981; background-color: #f0fdf4; }
+        .grade-yb { border-right-color: #f97316; background-color: #fff7ed; }
+        
+        .monitor-table, .job-table { width: 100%; border-collapse: collapse; background: white; margin-top: 10px; border-radius: 10px; overflow: hidden; font-size: 14px; }
+        .monitor-table th, .job-table th { background: #1e293b; color: white; padding: 10px; text-align: right; }
+        .monitor-table td, .job-table td { padding: 10px; border-bottom: 1px solid #eee; }
+
+        .setup-section { background: #f8fafc; padding: 15px; border-radius: 15px; border: 1px solid #e2e8f0; margin-bottom: 15px; }
+        input, select { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #cbd5e1; margin-bottom: 10px; }
+        .btn-add { background: var(--primary); color: white; border: none; width: 100%; padding: 12px; border-radius: 10px; font-weight: 800; cursor: pointer; }
+        .pm-item { background: white; padding: 10px; border-radius: 12px; margin-bottom: 10px; border: 1px solid #eee; border-right: 5px solid var(--primary); position: relative; }
+        
+        .percentage-bar-bg { background: #eee; border-radius: 10px; height: 8px; width: 100px; overflow: hidden; }
+        .percentage-bar-fill { height: 100%; }
     </style>
 </head>
 <body>
+
 <div class="container">
     <div class="header">
         <h1>מרכז שליטה מנהלת ביה"ס</h1>
-        <div style="font-weight: 700; background: rgba(255,255,255,0.1); padding: 8px 20px; border-radius: 10px;">ריכוז שעות תקן - תשפ"ז</div>
+        <div style="font-weight: 700;">דוח היררכי מלא - תשפ"ז</div>
     </div>
 
     <div class="grid-stats">
-        <div class="stat-card"><h3>סה"כ שעות בביה"ס</h3><div class="val" id="totalSchoolHours">0</div></div>
-        <div class="stat-card"><h3>מורים משובצים</h3><div class="val" id="totalTeachersCount">0</div></div>
-        <div class="stat-card"><h3>מגמות פעילות</h3><div class="val" id="totalDeptsCount">0</div></div>
+        <div class="stat-card"><h3>סה"כ שעות תקן</h3><div class="val" id="totalSchoolHours">0</div></div>
+        <div class="stat-card"><h3>מורים פעילים</h3><div class="val" id="totalTeachersCount">0</div></div>
         <div class="stat-card"><h3>מנהלות פדגוגיות</h3><div class="val" id="totalPMCount">0</div></div>
     </div>
 
     <div class="main-grid">
         <div class="side-col">
             <div class="card">
-                <h2>1. ניהול מאגר המורים</h2>
-                <div class="setup-section" style="background: #ecfdf5; border-color: #10b981;">
-                    <input type="text" id="newTeacherName" placeholder="הכנס שם מורה...">
-                    <button class="btn-success" onclick="addNewTeacher()">הוסף מורה למאגר +</button>
-                </div>
-            </div>
-            <div class="card">
-                <h2>2. מינוי מנהלות פדגוגיות</h2>
+                <h2>1. ניהול היררכיה</h2>
                 <div class="setup-section">
+                    <label>הוספת מורה למאגר:</label>
+                    <input type="text" id="newTeacherName" placeholder="שם מלא...">
+                    <button class="btn-add" onclick="addNewTeacher()" style="background:var(--success); margin-bottom:15px;">הוסף למאגר +</button>
+                    
+                    <label>מינוי מנהלת פדגוגית:</label>
                     <select id="teacherSelect"></select>
-                    <input type="text" id="deptInput" placeholder="שיוך מגמות (למשל: תקשורת, קולנוע)...">
-                    <button class="btn-add" onclick="addPM()">שמור מינוי ושיוך מגמות</button>
+                    <input type="text" id="deptInput" placeholder="מגמות (מופרדות בפסיק)...">
+                    <button class="btn-add" onclick="addPM()">שמור מינוי</button>
                 </div>
                 <div id="pmList"></div>
             </div>
         </div>
 
         <div class="card">
-            <h2>3. ריכוז תקציב שעות לפי מנהלת פדגוגית</h2>
+            <h2>2. ריכוז תקציבי (לחצי על שם לצפייה בפרטים)</h2>
             <table class="summary-table" id="pmSummaryTable">
-                <thead>
-                    <tr>
-                        <th>מנהלת פדגוגית</th>
-                        <th>מגמות באחריותה</th>
-                        <th>סה"כ שעות מנוצלות</th>
-                    </tr>
-                </thead>
+                <thead><tr><th>מנהלת פדגוגית</th><th>מגמות</th><th>סה"כ שעות</th></tr></thead>
                 <tbody></tbody>
             </table>
-            <div style="margin-top: 30px;"><canvas id="chartPMHours" height="100"></canvas></div>
+        </div>
+    </div>
+</div>
+
+<!-- חלון ה-Drill Down -->
+<div id="drillModal">
+    <div class="modal-content">
+        <span class="close-modal" onclick="closeModal()">✕</span>
+        <h1 id="modalTitle" style="color:var(--admin); margin-bottom:5px;"></h1>
+        <div id="modalSubTitle" style="color:var(--primary); font-weight:700; margin-bottom:30px;"></div>
+        
+        <!-- שלב א: בחירת מגמה -->
+        <div id="deptPickerArea" style="display:none;">
+            <h3>בחרי מגמה לצפייה בפירוט פדגוגי:</h3>
+            <div id="deptButtons" style="display:flex; gap:15px; flex-wrap:wrap;"></div>
+        </div>
+
+        <!-- שלב ב: המוניטור המלא (מה שהמנהלת הפדגוגית רואה) -->
+        <div id="monitorDetailArea" style="display:none;">
+            <button onclick="backToDepts()" style="margin-bottom:15px; border:none; background:none; color:var(--primary); cursor:pointer; font-weight:800;">← חזרה לרשימת המגמות</button>
+            <div id="monitorContainer"></div>
+            <div id="jobTableArea"></div>
         </div>
     </div>
 </div>
@@ -84,108 +118,144 @@
     const firebaseConfig = { apiKey: "AIzaSyCvvXDGHLBQKEPvkSQ8p8rdyGgUQc9NHOY", databaseURL: "https://rakevet-65218-default-rtdb.europe-west1.firebasedatabase.app" };
     const app = initializeApp(firebaseConfig); const db = getDatabase(app);
 
-    let allPlacements = [], pms = {}, allTeachers = [], deptToPM = {}, charts = {};
+    let allPlacements = [], pms = {}, allTeachers = [], deptToPM = {}, extraInfo = {}, deptConfigs = {};
 
-    window.addNewTeacher = () => {
-        const name = document.getElementById('newTeacherName').value.trim();
-        if(name) push(ref(db, 'school_settings/all_teachers'), name).then(() => document.getElementById('newTeacherName').value = '');
-    };
-
+    // טעינת נתונים
     onValue(ref(db, 'school_settings/all_teachers'), snap => {
         allTeachers = snap.val() ? Object.values(snap.val()) : [];
-        document.getElementById('teacherSelect').innerHTML = '<option value="">— בחר מורה למנהל/ת —</option>' + allTeachers.sort().map(t => `<option value="${t}">${t}</option>`).join('');
+        document.getElementById('teacherSelect').innerHTML = '<option value="">— בחר מורה —</option>' + allTeachers.sort().map(t => `<option value="${t}">${t}</option>`).join('');
     });
-
     onValue(ref(db, 'school_admin/pedagogical_managers'), snap => {
-        pms = snap.val() || {}; 
-        deptToPM = {};
-        Object.values(pms).forEach(p => { 
-            if(p.assigned_depts) {
-                p.assigned_depts.forEach(d => {
-                    if(d) deptToPM[d.trim()] = p.name;
-                });
-            }
-        });
-        renderPMList(); 
-        processData();
+        pms = snap.val() || {}; deptToPM = {};
+        Object.values(pms).forEach(p => p.assigned_depts.forEach(d => deptToPM[d.trim()] = p.name));
+        renderPMList(); processData();
     });
-
     onValue(ref(db, 'rakevet_v3'), snap => {
         allPlacements = snap.val() ? Object.keys(snap.val()).map(k => ({id:k, ...snap.val()[k]})) : [];
         processData();
     });
+    onValue(ref(db, 'school_settings/teacher_extra_info'), snap => extraInfo = snap.val() || {});
+    onValue(ref(db, 'config/departments'), snap => deptConfigs = snap.val() || {});
 
+    // ניהול
+    window.addNewTeacher = () => {
+        const n = document.getElementById('newTeacherName').value.trim();
+        if(n) push(ref(db, 'school_settings/all_teachers'), n).then(() => document.getElementById('newTeacherName').value = '');
+    };
     window.addPM = () => {
-        const name = document.getElementById('teacherSelect').value, deptsStr = document.getElementById('deptInput').value;
-        if(name && deptsStr) push(ref(db, 'school_admin/pedagogical_managers'), { name, assigned_depts: deptsStr.split(',').map(d => d.trim()).filter(d => d) });
+        const n = document.getElementById('teacherSelect').value, d = document.getElementById('deptInput').value;
+        if(n && d) push(ref(db, 'school_admin/pedagogical_managers'), { name: n, assigned_depts: d.split(',').map(s => s.trim()) });
         document.getElementById('deptInput').value = '';
     };
-
-    window.deletePM = (id) => confirm("מחק מינוי?") && remove(ref(db, `school_admin/pedagogical_managers/${id}`));
-
+    window.deletePM = (id) => remove(ref(db, `school_admin/pedagogical_managers/${id}`));
     function renderPMList() {
-        document.getElementById('pmList').innerHTML = Object.keys(pms).map(id => `<div class="pm-item"><button class="del-pm" onclick="deletePM('${id}')">✖</button><div class="pm-name">${pms[id].name}</div><div class="pm-depts">${pms[id].assigned_depts.join(', ')}</div></div>`).join('');
+        document.getElementById('pmList').innerHTML = Object.keys(pms).map(id => `<div class="pm-item"><button onclick="deletePM('${id}')" style="float:left; border:none; background:none; color:red; cursor:pointer;">✖</button><b>${pms[id].name}</b><br><small>${pms[id].assigned_depts.join(', ')}</small></div>`).join('');
     }
 
+    // עיבוד נתונים לטבלה הראשית
     window.processData = () => {
-        const pmStats = {};
-        let grandTotal = 0;
-        let teachersSet = new Set();
-        let deptsSet = new Set();
+        const stats = {};
+        Object.values(pms).forEach(p => stats[p.name] = { depts: p.assigned_depts, hours: 0 });
+        stats["לא שויך"] = { depts: ["מגמות ללא מפקחת"], hours: 0 };
 
-        // אתחול המנהלות
-        Object.values(pms).forEach(p => {
-            pmStats[p.name] = { depts: p.assigned_depts.join(', '), hours: 0 };
-        });
-        pmStats["לא שויך"] = { depts: "מגמות ללא מפקחת", hours: 0 };
-
-        // עיבוד כל השיבוצים
         allPlacements.forEach(p => {
-            const deptName = (p.dept || p.department || "לא ידוע").trim();
-            const contact = parseFloat(p.contact) || 0;
-            const bonus = parseFloat(p.bonus) || 0;
-            const total = contact + bonus;
-
-            const pmOwner = deptToPM[deptName] || "לא שויך";
-            if (!pmStats[pmOwner]) pmStats[pmOwner] = { depts: "אחר", hours: 0 };
-            
-            pmStats[pmOwner].hours += total;
-            grandTotal += total;
-            if(p.teacher) teachersSet.add(p.teacher);
-            deptsSet.add(deptName);
+            const total = (parseFloat(p.contact) || 0) + (parseFloat(p.bonus) || 0);
+            const owner = deptToPM[p.dept?.trim()] || "לא שויך";
+            if (stats[owner]) stats[owner].hours += total;
         });
-
-        document.getElementById('totalSchoolHours').innerText = grandTotal.toFixed(1);
-        document.getElementById('totalTeachersCount').innerText = teachersSet.size;
-        document.getElementById('totalDeptsCount').innerText = deptsSet.size;
-        document.getElementById('totalPMCount').innerText = Object.keys(pms).length;
 
         const tbody = document.querySelector('#pmSummaryTable tbody');
-        let html = "";
-        Object.keys(pmStats).sort().forEach(name => {
-            if (pmStats[name].hours === 0 && name === "לא שויך") return;
-            html += `<tr>
-                <td style="font-weight:700; color:${name === "לא שויך" ? '#f43f5e' : 'inherit'}">${name}</td>
-                <td style="color:#64748b; font-size:13px;">${pmStats[name].depts}</td>
-                <td style="font-weight:900; color:var(--primary); font-size:18px;">${pmStats[name].hours.toFixed(1)} <small>ש"ש</small></td>
-            </tr>`;
-        });
-        tbody.innerHTML = html || '<tr><td colspan="3" style="text-align:center;">אין נתוני שיבוץ להצגה</td></tr>';
+        tbody.innerHTML = Object.keys(stats).filter(n => n !== "לא שויך" || stats[n].hours > 0).map(name => `
+            <tr onclick="drillDownPM('${name}')">
+                <td><b>${name}</b></td>
+                <td>${stats[name].depts.join(', ')}</td>
+                <td style="font-weight:900; color:var(--primary); font-size:18px;">${stats[name].hours.toFixed(1)}</td>
+            </tr>
+        `).join('');
 
-        updateChart(pmStats);
+        document.getElementById('totalSchoolHours').innerText = Object.values(stats).reduce((a,b)=>a+b.hours, 0).toFixed(1);
+        document.getElementById('totalTeachersCount').innerText = new Set(allPlacements.map(p=>p.teacher)).size;
+        document.getElementById('totalPMCount').innerText = Object.keys(pms).length;
     };
 
-    function updateChart(pmStats) {
-        const labels = Object.keys(pmStats).filter(n => pmStats[n].hours > 0);
-        const data = labels.map(l => pmStats[l].hours);
-        if(charts['pmChart']) charts['pmChart'].destroy();
-        const ctx = document.getElementById('chartPMHours').getContext('2d');
-        charts['pmChart'] = new Chart(ctx, {
-            type: 'bar',
-            data: { labels: labels, datasets: [{ label: 'שעות תקן', data: data, backgroundColor: '#6366f1' }] },
-            options: { indexAxis: 'y', plugins: { legend: { display: false } } }
-        });
+    // לוגיקת Drill Down
+    let currentDrillPM = "";
+    window.drillDownPM = (name) => {
+        currentDrillPM = name;
+        const modal = document.getElementById('drillModal');
+        modal.style.display = 'block';
+        document.getElementById('modalTitle').innerText = name;
+        document.getElementById('modalSubTitle').innerText = "פירוט מגמות תחת פיקוח פדגוגי";
+        
+        document.getElementById('deptPickerArea').style.display = 'block';
+        document.getElementById('monitorDetailArea').style.display = 'none';
+
+        const depts = name === "לא שויך" ? [...new Set(allPlacements.filter(p => !deptToPM[p.dept?.trim()]).map(p => p.dept))] : stats_getPMDepts(name);
+        
+        document.getElementById('deptButtons').innerHTML = depts.map(d => `
+            <button onclick="showSubjectDetails('${d}')" style="padding:15px 25px; border-radius:15px; border:2px solid var(--primary); background:white; color:var(--primary); font-weight:800; cursor:pointer; font-size:16px;">${d}</button>
+        `).join('');
+    };
+
+    function stats_getPMDepts(name) {
+        const pm = Object.values(pms).find(p => p.name === name);
+        return pm ? pm.assigned_depts : [];
     }
+
+    window.showSubjectDetails = (deptName) => {
+        document.getElementById('deptPickerArea').style.display = 'none';
+        document.getElementById('monitorDetailArea').style.display = 'block';
+        document.getElementById('modalSubTitle').innerText = `מגמת ${deptName} - מבט מפקחת פדגוגית`;
+
+        const filtered = allPlacements.filter(p => p.dept === deptName);
+        const config = deptConfigs[deptName] || {};
+        const container = document.getElementById('monitorContainer');
+        container.innerHTML = '';
+
+        const grades = [{id:'י', l:"שכבת י'", c:'grade-y'}, {id:'יא', l:"שכבת י\"א", c:'grade-ya'}, {id:'יב', l:"שכבת י\"ב", c:'grade-yb'}];
+        const teacherLoads = {};
+
+        grades.forEach(g => {
+            const gradeData = filtered.filter(p => p.grade === g.id);
+            if(gradeData.length === 0) return;
+            const box = document.createElement('div'); box.className = `grade-monitor-box ${g.c}`;
+            let html = `<h3>${g.l}</h3>`;
+            
+            if(config.structure) {
+                Object.values(config.structure).forEach(row => {
+                    const rowData = gradeData.filter(p => row.subjects.includes(p.subject));
+                    if(rowData.length > 0) {
+                        html += `<div style="font-weight:800; margin-top:10px;">📌 ${row.label}</div><table class="monitor-table"><thead><tr><th>מורה</th><th>מקצוע</th><th>מגע</th><th>גמול</th></tr></thead><tbody>`;
+                        rowData.forEach(p => {
+                            const total = (p.contact + p.bonus);
+                            teacherLoads[p.teacher] = (teacherLoads[p.teacher] || 0) + total;
+                            html += `<tr><td>${p.teacher}</td><td>${p.subject}</td><td>${p.contact}</td><td>${p.bonus}</td></tr>`;
+                        });
+                        html += `</tbody></table>`;
+                    }
+                });
+            }
+            box.innerHTML = html; container.appendChild(box);
+        });
+
+        // רנדור טבלת משרות 25 שעות (תצוגת מראה)
+        let jobHtml = `<h3>ריכוז משרות מגמתי (בסיס 25 שעות)</h3><table class="job-table"><thead><tr><th>שם המורה</th><th>שעות מגמה</th><th>תפקיד/נוסף</th><th>ת"ש</th><th>סה"כ</th><th>% משרה</th></tr></thead><tbody>`;
+        Object.keys(teacherLoads).sort().forEach(t => {
+            const info = extraInfo[t] || { role: "", hours: 0, welfareHours: 0 };
+            const total = teacherLoads[t] + (parseFloat(info.hours)||0) + (parseFloat(info.welfareHours)||0);
+            const perc = Math.min((total/25)*100, 100).toFixed(0);
+            jobHtml += `<tr><td><b>${t}</b></td><td>${teacherLoads[t].toFixed(1)}</td><td>${info.role || '-'} (${info.hours || 0})</td><td>${info.welfareHours || 0}</td><td style="font-weight:900;">${total.toFixed(1)}</td><td><div class="percentage-bar-bg"><div class="percentage-bar-fill" style="width:${perc}%; background:${perc>90?'#ef4444':'#10b981'}"></div></div> ${perc}%</td></tr>`;
+        });
+        document.getElementById('jobTableArea').innerHTML = jobHtml + `</tbody></table>`;
+    };
+
+    window.backToDepts = () => {
+        document.getElementById('deptPickerArea').style.display = 'block';
+        document.getElementById('monitorDetailArea').style.display = 'none';
+        document.getElementById('modalSubTitle').innerText = "פירוט מגמות תחת פיקוח פדגוגי";
+    };
+
+    window.closeModal = () => document.getElementById('drillModal').style.display = 'none';
 </script>
 </body>
 </html>
