@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>רכבת שעות פדגוגית — סטטיסטיקה מפורטת</title>
+    <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700;900&family=Secular+One&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        :root {
+            --bg: #f8fafc; --primary: #6366f1;
+            --yod: #e0f2fe; --yod-border: #bae6fd; --yod-shadow: rgba(186, 230, 253, 0.8);
+            --ya: #f5f3ff; --ya-border: #ddd6fe; --ya-shadow: rgba(221, 214, 254, 0.8);
+            --yb: #fff7ed; --yb-border: #fed7aa; --yb-shadow: rgba(254, 215, 170, 0.8);
+            --magama: #ecfdf5; --magama-border: #10b981;
+        }
+
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family: 'Heebo', sans-serif; background: var(--bg); color: #1e293b; direction: rtl; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; }
+
+        .login-bar { background: #1e293b; color: white; padding: 15px 30px; border-radius: 20px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
+        .nav-bar { display: flex; justify-content: space-between; align-items: center; background: #fff; padding: 20px 30px; border-radius: 20px; border: 1px solid #e2e8f0; margin-bottom: 30px; box-shadow: 0 4px 15px rgba(0,0,0,0.03); }
+        
+        #admin-section { display: none; }
+        .input-card { background: #fff; padding: 35px; border-radius: 30px; border: 2px solid #e2e8f0; margin-bottom: 40px; }
+        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 20px; align-items: flex-end; }
+        .field { display: flex; flex-direction: column; gap: 8px; }
+        label { font-size: 14px; font-weight: 900; color: #475569; }
+        select, input { width: 100%; padding: 14px; border: 2px solid #cbd5e1; border-radius: 12px; font-size: 16px; background: #fff; outline: none; }
+        
+        .add-btn { background: var(--primary); color: white; border: none; padding: 15px; border-radius: 12px; cursor: pointer; font-weight: 900; }
+
+        .grade-box { background: #fff; border: 2px solid var(--b-color); border-radius: 40px; padding: 35px; box-shadow: 15px 15px 0px var(--s-color); margin-bottom: 40px; }
+        .grade-yod { --b-color: var(--yod-border); --s-color: var(--yod-shadow); background-color: var(--yod); }
+        .grade-ya { --b-color: var(--ya-border); --s-color: var(--ya-shadow); background-color: var(--ya); }
+        .grade-yb { --b-color: var(--yb-border); --s-color: var(--yb-shadow); background-color: var(--yb); }
+        .grade-title { font-family: 'Secular One'; font-size: 32px; border-bottom: 3px solid var(--b-color); padding-bottom: 10px; margin-bottom: 25px; }
+
+        .row-header { font-size: 15px; font-weight: 900; color: #475569; margin: 25px 0 12px; display: flex; align-items: center; gap: 10px; }
+        .row-header::after { content:''; flex:1; height:2px; background: rgba(0,0,0,0.08); }
+
+        .cards-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 15px; }
+        .teacher-card { background: rgba(255,255,255,0.8); border-radius: 20px; padding: 20px; position: relative; border: 1px solid rgba(0,0,0,0.05); }
+        .delete-btn { position: absolute; top: 12px; left: 12px; background: #fee2e2; color: #ef4444; border: none; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; display: none; }
+        
+        .empty-slot { border: 2px dashed rgba(0,0,0,0.15); border-radius: 20px; height: 110px; display: flex; align-items: center; justify-content: center; color: rgba(0,0,0,0.3); font-size: 12px; font-weight: 800; background: rgba(255,255,255,0.2); }
+        .summary-pill { background: #fff; padding: 18px 30px; border-radius: 100px; margin-top: 25px; border: 3px solid var(--b-color); display: flex; justify-content: space-between; font-weight: 900; font-size: 19px; }
+
+        /* Statistics Modal & Table */
+        #stats-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 2000; overflow-y: auto; padding: 40px 20px; }
+        .modal-content { background: white; max-width: 1000px; margin: 0 auto; padding: 40px; border-radius: 30px; position: relative; }
+        
+        .stats-table { width: 100%; border-collapse: collapse; margin-top: 30px; font-size: 14px; text-align: center; }
+        .stats-table th { background: #f1f5f9; padding: 12px; border: 1px solid #e2e8f0; font-weight: 900; }
+        .stats-table td { padding: 10px; border: 1px solid #e2e8f0; }
+        .year-header { background: #f8fafc; font-weight: 800; color: var(--primary); }
+        .total-cell { font-weight: 900; background: #fdfdfd; }
+    </style>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getDatabase, ref, push, onValue, remove } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCvvXDGHLBQKEPvkSQ8p8rdyGgUQc9NHOY",
+            authDomain: "rakevet-65218.firebaseapp.com",
+            databaseURL: "https://rakevet-65218-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "rakevet-65218",
+            storageBucket: "rakevet-65218.firebasestorage.app",
+            messagingSenderId: "1096554736743",
+            appId: "1:1096554736743:web:b2e78ba157117e1c44f8c2"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+        const rakevetRef = ref(db, 'rakevet_v3');
+        const configTeachersRef = ref(db, 'config/teachers');
+        const configDeptsRef = ref(db, 'config/departments');
+
+        let allEntries = [];
+        let isAuthorized = false;
+        let myChart = null;
+        let deptConfig = { row1: "תקשורת", row2: "מדיה" };
+
+        // --- סנכרון עם ה-Admin ---
+        onValue(configTeachersRef, (snapshot) => {
+            const teachers = snapshot.val();
+            const select = document.getElementById('inTeacher');
+            select.innerHTML = '<option value="">— בחר מורה —</option>';
+            if(teachers) {
+                Object.values(teachers).forEach(t => { select.innerHTML += `<option value="${t.name}">${t.name}</option>`; });
+            }
+        });
+
+        onValue(configDeptsRef, (snapshot) => {
+            const depts = snapshot.val();
+            if(depts) {
+                const commDept = Object.values(depts).find(d => d.name.includes("תקשורת")) || Object.values(depts)[0];
+                if(commDept) {
+                    deptConfig = commDept;
+                    updateSubjectList();
+                    updateDisplay();
+                }
+            }
+        });
+
+        function updateSubjectList() {
+            document.getElementById('inSubject').innerHTML = `
+                <option value="${deptConfig.row1}">${deptConfig.row1}</option>
+                <option value="${deptConfig.row2}">${deptConfig.row2}</option>
+                <option value="${deptConfig.row1} מבחן">${deptConfig.row1} מבחן</option>
+                <option value="${deptConfig.row2} 5 יח״ל">${deptConfig.row2} 5 יח"ל</option>
+            `;
+        }
+
+        window.checkPassword = function() {
+            if(document.getElementById('passField').value === "1234") {
+                isAuthorized = true;
+                document.getElementById('admin-section').style.display = 'block';
+                document.getElementById('login-ui').style.display = 'none';
+                document.getElementById('logout-ui').style.display = 'block';
+                updateDisplay();
+            } else { alert("סיסמה שגויה"); document.getElementById('passField').value = ""; }
+        };
+
+        window.addEntry = function() {
+            if(!isAuthorized) return;
+            const entry = {
+                year: document.getElementById('inYear').value,
+                grade: document.getElementById('inGrade').value,
+                subject: document.getElementById('inSubject').value,
+                teacher: document.getElementById('inTeacher').value,
+                contact: parseFloat(document.getElementById('inContact').value) || 0,
+                bonus: parseFloat(document.getElementById('inBonus').value) || 0
+            };
+            if(!entry.teacher) return alert("בחר מורה");
+            push(rakevetRef, entry);
+        };
+
+        window.deleteItem = function(id) {
+            if(isAuthorized && confirm("למחוק שורה זו?")) remove(ref(db, `rakevet_v3/${id}`));
+        };
+
+        onValue(rakevetRef, (snapshot) => {
+            const data = snapshot.val();
+            allEntries = data ? Object.keys(data).map(key => ({ id: key, ...data[key] })) : [];
+            updateDisplay();
+        });
+
+        window.updateDisplay = function() {
+            const year = document.getElementById('viewYear').value;
+            render(allEntries.filter(e => e.year === year), year);
+        };
+
+        function render(entries, year) {
+            const dashboard = document.getElementById('dashboard');
+            dashboard.innerHTML = '';
+            const tLoad = {};
+            let mContact = 0, mBonus = 0;
+
+            ['י', 'יא', 'יב'].forEach(g => {
+                const gradeData = entries.filter(e => e.grade === g);
+                const row1Data = gradeData.filter(e => e.subject.includes(deptConfig.row1));
+                const row2Data = gradeData.filter(e => e.subject.includes(deptConfig.row2));
+                
+                gradeData.forEach(e => {
+                    if(!tLoad[e.teacher]) tLoad[e.teacher] = { c: 0, b: 0 };
+                    tLoad[e.teacher].c += e.contact; tLoad[e.teacher].b += e.bonus;
+                });
+                mContact += gradeData.reduce((s, d) => s + d.contact, 0);
+                mBonus += gradeData.reduce((s, d) => s + d.bonus, 0);
+
+                const box = document.createElement('div');
+                box.className = `grade-box grade-${g === 'י' ? 'yod' : g === 'יא' ? 'ya' : 'yb'}`;
+                box.innerHTML = `
+                    <div class="grade-title">שכבת ${g === 'יא' ? 'י"א' : g === 'יב' ? 'י"ב' : "י'"} — ${year}</div>
+                    <div class="row-header">שורה 1: ${deptConfig.row1}</div>
+                    <div class="cards-grid">${renderGroup(row1Data, 2)}</div>
+                    <div class="row-header">שורה 2: ${deptConfig.row2}</div>
+                    <div class="cards-grid">${renderGroup(row2Data, 3)}</div>
+                    <div class="summary-pill"><span>סיכום שכבה</span><span>${gradeData.reduce((s,d)=>s+d.contact+d.bonus,0)} ש'</span></div>
+                `;
+                dashboard.appendChild(box);
+            });
+            renderMishra(tLoad, mContact, mBonus, year);
+        }
+
+        function renderGroup(list, slots) {
+            let html = list.map(d => `
+                <div class="teacher-card">
+                    ${isAuthorized ? `<button class="delete-btn" style="display:block;" onclick="deleteItem('${d.id}')">🗑️</button>` : ''}
+                    <h3>${d.teacher}</h3>
+                    <div style="color:var(--primary); font-weight:700;">${d.subject}</div>
+                    <div style="display:flex; justify-content:space-between; margin-top:10px; font-weight:900;">
+                        <span>מגע: ${d.contact}</span><span>גמול: ${d.bonus}</span>
+                    </div>
+                </div>
+            `).join('');
+            for(let i = list.length; i < slots; i++) html += '<div class="empty-slot">מקום פנוי</div>';
+            return html;
+        }
+
+        function renderMishra(load, c, b, year) {
+            let h = `<div class="grade-box" style="background:white; --b-color:#e2e8f0; --s-color:rgba(0,0,0,0.05);">
+                <h2 class="grade-title">טבלת משרות — ${year}</h2>
+                <table style="width:100%; text-align:right; border-collapse:collapse;">
+                    <thead><tr style="color:#64748b; font-size:14px;"><th>מורה</th><th>מגע</th><th>גמול</th><th>סה"כ</th></tr></thead>
+                    <tbody>${Object.keys(load).map(t => `<tr><td style="padding:12px; font-weight:900;">${t}</td><td>${load[t].c}</td><td>${load[t].b}</td><td style="font-weight:900; color:var(--primary);">${load[t].c+load[t].b}</td></tr>`).join('')}</tbody>
+                </table></div>
+                <div class="grade-box" style="background:var(--magama); --b-color:var(--magama-border); --s-color:rgba(16,185,129,0.1);">
+                <div class="grade-title">סיכום מגמה ${year}</div>
+                <div class="summary-pill" style="border-color:var(--magama-border)"><span>מגע: ${c}</span><span>גמול: ${b}</span><span>סה"כ: ${c+b}</span></div></div>`;
+            document.getElementById('summary-area').innerHTML = h;
+        }
+
+        // --- מנגנון סטטיסטיקה מורחב ---
+        window.toggleStats = function() {
+            const m = document.getElementById('stats-modal');
+            m.style.display = m.style.display === 'block' ? 'none' : 'block';
+            if(m.style.display === 'block') {
+                const ctx = document.getElementById('chart').getContext('2d');
+                if(myChart) myChart.destroy();
+                
+                const teachers = [...new Set(allEntries.map(e => e.teacher))];
+                const statsData = {};
+
+                teachers.forEach(t => {
+                    statsData[t] = {
+                        tashpao: { contact: 0, bonus: 0 },
+                        tashpaz: { contact: 0, bonus: 0 }
+                    };
+                    allEntries.filter(e => e.teacher === t).forEach(e => {
+                        const yearKey = e.year === 'תשפו' ? 'tashpao' : 'tashpaz';
+                        statsData[t][yearKey].contact += e.contact;
+                        statsData[t][yearKey].bonus += e.bonus;
+                    });
+                });
+
+                // גרף
+                myChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: { 
+                        labels: teachers, 
+                        datasets: [
+                            { label: 'תשפ"ו', data: teachers.map(t => statsData[t].tashpao.contact + statsData[t].tashpao.bonus), backgroundColor: 'rgba(99, 102, 241, 0.5)' }, 
+                            { label: 'תשפ"ז', data: teachers.map(t => statsData[t].tashpaz.contact + statsData[t].tashpaz.bonus), backgroundColor: 'rgba(16, 185, 129, 0.5)' }
+                        ] 
+                    },
+                    options: { responsive: true, plugins: { title: { display: true, text: 'השוואת משרות כוללת', font: { family:'Secular One', size:20 } } } }
+                });
+
+                // בניית טבלת הפירוט (השיפוץ)
+                let tableHtml = `<table class="stats-table">
+                    <thead>
+                        <tr>
+                            <th rowspan="2">שם המורה</th>
+                            <th colspan="3" class="year-header">תשפ"ו (שנה קודמת)</th>
+                            <th colspan="3" class="year-header">תשפ"ז (השנה)</th>
+                        </tr>
+                        <tr>
+                            <th>תקן (מגע)</th><th>גמול</th><th class="total-cell">סה"כ</th>
+                            <th>תקן (מגע)</th><th>גמול</th><th class="total-cell">סה"כ</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+                
+                teachers.forEach(t => {
+                    const o = statsData[t].tashpao;
+                    const z = statsData[t].tashpaz;
+                    tableHtml += `
+                        <tr>
+                            <td style="font-weight:900;">${t}</td>
+                            <td>${o.contact}</td><td>${o.bonus}</td><td class="total-cell">${o.contact + o.bonus}</td>
+                            <td>${z.contact}</td><td>${z.bonus}</td><td class="total-cell">${z.contact + z.bonus}</td>
+                        </tr>`;
+                });
+                tableHtml += `</tbody></table>`;
+                document.getElementById('stats-table-container').innerHTML = tableHtml;
+            }
+        };
+    </script>
+</head>
+<body>
+    <div class="container">
+        <div class="login-bar">
+            <span style="font-weight: 800;">רכז מגמת תקשורת</span>
+            <div id="login-ui" class="login-inputs">
+                <input type="password" id="passField" style="padding:8px; border-radius:8px; width:100px; border:none; text-align:center;" placeholder="סיסמה"> 
+                <button onclick="checkPassword()" style="background:var(--primary); color:white; border:none; padding:8px 15px; border-radius:8px; cursor:pointer; font-weight:800;">כניסה</button>
+            </div>
+            <div id="logout-ui" style="display:none;"><button onclick="location.reload()" style="background:#ef4444; color:white; border:none; padding:8px 15px; border-radius:8px; cursor:pointer; font-weight:800;">יציאה</button></div>
+        </div>
+
+        <div class="nav-bar">
+            <div class="year-switcher"><label>בחר שנה:</label> <select id="viewYear" onchange="updateDisplay()"><option value="תשפו">תשפ"ו</option><option value="תשפז" selected>תשפ"ז</option></select></div>
+            <button onclick="toggleStats()" style="background:#10b981; color:white; border:none; padding:10px 20px; border-radius:12px; cursor:pointer; font-weight:800;">📊 סטטיסטיקה והשוואה</button>
+        </div>
+
+        <div id="admin-section" class="input-card">
+            <div class="form-grid">
+                <div class="field"><label>שנה</label><select id="inYear"><option value="תשפו">תשפ"ו</option><option value="תשפז" selected>תשפ"ז</option></select></div>
+                <div class="field"><label>שכבה</label><select id="inGrade"><option value="י">י'</option><option value="יא">י"א</option><option value="יב">י"ב</option></select></div>
+                <div class="field"><label>מקצוע</label><select id="inSubject"></select></div>
+                <div class="field"><label>מורה</label><select id="inTeacher"></select></div>
+                <div class="field"><label>מגע</label><input type="number" id="inContact" value="4"></div>
+                <div class="field"><label>גמול</label><select id="inBonus">
+                    <option value="0">0</option><option value="1">1</option><option value="1.5">1.5</option>
+                    <option value="2">2</option><option value="2.5">2.5</option><option value="3">3</option>
+                    <option value="3.5">3.5</option><option value="4.5">4.5</option>
+                </select></div>
+                <button class="add-btn" onclick="addEntry()">הוסף לרכבת +</button>
+            </div>
+        </div>
+
+        <div id="dashboard"></div>
+        <div id="summary-area"></div>
+    </div>
+
+    <div id="stats-modal">
+        <div class="modal-content">
+            <span onclick="toggleStats()" style="position:absolute; top:20px; left:20px; cursor:pointer; font-size:24px; background:#f1f5f9; width:40px; height:40px; border-radius:50%; display:flex; align-items:center; justify-content:center;">✕</span>
+            <canvas id="chart" style="max-height:400px;"></canvas>
+            
+            <div id="stats-table-container"></div>
+            
+            <p style="margin-top:30px; text-align:center; font-size:12px; color:#64748b;">* שעות תקן מייצגות שעות מגע ישיר, גמול מייצג שעות ליווי/ניהול.</p>
+        </div>
+    </div>
+</body>
+</html>
