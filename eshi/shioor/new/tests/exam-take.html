@@ -86,6 +86,25 @@ body{font-family:'Heebo',sans-serif;background:var(--paper);color:var(--ink);}
 #error-page{display:none;text-align:center;padding:80px 20px;}
 #error-page h2{font-family:'Frank Ruhl Libre',serif;font-size:24px;color:var(--accent);margin-bottom:12px;}
 
+/* COVER PAGE */
+.cover-page{max-width:760px;margin:0 auto;padding:40px 24px 60px;font-family:'Frank Ruhl Libre',serif;}
+.cover-state{background:var(--ink);color:var(--paper);text-align:center;padding:12px 20px;font-size:11px;letter-spacing:2px;display:flex;justify-content:space-between;margin-bottom:0;}
+.cover-title-box{border:3px solid var(--ink);border-top:none;text-align:center;padding:28px 20px 20px;}
+.cover-main-title{font-size:clamp(28px,5vw,44px);font-weight:900;letter-spacing:-1px;margin-bottom:8px;}
+.cover-sub{font-size:13px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-bottom:16px;}
+.cover-divider{height:3px;background:var(--ink);margin:0 40px;}
+.cover-exam-title{font-size:22px;font-weight:700;margin-top:16px;color:var(--accent);}
+.cover-meta{display:flex;justify-content:space-between;margin-top:8px;font-size:13px;color:var(--muted);}
+.cover-instr-box{border:2px solid var(--ink);margin-top:28px;background:white;}
+.cover-instr-head{background:var(--ink);color:var(--paper);padding:10px 18px;font-size:14px;font-weight:700;letter-spacing:1px;}
+.cover-instr-body{padding:18px 22px;font-family:'Heebo',sans-serif;font-size:13px;line-height:1.9;}
+.cover-instr-body ol{padding-right:22px;}
+.cover-instr-body li{margin-bottom:6px;}
+.cover-points-table{width:100%;border-collapse:collapse;margin-top:16px;font-size:13px;}
+.cover-points-table th,.cover-points-table td{border:1px solid var(--border);padding:8px 14px;text-align:center;}
+.cover-points-table th{background:var(--paper);font-weight:700;}
+.cover-start-btn{display:block;width:100%;margin-top:28px;padding:16px;background:var(--accent);color:white;border:none;font-family:'Frank Ruhl Libre',serif;font-size:20px;font-weight:700;cursor:pointer;letter-spacing:.5px;}
+.cover-start-btn:hover{background:#6b1010;}
 footer{text-align:center;padding:16px;font-size:11px;color:var(--muted);border-top:1px solid var(--border);}
 </style>
 </head>
@@ -128,6 +147,46 @@ footer{text-align:center;padding:16px;font-size:11px;color:var(--muted);border-t
 </div>
 
 <div id="mainpage" style="display:none;">
+  <!-- COVER PAGE -->
+  <div id="cover-page" style="display:none;">
+    <div class="cover-page">
+      <div class="cover-state">
+        <span id="cover-school">בית ספר גליל מערבי</span>
+        <span>תקשורת וחברה</span>
+        <span id="cover-date"></span>
+      </div>
+      <div class="cover-title-box">
+        <div class="cover-main-title">תקשורת וחברה</div>
+        <div class="cover-sub">מבחן | תשפ"ה</div>
+        <div class="cover-divider"></div>
+        <div class="cover-exam-title" id="cover-exam-title">—</div>
+        <div class="cover-meta">
+          <span id="cover-class">—</span>
+          <span id="cover-student-name">—</span>
+        </div>
+      </div>
+      <div class="cover-instr-box">
+        <div class="cover-instr-head">הוראות לנבחן</div>
+        <div class="cover-instr-body">
+          <ol>
+            <li>קרא את כל השאלות לפני שתתחיל לענות.</li>
+            <li>ענה על מספר השאלות הנדרש בכל פרק.</li>
+            <li id="cover-custom-instr" style="display:none;"></li>
+            <li>בתשובותיך הסתמך על החומר שנלמד בכיתה.</li>
+            <li>כתוב בשפה ברורה ומסודרת.</li>
+          </ol>
+          <table class="cover-points-table" id="cover-points-table">
+            <tr>
+              <th>פרק</th>
+              <th>שאלות</th>
+              <th>נקודות</th>
+            </tr>
+          </table>
+        </div>
+      </div>
+      <button class="cover-start-btn" onclick="startExam()">התחל במבחן ←</button>
+    </div>
+  </div>
   <div id="exam-content"></div>
   <div id="success-page">
     <div class="success-icon">✅</div>
@@ -195,8 +254,55 @@ function enterExam(){
     document.getElementById('exam-title-display').textContent=examData?.title||'מבחן';
     document.getElementById('bname').textContent=fn+' '+ln;
     document.getElementById('bcls').textContent=grade;
-    renderExam();
+    showCoverPage(fn+' '+ln, grade);
   });
+}
+
+function showCoverPage(name, grade){
+  document.getElementById('cover-page').style.display='block';
+  document.getElementById('cover-exam-title').textContent=examData.title||'מבחן';
+  document.getElementById('cover-class').textContent='כיתה: '+grade;
+  document.getElementById('cover-student-name').textContent=name;
+  document.getElementById('cover-date').textContent=new Date().toLocaleDateString('he-IL');
+
+  // Custom instructions
+  if(examData.instructions){
+    var li=document.getElementById('cover-custom-instr');
+    li.textContent=examData.instructions;
+    li.style.display='list-item';
+  }
+
+  // Points table
+  var table=document.getElementById('cover-points-table');
+  var chapters={};
+  (examData.questions||[]).forEach(function(q){
+    var ch=q.chapter||q._chapter||'א';
+    if(!chapters[ch]) chapters[ch]={count:0,pts:0};
+    chapters[ch].count++;
+    var subs=[q.subA,q.subB,q.subC].filter(Boolean);
+    chapters[ch].pts+=subs.reduce(function(s,x){return s+(x.points||0);},0);
+  });
+  var chLabels={'א':'ראשון','ב':'שני','ג':'שלישי'};
+  var totalPts=0;
+  Object.keys(chapters).sort().forEach(function(ch){
+    var row=table.insertRow();
+    row.insertCell().textContent='פרק '+chLabels[ch];
+    row.insertCell().textContent=chapters[ch].count+' שאלות';
+    row.insertCell().textContent=chapters[ch].pts+' נק׳';
+    totalPts+=chapters[ch].pts;
+    row.style.textAlign='center';
+  });
+  var totRow=table.insertRow();
+  totRow.style.fontWeight='700';
+  totRow.style.background='#f5f0e8';
+  totRow.insertCell().textContent='סה"כ';
+  totRow.insertCell().textContent='';
+  totRow.insertCell().textContent=totalPts+' נק׳';
+}
+
+function startExam(){
+  document.getElementById('cover-page').style.display='none';
+  renderExam();
 }
 
 function renderExam(){

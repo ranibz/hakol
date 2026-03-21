@@ -86,6 +86,16 @@ header{background:var(--ink);color:var(--paper);border-bottom:4px solid var(--go
 .share-row{display:flex;gap:8px;}
 .share-input{flex:1;padding:10px 14px;border:2px solid var(--gold);font-family:monospace;font-size:13px;background:white;outline:none;}
 .btn-copy{padding:10px 18px;background:var(--gold);color:var(--ink);border:none;font-family:'Heebo',sans-serif;font-size:13px;font-weight:800;cursor:pointer;white-space:nowrap;}
+.edit-mode{background:#fff9f0;border:2px solid var(--gold);padding:16px;margin-bottom:12px;}
+.edit-mode label{display:block;font-size:11px;font-weight:800;color:var(--muted);margin-bottom:5px;letter-spacing:.5px;text-transform:uppercase;}
+.edit-ta{width:100%;border:2px solid var(--border);padding:10px 12px;font-family:'Heebo',sans-serif;font-size:13px;line-height:1.7;background:white;resize:vertical;min-height:80px;outline:none;color:var(--ink);}
+.edit-ta:focus{border-color:var(--ink);}
+.edit-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;}
+.btn-edit-action{padding:7px 16px;border:2px solid var(--ink);font-family:'Heebo',sans-serif;font-size:12px;font-weight:700;cursor:pointer;background:white;}
+.btn-edit-action:hover{background:var(--paper);}
+.btn-edit-action.replace{background:var(--accent);color:white;border-color:var(--accent);}
+.btn-edit-action.replace:hover{background:#6b1010;}
+.btn-edit-action.save{background:var(--green);color:white;border-color:var(--green);}
 footer{text-align:center;padding:20px;font-size:11px;color:var(--muted);letter-spacing:1px;border-top:2px solid var(--border);margin-top:20px;}
 </style>
 </head>
@@ -424,21 +434,123 @@ function renderQuestion(q,num){
   var div=document.createElement('div');
   div.className='gen-question';
   div.id='qq-'+q._id;
+  div.innerHTML=buildQuestionHTML(q,num);
+  container.appendChild(div);
+}
+
+function buildQuestionHTML(q,num){
   var letters=['א','ב','ג'];
   var subs=[q.subA,q.subB,q.subC].filter(Boolean);
   var total=subs.reduce(function(s,x){return s+(x.points||0);},0);
-  var html='<button class="del-btn" onclick="deleteQuestion(\''+q._id+'\')">✕ הסר</button>';
+  var id=q._id;
+  var html='<button class="del-btn" onclick="deleteQuestion(\''+id+'\')">✕ הסר</button>';
   html+='<div class="gen-q-header"><div class="gen-q-num">שאלה '+num+' — פרק '+q.chapter+'</div><div class="gen-q-pts">'+total+' נקודות</div></div>';
+
+  // CONTEXT edit area
   if(q.context){
-    html+='<div class="gen-context"><div class="gen-context-label">📰 קטע</div>'+q.context;
-    if(q.source) html+='<div style="font-size:11px;color:#888;margin-top:8px;">('+q.source+')</div>';
+    html+='<div class="edit-mode">';
+    html+='<label>📰 קטע קריאה</label>';
+    html+='<textarea class="edit-ta" id="ctx-'+id+'" rows="5">'+q.context+'</textarea>';
+    if(q.source) html+='<input style="width:100%;margin-top:6px;padding:6px 10px;border:2px solid var(--border);font-family:Heebo,sans-serif;font-size:12px;" id="src-'+id+'" value="'+q.source+'" placeholder="מקור">';
+    html+='<div class="edit-actions">';
+    html+='<button class="btn-edit-action replace" onclick="replaceContext(\''+id+'\')">🔄 החלף קטע</button>';
+    html+='</div>';
     html+='</div>';
   }
+
+  // SUB QUESTIONS edit areas
   subs.forEach(function(s,i){
-    html+='<div class="gen-sub"><div class="pts">('+s.points+' נק׳)</div><div class="letter">'+letters[i]+'.</div><div>'+s.text+'</div></div>';
+    html+='<div class="edit-mode">';
+    html+='<label>שאלה '+letters[i]+' ('+s.points+' נקודות)</label>';
+    html+='<textarea class="edit-ta" id="sub-'+id+'-'+i+'" rows="3">'+s.text+'</textarea>';
+    html+='</div>';
   });
-  div.innerHTML=html;
-  container.appendChild(div);
+
+  // ACTION BUTTONS
+  html+='<div class="edit-actions" style="margin-top:8px;">';
+  html+='<button class="btn-edit-action save" onclick="saveEdits(\''+id+'\')">💾 שמור עריכות</button>';
+  html+='<button class="btn-edit-action replace" onclick="replaceQuestion(\''+id+'\')">🔄 החלף שאלה</button>';
+  html+='</div>';
+
+  return html;
+}
+
+
+function saveEdits(id){
+  var q=generatedQuestions.find(function(x){return x._id===id;});
+  if(!q) return;
+  var ctxEl=document.getElementById('ctx-'+id);
+  if(ctxEl) q.context=ctxEl.value.trim();
+  var srcEl=document.getElementById('src-'+id);
+  if(srcEl) q.source=srcEl.value.trim();
+  var subs=[q.subA,q.subB,q.subC].filter(Boolean);
+  subs.forEach(function(s,i){
+    var el=document.getElementById('sub-'+id+'-'+i);
+    if(el) s.text=el.value.trim();
+  });
+  var qNum=generatedQuestions.findIndex(function(x){return x._id===id;})+1;
+  var div=document.getElementById('qq-'+id);
+  if(div) div.innerHTML=buildQuestionHTML(q,qNum);
+  showStatus('השינויים נשמרו','status-ok');
+  setTimeout(hideStatus,2000);
+}
+
+function replaceContext(id){
+  var q=generatedQuestions.find(function(x){return x._id===id;});
+  if(!q) return;
+  if(!confirm('להחליף את הקטע בקטע חדש? השאלות ישמרו.')) return;
+  var topic=document.getElementById('main-topic').value.trim();
+  var concepts=getSelectedConcepts();
+  var prompt='צור קטע רקע אקטואלי חדש (6-8 משפטים) בנושא "'+topic+'". הקטע יהיה על אירוע אמיתי שונה מהקטע הנוכחי. ';
+  prompt+='החזר JSON בלבד: {"context":"...","source":"..."}';
+  showStatus('הבוט יוצר קטע חדש...','status-loading');
+  fetch(AI_PROXY,{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,
+      system:'החזר JSON בלבד ללא markdown.',
+      messages:[{role:'user',content:prompt}]})
+  }).then(function(r){return r.json();}).then(function(data){
+    var raw=data.content&&data.content[0]?data.content[0].text:'';
+    var match=raw.match(/\{[\s\S]*\}/);
+    if(!match) throw new Error('שגיאה');
+    var obj=JSON.parse(match[0]);
+    q.context=obj.context;
+    q.source=obj.source;
+    var qNum=generatedQuestions.findIndex(function(x){return x._id===id;})+1;
+    var div=document.getElementById('qq-'+id);
+    if(div) div.innerHTML=buildQuestionHTML(q,qNum);
+    hideStatus();
+  }).catch(function(e){showStatus('שגיאה: '+e.message,'status-error');});
+}
+
+function replaceQuestion(id){
+  var idx=generatedQuestions.findIndex(function(x){return x._id===id;});
+  if(idx<0) return;
+  if(!confirm('להחליף את השאלה כולה בשאלה חדשה?')) return;
+  var q=generatedQuestions[idx];
+  var chapter=q._chapter;
+  var topic=document.getElementById('main-topic').value.trim();
+  var concepts=getSelectedConcepts();
+  var extra=document.getElementById('bot-instructions').value.trim();
+  var prompt=buildPrompt(chapter,topic,concepts,extra,idx);
+  showStatus('הבוט יוצר שאלה חדשה...','status-loading');
+  fetch(AI_PROXY,{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:2000,
+      system:'החזר JSON בלבד ללא markdown.',
+      messages:[{role:'user',content:prompt}]})
+  }).then(function(r){return r.json();}).then(function(data){
+    var raw=data.content&&data.content[0]?data.content[0].text:'';
+    var cb=raw.match(/```(?:json)?\s*([\s\S]*?)```/);
+    var jsonStr=cb?cb[1].trim():raw;
+    var om=jsonStr.match(/\{[\s\S]*\}/);
+    if(om) jsonStr=om[0];
+    var newQ=JSON.parse(jsonStr);
+    newQ._chapter=chapter;
+    newQ._id='q'+Date.now();
+    generatedQuestions[idx]=newQ;
+    var div=document.getElementById('qq-'+q._id);
+    if(div){div.id='qq-'+newQ._id;div.innerHTML=buildQuestionHTML(newQ,idx+1);}
+    hideStatus();
+  }).catch(function(e){showStatus('שגיאה: '+e.message,'status-error');});
 }
 
 function deleteQuestion(id){
