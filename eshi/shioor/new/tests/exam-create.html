@@ -427,9 +427,19 @@ async function generateNextQuestion(){
     });
     const data=await res.json();
     const raw=data.content?.[0]?.text||'';
-    const match=raw.match(/\{[\s\S]*\}/);
-    if(!match) throw new Error('תגובה לא תקינה');
-    const q=JSON.parse(match[0]);
+    console.log('AI raw response:', raw.substring(0,200));
+    // Try to extract JSON - handle markdown code blocks too
+    let jsonStr = raw;
+    const codeMatch = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if(codeMatch) jsonStr = codeMatch[1];
+    else {
+      const objMatch = raw.match(/\{[\s\S]*\}/);
+      if(objMatch) jsonStr = objMatch[0];
+    }
+    if(!jsonStr) throw new Error('לא נמצא JSON בתגובה: '+raw.substring(0,100));
+    let q;
+    try { q=JSON.parse(jsonStr.trim()); }
+    catch(pe){ throw new Error('שגיאת JSON: '+pe.message+' | '+jsonStr.substring(0,100)); }
     q._chapter=chapter;
     q._id='q'+Date.now();
     generatedQuestions.push(q);
@@ -465,14 +475,14 @@ function buildPrompt(chapter,topic,concepts,extra,idx){
 שאלה ב׳ (4 נק׳): שאלה ניתוחית + 2 דוגמאות מהקטע.
 שאלה ג׳ (12 נק׳): דילמה — דונו, הכריעו ונמקו. השתמשו ב-3 מושגים מ: ${conceptStr}.
 ${extra?'הוראות נוספות: '+extra:''}
-JSON בלבד: {"chapter":"א","context":"...","source":"...","subA":{"points":7,"text":"..."},"subB":{"points":4,"text":"..."},"subC":{"points":12,"text":"..."}}`,
+החזר JSON בלבד ללא שום טקסט נוסף, ללא markdown, ללא הסברים: {"chapter":"א","context":"...","source":"...","subA":{"points":7,"text":"..."},"subB":{"points":4,"text":"..."},"subC":{"points":12,"text":"..."}}\`,
     B:`צור שאלת פרק שני לבגרות תקשורת וחברה (13 נקודות). זו שאלה מספר ${idx+1} בפרק זה.
 נושא: "${topic}".
 קטע רקע אקטואלי (4-5 משפטים).
 שאלה א׳ (6 נק׳): הסבר מושג + יישום.
 שאלה ב׳ (7 נק׳): שאלה מעמיקה עם מושגים: ${conceptStr}.
 ${extra?'הוראות נוספות: '+extra:''}
-JSON בלבד: {"chapter":"ב","context":"...","source":"...","subA":{"points":6,"text":"..."},"subB":{"points":7,"text":"..."}}`,
+החזר JSON בלבד ללא שום טקסט נוסף, ללא markdown: {"chapter":"ב","context":"...","source":"...","subA":{"points":6,"text":"..."},"subB":{"points":7,"text":"..."}}\`,
     C:`צור שאלת פרק שלישי לבגרות תקשורת וחברה (7.5 נקודות). זו שאלה מספר ${idx+1} בפרק זה.
 נושא: "${topic}". שאלת הגדרה קצרה עם יישום.
 ${conceptStr!=='לפי שיקול דעתך'?'מושגים: '+conceptStr:''}
