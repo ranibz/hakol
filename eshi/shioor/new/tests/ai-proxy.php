@@ -16,7 +16,7 @@ curl_setopt_array($ch, [
     CURLOPT_POSTFIELDS => json_encode($data),
     CURLOPT_HTTPHEADER => [
         'Content-Type: application/json',
-        'x-api-key: YOUR_ANTHROPIC_API_KEY_HERE',
+        'x-api-key: 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',
         'anthropic-version: 2023-06-01'
     ]
 ]);

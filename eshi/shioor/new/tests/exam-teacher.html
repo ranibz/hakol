@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>צפייה בתשובות — תקשורת וחברה</title>
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@400;700;900&family=Heebo:wght@300;400;500;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<style>
+:root{--accent:#8B1A1A;--paper:#f5f0e8;--ink:#1a1208;--border:#c8b89a;--muted:#7a6a52;--gold:#c9a84c;--green:#1a5c1a;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Heebo',sans-serif;background:#f0ece0;color:var(--ink);}
+
+/* LOGIN */
+#login-overlay{position:fixed;inset:0;background:rgba(26,18,8,.88);z-index:9999;display:flex;align-items:center;justify-content:center;}
+.login-box{background:var(--paper);border:3px solid var(--ink);box-shadow:7px 7px 0 var(--ink);padding:44px 40px;max-width:400px;width:92%;text-align:center;}
+.lm-top{font-family:'Frank Ruhl Libre',serif;border-top:4px double var(--ink);border-bottom:4px double var(--ink);padding:12px 0;margin-bottom:28px;}
+.lm-top h1{font-size:22px;font-weight:900;}
+.lm-top p{font-size:11px;color:var(--muted);margin-top:4px;letter-spacing:2px;}
+.lf{margin-bottom:16px;text-align:right;}
+.lf label{display:block;font-size:11px;font-weight:800;color:var(--muted);margin-bottom:6px;letter-spacing:1px;}
+.lf input{width:100%;padding:12px 14px;border:2px solid var(--ink);font-family:'Heebo',sans-serif;font-size:15px;background:white;outline:none;}
+.btn-login{width:100%;padding:14px;background:var(--ink);color:var(--paper);border:none;font-family:'Frank Ruhl Libre',serif;font-size:17px;font-weight:700;cursor:pointer;}
+.btn-login:hover{background:var(--accent);}
+.login-err{color:var(--accent);font-size:13px;margin-top:12px;display:none;}
+
+/* HEADER */
+header{background:var(--ink);color:var(--paper);border-bottom:4px solid var(--gold);padding:14px 24px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;}
+header h1{font-family:'Frank Ruhl Libre',serif;font-size:19px;font-weight:900;}
+.teacher-pill{background:rgba(201,168,76,.18);border:1px solid var(--gold);padding:6px 14px;font-size:13px;font-weight:700;color:var(--gold);}
+.btn-out{background:transparent;border:1.5px solid rgba(245,240,232,.3);color:var(--paper);padding:7px 16px;font-family:'Heebo',sans-serif;font-size:13px;font-weight:700;cursor:pointer;}
+
+.container{max-width:1100px;margin:0 auto;padding:28px 20px;}
+
+/* EXAM SELECTOR */
+.exam-selector{background:white;border:2px solid var(--ink);box-shadow:4px 4px 0 var(--border);padding:20px 24px;margin-bottom:24px;}
+.exam-selector h3{font-family:'Frank Ruhl Libre',serif;font-size:17px;margin-bottom:14px;}
+.exam-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px;}
+.exam-card{border:2px solid var(--border);padding:14px 16px;cursor:pointer;background:var(--paper);transition:.2s;}
+.exam-card:hover{border-color:var(--ink);box-shadow:3px 3px 0 var(--border);}
+.exam-card.active{border-color:var(--accent);background:white;box-shadow:3px 3px 0 var(--accent);}
+.ec-title{font-family:'Frank Ruhl Libre',serif;font-size:15px;font-weight:700;margin-bottom:4px;}
+.ec-meta{font-size:11px;color:var(--muted);}
+
+/* FILTER BAR */
+.filter-bar{display:flex;gap:12px;flex-wrap:wrap;align-items:center;background:white;border:2px solid var(--ink);box-shadow:4px 4px 0 var(--border);padding:14px 18px;margin-bottom:20px;}
+.filter-bar input,.filter-bar select{padding:8px 12px;border:2px solid var(--border);font-family:'Heebo',sans-serif;font-size:13px;background:var(--paper);outline:none;}
+.filter-bar input:focus,.filter-bar select:focus{border-color:var(--ink);}
+.stat-badge{background:var(--ink);color:var(--paper);padding:5px 12px;font-size:12px;font-weight:700;font-family:'Frank Ruhl Libre',serif;}
+
+/* SUBMISSIONS TABLE */
+.submissions-table{width:100%;border-collapse:collapse;background:white;border:2px solid var(--ink);box-shadow:4px 4px 0 var(--border);}
+.submissions-table th{background:var(--ink);color:var(--paper);padding:11px 14px;text-align:right;font-size:12px;letter-spacing:.5px;font-family:'Frank Ruhl Libre',serif;font-weight:700;}
+.submissions-table td{padding:10px 14px;font-size:13px;border-bottom:1px solid var(--border);vertical-align:middle;}
+.submissions-table tr:last-child td{border-bottom:none;}
+.submissions-table tr:hover td{background:var(--paper);}
+.btn-expand{background:var(--ink);color:white;border:none;padding:5px 14px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Heebo',sans-serif;}
+.btn-expand:hover{background:var(--accent);}
+.grade-input{width:60px;padding:5px 8px;border:2px solid var(--border);font-family:'Heebo',sans-serif;font-size:13px;text-align:center;background:var(--paper);outline:none;}
+.grade-input:focus{border-color:var(--ink);}
+.btn-save-grade{background:var(--green);color:white;border:none;padding:5px 10px;font-size:11px;font-weight:700;cursor:pointer;font-family:'Heebo',sans-serif;margin-right:4px;}
+
+/* EXPANDED ROW */
+.exp-row td{background:#fff9f0;padding:20px 24px;}
+.exp-q{margin-bottom:18px;padding-bottom:18px;border-bottom:1px solid var(--border);}
+.exp-q:last-child{border-bottom:none;margin-bottom:0;padding-bottom:0;}
+.exp-q-header{font-family:'Frank Ruhl Libre',serif;font-size:14px;font-weight:700;color:var(--accent);margin-bottom:8px;}
+.exp-sub{margin-bottom:12px;}
+.exp-sub-q{font-size:13px;font-weight:700;color:var(--ink);margin-bottom:6px;line-height:1.6;}
+.exp-sub-a{background:white;border-right:4px solid var(--gold);padding:10px 14px;font-size:13px;line-height:1.8;color:var(--ink);min-height:40px;}
+.exp-sub-a.empty{color:var(--muted);font-style:italic;}
+.feedback-area{width:100%;margin-top:8px;padding:8px 12px;border:2px solid var(--border);font-family:'Heebo',sans-serif;font-size:13px;resize:none;min-height:60px;line-height:1.6;background:white;}
+.feedback-area:focus{outline:none;border-color:var(--ink);}
+.btn-save-feedback{background:var(--ink);color:white;border:none;padding:7px 18px;font-size:12px;font-weight:700;cursor:pointer;font-family:'Heebo',sans-serif;margin-top:6px;}
+
+/* CSV */
+.btn-csv{background:var(--green);color:white;border:none;padding:9px 20px;font-family:'Heebo',sans-serif;font-size:13px;font-weight:700;cursor:pointer;}
+
+.empty-state{text-align:center;padding:60px 20px;color:var(--muted);}
+.empty-state .big{font-size:48px;margin-bottom:12px;}
+footer{text-align:center;padding:20px;font-size:11px;color:var(--muted);border-top:2px solid var(--border);margin-top:20px;}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-overlay">
+  <div class="login-box">
+    <div class="lm-top">
+      <h1>צפייה בתשובות</h1>
+      <p>תקשורת וחברה | כניסת מורה</p>
+    </div>
+    <div class="lf"><label>טלפון</label><input type="tel" id="inp-phone" placeholder="05XXXXXXXX" dir="ltr"></div>
+    <div class="lf"><label>סיסמה</label><input type="password" id="inp-pass" placeholder="סיסמה אישית"></div>
+    <button class="btn-login" onclick="doLogin()">כניסה ←</button>
+    <div class="login-err" id="login-err"></div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app" style="display:none;">
+  <header>
+    <h1>📋 תשובות מבחנים — תקשורת וחברה</h1>
+    <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+      <div class="teacher-pill" id="teacher-name">—</div>
+      <button class="btn-out" onclick="location.reload()">יציאה</button>
+    </div>
+  </header>
+
+  <div class="container">
+    <!-- EXAM SELECTOR -->
+    <div class="exam-selector">
+      <h3>📝 בחר מבחן לצפייה</h3>
+      <div class="exam-list" id="exam-list">
+        <div style="color:var(--muted);font-size:13px;">טוען מבחנים...</div>
+      </div>
+    </div>
+
+    <!-- FILTER BAR -->
+    <div class="filter-bar" id="filter-bar" style="display:none;">
+      <input type="text" id="search-input" placeholder="🔍 חיפוש שם תלמיד..." oninput="filterSubmissions()">
+      <select id="filter-class" onchange="filterSubmissions()">
+        <option value="">כל הכיתות</option>
+      </select>
+      <span class="stat-badge" id="count-badge">0 הגשות</span>
+      <div style="flex:1;"></div>
+      <button class="btn-csv" onclick="exportCSV()">⬇ ייצוא CSV</button>
+    </div>
+
+    <!-- TABLE -->
+    <div id="table-container">
+      <div class="empty-state">
+        <div class="big">📋</div>
+        <p>בחר מבחן לצפייה בתשובות</p>
+      </div>
+    </div>
+  </div>
+  <footer>פיתוח: רני בן זאב | hakolbakaf.co.il</footer>
+</div>
+
+<script>
+const FC={apiKey:"AIzaSyCCHvn_ulmiyM56DuslNzNC0Ge6a8i2vhY",databaseURL:"https://tests-fd938-default-rtdb.europe-west1.firebasedatabase.app",projectId:"tests-fd938"};
+firebase.initializeApp(FC);
+const db=firebase.database();
+
+let teacherID='', teacherName='', allExams=[], currentExam=null, allSubmissions=[], examData=null;
+
+function doLogin(){
+  const phone=document.getElementById('inp-phone').value.trim();
+  const pass=document.getElementById('inp-pass').value.trim();
+  const err=document.getElementById('login-err');
+  err.style.display='none';
+  if(!phone||!pass){err.textContent='נא למלא טלפון וסיסמה';err.style.display='block';return;}
+  db.ref('teachers').once('value').then(snap=>{
+    let fk='',fd=null;
+    snap.forEach(ch=>{if(fk)return;const t=ch.val();if(t.phone===phone&&t.password===pass&&t.status==='approved'){fk=ch.key;fd=t;}});
+    if(!fk){err.textContent='טלפון/סיסמה שגויים';err.style.display='block';return;}
+    teacherID=fk;
+    teacherName=fd.name||((fd.firstName||'')+' '+(fd.lastName||'')).trim();
+    document.getElementById('login-overlay').style.display='none';
+    document.getElementById('app').style.display='block';
+    document.getElementById('teacher-name').textContent='👤 '+teacherName;
+    loadExams();
+  });
+}
+document.getElementById('inp-pass').addEventListener('keyup',e=>{if(e.key==='Enter')doLogin();});
+
+function loadExams(){
+  db.ref('exams').orderByChild('teacherID').equalTo(teacherID).once('value').then(snap=>{
+    allExams=[];
+    snap.forEach(ch=>allExams.push({id:ch.key,...ch.val()}));
+    allExams.sort((a,b)=>b.createdAt-a.createdAt);
+    renderExamList();
+  });
+}
+
+function renderExamList(){
+  const list=document.getElementById('exam-list');
+  if(!allExams.length){list.innerHTML='<div style="color:var(--muted);font-size:13px;">לא נמצאו מבחנים. <a href="exam-create.html">צור מבחן ראשון</a></div>';return;}
+  list.innerHTML=allExams.map(e=>`
+    <div class="exam-card ${currentExam?.id===e.id?'active':''}" onclick="selectExam('${e.id}')">
+      <div class="ec-title">${e.title||'מבחן'}</div>
+      <div class="ec-meta">${e.class||''} | ${e.topic||''} | ${new Date(e.createdAt).toLocaleDateString('he-IL')}</div>
+    </div>`).join('');
+}
+
+function selectExam(id){
+  currentExam=allExams.find(e=>e.id===id);
+  examData=currentExam;
+  renderExamList();
+  document.getElementById('filter-bar').style.display='flex';
+  loadSubmissions(id);
+}
+
+function loadSubmissions(examId){
+  document.getElementById('table-container').innerHTML='<div class="empty-state"><div class="big">⏳</div><p>טוען הגשות...</p></div>';
+  db.ref('exam_submissions/'+examId).once('value').then(snap=>{
+    allSubmissions=[];
+    snap.forEach(ch=>allSubmissions.push({_key:ch.key,...ch.val()}));
+    allSubmissions.sort((a,b)=>(b.submittedAt||0)-(a.submittedAt||0));
+
+    // populate class filter
+    const classes=[...new Set(allSubmissions.map(s=>s.student?.class).filter(Boolean))].sort();
+    const sel=document.getElementById('filter-class');
+    sel.innerHTML='<option value="">כל הכיתות</option>'+classes.map(c=>`<option>${c}</option>`).join('');
+
+    filterSubmissions();
+  });
+}
+
+function filterSubmissions(){
+  const q=document.getElementById('search-input').value.toLowerCase();
+  const cls=document.getElementById('filter-class').value;
+  const filtered=allSubmissions.filter(s=>{
+    const name=(s.student?.name||'').toLowerCase();
+    const sClass=s.student?.class||'';
+    return (!q||name.includes(q))&&(!cls||sClass===cls);
+  });
+  document.getElementById('count-badge').textContent=filtered.length+' הגשות';
+  renderTable(filtered);
+}
+
+function renderTable(submissions){
+  const container=document.getElementById('table-container');
+  if(!submissions.length){
+    container.innerHTML='<div class="empty-state"><div class="big">📭</div><p>אין הגשות עדיין</p></div>';
+    return;
+  }
+  container.innerHTML=`
+    <table class="submissions-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>שם תלמיד</th>
+          <th>כיתה</th>
+          <th>אימייל</th>
+          <th>זמן הגשה</th>
+          <th>ציון</th>
+          <th>פעולות</th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>`;
+
+  const tbody=document.getElementById('tbody');
+  submissions.forEach((s,i)=>{
+    const tr=document.createElement('tr');
+    tr.id='row-'+s._key;
+    const date=s.submittedAt?new Date(s.submittedAt).toLocaleString('he-IL'):'—';
+    tr.innerHTML=`
+      <td style="color:var(--muted);font-size:11px;">${i+1}</td>
+      <td style="font-weight:700;">${s.student?.name||'—'}</td>
+      <td>${s.student?.class||'—'}</td>
+      <td style="font-size:11px;direction:ltr;">${s.student?.email||'—'}</td>
+      <td style="font-size:11px;">${date}</td>
+      <td>
+        <input class="grade-input" type="number" min="0" max="100" value="${s.grade||''}" placeholder="—" id="grade-${s._key}">
+        <button class="btn-save-grade" onclick="saveGrade('${s._key}','${currentExam?.id}')">✓</button>
+      </td>
+      <td><button class="btn-expand" onclick="toggleExpand('${s._key}')">צפה ▼</button></td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+function toggleExpand(key){
+  const existing=document.getElementById('exp-'+key);
+  if(existing){existing.remove();return;}
+  const s=allSubmissions.find(x=>x._key===key);
+  if(!s) return;
+  const tr=document.createElement('tr');
+  tr.id='exp-'+key;
+  const qs=examData?.questions||[];
+  const letters=['a','b','c'];
+  const lettersHe=['א','ב','ג'];
+
+  let html='';
+  qs.forEach((q,qi)=>{
+    const subs=[q.subA,q.subB,q.subC].filter(Boolean);
+    const chLabel=q.chapter||q._chapter||'';
+    html+=`<div class="exp-q">
+      <div class="exp-q-header">שאלה ${qi+1} — פרק ${chLabel}</div>
+      ${q.context?`<div style="font-size:12px;color:var(--muted);margin-bottom:10px;line-height:1.7;">${q.context.substring(0,200)}...</div>`:''}
+      ${subs.map((sub,si)=>{
+        const ans=s.answers?.[`q${qi+1}_${letters[si]}`]||'';
+        return `<div class="exp-sub">
+          <div class="exp-sub-q">${lettersHe[si]}. ${sub.text} (${sub.points} נק׳)</div>
+          <div class="exp-sub-a ${!ans?'empty':''}">${ans||'לא נענה'}</div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  });
+
+  const fb=s.feedback||'';
+  html+=`<div>
+    <div style="font-size:12px;font-weight:700;color:var(--muted);margin-bottom:6px;">משוב מורה:</div>
+    <textarea class="feedback-area" id="fb-${key}" placeholder="כתוב משוב...">${fb}</textarea>
+    <button class="btn-save-feedback" onclick="saveFeedback('${key}','${currentExam?.id}')">💾 שמור משוב</button>
+  </div>`;
+
+  tr.innerHTML=`<td colspan="7"><div class="exp-q">${html}</div></td>`;
+  document.getElementById('row-'+key)?.after(tr);
+}
+
+function saveGrade(key,examId){
+  const val=parseFloat(document.getElementById('grade-'+key).value);
+  if(isNaN(val)){alert('ציון לא תקין');return;}
+  db.ref('exam_submissions/'+examId+'/'+key).update({grade:val}).then(()=>{
+    const s=allSubmissions.find(x=>x._key===key);
+    if(s) s.grade=val;
+    alert('ציון נשמר ✓');
+  });
+}
+
+function saveFeedback(key,examId){
+  const val=document.getElementById('fb-'+key).value.trim();
+  db.ref('exam_submissions/'+examId+'/'+key).update({feedback:val}).then(()=>{
+    const s=allSubmissions.find(x=>x._key===key);
+    if(s) s.feedback=val;
+    alert('משוב נשמר ✓');
+  });
+}
+
+function exportCSV(){
+  if(!allSubmissions.length){alert('אין הגשות לייצוא');return;}
+  const qs=examData?.questions||[];
+  const headers=['שם','כיתה','אימייל','זמן הגשה','ציון'];
+  qs.forEach((q,qi)=>{
+    const subs=[q.subA,q.subB,q.subC].filter(Boolean);
+    subs.forEach((s,si)=>headers.push(`ש${qi+1}${['א','ב','ג'][si]} (${s.points}נק׳)`));
+  });
+  headers.push('משוב');
+  const rows=[headers.join(',')];
+  allSubmissions.forEach(s=>{
+    const letters=['a','b','c'];
+    const row=[
+      '"'+(s.student?.name||'')+'"',
+      s.student?.class||'',
+      s.student?.email||'',
+      s.submittedAt?new Date(s.submittedAt).toLocaleString('he-IL'):'',
+      s.grade||''
+    ];
+    qs.forEach((q,qi)=>{
+      const subs=[q.subA,q.subB,q.subC].filter(Boolean);
+      subs.forEach((sub,si)=>row.push('"'+((s.answers?.[`q${qi+1}_${letters[si]}`]||'').replace(/"/g,'""'))+'"'));
+    });
+    row.push('"'+(s.feedback||'')+'"');
+    rows.push(row.join(','));
+  });
+  const blob=new Blob(['\uFEFF'+rows.join('\n')],{type:'text/csv;charset=utf-8;'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);
+  a.download=`${examData?.title||'מבחן'}_${new Date().toLocaleDateString('he-IL')}.csv`;
+  a.click();
+}
+</script>
+</body>
+</html>
