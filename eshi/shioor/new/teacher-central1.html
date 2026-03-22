@@ -5,358 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>סביבת מורה — כל המטלות</title>
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@400;700;900&family=Heebo:wght@300;400;500;700;800;900&display=swap" rel="stylesheet">
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js">
-// ===== EXAMS TAB =====
-let allExamsData = [], currentExamSubmissions = [];
-
-function loadTeacherExams(){
-  db.ref('exams').once('value').then(function(snap){
-    allExamsData = [];
-    snap.forEach(function(ch){
-      var e = ch.val();
-      if(e.teacherID === teacherID){
-        allExamsData.push({id:ch.key, ...e});
-      }
-    });
-    allExamsData.sort(function(a,b){return b.createdAt-a.createdAt;});
-    var sel = document.getElementById('exam-sel');
-    sel.innerHTML = '<option value="">— בחר מבחן —</option>';
-    allExamsData.forEach(function(e){
-      var opt = document.createElement('option');
-      opt.value = e.id;
-      opt.textContent = (e.title||'מבחן') + ' | ' + (e.class||'') + ' | ' + new Date(e.createdAt).toLocaleDateString('he-IL');
-      sel.appendChild(opt);
-    });
-  });
-}
-
-function loadExamSubmissions(){
-  var examId = document.getElementById('exam-sel').value;
-  var list = document.getElementById('exam-submissions-list');
-  var cnt = document.getElementById('exam-cnt');
-  if(!examId){ list.innerHTML=''; cnt.textContent=''; return; }
-  list.innerHTML = '<div style="padding:20px;color:var(--muted);">טוען...</div>';
-  db.ref('exam_submissions/'+examId).once('value').then(function(snap){
-    currentExamSubmissions = [];
-    snap.forEach(function(ch){ currentExamSubmissions.push({_key:ch.key,...ch.val()}); });
-    currentExamSubmissions.sort(function(a,b){return (b.submittedAt||0)-(a.submittedAt||0);});
-    cnt.textContent = currentExamSubmissions.length + ' הגשות';
-    renderExamSubmissions();
-  });
-}
-
-function renderExamSubmissions(){
-  var list = document.getElementById('exam-submissions-list');
-  if(!currentExamSubmissions.length){
-    list.innerHTML = '<div style="text-align:center;padding:40px;color:#7a6a52;font-size:16px;">אין הגשות עדיין</div>';
-    return;
-  }
-  var html = '<table style="width:100%;border-collapse:collapse;background:white;font-size:13px;">';
-  html += '<thead><tr style="background:#1a1208;color:white;">';
-  html += '<th style="padding:10px 14px;text-align:right;">#</th>';
-  html += '<th style="padding:10px 14px;text-align:right;">שם תלמיד</th>';
-  html += '<th style="padding:10px 14px;text-align:right;">כיתה</th>';
-  html += '<th style="padding:10px 14px;text-align:right;">זמן הגשה</th>';
-  html += '<th style="padding:10px 14px;text-align:center;">ציון</th>';
-  html += '<th style="padding:10px 14px;text-align:center;">פעולות</th>';
-  html += '</tr></thead><tbody id="exam-tbody"></tbody></table>';
-  list.innerHTML = html;
-
-  var tbody = document.getElementById('exam-tbody');
-  currentExamSubmissions.forEach(function(s,i){
-    var date = s.submittedAt ? new Date(s.submittedAt).toLocaleString('he-IL') : '—';
-    var grade = s.grade||'';
-    var tr = document.createElement('tr');
-    tr.id = 'erow-' + s._key;
-    tr.style.borderBottom = '1px solid #e8e0cc';
-    tr.innerHTML =
-      '<td style="padding:10px 14px;color:#888;">'+(i+1)+'</td>'+
-      '<td style="padding:10px 14px;font-weight:700;">'+(s.student&&s.student.name||'—')+'</td>'+
-      '<td style="padding:10px 14px;">'+(s.student&&s.student.class||'—')+'</td>'+
-      '<td style="padding:10px 14px;font-size:11px;">'+date+'</td>'+
-      '<td style="padding:10px 14px;text-align:center;">'+
-        '<input type="number" min="0" max="100" value="'+grade+'" style="width:58px;padding:4px 6px;border:1px solid #c8b89a;text-align:center;" id="egrade-'+s._key+'">'+
-        '<button data-key="'+s._key+'" class="save-grade-btn" style="margin-right:4px;padding:4px 10px;background:#1a5c1a;color:white;border:none;font-size:11px;font-weight:700;cursor:pointer;">✓</button>'+
-      '</td>'+
-      '<td style="padding:10px 14px;text-align:center;">'+
-        '<button data-key="'+s._key+'" class="toggle-exp-btn" style="padding:5px 14px;background:#1a1208;color:white;border:none;font-size:12px;font-weight:700;cursor:pointer;">צפה ▼</button>'+
-      '</td>';
-    tbody.appendChild(tr);
-
-    var expTr = document.createElement('tr');
-    expTr.id = 'eexp-' + s._key;
-    expTr.style.display = 'none';
-    var expTd = document.createElement('td');
-    expTd.colSpan = 6;
-    expTd.style.padding = '0';
-    expTr.appendChild(expTd);
-    tbody.appendChild(expTr);
-  });
-
-  // Event delegation
-  tbody.addEventListener('click', function(e){
-    var sgBtn = e.target.closest('.save-grade-btn');
-    var expBtn = e.target.closest('.toggle-exp-btn');
-    if(sgBtn) saveExamGrade(sgBtn.dataset.key);
-    if(expBtn) toggleExamRow(expBtn.dataset.key);
-  });
-}
-
-function toggleExamRow(key){
-  var exp = document.getElementById('eexp-'+key);
-  if(!exp) return;
-  if(exp.style.display !== 'none'){ exp.style.display='none'; return; }
-  var s = currentExamSubmissions.find(function(x){return x._key===key;});
-  if(!s) return;
-  var exam = allExamsData.find(function(e){return e.id===document.getElementById('exam-sel').value;});
-  var qs = exam ? (exam.questions||[]) : [];
-  var letters = ['a','b','c'];
-  var lettersHe = ['א','ב','ג'];
-  var td = exp.querySelector('td');
-  var inner = '<div style="padding:16px 24px;background:#fafaf5;border-bottom:2px solid #c9a84c;">';
-  qs.forEach(function(q,qi){
-    var subs = [q.subA,q.subB,q.subC].filter(Boolean);
-    inner += '<div style="margin-bottom:16px;">';
-    inner += '<div style="font-weight:700;font-size:14px;color:#8B1A1A;margin-bottom:8px;">שאלה '+(qi+1)+' — פרק '+(q.chapter||q._chapter||'')+(q._concept?' ['+q._concept+']':'')+'</div>';
-    subs.forEach(function(sub,si){
-      var ans = s.answers && s.answers['q'+(qi+1)+'_'+letters[si]] || '';
-      inner += '<div style="margin-bottom:10px;">';
-      inner += '<div style="font-size:12px;font-weight:700;color:#555;margin-bottom:4px;">'+lettersHe[si]+'. '+sub.text.substring(0,100)+'... ('+sub.points+' נק)</div>';
-      inner += '<div style="background:white;border-right:4px solid #c9a84c;padding:8px 12px;font-size:13px;line-height:1.7;min-height:36px;color:'+(ans?'#1a1208':'#aaa')+';">'+(ans||'לא נענה')+'</div>';
-      inner += '</div>';
-    });
-    inner += '</div>';
-  });
-  inner += '<div style="margin-top:8px;">';
-  inner += '<div style="font-size:12px;font-weight:700;color:#888;margin-bottom:5px;">משוב:</div>';
-  inner += '<textarea id="efb-'+key+'" style="width:100%;padding:8px 10px;border:1px solid #c8b89a;font-family:Heebo,sans-serif;font-size:13px;resize:vertical;min-height:60px;">'+(s.feedback||'')+'</textarea>';
-  inner += '<button data-key="'+key+'" class="save-fb-btn" style="margin-top:6px;padding:6px 16px;background:#1a1208;color:white;border:none;font-size:12px;font-weight:700;cursor:pointer;">שמור משוב</button>';
-  inner += '</div></div>';
-  td.innerHTML = inner;
-  td.querySelector('.save-fb-btn').addEventListener('click', function(){ saveExamFeedback(key); });
-  exp.style.display = 'table-row';
-}
-
-function exportExamCSV(){
-  if(!currentExamSubmissions.length){alert('אין הגשות לייצוא');return;}
-  var exam = allExamsData.find(function(e){return e.id===document.getElementById('exam-sel').value;});
-  var qs = exam ? (exam.questions||[]) : [];
-  var letters = ['a','b','c'];
-  var lettersHe = ['א','ב','ג'];
-  var headers = ['שם','כיתה','אימייל','זמן הגשה','ציון'];
-  qs.forEach(function(q,qi){
-    var subs = [q.subA,q.subB,q.subC].filter(Boolean);
-    subs.forEach(function(s,si){
-      headers.push('ש'+(qi+1)+lettersHe[si]+' ('+s.points+'נק׳)');
-    });
-  });
-  headers.push('משוב');
-  var rows = [headers.join(',')];
-  currentExamSubmissions.forEach(function(s){
-    var row = [
-      '"'+(s.student&&s.student.name||'')+'"',
-      s.student&&s.student.class||'',
-      s.student&&s.student.email||'',
-      s.submittedAt?new Date(s.submittedAt).toLocaleString('he-IL'):'',
-      s.grade||''
-    ];
-    qs.forEach(function(q,qi){
-      var subs = [q.subA,q.subB,q.subC].filter(Boolean);
-      subs.forEach(function(sub,si){
-        row.push('"'+((s.answers&&s.answers['q'+(qi+1)+'_'+letters[si]]||'').replace(/"/g,'""'))+'"');
-      });
-    });
-    row.push('"'+(s.feedback||'')+'"');
-    rows.push(row.join(','));
-  });
-  var blob = new Blob(['﻿'+rows.join('
-')],{type:'text/csv;charset=utf-8;'});
-  var a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = (exam&&exam.title||'מבחן')+'_הגשות.csv';
-  a.click();
-}
-// ===== END EXAMS TAB =====
-
-</script>
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js">
-// ===== EXAMS TAB =====
-let allExamsData = [], currentExamSubmissions = [];
-
-function loadTeacherExams(){
-  db.ref('exams').once('value').then(function(snap){
-    allExamsData = [];
-    snap.forEach(function(ch){
-      var e = ch.val();
-      if(e.teacherID === teacherID){
-        allExamsData.push({id:ch.key, ...e});
-      }
-    });
-    allExamsData.sort(function(a,b){return b.createdAt-a.createdAt;});
-    var sel = document.getElementById('exam-sel');
-    sel.innerHTML = '<option value="">— בחר מבחן —</option>';
-    allExamsData.forEach(function(e){
-      var opt = document.createElement('option');
-      opt.value = e.id;
-      opt.textContent = (e.title||'מבחן') + ' | ' + (e.class||'') + ' | ' + new Date(e.createdAt).toLocaleDateString('he-IL');
-      sel.appendChild(opt);
-    });
-  });
-}
-
-function loadExamSubmissions(){
-  var examId = document.getElementById('exam-sel').value;
-  var list = document.getElementById('exam-submissions-list');
-  var cnt = document.getElementById('exam-cnt');
-  if(!examId){ list.innerHTML=''; cnt.textContent=''; return; }
-  list.innerHTML = '<div style="padding:20px;color:var(--muted);">טוען...</div>';
-  db.ref('exam_submissions/'+examId).once('value').then(function(snap){
-    currentExamSubmissions = [];
-    snap.forEach(function(ch){ currentExamSubmissions.push({_key:ch.key,...ch.val()}); });
-    currentExamSubmissions.sort(function(a,b){return (b.submittedAt||0)-(a.submittedAt||0);});
-    cnt.textContent = currentExamSubmissions.length + ' הגשות';
-    renderExamSubmissions();
-  });
-}
-
-function renderExamSubmissions(){
-  var list = document.getElementById('exam-submissions-list');
-  if(!currentExamSubmissions.length){
-    list.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted);font-family:serif;font-size:16px;">אין הגשות עדיין</div>';
-    return;
-  }
-  var exam = allExamsData.find(function(e){return e.id===document.getElementById('exam-sel').value;});
-  var qs = exam ? (exam.questions||[]) : [];
-  var letters = ['a','b','c'];
-
-  var html = '<table style="width:100%;border-collapse:collapse;background:white;font-size:13px;">';
-  html += '<thead><tr style="background:var(--ink);color:white;">';
-  html += '<th style="padding:10px 14px;text-align:right;">#</th>';
-  html += '<th style="padding:10px 14px;text-align:right;">שם תלמיד</th>';
-  html += '<th style="padding:10px 14px;text-align:right;">כיתה</th>';
-  html += '<th style="padding:10px 14px;text-align:right;">זמן הגשה</th>';
-  html += '<th style="padding:10px 14px;text-align:center;">ציון</th>';
-  html += '<th style="padding:10px 14px;text-align:center;">פעולות</th>';
-  html += '</tr></thead><tbody>';
-
-  currentExamSubmissions.forEach(function(s,i){
-    var date = s.submittedAt ? new Date(s.submittedAt).toLocaleString('he-IL') : '—';
-    var grade = s.grade||'';
-    html += '<tr style="border-bottom:1px solid #e8e0cc;" id="erow-'+s._key+'">';
-    html += '<td style="padding:10px 14px;color:#888;">'+(i+1)+'</td>';
-    html += '<td style="padding:10px 14px;font-weight:700;">'+(s.student&&s.student.name||'—')+'</td>';
-    html += '<td style="padding:10px 14px;">'+(s.student&&s.student.class||'—')+'</td>';
-    html += '<td style="padding:10px 14px;font-size:11px;">'+date+'</td>';
-    html += '<td style="padding:10px 14px;text-align:center;">';
-    html += '<input type="number" min="0" max="100" value="'+grade+'" style="width:58px;padding:4px 6px;border:1px solid var(--border);text-align:center;font-family:Heebo,sans-serif;" id="egrade-'+s._key+'">';
-    html += '<button data-key="'+s._key+'" class="save-grade-btn" style="margin-right:4px;padding:4px 10px;background:#1a5c1a;color:white;border:none;font-size:11px;font-weight:700;cursor:pointer;">✓</button>';
-    html += '</td>';
-    html += '<td style="padding:10px 14px;text-align:center;">';
-    html += '<button data-key="'+s._key+'" class="toggle-exp-btn" style="padding:5px 14px;background:#1a1208;color:white;border:none;font-size:12px;font-weight:700;cursor:pointer;">צפה ▼</button>';
-    html += '</td></tr>';
-    // Expanded row placeholder
-    html += '<tr id="eexp-'+s._key+'" style="display:none;"><td colspan="6" style="padding:0;"></td></tr>';
-  });
-
-  html += '</tbody></table>';
-  list.innerHTML = html;
-}
-
-function toggleExamRow(key){
-  var exp = document.getElementById('eexp-'+key);
-  if(exp.style.display !== 'none'){ exp.style.display='none'; return; }
-  var s = currentExamSubmissions.find(function(x){return x._key===key;});
-  var exam = allExamsData.find(function(e){return e.id===document.getElementById('exam-sel').value;});
-  var qs = exam ? (exam.questions||[]) : [];
-  var letters = ['a','b','c'];
-  var lettersHe = ['א','ב','ג'];
-  var html = '<td colspan="6" style="padding:16px 24px;background:#fafaf5;border-bottom:2px solid var(--gold,#c9a84c);">';
-  qs.forEach(function(q,qi){
-    var subs = [q.subA,q.subB,q.subC].filter(Boolean);
-    var chLabel = q.chapter||q._chapter||'';
-    html += '<div style="margin-bottom:16px;">';
-    html += '<div style="font-family:serif;font-weight:700;font-size:14px;color:var(--accent);margin-bottom:8px;">שאלה '+(qi+1)+' — פרק '+chLabel+(q._concept?' ['+q._concept+']':'')+'</div>';
-    subs.forEach(function(sub,si){
-      var ans = s.answers && s.answers['q'+(qi+1)+'_'+letters[si]] || '';
-      html += '<div style="margin-bottom:10px;">';
-      html += '<div style="font-size:12px;font-weight:700;color:#555;margin-bottom:4px;">'+lettersHe[si]+'. '+sub.text.substring(0,80)+'... ('+sub.points+' נק׳)</div>';
-      html += '<div style="background:white;border-right:4px solid var(--gold,#c9a84c);padding:8px 12px;font-size:13px;line-height:1.7;min-height:36px;color:'+(ans?'var(--ink)':'#aaa')+';">'+(ans||'לא נענה')+'</div>';
-      html += '</div>';
-    });
-    html += '</div>';
-  });
-  // Feedback
-  html += '<div style="margin-top:8px;">';
-  html += '<div style="font-size:12px;font-weight:700;color:#888;margin-bottom:5px;">משוב:</div>';
-  html += '<textarea id="efb-'+key+'" style="width:100%;padding:8px 10px;border:1px solid var(--border);font-family:Heebo,sans-serif;font-size:13px;resize:vertical;min-height:60px;">'+(s.feedback||'')+'</textarea>';
-  inner += '<button data-key="'+key+'" class="save-fb-btn" style="margin-top:6px;padding:6px 16px;background:#1a1208;color:white;border:none;font-size:12px;font-weight:700;cursor:pointer;">שמור משוב</button>';
-  html += '</div>';
-  html += '</td>';
-  exp.innerHTML = html;
-  exp.style.display = 'table-row';
-}
-
-function saveExamGrade(key){
-  var examId = document.getElementById('exam-sel').value;
-  var val = parseFloat(document.getElementById('egrade-'+key).value);
-  if(isNaN(val)) return;
-  db.ref('exam_submissions/'+examId+'/'+key).update({grade:val}).then(function(){
-    var s = currentExamSubmissions.find(function(x){return x._key===key;});
-    if(s) s.grade = val;
-    alert('ציון נשמר ✓');
-  });
-}
-
-function saveExamFeedback(key){
-  var examId = document.getElementById('exam-sel').value;
-  var val = document.getElementById('efb-'+key).value.trim();
-  db.ref('exam_submissions/'+examId+'/'+key).update({feedback:val}).then(function(){
-    alert('משוב נשמר ✓');
-  });
-}
-
-function exportExamCSV(){
-  if(!currentExamSubmissions.length){alert('אין הגשות לייצוא');return;}
-  var exam = allExamsData.find(function(e){return e.id===document.getElementById('exam-sel').value;});
-  var qs = exam ? (exam.questions||[]) : [];
-  var letters = ['a','b','c'];
-  var lettersHe = ['א','ב','ג'];
-  var headers = ['שם','כיתה','אימייל','זמן הגשה','ציון'];
-  qs.forEach(function(q,qi){
-    var subs = [q.subA,q.subB,q.subC].filter(Boolean);
-    subs.forEach(function(s,si){
-      headers.push('ש'+(qi+1)+lettersHe[si]+' ('+s.points+'נק׳)');
-    });
-  });
-  headers.push('משוב');
-  var rows = [headers.join(',')];
-  currentExamSubmissions.forEach(function(s){
-    var row = [
-      '"'+(s.student&&s.student.name||'')+'"',
-      s.student&&s.student.class||'',
-      s.student&&s.student.email||'',
-      s.submittedAt?new Date(s.submittedAt).toLocaleString('he-IL'):'',
-      s.grade||''
-    ];
-    qs.forEach(function(q,qi){
-      var subs = [q.subA,q.subB,q.subC].filter(Boolean);
-      subs.forEach(function(sub,si){
-        row.push('"'+((s.answers&&s.answers['q'+(qi+1)+'_'+letters[si]]||'').replace(/"/g,'""'))+'"');
-      });
-    });
-    row.push('"'+(s.feedback||'')+'"');
-    rows.push(row.join(','));
-  });
-  var blob = new Blob(['﻿'+rows.join('
-')],{type:'text/csv;charset=utf-8;'});
-  var a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = (exam&&exam.title||'מבחן')+'_הגשות.csv';
-  a.click();
-}
-// ===== END EXAMS TAB =====
-
-</script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 <style>
 :root{--paper:#f5f0e8;--ink:#1a1208;--accent:#8B1A1A;--gold:#c9a84c;--muted:#6b5f50;--border:#c8b89a;--card:#fffdf7;--green:#1a5c1a;}
 *{margin:0;padding:0;box-sizing:border-box;}
@@ -549,17 +199,7 @@ footer{text-align:center;padding:20px;font-size:11px;color:var(--muted);letter-s
   </div>
 </div>
 
-<div id="exams-panel" style="display:none;padding:20px 24px;max-width:1100px;margin:0 auto;">
-  <div style="margin-bottom:16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-    <select id="exam-sel" onchange="loadExamSubmissions()" style="padding:9px 14px;border:2px solid var(--border);font-family:'Heebo',sans-serif;font-size:14px;background:var(--paper);outline:none;font-weight:700;">
-      <option value="">— בחר מבחן —</option>
-    </select>
-    <span id="exam-cnt" style="font-size:13px;color:var(--muted);font-weight:700;"></span>
-    <button onclick="exportExamCSV()" style="padding:8px 18px;background:#1a5c1a;color:white;border:none;font-family:'Heebo',sans-serif;font-size:13px;font-weight:700;cursor:pointer;">⬇ CSV</button>
-  </div>
-  <div id="exam-submissions-list"></div>
-</div>
-
+<div id="exams-panel" style="display:none;padding:20px;max-width:1100px;margin:0 auto;"><div style="margin-bottom:16px;display:flex;gap:12px;flex-wrap:wrap;align-items:center;"><select id="exam-sel" onchange="loadExamSubmissions()" style="padding:9px 14px;border:2px solid #c8b89a;font-family:Heebo,sans-serif;font-size:14px;background:#f5f0e8;outline:none;font-weight:700;"><option value="">— בחר מבחן —</option></select><span id="exam-cnt" style="font-size:13px;color:#7a6a52;font-weight:700;"></span><button onclick="exportExamCSV()" style="padding:8px 18px;background:#1a5c1a;color:white;border:none;font-family:Heebo,sans-serif;font-size:13px;font-weight:700;cursor:pointer;">⬇ CSV</button></div><div id="exam-submissions-list"></div></div>
 <main id="content">
   <div class="msg-box"><p>⏳ טוען נתונים...</p><span>אנא המתן</span></div>
 </main>
@@ -661,24 +301,9 @@ function applyFilter(){
 }
 
 function setView(v){
-  // handle exams tab
-  var ep = document.getElementById('exams-panel');
-  var mc = document.getElementById('content');
-  var fb = document.getElementById('filter-bar');
-  if(v==='exams'){
-    ep.style.display='block';
-    mc.style.display='none';
-    if(fb) fb.style.display='none';
-    document.querySelectorAll('.vbtn').forEach(function(b){b.classList.remove('active');});
-    document.getElementById('vbtn-exams').classList.add('active');
-    loadTeacherExams();
-    return;
-  } else {
-    ep.style.display='none';
-    mc.style.display='block';
-    if(fb) fb.style.display='flex';
-  }
-
+  var ep=document.getElementById('exams-panel'),mc=document.getElementById('content'),fb=document.getElementById('filter-bar');
+  if(v==='exams'){ep.style.display='block';mc.style.display='none';if(fb)fb.style.display='none';document.querySelectorAll('.vbtn').forEach(function(b){b.classList.remove('active');});document.getElementById('vbtn-exams').classList.add('active');loadTeacherExams();return;}
+  ep.style.display='none';mc.style.display='block';if(fb)fb.style.display='flex';
   currentView=v;
   document.getElementById('vbtn-grouped').classList.toggle('active',v==='grouped');
   document.getElementById('vbtn-flat').classList.toggle('active',v==='flat');
@@ -829,181 +454,122 @@ function escH(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;')
 
 document.getElementById('inp-pass').addEventListener('keyup',e=>{if(e.key==='Enter')doLogin();});
 
-// ===== EXAMS TAB =====
-let allExamsData = [], currentExamSubmissions = [];
-
+// ===== EXAMS =====
+var allExamsData=[], currentExamSubmissions=[];
 function loadTeacherExams(){
   db.ref('exams').once('value').then(function(snap){
-    allExamsData = [];
-    snap.forEach(function(ch){
-      var e = ch.val();
-      if(e.teacherID === teacherID){
-        allExamsData.push({id:ch.key, ...e});
-      }
-    });
+    allExamsData=[];
+    snap.forEach(function(ch){var e=ch.val();if(e.teacherID===teacherID)allExamsData.push(Object.assign({id:ch.key},e));});
     allExamsData.sort(function(a,b){return b.createdAt-a.createdAt;});
-    var sel = document.getElementById('exam-sel');
-    sel.innerHTML = '<option value="">— בחר מבחן —</option>';
-    allExamsData.forEach(function(e){
-      var opt = document.createElement('option');
-      opt.value = e.id;
-      opt.textContent = (e.title||'מבחן') + ' | ' + (e.class||'') + ' | ' + new Date(e.createdAt).toLocaleDateString('he-IL');
-      sel.appendChild(opt);
-    });
+    var sel=document.getElementById('exam-sel');
+    sel.innerHTML='<option value="">— בחר מבחן —</option>';
+    allExamsData.forEach(function(e){var opt=document.createElement('option');opt.value=e.id;opt.textContent=(e.title||'מבחן')+' | '+(e.class||'')+' | '+new Date(e.createdAt).toLocaleDateString('he-IL');sel.appendChild(opt);});
   });
 }
-
 function loadExamSubmissions(){
-  var examId = document.getElementById('exam-sel').value;
-  var list = document.getElementById('exam-submissions-list');
-  var cnt = document.getElementById('exam-cnt');
-  if(!examId){ list.innerHTML=''; cnt.textContent=''; return; }
-  list.innerHTML = '<div style="padding:20px;color:var(--muted);">טוען...</div>';
+  var examId=document.getElementById('exam-sel').value;
+  var list=document.getElementById('exam-submissions-list');
+  var cnt=document.getElementById('exam-cnt');
+  if(!examId){list.innerHTML='';cnt.textContent='';return;}
+  list.innerHTML='<div style="padding:20px;color:#7a6a52;">טוען...</div>';
   db.ref('exam_submissions/'+examId).once('value').then(function(snap){
-    currentExamSubmissions = [];
-    snap.forEach(function(ch){ currentExamSubmissions.push({_key:ch.key,...ch.val()}); });
+    currentExamSubmissions=[];
+    snap.forEach(function(ch){currentExamSubmissions.push(Object.assign({_key:ch.key},ch.val()));});
     currentExamSubmissions.sort(function(a,b){return (b.submittedAt||0)-(a.submittedAt||0);});
-    cnt.textContent = currentExamSubmissions.length + ' הגשות';
+    cnt.textContent=currentExamSubmissions.length+' הגשות';
     renderExamSubmissions();
   });
 }
-
 function renderExamSubmissions(){
-  var list = document.getElementById('exam-submissions-list');
-  if(!currentExamSubmissions.length){
-    list.innerHTML = '<div style="text-align:center;padding:40px;color:var(--muted);font-family:serif;font-size:16px;">אין הגשות עדיין</div>';
-    return;
-  }
-  var exam = allExamsData.find(function(e){return e.id===document.getElementById('exam-sel').value;});
-  var qs = exam ? (exam.questions||[]) : [];
-  var letters = ['a','b','c'];
-
-  var html = '<table style="width:100%;border-collapse:collapse;background:white;font-size:13px;">';
-  html += '<thead><tr style="background:var(--ink);color:white;">';
-  html += '<th style="padding:10px 14px;text-align:right;">#</th>';
-  html += '<th style="padding:10px 14px;text-align:right;">שם תלמיד</th>';
-  html += '<th style="padding:10px 14px;text-align:right;">כיתה</th>';
-  html += '<th style="padding:10px 14px;text-align:right;">זמן הגשה</th>';
-  html += '<th style="padding:10px 14px;text-align:center;">ציון</th>';
-  html += '<th style="padding:10px 14px;text-align:center;">פעולות</th>';
-  html += '</tr></thead><tbody>';
-
+  var list=document.getElementById('exam-submissions-list');
+  if(!currentExamSubmissions.length){list.innerHTML='<div style="text-align:center;padding:40px;color:#7a6a52;">אין הגשות עדיין</div>';return;}
+  var tbl=document.createElement('table');
+  tbl.style.cssText='width:100%;border-collapse:collapse;background:white;font-size:13px;';
+  tbl.innerHTML='<thead><tr style="background:#1a1208;color:white;"><th style="padding:10px 14px;text-align:right;">#</th><th style="padding:10px 14px;text-align:right;">שם תלמיד</th><th style="padding:10px 14px;text-align:right;">כיתה</th><th style="padding:10px 14px;text-align:right;">זמן הגשה</th><th style="padding:10px 14px;text-align:center;">ציון</th><th style="padding:10px 14px;text-align:center;">פעולות</th></tr></thead>';
+  var tbody=document.createElement('tbody');
   currentExamSubmissions.forEach(function(s,i){
-    var date = s.submittedAt ? new Date(s.submittedAt).toLocaleString('he-IL') : '—';
-    var grade = s.grade||'';
-    html += '<tr style="border-bottom:1px solid #e8e0cc;" id="erow-'+s._key+'">';
-    html += '<td style="padding:10px 14px;color:#888;">'+(i+1)+'</td>';
-    html += '<td style="padding:10px 14px;font-weight:700;">'+(s.student&&s.student.name||'—')+'</td>';
-    html += '<td style="padding:10px 14px;">'+(s.student&&s.student.class||'—')+'</td>';
-    html += '<td style="padding:10px 14px;font-size:11px;">'+date+'</td>';
-    html += '<td style="padding:10px 14px;text-align:center;">';
-    html += '<input type="number" min="0" max="100" value="'+grade+'" style="width:58px;padding:4px 6px;border:1px solid var(--border);text-align:center;font-family:Heebo,sans-serif;" id="egrade-'+s._key+'">';
-    html += '<button data-key="'+s._key+'" class="save-grade-btn" style="margin-right:4px;padding:4px 10px;background:#1a5c1a;color:white;border:none;font-size:11px;font-weight:700;cursor:pointer;">✓</button>';
-    html += '</td>';
-    html += '<td style="padding:10px 14px;text-align:center;">';
-    html += '<button data-key="'+s._key+'" class="toggle-exp-btn" style="padding:5px 14px;background:#1a1208;color:white;border:none;font-size:12px;font-weight:700;cursor:pointer;">צפה ▼</button>';
-    html += '</td></tr>';
-    // Expanded row placeholder
-    html += '<tr id="eexp-'+s._key+'" style="display:none;"><td colspan="6" style="padding:0;"></td></tr>';
+    var date=s.submittedAt?new Date(s.submittedAt).toLocaleString('he-IL'):'—';
+    var tr=document.createElement('tr'); tr.style.borderBottom='1px solid #e8e0cc';
+    [[i+1,''],[( s.student&&s.student.name)||'—','font-weight:700'],[(s.student&&s.student.class)||'—',''],[date,'font-size:11px']].forEach(function(v){var td=document.createElement('td');td.style.padding='10px 14px';if(v[1])td.style.cssText+=v[1];td.textContent=v[0];tr.appendChild(td);});
+    var tdG=document.createElement('td'); tdG.style.cssText='padding:10px 14px;text-align:center;';
+    var inp=document.createElement('input'); inp.type='number'; inp.min='0'; inp.max='100'; inp.value=s.grade||''; inp.id='egrade-'+s._key;
+    inp.style.cssText='width:58px;padding:4px 6px;border:1px solid #c8b89a;text-align:center;';
+    var saveBtn=document.createElement('button'); saveBtn.textContent='✓'; saveBtn.dataset.key=s._key;
+    saveBtn.style.cssText='margin-right:4px;padding:4px 10px;background:#1a5c1a;color:white;border:none;font-size:11px;font-weight:700;cursor:pointer;';
+    saveBtn.addEventListener('click',function(){saveExamGrade(this.dataset.key);});
+    tdG.appendChild(inp); tdG.appendChild(saveBtn); tr.appendChild(tdG);
+    var tdA=document.createElement('td'); tdA.style.cssText='padding:10px 14px;text-align:center;';
+    var vBtn=document.createElement('button'); vBtn.textContent='צפה ▼'; vBtn.dataset.key=s._key;
+    vBtn.style.cssText='padding:5px 14px;background:#1a1208;color:white;border:none;font-size:12px;font-weight:700;cursor:pointer;';
+    vBtn.addEventListener('click',function(){toggleExamRow(this.dataset.key);});
+    tdA.appendChild(vBtn); tr.appendChild(tdA); tbody.appendChild(tr);
+    var expTr=document.createElement('tr'); expTr.id='eexp-'+s._key; expTr.style.display='none';
+    var expTd=document.createElement('td'); expTd.colSpan=6; expTd.style.padding='0';
+    expTr.appendChild(expTd); tbody.appendChild(expTr);
   });
-
-  html += '</tbody></table>';
-  list.innerHTML = html;
+  tbl.appendChild(tbody); list.innerHTML=''; list.appendChild(tbl);
 }
-
 function toggleExamRow(key){
-  var exp = document.getElementById('eexp-'+key);
-  if(exp.style.display !== 'none'){ exp.style.display='none'; return; }
-  var s = currentExamSubmissions.find(function(x){return x._key===key;});
-  var exam = allExamsData.find(function(e){return e.id===document.getElementById('exam-sel').value;});
-  var qs = exam ? (exam.questions||[]) : [];
-  var letters = ['a','b','c'];
-  var lettersHe = ['א','ב','ג'];
-  var html = '<td colspan="6" style="padding:16px 24px;background:#fafaf5;border-bottom:2px solid var(--gold,#c9a84c);">';
+  var exp=document.getElementById('eexp-'+key); if(!exp)return;
+  if(exp.style.display!=='none'){exp.style.display='none';return;}
+  var s=currentExamSubmissions.find(function(x){return x._key===key;}); if(!s)return;
+  var exam=allExamsData.find(function(e){return e.id===document.getElementById('exam-sel').value;});
+  var qs=exam?(exam.questions||[]):[], letters=['a','b','c'], lettersHe=['א','ב','ג'];
+  var td=exp.querySelector('td');
+  var wrap=document.createElement('div'); wrap.style.cssText='padding:16px 24px;background:#fafaf5;border-bottom:2px solid #c9a84c;';
   qs.forEach(function(q,qi){
-    var subs = [q.subA,q.subB,q.subC].filter(Boolean);
-    var chLabel = q.chapter||q._chapter||'';
-    html += '<div style="margin-bottom:16px;">';
-    html += '<div style="font-family:serif;font-weight:700;font-size:14px;color:var(--accent);margin-bottom:8px;">שאלה '+(qi+1)+' — פרק '+chLabel+(q._concept?' ['+q._concept+']':'')+'</div>';
+    var subs=[q.subA,q.subB,q.subC].filter(Boolean);
+    var qd=document.createElement('div'); qd.style.marginBottom='16px';
+    var qh=document.createElement('div'); qh.style.cssText='font-weight:700;font-size:14px;color:#8B1A1A;margin-bottom:8px;';
+    qh.textContent='שאלה '+(qi+1)+' — פרק '+(q.chapter||q._chapter||'')+(q._concept?' ['+q._concept+']':'');
+    qd.appendChild(qh);
     subs.forEach(function(sub,si){
-      var ans = s.answers && s.answers['q'+(qi+1)+'_'+letters[si]] || '';
-      html += '<div style="margin-bottom:10px;">';
-      html += '<div style="font-size:12px;font-weight:700;color:#555;margin-bottom:4px;">'+lettersHe[si]+'. '+sub.text.substring(0,80)+'... ('+sub.points+' נק׳)</div>';
-      html += '<div style="background:white;border-right:4px solid var(--gold,#c9a84c);padding:8px 12px;font-size:13px;line-height:1.7;min-height:36px;color:'+(ans?'var(--ink)':'#aaa')+';">'+(ans||'לא נענה')+'</div>';
-      html += '</div>';
+      var ans=s.answers&&s.answers['q'+(qi+1)+'_'+letters[si]]||'';
+      var sd=document.createElement('div'); sd.style.marginBottom='10px';
+      var sq=document.createElement('div'); sq.style.cssText='font-size:12px;font-weight:700;color:#555;margin-bottom:4px;';
+      sq.textContent=lettersHe[si]+'. '+sub.text.substring(0,100)+'... ('+sub.points+' נק)';
+      var sa=document.createElement('div'); sa.style.cssText='background:white;border-right:4px solid #c9a84c;padding:8px 12px;font-size:13px;line-height:1.7;min-height:36px;';
+      sa.style.color=ans?'#1a1208':'#aaa'; sa.textContent=ans||'לא נענה';
+      sd.appendChild(sq); sd.appendChild(sa); qd.appendChild(sd);
     });
-    html += '</div>';
+    wrap.appendChild(qd);
   });
-  // Feedback
-  html += '<div style="margin-top:8px;">';
-  html += '<div style="font-size:12px;font-weight:700;color:#888;margin-bottom:5px;">משוב:</div>';
-  html += '<textarea id="efb-'+key+'" style="width:100%;padding:8px 10px;border:1px solid var(--border);font-family:Heebo,sans-serif;font-size:13px;resize:vertical;min-height:60px;">'+(s.feedback||'')+'</textarea>';
-  inner += '<button data-key="'+key+'" class="save-fb-btn" style="margin-top:6px;padding:6px 16px;background:#1a1208;color:white;border:none;font-size:12px;font-weight:700;cursor:pointer;">שמור משוב</button>';
-  html += '</div>';
-  html += '</td>';
-  exp.innerHTML = html;
-  exp.style.display = 'table-row';
+  var fbd=document.createElement('div'); fbd.style.marginTop='8px';
+  var fbl=document.createElement('div'); fbl.style.cssText='font-size:12px;font-weight:700;color:#888;margin-bottom:5px;'; fbl.textContent='משוב:';
+  var fbt=document.createElement('textarea'); fbt.id='efb-'+key; fbt.value=s.feedback||'';
+  fbt.style.cssText='width:100%;padding:8px 10px;border:1px solid #c8b89a;font-size:13px;resize:vertical;min-height:60px;';
+  var fbb=document.createElement('button'); fbb.textContent='שמור משוב'; fbb.dataset.key=key;
+  fbb.style.cssText='margin-top:6px;padding:6px 16px;background:#1a1208;color:white;border:none;font-size:12px;font-weight:700;cursor:pointer;';
+  fbb.addEventListener('click',function(){saveExamFeedback(this.dataset.key);});
+  fbd.appendChild(fbl); fbd.appendChild(fbt); fbd.appendChild(fbb); wrap.appendChild(fbd);
+  td.appendChild(wrap); exp.style.display='table-row';
 }
-
 function saveExamGrade(key){
-  var examId = document.getElementById('exam-sel').value;
-  var val = parseFloat(document.getElementById('egrade-'+key).value);
-  if(isNaN(val)) return;
-  db.ref('exam_submissions/'+examId+'/'+key).update({grade:val}).then(function(){
-    var s = currentExamSubmissions.find(function(x){return x._key===key;});
-    if(s) s.grade = val;
-    alert('ציון נשמר ✓');
-  });
+  var examId=document.getElementById('exam-sel').value;
+  var val=parseFloat(document.getElementById('egrade-'+key).value); if(isNaN(val))return;
+  db.ref('exam_submissions/'+examId+'/'+key).update({grade:val}).then(function(){alert('ציון נשמר');});
 }
-
 function saveExamFeedback(key){
-  var examId = document.getElementById('exam-sel').value;
-  var val = document.getElementById('efb-'+key).value.trim();
-  db.ref('exam_submissions/'+examId+'/'+key).update({feedback:val}).then(function(){
-    alert('משוב נשמר ✓');
-  });
+  var examId=document.getElementById('exam-sel').value;
+  var val=document.getElementById('efb-'+key).value.trim();
+  db.ref('exam_submissions/'+examId+'/'+key).update({feedback:val}).then(function(){alert('משוב נשמר');});
 }
-
 function exportExamCSV(){
-  if(!currentExamSubmissions.length){alert('אין הגשות לייצוא');return;}
-  var exam = allExamsData.find(function(e){return e.id===document.getElementById('exam-sel').value;});
-  var qs = exam ? (exam.questions||[]) : [];
-  var letters = ['a','b','c'];
-  var lettersHe = ['א','ב','ג'];
-  var headers = ['שם','כיתה','אימייל','זמן הגשה','ציון'];
-  qs.forEach(function(q,qi){
-    var subs = [q.subA,q.subB,q.subC].filter(Boolean);
-    subs.forEach(function(s,si){
-      headers.push('ש'+(qi+1)+lettersHe[si]+' ('+s.points+'נק׳)');
-    });
-  });
-  headers.push('משוב');
-  var rows = [headers.join(',')];
+  if(!currentExamSubmissions.length){alert('אין הגשות');return;}
+  var exam=allExamsData.find(function(e){return e.id===document.getElementById('exam-sel').value;});
+  var qs=exam?(exam.questions||[]):[], letters=['a','b','c'], lettersHe=['א','ב','ג'];
+  var headers=['שם','כיתה','זמן הגשה','ציון'];
+  qs.forEach(function(q,qi){[q.subA,q.subB,q.subC].filter(Boolean).forEach(function(s,si){headers.push('ש'+(qi+1)+lettersHe[si]);});});
+  var rows=[headers.join(',')];
   currentExamSubmissions.forEach(function(s){
-    var row = [
-      '"'+(s.student&&s.student.name||'')+'"',
-      s.student&&s.student.class||'',
-      s.student&&s.student.email||'',
-      s.submittedAt?new Date(s.submittedAt).toLocaleString('he-IL'):'',
-      s.grade||''
-    ];
-    qs.forEach(function(q,qi){
-      var subs = [q.subA,q.subB,q.subC].filter(Boolean);
-      subs.forEach(function(sub,si){
-        row.push('"'+((s.answers&&s.answers['q'+(qi+1)+'_'+letters[si]]||'').replace(/"/g,'""'))+'"');
-      });
-    });
-    row.push('"'+(s.feedback||'')+'"');
+    var row=['"'+(s.student&&s.student.name||'')+'"',(s.student&&s.student.class)||'',s.submittedAt?new Date(s.submittedAt).toLocaleString('he-IL'):'',s.grade||''];
+    qs.forEach(function(q,qi){[q.subA,q.subB,q.subC].filter(Boolean).forEach(function(sub,si){row.push('"'+((s.answers&&s.answers['q'+(qi+1)+'_'+letters[si]]||'').replace(/"/g,'""'))+'"');});});
     rows.push(row.join(','));
   });
-  var blob = new Blob(['﻿'+rows.join('
+  var blob=new Blob(['﻿'+rows.join('
 ')],{type:'text/csv;charset=utf-8;'});
-  var a = document.createElement('a');
-  a.href = URL.createObjectURL(blob);
-  a.download = (exam&&exam.title||'מבחן')+'_הגשות.csv';
-  a.click();
+  var a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='מבחן_הגשות.csv'; a.click();
 }
-// ===== END EXAMS TAB =====
 
 </script>
 </body>
