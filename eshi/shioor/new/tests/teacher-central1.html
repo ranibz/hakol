@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>סביבת מורה — כל המטלות</title>
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@400;700;900&family=Heebo:wght@300;400;500;700;800;900&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<style>
+:root{--paper:#f5f0e8;--ink:#1a1208;--accent:#8B1A1A;--gold:#c9a84c;--muted:#6b5f50;--border:#c8b89a;--card:#fffdf7;--green:#1a5c1a;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Heebo',sans-serif;background:var(--paper);color:var(--ink);min-height:100vh;}
+
+/* LOGIN */
+#login-overlay{position:fixed;inset:0;background:rgba(26,18,8,.88);z-index:9999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);}
+.login-box{background:var(--card);border:3px solid var(--ink);box-shadow:7px 7px 0 var(--ink);padding:44px 40px;max-width:420px;width:92%;text-align:center;}
+.lm-top{font-family:'Frank Ruhl Libre',serif;border-top:4px double var(--ink);border-bottom:4px double var(--ink);padding:12px 0;margin-bottom:28px;}
+.lm-top h1{font-size:24px;font-weight:900;letter-spacing:1px;}
+.lm-top p{font-size:11px;color:var(--muted);margin-top:4px;letter-spacing:2px;text-transform:uppercase;}
+.lf{margin-bottom:16px;text-align:right;}
+.lf label{display:block;font-size:11px;font-weight:800;color:var(--muted);margin-bottom:6px;letter-spacing:1px;text-transform:uppercase;}
+.lf input{width:100%;padding:12px 14px;border:2px solid var(--ink);font-family:'Heebo',sans-serif;font-size:15px;background:var(--paper);outline:none;}
+.lf input:focus{box-shadow:2px 2px 0 var(--ink);}
+.btn-login{width:100%;padding:14px;background:var(--ink);color:var(--paper);border:none;font-family:'Frank Ruhl Libre',serif;font-size:17px;font-weight:700;cursor:pointer;margin-top:8px;}
+.btn-login:hover{background:var(--accent);}
+.login-err{color:var(--accent);font-size:13px;margin-top:12px;display:none;}
+.reg-link{margin-top:18px;font-size:12px;color:var(--muted);}
+.reg-link a{color:var(--accent);}
+
+/* HEADER */
+header{background:var(--ink);color:var(--paper);border-bottom:4px solid var(--gold);}
+.hdr-inner{max-width:1100px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;padding:14px 24px;gap:12px;flex-wrap:wrap;}
+.hdr-brand h1{font-family:'Frank Ruhl Libre',serif;font-size:19px;font-weight:900;}
+.hdr-brand p{font-size:11px;color:var(--gold);letter-spacing:1.5px;margin-top:2px;}
+.hdr-right{display:flex;align-items:center;gap:10px;}
+.teacher-pill{background:rgba(201,168,76,.18);border:1px solid var(--gold);padding:6px 14px;font-size:13px;font-weight:700;color:var(--gold);}
+.btn-out{background:transparent;border:1.5px solid rgba(245,240,232,.3);color:var(--paper);padding:7px 16px;font-family:'Heebo',sans-serif;font-size:13px;font-weight:700;cursor:pointer;}
+.btn-out:hover{background:rgba(245,240,232,.1);}
+
+/* STATS */
+.stats-row{background:var(--ink);border-bottom:3px solid var(--gold);padding:12px 24px;}
+.stats-inner{max-width:1100px;margin:0 auto;display:grid;grid-template-columns:repeat(6,1fr);}
+@media(max-width:700px){.stats-inner{grid-template-columns:repeat(3,1fr);}}
+.stat-box{text-align:center;padding:10px 6px;border-left:1px solid rgba(245,240,232,.1);}
+.stat-box:last-child{border-left:none;}
+.stat-num{font-family:'Frank Ruhl Libre',serif;font-size:26px;font-weight:900;color:var(--gold);line-height:1;}
+.stat-lbl{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:rgba(245,240,232,.5);margin-top:3px;}
+
+/* TOOLBAR */
+.toolbar{background:var(--card);border-bottom:2px solid var(--border);padding:12px 24px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(26,18,8,.07);}
+.toolbar-inner{max-width:1100px;margin:0 auto;display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
+.toolbar input,.toolbar select{padding:9px 12px;border:2px solid var(--border);font-family:'Heebo',sans-serif;font-size:13px;background:var(--paper);outline:none;}
+.toolbar input:focus,.toolbar select:focus{border-color:var(--ink);}
+.toolbar input{flex:1;min-width:180px;}
+.view-toggle{display:flex;border:2px solid var(--border);}
+.vbtn{padding:7px 14px;border:none;background:var(--paper);font-family:'Heebo',sans-serif;font-size:12px;font-weight:700;cursor:pointer;color:var(--muted);}
+.vbtn.active{background:var(--ink);color:var(--paper);}
+.cnt{background:var(--accent);color:white;padding:7px 14px;font-size:12px;font-weight:800;white-space:nowrap;}
+.btn-csv{background:var(--ink);color:var(--paper);border:none;padding:9px 18px;font-family:'Heebo',sans-serif;font-size:13px;font-weight:700;cursor:pointer;}
+.btn-csv:hover{background:var(--accent);}
+
+/* MAIN */
+main{max-width:1100px;margin:0 auto;padding:24px;}
+
+/* GROUPED */
+.topic-group{margin-bottom:24px;box-shadow:3px 3px 0 var(--border);}
+.topic-header{display:flex;align-items:center;justify-content:space-between;padding:13px 18px;background:var(--ink);color:var(--paper);cursor:pointer;user-select:none;gap:12px;flex-wrap:wrap;}
+.topic-header:hover{background:#2d1e10;}
+.topic-title{font-family:'Frank Ruhl Libre',serif;font-size:15px;font-weight:700;display:flex;align-items:center;gap:10px;}
+.topic-badge{background:var(--gold);color:var(--ink);padding:3px 10px;font-size:11px;font-weight:800;}
+.topic-meta{font-size:11px;color:rgba(245,240,232,.6);display:flex;gap:12px;flex-wrap:wrap;}
+.topic-body{display:none;border:2px solid var(--border);border-top:none;}
+.topic-body.open{display:block;}
+
+/* STUDENT CARD */
+.sub-card{border-bottom:1px solid var(--border);background:var(--card);}
+.sub-card:last-child{border-bottom:none;}
+.sub-card-header{display:flex;align-items:center;gap:10px;padding:13px 18px;cursor:pointer;flex-wrap:wrap;}
+.sub-card-header:hover{background:#f5efe0;}
+.sub-avatar{width:36px;height:36px;background:var(--ink);color:var(--paper);display:flex;align-items:center;justify-content:center;font-family:'Frank Ruhl Libre',serif;font-size:15px;font-weight:900;flex-shrink:0;}
+.sub-name{font-weight:800;font-size:14px;flex:1;min-width:100px;}
+.sub-class{background:rgba(201,168,76,.15);border:1px solid rgba(201,168,76,.4);padding:3px 10px;font-size:11px;font-weight:700;color:#7a6020;white-space:nowrap;}
+.sub-date{font-size:11px;color:var(--muted);white-space:nowrap;}
+.grade-pill{padding:4px 11px;font-size:11px;font-weight:800;white-space:nowrap;}
+.grade-pill.has{background:var(--green);color:white;}
+.grade-pill.none{background:rgba(26,18,8,.08);color:var(--muted);}
+.expand-arr{font-size:12px;color:var(--muted);transition:transform .2s;flex-shrink:0;}
+.expand-arr.open{transform:rotate(180deg);}
+
+.sub-body{display:none;padding:16px 18px;border-top:1px solid var(--border);background:#faf6ee;}
+.sub-body.open{display:block;}
+
+.answers-sec{background:var(--card);border:2px solid var(--border);border-right:4px solid var(--gold);padding:14px 16px;margin-bottom:16px;}
+.answers-title{font-size:11px;font-weight:800;color:var(--muted);letter-spacing:1px;text-transform:uppercase;margin-bottom:10px;}
+.answer-row{margin-bottom:9px;padding-bottom:9px;border-bottom:1px dashed var(--border);}
+.answer-row:last-child{border-bottom:none;margin-bottom:0;padding-bottom:0;}
+.answer-key{font-size:11px;font-weight:800;color:var(--muted);margin-bottom:3px;}
+.answer-val{font-size:13px;line-height:1.6;}
+
+.feedback-sec{display:grid;grid-template-columns:80px 1fr auto;gap:8px;align-items:center;}
+.fb-sec-title{font-size:11px;font-weight:800;color:var(--muted);letter-spacing:.5px;text-transform:uppercase;margin-bottom:10px;grid-column:1/-1;}
+.inp-grade{width:100%;padding:9px;border:2px solid var(--border);font-family:'Heebo',sans-serif;font-size:15px;text-align:center;background:var(--paper);outline:none;}
+.inp-grade:focus{border-color:var(--ink);}
+.inp-fb{width:100%;padding:9px 12px;border:2px solid var(--border);font-family:'Heebo',sans-serif;font-size:13px;background:var(--paper);outline:none;}
+.inp-fb:focus{border-color:var(--ink);}
+.btn-save{padding:9px 20px;background:var(--ink);color:var(--paper);border:none;font-family:'Heebo',sans-serif;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;}
+.btn-save:hover{background:var(--accent);}
+.saved-ok{font-size:12px;color:var(--green);font-weight:700;display:none;margin-top:6px;grid-column:1/-1;}
+
+/* FLAT TABLE */
+.table-wrap{overflow-x:auto;}
+table{width:100%;border-collapse:collapse;background:var(--card);border:2px solid var(--ink);box-shadow:3px 3px 0 var(--border);}
+thead{background:var(--ink);color:var(--paper);}
+thead th{padding:11px 14px;font-family:'Frank Ruhl Libre',serif;font-size:13px;text-align:right;white-space:nowrap;}
+tbody tr{border-bottom:1px solid var(--border);}
+tbody tr:hover{background:#f5efe0;}
+tbody td{padding:10px 14px;font-size:13px;vertical-align:middle;}
+.td-topic{font-weight:800;font-size:11px;color:var(--accent);white-space:nowrap;}
+.td-name{font-weight:700;}
+.td-cls{font-size:11px;font-weight:800;color:#7a6020;}
+.td-date{font-size:11px;color:var(--muted);white-space:nowrap;}
+.td-ans{max-width:260px;font-size:12px;line-height:1.5;}
+.td-fb{min-width:200px;}
+.fb-row{display:flex;gap:5px;align-items:center;}
+.ti-grade{width:56px;padding:5px 7px;border:2px solid var(--border);font-family:'Heebo',sans-serif;font-size:13px;text-align:center;background:var(--paper);}
+.ti-fb{flex:1;padding:5px 9px;border:2px solid var(--border);font-family:'Heebo',sans-serif;font-size:12px;background:var(--paper);}
+.ti-save{padding:5px 11px;background:var(--ink);color:var(--paper);border:none;font-size:12px;font-weight:700;cursor:pointer;}
+.ti-save:hover{background:var(--accent);}
+.t-saved-ok{font-size:11px;color:var(--green);font-weight:700;display:none;margin-top:3px;}
+
+.msg-box{text-align:center;padding:60px 20px;color:var(--muted);}
+.msg-box p{font-family:'Frank Ruhl Libre',serif;font-size:18px;}
+.msg-box span{display:block;font-size:11px;letter-spacing:2px;margin-top:8px;text-transform:uppercase;}
+footer{text-align:center;padding:20px;font-size:11px;color:var(--muted);letter-spacing:1px;border-top:2px solid var(--border);margin-top:20px;}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-overlay">
+  <div class="login-box">
+    <div class="lm-top">
+      <h1>סביבת מורה מרכזית</h1>
+      <p>תקשורת וחברה — כל המטלות</p>
+    </div>
+    <div class="lf">
+      <label>טלפון</label>
+      <input type="tel" id="inp-phone" placeholder="05XXXXXXXX" dir="ltr" autocomplete="off">
+    </div>
+    <div class="lf">
+      <label>סיסמה</label>
+      <input type="password" id="inp-pass" placeholder="סיסמה אישית" autocomplete="off">
+    </div>
+    <button class="btn-login" onclick="doLogin()">כניסה ←</button>
+    <div class="login-err" id="login-err"></div>
+    <div class="reg-link">עדיין לא רשומים? <a href="../../teacher-register.html">לחץ כאן</a></div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app" style="display:none;">
+<header>
+  <div class="hdr-inner">
+    <div class="hdr-brand">
+      <h1>📋 סביבת מורה — כל המטלות</h1>
+      <p>תקשורת וחברה | נתוני הגשות בזמן אמת</p>
+    </div>
+    <div class="hdr-right">
+      <div class="teacher-pill" id="teacher-name">—</div>
+      <button class="btn-out" onclick="doLogout()">יציאה</button>
+    </div>
+  </div>
+</header>
+
+<div class="stats-row">
+  <div class="stats-inner">
+    <div class="stat-box"><div class="stat-num" id="stat-total">0</div><div class="stat-lbl">הגשות</div></div>
+    <div class="stat-box"><div class="stat-num" id="stat-topics">0</div><div class="stat-lbl">נושאים</div></div>
+    <div class="stat-box"><div class="stat-num" id="stat-classes">0</div><div class="stat-lbl">כיתות</div></div>
+    <div class="stat-box"><div class="stat-num" id="stat-graded">0</div><div class="stat-lbl">עם ציון</div></div>
+    <div class="stat-box"><div class="stat-num" id="stat-avg">—</div><div class="stat-lbl">ממוצע ציון</div></div>
+    <div class="stat-box"><div class="stat-num" id="stat-pending">0</div><div class="stat-lbl">ממתינים</div></div>
+  </div>
+</div>
+
+<div class="toolbar">
+  <div class="toolbar-inner">
+    <input type="text" id="search-input" placeholder="🔍 חיפוש לפי שם תלמיד..." oninput="applyFilter()">
+    <select id="filter-topic" onchange="onTopicChange()"><option value="">— כל הנושאים —</option></select>
+    <select id="filter-class" onchange="applyFilter()"><option value="">כל הכיתות</option></select>
+    <div class="view-toggle">
+      <button class="vbtn active" id="vbtn-grouped" onclick="setView('grouped')">לפי נושא</button>
+      <button class="vbtn" id="vbtn-flat" onclick="setView('flat')">טבלה</button>
+      <button class="vbtn" id="vbtn-exams" onclick="setView('exams')" style="background:#1a5c1a;color:white;border-color:#1a5c1a;">📝 מבחנים</button>
+    </div>
+    <div class="cnt" id="cnt">0 הגשות</div>
+    <button class="btn-csv" onclick="exportCSV()">⬇ CSV</button>
+  </div>
+</div>
+
+<div id="exams-panel" style="display:none;padding:20px;max-width:1100px;margin:0 auto;"><div style="margin-bottom:16px;display:flex;gap:12px;flex-wrap:wrap;align-items:center;"><select id="exam-sel" onchange="loadExamSubmissions()" style="padding:9px 14px;border:2px solid #c8b89a;font-family:Heebo,sans-serif;font-size:14px;background:#f5f0e8;outline:none;font-weight:700;"><option value="">— בחר מבחן —</option></select><span id="exam-cnt" style="font-size:13px;color:#7a6a52;font-weight:700;"></span><button onclick="exportExamCSV()" style="padding:8px 18px;background:#1a5c1a;color:white;border:none;font-family:Heebo,sans-serif;font-size:13px;font-weight:700;cursor:pointer;">⬇ CSV</button></div><div id="exam-submissions-list"></div></div>
+<main id="content">
+  <div class="msg-box"><p>⏳ טוען נתונים...</p><span>אנא המתן</span></div>
+</main>
+<footer>פיתוח: רני בן זאב | סביבת מורה מרכזית</footer>
+</div>
+
+<script>
+const FC={apiKey:"AIzaSyCCHvn_ulmiyM56DuslNzNC0Ge6a8i2vhY",authDomain:"tests-fd938.firebaseapp.com",databaseURL:"https://tests-fd938-default-rtdb.europe-west1.firebasedatabase.app",projectId:"tests-fd938"};
+firebase.initializeApp(FC);
+const db=firebase.database();
+let teacherID='',teacherName='',allData=[],currentView='grouped';
+
+function doLogin(){
+  const phone=document.getElementById('inp-phone').value.trim();
+  const pass=document.getElementById('inp-pass').value.trim();
+  const err=document.getElementById('login-err');
+  err.style.display='none';
+  if(!phone||!pass){err.textContent='נא למלא טלפון וסיסמה';err.style.display='block';return;}
+  err.textContent='מתחבר...';err.style.display='block';
+  db.ref('teachers').once('value').then(snap=>{
+    let fk='',fd=null;
+    snap.forEach(ch=>{if(fk)return;const t=ch.val();if(t.phone===phone&&t.password===pass&&t.status==='approved'){fk=ch.key;fd=t;}});
+    if(!fk){err.textContent='טלפון/סיסמה שגויים או המשתמש לא מאושר';err.style.display='block';return;}
+    teacherID=fk;
+    teacherName=fd.name||((fd.firstName||'')+' '+(fd.lastName||'')).trim();
+    document.getElementById('login-overlay').style.display='none';
+    document.getElementById('app').style.display='block';
+    document.getElementById('teacher-name').textContent='👤 '+teacherName;
+    loadAllData();
+    loadTeacherExams();
+  });
+}
+
+function doLogout(){
+  teacherID='';teacherName='';allData=[];
+  document.getElementById('app').style.display='none';
+  document.getElementById('login-overlay').style.display='flex';
+  document.getElementById('inp-phone').value='';
+  document.getElementById('inp-pass').value='';
+}
+
+function loadAllData(){
+  document.getElementById('content').innerHTML='<div class="msg-box"><p>⏳ שואב נתונים...</p><span>אנא המתן</span></div>';
+  db.ref('tests').once('value').then(snap=>{
+    const val=snap.val()||{};
+    const topics=Object.keys(val);
+    if(!topics.length){document.getElementById('content').innerHTML='<div class="msg-box"><p>אין נתונים עדיין</p></div>';return;}
+    const sel=document.getElementById('filter-topic');
+    sel.innerHTML='<option value="">— כל הנושאים —</option>';
+    topics.forEach(t=>sel.innerHTML+=`<option value="${t}">${t}</option>`);
+    allData=[];
+    topics.forEach(topic=>{
+      Object.entries(val[topic]||{}).forEach(([key,v])=>{
+        if(v?.student?.teacherID===teacherID)allData.push({key,_topic:topic,...v});
+      });
+    });
+    allData.sort((a,b)=>(b.submittedAt||0)-(a.submittedAt||0));
+    applyFilter();
+  });
+}
+
+function updateStats(data){
+  const graded=data.filter(d=>d.feedback?.grade!=null);
+  const avg=graded.length?Math.round(graded.reduce((s,d)=>s+Number(d.feedback.grade),0)/graded.length):null;
+  document.getElementById('stat-total').textContent=data.length;
+  document.getElementById('stat-topics').textContent=[...new Set(data.map(d=>d._topic))].length;
+  document.getElementById('stat-classes').textContent=[...new Set(data.map(d=>d.student?.class).filter(Boolean))].length;
+  document.getElementById('stat-graded').textContent=graded.length;
+  document.getElementById('stat-avg').textContent=avg??'—';
+  document.getElementById('stat-pending').textContent=data.filter(d=>d.feedback?.grade==null).length;
+}
+
+function onTopicChange(){
+  const topic=document.getElementById('filter-topic').value;
+  const rel=topic?allData.filter(d=>d._topic===topic):allData;
+  const cls=[...new Set(rel.map(d=>d.student?.class).filter(Boolean))].sort();
+  const sel=document.getElementById('filter-class');
+  const prev=sel.value;
+  sel.innerHTML='<option value="">כל הכיתות</option>';
+  cls.forEach(c=>sel.innerHTML+=`<option${c===prev?' selected':''}>${c}</option>`);
+  applyFilter();
+}
+
+function getFiltered(){
+  const q=document.getElementById('search-input').value.toLowerCase().trim();
+  const topic=document.getElementById('filter-topic').value;
+  const cls=document.getElementById('filter-class').value;
+  return allData.filter(d=>{
+    const name=(d.student?.name||'').toLowerCase();
+    return(!q||name.includes(q))&&(!topic||d._topic===topic)&&(!cls||d.student?.class===cls);
+  });
+}
+
+function applyFilter(){
+  const f=getFiltered();
+  document.getElementById('cnt').textContent=f.length+' הגשות';
+  updateStats(f);
+  currentView==='grouped'?renderGrouped(f):renderFlat(f);
+}
+
+function setView(v){
+  var ep=document.getElementById('exams-panel'),mc=document.getElementById('content'),fb=document.getElementById('filter-bar');
+  if(v==='exams'){ep.style.display='block';mc.style.display='none';if(fb)fb.style.display='none';document.querySelectorAll('.vbtn').forEach(function(b){b.classList.remove('active');});document.getElementById('vbtn-exams').classList.add('active');loadTeacherExams();return;}
+  ep.style.display='none';mc.style.display='block';if(fb)fb.style.display='flex';
+  currentView=v;
+  document.getElementById('vbtn-grouped').classList.toggle('active',v==='grouped');
+  document.getElementById('vbtn-flat').classList.toggle('active',v==='flat');
+  applyFilter();
+}
+
+function renderGrouped(filtered){
+  if(!filtered.length){document.getElementById('content').innerHTML='<div class="msg-box"><p>לא נמצאו הגשות</p></div>';return;}
+  const byTopic={};
+  filtered.forEach(d=>{if(!byTopic[d._topic])byTopic[d._topic]=[];byTopic[d._topic].push(d);});
+  let html='';
+  Object.entries(byTopic).forEach(([topic,items])=>{
+    const graded=items.filter(d=>d.feedback?.grade!=null);
+    const avg=graded.length?Math.round(graded.reduce((s,d)=>s+Number(d.feedback.grade),0)/graded.length):null;
+    const classes=[...new Set(items.map(d=>d.student?.class).filter(Boolean))].join(', ');
+    const tid='tg-'+topic.replace(/[^a-z0-9]/gi,'_');
+    html+=`<div class="topic-group">
+      <div class="topic-header" onclick="toggleGroup('${tid}')">
+        <div class="topic-title"><span class="topic-badge">${items.length}</span>${escH(topic)}</div>
+        <div class="topic-meta">
+          <span>✅ ${graded.length} עם ציון</span>
+          ${avg!==null?`<span>ממוצע: ${avg}</span>`:''}
+          ${classes?`<span>כיתות: ${escH(classes)}</span>`:''}
+          <span>▾</span>
+        </div>
+      </div>
+      <div class="topic-body open" id="${tid}">
+        ${items.map(d=>renderCard(d)).join('')}
+      </div>
+    </div>`;
+  });
+  document.getElementById('content').innerHTML=html;
+}
+
+function toggleGroup(id){
+  const el=document.getElementById(id);if(el)el.classList.toggle('open');
+}
+
+function renderCard(d){
+  const name=escH(d.student?.name||((d.student?.firstName||'')+' '+(d.student?.lastName||'')).trim()||'—');
+  const cls=escH(d.student?.class||'—');
+  const date=d.submittedAt?new Date(d.submittedAt).toLocaleString('he-IL',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'}):'—';
+  const grade=d.feedback?.grade??'';
+  const fb=escH(d.feedback?.text||d.feedback?.comment||'');
+  const initial=name.replace(/&[^;]+;/g,'')[0]||'?';
+  const hasGrade=grade!=='';
+  const cid='c'+d.key.replace(/[^a-z0-9]/gi,'_');
+  const aid='a'+d.key.replace(/[^a-z0-9]/gi,'_');
+
+  let ans='';
+  if(d.answers&&typeof d.answers==='object'){
+    ans=Object.entries(d.answers).filter(([,v])=>v).map(([k,v])=>
+      `<div class="answer-row"><div class="answer-key">${escH(k)}</div><div class="answer-val">${escH(String(v))}</div></div>`
+    ).join('');
+  }else if(d.text)ans=`<div class="answer-row"><div class="answer-val">${escH(d.text)}</div></div>`;
+
+  return `<div class="sub-card">
+    <div class="sub-card-header" onclick="toggleCard('${cid}','${aid}')">
+      <div class="sub-avatar">${initial}</div>
+      <div class="sub-name">${name}</div>
+      <div class="sub-class">${cls}</div>
+      <div class="sub-date">${date}</div>
+      <div class="grade-pill ${hasGrade?'has':'none'}">${hasGrade?grade+' ציון':'ללא ציון'}</div>
+      <div class="expand-arr" id="${aid}">▾</div>
+    </div>
+    <div class="sub-body" id="${cid}">
+      ${ans?`<div class="answers-sec"><div class="answers-title">תשובות התלמיד</div>${ans}</div>`:''}
+      <div class="feedback-sec">
+        <div class="fb-sec-title">ציון ומשוב</div>
+        <input class="inp-grade" type="number" id="grade-${escH(d.key)}" value="${grade}" placeholder="ציון" min="0" max="100">
+        <input class="inp-fb" type="text" id="fb-${escH(d.key)}" value="${fb}" placeholder="הערה / פידבק...">
+        <button class="btn-save" onclick="saveFeedback('${escH(d.key)}','${escH(d._topic)}')">💾 שמור</button>
+        <div class="saved-ok" id="saved-${escH(d.key)}">✓ נשמר בהצלחה</div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function toggleCard(bodyId,arrId){
+  const b=document.getElementById(bodyId);const a=document.getElementById(arrId);
+  if(!b)return;b.classList.toggle('open');if(a)a.classList.toggle('open');
+}
+
+function renderFlat(filtered){
+  if(!filtered.length){document.getElementById('content').innerHTML='<div class="msg-box"><p>לא נמצאו הגשות</p></div>';return;}
+  const rows=filtered.map(d=>{
+    const name=escH(d.student?.name||((d.student?.firstName||'')+' '+(d.student?.lastName||'')).trim()||'—');
+    const cls=escH(d.student?.class||'—');
+    const date=d.submittedAt?new Date(d.submittedAt).toLocaleString('he-IL',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'}):'—';
+    const grade=d.feedback?.grade??'';
+    const fb=escH(d.feedback?.text||d.feedback?.comment||'');
+    let ans='';
+    if(d.answers&&typeof d.answers==='object')ans=Object.entries(d.answers).filter(([,v])=>v).map(([k,v])=>`<b>${escH(k)}:</b> ${escH(String(v))}`).join('<br>');
+    else if(d.text)ans=escH(d.text);
+    return `<tr>
+      <td class="td-topic">${escH(d._topic)}</td>
+      <td class="td-name">${name}</td>
+      <td class="td-cls">${cls}</td>
+      <td class="td-date">${date}</td>
+      <td class="td-ans">${ans||'—'}</td>
+      <td class="td-fb">
+        <div class="fb-row">
+          <input class="ti-grade" type="number" id="grade-${escH(d.key)}" value="${grade}" placeholder="ציון">
+          <input class="ti-fb" type="text" id="fb-${escH(d.key)}" value="${fb}" placeholder="פידבק...">
+          <button class="ti-save" onclick="saveFeedback('${escH(d.key)}','${escH(d._topic)}')">💾</button>
+        </div>
+        <div class="t-saved-ok" id="saved-${escH(d.key)}">✓ נשמר</div>
+      </td>
+    </tr>`;
+  }).join('');
+  document.getElementById('content').innerHTML=`<div class="table-wrap"><table>
+    <thead><tr><th>נושא</th><th>שם</th><th>כיתה</th><th>תאריך</th><th>תשובות</th><th>ציון ופידבק</th></tr></thead>
+    <tbody>${rows}</tbody></table></div>`;
+}
+
+function saveFeedback(key,topic){
+  const grade=document.getElementById('grade-'+key)?.value.trim();
+  const text=document.getElementById('fb-'+key)?.value.trim();
+  const upd={};
+  if(grade!=='')upd.grade=Number(grade);
+  if(text)upd.text=text;
+  if(!Object.keys(upd).length)return;
+  db.ref('tests/'+topic+'/'+key+'/feedback').update(upd).then(()=>{
+    const ind=document.getElementById('saved-'+key);
+    if(ind){ind.style.display='block';setTimeout(()=>ind.style.display='none',2500);}
+    const d=allData.find(x=>x.key===key);
+    if(d)d.feedback={...(d.feedback||{}),...upd};
+  });
+}
+
+function exportCSV(){
+  const f=getFiltered();
+  if(!f.length)return alert('אין נתונים לייצוא');
+  const rows=f.map(d=>{
+    const name=d.student?.name||((d.student?.firstName||'')+' '+(d.student?.lastName||'')).trim();
+    const cls=d.student?.class||'';
+    const date=d.submittedAt?new Date(d.submittedAt).toLocaleString('he-IL'):'';
+    const grade=d.feedback?.grade??'';
+    const fb=d.feedback?.text||d.feedback?.comment||'';
+    return[d._topic,name,cls,date,grade,fb].map(v=>`"${String(v||'').replace(/"/g,'""')}"`).join(',');
+  });
+  const a=document.createElement('a');
+  a.href='data:text/csv;charset=utf-8,\uFEFF'+encodeURIComponent(['נושא,שם,כיתה,תאריך,ציון,פידבק',...rows].join('\n'));
+  a.download='teacher_'+Date.now()+'.csv';a.click();
+}
+
+function escH(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+
+document.getElementById('inp-pass').addEventListener('keyup',e=>{if(e.key==='Enter')doLogin();});
+
+// ===== EXAMS =====
+var allExamsData=[], currentExamSubmissions=[];
+function loadTeacherExams(){
+  db.ref('exams').once('value').then(function(snap){
+    allExamsData=[];
+    snap.forEach(function(ch){var e=ch.val();if(e.teacherID===teacherID)allExamsData.push(Object.assign({id:ch.key},e));});
+    allExamsData.sort(function(a,b){return b.createdAt-a.createdAt;});
+    var sel=document.getElementById('exam-sel');
+    sel.innerHTML='<option value="">— בחר מבחן —</option>';
+    allExamsData.forEach(function(e){var opt=document.createElement('option');opt.value=e.id;opt.textContent=(e.title||'מבחן')+' | '+(e.class||'')+' | '+new Date(e.createdAt).toLocaleDateString('he-IL');sel.appendChild(opt);});
+  });
+}
+function loadExamSubmissions(){
+  var examId=document.getElementById('exam-sel').value;
+  var list=document.getElementById('exam-submissions-list');
+  var cnt=document.getElementById('exam-cnt');
+  if(!examId){list.innerHTML='';cnt.textContent='';return;}
+  list.innerHTML='<div style="padding:20px;color:#7a6a52;">טוען...</div>';
+  db.ref('exam_submissions/'+examId).once('value').then(function(snap){
+    currentExamSubmissions=[];
+    snap.forEach(function(ch){currentExamSubmissions.push(Object.assign({_key:ch.key},ch.val()));});
+    currentExamSubmissions.sort(function(a,b){return (b.submittedAt||0)-(a.submittedAt||0);});
+    cnt.textContent=currentExamSubmissions.length+' הגשות';
+    renderExamSubmissions();
+  });
+}
+function renderExamSubmissions(){
+  var list=document.getElementById('exam-submissions-list');
+  if(!currentExamSubmissions.length){list.innerHTML='<div style="text-align:center;padding:40px;color:#7a6a52;">אין הגשות עדיין</div>';return;}
+  var tbl=document.createElement('table');
+  tbl.style.cssText='width:100%;border-collapse:collapse;background:white;font-size:13px;';
+  tbl.innerHTML='<thead><tr style="background:#1a1208;color:white;"><th style="padding:10px 14px;text-align:right;">#</th><th style="padding:10px 14px;text-align:right;">שם תלמיד</th><th style="padding:10px 14px;text-align:right;">כיתה</th><th style="padding:10px 14px;text-align:right;">זמן הגשה</th><th style="padding:10px 14px;text-align:center;">ציון</th><th style="padding:10px 14px;text-align:center;">פעולות</th></tr></thead>';
+  var tbody=document.createElement('tbody');
+  currentExamSubmissions.forEach(function(s,i){
+    var date=s.submittedAt?new Date(s.submittedAt).toLocaleString('he-IL'):'—';
+    var tr=document.createElement('tr'); tr.style.borderBottom='1px solid #e8e0cc';
+    [[i+1,''],[( s.student&&s.student.name)||'—','font-weight:700'],[(s.student&&s.student.class)||'—',''],[date,'font-size:11px']].forEach(function(v){var td=document.createElement('td');td.style.padding='10px 14px';if(v[1])td.style.cssText+=v[1];td.textContent=v[0];tr.appendChild(td);});
+    var tdG=document.createElement('td'); tdG.style.cssText='padding:10px 14px;text-align:center;';
+    var inp=document.createElement('input'); inp.type='number'; inp.min='0'; inp.max='100'; inp.value=s.grade||''; inp.id='egrade-'+s._key;
+    inp.style.cssText='width:58px;padding:4px 6px;border:1px solid #c8b89a;text-align:center;';
+    var saveBtn=document.createElement('button'); saveBtn.textContent='✓'; saveBtn.dataset.key=s._key;
+    saveBtn.style.cssText='margin-right:4px;padding:4px 10px;background:#1a5c1a;color:white;border:none;font-size:11px;font-weight:700;cursor:pointer;';
+    saveBtn.addEventListener('click',function(){saveExamGrade(this.dataset.key);});
+    tdG.appendChild(inp); tdG.appendChild(saveBtn); tr.appendChild(tdG);
+    var tdA=document.createElement('td'); tdA.style.cssText='padding:10px 14px;text-align:center;';
+    var vBtn=document.createElement('button'); vBtn.textContent='צפה ▼'; vBtn.dataset.key=s._key;
+    vBtn.style.cssText='padding:5px 14px;background:#1a1208;color:white;border:none;font-size:12px;font-weight:700;cursor:pointer;';
+    vBtn.addEventListener('click',function(){toggleExamRow(this.dataset.key);});
+    tdA.appendChild(vBtn); tr.appendChild(tdA); tbody.appendChild(tr);
+    var expTr=document.createElement('tr'); expTr.id='eexp-'+s._key; expTr.style.display='none';
+    var expTd=document.createElement('td'); expTd.colSpan=6; expTd.style.padding='0';
+    expTr.appendChild(expTd); tbody.appendChild(expTr);
+  });
+  tbl.appendChild(tbody); list.innerHTML=''; list.appendChild(tbl);
+}
+function toggleExamRow(key){
+  var exp=document.getElementById('eexp-'+key); if(!exp)return;
+  if(exp.style.display!=='none'){exp.style.display='none';return;}
+  var s=currentExamSubmissions.find(function(x){return x._key===key;}); if(!s)return;
+  var exam=allExamsData.find(function(e){return e.id===document.getElementById('exam-sel').value;});
+  var qs=exam?(exam.questions||[]):[], letters=['a','b','c'], lettersHe=['א','ב','ג'];
+  var td=exp.querySelector('td');
+  var wrap=document.createElement('div'); wrap.style.cssText='padding:16px 24px;background:#fafaf5;border-bottom:2px solid #c9a84c;';
+  qs.forEach(function(q,qi){
+    var subs=[q.subA,q.subB,q.subC].filter(Boolean);
+    var qd=document.createElement('div'); qd.style.marginBottom='16px';
+    var qh=document.createElement('div'); qh.style.cssText='font-weight:700;font-size:14px;color:#8B1A1A;margin-bottom:8px;';
+    qh.textContent='שאלה '+(qi+1)+' — פרק '+(q.chapter||q._chapter||'')+(q._concept?' ['+q._concept+']':'');
+    qd.appendChild(qh);
+    subs.forEach(function(sub,si){
+      var ans=s.answers&&s.answers['q'+(qi+1)+'_'+letters[si]]||'';
+      var sd=document.createElement('div'); sd.style.marginBottom='10px';
+      var sq=document.createElement('div'); sq.style.cssText='font-size:12px;font-weight:700;color:#555;margin-bottom:4px;';
+      sq.textContent=lettersHe[si]+'. '+sub.text.substring(0,100)+'... ('+sub.points+' נק)';
+      var sa=document.createElement('div'); sa.style.cssText='background:white;border-right:4px solid #c9a84c;padding:8px 12px;font-size:13px;line-height:1.7;min-height:36px;';
+      sa.style.color=ans?'#1a1208':'#aaa'; sa.textContent=ans||'לא נענה';
+      sd.appendChild(sq); sd.appendChild(sa); qd.appendChild(sd);
+    });
+    wrap.appendChild(qd);
+  });
+  var fbd=document.createElement('div'); fbd.style.marginTop='8px';
+  var fbl=document.createElement('div'); fbl.style.cssText='font-size:12px;font-weight:700;color:#888;margin-bottom:5px;'; fbl.textContent='משוב:';
+  var fbt=document.createElement('textarea'); fbt.id='efb-'+key; fbt.value=s.feedback||'';
+  fbt.style.cssText='width:100%;padding:8px 10px;border:1px solid #c8b89a;font-size:13px;resize:vertical;min-height:60px;';
+  var fbb=document.createElement('button'); fbb.textContent='שמור משוב'; fbb.dataset.key=key;
+  fbb.style.cssText='margin-top:6px;padding:6px 16px;background:#1a1208;color:white;border:none;font-size:12px;font-weight:700;cursor:pointer;';
+  fbb.addEventListener('click',function(){saveExamFeedback(this.dataset.key);});
+  fbd.appendChild(fbl); fbd.appendChild(fbt); fbd.appendChild(fbb); wrap.appendChild(fbd);
+  td.appendChild(wrap); exp.style.display='table-row';
+}
+function saveExamGrade(key){
+  var examId=document.getElementById('exam-sel').value;
+  var val=parseFloat(document.getElementById('egrade-'+key).value); if(isNaN(val))return;
+  db.ref('exam_submissions/'+examId+'/'+key).update({grade:val}).then(function(){alert('ציון נשמר');});
+}
+function saveExamFeedback(key){
+  var examId=document.getElementById('exam-sel').value;
+  var val=document.getElementById('efb-'+key).value.trim();
+  db.ref('exam_submissions/'+examId+'/'+key).update({feedback:val}).then(function(){alert('משוב נשמר');});
+}
+function exportExamCSV(){
+  if(!currentExamSubmissions.length){alert('אין הגשות');return;}
+  var exam=allExamsData.find(function(e){return e.id===document.getElementById('exam-sel').value;});
+  var qs=exam?(exam.questions||[]):[], letters=['a','b','c'], lettersHe=['א','ב','ג'];
+  var headers=['שם','כיתה','זמן הגשה','ציון'];
+  qs.forEach(function(q,qi){[q.subA,q.subB,q.subC].filter(Boolean).forEach(function(s,si){headers.push('ש'+(qi+1)+lettersHe[si]);});});
+  var rows=[headers.join(',')];
+  currentExamSubmissions.forEach(function(s){
+    var row=['"'+(s.student&&s.student.name||'')+'"',(s.student&&s.student.class)||'',s.submittedAt?new Date(s.submittedAt).toLocaleString('he-IL'):'',s.grade||''];
+    qs.forEach(function(q,qi){[q.subA,q.subB,q.subC].filter(Boolean).forEach(function(sub,si){row.push('"'+((s.answers&&s.answers['q'+(qi+1)+'_'+letters[si]]||'').replace(/"/g,'""'))+'"');});});
+    rows.push(row.join(','));
+  });
+  var blob=new Blob(['﻿'+rows.join('
+')],{type:'text/csv;charset=utf-8;'});
+  var a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='מבחן_הגשות.csv'; a.click();
+}
+
+</script>
+</body>
+</html>
