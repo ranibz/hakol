@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>מחולל מבחני תקשורת וחברה</title>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@400;700;900&family=Heebo:wght@300;400;500;700;900&display=swap" rel="stylesheet">
 <style>
 :root{--ink:#1a1208;--paper:#f5f0e8;--accent:#8B1A1A;--gold:#c9a84c;--border:#c8b89a;--muted:#7a6a52;--green:#1a5c1a;--ui-bg:#1e1e2e;--ui-border:#3a3a5a;--ui-accent:#7c6fff;--ui-text:#e8e8f0;}
@@ -94,13 +96,35 @@ body{font-family:'Heebo',sans-serif;background:var(--ui-bg);color:var(--ui-text)
 </style>
 </head>
 <body>
+
+<!-- LOGIN -->
+<div id="login-overlay" style="position:fixed;inset:0;background:rgba(10,6,2,.9);z-index:9999;display:flex;align-items:center;justify-content:center;">
+  <div style="background:#f5f0e8;border:3px solid #1a1208;box-shadow:7px 7px 0 #1a1208;padding:40px 36px;max-width:400px;width:92%;text-align:center;">
+    <div style="font-family:'Frank Ruhl Libre',serif;border-top:4px double #1a1208;border-bottom:4px double #1a1208;padding:12px 0;margin-bottom:24px;">
+      <div style="font-size:22px;font-weight:900;color:#1a1208;">מחולל מבחנים</div>
+      <div style="font-size:11px;color:#7a6a52;margin-top:4px;letter-spacing:2px;">תקשורת וחברה | כניסת מורה</div>
+    </div>
+    <div style="margin-bottom:14px;text-align:right;">
+      <label style="display:block;font-size:11px;font-weight:800;color:#7a6a52;margin-bottom:5px;letter-spacing:1px;">טלפון</label>
+      <input type="tel" id="inp-phone" dir="ltr" placeholder="05XXXXXXXX" style="width:100%;padding:11px 14px;border:2px solid #1a1208;font-family:Heebo,sans-serif;font-size:14px;background:white;outline:none;">
+    </div>
+    <div style="margin-bottom:14px;text-align:right;">
+      <label style="display:block;font-size:11px;font-weight:800;color:#7a6a52;margin-bottom:5px;letter-spacing:1px;">סיסמה</label>
+      <input type="password" id="inp-pass" placeholder="סיסמה אישית" style="width:100%;padding:11px 14px;border:2px solid #1a1208;font-family:Heebo,sans-serif;font-size:14px;background:white;outline:none;">
+    </div>
+    <div id="login-err" style="color:#8B1A1A;font-size:13px;margin-bottom:10px;display:none;"></div>
+    <button onclick="doLogin()" style="width:100%;padding:13px;background:#1a1208;color:#f5f0e8;border:none;font-family:'Frank Ruhl Libre',serif;font-size:17px;font-weight:700;cursor:pointer;">כניסה ←</button>
+    <div style="margin-top:14px;font-size:12px;color:#7a6a52;">עדיין לא רשומים? <a href="https://hakolbakaf.co.il/eshi/shioor/teacher-register.html" style="color:#8B1A1A;">לחץ כאן</a></div>
+  </div>
+</div>
+
 <div id="builder">
   <div class="ui-header">
     <div>
       <h1>מחולל מבחני תקשורת וחברה</h1>
       <p>יצירת שאלון בגרות בעזרת AI</p>
     </div>
-    <button class="btn-print" style="width:auto;padding:8px 18px;" onclick="window.print()">🖨 הדפסה</button>
+    <div id="teacher-pill" style="display:none;background:rgba(124,111,255,.15);border:1px solid var(--ui-accent);padding:5px 13px;font-size:12px;font-weight:700;color:var(--ui-accent);border-radius:20px;"></div>
   </div>
 
   <div class="ui-main">
@@ -178,6 +202,7 @@ body{font-family:'Heebo',sans-serif;background:var(--ui-bg);color:var(--ui-text)
 
       <button class="btn-generate" id="generateBtn" onclick="generateExam()">✨ צור מבחן</button>
       <button class="btn-print" onclick="window.print()">🖨 הדפס</button>
+      <button id="btn-save" onclick="saveExam()" style="width:100%;background:linear-gradient(135deg,#1a5c1a,#2d7a2d);color:white;border:none;padding:13px;font-family:'Frank Ruhl Libre',serif;font-size:16px;font-weight:700;border-radius:8px;cursor:pointer;margin-top:8px;display:none;">💾 שמור ושלח לתלמידים</button>
       <div style="margin-top:12px;padding:10px;background:#12121f;border-radius:6px;font-size:11px;color:#555;line-height:1.7;">
         לניקוי: <span style="color:var(--ui-accent);cursor:pointer;" onclick="clearExam()">לחץ כאן</span>
       </div>
@@ -210,6 +235,87 @@ body{font-family:'Heebo',sans-serif;background:var(--ui-bg);color:var(--ui-text)
 </div>
 
 <script>
+
+const FC={apiKey:"AIzaSyCCHvn_ulmiyM56DuslNzNC0Ge6a8i2vhY",databaseURL:"https://tests-fd938-default-rtdb.europe-west1.firebasedatabase.app",projectId:"tests-fd938"};
+firebase.initializeApp(FC);
+const db=firebase.database();
+let teacherID='', teacherName='';
+
+function doLogin(){
+  var phone=document.getElementById('inp-phone').value.trim();
+  var pass=document.getElementById('inp-pass').value.trim();
+  var err=document.getElementById('login-err');
+  err.style.display='none';
+  if(!phone||!pass){err.textContent='נא למלא טלפון וסיסמה';err.style.display='block';return;}
+  err.textContent='מתחבר...';err.style.display='block';
+  db.ref('teachers').once('value').then(function(snap){
+    var fk='',fd=null;
+    snap.forEach(function(ch){
+      if(fk) return;
+      var t=ch.val();
+      if(t.phone===phone&&t.password===pass&&t.status==='approved'){fk=ch.key;fd=t;}
+    });
+    if(!fk){err.textContent='טלפון/סיסמה שגויים';err.style.display='block';return;}
+    teacherID=fk;
+    teacherName=fd.name||((fd.firstName||'')+' '+(fd.lastName||'')).trim();
+    document.getElementById('login-overlay').style.display='none';
+    document.getElementById('teacher-pill').style.display='block';
+    document.getElementById('teacher-pill').textContent='👤 '+teacherName;
+    document.getElementById('btn-save').style.display='block';
+  });
+}
+document.addEventListener('keydown',function(e){
+  var ov=document.getElementById('login-overlay');
+  if(e.key==='Enter'&&ov&&ov.style.display!=='none') doLogin();
+});
+
+async function saveExam(){
+  if(!examQuestions.length){alert('אין שאלות לשמירה');return;}
+  var btn=document.getElementById('btn-save');
+  btn.textContent='שומר...';btn.disabled=true;
+
+  // Collect current edits
+  examQuestions.forEach(function(q){
+    var ctxEl=document.getElementById('ctx-'+q._id);
+    if(ctxEl) q.context=ctxEl.value;
+    var srcEl=document.getElementById('src-'+q._id);
+    if(srcEl) q.source=srcEl.value;
+    var subs=[q.subA,q.subB,q.subC].filter(Boolean);
+    subs.forEach(function(s,i){
+      var el=document.getElementById('sub-'+q._id+'-'+i);
+      if(el) s.text=el.value;
+    });
+  });
+
+  var examData={
+    title: document.getElementById('topicInput').value.trim()||'מבחן',
+    class: '',
+    topic: document.getElementById('topicInput').value.trim(),
+    questions: examQuestions,
+    teacherID: teacherID,
+    teacherName: teacherName,
+    createdAt: Date.now(),
+    status: 'active'
+  };
+
+  var ref=db.ref('exams').push(examData);
+  var examId=ref.key;
+  var base=window.location.href.replace(/[^/]*$/,'');
+  var link=base+'exam-take.html?id='+examId+'&code=';
+  document.getElementById('share-link').value=link;
+  document.getElementById('share-box').style.display='flex';
+  btn.textContent='💾 שמור ושלח לתלמידים';
+  btn.disabled=false;
+}
+
+function copyShareLink(){
+  var el=document.getElementById('share-link');
+  el.select();
+  document.execCommand('copy');
+  alert('הועתק!');
+}
+
+
 const AI_PROXY = 'https://ai-proxy.ranbenzeev.workers.dev';
 let selectedChapters = {A:true, B:true, C:true};
 let examQuestions = [];
@@ -481,5 +587,25 @@ async function replaceCtx(id){
   } catch(e){ alert('שגיאה: '+e.message); el.style.opacity='1'; }
 }
 </script>
+
+<!-- SHARE BOX -->
+<div id="share-box" style="display:none;position:fixed;inset:0;background:rgba(10,6,2,.88);z-index:9999;display:none;align-items:center;justify-content:center;">
+  <div style="background:#f5f0e8;border:3px solid #1a1208;box-shadow:7px 7px 0 #1a1208;padding:36px;max-width:500px;width:92%;">
+    <div style="font-family:'Frank Ruhl Libre',serif;font-size:22px;font-weight:900;color:#1a5c1a;margin-bottom:20px;">✅ המבחן נשמר בהצלחה!</div>
+    <div style="margin-bottom:16px;">
+      <div style="font-size:12px;font-weight:700;color:#7a6a52;margin-bottom:6px;">🔗 קישור לתלמידים:</div>
+      <div style="display:flex;gap:8px;">
+        <input type="text" id="share-link" readonly style="flex:1;padding:10px 12px;border:2px solid #c9a84c;font-family:monospace;font-size:12px;background:white;outline:none;">
+        <button onclick="copyShareLink()" style="padding:10px 16px;background:#c9a84c;color:#1a1208;border:none;font-family:Heebo,sans-serif;font-size:13px;font-weight:800;cursor:pointer;">העתק</button>
+      </div>
+      <div style="font-size:11px;color:#7a6a52;margin-top:6px;">הוסף את קוד הכיתה בסוף הקישור: ?id=...&code=XXXXX</div>
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+      <button onclick="document.getElementById('share-box').style.display='none'" style="flex:1;padding:11px;background:#1a1208;color:white;border:none;font-family:'Frank Ruhl Libre',serif;font-size:15px;font-weight:700;cursor:pointer;">סגור</button>
+      <button onclick="location.reload()" style="flex:1;padding:11px;background:white;color:#1a1208;border:2px solid #1a1208;font-family:'Frank Ruhl Libre',serif;font-size:15px;font-weight:700;cursor:pointer;">מבחן חדש</button>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
