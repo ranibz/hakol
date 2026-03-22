@@ -203,6 +203,16 @@
             </div>
 
             <button class="btn-save" onclick="saveConfig()">💾 שמור הגדרות מגמה</button>
+            <div id="statusBar" style="margin-top:16px;padding:16px 20px;border-radius:14px;background:#f8fafc;border:2px solid var(--border);display:none;">
+                <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+                    <div>
+                        <span id="statusLabel" style="font-weight:800;font-size:15px;"></span>
+                        <span id="statusDate" style="font-size:12px;color:#64748b;margin-right:10px;"></span>
+                    </div>
+                    <button id="submitBtn" onclick="submitForApproval()" style="padding:12px 24px;background:#6366f1;color:white;border:none;border-radius:12px;font-family:Heebo,sans-serif;font-size:14px;font-weight:800;cursor:pointer;display:none;">📤 שלח לאישור מנהלת</button>
+                    <button id="editBtn" onclick="returnToEditing()" style="padding:12px 24px;background:#f1f5f9;color:#64748b;border:none;border-radius:12px;font-family:Heebo,sans-serif;font-size:14px;font-weight:700;cursor:pointer;display:none;">✏️ חזור לעריכה</button>
+                </div>
+            </div>
         </div>
 
         <!-- TAB: מעקב -->
@@ -294,6 +304,7 @@ async function onDeptChange() {
     renderPool(allTeachers);
     renderSelectedTags();
     updateShareLink();
+    updateStatusBar();
 
     const { data: placements } = await sb.from('placements').select('*, teachers(name, id_number)').eq('dept_id', currentDept);
     allPlacements = placements || [];
@@ -386,12 +397,19 @@ async function saveConfig() {
         if(label) rows['row'+(i+1)] = { label, subjects };
     });
 
-    const payload = { id: currentDept, name: currentDept, teachers: selectedTeachers, structure: rows };
+    const existing = deptConfig?.status || 'editing';
+    const payload = { id: currentDept, name: currentDept, teachers: selectedTeachers, structure: rows, status: existing };
+    const existingStatus = deptConfig?.status || 'editing';
     const { error } = await sb.from('departments').upsert(payload, { onConflict: 'id' });
     if(error) { showToast('שגיאה: ' + error.message); return; }
 
-    deptConfig = payload;
+    deptConfig = { ...deptConfig, ...payload };
+    if(existingStatus === 'approved') {
+        await sb.from('departments').update({ status: 'approved_dirty', dirty_at: new Date().toISOString() }).eq('id', currentDept);
+        deptConfig.status = 'approved_dirty';
+    }
     updateShareLink();
+    updateStatusBar();
     showToast('✅ הגדרות נשמרו בהצלחה');
 }
 
@@ -588,12 +606,82 @@ ${r.isNew?`<text x="${x+barW}" y="${svgH-2}" text-anchor="middle" font-size="8" 
 }
 // ===== END COMPARISON =====
 
+
+async function updateStatusBar() {
+    if(!currentDept) return;
+    const { data } = await sb.from('departments').select('status,submitted_at,approved_at').eq('id', currentDept).single();
+    if(!data) return;
+    const status = data.status || 'editing';
+    const bar = document.getElementById('statusBar');
+    const label = document.getElementById('statusLabel');
+    const dateEl = document.getElementById('statusDate');
+    const submitBtn = document.getElementById('submitBtn');
+    const editBtn = document.getElementById('editBtn');
+    bar.style.display = 'block';
+    if(status === 'editing') {
+        bar.style.background = '#f8fafc'; bar.style.borderColor = '#e2e8f0';
+        label.textContent = '✏️ בעריכה'; label.style.color = '#64748b';
+        dateEl.textContent = '';
+        submitBtn.style.display = 'block'; editBtn.style.display = 'none';
+    } else if(status === 'pending') {
+        bar.style.background = '#fff7ed'; bar.style.borderColor = '#f97316';
+        label.textContent = '⏳ ממתין לאישור מנהלת'; label.style.color = '#c2410c';
+        dateEl.textContent = data.submitted_at ? 'נשלח: ' + new Date(data.submitted_at).toLocaleDateString('he-IL') : '';
+        submitBtn.style.display = 'none'; editBtn.style.display = 'block';
+    } else if(status === 'approved') {
+        bar.style.background = '#f0fdf4'; bar.style.borderColor = '#10b981';
+        label.textContent = '✅ מאושר על ידי מנהלת'; label.style.color = '#065f46';
+        dateEl.textContent = data.approved_at ? 'אושר: ' + new Date(data.approved_at).toLocaleDateString('he-IL') : '';
+        submitBtn.style.display = 'none'; editBtn.style.display = 'none';
+    } else if(status === 'approved_dirty') {
+        bar.style.background = '#fff1f2'; bar.style.borderColor = '#ef4444';
+        label.textContent = '⚠️ שונה לאחר אישור!'; label.style.color = '#b91c1c';
+        dateEl.textContent = data.dirty_at ? 'שונה: ' + new Date(data.dirty_at).toLocaleDateString('he-IL') : '';
+        submitBtn.style.display = 'block'; editBtn.style.display = 'none';
+    }
+}
+
+async function submitForApproval() {
+    if(!currentDept) return;
+    if(!confirm('לשלוח את המגמה לאישור מנהלת?')) return;
+    const { error } = await sb.from('departments').update({ status: 'pending', submitted_at: new Date().toISOString() }).eq('id', currentDept);
+    if(error) { showToast('שגיאה: ' + error.message); return; }
+    if(deptConfig) deptConfig.status = 'pending';
+    updateStatusBar();
+    showToast('📤 נשלח לאישור מנהלת');
+}
+
+async function returnToEditing() {
+    if(!currentDept) return;
+    if(!confirm('להחזיר למצב עריכה?')) return;
+    const { error } = await sb.from('departments').update({ status: 'editing', submitted_at: null }).eq('id', currentDept);
+    if(error) { showToast('שגיאה: ' + error.message); return; }
+    if(deptConfig) deptConfig.status = 'editing';
+    updateStatusBar();
+    showToast('✏️ חזר למצב עריכה');
+}
+
 function showToast(msg) {
     const t = document.getElementById('toast');
     t.textContent = msg;
     t.classList.add('show');
     setTimeout(() => t.classList.remove('show'), 3000);
 }
+
+// ===== DIRTY FLAG =====
+async function markDirtyIfApproved() {
+    if(!currentDept) return;
+    const { data } = await sb.from('departments').select('status').eq('id', currentDept).single();
+    if(data && data.status === 'approved') {
+        await sb.from('departments').update({
+            status: 'approved_dirty',
+            dirty_at: new Date().toISOString()
+        }).eq('id', currentDept);
+        if(deptConfig) deptConfig.status = 'approved_dirty';
+        updateStatusBar();
+    }
+}
+// ===== END DIRTY FLAG =====
 
 init();
 </script>

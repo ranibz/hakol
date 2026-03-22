@@ -309,6 +309,7 @@ async function addPlacement() {
     if(!teacher_id||!subject) { showToast('נא לבחור מורה ומקצוע'); return; }
     const { error } = await sb.from('placements').insert({ teacher_id, dept_id: deptId, year, grade, subject, contact, bonus });
     if(error) { showToast('שגיאה: '+error.message); return; }
+    await markDirtyIfApproved();
     showToast('✅ שיבוץ נוסף');
     loadPlacements();
 }
@@ -316,6 +317,7 @@ async function addPlacement() {
 async function deletePlacement(id) {
     if(!confirm('למחוק שיבוץ זה?')) return;
     await sb.from('placements').delete().eq('id', id);
+    await markDirtyIfApproved();
     showToast('🗑 נמחק');
     loadPlacements();
 }
@@ -475,6 +477,19 @@ function showToast(msg) {
     t.textContent=msg; t.classList.add('show');
     setTimeout(()=>t.classList.remove('show'),3000);
 }
+
+// ===== DIRTY FLAG =====
+async function markDirtyIfApproved() {
+    if(!deptId) return;
+    const { data } = await sb.from('departments').select('status').eq('id', deptId).single();
+    if(data && data.status === 'approved') {
+        await sb.from('departments').update({
+            status: 'approved_dirty',
+            dirty_at: new Date().toISOString()
+        }).eq('id', deptId);
+    }
+}
+// ===== END DIRTY FLAG =====
 
 init();
 </script>

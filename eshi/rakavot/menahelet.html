@@ -177,6 +177,8 @@
             <button class="tab-btn" id="tbtn-teachers" onclick="switchTab('teachers')">👩‍🏫 מאגר מורים</button>
             <button class="tab-btn" id="tbtn-import" onclick="switchTab('import')">📥 ייבוא מאקסל</button>
             <button class="tab-btn" id="tbtn-pm" onclick="switchTab('pm')">👤 מנהלות פדגוגיות</button>
+            <button class="tab-btn" id="tbtn-roles" onclick="switchTab('roles')">🏷️ תפקידים</button>
+            <button class="tab-btn" id="tbtn-mishrot" onclick="switchTab('mishrot')">📋 משרות מורים</button>
         </div>
 
         <!-- TAB: דשבורד -->
@@ -189,6 +191,10 @@
                     <button class="btn-csv" onclick="exportAll()">⬇ ייצוא לאקסל</button>
                 </div>
                 <div id="dashPMGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;margin-bottom:24px;"></div>
+                <div class="card" id="pendingCard" style="display:none;margin-bottom:20px;border:2px solid #f97316;">
+                    <h2 style="color:#c2410c;">⏳ מגמות הממתינות לאישור / שונו לאחר אישור</h2>
+                    <div id="pendingList"></div>
+                </div>
                 <div class="card">
                     <h2>⚠️ חריגות משרה — כלל ביה"ס</h2>
                     <div id="dashAlerts"></div>
@@ -212,10 +218,6 @@
         </div>
 
         <!-- TAB: מאגר מורים -->
-            <button class="tab-btn active" id="tbtn-teachers" onclick="switchTab('teachers')">👩‍🏫 מאגר מורים</button>
-            <button class="tab-btn" id="tbtn-import" onclick="switchTab('import')">📥 ייבוא מאקסל</button>
-            <button class="tab-btn" id="tbtn-pm" onclick="switchTab('pm')">👤 מנהלות פדגוגיות</button>
-            <button class="tab-btn" id="tbtn-alerts" onclick="switchTab('alerts')">⚠️ חריגות משרה</button>
         </div>
 
         <!-- TAB: מאגר מורים -->
@@ -303,6 +305,122 @@
     </div>
 </div>
 
+
+        <!-- TAB: תפקידים -->
+        <div id="tab-roles" class="tab-content">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:24px;">
+                <!-- ייבוא מאקסל -->
+                <div class="card">
+                    <h2>📊 ייבוא תפקידים מאקסל</h2>
+                    <p style="font-size:13px;color:#64748b;margin-bottom:16px;line-height:1.6;">הקובץ צריך להכיל שני עמודות: <strong>שם תפקיד</strong> בעמודה הראשונה, <strong>מספר שעות</strong> בעמודה השנייה (ללא כותרות).</p>
+                    <div class="drop-zone" id="rolesDropZone" onclick="document.getElementById('rolesFileInput').click()" ondragover="onRolesDragOver(event)" ondragleave="onRolesDragLeave(event)" ondrop="onRolesDrop(event)" style="padding:30px 20px;">
+                        <div class="icon" style="font-size:36px;margin-bottom:10px;">📋</div>
+                        <h3 style="font-size:15px;">גרור קובץ אקסל לכאן</h3>
+                        <p>או לחץ לבחירת קובץ — תומך ב-xlsx</p>
+                    </div>
+                    <input type="file" id="rolesFileInput" accept=".xlsx,.xls" onchange="onRolesFileSelect(event)" style="display:none">
+                    <div id="rolesImportPreview" style="display:none;margin-top:16px;">
+                        <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;flex-wrap:wrap;">
+                            <span id="rolesImportCount" style="font-size:13px;color:#64748b;font-weight:700;"></span>
+                            <button class="btn-success" onclick="doRolesImport()">⬆ ייבא תפקידים</button>
+                            <button class="btn-danger" onclick="cancelRolesImport()">ביטול</button>
+                        </div>
+                        <div style="border:1px solid var(--border);border-radius:10px;overflow:hidden;max-height:200px;overflow-y:auto;">
+                            <table style="width:100%;border-collapse:collapse;font-size:13px;">
+                                <thead><tr style="background:var(--admin);color:white;"><th style="padding:9px 14px;text-align:right;">שם תפקיד</th><th style="padding:9px 14px;text-align:center;">שעות</th></tr></thead>
+                                <tbody id="rolesPreviewBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                <!-- הוספה ידנית -->
+                <div class="card">
+                    <h2>✏️ הוספת תפקיד ידני</h2>
+                    <div class="form-group">
+                        <label>שם התפקיד</label>
+                        <input type="text" id="newRoleName" placeholder="לדוגמה: מחנך/ת">
+                    </div>
+                    <div class="form-group">
+                        <label>מספר שעות ברירת מחדל</label>
+                        <input type="number" id="newRoleHours" placeholder="לדוגמה: 2" step="0.5" min="0.5">
+                    </div>
+                    <button class="btn-primary" onclick="addRoleDef()">+ הוסף תפקיד</button>
+                </div>
+            </div>
+            <!-- רשימת תפקידים קיימים -->
+            <div class="card">
+                <h2>📋 תפקידים במערכת</h2>
+                <div id="rolesTableWrap">
+                    <div class="loading"><div class="spinner"></div><br>טוען...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB: משרות מורים -->
+        <div id="tab-mishrot" class="tab-content">
+            <style>
+                .mish-toolbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px;}
+                .mish-table{width:100%;border-collapse:collapse;font-size:13px;background:white;border-radius:16px;overflow:hidden;box-shadow:0 4px 10px rgba(0,0,0,0.05);}
+                .mish-table th{background:var(--admin);color:white;padding:12px 14px;text-align:right;white-space:nowrap;}
+                .mish-table td{padding:11px 14px;border-bottom:1px solid #f1f5f9;vertical-align:middle;}
+                .mish-tr:hover td{background:#f5f3ff;cursor:pointer;}
+                .mish-expand{display:none;}
+                .mish-expand.open{display:table-row;}
+                .mish-expand td{background:#f8fafc;padding:16px 20px;}
+                .roles-list{display:flex;flex-direction:column;gap:8px;margin-bottom:12px;}
+                .role-row{display:flex;align-items:center;gap:10px;background:white;border:1px solid var(--border);border-radius:10px;padding:10px 14px;}
+                .role-name{flex:1;font-weight:700;font-size:13px;}
+                .role-hrs{font-family:monospace;font-weight:900;color:var(--primary);font-size:14px;min-width:40px;text-align:center;}
+                .btn-del-role{background:#fee2e2;color:var(--danger);border:none;width:26px;height:26px;border-radius:50%;cursor:pointer;font-size:13px;font-weight:bold;flex-shrink:0;}
+                .add-role-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+                .role-select{padding:9px 12px;border:2px solid var(--border);border-radius:10px;font-family:Heebo,sans-serif;font-size:13px;outline:none;min-width:180px;}
+                .role-select:focus{border-color:var(--primary);}
+                .role-hrs-input{width:75px;padding:9px 10px;border:2px solid var(--border);border-radius:10px;font-family:Heebo,sans-serif;font-size:13px;text-align:center;outline:none;}
+                .role-hrs-input:focus{border-color:var(--primary);}
+                .btn-add-role{padding:9px 16px;background:var(--primary);color:white;border:none;border-radius:10px;font-family:Heebo,sans-serif;font-size:13px;font-weight:800;cursor:pointer;white-space:nowrap;}
+                .pct-cell{display:flex;align-items:center;gap:8px;}
+                .pct-bar{background:var(--border);border-radius:4px;height:7px;width:60px;overflow:hidden;display:inline-block;}
+                .pct-fill{height:100%;border-radius:4px;display:block;}
+                .prev-year-cell{font-size:11px;color:#94a3b8;}
+                .prev-up{color:#10b981;font-weight:700;}
+                .prev-down{color:#f97316;font-weight:700;}
+                .expand-arrow{font-size:10px;color:#94a3b8;margin-right:4px;transition:transform 0.2s;}
+                .expand-arrow.open{transform:rotate(90deg);}
+                .notes-inp{width:100%;padding:6px 10px;border:2px solid var(--border);border-radius:8px;font-family:Heebo,sans-serif;font-size:12px;outline:none;}
+                .notes-inp:focus{border-color:var(--primary);}
+            </style>
+            <div class="mish-toolbar">
+                <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+                    <select id="mishrotYear" onchange="loadMishrot()" style="padding:10px 14px;border:2px solid var(--border);border-radius:10px;font-family:Heebo,sans-serif;font-size:14px;font-weight:700;outline:none;">
+                        <option value="תשפו" selected>תשפ"ו (נוכחית)</option>
+                        <option value="תשפז">תשפ"ז (הבאה)</option>
+                    </select>
+                    <input type="text" id="mishrotSearch" placeholder="🔍 חיפוש מורה..." oninput="filterMishrot()" style="padding:10px 14px;border:2px solid var(--border);border-radius:10px;font-family:Heebo,sans-serif;font-size:14px;outline:none;min-width:200px;">
+                </div>
+                <button onclick="exportMishrot()" style="background:#16a34a;color:white;border:none;padding:10px 20px;border-radius:10px;font-family:Heebo,sans-serif;font-size:13px;font-weight:800;cursor:pointer;">⬇ ייצוא לאקסל</button>
+            </div>
+            <div style="overflow-x:auto;">
+                <table class="mish-table" id="mishrotTable">
+                    <thead>
+                        <tr>
+                            <th style="width:32px;"></th>
+                            <th>ת.ז</th>
+                            <th>שם מורה</th>
+                            <th style="text-align:center;">מגע</th>
+                            <th style="text-align:center;">גמול</th>
+                            <th style="text-align:center;">תפקידים</th>
+                            <th style="text-align:center;" title="שעות גיל אוטומטיות לפי תאריך לידה">גיל 🎂</th>
+                            <th style="text-align:center;">סה"כ</th>
+                            <th style="text-align:center;">% משרה</th>
+                            <th style="text-align:center;">שנה קודמת</th>
+                            <th>הערות</th>
+                        </tr>
+                    </thead>
+                    <tbody id="mishrotBody"></tbody>
+                </table>
+            </div>
+            <div id="mishrotEmpty" style="text-align:center;padding:40px;color:#94a3b8;display:none;">אין נתונים לשנה זו</div>
+        </div>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -330,7 +448,7 @@ document.getElementById('loginPass').addEventListener('keyup', e => { if(e.key==
 
 // LOAD ALL
 async function loadAll() {
-    await Promise.all([loadTeachers(), loadPMs(), loadPlacements(), loadDepts()]);
+    await Promise.all([loadTeachers(), loadPMs(), loadPlacements(), loadDepts(), loadRoleDefs()]);
     updateStats();
     renderDashboard();
 }
@@ -421,6 +539,7 @@ function processFile(file) {
         const emailCol = headers.findIndex(h => h.includes('דואר') || h.includes('מייל'));
         const subjectsCol = headers.findIndex(h => h.includes('מקצוע'));
         const roleCol = headers.findIndex(h => h.includes('תפקיד'));
+        const birthCol = headers.findIndex(h => h.includes('תאריך לידה') || h.includes('ת. לידה') || h.includes('ת.לידה') || h.includes('לידה'));
 
         importData = [];
         for(let i = headerRow + 1; i < raw.length; i++) {
@@ -428,6 +547,22 @@ function processFile(file) {
             if(!row || !row[idCol]) continue;
             const idRaw = String(row[idCol]).trim().replace(/\.0$/, '');
             if(!idRaw || idRaw === 'null') continue;
+            // parse birth_date — Excel serial or string
+            let birthDate = null;
+            if(birthCol >= 0 && row[birthCol] != null) {
+                const raw_b = row[birthCol];
+                if(typeof raw_b === 'number') {
+                    // Excel serial date
+                    const d = new Date(Math.round((raw_b - 25569) * 86400 * 1000));
+                    birthDate = d.toISOString().split('T')[0];
+                } else {
+                    const s = String(raw_b).trim();
+                    // try DD/MM/YYYY or YYYY-MM-DD
+                    const dmyMatch = s.match(/^(\d{1,2})[\/.](\d{1,2})[\/.](\d{4})$/);
+                    if(dmyMatch) birthDate = `${dmyMatch[3]}-${dmyMatch[2].padStart(2,'0')}-${dmyMatch[1].padStart(2,'0')}`;
+                    else if(s.match(/^\d{4}-\d{2}-\d{2}$/)) birthDate = s;
+                }
+            }
             importData.push({
                 id_number: idRaw,
                 name: String(row[nameCol] || '').trim(),
@@ -438,6 +573,7 @@ function processFile(file) {
                 email: row[emailCol] ? String(row[emailCol]).trim() : null,
                 subjects: row[subjectsCol] ? String(row[subjectsCol]).trim() : null,
                 role: row[roleCol] ? String(row[roleCol]).trim() : null,
+                birth_date: birthDate,
             });
         }
 
@@ -584,6 +720,13 @@ function switchTab(tab) {
     document.getElementById('tab-' + tab).classList.add('active');
     document.getElementById('tbtn-' + tab).classList.add('active');
     if(tab === 'dashboard') renderDashboard();
+    if(tab === 'mishrot') {
+        // sync year with global selector
+        const gYear = document.getElementById('globalYear').value;
+        document.getElementById('mishrotYear').value = gYear;
+        loadMishrot();
+    }
+    if(tab === 'roles') loadRoleDefs();
 }
 
 
@@ -613,8 +756,21 @@ function renderDashboard() {
 
     renderDashPMGrid(year);
     renderDashAlerts(year);
+    renderPending();
     showDashView('main');
     setDashBreadcrumb([{label:'ראשי',fn:'showDashView(\'main\')'}]);
+}
+
+function getDeptStatus(deptId) {
+    const d = allDepts.find(x => x.id === deptId);
+    return d ? (d.status || 'editing') : 'editing';
+}
+
+function statusColor(status) {
+    if(status === 'approved') return '#10b981';
+    if(status === 'approved_dirty') return '#ef4444';
+    if(status === 'pending') return '#f97316';
+    return 'var(--primary)';
 }
 
 function renderDashPMGrid(year) {
@@ -626,18 +782,52 @@ function renderDashPMGrid(year) {
         const loads2 = {};
         pmp.forEach(p=>{if(!loads2[p.teacher_id])loads2[p.teacher_id]={total:0};loads2[p.teacher_id].total+=(parseFloat(p.contact)||0)+(parseFloat(p.bonus)||0);});
         const alerts = Object.values(loads2).filter(l=>{const pct=l.total/25*100;return pct>100||(pct<50&&l.total>0);}).length;
-        return `<div onclick="showDashPM('${pm.name.replace(/'/g,"\\'")}')" style="background:white;border-radius:18px;padding:20px;border:1px solid var(--border);border-right:6px solid var(--primary);cursor:pointer;box-shadow:0 4px 10px rgba(0,0,0,0.04);transition:0.2s;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform=''">
-            <div style="font-family:'Secular One';font-size:17px;color:var(--admin);margin-bottom:6px;">${pm.name} ${alerts?'🔴':''}</div>
-            <div style="font-size:12px;color:var(--primary);font-weight:700;margin-bottom:12px;">${depts.join(' | ')}</div>
+
+        const deptStatuses = depts.map(d => getDeptStatus(d));
+        const hasEditing  = deptStatuses.some(s => s === 'editing');
+        const hasPending  = deptStatuses.some(s => s === 'pending');
+        const hasApproved = deptStatuses.length > 0 && deptStatuses.every(s => s === 'approved');
+
+        const hasDirty    = deptStatuses.some(s => s === 'approved_dirty');
+
+        const dot = hasDirty
+            ? '<span style="color:#ef4444;font-size:15px;" title="שונה לאחר אישור!">●</span>'
+            : hasApproved
+                ? '<span style="color:#10b981;font-size:15px;" title="כל המגמות מאושרות">●</span>'
+                : hasPending && !hasEditing
+                    ? '<span style="color:#f97316;font-size:15px;" title="ממתין לאישור">●</span>'
+                    : '<span style="color:#ef4444;font-size:15px;" title="בעריכה">●</span>';
+
+        const statusTag = hasDirty
+            ? '<span style="background:#fee2e2;color:#b91c1c;font-size:10px;font-weight:800;padding:2px 8px;border-radius:20px;margin-right:6px;">⚠️ שונה אחרי אישור</span>'
+            : hasApproved
+                ? '<span style="background:#dcfce7;color:#166534;font-size:10px;font-weight:800;padding:2px 8px;border-radius:20px;margin-right:6px;">✓ מאושר</span>'
+                : hasPending && !hasEditing
+                    ? '<span style="background:#fff7ed;color:#c2410c;font-size:10px;font-weight:800;padding:2px 8px;border-radius:20px;margin-right:6px;">⏳ ממתין</span>'
+                    : '<span style="background:#f1f5f9;color:#64748b;font-size:10px;font-weight:800;padding:2px 8px;border-radius:20px;margin-right:6px;">✏️ עריכה</span>';
+
+        const borderColor = hasDirty ? '#ef4444' : hasApproved ? '#10b981' : hasPending && !hasEditing ? '#f97316' : 'var(--primary)';
+
+        const pmIdx = allPMs.indexOf(pm);
+        return `<div data-pmidx="${pmIdx}" onclick="showDashPMByIdx(this)" style="background:white;border-radius:18px;padding:20px;border:1px solid var(--border);border-right:6px solid ${borderColor};cursor:pointer;box-shadow:0 4px 10px rgba(0,0,0,0.04);transition:0.2s;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform=''">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+                ${dot}
+                <span style="font-family:'Secular One';font-size:17px;color:var(--admin);">${pm.name}</span>
+                ${alerts ? `<span style="background:#fee2e2;color:#ef4444;font-size:10px;font-weight:800;padding:2px 8px;border-radius:20px;">⚠️ ${alerts}</span>` : ''}
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;">
+                ${statusTag}
+                <span style="font-size:12px;color:var(--primary);font-weight:700;">${depts.join(' | ')}</span>
+            </div>
             <div style="display:flex;gap:14px;">
                 <div style="text-align:center;"><div style="font-family:'Secular One';font-size:20px;">${c.toFixed(0)}</div><div style="font-size:10px;color:#94a3b8;">מגע</div></div>
                 <div style="text-align:center;"><div style="font-family:'Secular One';font-size:20px;">${b.toFixed(0)}</div><div style="font-size:10px;color:#94a3b8;">גמול</div></div>
                 <div style="text-align:center;"><div style="font-family:'Secular One';font-size:20px;color:var(--primary);">${(c+b).toFixed(0)}</div><div style="font-size:10px;color:#94a3b8;">סה"כ</div></div>
-                ${alerts?`<div style="text-align:center;"><div style="font-family:'Secular One';font-size:20px;color:var(--danger);">${alerts}</div><div style="font-size:10px;color:#94a3b8;">חריגות</div></div>`:''}
             </div>
         </div>`;
     }).join('') || '<div style="color:#94a3b8;padding:20px;">אין מנהלות פדגוגיות</div>';
 }
+
 
 function renderDashAlerts(year) {
     const loads = calcLoads(year);
@@ -647,6 +837,11 @@ function renderDashAlerts(year) {
             alerts.map(([id,l])=>{const pct=(l.total/25*100).toFixed(0);return `<tr><td style="font-family:monospace;font-size:11px;">${id}</td><td style="font-weight:800;">${l.name}</td><td style="font-size:11px;color:#64748b;">${[...l.depts].join(', ')}</td><td style="text-align:center;font-weight:900;">${l.total.toFixed(1)}</td><td style="font-weight:900;color:${pct>100?'var(--danger)':'var(--warning)'};">${pct}%</td></tr>`;}).join('')
           }</tbody></table>`
         : '<div style="color:var(--success);font-weight:700;padding:10px;">✅ אין חריגות משרה</div>';
+}
+
+function showDashPMByIdx(el) {
+    const idx = parseInt(el.dataset.pmidx);
+    if(!isNaN(idx) && allPMs[idx]) showDashPM(allPMs[idx].name);
 }
 
 function showDashPM(pmName) {
@@ -675,6 +870,10 @@ function showDashPM(pmName) {
 
 async function showDashDept(deptId) {
     dashCurrentDept = deptId;
+    const dept = allDepts.find(d => d.id === deptId);
+    if(dept && dept.status !== 'approved') {
+        showToast('⚠️ המגמה עדיין לא אושרה — ניתן לצפות בלבד');
+    }
     const year = document.getElementById('globalYear').value;
     const { data: placements } = await sb.from('placements').select('*, teachers(name,id_number)').eq('dept_id',deptId).eq('year',year);
     const dp = placements || [];
@@ -870,7 +1069,635 @@ ${r.isNew?`<text x="${x+barW}" y="${svgH-2}" text-anchor="middle" font-size="8" 
 }
 // ===== END COMPARISON =====
 
+
+async function renderPending() {
+    const pending = allDepts.filter(d => d.status === 'pending' || d.status === 'approved_dirty');
+    const card = document.getElementById('pendingCard');
+    const list = document.getElementById('pendingList');
+    if(!pending.length) { card.style.display='none'; return; }
+    card.style.display = 'block';
+    list.innerHTML = pending.map(d => {
+        const date = d.submitted_at ? new Date(d.submitted_at).toLocaleDateString('he-IL') : '—';
+        const pm = allPMs.find(p => (p.assigned_depts||[]).includes(d.id));
+        const isDirty = d.status === 'approved_dirty';
+        const dirtyDate = d.dirty_at ? 'שונה: ' + new Date(d.dirty_at).toLocaleDateString('he-IL') : '';
+        return `<div style="display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid #f1f5f9;flex-wrap:wrap;gap:10px;${isDirty?'background:#fff1f2;':''}">
+            <div>
+                <div style="font-weight:800;font-size:15px;">${isDirty?'⚠️':'📚'} ${d.id}</div>
+                <div style="font-size:12px;color:${isDirty?'#b91c1c':'#64748b'};">
+                    ${isDirty ? 'שונה לאחר אישור! ' + dirtyDate : 'מנהלת: ' + (pm?.name||'—') + ' | נשלח: ' + date}
+                </div>
+            </div>
+            <div style="display:flex;gap:8px;">
+                ${isDirty ? `<button onclick="showDirtyComparison('${d.id}')" style="padding:9px 18px;background:#fff7ed;color:#c2410c;border:2px solid #f97316;border-radius:10px;font-family:Heebo,sans-serif;font-size:13px;font-weight:800;cursor:pointer;">🔍 צפה בשינויים</button>` : ''}
+                <button onclick="approveDept('${d.id}')" style="padding:9px 18px;background:${isDirty?'#ef4444':'#10b981'};color:white;border:none;border-radius:10px;font-family:Heebo,sans-serif;font-size:13px;font-weight:800;cursor:pointer;">${isDirty?'✅ אשר מחדש':'✅ אשר'}</button>
+                ${!isDirty ? `<button onclick="rejectDept('${d.id}')" style="padding:9px 18px;background:#fee2e2;color:#ef4444;border:none;border-radius:10px;font-family:Heebo,sans-serif;font-size:13px;font-weight:800;cursor:pointer;">↩️ החזר</button>` : ''}
+            </div>
+        </div>`;
+    }).join('');
+}
+
+async function approveDept(deptId) {
+    if(!confirm('לאשר את מגמת ' + deptId + '?')) return;
+
+    // שמור snapshot של כל השיבוצים לפני האישור
+    const year = document.getElementById('globalYear').value;
+    const { data: placements } = await sb.from('placements')
+        .select('*, teachers(name,id_number)')
+        .eq('dept_id', deptId)
+        .eq('year', year);
+    const snapshot = (placements||[]).map(p => ({
+        teacher_id: p.teacher_id,
+        teacher_name: p.teachers?.name || p.teacher_id,
+        subject: p.subject,
+        grade: p.grade,
+        contact: p.contact,
+        bonus: p.bonus
+    }));
+    await sb.from('dept_snapshots').insert({
+        dept_id: deptId,
+        year,
+        snapshot,
+        approved_at: new Date().toISOString()
+    });
+
+    await sb.from('departments').update({
+        status: 'approved',
+        approved_at: new Date().toISOString(),
+        dirty_at: null
+    }).eq('id', deptId);
+
+    showToast('✅ מגמת ' + deptId + ' אושרה');
+    await loadDepts();
+    renderDashboard();
+}
+
+async function rejectDept(deptId) {
+    if(!confirm('להחזיר את מגמת ' + deptId + ' לעריכה?')) return;
+    await sb.from('departments').update({ status: 'editing', submitted_at: null }).eq('id', deptId);
+    showToast('↩️ מגמת ' + deptId + ' הוחזרה לעריכה');
+    await loadDepts();
+    renderDashboard();
+}
+
+async function showDirtyComparison(deptId) {
+    const year = document.getElementById('globalYear').value;
+
+    // טען snapshot אחרון
+    const { data: snaps } = await sb.from('dept_snapshots')
+        .select('*')
+        .eq('dept_id', deptId)
+        .eq('year', year)
+        .order('approved_at', { ascending: false })
+        .limit(1);
+    const snap = snaps?.[0];
+    if(!snap) { showToast('אין snapshot שמור לאישור האחרון'); return; }
+
+    // טען נתונים נוכחיים
+    const { data: current } = await sb.from('placements')
+        .select('*, teachers(name,id_number)')
+        .eq('dept_id', deptId)
+        .eq('year', year);
+
+    const snapMap = {};
+    (snap.snapshot||[]).forEach(s => {
+        const key = s.teacher_id + '|' + s.subject + '|' + s.grade;
+        snapMap[key] = s;
+    });
+    const currMap = {};
+    (current||[]).forEach(p => {
+        const key = p.teacher_id + '|' + p.subject + '|' + p.grade;
+        currMap[key] = { teacher_name: p.teachers?.name||p.teacher_id, subject: p.subject, grade: p.grade, contact: p.contact, bonus: p.bonus };
+    });
+
+    const allKeys = new Set([...Object.keys(snapMap), ...Object.keys(currMap)]);
+    const changes = [];
+    allKeys.forEach(key => {
+        const s = snapMap[key];
+        const c = currMap[key];
+        if(!s && c) changes.push({ type:'added',   ...c });
+        else if(s && !c) changes.push({ type:'removed', ...s });
+        else if(s && c) {
+            if(parseFloat(s.contact)!==parseFloat(c.contact) || parseFloat(s.bonus)!==parseFloat(c.bonus)) {
+                changes.push({ type:'changed', ...c,
+                    old_contact: s.contact, old_bonus: s.bonus,
+                    new_contact: c.contact, new_bonus: c.bonus });
+            }
+        }
+    });
+
+    if(!changes.length) { showToast('לא נמצאו שינויים לעומת האישור האחרון'); return; }
+
+    const approvedDate = new Date(snap.approved_at).toLocaleDateString('he-IL');
+    const rows = changes.map(ch => {
+        if(ch.type==='added') return `<tr style="background:#f0fdf4;">
+            <td style="padding:9px 14px;font-weight:800;color:#166534;">+ נוסף</td>
+            <td style="padding:9px 14px;font-weight:800;">${ch.teacher_name}</td>
+            <td style="padding:9px 14px;">${ch.subject||'—'}</td>
+            <td style="padding:9px 14px;text-align:center;">${ch.grade||'—'}</td>
+            <td style="padding:9px 14px;text-align:center;">—</td>
+            <td style="padding:9px 14px;text-align:center;font-weight:800;color:#166534;">${parseFloat(ch.contact).toFixed(1)} / ${parseFloat(ch.bonus).toFixed(1)}</td>
+        </tr>`;
+        if(ch.type==='removed') return `<tr style="background:#fff1f2;">
+            <td style="padding:9px 14px;font-weight:800;color:#b91c1c;">− הוסר</td>
+            <td style="padding:9px 14px;font-weight:800;">${ch.teacher_name}</td>
+            <td style="padding:9px 14px;">${ch.subject||'—'}</td>
+            <td style="padding:9px 14px;text-align:center;">${ch.grade||'—'}</td>
+            <td style="padding:9px 14px;text-align:center;font-weight:800;color:#b91c1c;">${parseFloat(ch.old_contact).toFixed(1)} / ${parseFloat(ch.old_bonus).toFixed(1)}</td>
+            <td style="padding:9px 14px;text-align:center;">—</td>
+        </tr>`;
+        return `<tr style="background:#fff7ed;">
+            <td style="padding:9px 14px;font-weight:800;color:#c2410c;">~ שונה</td>
+            <td style="padding:9px 14px;font-weight:800;">${ch.teacher_name}</td>
+            <td style="padding:9px 14px;">${ch.subject||'—'}</td>
+            <td style="padding:9px 14px;text-align:center;">${ch.grade||'—'}</td>
+            <td style="padding:9px 14px;text-align:center;color:#c2410c;text-decoration:line-through;">${parseFloat(ch.old_contact).toFixed(1)} / ${parseFloat(ch.old_bonus).toFixed(1)}</td>
+            <td style="padding:9px 14px;text-align:center;font-weight:800;color:#c2410c;">${parseFloat(ch.new_contact).toFixed(1)} / ${parseFloat(ch.new_bonus).toFixed(1)}</td>
+        </tr>`;
+    }).join('');
+
+    const html = `<div style="background:white;border-radius:16px;border:2px solid #ef4444;padding:20px;margin-top:20px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px;">
+            <h3 style="font-family:'Secular One';font-size:18px;color:#b91c1c;margin:0;">⚠️ שינויים לאחר אישור — ${deptId}</h3>
+            <span style="font-size:12px;color:#64748b;">לעומת אישור מ-${approvedDate}</span>
+        </div>
+        <div style="overflow-x:auto;">
+            <table style="width:100%;border-collapse:collapse;font-size:13px;">
+                <thead><tr style="background:#1e293b;color:white;">
+                    <th style="padding:9px 14px;text-align:right;">סוג</th>
+                    <th style="padding:9px 14px;text-align:right;">מורה</th>
+                    <th style="padding:9px 14px;text-align:right;">מקצוע</th>
+                    <th style="padding:9px 14px;text-align:center;">שכבה</th>
+                    <th style="padding:9px 14px;text-align:center;">לפני (מגע/גמול)</th>
+                    <th style="padding:9px 14px;text-align:center;">עכשיו (מגע/גמול)</th>
+                </tr></thead>
+                <tbody>${rows}</tbody>
+            </table>
+        </div>
+    </div>`;
+
+    // הצג מתחת לכרטיס הממתינים
+    let el = document.getElementById('dirtyComparePanel');
+    if(!el) { el = document.createElement('div'); el.id='dirtyComparePanel'; document.getElementById('pendingCard').after(el); }
+    el.innerHTML = html;
+    el.scrollIntoView({ behavior:'smooth', block:'nearest' });
+}
+
 // ===== END DASHBOARD =====
+
+// ===== ROLE DEFINITIONS =====
+let rolesImportData = [];
+
+async function loadRoleDefs() {
+    const { data, error } = await sb.from('role_definitions').select('*').order('name');
+    allRoleDefinitions = (data || []).map(r => ({ id: r.id, name: r.name, default_hours: parseFloat(r.default_hours)||0 }));
+    renderRoleDefsTable();
+}
+
+function renderRoleDefsTable() {
+    const wrap = document.getElementById('rolesTableWrap');
+    if(!allRoleDefinitions.length) {
+        wrap.innerHTML = '<div style="text-align:center;padding:30px;color:#94a3b8;">אין תפקידים במערכת — ייבא מאקסל או הוסף ידנית</div>';
+        return;
+    }
+    wrap.innerHTML = `<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:13px;">
+        <thead><tr style="background:var(--admin);color:white;">
+            <th style="padding:11px 16px;text-align:right;">שם תפקיד</th>
+            <th style="padding:11px 16px;text-align:center;">שעות ברירת מחדל</th>
+            <th style="padding:11px 16px;text-align:center;">פעולות</th>
+        </tr></thead>
+        <tbody>${allRoleDefinitions.map(r => `
+        <tr style="border-bottom:1px solid #f1f5f9;" onmouseover="this.style.background='#f5f3ff'" onmouseout="this.style.background=''">
+            <td style="padding:11px 16px;font-weight:800;">${r.name}</td>
+            <td style="padding:11px 16px;text-align:center;">
+                <input type="number" value="${r.default_hours}" step="0.5" min="0"
+                    style="width:70px;padding:5px 8px;border:2px solid var(--border);border-radius:8px;font-family:Heebo,sans-serif;font-size:13px;text-align:center;outline:none;"
+                    onchange="updateRoleDefHours(${r.id},this.value)"
+                    onfocus="this.style.borderColor='var(--primary)'" onblur="this.style.borderColor='var(--border)'">
+            </td>
+            <td style="padding:11px 16px;text-align:center;">
+                <button onclick="deleteRoleDef(${r.id})" style="background:#fee2e2;color:var(--danger);border:none;padding:6px 14px;border-radius:8px;font-family:Heebo,sans-serif;font-size:12px;font-weight:700;cursor:pointer;">מחק</button>
+            </td>
+        </tr>`).join('')}
+        </tbody>
+    </table></div>`;
+}
+
+async function addRoleDef() {
+    const name = document.getElementById('newRoleName').value.trim();
+    const hours = parseFloat(document.getElementById('newRoleHours').value);
+    if(!name) { showToast('יש להזין שם תפקיד'); return; }
+    if(!hours || hours <= 0) { showToast('יש להזין מספר שעות'); return; }
+    const { error } = await sb.from('role_definitions').insert({ name, default_hours: hours });
+    if(error) { showToast('שגיאה: ' + error.message); return; }
+    document.getElementById('newRoleName').value = '';
+    document.getElementById('newRoleHours').value = '';
+    await loadRoleDefs();
+    showToast('✅ תפקיד נוסף');
+}
+
+async function updateRoleDefHours(id, val) {
+    const hours = parseFloat(val)||0;
+    await sb.from('role_definitions').update({ default_hours: hours }).eq('id', id);
+    const r = allRoleDefinitions.find(x => x.id === id);
+    if(r) r.default_hours = hours;
+}
+
+async function deleteRoleDef(id) {
+    if(!confirm('למחוק תפקיד זה מהמערכת?')) return;
+    await sb.from('role_definitions').delete().eq('id', id);
+    await loadRoleDefs();
+    showToast('🗑 תפקיד נמחק');
+}
+
+// ייבוא מאקסל
+function onRolesDragOver(e) { e.preventDefault(); document.getElementById('rolesDropZone').classList.add('drag-over'); }
+function onRolesDragLeave(e) { document.getElementById('rolesDropZone').classList.remove('drag-over'); }
+function onRolesDrop(e) { e.preventDefault(); document.getElementById('rolesDropZone').classList.remove('drag-over'); processRolesFile(e.dataTransfer.files[0]); }
+function onRolesFileSelect(e) { processRolesFile(e.target.files[0]); }
+
+function processRolesFile(file) {
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        const wb = XLSX.read(e.target.result, { type: 'binary' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const raw = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
+        rolesImportData = raw
+            .filter(row => row && row[0] && row[1])
+            .map(row => ({ name: String(row[0]).trim(), default_hours: parseFloat(row[1])||0 }))
+            .filter(r => r.name && r.default_hours > 0);
+        if(!rolesImportData.length) { showToast('לא נמצאו נתונים תקינים בקובץ'); return; }
+        document.getElementById('rolesImportCount').textContent = `נמצאו ${rolesImportData.length} תפקידים`;
+        document.getElementById('rolesPreviewBody').innerHTML = rolesImportData.map(r =>
+            `<tr><td style="padding:8px 14px;font-weight:700;">${r.name}</td><td style="padding:8px 14px;text-align:center;">${r.default_hours}</td></tr>`
+        ).join('');
+        document.getElementById('rolesImportPreview').style.display = 'block';
+    };
+    reader.readAsBinaryString(file);
+}
+
+async function doRolesImport() {
+    if(!rolesImportData.length) return;
+    const { error } = await sb.from('role_definitions')
+        .upsert(rolesImportData, { onConflict: 'name' });
+    if(error) { showToast('שגיאה: ' + error.message); return; }
+    cancelRolesImport();
+    await loadRoleDefs();
+    showToast(`✅ יובאו ${rolesImportData.length} תפקידים`);
+}
+
+function cancelRolesImport() {
+    rolesImportData = [];
+    document.getElementById('rolesImportPreview').style.display = 'none';
+    document.getElementById('rolesFileInput').value = '';
+}
+
+// autofill hours when role selected
+function onRoleSelChange(teacherId) {
+    const sel = document.getElementById('role-sel-'+teacherId);
+    const opt = sel.selectedOptions[0];
+    const hrs = opt ? parseFloat(opt.dataset.hrs)||'' : '';
+    document.getElementById('role-hrs-'+teacherId).value = hrs || '';
+}
+// ===== END ROLE DEFINITIONS =====
+
+// ===== DIRTY FLAG (מנהלת) =====
+async function markDirtyForDept(deptId) {
+    if(!deptId) return;
+    const { data } = await sb.from('departments').select('status').eq('id', deptId).single();
+    if(data && data.status === 'approved') {
+        await sb.from('departments').update({
+            status: 'approved_dirty',
+            dirty_at: new Date().toISOString()
+        }).eq('id', deptId);
+    }
+}
+// ===== END DIRTY FLAG =====
+
+// ===== MISHROT =====
+// תפקידים נטענים מ-DB
+let allRoleDefinitions = []; // {id, name, default_hours}
+let allMishrotData = [], allTeacherRoles = [], allPrevPlacements = [];
+
+// חישוב שעות גיל: גיל ביום 1.9 של שנת הלימודים
+// תשפו = 2025/2026 → 1.9.2025, תשפז = 2026/2027 → 1.9.2026
+function getAgeHours(birthDateStr, hebrewYear) {
+    if(!birthDateStr) return 0;
+    const yearMap = { 'תשפו': 2025, 'תשפז': 2026 };
+    const sepYear = yearMap[hebrewYear] || (new Date().getFullYear());
+    const sep1 = new Date(sepYear, 8, 1); // 1 בספטמבר
+    const birth = new Date(birthDateStr);
+    if(isNaN(birth)) return 0;
+    let age = sepYear - birth.getFullYear();
+    const hasBirthdayPassed = (birth.getMonth() < 8) || (birth.getMonth() === 8 && birth.getDate() <= 1);
+    if(!hasBirthdayPassed) age--;
+    if(age >= 55) return 4;
+    if(age >= 50) return 2;
+    return 0;
+}
+
+async function loadMishrot() {
+    const year = document.getElementById('mishrotYear').value;
+    const prevYear = getPrevMishrotYear(year);
+
+    const [placementsRes, rolesRes, prevPlRes, notesRes] = await Promise.all([
+        sb.from('placements').select('*, teachers(name,id_number)').eq('year', year),
+        sb.from('teacher_roles').select('*').eq('year', year),
+        prevYear ? sb.from('placements').select('teacher_id,contact,bonus').eq('year', prevYear) : Promise.resolve({data:[]}),
+        sb.from('teacher_hours').select('teacher_id,notes').eq('year', year)
+    ]);
+
+    const placements = placementsRes.data || [];
+    allTeacherRoles = rolesRes.data || [];
+    allPrevPlacements = prevPlRes.data || [];
+    const notesData = notesRes.data || [];
+
+    // שעות מגע וגמול מ-placements
+    const loads = {};
+    placements.forEach(p => {
+        const id = p.teacher_id;
+        if(!loads[id]) {
+            const t = allTeachers.find(x => x.id_number === id);
+            loads[id] = { name: p.teachers?.name || id, contact:0, bonus:0, birth_date: t?.birth_date || null };
+        }
+        loads[id].contact += parseFloat(p.contact)||0;
+        loads[id].bonus  += parseFloat(p.bonus)||0;
+    });
+
+    // הוסף מורים שיש להם תפקידים אבל לא שיבוצים
+    allTeacherRoles.forEach(r => {
+        if(!loads[r.teacher_id]) {
+            const t = allTeachers.find(x => x.id_number === r.teacher_id);
+            loads[r.teacher_id] = { name: t?.name || r.teacher_id, contact:0, bonus:0, birth_date: t?.birth_date || null };
+        }
+    });
+
+    // הוסף את כל המורים מהמאגר — גם אם אין להם שיבוצים ותפקידים
+    allTeachers.forEach(t => {
+        if(!loads[t.id_number]) {
+            loads[t.id_number] = { name: t.name, contact:0, bonus:0, birth_date: t.birth_date || null };
+        }
+    });
+
+    // שנה קודמת — סה"כ לכל מורה
+    const prevTotals = {};
+    allPrevPlacements.forEach(p => {
+        if(!prevTotals[p.teacher_id]) prevTotals[p.teacher_id] = 0;
+        prevTotals[p.teacher_id] += (parseFloat(p.contact)||0)+(parseFloat(p.bonus)||0);
+    });
+    // הוסף תפקידים שנה קודמת
+    if(prevYear) {
+        const {data: prevRoles} = await sb.from('teacher_roles').select('teacher_id,hours').eq('year', prevYear);
+        (prevRoles||[]).forEach(r => {
+            if(!prevTotals[r.teacher_id]) prevTotals[r.teacher_id]=0;
+            prevTotals[r.teacher_id] += parseFloat(r.hours)||0;
+        });
+    }
+
+    // פירוט לפי מגמה לכל מורה
+    const deptBreakdown = {};
+    placements.forEach(p => {
+        const id = p.teacher_id;
+        if(!deptBreakdown[id]) deptBreakdown[id] = {};
+        const dept = p.dept_id || '—';
+        if(!deptBreakdown[id][dept]) deptBreakdown[id][dept] = { contact:0, bonus:0 };
+        deptBreakdown[id][dept].contact += parseFloat(p.contact)||0;
+        deptBreakdown[id][dept].bonus  += parseFloat(p.bonus)||0;
+    });
+
+    allMishrotData = Object.entries(loads).map(([id, d]) => {
+        const roles = allTeacherRoles.filter(r => r.teacher_id === id);
+        const roleHours = roles.reduce((s,r) => s+(parseFloat(r.hours)||0), 0);
+        const note = notesData.find(n => n.teacher_id === id);
+        const ageHours = getAgeHours(d.birth_date, year);
+        return {
+            id, name: d.name,
+            contact: d.contact, bonus: d.bonus,
+            roles, roleHours,
+            ageHours,
+            birth_date: d.birth_date,
+            depts: deptBreakdown[id] || {},
+            prevTotal: prevTotals[id] || null,
+            notes: note?.notes || ''
+        };
+    }).sort((a,b) => a.name.localeCompare(b.name, 'he'));
+
+    renderMishrot(allMishrotData);
+}
+
+function getPrevMishrotYear(year) {
+    const order = ['תשפו','תשפז'];
+    const i = order.indexOf(year);
+    return i > 0 ? order[i-1] : null;
+}
+
+function filterMishrot() {
+    const q = document.getElementById('mishrotSearch').value.toLowerCase();
+    renderMishrot(allMishrotData.filter(r => r.name.toLowerCase().includes(q) || r.id.includes(q)));
+}
+
+function renderMishrot(data) {
+    const empty = document.getElementById('mishrotEmpty');
+    if(!data.length) { document.getElementById('mishrotBody').innerHTML=''; empty.style.display='block'; return; }
+    empty.style.display = 'none';
+
+    document.getElementById('mishrotBody').innerHTML = data.map((r,i) => {
+        const total = r.contact + r.bonus + r.roleHours + r.ageHours;
+        const pct = total/25*100;
+        const color = pct>100?'#ef4444':pct<50&&total>0?'#f97316':'#10b981';
+        const prevDiff = r.prevTotal !== null ? (total - r.prevTotal) : null;
+        const prevLabel = r.prevTotal !== null
+            ? `<span class="${prevDiff>0.05?'prev-up':prevDiff<-0.05?'prev-down':''}">${prevDiff>0.05?'▲':prevDiff<-0.05?'▼':'='} ${r.prevTotal.toFixed(1)}</span>`
+            : '<span style="color:#cbd5e1">—</span>';
+
+        const rolesSummary = r.roles.length
+            ? r.roles.map(rl=>`<span style="background:#ede9fe;color:#5b21b6;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;margin:1px;display:inline-block;">${rl.role_name} ${parseFloat(rl.hours).toFixed(1)}</span>`).join('')
+            : '<span style="color:#cbd5e1;font-size:12px;">לחץ להוספה</span>';
+
+        const ageLabel = r.ageHours > 0
+            ? `<span style="background:#fef3c7;color:#92400e;padding:3px 10px;border-radius:10px;font-size:12px;font-weight:800;">${r.ageHours}</span>`
+            : (r.birth_date ? '<span style="color:#cbd5e1;font-size:12px;">—</span>' : '<span style="color:#fca5a5;font-size:11px;" title="אין תאריך לידה">?</span>');
+
+        return `
+        <tr class="mish-tr" onclick="toggleMishRow('mish-exp-${i}','arr-${i}')">
+            <td style="text-align:center;padding:11px 8px;"><span class="expand-arrow" id="arr-${i}">▶</span></td>
+            <td style="font-family:monospace;font-size:11px;color:#94a3b8;">${r.id}</td>
+            <td style="font-weight:800;">${r.name}</td>
+            <td style="text-align:center;font-weight:700;color:#0f766e;">${r.contact.toFixed(1)}</td>
+            <td style="text-align:center;font-weight:700;color:#7c3aed;">${r.bonus.toFixed(1)}</td>
+            <td style="text-align:center;">${rolesSummary}</td>
+            <td style="text-align:center;">${ageLabel}</td>
+            <td style="text-align:center;font-weight:900;font-size:15px;">${total.toFixed(1)}</td>
+            <td style="text-align:center;">
+                <div class="pct-cell">
+                    <span style="font-weight:900;color:${color};min-width:36px;">${pct.toFixed(0)}%</span>
+                    <span class="pct-bar"><span class="pct-fill" style="width:${Math.min(pct,100)}%;background:${color};"></span></span>
+                </div>
+            </td>
+            <td class="prev-year-cell" style="text-align:center;">${prevLabel}</td>
+            <td><input class="notes-inp" value="${r.notes.replace(/"/g,'&quot;')}" placeholder="הערה..." onchange="saveMishrotNote('${r.id}',this.value)" onclick="event.stopPropagation()"></td>
+        </tr>
+        <tr class="mish-expand" id="mish-exp-${i}">
+            <td colspan="11">
+                <div style="max-width:720px;">
+                    <!-- סיכום מרכיבי משרה -->
+                    <div style="background:white;border-radius:12px;border:1px solid var(--border);margin-bottom:16px;overflow:hidden;">
+                        <!-- שורת סיכום -->
+                        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:0;border-bottom:1px solid var(--border);">
+                            <div style="text-align:center;padding:12px 8px;border-left:1px solid var(--border);">
+                                <div style="font-size:10px;font-weight:700;color:#64748b;margin-bottom:3px;letter-spacing:0.5px;">שעות מגע</div>
+                                <div style="font-size:20px;font-weight:900;color:#0f766e;">${r.contact.toFixed(1)}</div>
+                            </div>
+                            <div style="text-align:center;padding:12px 8px;border-left:1px solid var(--border);">
+                                <div style="font-size:10px;font-weight:700;color:#64748b;margin-bottom:3px;letter-spacing:0.5px;">שעות גמול</div>
+                                <div style="font-size:20px;font-weight:900;color:#7c3aed;">${r.bonus.toFixed(1)}</div>
+                            </div>
+                            <div style="text-align:center;padding:12px 8px;border-left:1px solid var(--border);">
+                                <div style="font-size:10px;font-weight:700;color:#64748b;margin-bottom:3px;letter-spacing:0.5px;">שעות תפקיד</div>
+                                <div style="font-size:20px;font-weight:900;color:#1d4ed8;">${r.roleHours.toFixed(1)}</div>
+                            </div>
+                            <div style="text-align:center;padding:12px 8px;border-left:1px solid var(--border);">
+                                <div style="font-size:10px;font-weight:700;color:#64748b;margin-bottom:3px;letter-spacing:0.5px;">שעות גיל</div>
+                                <div style="font-size:20px;font-weight:900;color:#92400e;">${r.ageHours > 0 ? r.ageHours.toFixed(1) : '—'}</div>
+                            </div>
+                            <div style="text-align:center;padding:12px 8px;border-left:2px solid #6366f1;background:#f5f3ff;">
+                                <div style="font-size:10px;font-weight:700;color:#64748b;margin-bottom:3px;letter-spacing:0.5px;">סה"כ</div>
+                                <div style="font-size:20px;font-weight:900;color:${(r.contact+r.bonus+r.roleHours+r.ageHours)/25*100>100?'#ef4444':(r.contact+r.bonus+r.roleHours+r.ageHours)/25*100<50&&(r.contact+r.bonus+r.roleHours+r.ageHours)>0?'#f97316':'#10b981'};">${(r.contact+r.bonus+r.roleHours+r.ageHours).toFixed(1)}</div>
+                            </div>
+                            <div style="text-align:center;padding:12px 8px;background:#f5f3ff;">
+                                <div style="font-size:10px;font-weight:700;color:#64748b;margin-bottom:3px;letter-spacing:0.5px;">% משרה</div>
+                                <div style="font-size:20px;font-weight:900;color:${(r.contact+r.bonus+r.roleHours+r.ageHours)/25*100>100?'#ef4444':(r.contact+r.bonus+r.roleHours+r.ageHours)/25*100<50&&(r.contact+r.bonus+r.roleHours+r.ageHours)>0?'#f97316':'#10b981'};">${((r.contact+r.bonus+r.roleHours+r.ageHours)/25*100).toFixed(0)}%</div>
+                            </div>
+                        </div>
+                        <!-- פירוט לפי מגמה -->
+                        ${Object.keys(r.depts).length > 0 ? `
+                        <div style="padding:10px 14px;">
+                            <div style="font-size:10px;font-weight:700;color:#94a3b8;letter-spacing:0.5px;margin-bottom:8px;">פירוט לפי מגמה</div>
+                            <div style="display:flex;flex-wrap:wrap;gap:8px;">
+                                ${Object.entries(r.depts).map(([dept,h])=>`
+                                <div style="background:#f8fafc;border:1px solid var(--border);border-radius:10px;padding:8px 14px;min-width:130px;">
+                                    <div style="font-size:12px;font-weight:800;color:#1e293b;margin-bottom:4px;">${dept}</div>
+                                    <div style="display:flex;gap:12px;font-size:12px;">
+                                        <span style="color:#0f766e;font-weight:700;">מגע: ${h.contact.toFixed(1)}</span>
+                                        <span style="color:#7c3aed;font-weight:700;">גמול: ${h.bonus.toFixed(1)}</span>
+                                    </div>
+                                </div>`).join('')}
+                            </div>
+                        </div>` : ''}
+                    </div>
+                    <!-- תפקידים -->
+                    <div style="font-size:12px;font-weight:700;color:#64748b;margin-bottom:10px;letter-spacing:0.5px;">תפקידים של ${r.name}</div>
+                    <div class="roles-list" id="roles-list-${r.id}">
+                        ${renderRolesList(r.roles, r.id)}
+                    </div>
+                    <div class="add-role-row">
+                        <select class="role-select" id="role-sel-${r.id}" onchange="onRoleSelChange('${r.id}')">
+                            <option value="">— בחר תפקיד —</option>
+                            ${allRoleDefinitions.map(rd=>`<option value="${rd.name}" data-hrs="${rd.default_hours}">${rd.name} (${rd.default_hours}ש')</option>`).join('')}
+                        </select>
+                        <input type="number" class="role-hrs-input" id="role-hrs-${r.id}" placeholder="שעות" step="0.5" min="0.5" max="20">
+                        <button class="btn-add-role" onclick="addRole('${r.id}')">+ הוסף תפקיד</button>
+                    </div>
+                </div>
+            </td>
+        </tr>`;
+    }).join('');
+}
+
+function renderRolesList(roles, teacherId) {
+    if(!roles.length) return '<div style="color:#94a3b8;font-size:12px;padding:6px 0;">אין תפקידים — הוסף למטה</div>';
+    return roles.map(r => `
+        <div class="role-row">
+            <span class="role-name">${r.role_name}</span>
+            <span class="role-hrs">${parseFloat(r.hours).toFixed(1)}</span>
+            <button class="btn-del-role" onclick="deleteRole(${r.id},'${teacherId}')">✕</button>
+        </div>`).join('');
+}
+
+function toggleMishRow(expId, arrId) {
+    const exp = document.getElementById(expId);
+    const arr = document.getElementById(arrId);
+    if(!exp) return;
+    exp.classList.toggle('open');
+    if(arr) arr.classList.toggle('open');
+}
+
+async function addRole(teacherId) {
+    const year = document.getElementById('mishrotYear').value;
+    const roleName = document.getElementById('role-sel-'+teacherId).value;
+    const hours = parseFloat(document.getElementById('role-hrs-'+teacherId).value);
+    if(!roleName) { showToast('יש לבחור תפקיד'); return; }
+    if(!hours || hours <= 0) { showToast('יש להזין מספר שעות'); return; }
+
+    const { data, error } = await sb.from('teacher_roles')
+        .insert({ teacher_id: teacherId, year, role_name: roleName, hours })
+        .select().single();
+    if(error) { showToast('שגיאה: ' + error.message); return; }
+
+    // mark dirty for all depts this teacher is assigned to
+    const teacherDepts = [...new Set(allPlacements.filter(p=>p.teacher_id===teacherId && p.year===year).map(p=>p.dept_id))];
+    await Promise.all(teacherDepts.map(d => markDirtyForDept(d)));
+
+    // update local
+    const row = allMishrotData.find(r => r.id === teacherId);
+    if(row) {
+        row.roles.push(data);
+        row.roleHours += hours;
+        document.getElementById('roles-list-'+teacherId).innerHTML = renderRolesList(row.roles, teacherId);
+        document.getElementById('role-sel-'+teacherId).value = '';
+        document.getElementById('role-hrs-'+teacherId).value = '';
+        renderMishrot(allMishrotData);
+    }
+    showToast('✅ תפקיד נוסף');
+}
+
+async function deleteRole(roleId, teacherId) {
+    if(!confirm('למחוק תפקיד זה?')) return;
+    const { error } = await sb.from('teacher_roles').delete().eq('id', roleId);
+    if(error) { showToast('שגיאה: ' + error.message); return; }
+
+    // mark dirty
+    const year = document.getElementById('mishrotYear').value;
+    const teacherDepts2 = [...new Set(allPlacements.filter(p=>p.teacher_id===teacherId && p.year===year).map(p=>p.dept_id))];
+    await Promise.all(teacherDepts2.map(d => markDirtyForDept(d)));
+
+    const row = allMishrotData.find(r => r.id === teacherId);
+    if(row) {
+        const deleted = row.roles.find(r => r.id === roleId);
+        row.roles = row.roles.filter(r => r.id !== roleId);
+        row.roleHours -= deleted ? (parseFloat(deleted.hours)||0) : 0;
+        renderMishrot(allMishrotData);
+    }
+    showToast('🗑 תפקיד נמחק');
+}
+
+async function saveMishrotNote(teacherId, value) {
+    const year = document.getElementById('mishrotYear').value;
+    await sb.from('teacher_hours').upsert(
+        { teacher_id: teacherId, year, notes: value, updated_at: new Date().toISOString() },
+        { onConflict: 'teacher_id,year' }
+    );
+    const row = allMishrotData.find(r => r.id === teacherId);
+    if(row) row.notes = value;
+}
+
+function exportMishrot() {
+    const year = document.getElementById('mishrotYear').value;
+    const rows = [['ת.ז','שם מורה','שעות מגע','שעות גמול','תפקידים','שעות תפקיד','שעות גיל','סה"כ','% משרה','הערות']];
+    allMishrotData.forEach(r => {
+        const total = r.contact + r.bonus + r.roleHours + r.ageHours;
+        const roleDesc = r.roles.map(rl => rl.role_name+'('+parseFloat(rl.hours).toFixed(1)+')').join(' | ');
+        rows.push([r.id, r.name, r.contact.toFixed(1), r.bonus.toFixed(1), roleDesc, r.roleHours.toFixed(1), r.ageHours.toFixed(1), total.toFixed(1), (total/25*100).toFixed(0)+'%', r.notes]);
+    });
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols'] = [{wch:14},{wch:20},{wch:10},{wch:10},{wch:30},{wch:12},{wch:10},{wch:10},{wch:10},{wch:20}];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'משרות '+year);
+    XLSX.writeFile(wb, 'משרות_מורים_'+year+'.xlsx');
+}
+// ===== END MISHROT =====
+
 
 // TOAST
 function showToast(msg) {
