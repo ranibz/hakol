@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>קוויז — ההגדה כטקסט תקשורת</title>
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@400;700;900&family=Heebo:wght@300;400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --gold: #BA7517; --gold-light: #FAC775; --gold-pale: #FAEEDA;
+    --dark: #2C2A1E; --text: #3a3020; --muted: #7a6e5a;
+    --paper: #f8f3e8; --border: #d4c9a8;
+    --correct-bg: #EAF3DE; --correct-border: #639922;
+    --wrong-bg: #FCEBEB; --wrong-border: #E24B4A;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Heebo', sans-serif; background: var(--paper); color: var(--text); min-height: 100vh; }
+  .top-band { height: 6px; background: repeating-linear-gradient(90deg, var(--gold) 0px, var(--gold) 30px, var(--gold-light) 30px, var(--gold-light) 60px); }
+
+  /* MODAL */
+  #modal-overlay { position: fixed; inset: 0; background: rgba(44,42,30,0.88); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 1rem; }
+  #modal { background: var(--paper); border: 1px solid var(--border); border-top: 4px solid var(--gold); border-radius: 4px; padding: 2rem; width: 100%; max-width: 420px; box-shadow: 0 8px 40px rgba(0,0,0,0.3); }
+  #modal h2 { font-family: 'Frank Ruhl Libre', serif; font-size: 1.5rem; font-weight: 700; color: var(--dark); margin-bottom: 0.4rem; }
+  #modal p { font-size: 0.88rem; color: var(--muted); margin-bottom: 1.5rem; line-height: 1.6; }
+  .field { margin-bottom: 1rem; }
+  .field label { display: block; font-size: 0.82rem; font-weight: 700; color: var(--dark); margin-bottom: 0.35rem; letter-spacing: 0.5px; }
+  .field input { width: 100%; padding: 0.65rem 0.85rem; border: 1px solid var(--border); border-radius: 3px; background: white; font-family: 'Heebo', sans-serif; font-size: 0.95rem; color: var(--text); outline: none; transition: border-color 0.15s; }
+  .field input:focus { border-color: var(--gold); }
+  #field-code { display: none; }
+  .btn-enter { width: 100%; padding: 0.8rem; background: var(--dark); color: #f5edd8; border: none; border-radius: 3px; font-family: 'Heebo', sans-serif; font-size: 1rem; font-weight: 700; cursor: pointer; transition: background 0.2s; margin-top: 0.5rem; }
+  .btn-enter:hover { background: var(--gold); }
+  .err { color: #E24B4A; font-size: 0.82rem; margin-top: 0.5rem; display: none; }
+
+  /* QUIZ */
+  #quiz-area { display: none; max-width: 740px; margin: 0 auto; padding: 2rem 1rem 3rem; }
+  .quiz-header { text-align: center; margin-bottom: 2rem; padding-bottom: 1.5rem; border-bottom: 1px solid var(--border); }
+  .quiz-header .label { font-size: 0.73rem; letter-spacing: 3px; color: var(--gold); text-transform: uppercase; font-weight: 700; margin-bottom: 0.5rem; }
+  .quiz-header h1 { font-family: 'Frank Ruhl Libre', serif; font-size: 1.8rem; font-weight: 900; color: var(--dark); }
+
+  .progress-row { display: flex; align-items: center; gap: 12px; margin-bottom: 1.75rem; }
+  .progress-bar { flex: 1; height: 5px; background: var(--border); border-radius: 3px; overflow: hidden; }
+  .progress-fill { height: 100%; background: var(--gold); border-radius: 3px; transition: width 0.4s ease; }
+  .progress-label { font-size: 0.8rem; color: var(--muted); font-weight: 700; white-space: nowrap; }
+
+  /* CARD */
+  .q-card { background: white; border: 1px solid var(--border); border-radius: 4px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+
+  /* SOURCE BLOCK */
+  .source-block {
+    background: var(--dark);
+    padding: 1.5rem 1.75rem;
+    border-bottom: 3px solid var(--gold);
+  }
+  .source-label {
+    font-size: 0.7rem; font-weight: 700; letter-spacing: 2px;
+    color: var(--gold-light); text-transform: uppercase; margin-bottom: 0.75rem;
+  }
+  .source-quote {
+    font-family: 'Frank Ruhl Libre', serif;
+    font-size: 1.15rem; font-weight: 700;
+    color: #f5edd8; line-height: 1.7;
+    border-right: 3px solid var(--gold);
+    padding-right: 1rem;
+    margin-bottom: 0.75rem;
+  }
+  .source-origin {
+    font-size: 0.78rem; color: #a89880;
+    font-style: italic;
+  }
+
+  /* CONCEPT BLOCK */
+  .concept-block {
+    background: var(--gold-pale);
+    border-bottom: 1px solid var(--gold-light);
+    padding: 1.25rem 1.75rem;
+    display: flex; gap: 12px; align-items: flex-start;
+  }
+  .concept-pill-label {
+    display: inline-block; background: var(--gold); color: white;
+    font-size: 0.7rem; font-weight: 700; padding: 3px 10px;
+    border-radius: 20px; white-space: nowrap; flex-shrink: 0; margin-top: 2px;
+    letter-spacing: 0.3px;
+  }
+  .concept-text {
+    font-size: 0.88rem; color: var(--text); line-height: 1.75;
+  }
+  .concept-text strong { color: var(--dark); font-weight: 700; }
+
+  /* QUESTION AREA */
+  .question-body { padding: 1.5rem 1.75rem; }
+  .q-intro { font-size: 0.78rem; font-weight: 700; color: var(--gold); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.6rem; }
+  .q-text { font-size: 1rem; font-weight: 700; color: var(--dark); line-height: 1.65; margin-bottom: 1.25rem; }
+
+  .options { display: flex; flex-direction: column; gap: 9px; }
+  .opt { display: flex; align-items: flex-start; gap: 11px; padding: 0.85rem 1rem; border: 1px solid var(--border); border-radius: 3px; background: white; cursor: pointer; font-family: 'Heebo', sans-serif; font-size: 0.92rem; color: var(--text); text-align: right; line-height: 1.55; transition: background 0.12s, border-color 0.12s; width: 100%; }
+  .opt:hover:not(.locked) { background: var(--gold-pale); border-color: var(--gold-light); }
+  .opt .mk { min-width: 26px; height: 26px; border-radius: 50%; border: 1.5px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 0.78rem; font-weight: 700; color: var(--muted); flex-shrink: 0; margin-top: 1px; }
+  .opt.correct { background: var(--correct-bg); border-color: var(--correct-border); }
+  .opt.correct .mk { background: var(--correct-border); border-color: var(--correct-border); color: white; }
+  .opt.wrong { background: var(--wrong-bg); border-color: var(--wrong-border); }
+  .opt.wrong .mk { background: var(--wrong-border); border-color: var(--wrong-border); color: white; }
+  .opt.locked { cursor: default; }
+
+  .explanation { margin-top: 1.25rem; padding: 1rem 1.25rem; background: #f0ede4; border-right: 4px solid var(--gold); border-radius: 3px; font-size: 0.88rem; line-height: 1.8; color: var(--text); display: none; }
+  .explanation strong { color: var(--dark); font-weight: 700; }
+  .explanation .ex-title { font-size: 0.72rem; font-weight: 700; color: var(--gold); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.5rem; }
+
+  .btn-next { margin-top: 1.25rem; padding: 0.65rem 1.75rem; border: 1px solid var(--border); border-radius: 3px; background: transparent; font-family: 'Heebo', sans-serif; font-size: 0.9rem; cursor: pointer; color: var(--dark); font-weight: 700; display: none; transition: background 0.15s; }
+  .btn-next:hover { background: var(--gold-pale); }
+
+  /* RESULT */
+  #result-area { display: none; max-width: 700px; margin: 0 auto; padding: 2rem 1rem 3rem; }
+  .result-card { background: white; border: 1px solid var(--border); border-top: 4px solid var(--gold); border-radius: 4px; padding: 2.5rem 2rem; text-align: center; box-shadow: 0 2px 10px rgba(0,0,0,0.06); }
+  .result-badge { display: inline-block; background: var(--gold-pale); color: var(--gold); font-size: 0.75rem; font-weight: 700; padding: 4px 14px; border-radius: 20px; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 1rem; }
+  .score-display { font-family: 'Frank Ruhl Libre', serif; font-size: 4.5rem; font-weight: 900; color: var(--gold); line-height: 1; margin: 0.25rem 0; }
+  .score-sub { font-size: 0.85rem; color: var(--muted); margin-bottom: 1.25rem; }
+  .result-msg { font-size: 1rem; color: var(--text); line-height: 1.65; margin-bottom: 1.5rem; max-width: 440px; margin-left: auto; margin-right: auto; }
+  .concepts-row { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 1.75rem; }
+  .ctag { font-size: 0.75rem; padding: 4px 13px; border-radius: 20px; border: 1px solid var(--border); color: var(--muted); }
+  .save-status { font-size: 0.82rem; color: var(--muted); margin-bottom: 1.25rem; min-height: 1.2rem; }
+  .save-status.ok { color: var(--correct-border); }
+  .save-status.err-s { color: var(--wrong-border); }
+  .btn-restart { padding: 0.75rem 2rem; border: 1px solid var(--border); border-radius: 3px; background: transparent; font-family: 'Heebo', sans-serif; font-size: 0.95rem; font-weight: 700; cursor: pointer; color: var(--dark); transition: background 0.15s; }
+  .btn-restart:hover { background: var(--gold-pale); }
+
+  footer { text-align: center; padding: 1.5rem; font-size: 0.75rem; color: var(--muted); border-top: 1px solid var(--border); }
+</style>
+</head>
+<body>
+<div class="top-band"></div>
+
+<div id="modal-overlay">
+  <div id="modal">
+    <h2>כניסה לקוויז</h2>
+    <p>הזינו את הפרטים כדי להתחיל. תוצאותיכם יישמרו אוטומטית.</p>
+    <div class="field"><label>שם מלא</label><input type="text" id="inp-name" placeholder="שם פרטי ושם משפחה" autocomplete="off"></div>
+    <div class="field"><label>כיתה</label><input type="text" id="inp-class" placeholder="לדוגמה: י׳2"></div>
+    <div class="field" id="field-code"><label>קוד כיתה</label><input type="text" id="inp-code" readonly></div>
+    <div id="modal-err" class="err">אנא מלאו את כל השדות הנדרשים.</div>
+    <button class="btn-enter" onclick="startQuiz()">התחילו ←</button>
+  </div>
+</div>
+
+<div id="quiz-area">
+  <div class="quiz-header">
+    <p class="label">תקשורת וחברה · פסח</p>
+    <h1>ההגדה כטקסט תקשורת</h1>
+  </div>
+  <div class="progress-row">
+    <div class="progress-bar"><div class="progress-fill" id="prog-fill"></div></div>
+    <span class="progress-label" id="prog-label">1 / 10</span>
+  </div>
+  <div id="q-wrap"></div>
+</div>
+
+<div id="result-area">
+  <div class="result-card">
+    <div class="result-badge">סיימתם!</div>
+    <div class="score-display" id="r-score"></div>
+    <div class="score-sub" id="r-pct"></div>
+    <p class="result-msg" id="r-msg"></p>
+    <div class="concepts-row" id="r-concepts"></div>
+    <div class="save-status" id="save-status"></div>
+    <button class="btn-restart" onclick="restart()">שחקו שוב</button>
+  </div>
+</div>
+
+<footer>פיתוח: רני בן זאב · גליל מערבי · hakolbakaf.co.il</footer>
+
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+<script>
+firebase.initializeApp({
+  apiKey: "AIzaSyCCHvn_ulmiyM56DuslNzNC0Ge6a8i2vhY",
+  authDomain: "tests-fd938.firebaseapp.com",
+  databaseURL: "https://tests-fd938-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "tests-fd938"
+});
+const db = firebase.database();
+
+const urlParams = new URLSearchParams(window.location.search);
+const codeFromURL = urlParams.get('code') || '';
+if (codeFromURL) {
+  document.getElementById('inp-code').value = codeFromURL;
+  document.getElementById('field-code').style.display = 'block';
+}
+
+async function resolveTeacherID(classCode) {
+  if (!classCode) return null;
+  const snap = await db.ref('teacher_codes').once('value');
+  const all = snap.val() || {};
+  let found = null;
+  Object.keys(all).forEach(key => {
+    if (found) return;
+    if (key.startsWith(classCode + '_')) found = all[key];
+  });
+  return found;
+}
+
+const QUESTIONS = [
+  {
+    concept: "נרטיב — פתיחת הסיפור",
+    source: "עֲבָדִים הָיִינוּ לְפַרְעֹה בְּמִצְרָיִם, וַיּוֹצִיאֵנוּ ה׳ אֱלֹהֵינוּ מִשָּׁם בְּיָד חֲזָקָה וּבִזְרֹעַ נְטוּיָה.",
+    origin: "מגיד — פתיחת הסיפור",
+    concept_text: "כל נרטיב תקשורתי בוחר <strong>היכן להתחיל</strong> — ובחירה זו מעצבת את כל המסר. ההגדה פותחת ב\"עבדים היינו\" ולא ב\"אברהם אבינו\" או ב\"בראשית\". הפתיחה בסבל יוצרת <strong>זיכרון קולקטיבי של קורבנות ושל גאולה</strong>, ומבססת זהות קבוצתית: \"אנחנו\" — ולא \"הם\" — היינו עבדים.",
+    q: "מדוע ההגדה בוחרת לפתוח ב\"עבדים היינו\" ולא בבריאת העולם או בסיפור אברהם?",
+    opts: [
+      "כי אלו העובדות ההיסטוריות המדויקות ביותר לעניין",
+      "כדי לייצר הזדהות רגשית עם הסבל ולבנות זהות קבוצתית סביב חוויית גאולה",
+      "כי יציאת מצרים היא הנס הגדול ביותר בתנ\"ך",
+      "כדי לקיים את מצוות \"זכור את יום צאתך\" לפי הפסוק"
+    ],
+    ans: 1,
+    ex: "<div class='ex-title'>למה זה חשוב תקשורתית?</div>נקודת הפתיחה של נרטיב היא <strong>החלטה עריכתית</strong> שמגדירה את כל השאר. \"עבדים היינו\" שם בראש הסדר את ממד הסבל והגאולה — לא ממד ההבטחה או הבחירה. זו בחירה שמכוונת את כל הזיכרון הקולקטיבי: אנחנו עם שנגאל, לא עם שנבחר בלבד."
+  },
+  {
+    concept: "מסגור (Framing)",
+    source: "בָּרוּךְ שׁוֹמֵר הַבְטָחָתוֹ לְיִשְׂרָאֵל... שֶׁהַקָּדוֹשׁ בָּרוּךְ הוּא חִשַּׁב אֶת הַקֵּץ לַעֲשׂוֹת כְּמָה שֶׁאָמַר לְאַבְרָהָם אָבִינוּ בִּבְרִית בֵּין הַבְּתָרִים.",
+    origin: "מגיד — ברוך שומר הבטחתו",
+    concept_text: "<strong>מסגור</strong> הוא הדרך שבה מגדירים מחדש אירוע — מה הוא \"באמת\" ואיך יש לפרשו. ההגדה ממסגרת את השעבוד לא כאסון כישלון, אלא כ<strong>חלק מתוכנית אלוהית מתוכננת מראש</strong>. הכאב הופך לשלב הכרחי בדרך לגאולה — וזה שינוי מסגרת מהותי שמשנה לחלוטין את פרשנות האירועים.",
+    q: "\"ברוך שומר הבטחתו\" ממסגר את השעבוד במצרים כ:",
+    opts: [
+      "מחדל של הנהגת ישראל שלא הצליחה להתנגד לפרעה",
+      "עונש על חטאים שעשו אבות האומה",
+      "שלב מתוכנן מראש בברית בין אלוהים לאברהם — חלק מתוכנית גדולה",
+      "אסון היסטורי שאסור לשכוח"
+    ],
+    ans: 2,
+    ex: "<div class='ex-title'>למה זה חשוב תקשורתית?</div><strong>מסגור משנה משמעות ללא שינוי עובדות.</strong> אותו שעבוד בדיוק — 400 שנות עבדות — יכול להיות \"טרגדיה\" או \"תכנית אלוהית\". ההגדה בוחרת במסגרת השנייה. תעשיית ה-PR כולה בנויה על העיקרון הזה: לא מה קרה, אלא איך מציגים אותו."
+  },
+  {
+    concept: "סגמנטציה של קהל יעד",
+    source: "כְּנֶגֶד אַרְבָּעָה בָנִים דִּבְּרָה תוֹרָה: אֶחָד חָכָם, וְאֶחָד רָשָׁע, וְאֶחָד תָּם, וְאֶחָד שֶׁאֵינוֹ יוֹדֵעַ לִשְׁאוֹל.",
+    origin: "מגיד — ארבעה בנים",
+    concept_text: "<strong>סגמנטציה</strong> היא חלוקת קהל לקבוצות לפי מאפיינים, ושינוי המסר בהתאם לכל פלח. ההגדה מזהה ארבעה סוגי מקבלים שונים — מהסקרן המעמיק ועד מי שאינו מסוגל אפילו לנסח שאלה — ומכתיבה <strong>ארבעה סגנונות תשובה שונים</strong> לאותו סיפור בדיוק. לחכם — תשובה מפורטת הלכתית. לרשע — תגובה עוקצת. לתם — פשטות. לשאינו יודע לשאול — יזום המבוגר.",
+    q: "מה עקרון ה\"ארבעה בנים\" מלמד על תכנון מסרים תקשורתיים?",
+    opts: [
+      "שכל קהל יודע לקבל כל מסר אם הוא מנוסח בבהירות",
+      "שיש להעביר את אותו מסר בדיוק לכולם כדי שלא תהיה אפליה",
+      "שמסר יעיל מותאם לפלח הקהל — לשפתו, לרמתו ולצרכיו",
+      "שרק השכבות המשכילות מסוגלות לקלוט מסרים מורכבים"
+    ],
+    ans: 2,
+    ex: "<div class='ex-title'>למה זה חשוב תקשורתית?</div>זהו אחד מהדגמי הסגמנטציה הקדומים ביותר בהיסטוריה התקשורתית. כל קמפיין פרסומי מודרני עושה בדיוק זאת: <strong>מסר אחד, ארבע גרסאות</strong> — לפי גיל, ידע, עמדה ומוטיבציה של הקהל."
+  },
+  {
+    concept: "קידוד רב-ערוצי",
+    source: "רַבָּן גַּמְלִיאֵל הָיָה אוֹמֵר: כׇּל שֶׁלֹּא אָמַר שְׁלוֹשָׁה דְּבָרִים אֵלּוּ בַּפֶּסַח, לֹא יָצָא יְדֵי חוֹבָתוֹ: פֶּסַח, מַצָּה, וּמָרוֹר.",
+    origin: "מגיד — רבן גמליאל אומר",
+    concept_text: "מחקר התקשורת מראה ש<strong>מסרים המועברים בערוצים חושיים מרובים</strong> (טקסט, ויזואל, טעם, ריח, מגע) נשמרים בזיכרון הרבה יותר מטקסט בלבד. הפסח, המצה והמרור הם לא רק מזון — הם <strong>אמצעי מדיה</strong>: הפסח מסמל את ה\"גבר עלינו\", המצה את חיפזון היציאה, המרור את מרירות השעבוד. כל ביס הוא פיסת תוכן.",
+    q: "מדוע ההגדה מחייבת לאכול פסח, מצה ומרור ולא רק לספר את הסיפור?",
+    opts: [
+      "כי ההלכה דורשת קיום מצוות מעשיות ולא רק לימוד",
+      "כי החוויה החושית מקודדת את המסר בצורה עמוקה ורב-ממדית יותר מדברים בלבד",
+      "כי אכילה משותפת יוצרת אווירה חגיגית בסדר",
+      "כדי לאפשר לילדים קטנים להשתתף בסדר"
+    ],
+    ans: 1,
+    ex: "<div class='ex-title'>למה זה חשוב תקשורתית?</div><strong>ערוצים חושיים מרובים = זיכרון עמוק יותר.</strong> כשאדם גם שומע את סיפור השעבוד, גם טועם את מרירותו (מרור), גם חש את חיפזון הגאולה (מצה) — המסר מקודד בשכבות מוחיות שונות. זה בדיוק מה שיצרני חוויות (experiential marketing) עושים היום."
+  },
+  {
+    concept: "קהל אקטיבי והזדהות",
+    source: "בְּכׇל דּוֹר וָדוֹר חַיָּב אָדָם לִרְאוֹת אֶת עַצְמוֹ כְּאִלּוּ הוּא יָצָא מִמִּצְרָיִם, שֶׁנֶּאֱמַר: וְהִגַּדְתָּ לְבִנְךָ בַּיּוֹם הַהוּא לֵאמֹר, בַּעֲבוּר זֶה עָשָׂה ה׳ לִי בְּצֵאתִי מִמִּצְרָיִם.",
+    origin: "מגיד — בכל דור ודור",
+    concept_text: "תיאוריית <strong>הקהל האקטיבי</strong> טוענת שמקבל מסר אינו כלי פסיבי — הוא משתתף פעיל שמפרש ומתחבר. ההגדה לא מסתפקת בהעברת ידע היסטורי; היא מבקשת <strong>טרנספורמציה זהותית מלאה</strong>: \"לראות את עצמו כאילו הוא יצא.\" זוהי דרישה לא רק לזכור — אלא לחיות את הסיפור מחדש, לעבור ממקבל פסיבי למשתתף אקטיבי בנרטיב.",
+    q: "\"בכל דור ודור חייב אדם לראות את עצמו כאילו הוא יצא ממצרים\" — איזה מנגנון תקשורתי זה?",
+    opts: [
+      "שידור חי — העברת מידע בזמן אמת",
+      "ארכיב — שמירת אירועי עבר לצורכי תיעוד",
+      "הפיכת המקבל ממאזין פסיבי לדמות פעילה בתוך הנרטיב",
+      "ריאליטי — הכנסת צופים לתוך תוכנית טלוויזיה"
+    ],
+    ans: 2,
+    ex: "<div class='ex-title'>למה זה חשוב תקשורתית?</div>זהו אחד מהמנגנונים החזקים ביותר בתקשורת שכנועית: <strong>לא לספר על אירוע — אלא לגרום לקהל לחוות אותו.</strong> \"כאילו הוא יצא\" הוא ניסוח מדויק של immersive storytelling — סיפור מציאות שמשנה זהות, לא רק מידע."
+  },
+  {
+    concept: "שאלה ככלי פדגוגי-תקשורתי",
+    source: "מַה נִּשְׁתַּנָּה הַלַּיְלָה הַזֶּה מִכׇּל הַלֵּילוֹת? שֶׁבְּכׇל הַלֵּילוֹת אָנוּ אוֹכְלִין חָמֵץ וּמַצָּה, הַלַּיְלָה הַזֶּה כֻּלּוֹ מַצָּה.",
+    origin: "מגיד — מה נשתנה",
+    concept_text: "בתקשורת ובחינוך, <strong>שאלה יוצרת מרחב קוגניטיבי פתוח</strong> — \"חסר\" שהמוח מחפש למלא. מחקרים מראים שהצגת שאלה לפני מידע מגבירה שימור ב-40% לעומת הצגת מידע ישיר. ה\"מה נשתנה\" לא רק פותח את הסדר — הוא <strong>מייצר צורך</strong> בתשובה, הופך את הילד לשואל פעיל, ומכין את הקהל לקלוט את הסיפור שיבוא.",
+    q: "מדוע הסדר נפתח בשאלות של הילד ולא בתשובות של המבוגר?",
+    opts: [
+      "כי ילדים שואלים ומבוגרים עונים — זה הסדר הטבעי",
+      "כי שאלה יוצרת מוטיבציה פנימית ומכינה את המוח לקלוט מידע",
+      "כי ילדים אינם מכירים את הסיפור ולכן שואלים באופן טבעי",
+      "כי ההלכה מחייבת שהילדים יפתחו את הסדר"
+    ],
+    ans: 1,
+    ex: "<div class='ex-title'>למה זה חשוב תקשורתית?</div>זו טכניקה שמשמשת ב<strong>פרסום, חינוך, ועיתונאות</strong>: פתיחה בשאלה מייצרת מתח קוגניטיבי שמוביל לקריאה/האזנה. \"מה נשתנה\" הוא headline מושלם — הוא מייצר סקרנות ומחייב המשך."
+  },
+  {
+    concept: "קשת נרטיבית — מנפילה לגאולה",
+    source: "מִתְּחִלָּה עוֹבְדֵי עֲבוֹדָה זָרָה הָיוּ אֲבוֹתֵינוּ, וְעַכְשָׁיו קֵרְבָנוּ הַמָּקוֹם לַעֲבוֹדָתוֹ... עֲבָדִים הָיִינוּ לְפַרְעֹה בְּמִצְרָיִם... וַיּוֹצִיאֵנוּ ה׳.",
+    origin: "מגיד — מתחילה עובדי עבודה זרה / עבדים היינו",
+    concept_text: "כל נרטיב משכנע בנוי על <strong>קשת דרמטית</strong>: מצב פתיחה נמוך ← קונפליקט ← שיא ← רזולוציה. ההגדה מכילה שתי נפילות מקבילות — ה\"גנות\" הרוחנית (\"עובדי עבודה זרה היו אבותינו\") וה\"גנות\" הפיזית (\"עבדים היינו\") — ולשתיהן <strong>גאולה מקבילה</strong>. זהו מבנה ה-story arc הקלאסי שמוצא בכל נרטיב מסחרי, פוליטי ואישי מוצלח.",
+    q: "ההגדה עוברת מ\"גנות\" (השפלה) ל\"שבח\" (גאולה). מה האפקט הנרטיבי של מבנה זה?",
+    opts: [
+      "מידע היסטורי מסודר לפי כרונולוגיה",
+      "יצירת ניגוד דרמטי שמגביר את ערך הגאולה ומייצר מעורבות רגשית",
+      "עמידה בדרישה הלכתית לאזכור הגלות לפני הגאולה",
+      "הצגת שני פרשנים שחולקים על אותו אירוע"
+    ],
+    ans: 1,
+    ex: "<div class='ex-title'>למה זה חשוב תקשורתית?</div>ה-story arc הזה זהה לסיפור המותג של אפל (\"נפלנו, חזרנו\"), לכל סרט הוליווד מוצלח, ולכל נאום פוליטי מרגש. <strong>ללא נפילה — אין ערך לגאולה.</strong> ההגדה מבינה זאת ומיישמת אותו לתכלית."
+  },
+  {
+    concept: "אנפורה — חזרה רטורית",
+    source: "אִלּוּ הוֹצִיאָנוּ מִמִּצְרַיִם וְלֹא עָשָׂה בָהֶם שְׁפָטִים — דַּיֵּנוּ! אִלּוּ עָשָׂה בָהֶם שְׁפָטִים וְלֹא עָשָׂה בֵאלֹהֵיהֶם — דַּיֵּנוּ! אִלּוּ עָשָׂה בֵאלֹהֵיהֶם וְלֹא הָרַג אֶת בְּכוֹרֵיהֶם — דַּיֵּנוּ!",
+    origin: "מגיד — דיינו (15 בתים)",
+    concept_text: "<strong>אנפורה</strong> (Anaphora) היא חזרה על מילה או ביטוי בתחילת משפטים עוקבים. זוהי אחת הטכניקות הרטוריות החזקות ביותר — \"I have a dream\" של מרטין לות'ר קינג חוזר 8 פעמים, ו\"דיינו\" חוזר 15. <strong>כל חזרה מצברת</strong> ומוסיפה משקל לביטוי הסיכום. ה\"דיינו\" אינו סתם שיר — הוא בניין אדריכלי של הכרת טוב הולכת וגוברת.",
+    q: "החזרה על \"דיינו\" 15 פעמים — מה היא עושה מעבר ליצירת קצב לשיר?",
+    opts: [
+      "מבטיחה שכולם יזכרו את מילות השיר",
+      "מציגה רשימה של 15 נסים שונים לצורך ספירה",
+      "בונה הכרת טוב הולכת וגוברת דרך צבירה רטורית של כל בית על קודמו",
+      "יוצרת חזרה מלחינית כדי שהשיר יהיה קליט"
+    ],
+    ans: 2,
+    ex: "<div class='ex-title'>למה זה חשוב תקשורתית?</div>ה<strong>אנפורה</strong> היא טכניקה שמופיעה בנאומים הגדולים בהיסטוריה. כל \"דיינו\" נוסף לא רק מוסיף נס — הוא <strong>מגדיל את המחויבות הרגשית</strong> של הקהל. עד הבית ה-15, הקהל אינו רק שומע — הוא משוכנע."
+  },
+  {
+    concept: "זיכרון קולקטיבי ופרקטיקה חוזרת",
+    source: "וְהִגַּדְתָּ לְבִנְךָ בַּיּוֹם הַהוּא לֵאמֹר: בַּעֲבוּר זֶה עָשָׂה ה׳ לִי בְּצֵאתִי מִמִּצְרָיִם.",
+    origin: "שמות יג:ח — הבסיס המקראי לסדר",
+    concept_text: "סוציולוג הזיכרון <strong>מוריס הלבווקס</strong> טען שזיכרון קבוצתי אינו נשמר בראשי הפרטים — הוא נשמר <strong>דרך פרקטיקות חברתיות חוזרות</strong>: טקסים, חגיגות, אמירות. ה\"והגדת לבנך\" הוא בדיוק זה: פקודת שידור — להעביר את הזיכרון הלאה דרך סיפור. ההגדה היא <strong>מנגנון שמירת זיכרון קולקטיבי</strong> שעבד ביעילות כמעט 3,000 שנה.",
+    q: "ההגדה מצווה: \"והגדת לבנך\" — ספר לדור הבא. מה הפונקציה התקשורתית של מצווה זו?",
+    opts: [
+      "חינוך ילדים לקיים מצוות",
+      "יצירת מנגנון שידור בין-דורי שמוודא שמירת זיכרון קולקטיבי",
+      "חיזוק קשר רגשי בין הורים לילדים",
+      "הבטחה שהילדים ישאלו שאלות ולא יישבו בשקט"
+    ],
+    ans: 1,
+    ex: "<div class='ex-title'>למה זה חשוב תקשורתית?</div>\"והגדת לבנך\" הוא <strong>פרוטוקול תקשורת</strong>: מי שולח (הורה), מי מקבל (בן), מה התוכן (הסיפור), מה הערוץ (שיחה בסדר הפסח), ומה המטרה (שמירת זהות). זהו המבנה שמניע כל מסר תקשורתי — בין שידורי ראיון ועד קמפיין מיתוג."
+  },
+  {
+    concept: "השמטה עריכתית כהצהרת עמדה",
+    source: "\"לֹא עַל יְדֵי מַלְאָךְ, וְלֹא עַל יְדֵי שָׂרָף, וְלֹא עַל יְדֵי שָׁלִיחַ, אֶלָּא הַקָּדוֹשׁ בָּרוּךְ הוּא בִּכְבוֹדוֹ וּבְעַצְמוֹ.\"",
+    origin: "מגיד — \"ואעבור בארץ מצרים\"",
+    concept_text: "בעריכה תקשורתית, <strong>מה שנעדר מהטקסט הוא חלק מהמסר</strong> לא פחות ממה שנוכח בו. שמו של משה כמעט לא מוזכר בכל ההגדה — למרות שהוא הגיבור ההיסטורי של האירוע. הסיבה: ההגדה בוחרת <strong>מסגרת תאולוגית</strong> ולא אישית — הגיבור הוא אלוהים, לא משה. כל עורך טקסט, מנהל יחסי ציבור, או רד\"מ מכיר את הכלי הזה.",
+    q: "שמו של משה כמעט נעדר מההגדה. מה ניתן ללמוד מ\"ניהול ההיעדר\" הזה?",
+    opts: [
+      "זו טעות היסטורית שנשתמרה בטקסט",
+      "בהגדה לא היה מקום לדמויות היסטוריות בנות אנוש",
+      "זו החלטה עריכתית מכוונת שמגדירה מחדש את הגיבור ואת טיב הגאולה",
+      "הרבנים שחיברו את ההגדה לא הכירו את סיפור משה"
+    ],
+    ans: 2,
+    ex: "<div class='ex-title'>למה זה חשוב תקשורתית?</div>כל <strong>עורך, מגיש, ספין-דוקטור</strong> יודע: \"אם לא אזכיר זאת — הציבור לא יחשוב על זה.\" ה<strong>אג'נדה-סטינג</strong> (agenda-setting) פועל לא רק דרך מה שמוצג — אלא דרך מה שמושמט. השמטת משה מעבירה מסר ברור: הגיבור האמיתי הוא האלוהי, לא האנושי."
+  }
+];
+
+let cur = 0, score = 0, answered = false;
+let studentName = '', studentClass = '', classCode = '', teacherID = null;
+
+function startQuiz() {
+  studentName = document.getElementById('inp-name').value.trim();
+  studentClass = document.getElementById('inp-class').value.trim();
+  classCode = document.getElementById('inp-code').value.trim();
+  if (!studentName || !studentClass) { document.getElementById('modal-err').style.display = 'block'; return; }
+  document.getElementById('modal-overlay').style.display = 'none';
+  document.getElementById('quiz-area').style.display = 'block';
+  if (classCode) resolveTeacherID(classCode).then(tid => { teacherID = tid; });
+  renderQ();
+}
+
+function renderQ() {
+  const d = QUESTIONS[cur];
+  const labels = ['א', 'ב', 'ג', 'ד'];
+  document.getElementById('prog-fill').style.width = ((cur / QUESTIONS.length) * 100) + '%';
+  document.getElementById('prog-label').textContent = (cur + 1) + ' / ' + QUESTIONS.length;
+
+  document.getElementById('q-wrap').innerHTML = `
+    <div class="q-card">
+      <div class="source-block">
+        <div class="source-label">מהגדה של פסח</div>
+        <div class="source-quote">${d.source}</div>
+        <div class="source-origin">${d.origin}</div>
+      </div>
+      <div class="concept-block">
+        <span class="concept-pill-label">${d.concept}</span>
+        <div class="concept-text">${d.concept_text}</div>
+      </div>
+      <div class="question-body">
+        <div class="q-intro">שאלה</div>
+        <p class="q-text">${d.q}</p>
+        <div class="options">
+          ${d.opts.map((o,i) => `
+            <button class="opt" onclick="pick(${i})">
+              <span class="mk">${labels[i]}</span>
+              <span>${o}</span>
+            </button>`).join('')}
+        </div>
+        <div class="explanation" id="expl"></div>
+        <div style="text-align:left">
+          <button class="btn-next" id="btn-next" onclick="advance()">
+            ${cur < QUESTIONS.length - 1 ? 'שאלה הבאה ←' : 'לתוצאות ←'}
+          </button>
+        </div>
+      </div>
+    </div>`;
+}
+
+function pick(i) {
+  if (answered) return;
+  answered = true;
+  const d = QUESTIONS[cur];
+  document.querySelectorAll('.opt').forEach(o => o.classList.add('locked'));
+  const opts = document.querySelectorAll('.opt');
+  opts[d.ans].classList.add('correct');
+  opts[d.ans].querySelector('.mk').textContent = '✓';
+  if (i !== d.ans) { opts[i].classList.add('wrong'); opts[i].querySelector('.mk').textContent = '✗'; }
+  else score++;
+  const expl = document.getElementById('expl');
+  expl.innerHTML = d.ex; expl.style.display = 'block';
+  document.getElementById('btn-next').style.display = 'inline-block';
+}
+
+function advance() {
+  cur++; answered = false;
+  if (cur >= QUESTIONS.length) { showResult(); return; }
+  renderQ();
+}
+
+function showResult() {
+  document.getElementById('quiz-area').style.display = 'none';
+  document.getElementById('result-area').style.display = 'block';
+  const pct = Math.round((score / QUESTIONS.length) * 100);
+  document.getElementById('r-score').textContent = score + '/10';
+  document.getElementById('r-pct').textContent = pct + '% תשובות נכונות';
+  const msgs = [
+    [0,3,"כל יציאה ממצרים מתחילה בצעד אחד — נסו שוב!"],
+    [4,6,"הבן השואל! מכירים מושגים, אבל יש עוד מה לגלות."],
+    [7,8,"\"ואפילו כולנו חכמים\" — ניתוח מרשים של הטקסט."],
+    [9,10,"חכם! שולטים במלאכת הנרטיב התקשורתי של ההגדה."]
+  ];
+  let msg = msgs[0][2];
+  for (const [a,b,m] of msgs) if (score>=a && score<=b) { msg=m; break; }
+  document.getElementById('r-msg').textContent = msg;
+  const concepts = QUESTIONS.map(q => q.concept.split(' — ')[0]);
+  const unique = [...new Set(concepts)];
+  document.getElementById('r-concepts').innerHTML = unique.map(c => `<span class="ctag">${c}</span>`).join('');
+  saveResult(score, pct);
+}
+
+async function saveResult(sc, pct) {
+  const status = document.getElementById('save-status');
+  status.textContent = 'שומר תוצאות...';
+  const tid = teacherID || classCode || 'guest';
+  try {
+    await db.ref('tests/pesach-quiz').push({
+      name: studentName, class: studentClass,
+      classCode: classCode || '', teacherID: tid,
+      score: sc, percent: pct, total: QUESTIONS.length,
+      timestamp: new Date().toISOString()
+    });
+    status.textContent = 'התוצאות נשמרו בהצלחה ✓';
+    status.className = 'save-status ok';
+  } catch(e) {
+    status.textContent = 'שגיאה בשמירה — בדקו חיבור לרשת';
+    status.className = 'save-status err-s';
+  }
+}
+
+function restart() {
+  cur = 0; score = 0; answered = false;
+  document.getElementById('result-area').style.display = 'none';
+  document.getElementById('quiz-area').style.display = 'block';
+  renderQ();
+}
+</script>
+</body>
+</html>
