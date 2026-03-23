@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>סביבת מורה — כל המטלות</title>
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@400;700;900&family=Heebo:wght@300;400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../shared.js"></script>
+<style>
+:root{
+  --paper:#f5f0e8;--paper2:#ede8d8;--ink:#1a1208;--ink2:#4a3d28;--ink3:#8a7a5a;
+  --red:#8b1a1a;--gold:#c9a84c;--green:#1a5c1a;--purple:#5b21b6;
+  --sh:3px 3px 0 var(--ink);
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;
+  background-image:repeating-linear-gradient(0deg,transparent,transparent 27px,rgba(26,18,8,.04) 27px,rgba(26,18,8,.04) 28px);}
+
+/* LOGIN */
+#login-overlay{position:fixed;inset:0;background:rgba(26,18,8,.93);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px;}
+.login-box{background:var(--paper);border:3px solid var(--ink);box-shadow:8px 8px 0 var(--ink);max-width:380px;width:100%;padding:36px;}
+.login-head{background:var(--ink);color:var(--paper);text-align:center;padding:16px;margin:-36px -36px 24px;}
+.login-head h2{font-family:'Frank Ruhl Libre',serif;font-size:22px;font-weight:900;}
+.lf{margin-bottom:14px;}
+.lf label{display:block;font-size:10px;letter-spacing:2px;text-transform:uppercase;font-weight:700;color:var(--ink3);margin-bottom:5px;}
+.lf input{width:100%;padding:11px 13px;border:2px solid var(--ink);background:white;font-family:'Heebo',sans-serif;font-size:15px;outline:none;}
+.lf input:focus{border-color:var(--red);}
+.lbtn{width:100%;padding:12px;background:var(--ink);color:var(--paper);border:none;font-family:'Frank Ruhl Libre',serif;font-size:18px;font-weight:700;cursor:pointer;box-shadow:var(--sh);}
+.lbtn:hover{background:var(--red);}
+.lerr{color:var(--red);font-size:13px;font-weight:700;margin-top:8px;display:none;text-align:center;}
+
+/* APP */
+#app{display:none;}
+
+/* MASTHEAD */
+.masthead{background:var(--ink);color:var(--paper);border-bottom:5px solid var(--gold);}
+.mhi{max-width:1200px;margin:0 auto;padding:0 24px;}
+.mht{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #444;font-size:10px;letter-spacing:1.5px;opacity:.6;}
+.mhti{display:flex;justify-content:space-between;align-items:center;padding:12px 0;}
+.mhti h1{font-family:'Frank Ruhl Libre',serif;font-size:clamp(18px,3vw,28px);font-weight:900;}
+.mhti .right{display:flex;align-items:center;gap:12px;}
+#teacher-name{font-size:13px;opacity:.7;}
+.logout-btn{padding:7px 16px;background:transparent;color:var(--paper);border:1px solid rgba(255,255,255,.3);font-family:'Heebo',sans-serif;font-size:13px;cursor:pointer;}
+.logout-btn:hover{background:rgba(255,255,255,.1);}
+
+/* TOOLBAR */
+.toolbar{background:var(--paper2);border-bottom:2px solid var(--ink);padding:12px 24px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;}
+.toolbar input,.toolbar select{padding:9px 12px;border:2px solid var(--ink);background:white;font-family:'Heebo',sans-serif;font-size:14px;outline:none;}
+.toolbar input{flex:1;min-width:180px;}
+.tb-btn{padding:9px 18px;background:var(--ink);color:var(--paper);border:none;font-family:'Frank Ruhl Libre',serif;font-size:15px;font-weight:700;cursor:pointer;white-space:nowrap;}
+.tb-btn:hover{background:var(--red);}
+.tb-btn.sec{background:var(--paper2);color:var(--ink);border:2px solid var(--ink);}
+.tb-btn.sec:hover{background:var(--ink);color:var(--paper);}
+
+/* STATS */
+.stats-row{max-width:1200px;margin:0 auto;padding:16px 24px;display:flex;gap:16px;flex-wrap:wrap;}
+.stat-box{background:white;border:2px solid var(--ink);box-shadow:var(--sh);padding:14px 20px;min-width:120px;text-align:center;}
+.stat-num{font-family:'Frank Ruhl Libre',serif;font-size:28px;font-weight:900;color:var(--red);}
+.stat-lbl{font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--ink3);margin-top:2px;}
+
+/* PAGE */
+.page{max-width:1200px;margin:0 auto;padding:0 24px 60px;}
+
+/* TABLE */
+.empty{text-align:center;padding:48px;color:var(--ink3);font-size:16px;}
+.tbl{width:100%;border-collapse:collapse;border:2px solid var(--ink);box-shadow:var(--sh);}
+.tbl th{background:var(--ink);color:var(--paper);padding:10px 14px;text-align:right;font-family:'Frank Ruhl Libre',serif;font-size:14px;}
+.tbl td{padding:10px 14px;border-bottom:1px solid var(--paper2);font-size:14px;vertical-align:top;}
+.tbl tr:hover td{background:#fdf8f2;}
+.row-btn{background:none;border:none;cursor:pointer;font-size:13px;color:var(--red);font-weight:700;}
+.topic-tag{background:var(--paper2);border:1px solid var(--ink3);padding:3px 10px;font-size:12px;font-weight:700;}
+
+/* EXPAND */
+.expand-panel{padding:20px;background:var(--paper);}
+.ans-block{margin-bottom:14px;}
+.ans-label{font-size:10px;letter-spacing:2px;text-transform:uppercase;font-weight:700;color:var(--ink3);margin-bottom:4px;}
+.ans-text{font-size:14px;line-height:1.7;background:white;border:1px solid var(--paper2);padding:10px 12px;}
+.feedback-panel{background:var(--paper2);border:2px solid var(--ink);padding:16px;margin-top:16px;}
+.feedback-panel h4{font-family:'Frank Ruhl Libre',serif;font-size:16px;margin-bottom:12px;}
+
+@media(max-width:700px){
+  .tbl th:nth-child(3),.tbl td:nth-child(3){display:none;}
+  .stats-row{gap:10px;}
+  .stat-box{min-width:80px;padding:10px 12px;}
+}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-overlay">
+  <div class="login-box">
+    <div class="login-head">
+      <h2>📋 סביבת מורה מרכזית</h2>
+      <p style="font-size:10px;letter-spacing:3px;text-transform:uppercase;opacity:.6;margin-top:3px;">גליל מערבי • תקשורת וחברה</p>
+    </div>
+    <div class="lf"><label>טלפון</label><input type="tel" id="inp-phone" placeholder="מספר טלפון" style="direction:ltr;"></div>
+    <div class="lf"><label>סיסמה</label><input type="password" id="inp-pass" placeholder="••••••••"></div>
+    <button class="lbtn" onclick="tcLogin()">כניסה ←</button>
+    <div class="lerr" id="login-err"></div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <div class="masthead">
+    <div class="mhi">
+      <div class="mht"><span>גליל מערבי • תקשורת וחברה</span><span>סביבת מורה מרכזית</span></div>
+      <div class="mhti">
+        <h1>📋 כל המטלות</h1>
+        <div class="right">
+          <span id="teacher-name"></span>
+          <button class="logout-btn" onclick="tcLogout()">התנתקות</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="toolbar">
+    <input type="text" id="search-input" placeholder="🔍 חיפוש לפי שם תלמיד..." oninput="tcRenderTable()">
+    <select id="filter-topic" onchange="tcRenderTable()"><option value="">— כל הנושאים —</option></select>
+    <select id="filter-class" onchange="tcRenderTable()"><option value="">כל הכיתות</option></select>
+    <button class="tb-btn sec" onclick="tcLoadData()">↺ רענן</button>
+    <button class="tb-btn" onclick="tcExportCSV()">⬇ CSV</button>
+  </div>
+
+  <div class="stats-row">
+    <div class="stat-box"><div class="stat-num" id="s-total">—</div><div class="stat-lbl">סה״כ הגשות</div></div>
+    <div class="stat-box"><div class="stat-num" id="s-today">—</div><div class="stat-lbl">היום</div></div>
+    <div class="stat-box"><div class="stat-num" id="s-topics">—</div><div class="stat-lbl">נושאים</div></div>
+  </div>
+
+  <div class="page">
+    <div id="content"><div class="empty">טוען...</div></div>
+  </div>
+</div>
+
+<script>
+  initTeacherCentral();
+</script>
+</body>
+</html>
