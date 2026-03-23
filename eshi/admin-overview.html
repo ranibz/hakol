@@ -238,31 +238,30 @@ function loadAll(){
   allSubmissions=[];
   teachers={};
 
-  db.ref('teachers').once('value',snap=>{
-    snap.forEach(c=>{ teachers[c.key]={...c.val(), _key:c.key}; });
-  });
+  // טען מורים קודם, ורק אז טען הגשות
+  db.ref('teachers').once('value', teachersSnap=>{
+    teachersSnap.forEach(c=>{ teachers[c.key]={...c.val(), _key:c.key}; });
 
-  db.ref('tests').once('value',snap=>{
-    snap.forEach(topicSnap=>{
-      const topic=topicSnap.key;
-      topicSnap.forEach(subSnap=>{
-        const sub={key:subSnap.key, _topic:topic, ...subSnap.val()};
-        if(!sub.student) return;
-        // זיהוי גרסה: גרסה חדשה = יש teacherID
-        sub._version = sub.student.teacherID ? 'new' : 'old';
-        // שם מורה
-        if(sub._version==='new' && sub.student.teacherID){
-          const t=teachers[sub.student.teacherID];
-          sub._teacherName = t ? (t.firstName&&t.lastName ? t.firstName+' '+t.lastName : t.name||t.phone||sub.student.teacherID) : sub.student.teacherID;
-          sub._teacherKey = sub.student.teacherID;
-        } else {
-          sub._teacherName = sub.student.classCode||'לא ידוע';
-          sub._teacherKey = '_old_'+( sub.student.classCode||'unknown');
-        }
-        allSubmissions.push(sub);
+    db.ref('tests').once('value', snap=>{
+      snap.forEach(topicSnap=>{
+        const topic=topicSnap.key;
+        topicSnap.forEach(subSnap=>{
+          const sub={key:subSnap.key, _topic:topic, ...subSnap.val()};
+          if(!sub.student) return;
+          sub._version = sub.student.teacherID ? 'new' : 'old';
+          if(sub._version==='new' && sub.student.teacherID){
+            const t=teachers[sub.student.teacherID];
+            sub._teacherName = t ? (t.firstName&&t.lastName ? t.firstName+' '+t.lastName : t.name||t.phone||sub.student.teacherID) : sub.student.teacherID;
+            sub._teacherKey = sub.student.teacherID;
+          } else {
+            sub._teacherName = sub.student.classCode||'לא ידוע';
+            sub._teacherKey = '_old_'+(sub.student.classCode||'unknown');
+          }
+          allSubmissions.push(sub);
+        });
       });
+      renderAll();
     });
-    renderAll();
   });
 }
 
