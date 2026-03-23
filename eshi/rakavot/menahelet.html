@@ -835,7 +835,7 @@ function processBirthFile(file) {
             if(!passed) age--;
             const ageHrs = age>=55 ? 4 : age>=50 ? 2 : 0;
 
-            birthImportData.push({ id_number: idRaw, birth_date: birthDate, age, ageHrs });
+            birthImportData.push({ id_number: String(idRaw).replace(/\.0$/, ''), birth_date: birthDate, age, ageHrs });
         }
 
         document.getElementById('birthCount').textContent = `נמצאו ${birthImportData.length} רשומות`;
@@ -862,8 +862,12 @@ async function doBirthImport() {
     let done = 0;
     const chunk = 50;
     for(let i = 0; i < birthImportData.length; i += chunk) {
-        const batch = birthImportData.slice(i, i+chunk).map(r => ({ id_number: r.id_number, birth_date: r.birth_date }));
-        await sb.from('teachers').upsert(batch, { onConflict: 'id_number' });
+        const batch = birthImportData.slice(i, i+chunk);
+        for(const r of batch) {
+            await sb.from('teachers')
+                .update({ birth_date: r.birth_date })
+                .eq('id_number', r.id_number);
+        }
         done += batch.length;
         fill.style.width = (done/birthImportData.length*100)+'%';
     }
