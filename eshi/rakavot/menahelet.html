@@ -804,7 +804,7 @@ function processBirthFile(file) {
 
         const year = document.getElementById('globalYear')?.value || 'תשפז';
         const yearMap = { 'תשפו': 2025, 'תשפז': 2026 };
-        const sepYear = yearMap[year] || 2026;
+        const sepYear = yearMap[year] || 2026; // שנה קלנדרית — גיל נבדק לפי 31.12
 
         birthImportData = [];
         for(let i = startRow; i < raw.length; i++) {
@@ -830,9 +830,8 @@ function processBirthFile(file) {
 
             // חישוב גיל ושעות
             const birth = new Date(birthDate);
-            let age = sepYear - birth.getFullYear();
-            const passed = (birth.getMonth() < 8) || (birth.getMonth()===8 && birth.getDate()<=1);
-            if(!passed) age--;
+            // גיל לפי 31.12 של השנה הקלנדרית
+            const age = sepYear - birth.getFullYear();
             const ageHrs = age>=55 ? 4 : age>=50 ? 2 : 0;
 
             birthImportData.push({ id_number: String(idRaw).replace(/\.0$/, ''), birth_date: birthDate, age, ageHrs });
@@ -1662,13 +1661,16 @@ let allMishrotData = [], allTeacherRoles = [], allPrevPlacements = [];
 // תשפו = 2025/2026 → 1.9.2025, תשפז = 2026/2027 → 1.9.2026
 function getAgeHours(birthDateStr, hebrewYear) {
     if(!birthDateStr) return 0;
+    // שנת הלימודים: תשפו = 2025/26 → בדיקה לפי 31.12.2025
+    //               תשפז = 2026/27 → בדיקה לפי 31.12.2026
     const yearMap = { 'תשפו': 2025, 'תשפז': 2026 };
-    const sepYear = yearMap[hebrewYear] || (new Date().getFullYear());
+    const calYear = yearMap[hebrewYear] || (new Date().getFullYear());
+    const dec31 = new Date(calYear, 11, 31); // 31 בדצמבר
     const birth = new Date(birthDateStr);
     if(isNaN(birth)) return 0;
-    let age = sepYear - birth.getFullYear();
-    const hasBirthdayPassed = (birth.getMonth() < 8) || (birth.getMonth() === 8 && birth.getDate() <= 1);
-    if(!hasBirthdayPassed) age--;
+    // גיל ביום 31.12 של השנה הקלנדרית
+    let age = calYear - birth.getFullYear();
+    // אם יום ההולדת אחרי 31.12 — לא יקרה (31.12 הוא הסוף), אז תמיד age = calYear - birthYear
     if(age >= 55) return 4;
     if(age >= 50) return 2;
     return 0;
