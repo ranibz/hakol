@@ -238,9 +238,26 @@ function loadAll(){
   allSubmissions=[];
   teachers={};
 
-  // טען מורים קודם, ורק אז טען הגשות
-  db.ref('teachers').once('value', teachersSnap=>{
+  // טען מורים ו-teacher_codes במקביל, ואז טען הגשות
+  Promise.all([
+    db.ref('teachers').once('value'),
+    db.ref('teacher_codes').once('value')
+  ]).then(([teachersSnap, codesSnap]) => {
     teachersSnap.forEach(c=>{ teachers[c.key]={...c.val(), _key:c.key}; });
+
+    // בנה מיפוי: classCode → teacherID
+    const codeToTeacher = {};
+    codesSnap.forEach(ch=>{
+      const teacherID = ch.val();
+      const key = ch.key;
+      codeToTeacher[key] = teacherID;
+      // גם מפתח בפורמט code_teacherID
+      const parts = key.split('_');
+      if(parts.length > 1) {
+        const code = parts.slice(0, -1).join('_');
+        codeToTeacher[code] = teacherID;
+      }
+    });
 
     db.ref('tests').once('value', snap=>{
       snap.forEach(topicSnap=>{
@@ -248,11 +265,20 @@ function loadAll(){
         topicSnap.forEach(subSnap=>{
           const sub={key:subSnap.key, _topic:topic, ...subSnap.val()};
           if(!sub.student) return;
+
+          let resolvedTeacherID = sub.student.teacherID;
+
+          // אם אין teacherID אבל יש classCode — נסה למצוא מורה לפי teacher_codes
+          if(!resolvedTeacherID && sub.student.classCode) {
+            resolvedTeacherID = codeToTeacher[sub.student.classCode] || null;
+          }
+
           sub._version = sub.student.teacherID ? 'new' : 'old';
-          if(sub._version==='new' && sub.student.teacherID){
-            const t=teachers[sub.student.teacherID];
-            sub._teacherName = t ? (t.firstName&&t.lastName ? t.firstName+' '+t.lastName : t.name||t.phone||sub.student.teacherID) : sub.student.teacherID;
-            sub._teacherKey = sub.student.teacherID;
+
+          if(resolvedTeacherID) {
+            const t = teachers[resolvedTeacherID];
+            sub._teacherName = t ? (t.firstName&&t.lastName ? t.firstName+' '+t.lastName : t.name||t.phone||resolvedTeacherID) : resolvedTeacherID;
+            sub._teacherKey = resolvedTeacherID;
           } else {
             sub._teacherName = sub.student.classCode||'לא ידוע';
             sub._teacherKey = '_old_'+(sub.student.classCode||'unknown');
