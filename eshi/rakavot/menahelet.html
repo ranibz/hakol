@@ -1877,6 +1877,19 @@ function renderMishrot(data) {
                         </div>` : ''}
                     </div>
                     <!-- תפקידים -->
+                    ${!r.birth_date ? `
+                    <div style="background:#fff1f2;border:1px solid #fecdd3;border-radius:10px;padding:12px 16px;margin-bottom:14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+                        <span style="font-size:13px;color:#b91c1c;font-weight:700;">⚠️ אין תאריך לידה — לא ניתן לחשב שעות גיל</span>
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            <input type="date" id="bd-inp-${r.id}"
+                                style="padding:6px 10px;border:2px solid #fca5a5;border-radius:8px;font-family:Heebo,sans-serif;font-size:13px;outline:none;"
+                                onfocus="this.style.borderColor='#6366f1'" onblur="this.style.borderColor='#fca5a5'">
+                            <button onclick="saveBirthDate('${r.id}',document.getElementById('bd-inp-${r.id}').value)"
+                                style="padding:6px 14px;background:#6366f1;color:white;border:none;border-radius:8px;font-family:Heebo,sans-serif;font-size:13px;font-weight:700;cursor:pointer;">
+                                שמור
+                            </button>
+                        </div>
+                    </div>` : ''}
                     <div style="font-size:12px;font-weight:700;color:#64748b;margin-bottom:10px;letter-spacing:0.5px;">תפקידים של ${r.name}</div>
                     <div class="roles-list" id="roles-list-${r.id}">
                         ${renderRolesList(r.roles, r.id)}
@@ -1990,6 +2003,23 @@ function exportMishrot() {
 
 
 // TOAST
+async function saveBirthDate(teacherId, dateVal) {
+    if(!dateVal) { showToast('יש להזין תאריך'); return; }
+    const { error } = await sb.from('teachers').update({ birth_date: dateVal }).eq('id_number', teacherId);
+    if(error) { showToast('שגיאה: ' + error.message); return; }
+    // Update local
+    const t = allTeachers.find(x => x.id_number === teacherId);
+    if(t) t.birth_date = dateVal;
+    const row = allMishrotData.find(r => r.id === teacherId);
+    if(row) {
+        row.birth_date = dateVal;
+        const year = document.getElementById('mishrotYear').value;
+        row.ageHours = getAgeHours(dateVal, year);
+        renderMishrot(allMishrotData);
+    }
+    showToast('✅ תאריך לידה נשמר');
+}
+
 function showToast(msg) {
     const t = document.getElementById('toast');
     t.textContent = msg;
