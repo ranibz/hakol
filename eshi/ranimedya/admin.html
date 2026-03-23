@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ניהול מורים — אדמין</title>
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@400;700;900&family=Heebo:wght@300;400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{
+  --paper:#f5f0e8;--paper2:#ede8d8;--ink:#1a1208;--ink3:#8a7a5a;
+  --red:#8b1a1a;--gold:#c9a84c;--green:#1a5c1a;
+  --sh:3px 3px 0 var(--ink);
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;
+  background-image:repeating-linear-gradient(0deg,transparent,transparent 27px,rgba(26,18,8,.04) 27px,rgba(26,18,8,.04) 28px);}
+
+/* LOGIN */
+#login-overlay{position:fixed;inset:0;background:rgba(26,18,8,.93);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px;}
+.login-box{background:var(--paper);border:3px solid var(--ink);box-shadow:8px 8px 0 var(--ink);max-width:380px;width:100%;padding:36px;}
+.login-head{background:var(--red);color:var(--paper);text-align:center;padding:16px;margin:-36px -36px 24px;}
+.login-head h2{font-family:'Frank Ruhl Libre',serif;font-size:22px;font-weight:900;}
+.lf{margin-bottom:14px;}
+.lf label{display:block;font-size:10px;letter-spacing:2px;text-transform:uppercase;font-weight:700;color:var(--ink3);margin-bottom:5px;}
+.lf input{width:100%;padding:11px 13px;border:2px solid var(--ink);background:white;font-family:'Heebo',sans-serif;font-size:15px;outline:none;}
+.lf input:focus{border-color:var(--red);}
+.lbtn{width:100%;padding:12px;background:var(--red);color:var(--paper);border:none;font-family:'Frank Ruhl Libre',serif;font-size:18px;font-weight:700;cursor:pointer;box-shadow:var(--sh);}
+.lbtn:hover{background:#6b1010;}
+.lerr{color:var(--red);font-size:13px;font-weight:700;margin-top:8px;display:none;text-align:center;}
+
+/* APP */
+#app{display:none;}
+
+/* MASTHEAD */
+.masthead{background:var(--ink);color:var(--paper);border-bottom:5px solid var(--red);}
+.mhi{max-width:1200px;margin:0 auto;padding:0 24px;}
+.mht{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #444;font-size:10px;letter-spacing:1.5px;opacity:.6;}
+.mhti{display:flex;justify-content:space-between;align-items:center;padding:12px 0;}
+.mhti h1{font-family:'Frank Ruhl Libre',serif;font-size:clamp(18px,3vw,26px);font-weight:900;}
+.logout-btn{padding:7px 16px;background:transparent;color:var(--paper);border:1px solid rgba(255,255,255,.3);font-family:'Heebo',sans-serif;font-size:13px;cursor:pointer;}
+.logout-btn:hover{background:rgba(255,255,255,.1);}
+
+/* TABS */
+.tabs{background:var(--paper2);border-bottom:2px solid var(--ink);display:flex;gap:0;max-width:1200px;margin:0 auto;padding:0 24px;}
+.tab-btn{padding:12px 22px;background:none;border:none;border-bottom:3px solid transparent;font-family:'Heebo',sans-serif;font-size:14px;font-weight:700;cursor:pointer;color:var(--ink3);margin-bottom:-2px;}
+.tab-btn.active{border-bottom-color:var(--red);color:var(--ink);}
+.tab-btn:hover{color:var(--ink);}
+
+/* STATS */
+.stats-row{max-width:1200px;margin:16px auto 0;padding:0 24px;display:flex;gap:16px;flex-wrap:wrap;}
+.stat-box{background:white;border:2px solid var(--ink);box-shadow:var(--sh);padding:14px 20px;min-width:120px;text-align:center;}
+.stat-num{font-family:'Frank Ruhl Libre',serif;font-size:28px;font-weight:900;}
+.stat-num.red{color:var(--red);}
+.stat-num.green{color:var(--green);}
+.stat-lbl{font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--ink3);margin-top:2px;}
+
+/* PAGE */
+.page{max-width:1200px;margin:0 auto;padding:20px 24px 60px;}
+.tab-content{display:none;}
+.tab-content.active{display:block;}
+
+/* TOOLBAR */
+.tb{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;align-items:center;}
+.tb input,.tb select{padding:9px 12px;border:2px solid var(--ink);background:white;font-family:'Heebo',sans-serif;font-size:14px;outline:none;flex:1;min-width:160px;}
+.btn{padding:9px 18px;background:var(--ink);color:var(--paper);border:none;font-family:'Frank Ruhl Libre',serif;font-size:14px;font-weight:700;cursor:pointer;white-space:nowrap;}
+.btn:hover{background:var(--red);}
+.btn.green{background:var(--green);}
+.btn.green:hover{background:#0f3d0f;}
+.btn.sec{background:var(--paper2);color:var(--ink);border:2px solid var(--ink);}
+.btn.sec:hover{background:var(--ink);color:var(--paper);}
+
+/* TABLE */
+.tbl-wrap{border:2px solid var(--ink);box-shadow:var(--sh);overflow:hidden;}
+.tbl{width:100%;border-collapse:collapse;}
+.tbl th{background:var(--ink);color:var(--paper);padding:10px 14px;text-align:right;font-family:'Frank Ruhl Libre',serif;font-size:13px;}
+.tbl td{padding:10px 14px;border-bottom:1px solid var(--paper2);font-size:13px;vertical-align:middle;}
+.tbl tr:hover td{background:#fdf8f2;}
+.badge{display:inline-block;padding:3px 10px;font-size:11px;font-weight:700;border-radius:20px;}
+.badge.approved{background:#dcfce7;color:#166534;}
+.badge.pending{background:#fef9c3;color:#854d0e;}
+.badge.rejected{background:#fee2e2;color:#991b1b;}
+.act-btn{padding:5px 12px;border:none;font-family:'Heebo',sans-serif;font-size:12px;font-weight:700;cursor:pointer;margin-left:4px;}
+.act-btn.approve{background:#dcfce7;color:#166534;}
+.act-btn.approve:hover{background:#16a34a;color:white;}
+.act-btn.reject{background:#fee2e2;color:#991b1b;}
+.act-btn.reject:hover{background:#dc2626;color:white;}
+.act-btn.delete{background:#fef2f2;color:#991b1b;}
+.act-btn.delete:hover{background:#dc2626;color:white;}
+.act-btn.reset{background:#f0f9ff;color:#0369a1;}
+.act-btn.reset:hover{background:#0284c7;color:white;}
+
+/* FORM */
+.form-box{background:white;border:2px solid var(--ink);box-shadow:var(--sh);padding:24px;max-width:500px;}
+.form-box h3{font-family:'Frank Ruhl Libre',serif;font-size:20px;margin-bottom:20px;border-bottom:2px solid var(--paper2);padding-bottom:10px;}
+.fg{margin-bottom:14px;}
+.fg label{display:block;font-size:11px;letter-spacing:1px;text-transform:uppercase;font-weight:700;color:var(--ink3);margin-bottom:5px;}
+.fg input{width:100%;padding:10px 12px;border:2px solid var(--ink);background:var(--paper);font-family:'Heebo',sans-serif;font-size:14px;outline:none;}
+.fg input:focus{border-color:var(--red);}
+.form-msg{font-size:13px;font-weight:700;margin-top:10px;display:none;}
+.form-msg.ok{color:var(--green);}
+.form-msg.err{color:var(--red);}
+
+.empty{text-align:center;padding:40px;color:var(--ink3);}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-overlay">
+  <div class="login-box">
+    <div class="login-head">
+      <h2>🔐 פאנל אדמין</h2>
+      <p style="font-size:10px;letter-spacing:3px;opacity:.7;margin-top:3px;">גליל מערבי • ניהול מורים</p>
+    </div>
+    <div class="lf"><label>סיסמת אדמין</label><input type="password" id="admin-pass" placeholder="••••••••"></div>
+    <button class="lbtn" onclick="adminLogin()">כניסה ←</button>
+    <div class="lerr" id="login-err"></div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <div class="masthead">
+    <div class="mhi">
+      <div class="mht"><span>גליל מערבי • ניהול מערכת</span><span>פאנל אדמין</span></div>
+      <div class="mhti">
+        <h1>🔐 פאנל אדמין — ניהול מורים</h1>
+        <button class="logout-btn" onclick="adminLogout()">התנתקות</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="stats-row">
+    <div class="stat-box"><div class="stat-num green" id="s-approved">—</div><div class="stat-lbl">מורים פעילים</div></div>
+    <div class="stat-box"><div class="stat-num red" id="s-pending">—</div><div class="stat-lbl">ממתינים לאישור</div></div>
+    <div class="stat-box"><div class="stat-num" id="s-total">—</div><div class="stat-lbl">סה״כ מורים</div></div>
+  </div>
+
+  <div style="max-width:1200px;margin:16px auto 0;padding:0 24px;">
+    <div class="tabs" style="padding:0;margin:0;">
+      <button class="tab-btn active" onclick="switchTab('all')">כל המורים</button>
+      <button class="tab-btn" onclick="switchTab('pending')">⏳ ממתינים לאישור</button>
+      <button class="tab-btn" onclick="switchTab('add')">➕ הוספת מורה</button>
+    </div>
+  </div>
+
+  <div class="page">
+
+    <!-- TAB: כל המורים -->
+    <div class="tab-content active" id="tab-all">
+      <div class="tb">
+        <input type="text" id="search-teachers" placeholder="🔍 חיפוש לפי שם או טלפון..." oninput="renderTeachers()">
+        <select id="filter-status" onchange="renderTeachers()">
+          <option value="">כל הסטטוסים</option>
+          <option value="approved">פעילים</option>
+          <option value="pending">ממתינים</option>
+          <option value="rejected">נדחו</option>
+        </select>
+        <button class="btn sec" onclick="loadTeachers()">↺ רענן</button>
+      </div>
+      <div class="tbl-wrap">
+        <table class="tbl">
+          <thead><tr><th>שם</th><th>טלפון</th><th>סטטוס</th><th>פעולות</th></tr></thead>
+          <tbody id="teachers-body"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- TAB: ממתינים -->
+    <div class="tab-content" id="tab-pending">
+      <div id="pending-list"><div class="empty">טוען...</div></div>
+    </div>
+
+    <!-- TAB: הוספה -->
+    <div class="tab-content" id="tab-add">
+      <div class="form-box">
+        <h3>➕ הוספת מורה חדש</h3>
+        <div class="fg"><label>שם מלא</label><input type="text" id="add-name" placeholder="שם פרטי ושם משפחה"></div>
+        <div class="fg"><label>טלפון</label><input type="tel" id="add-phone" placeholder="05xxxxxxxx" style="direction:ltr;"></div>
+        <div class="fg"><label>סיסמה</label><input type="text" id="add-pass" placeholder="סיסמה ראשונית"></div>
+        <button class="btn green" onclick="addTeacher()">שמור מורה ✓</button>
+        <div class="form-msg" id="add-msg"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- MODAL: איפוס סיסמה -->
+<div id="reset-modal" style="display:none;position:fixed;inset:0;background:rgba(26,18,8,.7);z-index:500;align-items:center;justify-content:center;padding:20px;">
+  <div style="background:var(--paper);border:3px solid var(--ink);box-shadow:var(--sh);max-width:380px;width:100%;padding:28px;">
+    <h3 style="font-family:'Frank Ruhl Libre',serif;font-size:18px;margin-bottom:16px;">🔑 איפוס סיסמה</h3>
+    <p style="font-size:13px;color:var(--ink3);margin-bottom:12px;">מורה: <strong id="reset-name"></strong></p>
+    <div class="fg"><label>סיסמה חדשה</label><input type="text" id="reset-pass" placeholder="הזן סיסמה חדשה"></div>
+    <div style="display:flex;gap:10px;margin-top:14px;">
+      <button class="btn" onclick="confirmReset()" style="flex:1;">שמור ✓</button>
+      <button class="btn sec" onclick="closeReset()" style="flex:1;">ביטול</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const SUPA_URL = 'https://seuskpyofhkvejyooghk.supabase.co';
+const SUPA_KEY = 'sb_publishable_qrLorZwzfmjFh9S3iRa1sQ_u6DVP29b';
+const sb = supabase.createClient(SUPA_URL, SUPA_KEY);
+
+const ADMIN_PASS = 'ranimedya2025';
+let allTeachers = [], resetTeacherID = '';
+
+// ===== LOGIN =====
+function adminLogin() {
+  const pass = document.getElementById('admin-pass').value.trim();
+  const err = document.getElementById('login-err');
+  if (pass !== ADMIN_PASS) { err.textContent = 'סיסמה שגויה'; err.style.display = 'block'; return; }
+  document.getElementById('login-overlay').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  loadTeachers();
+}
+function adminLogout() {
+  document.getElementById('login-overlay').style.display = 'flex';
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('admin-pass').value = '';
+}
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && document.getElementById('login-overlay').style.display !== 'none') adminLogin();
+});
+
+// ===== TABS =====
+function switchTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach((b,i) => b.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+  event.target.classList.add('active');
+  if (tab === 'pending') renderPending();
+}
+
+// ===== LOAD =====
+async function loadTeachers() {
+  const { data, error } = await sb.from('teachers').select('*').order('name');
+  if (error) { console.error(error); return; }
+  allTeachers = data || [];
+  updateStats();
+  renderTeachers();
+  renderPending();
+}
+
+function updateStats() {
+  document.getElementById('s-approved').textContent = allTeachers.filter(t => t.status === 'approved').length;
+  document.getElementById('s-pending').textContent = allTeachers.filter(t => t.status === 'pending').length;
+  document.getElementById('s-total').textContent = allTeachers.length;
+}
+
+// ===== RENDER ALL =====
+function renderTeachers() {
+  const search = (document.getElementById('search-teachers')?.value || '').toLowerCase();
+  const status = document.getElementById('filter-status')?.value || '';
+  const filtered = allTeachers.filter(t =>
+    (!search || (t.name||'').toLowerCase().includes(search) || (t.phone||'').includes(search)) &&
+    (!status || t.status === status)
+  );
+  const tbody = document.getElementById('teachers-body');
+  if (!filtered.length) { tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:30px;color:var(--ink3);">אין מורים תואמים</td></tr>'; return; }
+  tbody.innerHTML = filtered.map(t => `
+    <tr>
+      <td><strong>${t.name || '—'}</strong></td>
+      <td style="direction:ltr;font-size:12px;">${t.phone || '—'}</td>
+      <td><span class="badge ${t.status || 'pending'}">${statusLabel(t.status)}</span></td>
+      <td>
+        ${t.status !== 'approved' ? `<button class="act-btn approve" onclick="setStatus('${t.id_number}','approved')">✓ אשר</button>` : ''}
+        ${t.status !== 'rejected' ? `<button class="act-btn reject" onclick="setStatus('${t.id_number}','rejected')">✗ דחה</button>` : ''}
+        <button class="act-btn reset" onclick="openReset('${t.id_number}','${(t.name||'').replace(/'/g,"\\'")}')">🔑 סיסמה</button>
+        <button class="act-btn delete" onclick="deleteTeacher('${t.id_number}','${(t.name||'').replace(/'/g,"\\'")}')">🗑</button>
+      </td>
+    </tr>`).join('');
+}
+
+// ===== RENDER PENDING =====
+function renderPending() {
+  const pending = allTeachers.filter(t => t.status === 'pending');
+  const el = document.getElementById('pending-list');
+  if (!pending.length) { el.innerHTML = '<div class="empty">אין מורים הממתינים לאישור ✓</div>'; return; }
+  el.innerHTML = `<div class="tbl-wrap"><table class="tbl">
+    <thead><tr><th>שם</th><th>טלפון</th><th>פעולות</th></tr></thead>
+    <tbody>${pending.map(t => `
+      <tr>
+        <td><strong>${t.name || '—'}</strong></td>
+        <td style="direction:ltr;font-size:12px;">${t.phone || '—'}</td>
+        <td>
+          <button class="act-btn approve" onclick="setStatus('${t.id_number}','approved')">✓ אשר</button>
+          <button class="act-btn reject" onclick="setStatus('${t.id_number}','rejected')">✗ דחה</button>
+          <button class="act-btn delete" onclick="deleteTeacher('${t.id_number}','${(t.name||'').replace(/'/g,"\\'")}')">🗑 מחק</button>
+        </td>
+      </tr>`).join('')}
+    </tbody></table></div>`;
+}
+
+// ===== ACTIONS =====
+async function setStatus(id, status) {
+  await sb.from('teachers').update({ status }).eq('id_number', id);
+  const t = allTeachers.find(x => x.id_number === id);
+  if (t) t.status = status;
+  updateStats(); renderTeachers(); renderPending();
+}
+
+async function deleteTeacher(id, name) {
+  if (!confirm(`למחוק את ${name}?`)) return;
+  await sb.from('teachers').delete().eq('id_number', id);
+  allTeachers = allTeachers.filter(t => t.id_number !== id);
+  updateStats(); renderTeachers(); renderPending();
+}
+
+function openReset(id, name) {
+  resetTeacherID = id;
+  document.getElementById('reset-name').textContent = name;
+  document.getElementById('reset-pass').value = '';
+  const m = document.getElementById('reset-modal');
+  m.style.display = 'flex';
+}
+function closeReset() { document.getElementById('reset-modal').style.display = 'none'; }
+async function confirmReset() {
+  const pass = document.getElementById('reset-pass').value.trim();
+  if (!pass) { alert('הזן סיסמה'); return; }
+  await sb.from('teachers').update({ password: pass }).eq('id_number', resetTeacherID);
+  const t = allTeachers.find(x => x.id_number === resetTeacherID);
+  if (t) t.password = pass;
+  closeReset();
+  alert('✓ הסיסמה אופסה');
+}
+
+// ===== ADD TEACHER =====
+async function addTeacher() {
+  const name = document.getElementById('add-name').value.trim();
+  const phone = document.getElementById('add-phone').value.trim();
+  const pass = document.getElementById('add-pass').value.trim();
+  const msg = document.getElementById('add-msg');
+  msg.style.display = 'none';
+  if (!name || !phone || !pass) { msg.textContent = 'נא למלא את כל השדות'; msg.className = 'form-msg err'; msg.style.display = 'block'; return; }
+
+  // id_number = timestamp
+  const id = 'T' + Date.now();
+  const { error } = await sb.from('teachers').insert({ id_number: id, name, phone, password: pass, status: 'approved' });
+  if (error) { msg.textContent = 'שגיאה: ' + error.message; msg.className = 'form-msg err'; msg.style.display = 'block'; return; }
+
+  msg.textContent = '✓ המורה נוסף בהצלחה!'; msg.className = 'form-msg ok'; msg.style.display = 'block';
+  document.getElementById('add-name').value = '';
+  document.getElementById('add-phone').value = '';
+  document.getElementById('add-pass').value = '';
+  await loadTeachers();
+}
+
+function statusLabel(s) {
+  return s === 'approved' ? 'פעיל' : s === 'pending' ? 'ממתין' : s === 'rejected' ? 'נדחה' : 'לא ידוע';
+}
+</script>
+</body>
+</html>
