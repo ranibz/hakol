@@ -243,21 +243,42 @@ function doLogout(){
 
 function loadAllData(){
   document.getElementById('content').innerHTML='<div class="msg-box"><p>⏳ שואב נתונים...</p><span>אנא המתן</span></div>';
-  db.ref('tests').once('value').then(snap=>{
-    const val=snap.val()||{};
-    const topics=Object.keys(val);
-    if(!topics.length){document.getElementById('content').innerHTML='<div class="msg-box"><p>אין נתונים עדיין</p></div>';return;}
-    const sel=document.getElementById('filter-topic');
-    sel.innerHTML='<option value="">— כל הנושאים —</option>';
-    topics.forEach(t=>sel.innerHTML+=`<option value="${t}">${t}</option>`);
-    allData=[];
-    topics.forEach(topic=>{
-      Object.entries(val[topic]||{}).forEach(([key,v])=>{
-        if(v?.student?.teacherID===teacherID)allData.push({key,_topic:topic,...v});
-      });
+
+  // טען קודי כיתה שהמורה יצרה (teacher_codes שמפתחותיהם מכילים את teacherID)
+  db.ref('teacher_codes').once('value').then(codesSnap=>{
+    const myCodes = new Set();
+    codesSnap.forEach(ch=>{
+      const val = ch.val();
+      // קוד יכול להיות teacherID עצמו, או מפתח בפורמט code_teacherID
+      if(val === teacherID || String(ch.key).endsWith('_'+teacherID) || String(ch.key) === teacherID) {
+        // חלץ את קוד הכיתה מהמפתח
+        const parts = ch.key.split('_');
+        if(parts.length > 1) {
+          myCodes.add(parts.slice(0, -1).join('_')); // הקוד הוא כל מה שלפני _teacherID
+        }
+        myCodes.add(ch.key); // גם את המפתח עצמו
+      }
     });
-    allData.sort((a,b)=>(b.submittedAt||0)-(a.submittedAt||0));
-    applyFilter();
+
+    db.ref('tests').once('value').then(snap=>{
+      const val=snap.val()||{};
+      const topics=Object.keys(val);
+      if(!topics.length){document.getElementById('content').innerHTML='<div class="msg-box"><p>אין נתונים עדיין</p></div>';return;}
+      const sel=document.getElementById('filter-topic');
+      sel.innerHTML='<option value="">— כל הנושאים —</option>';
+      topics.forEach(t=>sel.innerHTML+=`<option value="${t}">${t}</option>`);
+      allData=[];
+      topics.forEach(topic=>{
+        Object.entries(val[topic]||{}).forEach(([key,v])=>{
+          if(!v?.student) return;
+          const byTeacherID = v.student.teacherID === teacherID;
+          const byClassCode = !v.student.teacherID && myCodes.has(v.student.classCode);
+          if(byTeacherID || byClassCode) allData.push({key,_topic:topic,...v});
+        });
+      });
+      allData.sort((a,b)=>(b.submittedAt||0)-(a.submittedAt||0));
+      applyFilter();
+    });
   });
 }
 
