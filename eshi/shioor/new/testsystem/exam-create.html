@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>המחולל החכם — גרסה סופית</title>
+    <title>מחולל המבחנים - גרסה יציבה</title>
     
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Assistant:wght@300;400;600;700&family=Frank+Ruhl+Libre:wght@700&display=swap">
@@ -18,7 +18,7 @@
         h1 { font-family: 'Frank Ruhl Libre', serif; font-weight: 700; color: #1e3a8a; }
         .btn-primary { background-color: var(--primary); border: none; padding: 12px 25px; border-radius: 10px; font-weight: 600; transition: 0.3s; }
         .btn-primary:hover { background-color: #1d4ed8; }
-        .question-preview { border-right: 4px solid var(--primary); background: #f1f5f9; padding: 20px; border-radius: 8px; margin-bottom: 15px; }
+        .question-box { border-right: 4px solid var(--primary); background: #f1f5f9; padding: 20px; border-radius: 8px; margin-bottom: 15px; }
         #share-box { display: none; background: #ecfdf5; border: 2px solid #10b981; padding: 15px; border-radius: 8px; margin-top: 15px; }
     </style>
 </head>
@@ -27,7 +27,7 @@
 <div class="container" style="max-width: 900px;">
     <div class="text-center mb-5">
         <h1>המחולל המבחנים החכם</h1>
-        <p class="text-muted">יצירת מבחן בגרות מבוססת Gemini 1.5 Flash (גרסה יציבה)</p>
+        <p class="text-muted">יצירת מבחן בגרות מבוססת Gemini 1.5 Flash (גרסה סופית)</p>
     </div>
 
     <div class="main-card">
@@ -35,11 +35,11 @@
         <div class="row g-3">
             <div class="col-md-6">
                 <label class="form-label fw-bold">שם המבחן</label>
-                <input type="text" id="exam-title" class="form-control" placeholder="למשל: מבחן תקשורת — יא">
+                <input type="text" id="exam-title" class="form-control" placeholder="למשל: מבחן תקשורת - יא">
             </div>
             <div class="col-md-6">
                 <label class="form-label fw-bold">נושא אקטואלי</label>
-                <input type="text" id="main-topic" class="form-control" placeholder="למשל: תקשורת ופייק ניוז">
+                <input type="text" id="main-topic" class="form-control" placeholder="למשל: תקשורת בזמן מלחמה">
             </div>
             <div class="col-12">
                 <label class="form-label fw-bold">מושגים (הפרד בפסיק)</label>
@@ -63,7 +63,7 @@
 </div>
 
 <script>
-// Firebase Config
+// Firebase Setup
 const firebaseConfig = {
     apiKey: "AIzaSyCCHvn_ulmiyM56DuslNzNC0Ge6a8i2vhY",
     databaseURL: "https://tests-fd938-default-rtdb.europe-west1.firebasedatabase.app",
@@ -72,9 +72,9 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
-// ה-URL המדויק שגוגל דורשת
+// API Setup - שימוש בגרסת v1 היציבה
 const API_KEY = "AIzaSyDXexsbNZ-uMT-oIuxyIJQyF9rMmU9ObiI";
-const API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + API_KEY;
+const API_URL = "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=" + API_KEY;
 
 let questions = [];
 
@@ -83,21 +83,18 @@ async function generateQuestion() {
     const concepts = document.getElementById('concepts').value;
     const btn = document.getElementById('btn-gen');
 
-    if(!topic) { alert("נא להזין נושא"); return; }
+    if(!topic) { alert("נא להזין נושא למבחן"); return; }
 
     btn.disabled = true;
-    btn.innerHTML = 'בונה שאלה... <span class="spinner-border spinner-border-sm"></span>';
+    btn.innerHTML = 'מייצר שאלה... <span class="spinner-border spinner-border-sm"></span>';
 
-    // המבנה המדויק שמונע שגיאת 400
+    // המבנה המדויק שגוגל דורשת
     const payload = {
         contents: [{
             parts: [{
-                text: `אתה מורה לתקשורת. צור שאלת בגרות על "${topic}" הכוללת את המושגים: ${concepts}. החזר JSON נקי בלבד עם השדות: context, question, requirements.`
+                text: `אתה מורה לתקשורת. צור שאלת בגרות על "${topic}" המשלבת את המושגים: ${concepts}. החזר JSON בלבד ללא Markdown וללא טקסט נוסף: {"context": "רקע", "question": "שאלה", "requirements": "דרישות"}`
             }]
-        }],
-        generationConfig: {
-            response_mime_type: "application/json"
-        }
+        }]
     };
 
     try {
@@ -111,8 +108,11 @@ async function generateQuestion() {
 
         if (data.candidates && data.candidates[0].content) {
             let rawText = data.candidates[0].content.parts[0].text;
-            const q = JSON.parse(rawText);
             
+            // ניקוי תגיות Markdown (גוגל לפעמים מוסיפה אותן למרות שמבקשים שלא)
+            rawText = rawText.replace(/```json/g, "").replace(/```/g, "").trim();
+            
+            const q = JSON.parse(rawText);
             questions.push(q);
             renderQuestion(q, questions.length);
             
@@ -120,22 +120,24 @@ async function generateQuestion() {
             btn.innerHTML = '✨ צור שאלה נוספת';
             document.getElementById('btn-save').style.display = 'block';
         } else {
-            throw new Error("Response structure error");
+            // אם גוגל מחזירה שגיאה - נציג אותה
+            console.error("Full Google Response:", data);
+            throw new Error(data.error ? data.error.message : "שגיאה במבנה התשובה של גוגל");
         }
+
     } catch (e) {
-        console.error("Gemini Error:", e);
-        alert("תקלה בתקשורת. נסה שוב.");
+        console.error("Detailed Error:", e);
+        alert("תקלה: " + e.message);
         btn.disabled = false;
         btn.innerHTML = '✨ נסה שוב';
     }
 }
 
 function renderQuestion(q, num) {
-    const area = document.getElementById('questions-area');
     const div = document.createElement('div');
-    div.className = "main-card question-preview";
+    div.className = "main-card question-box";
     div.innerHTML = `<h5>שאלה ${num}</h5><p>${q.context}</p><p class="fw-bold">${q.question}</p>`;
-    area.prepend(div);
+    document.getElementById('questions-area').prepend(div);
 }
 
 function saveToFirebase() {
