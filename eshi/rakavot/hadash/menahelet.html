@@ -1,0 +1,2087 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>מרכז שליטה — מנהלת ביה"ס</title>
+    <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;700;900&family=Secular+One&display=swap" rel="stylesheet">
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.0/package/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <style>
+        :root {
+            --bg: #f1f5f9; --admin: #1e293b; --primary: #6366f1;
+            --success: #10b981; --danger: #ef4444; --warning: #f97316;
+            --white: #ffffff; --border: #e2e8f0;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Heebo', sans-serif; background: var(--bg); direction: rtl; min-height: 100vh; }
+
+        /* LOGIN */
+        #login-screen { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }
+        .login-card { background: white; padding: 50px 40px; border-radius: 30px; box-shadow: 0 20px 40px rgba(0,0,0,0.1); width: 100%; max-width: 420px; border-top: 8px solid var(--primary); text-align: center; }
+        .login-card h1 { font-family: 'Secular One'; font-size: 26px; color: var(--admin); margin-bottom: 8px; }
+        .login-card p { color: #64748b; font-size: 14px; margin-bottom: 30px; }
+        .login-card input { width: 100%; padding: 14px; border: 2px solid var(--border); border-radius: 12px; font-family: 'Heebo'; font-size: 15px; margin-bottom: 15px; outline: none; }
+        .login-card input:focus { border-color: var(--primary); }
+        .btn-primary { width: 100%; padding: 15px; background: var(--primary); color: white; border: none; border-radius: 12px; font-family: 'Heebo'; font-size: 16px; font-weight: 800; cursor: pointer; }
+        .btn-primary:hover { background: #4f46e5; }
+        .login-err { color: var(--danger); font-size: 13px; margin-top: 10px; display: none; }
+
+        /* APP */
+        #app { display: none; }
+        .topbar { background: var(--admin); color: white; padding: 18px 30px; display: flex; justify-content: space-between; align-items: center; }
+        .topbar h1 { font-family: 'Secular One'; font-size: 22px; }
+        .topbar-right { display: flex; align-items: center; gap: 15px; }
+        .year-sel { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 15px; border-radius: 10px; font-family: 'Heebo'; font-size: 14px; font-weight: 700; cursor: pointer; }
+        .btn-logout { background: transparent; border: 1px solid rgba(255,255,255,0.3); color: white; padding: 8px 16px; border-radius: 10px; font-family: 'Heebo'; font-size: 13px; cursor: pointer; }
+
+        .container { max-width: 1400px; margin: 0 auto; padding: 30px 20px; }
+
+        /* TABS */
+        .tabs { display: flex; gap: 10px; margin-bottom: 30px; flex-wrap: wrap; }
+        .tab-btn { padding: 12px 24px; border-radius: 12px; border: none; cursor: pointer; font-weight: 800; font-size: 14px; background: white; color: #64748b; font-family: 'Heebo'; border: 2px solid var(--border); transition: 0.2s; }
+        .tab-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        /* STATS */
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 20px; margin-bottom: 30px; }
+        .stat-card { background: white; padding: 25px 20px; border-radius: 20px; text-align: center; border-top: 5px solid var(--primary); box-shadow: 0 4px 10px rgba(0,0,0,0.04); }
+        .stat-num { font-family: 'Secular One'; font-size: 40px; color: var(--admin); line-height: 1; }
+        .stat-lbl { font-size: 12px; color: #64748b; font-weight: 700; margin-top: 6px; letter-spacing: 0.5px; }
+
+        /* CARDS */
+        .card { background: white; padding: 30px; border-radius: 25px; box-shadow: 0 4px 10px rgba(0,0,0,0.04); border: 1px solid var(--border); margin-bottom: 25px; }
+        .card h2 { font-family: 'Secular One'; font-size: 20px; color: var(--admin); margin-bottom: 20px; padding-bottom: 12px; border-bottom: 2px solid var(--bg); }
+
+        /* IMPORT */
+        .drop-zone { border: 3px dashed var(--border); border-radius: 20px; padding: 50px 20px; text-align: center; cursor: pointer; transition: 0.3s; background: #f8fafc; }
+        .drop-zone:hover, .drop-zone.drag-over { border-color: var(--primary); background: #f5f3ff; }
+        .drop-zone .icon { font-size: 48px; margin-bottom: 15px; }
+        .drop-zone h3 { font-size: 18px; font-weight: 800; color: var(--admin); margin-bottom: 8px; }
+        .drop-zone p { font-size: 13px; color: #64748b; }
+        #fileInput { display: none; }
+
+        .import-preview { margin-top: 20px; display: none; }
+        .preview-table-wrap { overflow-x: auto; max-height: 350px; overflow-y: auto; border: 1px solid var(--border); border-radius: 12px; }
+        .preview-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .preview-table th { background: var(--admin); color: white; padding: 10px 14px; text-align: right; position: sticky; top: 0; }
+        .preview-table td { padding: 10px 14px; border-bottom: 1px solid var(--bg); }
+        .preview-table tr:hover td { background: #f5f3ff; }
+
+        .import-actions { display: flex; gap: 12px; align-items: center; margin-top: 15px; flex-wrap: wrap; }
+        .btn-success { padding: 12px 25px; background: var(--success); color: white; border: none; border-radius: 12px; font-family: 'Heebo'; font-size: 14px; font-weight: 800; cursor: pointer; }
+        .btn-danger { padding: 12px 25px; background: #f1f5f9; color: #64748b; border: none; border-radius: 12px; font-family: 'Heebo'; font-size: 14px; font-weight: 700; cursor: pointer; }
+        .import-count { font-size: 13px; color: #64748b; font-weight: 700; }
+
+        /* PROGRESS */
+        .progress-bar-bg { background: var(--border); border-radius: 8px; height: 8px; overflow: hidden; margin-top: 10px; display: none; }
+        .progress-bar-fill { height: 100%; background: var(--success); border-radius: 8px; transition: width 0.3s; width: 0%; }
+
+        /* TEACHERS TABLE */
+        .search-bar { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+        .search-bar input { flex: 1; min-width: 200px; padding: 12px 16px; border: 2px solid var(--border); border-radius: 12px; font-family: 'Heebo'; font-size: 14px; outline: none; }
+        .search-bar input:focus { border-color: var(--primary); }
+
+        .teachers-table-wrap { overflow-x: auto; }
+        .teachers-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        .teachers-table th { background: var(--admin); color: white; padding: 12px 16px; text-align: right; }
+        .teachers-table td { padding: 12px 16px; border-bottom: 1px solid var(--bg); }
+        .teachers-table tr:hover td { background: #f5f3ff; }
+        .td-id { font-family: monospace; color: #6366f1; font-weight: 700; }
+        .td-name { font-weight: 800; }
+        .td-subjects { font-size: 11px; color: #64748b; max-width: 200px; }
+
+        /* ALERTS */
+        .alerts-list { display: flex; flex-direction: column; gap: 12px; }
+        .alert-item { display: flex; align-items: center; gap: 15px; padding: 16px 20px; border-radius: 15px; border: 1px solid; }
+        .alert-over { background: #fff1f2; border-color: #fecdd3; }
+        .alert-low { background: #fff7ed; border-color: #fed7aa; }
+        .alert-name { font-weight: 800; font-size: 15px; flex: 1; }
+        .alert-detail { font-size: 13px; color: #64748b; }
+        .badge { padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 800; }
+        .badge-over { background: #fee2e2; color: var(--danger); }
+        .badge-low { background: #ffedd5; color: var(--warning); }
+        .badge-ok { background: #dcfce7; color: var(--success); }
+
+        /* PM */
+        .pm-grid { display: grid; grid-template-columns: 400px 1fr; gap: 25px; }
+        @media(max-width: 800px) { .pm-grid { grid-template-columns: 1fr; } }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; font-size: 12px; font-weight: 800; color: #64748b; margin-bottom: 6px; letter-spacing: 0.5px; }
+        .form-group input, .form-group select { width: 100%; padding: 12px; border: 2px solid var(--border); border-radius: 10px; font-family: 'Heebo'; font-size: 14px; outline: none; }
+        .form-group input:focus { border-color: var(--primary); }
+        .pm-list { display: flex; flex-direction: column; gap: 12px; }
+        .pm-card { background: white; padding: 18px 20px; border-radius: 15px; border: 1px solid var(--border); border-right: 6px solid var(--primary); display: flex; justify-content: space-between; align-items: flex-start; }
+        .pm-name { font-weight: 900; font-size: 16px; color: var(--admin); }
+        .pm-depts { font-size: 13px; color: var(--primary); margin-top: 4px; }
+        .btn-del { background: none; border: none; color: var(--danger); cursor: pointer; font-size: 18px; padding: 4px; }
+
+        /* LOADING */
+        .loading { text-align: center; padding: 40px; color: #64748b; }
+        .spinner { display: inline-block; width: 30px; height: 30px; border: 3px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; margin-bottom: 10px; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: var(--admin); color: white; padding: 14px 28px; border-radius: 12px; font-weight: 700; font-size: 14px; z-index: 9999; display: none; box-shadow: 0 8px 20px rgba(0,0,0,0.2); }
+        .toast.show { display: block; animation: fadeIn 0.3s; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateX(-50%) translateY(10px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+
+        /* SUMMARY TABLE */
+        .summary-table { width: 100%; border-collapse: collapse; font-size: 14px; }
+        .summary-table th { background: var(--admin); color: white; padding: 13px 16px; text-align: right; }
+        .summary-table td { padding: 13px 16px; border-bottom: 1px solid var(--bg); }
+        .summary-table tr:hover td { background: #f5f3ff; }
+        .pct-bar-bg { background: var(--border); border-radius: 6px; height: 8px; width: 80px; display: inline-block; vertical-align: middle; overflow: hidden; margin-right: 8px; }
+        .pct-bar-fill { height: 100%; border-radius: 6px; }
+    
+        .grade-box { background: white; border: 2px solid var(--border); border-radius: 20px; padding: 22px; margin-bottom: 18px; box-shadow: 0 4px 10px rgba(0,0,0,0.03); }
+        .row-indigo { background: #f5f3ff; border-right: 6px solid #6366f1; }
+        .row-green { background: #f0fdf4; border-right: 6px solid #10b981; }
+        .row-gray { background: #f8fafc; border-right: 6px solid #94a3b8; }
+        .pm-grid { display: grid; grid-template-columns: 400px 1fr; gap: 25px; }
+        @media(max-width:800px) { .pm-grid { grid-template-columns: 1fr; } }
+        .badge-ok { background: #dcfce7; color: var(--success); }
+        .badge-over { background: #fee2e2; color: var(--danger); }
+        .badge-low { background: #ffedd5; color: var(--warning); }
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-screen">
+    <div class="login-card">
+        <h1>מרכז שליטה מנהלת</h1>
+        <p>מערכת ניהול שיבוץ מורים — גליל מערבי</p>
+        <input type="password" id="loginPass" placeholder="סיסמת מנהלת" autocomplete="off">
+        <button class="btn-primary" onclick="doLogin()">כניסה</button>
+        <div class="login-err" id="loginErr">סיסמה שגויה</div>
+    </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+    <div class="topbar">
+        <h1>🏫 מרכז שליטה — מנהלת ביה"ס</h1>
+        <div class="topbar-right">
+            <select class="year-sel" id="globalYear" onchange="onYearChange()">
+                <option value="תשפז">תשפ"ז (הבאה)</option>
+                <option value="תשפו">תשפ"ו (נוכחית)</option>
+            </select>
+            <button class="btn-logout" onclick="doLogout()">יציאה</button>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="tabs">
+            <button class="tab-btn active" id="tbtn-dashboard" onclick="switchTab('dashboard')">📊 דשבורד</button>
+            <button class="tab-btn" id="tbtn-teachers" onclick="switchTab('teachers')">👩‍🏫 מאגר מורים</button>
+            <button class="tab-btn" id="tbtn-import" onclick="switchTab('import')">📥 ייבוא נתונים</button>
+            <button class="tab-btn" id="tbtn-pm" onclick="switchTab('pm')">👤 מנהלות פדגוגיות</button>
+            <button class="tab-btn" id="tbtn-roles" onclick="switchTab('roles')">🏷️ תפקידים</button>
+            <button class="tab-btn" id="tbtn-mishrot" onclick="switchTab('mishrot')">📋 משרות מורים</button>
+        </div>
+
+        <!-- TAB: דשבורד -->
+        <div id="tab-dashboard" class="tab-content active">
+            <div class="stats-grid" id="dashStats"></div>
+            <div id="dashBreadcrumb" style="display:flex;align-items:center;gap:8px;margin-bottom:18px;flex-wrap:wrap;font-size:13px;"></div>
+            <div id="dash-view-main">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px;">
+                    <h2 style="font-family:'Secular One';font-size:20px;color:var(--admin);">מנהלות פדגוגיות</h2>
+                    <button class="btn-csv" onclick="exportAll()">⬇ ייצוא לאקסל</button>
+                </div>
+                <div id="dashPMGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;margin-bottom:24px;"></div>
+                <div class="card" id="pendingCard" style="display:none;margin-bottom:20px;border:2px solid #f97316;">
+                    <h2 style="color:#c2410c;">⏳ מגמות הממתינות לאישור / שונו לאחר אישור</h2>
+                    <div id="pendingList"></div>
+                </div>
+                <div class="card">
+                    <h2>⚠️ חריגות משרה — כלל ביה"ס</h2>
+                    <div id="dashAlerts"></div>
+                </div>
+            </div>
+            <div id="dash-view-depts" style="display:none;">
+                <h2 style="font-family:'Secular One';font-size:20px;color:var(--admin);margin-bottom:16px;" id="dashDeptsTitle"></h2>
+                <div id="dashDeptsGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px;margin-bottom:24px;"></div>
+            </div>
+            <div id="dash-view-rakevet" style="display:none;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px;">
+                    <h2 style="font-family:'Secular One';font-size:20px;color:var(--admin);" id="dashRakavetTitle"></h2>
+                    <button class="btn-csv" onclick="exportDept()">⬇ ייצוא מגמה</button>
+                </div>
+                <div class="card" style="margin-bottom:20px;">
+                    <h2>ריכוז משרות</h2>
+                    <div style="overflow-x:auto;"><table class="summary-table"><thead><tr><th>ת.ז</th><th>שם</th><th>מגע</th><th>גמול</th><th>סה"כ</th><th>%</th><th>סטטוס</th></tr></thead><tbody id="dashJobBody"></tbody></table></div>
+                </div>
+                <div id="dashRakavetContainer"></div>
+            </div>
+        </div>
+
+        <!-- TAB: מאגר מורים -->
+        </div>
+
+        <!-- TAB: מאגר מורים -->
+        <div id="tab-teachers" class="tab-content">
+            <div class="stats-grid" id="statsGrid">
+                <div class="stat-card"><div class="stat-num" id="statTotal">—</div><div class="stat-lbl">סה"כ מורים</div></div>
+                <div class="stat-card"><div class="stat-num" id="statActive">—</div><div class="stat-lbl">מורים משובצים</div></div>
+                <div class="stat-card"><div class="stat-num" id="statPM">—</div><div class="stat-lbl">מנהלות פדגוגיות</div></div>
+                <div class="stat-card"><div class="stat-num" id="statAlerts">—</div><div class="stat-lbl">חריגות משרה</div></div>
+            </div>
+            <div class="card">
+                <h2>מאגר המורים</h2>
+                <div class="search-bar">
+                    <input type="text" id="searchTeacher" placeholder="🔍 חיפוש לפי שם או ת.ז..." oninput="filterTeachers()">
+                </div>
+                <div class="teachers-table-wrap">
+                    <table class="teachers-table">
+                        <thead>
+                            <tr><th>ת.ז</th><th>שם</th><th>נייד</th><th>עיר</th><th>מקצועות</th><th>תפקיד</th></tr>
+                        </thead>
+                        <tbody id="teachersBody">
+                            <tr><td colspan="6" class="loading"><div class="spinner"></div><br>טוען...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB: ייבוא -->
+        <div id="tab-import" class="tab-content">
+            <style>
+                .import-hub { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-bottom: 28px; }
+                .import-card { background: white; border: 1px solid var(--border); border-radius: 16px; overflow: hidden; }
+                .import-card-head { padding: 16px 20px; display: flex; align-items: center; gap: 12px; border-bottom: 1px solid var(--border); }
+                .import-card-head .ic-icon { font-size: 24px; }
+                .import-card-head h3 { font-family: 'Secular One'; font-size: 16px; color: var(--admin); flex: 1; }
+                .import-card-head .ic-status { font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 20px; }
+                .ic-status-ok { background: #dcfce7; color: #166534; }
+                .ic-status-wait { background: #f1f5f9; color: #64748b; }
+                .import-card-body { padding: 16px 20px; }
+                .import-card-body p { font-size: 12px; color: #64748b; line-height: 1.6; margin-bottom: 14px; }
+                .import-card-body .cols-list { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+                .col-tag { background: #f1f5f9; border: 1px solid var(--border); border-radius: 6px; padding: 3px 10px; font-size: 11px; font-weight: 700; color: var(--admin); }
+                .col-tag.required { background: #ede9fe; border-color: #c4b5fd; color: #5b21b6; }
+                .ic-drop { border: 2px dashed var(--border); border-radius: 10px; padding: 20px; text-align: center; cursor: pointer; transition: 0.2s; }
+                .ic-drop:hover { border-color: var(--primary); background: #f5f3ff; }
+                .ic-drop-icon { font-size: 28px; margin-bottom: 6px; }
+                .ic-drop p { font-size: 12px; color: #94a3b8; margin: 0; }
+                .ic-preview { margin-top: 12px; display: none; }
+                .ic-preview-actions { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+                .ic-count { font-size: 12px; font-weight: 700; color: #64748b; }
+                .ic-table-wrap { max-height: 200px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; }
+                .ic-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+                .ic-table th { background: var(--admin); color: white; padding: 7px 10px; text-align: right; }
+                .ic-table td { padding: 7px 10px; border-bottom: 1px solid #f1f5f9; }
+                .ic-prog { height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; margin-top: 8px; display: none; }
+                .ic-prog-fill { height: 100%; background: var(--success); border-radius: 2px; transition: width 0.3s; }
+            </style>
+
+            <div class="import-hub">
+                <!-- כרטיס 1: מורים -->
+                <div class="import-card">
+                    <div class="import-card-head">
+                        <span class="ic-icon">👩‍🏫</span>
+                        <h3>מאגר מורים</h3>
+                        <span class="ic-status ic-status-wait" id="ic-status-teachers">ממתין</span>
+                    </div>
+                    <div class="import-card-body">
+                        <p>פרטי המורים הבסיסיים — שם, ת.ז, פרטי קשר ומקצועות.</p>
+                        <div class="cols-list">
+                            <span class="col-tag required">ת.ז ✱</span>
+                            <span class="col-tag required">שם ✱</span>
+                            <span class="col-tag">נייד</span>
+                            <span class="col-tag">טלפון</span>
+                            <span class="col-tag">עיר</span>
+                            <span class="col-tag">כתובת</span>
+                            <span class="col-tag">דואר אלקטרוני</span>
+                            <span class="col-tag">מקצועות</span>
+                            <span class="col-tag">תפקיד</span>
+                        </div>
+                        <div class="ic-drop" onclick="document.getElementById('fileInput').click()"
+                            ondragover="icDragOver(event,this)" ondragleave="icDragLeave(event,this)"
+                            ondrop="icDrop(event,'teachers')">
+                            <div class="ic-drop-icon">📊</div>
+                            <p>גרור קובץ xlsx לכאן או לחץ</p>
+                        </div>
+                        <input type="file" id="fileInput" accept=".xlsx,.xls" onchange="onFileSelect(event)" style="display:none">
+                        <div class="ic-preview" id="ic-preview-teachers">
+                            <div class="ic-preview-actions">
+                                <span class="ic-count" id="importCount"></span>
+                                <button class="btn-success" style="padding:8px 16px;font-size:13px;" onclick="doImport()">⬆ ייבא</button>
+                                <button class="btn-danger" style="padding:8px 14px;font-size:13px;" onclick="cancelImport()">ביטול</button>
+                            </div>
+                            <div class="ic-prog" id="progressBg"><div class="ic-prog-fill" id="progressFill"></div></div>
+                            <div class="ic-table-wrap">
+                                <table class="ic-table">
+                                    <thead><tr><th>ת.ז</th><th>שם</th><th>נייד</th><th>עיר</th><th>מקצועות</th></tr></thead>
+                                    <tbody id="previewBody"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="import-preview" id="importPreview" style="display:none"></div>
+                    </div>
+                </div>
+
+                <!-- כרטיס 2: תאריכי לידה -->
+                <div class="import-card">
+                    <div class="import-card-head">
+                        <span class="ic-icon">🎂</span>
+                        <h3>תאריכי לידה</h3>
+                        <span class="ic-status ic-status-wait" id="ic-status-birth">ממתין</span>
+                    </div>
+                    <div class="import-card-body">
+                        <p>לחישוב שעות גיל אוטומטי (50+ = 2 שעות, 55+ = 4 שעות). הגיל נקבע ביום 1.9 של שנת הלימודים.</p>
+                        <div class="cols-list">
+                            <span class="col-tag required">ת.ז ✱</span>
+                            <span class="col-tag required">תאריך לידה ✱</span>
+                        </div>
+                        <div class="ic-drop" id="ic-drop-birth"
+                            ondragover="icDragOver(event,this)" ondragleave="icDragLeave(event,this)"
+                            ondrop="icDrop(event,'birth')"
+                            onclick="document.getElementById('birthFileInput').click()">
+                            <div class="ic-drop-icon">📅</div>
+                            <p>גרור קובץ xlsx לכאן או לחץ</p>
+                        </div>
+                        <input type="file" id="birthFileInput" accept=".xlsx,.xls" onchange="onBirthFileSelect(event)" style="display:none">
+                        <div class="ic-preview" id="ic-preview-birth">
+                            <div class="ic-preview-actions">
+                                <span class="ic-count" id="birthCount"></span>
+                                <button class="btn-success" style="padding:8px 16px;font-size:13px;" onclick="doBirthImport()">⬆ ייבא</button>
+                                <button class="btn-danger" style="padding:8px 14px;font-size:13px;" onclick="cancelBirthImport()">ביטול</button>
+                            </div>
+                            <div class="ic-prog" id="birthProg"><div class="ic-prog-fill" id="birthProgFill"></div></div>
+                            <div class="ic-table-wrap">
+                                <table class="ic-table">
+                                    <thead><tr><th>ת.ז</th><th>תאריך לידה</th><th>גיל (תשפז)</th><th>שעות גיל</th></tr></thead>
+                                    <tbody id="birthPreviewBody"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- כרטיס 3: תפקידים -->
+                <div class="import-card">
+                    <div class="import-card-head">
+                        <span class="ic-icon">🏷️</span>
+                        <h3>תפקידים</h3>
+                        <span class="ic-status ic-status-wait" id="ic-status-roles">ממתין</span>
+                    </div>
+                    <div class="import-card-body">
+                        <p>רשימת התפקידים וברירות המחדל של שעותיהם. תפקידים אלה יופיעו בבניית משרות מורים.</p>
+                        <div class="cols-list">
+                            <span class="col-tag required">שם תפקיד ✱</span>
+                            <span class="col-tag required">שעות ✱</span>
+                        </div>
+                        <div class="ic-drop" id="ic-drop-roles"
+                            ondragover="icDragOver(event,this)" ondragleave="icDragLeave(event,this)"
+                            ondrop="icDrop(event,'roles')"
+                            onclick="document.getElementById('rolesFileInput').click()">
+                            <div class="ic-drop-icon">📋</div>
+                            <p>גרור קובץ xlsx לכאן או לחץ</p>
+                        </div>
+                        <input type="file" id="rolesFileInput" accept=".xlsx,.xls" onchange="onRolesFileSelect(event)" style="display:none">
+                        <div class="ic-preview" id="ic-preview-roles">
+                            <div class="ic-preview-actions">
+                                <span class="ic-count" id="rolesImportCount"></span>
+                                <button class="btn-success" style="padding:8px 16px;font-size:13px;" onclick="doRolesImport()">⬆ ייבא</button>
+                                <button class="btn-danger" style="padding:8px 14px;font-size:13px;" onclick="cancelRolesImport()">ביטול</button>
+                            </div>
+                            <div class="ic-table-wrap">
+                                <table class="ic-table">
+                                    <thead><tr><th>שם תפקיד</th><th>שעות</th></tr></thead>
+                                    <tbody id="rolesPreviewBody"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- כרטיס 4: שיבוצים -->
+                <div class="import-card">
+                    <div class="import-card-head">
+                        <span class="ic-icon">📚</span>
+                        <h3>שיבוצים</h3>
+                        <span class="ic-status ic-status-wait" id="ic-status-placements">בקרוב</span>
+                    </div>
+                    <div class="import-card-body">
+                        <p>שיבוצי מורים למגמות — ייבוא מאקסל של שעות מגע וגמול. פיצ'ר זה יהיה זמין בגרסה הבאה.</p>
+                        <div class="cols-list">
+                            <span class="col-tag required">ת.ז מורה ✱</span>
+                            <span class="col-tag required">מגמה ✱</span>
+                            <span class="col-tag required">שכבה ✱</span>
+                            <span class="col-tag">מגע</span>
+                            <span class="col-tag">גמול</span>
+                        </div>
+                        <div class="ic-drop" style="opacity:0.4;cursor:default;pointer-events:none;">
+                            <div class="ic-drop-icon">🔒</div>
+                            <p>יהיה זמין בקרוב</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB: מנהלות פדגוגיות -->
+        <div id="tab-pm" class="tab-content">
+            <div class="pm-grid">
+                <div class="card">
+                    <h2>הוספת מנהלת פדגוגית</h2>
+                    <div class="form-group">
+                        <label>שם המנהלת</label>
+                        <select id="pmTeacherSelect">
+                            <option value="">— בחר ממאגר המורים —</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>מגמות אחראיות (הפרד בפסיק)</label>
+                        <input type="text" id="pmDepts" placeholder="למשל: תקשורת, קולנוע, אמנות">
+                    </div>
+                    <button class="btn-primary" onclick="addPM()">שמור מינוי</button>
+                </div>
+                <div class="card">
+                    <h2>מנהלות פדגוגיות קיימות</h2>
+                    <div class="pm-list" id="pmList">
+                        <div class="loading">טוען...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+
+        <!-- TAB: תפקידים -->
+        <div id="tab-roles" class="tab-content">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:24px;">
+                <!-- ייבוא מאקסל -->
+                <div class="card">
+                    <h2>📊 ייבוא תפקידים מאקסל</h2>
+                    <p style="font-size:13px;color:#64748b;margin-bottom:16px;line-height:1.6;">הקובץ צריך להכיל שני עמודות: <strong>שם תפקיד</strong> בעמודה הראשונה, <strong>מספר שעות</strong> בעמודה השנייה (ללא כותרות).</p>
+                    <div class="drop-zone" id="rolesDropZone" onclick="document.getElementById('rolesFileInput').click()" ondragover="onRolesDragOver(event)" ondragleave="onRolesDragLeave(event)" ondrop="onRolesDrop(event)" style="padding:30px 20px;">
+                        <div class="icon" style="font-size:36px;margin-bottom:10px;">📋</div>
+                        <h3 style="font-size:15px;">גרור קובץ אקסל לכאן</h3>
+                        <p>או לחץ לבחירת קובץ — תומך ב-xlsx</p>
+                    </div>
+                    <input type="file" id="rolesFileInput" accept=".xlsx,.xls" onchange="onRolesFileSelect(event)" style="display:none">
+                    <div id="rolesImportPreview" style="display:none;margin-top:16px;">
+                        <div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;flex-wrap:wrap;">
+                            <span id="rolesImportCount" style="font-size:13px;color:#64748b;font-weight:700;"></span>
+                            <button class="btn-success" onclick="doRolesImport()">⬆ ייבא תפקידים</button>
+                            <button class="btn-danger" onclick="cancelRolesImport()">ביטול</button>
+                        </div>
+                        <div style="border:1px solid var(--border);border-radius:10px;overflow:hidden;max-height:200px;overflow-y:auto;">
+                            <table style="width:100%;border-collapse:collapse;font-size:13px;">
+                                <thead><tr style="background:var(--admin);color:white;"><th style="padding:9px 14px;text-align:right;">שם תפקיד</th><th style="padding:9px 14px;text-align:center;">שעות</th></tr></thead>
+                                <tbody id="rolesPreviewBody"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                <!-- הוספה ידנית -->
+                <div class="card">
+                    <h2>✏️ הוספת תפקיד ידני</h2>
+                    <div class="form-group">
+                        <label>שם התפקיד</label>
+                        <input type="text" id="newRoleName" placeholder="לדוגמה: מחנך/ת">
+                    </div>
+                    <div class="form-group">
+                        <label>מספר שעות ברירת מחדל</label>
+                        <input type="number" id="newRoleHours" placeholder="לדוגמה: 2" step="0.5" min="0.5">
+                    </div>
+                    <button class="btn-primary" onclick="addRoleDef()">+ הוסף תפקיד</button>
+                </div>
+            </div>
+            <!-- רשימת תפקידים קיימים -->
+            <div class="card">
+                <h2>📋 תפקידים במערכת</h2>
+                <div id="rolesTableWrap">
+                    <div class="loading"><div class="spinner"></div><br>טוען...</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB: משרות מורים -->
+        <div id="tab-mishrot" class="tab-content">
+            <style>
+                .mish-toolbar{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px;}
+                .mish-table{width:100%;border-collapse:collapse;font-size:13px;background:white;border-radius:16px;overflow:hidden;box-shadow:0 4px 10px rgba(0,0,0,0.05);}
+                .mish-table th{background:var(--admin);color:white;padding:12px 14px;text-align:right;white-space:nowrap;}
+                .mish-table td{padding:11px 14px;border-bottom:1px solid #f1f5f9;vertical-align:middle;}
+                .mish-tr:hover td{background:#f5f3ff;cursor:pointer;}
+                .mish-expand{display:none;}
+                .mish-expand.open{display:table-row;}
+                .mish-expand td{background:#f8fafc;padding:16px 20px;}
+                .roles-list{display:flex;flex-direction:column;gap:8px;margin-bottom:12px;}
+                .role-row{display:flex;align-items:center;gap:10px;background:white;border:1px solid var(--border);border-radius:10px;padding:10px 14px;}
+                .role-name{flex:1;font-weight:700;font-size:13px;}
+                .role-hrs{font-family:monospace;font-weight:900;color:var(--primary);font-size:14px;min-width:40px;text-align:center;}
+                .btn-del-role{background:#fee2e2;color:var(--danger);border:none;width:26px;height:26px;border-radius:50%;cursor:pointer;font-size:13px;font-weight:bold;flex-shrink:0;}
+                .add-role-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+                .role-select{padding:9px 12px;border:2px solid var(--border);border-radius:10px;font-family:Heebo,sans-serif;font-size:13px;outline:none;min-width:180px;}
+                .role-select:focus{border-color:var(--primary);}
+                .role-hrs-input{width:75px;padding:9px 10px;border:2px solid var(--border);border-radius:10px;font-family:Heebo,sans-serif;font-size:13px;text-align:center;outline:none;}
+                .role-hrs-input:focus{border-color:var(--primary);}
+                .btn-add-role{padding:9px 16px;background:var(--primary);color:white;border:none;border-radius:10px;font-family:Heebo,sans-serif;font-size:13px;font-weight:800;cursor:pointer;white-space:nowrap;}
+                .pct-cell{display:flex;align-items:center;gap:8px;}
+                .pct-bar{background:var(--border);border-radius:4px;height:7px;width:60px;overflow:hidden;display:inline-block;}
+                .pct-fill{height:100%;border-radius:4px;display:block;}
+                .prev-year-cell{font-size:11px;color:#94a3b8;}
+                .prev-up{color:#10b981;font-weight:700;}
+                .prev-down{color:#f97316;font-weight:700;}
+                .expand-arrow{font-size:10px;color:#94a3b8;margin-right:4px;transition:transform 0.2s;}
+                .expand-arrow.open{transform:rotate(90deg);}
+                .notes-inp{width:100%;padding:6px 10px;border:2px solid var(--border);border-radius:8px;font-family:Heebo,sans-serif;font-size:12px;outline:none;}
+                .notes-inp:focus{border-color:var(--primary);}
+            </style>
+            <div class="mish-toolbar">
+                <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+                    <select id="mishrotYear" onchange="loadMishrot()" style="padding:10px 14px;border:2px solid var(--border);border-radius:10px;font-family:Heebo,sans-serif;font-size:14px;font-weight:700;outline:none;">
+                        <option value="תשפו" selected>תשפ"ו (נוכחית)</option>
+                        <option value="תשפז">תשפ"ז (הבאה)</option>
+                    </select>
+                    <input type="text" id="mishrotSearch" placeholder="🔍 חיפוש מורה..." oninput="filterMishrot()" style="padding:10px 14px;border:2px solid var(--border);border-radius:10px;font-family:Heebo,sans-serif;font-size:14px;outline:none;min-width:200px;">
+                </div>
+                <button onclick="exportMishrot()" style="background:#16a34a;color:white;border:none;padding:10px 20px;border-radius:10px;font-family:Heebo,sans-serif;font-size:13px;font-weight:800;cursor:pointer;">⬇ ייצוא לאקסל</button>
+            </div>
+            <div style="overflow-x:auto;">
+                <table class="mish-table" id="mishrotTable">
+                    <thead>
+                        <tr>
+                            <th style="width:32px;"></th>
+                            <th>ת.ז</th>
+                            <th>שם מורה</th>
+                            <th style="text-align:center;">מגע</th>
+                            <th style="text-align:center;">גמול</th>
+                            <th style="text-align:center;">פרטנות</th>
+                            <th style="text-align:center;">שהייה</th>
+                            <th style="text-align:center;">תפקידים</th>
+                            <th style="text-align:center;" title="שעות גיל אוטומטיות לפי תאריך לידה">גיל 🎂</th>
+                            <th style="text-align:center;">סה"כ</th>
+                            <th style="text-align:center;">% משרה</th>
+                            <th style="text-align:center;">שנה קודמת</th>
+                            <th>הערות</th>
+                        </tr>
+                    </thead>
+                    <tbody id="mishrotBody"></tbody>
+                </table>
+            </div>
+            <div id="mishrotEmpty" style="text-align:center;padding:40px;color:#94a3b8;display:none;">אין נתונים לשנה זו</div>
+        </div>
+<div class="toast" id="toast"></div>
+
+<script>
+const SUPABASE_URL = 'https://xxrrqaolggawkutjwtbk.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_JPaHTkx93APc1b1IbYbFSg_QBvdjQN1';
+const { createClient } = supabase;
+const sb = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const ADMIN_PASS = '1234'; // לשנות בהמשך
+let allTeachers = [], allPMs = [], allPlacements = [], importData = [];
+
+// LOGIN
+function doLogin() {
+    const pass = document.getElementById('loginPass').value;
+    if(pass === ADMIN_PASS) {
+        document.getElementById('login-screen').style.display = 'none';
+        document.getElementById('app').style.display = 'block';
+        loadAll();
+    } else {
+        document.getElementById('loginErr').style.display = 'block';
+    }
+}
+function doLogout() { location.reload(); }
+document.getElementById('loginPass').addEventListener('keyup', e => { if(e.key==='Enter') doLogin(); });
+
+// LOAD ALL
+async function loadAll() {
+    await Promise.all([loadTeachers(), loadPMs(), loadPlacements(), loadDepts(), loadRoleDefs()]);
+    updateStats();
+    renderDashboard();
+}
+
+async function loadTeachers() {
+    const { data } = await sb.from('teachers').select('*').order('name');
+    allTeachers = data || [];
+    renderTeachers(allTeachers);
+    populatePMSelect();
+}
+
+async function loadPMs() {
+    const { data } = await sb.from('pedagogical_managers').select('*').order('name');
+    allPMs = data || [];
+    renderPMList();
+}
+
+async function loadPlacements() {
+    const { data } = await sb.from('placements').select('*, teachers(name, id_number)');
+    allPlacements = data || [];
+}
+
+function updateStats() {
+    document.getElementById('statTotal').textContent = allTeachers.length;
+    const year = document.getElementById('globalYear').value;
+    const activeIds = new Set(allPlacements.filter(p => p.year === year).map(p => p.teacher_id));
+    document.getElementById('statActive').textContent = activeIds.size;
+    document.getElementById('statPM').textContent = allPMs.length;
+    // חריגות
+    const loads = calcLoads(year);
+    const alertCount = Object.values(loads).filter(l => l.total/25*100 > 100 || l.total/25*100 < 50 && l.total > 0).length;
+    document.getElementById('statAlerts').textContent = alertCount;
+}
+
+function onYearChange() { updateStats(); if(document.getElementById('tab-dashboard').classList.contains('active')) renderDashboard(); }
+
+// TEACHERS TABLE
+function renderTeachers(list) {
+    document.getElementById('teachersBody').innerHTML = list.length
+        ? list.map(t => `<tr>
+            <td class="td-id">${t.id_number}</td>
+            <td class="td-name">${t.name}</td>
+            <td>${t.mobile || '—'}</td>
+            <td>${t.city || '—'}</td>
+            <td class="td-subjects">${t.subjects || '—'}</td>
+            <td>${t.role || '—'}</td>
+        </tr>`).join('')
+        : '<tr><td colspan="6" style="text-align:center;padding:30px;color:#94a3b8;">אין מורים במאגר</td></tr>';
+}
+
+function filterTeachers() {
+    const q = document.getElementById('searchTeacher').value.toLowerCase();
+    renderTeachers(allTeachers.filter(t =>
+        t.name?.toLowerCase().includes(q) || t.id_number?.includes(q)
+    ));
+}
+
+// IMPORT HUB helpers
+function icDragOver(e, el) { e.preventDefault(); el.style.borderColor='var(--primary)'; el.style.background='#f5f3ff'; }
+function icDragLeave(e, el) { el.style.borderColor=''; el.style.background=''; }
+function icDrop(e, type) {
+    e.preventDefault();
+    e.currentTarget.style.borderColor=''; e.currentTarget.style.background='';
+    const file = e.dataTransfer.files[0];
+    if(type==='teachers') processFile(file);
+    else if(type==='birth') processBirthFile(file);
+    else if(type==='roles') processRolesFile(file);
+}
+
+// IMPORT — מורים
+function onDragOver(e) { e.preventDefault(); }
+function onDragLeave(e) {}
+function onDrop(e) { e.preventDefault(); processFile(e.dataTransfer.files[0]); }
+function onFileSelect(e) { processFile(e.target.files[0]); }
+
+function processFile(file) {
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        const wb = XLSX.read(e.target.result, { type: 'binary' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const raw = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
+
+        // מצא את שורת הכותרות (מכילה ת.ז)
+        let headerRow = -1;
+        for(let i = 0; i < raw.length; i++) {
+            if(raw[i] && raw[i].some(c => String(c||'').includes('ת.ז') || String(c||'').includes('תז'))) {
+                headerRow = i; break;
+            }
+        }
+        if(headerRow === -1) { showToast('לא נמצאה עמודת ת.ז בקובץ'); return; }
+
+        const headers = raw[headerRow].map(h => String(h||'').trim());
+        const idCol = headers.findIndex(h => h.includes('ת.ז') || h.includes('תז'));
+        const nameCol = headers.findIndex(h => h.includes('שם'));
+        const phoneCol = headers.findIndex(h => h.includes('טלפון') && !h.includes('נייד'));
+        const mobileCol = headers.findIndex(h => h.includes('נייד'));
+        const cityCol = headers.findIndex(h => h.includes('עיר'));
+        const addressCol = headers.findIndex(h => h.includes('כתובת'));
+        const emailCol = headers.findIndex(h => h.includes('דואר') || h.includes('מייל'));
+        const subjectsCol = headers.findIndex(h => h.includes('מקצוע'));
+        const roleCol = headers.findIndex(h => h.includes('תפקיד'));
+        const birthCol = headers.findIndex(h => h.includes('תאריך לידה') || h.includes('ת. לידה') || h.includes('ת.לידה') || h.includes('לידה'));
+
+        importData = [];
+        for(let i = headerRow + 1; i < raw.length; i++) {
+            const row = raw[i];
+            if(!row || !row[idCol]) continue;
+            const idRaw = String(row[idCol]).trim().replace(/\.0$/, '');
+            if(!idRaw || idRaw === 'null') continue;
+            // parse birth_date — Excel serial or string
+            let birthDate = null;
+            if(birthCol >= 0 && row[birthCol] != null) {
+                const raw_b = row[birthCol];
+                if(typeof raw_b === 'number') {
+                    // Excel serial date
+                    const d = new Date(Math.round((raw_b - 25569) * 86400 * 1000));
+                    birthDate = d.toISOString().split('T')[0];
+                } else {
+                    const s = String(raw_b).trim();
+                    // try DD/MM/YYYY or YYYY-MM-DD
+                    const dmyMatch = s.match(/^(\d{1,2})[\/.](\d{1,2})[\/.](\d{4})$/);
+                    if(dmyMatch) birthDate = `${dmyMatch[3]}-${dmyMatch[2].padStart(2,'0')}-${dmyMatch[1].padStart(2,'0')}`;
+                    else if(s.match(/^\d{4}-\d{2}-\d{2}$/)) birthDate = s;
+                }
+            }
+            importData.push({
+                id_number: idRaw,
+                name: String(row[nameCol] || '').trim(),
+                phone: row[phoneCol] ? String(row[phoneCol]).trim() : null,
+                mobile: row[mobileCol] ? String(row[mobileCol]).trim() : null,
+                city: row[cityCol] ? String(row[cityCol]).trim() : null,
+                address: row[addressCol] ? String(row[addressCol]).trim() : null,
+                email: row[emailCol] ? String(row[emailCol]).trim() : null,
+                subjects: row[subjectsCol] ? String(row[subjectsCol]).trim() : null,
+                role: row[roleCol] ? String(row[roleCol]).trim() : null,
+                birth_date: birthDate,
+            });
+        }
+
+        document.getElementById('importCount').textContent = `נמצאו ${importData.length} מורים`;
+        document.getElementById('previewBody').innerHTML = importData.slice(0, 20).map(t =>
+            `<tr><td>${t.id_number}</td><td>${t.name}</td><td>${t.mobile||'—'}</td><td>${t.city||'—'}</td><td>${t.subjects||'—'}</td></tr>`
+        ).join('') + (importData.length > 20 ? `<tr><td colspan="5" style="text-align:center;color:#94a3b8;">...ועוד ${importData.length-20} מורים</td></tr>` : '');
+        document.getElementById('ic-preview-teachers').style.display = 'block';
+        document.getElementById('ic-status-teachers').textContent = importData.length + ' רשומות';
+        document.getElementById('ic-status-teachers').className = 'ic-status ic-status-ok';
+    };
+    reader.readAsBinaryString(file);
+}
+
+async function doImport() {
+    if(!importData.length) return;
+    const progressBg = document.getElementById('progressBg');
+    const progressFill = document.getElementById('progressFill');
+    progressBg.style.display = 'block';
+
+    const chunkSize = 50;
+    let done = 0;
+    for(let i = 0; i < importData.length; i += chunkSize) {
+        const chunk = importData.slice(i, i + chunkSize);
+        await sb.from('teachers').upsert(chunk, { onConflict: 'id_number' });
+        done += chunk.length;
+        progressFill.style.width = (done / importData.length * 100) + '%';
+    }
+
+    showToast(`✅ יובאו ${importData.length} מורים בהצלחה`);
+    cancelImport();
+    await loadTeachers();
+    updateStats();
+}
+
+function cancelImport() {
+    importData = [];
+    document.getElementById('ic-preview-teachers').style.display = 'none';
+    document.getElementById('progressBg').style.display = 'none';
+    document.getElementById('progressFill').style.width = '0%';
+    document.getElementById('fileInput').value = '';
+}
+// ===== BIRTH DATE IMPORT =====
+let birthImportData = [];
+
+function onBirthFileSelect(e) { processBirthFile(e.target.files[0]); }
+
+function processBirthFile(file) {
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        const wb = XLSX.read(e.target.result, { type: 'binary' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const raw = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
+
+        // מצא שורת כותרות או קרא ישירות
+        let startRow = 0;
+        const firstRow = raw[0] || [];
+        const hasHeader = firstRow.some(c => String(c||'').includes('ת.ז') || String(c||'').includes('תז') || String(c||'').includes('לידה'));
+        if(hasHeader) startRow = 1;
+
+        const idColIdx = hasHeader ? firstRow.findIndex(h => {
+            const s = String(h||'');
+            return s.includes('ת.ז') || s.includes('תז') || s.includes("מס' זהות") || s.includes('מספר זהות') || s.includes('זהות');
+        }) : 0;
+        const birthColIdx = hasHeader ? firstRow.findIndex(h => String(h||'').includes('לידה') || String(h||'').includes('birth')) : 1;
+        const iCol = idColIdx >= 0 ? idColIdx : 0;
+        const bCol = birthColIdx >= 0 ? birthColIdx : 1;
+
+        const year = document.getElementById('globalYear')?.value || 'תשפז';
+        const yearMap = { 'תשפו': 2025, 'תשפז': 2026 };
+        const sepYear = yearMap[year] || 2026; // שנה קלנדרית — גיל נבדק לפי 31.12
+
+        birthImportData = [];
+        for(let i = startRow; i < raw.length; i++) {
+            const row = raw[i];
+            if(!row || !row[iCol]) continue;
+            const idRaw = String(row[iCol]).trim().replace(/\.0$/, '');
+            if(!idRaw || idRaw==='null') continue;
+
+            let birthDate = null;
+            const raw_b = row[bCol];
+            if(raw_b != null) {
+                if(typeof raw_b === 'number') {
+                    const d = new Date(Math.round((raw_b - 25569) * 86400 * 1000));
+                    birthDate = d.toISOString().split('T')[0];
+                } else {
+                    const s = String(raw_b).trim();
+                    const dmy = s.match(/^(\d{1,2})[\/\.](\d{1,2})[\/\.](\d{4})$/);
+                    if(dmy) birthDate = `${dmy[3]}-${dmy[2].padStart(2,'0')}-${dmy[1].padStart(2,'0')}`;
+                    else if(s.match(/^\d{4}-\d{2}-\d{2}$/)) birthDate = s;
+                }
+            }
+            if(!birthDate) continue;
+
+            // חישוב גיל ושעות
+            const birth = new Date(birthDate);
+            // גיל לפי 31.12 של השנה הקלנדרית
+            const age = sepYear - birth.getFullYear();
+            const ageHrs = age>=55 ? 4 : age>=50 ? 2 : 0;
+
+            birthImportData.push({ id_number: String(idRaw).replace(/\.0$/, ''), birth_date: birthDate, age, ageHrs });
+        }
+
+        document.getElementById('birthCount').textContent = `נמצאו ${birthImportData.length} רשומות`;
+        document.getElementById('birthPreviewBody').innerHTML = birthImportData.slice(0, 20).map(r =>
+            `<tr>
+                <td style="font-family:monospace;">${r.id_number}</td>
+                <td>${r.birth_date}</td>
+                <td style="text-align:center;">${r.age}</td>
+                <td style="text-align:center;font-weight:700;color:${r.ageHrs>0?'#92400e':'#64748b'};">${r.ageHrs>0?r.ageHrs+'ש׳':'—'}</td>
+            </tr>`
+        ).join('');
+        document.getElementById('ic-preview-birth').style.display = 'block';
+        document.getElementById('ic-status-birth').textContent = birthImportData.length + ' רשומות';
+        document.getElementById('ic-status-birth').className = 'ic-status ic-status-ok';
+    };
+    reader.readAsBinaryString(file);
+}
+
+async function doBirthImport() {
+    if(!birthImportData.length) return;
+    const prog = document.getElementById('birthProg');
+    const fill = document.getElementById('birthProgFill');
+    prog.style.display = 'block';
+    let done = 0;
+    const chunk = 10;
+    for(let i = 0; i < birthImportData.length; i += chunk) {
+        const batch = birthImportData.slice(i, i+chunk);
+        for(const r of batch) {
+            const { error } = await sb.from('teachers')
+                .update({ birth_date: r.birth_date })
+                .eq('id_number', r.id_number);
+            if(error) console.warn('שגיאה עבור', r.id_number, error.message);
+        }
+        done += batch.length;
+        fill.style.width = (done/birthImportData.length*100)+'%';
+    }
+    showToast(`✅ יובאו ${birthImportData.length} תאריכי לידה`);
+    cancelBirthImport();
+    await loadTeachers();
+    document.getElementById('ic-status-birth').textContent = '✓ יובא';
+    document.getElementById('ic-status-birth').className = 'ic-status ic-status-ok';
+}
+
+function cancelBirthImport() {
+    birthImportData = [];
+    document.getElementById('ic-preview-birth').style.display = 'none';
+    document.getElementById('birthFileInput').value = '';
+    document.getElementById('birthProg').style.display = 'none';
+    document.getElementById('birthProgFill').style.width = '0%';
+}
+// ===== END BIRTH DATE IMPORT =====
+
+
+
+// PM
+function populatePMSelect() {
+    document.getElementById('pmTeacherSelect').innerHTML =
+        '<option value="">— בחר ממאגר המורים —</option>' +
+        allTeachers.map(t => `<option value="${t.name}">${t.name}</option>`).join('');
+}
+
+async function addPM() {
+    const name = document.getElementById('pmTeacherSelect').value;
+    const depts = document.getElementById('pmDepts').value.trim();
+    if(!name || !depts) { showToast('נא למלא שם ומגמות'); return; }
+    const assigned = depts.split(',').map(s => s.trim()).filter(Boolean);
+    const { error } = await sb.from('pedagogical_managers').insert({ name, assigned_depts: assigned });
+    if(error) { showToast('שגיאה: ' + error.message); return; }
+    document.getElementById('pmDepts').value = '';
+    showToast('✅ מנהלת פדגוגית נוספה');
+    await loadPMs();
+    updateStats();
+}
+
+function renderPMList() {
+    document.getElementById('pmList').innerHTML = allPMs.length
+        ? allPMs.map(pm => `<div class="pm-card">
+            <div>
+                <div class="pm-name">${pm.name}</div>
+                <div class="pm-depts">${(pm.assigned_depts||[]).join(' | ')}</div>
+            </div>
+            <button class="btn-del" onclick="deletePM(${pm.id})">✖</button>
+        </div>`).join('')
+        : '<div style="color:#94a3b8;text-align:center;padding:20px;">אין מנהלות פדגוגיות</div>';
+}
+
+async function deletePM(id) {
+    if(!confirm('למחוק מינוי זה?')) return;
+    await sb.from('pedagogical_managers').delete().eq('id', id);
+    await loadPMs();
+    updateStats();
+}
+
+// ALERTS
+function calcLoads(year) {
+    const loads = {};
+    allPlacements.filter(p => p.year === year).forEach(p => {
+        const id = p.teacher_id;
+        if(!loads[id]) loads[id] = { name: p.teachers?.name || id, depts: new Set(), contact: 0, bonus: 0, total: 0 };
+        loads[id].contact += parseFloat(p.contact) || 0;
+        loads[id].bonus += parseFloat(p.bonus) || 0;
+        loads[id].total += (parseFloat(p.contact)||0) + (parseFloat(p.bonus)||0);
+        if(p.dept_id) loads[id].depts.add(p.dept_id);
+    });
+    return loads;
+}
+
+function renderAlerts() {
+    const year = document.getElementById('globalYear').value;
+    document.getElementById('alertYear').textContent = year;
+    document.getElementById('alertsLoading').style.display = 'block';
+    document.getElementById('alertsContent').style.display = 'none';
+
+    const loads = calcLoads(year);
+    const rows = Object.entries(loads).sort((a,b) => b[1].total - a[1].total);
+    const alerts = rows.filter(([,l]) => { const p = l.total/25*100; return p > 100 || (p < 50 && l.total > 0); });
+
+    document.getElementById('alertsBanner').style.display = alerts.length ? 'block' : 'none';
+    document.getElementById('alertsList').innerHTML = alerts.map(([id, l]) => {
+        const pct = (l.total/25*100).toFixed(0);
+        const isOver = pct > 100;
+        return `<div class="alert-item ${isOver ? 'alert-over' : 'alert-low'}">
+            <span class="badge ${isOver ? 'badge-over' : 'badge-low'}">${isOver ? '⚠️ חריגה' : '⚡ חסר'}</span>
+            <span class="alert-name">${l.name}</span>
+            <span class="alert-detail">${l.total.toFixed(1)} שעות — ${pct}% משרה</span>
+        </div>`;
+    }).join('');
+
+    document.getElementById('summaryBody').innerHTML = rows.map(([id, l]) => {
+        const pct = l.total/25*100;
+        const color = pct > 100 ? '#ef4444' : pct < 50 ? '#f97316' : '#10b981';
+        const statusClass = pct > 100 ? 'badge-over' : pct < 50 && l.total > 0 ? 'badge-low' : 'badge-ok';
+        const statusText = pct > 100 ? '⚠️ חריגה' : pct < 50 && l.total > 0 ? '⚡ חסר' : '✓ תקין';
+        return `<tr>
+            <td class="td-id">${id}</td>
+            <td style="font-weight:800;">${l.name}</td>
+            <td style="font-size:12px;color:#64748b;">${[...l.depts].join(', ') || '—'}</td>
+            <td style="text-align:center;">${l.contact.toFixed(1)}</td>
+            <td style="text-align:center;">${l.bonus.toFixed(1)}</td>
+            <td style="text-align:center;font-weight:900;">${l.total.toFixed(1)}</td>
+            <td>
+                <span style="font-weight:900;color:${color};">${pct.toFixed(0)}%</span>
+                <span class="pct-bar-bg"><span class="pct-bar-fill" style="width:${Math.min(pct,100)}%;background:${color};display:block;height:100%;border-radius:6px;"></span></span>
+            </td>
+            <td><span class="badge ${statusClass}">${statusText}</span></td>
+        </tr>`;
+    }).join('') || '<tr><td colspan="8" style="text-align:center;padding:30px;color:#94a3b8;">אין שיבוצים לשנה זו</td></tr>';
+
+    document.getElementById('alertsLoading').style.display = 'none';
+    document.getElementById('alertsContent').style.display = 'block';
+}
+
+// TABS
+function switchTab(tab) {
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+    document.getElementById('tab-' + tab).classList.add('active');
+    document.getElementById('tbtn-' + tab).classList.add('active');
+    if(tab === 'dashboard') renderDashboard();
+    if(tab === 'mishrot') {
+        // sync year with global selector
+        const gYear = document.getElementById('globalYear').value;
+        document.getElementById('mishrotYear').value = gYear;
+        loadMishrot();
+    }
+    if(tab === 'roles') loadRoleDefs();
+}
+
+
+// ===== DASHBOARD =====
+let allHistory = [], dashCurrentPM = null, dashCurrentDept = null;
+
+async function loadHistory() {
+    const { data } = await sb.from('placement_history').select('*').order('changed_at',{ascending:false}).limit(200);
+    allHistory = data || [];
+}
+
+function renderDashboard() {
+    const year = document.getElementById('globalYear').value;
+    const yp = allPlacements.filter(p => p.year === year);
+    const totalC = yp.reduce((s,p)=>s+(parseFloat(p.contact)||0),0);
+    const totalB = yp.reduce((s,p)=>s+(parseFloat(p.bonus)||0),0);
+    const loads = calcLoads(year);
+    const alertCount = Object.values(loads).filter(l=>{const pct=l.total/25*100;return pct>100||(pct<50&&l.total>0);}).length;
+
+    document.getElementById('dashStats').innerHTML = `
+        <div class="stat-card" style="border-top-color:#10b981"><div class="stat-num">${totalC.toFixed(0)}</div><div class="stat-lbl">שעות מגע</div></div>
+        <div class="stat-card"><div class="stat-num">${totalB.toFixed(0)}</div><div class="stat-lbl">שעות גמול</div></div>
+        <div class="stat-card"><div class="stat-num">${(totalC+totalB).toFixed(0)}</div><div class="stat-lbl">סה"כ שעות</div></div>
+        <div class="stat-card"><div class="stat-num">${allTeachers.length}</div><div class="stat-lbl">מורים במאגר</div></div>
+        <div class="stat-card"><div class="stat-num">${new Set(yp.map(p=>p.teacher_id)).size}</div><div class="stat-lbl">מורים משובצים</div></div>
+        <div class="stat-card" style="border-top-color:${alertCount?'var(--danger)':'var(--success)'}"><div class="stat-num">${alertCount}</div><div class="stat-lbl">חריגות משרה</div></div>`;
+
+    renderDashPMGrid(year);
+    renderDashAlerts(year);
+    renderPending();
+    showDashView('main');
+    setDashBreadcrumb([{label:'ראשי',fn:'showDashView(\'main\')'}]);
+}
+
+function getDeptStatus(deptId) {
+    const d = allDepts.find(x => x.id === deptId);
+    return d ? (d.status || 'editing') : 'editing';
+}
+
+function statusColor(status) {
+    if(status === 'approved') return '#10b981';
+    if(status === 'approved_dirty') return '#ef4444';
+    if(status === 'pending') return '#f97316';
+    return 'var(--primary)';
+}
+
+function renderDashPMGrid(year) {
+    document.getElementById('dashPMGrid').innerHTML = allPMs.map(pm => {
+        const depts = pm.assigned_depts || [];
+        const pmp = allPlacements.filter(p=>p.year===year && depts.includes(p.dept_id));
+        const c = pmp.reduce((s,p)=>s+(parseFloat(p.contact)||0),0);
+        const b = pmp.reduce((s,p)=>s+(parseFloat(p.bonus)||0),0);
+        const loads2 = {};
+        pmp.forEach(p=>{if(!loads2[p.teacher_id])loads2[p.teacher_id]={total:0};loads2[p.teacher_id].total+=(parseFloat(p.contact)||0)+(parseFloat(p.bonus)||0);});
+        const alerts = Object.values(loads2).filter(l=>{const pct=l.total/25*100;return pct>100||(pct<50&&l.total>0);}).length;
+
+        const deptStatuses = depts.map(d => getDeptStatus(d));
+        const hasEditing  = deptStatuses.some(s => s === 'editing');
+        const hasPending  = deptStatuses.some(s => s === 'pending');
+        const hasApproved = deptStatuses.length > 0 && deptStatuses.every(s => s === 'approved');
+
+        const hasDirty    = deptStatuses.some(s => s === 'approved_dirty');
+
+        const dot = hasDirty
+            ? '<span style="color:#ef4444;font-size:15px;" title="שונה לאחר אישור!">●</span>'
+            : hasApproved
+                ? '<span style="color:#10b981;font-size:15px;" title="כל המגמות מאושרות">●</span>'
+                : hasPending && !hasEditing
+                    ? '<span style="color:#f97316;font-size:15px;" title="ממתין לאישור">●</span>'
+                    : '<span style="color:#ef4444;font-size:15px;" title="בעריכה">●</span>';
+
+        const statusTag = hasDirty
+            ? '<span style="background:#fee2e2;color:#b91c1c;font-size:10px;font-weight:800;padding:2px 8px;border-radius:20px;margin-right:6px;">⚠️ שונה אחרי אישור</span>'
+            : hasApproved
+                ? '<span style="background:#dcfce7;color:#166534;font-size:10px;font-weight:800;padding:2px 8px;border-radius:20px;margin-right:6px;">✓ מאושר</span>'
+                : hasPending && !hasEditing
+                    ? '<span style="background:#fff7ed;color:#c2410c;font-size:10px;font-weight:800;padding:2px 8px;border-radius:20px;margin-right:6px;">⏳ ממתין</span>'
+                    : '<span style="background:#f1f5f9;color:#64748b;font-size:10px;font-weight:800;padding:2px 8px;border-radius:20px;margin-right:6px;">✏️ עריכה</span>';
+
+        const borderColor = hasDirty ? '#ef4444' : hasApproved ? '#10b981' : hasPending && !hasEditing ? '#f97316' : 'var(--primary)';
+
+        const pmIdx = allPMs.indexOf(pm);
+        return `<div data-pmidx="${pmIdx}" onclick="showDashPMByIdx(this)" style="background:white;border-radius:18px;padding:20px;border:1px solid var(--border);border-right:6px solid ${borderColor};cursor:pointer;box-shadow:0 4px 10px rgba(0,0,0,0.04);transition:0.2s;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform=''">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+                ${dot}
+                <span style="font-family:'Secular One';font-size:17px;color:var(--admin);">${pm.name}</span>
+                ${alerts ? `<span style="background:#fee2e2;color:#ef4444;font-size:10px;font-weight:800;padding:2px 8px;border-radius:20px;">⚠️ ${alerts}</span>` : ''}
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:12px;">
+                ${statusTag}
+                <span style="font-size:12px;color:var(--primary);font-weight:700;">${depts.join(' | ')}</span>
+            </div>
+            <div style="display:flex;gap:14px;">
+                <div style="text-align:center;"><div style="font-family:'Secular One';font-size:20px;">${c.toFixed(0)}</div><div style="font-size:10px;color:#94a3b8;">מגע</div></div>
+                <div style="text-align:center;"><div style="font-family:'Secular One';font-size:20px;">${b.toFixed(0)}</div><div style="font-size:10px;color:#94a3b8;">גמול</div></div>
+                <div style="text-align:center;"><div style="font-family:'Secular One';font-size:20px;color:var(--primary);">${(c+b).toFixed(0)}</div><div style="font-size:10px;color:#94a3b8;">סה"כ</div></div>
+            </div>
+        </div>`;
+    }).join('') || '<div style="color:#94a3b8;padding:20px;">אין מנהלות פדגוגיות</div>';
+}
+
+
+function renderDashAlerts(year) {
+    const loads = calcLoads(year);
+    const alerts = Object.entries(loads).filter(([,l])=>{const pct=l.total/25*100;return pct>100||(pct<50&&l.total>0);});
+    document.getElementById('dashAlerts').innerHTML = alerts.length
+        ? `<table class="summary-table"><thead><tr><th>ת.ז</th><th>שם</th><th>מגמות</th><th>סה"כ שעות</th><th>%</th></tr></thead><tbody>${
+            alerts.map(([id,l])=>{const pct=(l.total/25*100).toFixed(0);return `<tr><td style="font-family:monospace;font-size:11px;">${id}</td><td style="font-weight:800;">${l.name}</td><td style="font-size:11px;color:#64748b;">${[...l.depts].join(', ')}</td><td style="text-align:center;font-weight:900;">${l.total.toFixed(1)}</td><td style="font-weight:900;color:${pct>100?'var(--danger)':'var(--warning)'};">${pct}%</td></tr>`;}).join('')
+          }</tbody></table>`
+        : '<div style="color:var(--success);font-weight:700;padding:10px;">✅ אין חריגות משרה</div>';
+}
+
+function showDashPMByIdx(el) {
+    const idx = parseInt(el.dataset.pmidx);
+    if(!isNaN(idx) && allPMs[idx]) showDashPM(allPMs[idx].name);
+}
+
+function showDashPM(pmName) {
+    dashCurrentPM = allPMs.find(p => p.name === pmName);
+    if(!dashCurrentPM) return;
+    const year = document.getElementById('globalYear').value;
+    const depts = dashCurrentPM.assigned_depts || [];
+    document.getElementById('dashDeptsTitle').textContent = 'מגמות תחת: ' + pmName;
+    document.getElementById('dashDeptsGrid').innerHTML = depts.map(deptId => {
+        const dp = allPlacements.filter(p=>p.year===year&&p.dept_id===deptId);
+        const c = dp.reduce((s,p)=>s+(parseFloat(p.contact)||0),0);
+        const b = dp.reduce((s,p)=>s+(parseFloat(p.bonus)||0),0);
+        return `<div onclick="showDashDept('${deptId}')" style="background:white;border-radius:16px;padding:18px;border:1px solid var(--border);cursor:pointer;box-shadow:0 4px 10px rgba(0,0,0,0.04);transition:0.2s;" onmouseover="this.style.borderColor='var(--primary)'" onmouseout="this.style.borderColor='var(--border)'">
+            <div style="font-weight:900;font-size:15px;color:var(--admin);margin-bottom:8px;">📚 ${deptId}</div>
+            <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:700;">
+                <span style="color:var(--primary);">מגע: ${c.toFixed(0)}</span>
+                <span style="color:var(--success);">גמול: ${b.toFixed(0)}</span>
+                <span style="color:var(--admin);font-size:15px;">סה"כ: ${(c+b).toFixed(0)}</span>
+            </div>
+            <div style="font-size:11px;color:#94a3b8;margin-top:6px;">${new Set(dp.map(p=>p.teacher_id)).size} מורים פעילים</div>
+        </div>`;
+    }).join('') || '<div style="color:#94a3b8;padding:20px;">אין מגמות</div>';
+    showDashView('depts');
+    setDashBreadcrumb([{label:'ראשי',fn:"showDashView(\'main\')"},{label:pmName,fn:`showDashPM(\'${pmName.replace(/'/g,"\\\'")}\')`}]);
+}
+
+async function showDashDept(deptId) {
+    dashCurrentDept = deptId;
+    const dept = allDepts.find(d => d.id === deptId);
+    if(dept && dept.status !== 'approved') {
+        showToast('⚠️ המגמה עדיין לא אושרה — ניתן לצפות בלבד');
+    }
+    const year = document.getElementById('globalYear').value;
+    const { data: placements } = await sb.from('placements').select('*, teachers(name,id_number)').eq('dept_id',deptId).eq('year',year);
+    const dp = placements || [];
+    const { data: hist } = await sb.from('placement_history').select('*').eq('dept_id',deptId).order('changed_at',{ascending:false});
+    const recentChanges = new Set((hist||[]).map(h=>h.placement_id));
+    const deptConfig = allDepts ? allDepts.find(d=>d.id===deptId) : null;
+    const struct = deptConfig?.structure || {};
+    const rowColors = ['row-indigo','row-green','row-gray'];
+
+    document.getElementById('dashRakavetTitle').textContent = 'רכבת — ' + deptId;
+    // Clear previous comparison
+    const oldComp = document.getElementById('dashComparison');
+    if(oldComp) oldComp.innerHTML = '';
+
+    // job table
+    const loads = {};
+    dp.forEach(p=>{const id=p.teacher_id;if(!loads[id])loads[id]={name:p.teachers?.name||id,contact:0,bonus:0,total:0};loads[id].contact+=parseFloat(p.contact)||0;loads[id].bonus+=parseFloat(p.bonus)||0;loads[id].total+=(parseFloat(p.contact)||0)+(parseFloat(p.bonus)||0);});
+    document.getElementById('dashJobBody').innerHTML = Object.entries(loads).sort((a,b)=>b[1].total-a[1].total).map(([id,l])=>{
+        const pct=l.total/25*100;const color=pct>100?'var(--danger)':pct<50&&l.total>0?'var(--warning)':'var(--success)';
+        return `<tr><td style="font-family:monospace;font-size:11px;color:#94a3b8;">${id}</td><td style="font-weight:800;">${l.name}</td><td style="text-align:center;">${l.contact.toFixed(1)}</td><td style="text-align:center;">${l.bonus.toFixed(1)}</td><td style="text-align:center;font-weight:900;">${l.total.toFixed(1)}</td><td style="font-weight:900;color:${color};">${pct.toFixed(0)}%</td><td><span class="badge ${pct>100?'badge-over':pct<50&&l.total>0?'badge-low':'badge-ok'}">${pct>100?'⚠️ חריגה':pct<50&&l.total>0?'⚡ חסר':'✓ תקין'}</span></td></tr>`;
+    }).join('') || '<tr><td colspan="7" style="text-align:center;padding:20px;color:#94a3b8;">אין שיבוצים</td></tr>';
+
+    // rakevet
+    const container = document.getElementById('dashRakavetContainer');
+    container.innerHTML = '';
+    ['י','יא','יב'].forEach(g=>{
+        const gData = dp.filter(p=>p.grade===g); if(!gData.length) return;
+        const box = document.createElement('div'); box.className='grade-box';
+        let html = `<div style="font-family:'Secular One';font-size:20px;color:var(--admin);border-bottom:2px solid var(--bg);padding-bottom:10px;margin-bottom:14px;">שכבת ${g} — ${year}</div>`;
+        Object.values(struct).forEach((row,idx)=>{
+            const rowData = gData.filter(p=>(row.subjects||[]).includes(p.subject));
+            const color = rowColors[Math.min(idx,rowColors.length-1)];
+            html+=`<div class="${color}" style="padding:12px;border-radius:12px;margin-bottom:12px;"><div style="font-weight:900;font-size:14px;margin-bottom:10px;">📌 ${row.label}</div>`;
+            if(rowData.length){
+                html+=`<table class="summary-table"><thead><tr><th>מורה</th><th>ת.ז</th><th>מקצוע</th><th>מגע</th><th>גמול</th><th>פעולות</th></tr></thead><tbody>`;
+                rowData.forEach(p=>{
+                    const changed=recentChanges.has(p.id);
+                    html+=`<tr style="${changed?'background:#fff7ed;':''}">
+                        <td style="font-weight:800;">${p.teachers?.name||'—'} ${changed?'<span style="background:#ffedd5;color:var(--warning);padding:2px 6px;border-radius:8px;font-size:10px;font-weight:800;">שונה</span>':''}</td>
+                        <td style="font-family:monospace;font-size:11px;color:#94a3b8;">${p.teacher_id}</td>
+                        <td>${p.subject}</td>
+                        <td><input type="number" value="${p.contact}" step="0.5" style="width:60px;padding:4px 6px;border:2px solid var(--primary);border-radius:6px;font-family:Heebo;font-size:13px;text-align:center;" id="dc_${p.id}"></td>
+                        <td><input type="number" value="${p.bonus}" step="0.5" style="width:60px;padding:4px 6px;border:2px solid var(--border);border-radius:6px;font-family:Heebo;font-size:13px;text-align:center;" id="db_${p.id}"></td>
+                        <td>
+                            <button onclick="dashSaveRow(${p.id},${p.contact},${p.bonus},'${p.teacher_id}','${deptId}','${year}','${g}','${p.subject}')" style="padding:4px 10px;background:var(--success);color:white;border:none;border-radius:6px;font-size:11px;font-weight:800;cursor:pointer;margin-left:4px;">💾</button>
+                            <button onclick="dashDelRow(${p.id},'${p.teacher_id}','${deptId}','${year}','${g}','${p.subject}',${p.contact},${p.bonus})" style="padding:4px 8px;background:#fee2e2;color:var(--danger);border:none;border-radius:6px;font-size:11px;font-weight:800;cursor:pointer;">✕</button>
+                        </td>
+                    </tr>`;
+                });
+                html+='</tbody></table>';
+            } else html+='<div style="color:#94a3b8;font-style:italic;padding:6px;font-size:13px;">אין שיבוצים</div>';
+            html+='</div>';
+        });
+        box.innerHTML=html; container.appendChild(box);
+    });
+
+    const pmName = dashCurrentPM?.name || '';
+    // Add comparison in dedicated div
+    let compEl2 = document.getElementById('dashComparison');
+    if(!compEl2) { compEl2 = document.createElement('div'); compEl2.id='dashComparison'; document.getElementById('dashRakavetContainer').parentElement.appendChild(compEl2); }
+    buildComparisonHTML(deptId, year).then(html => { compEl2.innerHTML = html; });
+    showDashView('rakevet');
+    setDashBreadcrumb([{label:'ראשי',fn:"showDashView(\'main\')"},{label:pmName,fn:`showDashPM(\'${pmName.replace(/'/g,"\\\'")}\')`},{label:deptId,fn:''}]);
+}
+
+async function dashSaveRow(id,oldC,oldB,teacherId,deptId,year,grade,subject) {
+    const newC=parseFloat(document.getElementById('dc_'+id).value)||0;
+    const newB=parseFloat(document.getElementById('db_'+id).value)||0;
+    if(newC===oldC&&newB===oldB){showToast('לא היה שינוי');return;}
+    await sb.from('placements').update({contact:newC,bonus:newB}).eq('id',id);
+    await sb.from('placement_history').insert({placement_id:id,teacher_id:teacherId,dept_id:deptId,year,grade,subject,contact_before:oldC,bonus_before:oldB,contact_after:newC,bonus_after:newB,changed_by:'מנהלת',action:'edit'});
+    showToast('✅ שיבוץ עודכן');
+    await loadPlacements();
+    showDashDept(deptId);
+}
+
+async function dashDelRow(id,teacherId,deptId,year,grade,subject,contact,bonus) {
+    if(!confirm('למחוק שיבוץ זה?')) return;
+    await sb.from('placement_history').insert({placement_id:id,teacher_id:teacherId,dept_id:deptId,year,grade,subject,contact_before:contact,bonus_before:bonus,contact_after:0,bonus_after:0,changed_by:'מנהלת',action:'delete'});
+    await sb.from('placements').delete().eq('id',id);
+    showToast('🗑 נמחק');
+    await loadPlacements();
+    showDashDept(deptId);
+}
+
+function showDashView(name) {
+    ['main','depts','rakevet'].forEach(v => {
+        document.getElementById('dash-view-'+v).style.display = v===name?'block':'none';
+    });
+}
+
+function setDashBreadcrumb(items) {
+    document.getElementById('dashBreadcrumb').innerHTML = items.map((item,i)=>{
+        const isLast = i===items.length-1;
+        return `<span style="color:${isLast?'var(--admin)':'#6366f1'};font-weight:700;cursor:${isLast?'default':'pointer'};" ${!isLast&&item.fn?`onclick="${item.fn}"`:''}>${item.label}</span>${!isLast?'<span style="color:#cbd5e1;margin:0 4px;">←</span>':''}`;
+    }).join('');
+}
+
+async function exportAll() {
+    const year = document.getElementById('globalYear').value;
+    const loads = calcLoads(year);
+    const rows = [['ת.ז','שם','מגמות','סה"כ','%','סטטוס']];
+    Object.entries(loads).forEach(([id,l])=>{const pct=(l.total/25*100).toFixed(0);rows.push([id,l.name,[...l.depts].join(', '),l.total.toFixed(1),pct+'%',pct>100?'חריגה':pct<50?'חסר':'תקין']);});
+    const ws=XLSX.utils.aoa_to_sheet(rows);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,`משרות ${year}`);XLSX.writeFile(wb,`סיכום_ביה"ס_${year}.xlsx`);
+}
+
+async function exportDept() {
+    if(!dashCurrentDept) return;
+    const year = document.getElementById('globalYear').value;
+    const {data}=await sb.from('placements').select('*,teachers(name,id_number)').eq('dept_id',dashCurrentDept).eq('year',year);
+    const rows=[['ת.ז','שם','שכבה','מקצוע','מגע','גמול','סה"כ']];
+    (data||[]).forEach(p=>rows.push([p.teacher_id,p.teachers?.name||'—',p.grade,p.subject,p.contact,p.bonus,(parseFloat(p.contact)||0)+(parseFloat(p.bonus)||0)]));
+    const ws=XLSX.utils.aoa_to_sheet(rows);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,dashCurrentDept);XLSX.writeFile(wb,`רכבת_${dashCurrentDept}_${year}.xlsx`);
+}
+
+let allDepts = [];
+async function loadDepts() {
+    const {data}=await sb.from('departments').select('*');
+    allDepts=data||[];
+}
+
+// ===== YEAR COMPARISON COMPONENT =====
+const YEAR_ORDER = ['תשפו', 'תשפז'];
+function getPrevYear(year) { const idx=YEAR_ORDER.indexOf(year); return idx>0?YEAR_ORDER[idx-1]:null; }
+
+async function buildComparisonHTML(deptId, currentYear) {
+    const prevYear = getPrevYear(currentYear);
+    if (!prevYear) return '<div style="color:#94a3b8;padding:20px;text-align:center;">אין נתוני שנה קודמת להשוואה</div>';
+    const {data:prevData} = await sb.from('placements').select('*,teachers(name,id_number)').eq('dept_id',deptId).eq('year',prevYear);
+    const {data:currData} = await sb.from('placements').select('*,teachers(name,id_number)').eq('dept_id',deptId).eq('year',currentYear);
+    const prev={}, curr={};
+    (prevData||[]).forEach(p=>{if(!prev[p.teacher_id])prev[p.teacher_id]={name:p.teachers?.name||p.teacher_id,total:0};prev[p.teacher_id].total+=(parseFloat(p.contact)||0)+(parseFloat(p.bonus)||0);});
+    (currData||[]).forEach(p=>{if(!curr[p.teacher_id])curr[p.teacher_id]={name:p.teachers?.name||p.teacher_id,total:0};curr[p.teacher_id].total+=(parseFloat(p.contact)||0)+(parseFloat(p.bonus)||0);});
+    const allIds=[...new Set([...Object.keys(curr),...Object.keys(prev)])];
+    const rows=allIds.map(id=>({id,name:curr[id]?.name||prev[id]?.name||id,curr:curr[id]?.total||0,prev:prev[id]?.total||0,isNew:!prev[id]})).sort((a,b)=>b.curr-a.curr);
+    const maxVal=Math.max(...rows.map(r=>Math.max(r.curr,r.prev)),1);
+    const barW=28,gap=8,groupW=barW*2+gap+16,svgH=160,maxBarH=100;
+    const svgW=Math.max(rows.length*groupW+60,300);
+    const bars=rows.map((r,i)=>{
+        const x=40+i*groupW;
+        const hC=r.curr>0?Math.max((r.curr/maxVal)*maxBarH,4):0;
+        const hP=r.prev>0?Math.max((r.prev/maxVal)*maxBarH,4):0;
+        const yC=svgH-30-hC,yP=svgH-30-hP;
+        const diff=r.curr-r.prev;
+        const col=r.isNew?'#10b981':diff>0?'#6366f1':diff<0?'#f97316':'#6366f1';
+        const nm=r.name.split(' ').slice(-1)[0].substring(0,6);
+        return `<rect x="${x}" y="${yP}" width="${barW}" height="${hP}" rx="4" fill="#cbd5e1" opacity="0.8"/>
+<rect x="${x+barW+gap}" y="${yC}" width="${barW}" height="${hC}" rx="4" fill="${col}"/>
+${r.curr>0?`<text x="${x+barW+gap+barW/2}" y="${yC-4}" text-anchor="middle" font-size="9" fill="#475569" font-family="Heebo">${r.curr}</text>`:''}
+<text x="${x+barW}" y="${svgH-12}" text-anchor="middle" font-size="9" fill="#64748b" font-family="Heebo">${nm}</text>
+${r.isNew?`<text x="${x+barW}" y="${svgH-2}" text-anchor="middle" font-size="8" fill="#10b981" font-family="Heebo">חדש</text>`:''}`;
+    }).join('');
+    const tRows=rows.map(r=>{
+        const diff=r.curr-r.prev;
+        const arrow=diff>0?'▲':diff<0?'▼':'—';
+        const col=r.isNew?'#10b981':diff>0?'#6366f1':diff<0?'#f97316':'#64748b';
+        const badge=r.isNew?'<span style="background:#dcfce7;color:#10b981;padding:2px 6px;border-radius:8px;font-size:10px;font-weight:800;">חדש</span>':'';
+        return `<tr style="border-bottom:1px solid #f1f5f9;">
+            <td style="padding:10px 14px;font-weight:800;">${r.name} ${badge}</td>
+            <td style="padding:10px 14px;text-align:center;color:#94a3b8;">${r.prev>0?r.prev.toFixed(1):'0'}</td>
+            <td style="padding:10px 14px;text-align:center;font-weight:900;">${r.curr>0?r.curr.toFixed(1):'—'}</td>
+            <td style="padding:10px 14px;text-align:center;font-weight:900;color:${col};">${r.isNew?'+'+r.curr.toFixed(1):diff!==0?(diff>0?'+':'')+diff.toFixed(1):'—'} ${r.isNew?'':arrow}</td>
+        </tr>`;
+    }).join('');
+    return `<div style="background:white;border-radius:20px;padding:24px;margin-top:24px;border:2px solid #e2e8f0;box-shadow:0 4px 10px rgba(0,0,0,0.04);">
+        <div style="display:flex;align-items:center;gap:16px;margin-bottom:18px;flex-wrap:wrap;">
+            <h3 style="font-family:'Secular One';font-size:18px;color:#1e293b;margin:0;">📈 השוואה: ${prevYear} ← ${currentYear}</h3>
+            <div style="display:flex;gap:12px;flex-wrap:wrap;">
+                <span style="font-size:12px;color:#64748b;font-weight:700;display:flex;align-items:center;gap:5px;"><span style="width:14px;height:14px;background:#cbd5e1;border-radius:3px;display:inline-block;"></span>${prevYear}</span>
+                <span style="font-size:12px;color:#64748b;font-weight:700;display:flex;align-items:center;gap:5px;"><span style="width:14px;height:14px;background:#6366f1;border-radius:3px;display:inline-block;"></span>${currentYear}</span>
+                <span style="font-size:12px;color:#64748b;font-weight:700;display:flex;align-items:center;gap:5px;"><span style="width:14px;height:14px;background:#10b981;border-radius:3px;display:inline-block;"></span>מורה חדש</span>
+                <span style="font-size:12px;color:#64748b;font-weight:700;display:flex;align-items:center;gap:5px;"><span style="width:14px;height:14px;background:#f97316;border-radius:3px;display:inline-block;"></span>ירידה</span>
+            </div>
+        </div>
+        <div style="overflow-x:auto;margin-bottom:20px;">
+            <svg width="${svgW}" height="${svgH}" style="min-width:300px;display:block;">
+                <line x1="35" y1="${svgH-30}" x2="${svgW-10}" y2="${svgH-30}" stroke="#e2e8f0" stroke-width="1"/>
+                ${bars}
+            </svg>
+        </div>
+        <div style="overflow-x:auto;">
+            <table style="width:100%;border-collapse:collapse;font-size:13px;background:white;border-radius:12px;overflow:hidden;box-shadow:0 2px 6px rgba(0,0,0,0.04);">
+                <thead><tr style="background:#1e293b;color:white;">
+                    <th style="padding:11px 14px;text-align:right;">מורה</th>
+                    <th style="padding:11px 14px;text-align:center;">${prevYear}</th>
+                    <th style="padding:11px 14px;text-align:center;">${currentYear}</th>
+                    <th style="padding:11px 14px;text-align:center;">שינוי</th>
+                </tr></thead>
+                <tbody>${tRows}</tbody>
+            </table>
+        </div>
+    </div>`;
+}
+// ===== END COMPARISON =====
+
+
+async function renderPending() {
+    const pending = allDepts.filter(d => d.status === 'pending' || d.status === 'approved_dirty');
+    const card = document.getElementById('pendingCard');
+    const list = document.getElementById('pendingList');
+    if(!pending.length) { card.style.display='none'; return; }
+    card.style.display = 'block';
+    list.innerHTML = pending.map(d => {
+        const date = d.submitted_at ? new Date(d.submitted_at).toLocaleDateString('he-IL') : '—';
+        const pm = allPMs.find(p => (p.assigned_depts||[]).includes(d.id));
+        const isDirty = d.status === 'approved_dirty';
+        const dirtyDate = d.dirty_at ? 'שונה: ' + new Date(d.dirty_at).toLocaleDateString('he-IL') : '';
+        return `<div style="display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid #f1f5f9;flex-wrap:wrap;gap:10px;${isDirty?'background:#fff1f2;':''}">
+            <div>
+                <div style="font-weight:800;font-size:15px;">${isDirty?'⚠️':'📚'} ${d.id}</div>
+                <div style="font-size:12px;color:${isDirty?'#b91c1c':'#64748b'};">
+                    ${isDirty ? 'שונה לאחר אישור! ' + dirtyDate : 'מנהלת: ' + (pm?.name||'—') + ' | נשלח: ' + date}
+                </div>
+            </div>
+            <div style="display:flex;gap:8px;">
+                ${isDirty ? `<button onclick="showDirtyComparison('${d.id}')" style="padding:9px 18px;background:#fff7ed;color:#c2410c;border:2px solid #f97316;border-radius:10px;font-family:Heebo,sans-serif;font-size:13px;font-weight:800;cursor:pointer;">🔍 צפה בשינויים</button>` : ''}
+                <button onclick="approveDept('${d.id}')" style="padding:9px 18px;background:${isDirty?'#ef4444':'#10b981'};color:white;border:none;border-radius:10px;font-family:Heebo,sans-serif;font-size:13px;font-weight:800;cursor:pointer;">${isDirty?'✅ אשר מחדש':'✅ אשר'}</button>
+                ${!isDirty ? `<button onclick="rejectDept('${d.id}')" style="padding:9px 18px;background:#fee2e2;color:#ef4444;border:none;border-radius:10px;font-family:Heebo,sans-serif;font-size:13px;font-weight:800;cursor:pointer;">↩️ החזר</button>` : ''}
+            </div>
+        </div>`;
+    }).join('');
+}
+
+async function approveDept(deptId) {
+    if(!confirm('לאשר את מגמת ' + deptId + '?')) return;
+
+    // שמור snapshot של כל השיבוצים לפני האישור
+    const year = document.getElementById('globalYear').value;
+    const { data: placements } = await sb.from('placements')
+        .select('*, teachers(name,id_number)')
+        .eq('dept_id', deptId)
+        .eq('year', year);
+    const snapshot = (placements||[]).map(p => ({
+        teacher_id: p.teacher_id,
+        teacher_name: p.teachers?.name || p.teacher_id,
+        subject: p.subject,
+        grade: p.grade,
+        contact: p.contact,
+        bonus: p.bonus
+    }));
+    await sb.from('dept_snapshots').insert({
+        dept_id: deptId,
+        year,
+        snapshot,
+        approved_at: new Date().toISOString()
+    });
+
+    await sb.from('departments').update({
+        status: 'approved',
+        approved_at: new Date().toISOString(),
+        dirty_at: null
+    }).eq('id', deptId);
+
+    showToast('✅ מגמת ' + deptId + ' אושרה');
+    await loadDepts();
+    renderDashboard();
+}
+
+async function rejectDept(deptId) {
+    if(!confirm('להחזיר את מגמת ' + deptId + ' לעריכה?')) return;
+    await sb.from('departments').update({ status: 'editing', submitted_at: null }).eq('id', deptId);
+    showToast('↩️ מגמת ' + deptId + ' הוחזרה לעריכה');
+    await loadDepts();
+    renderDashboard();
+}
+
+async function showDirtyComparison(deptId) {
+    const year = document.getElementById('globalYear').value;
+
+    // טען snapshot אחרון
+    const { data: snaps } = await sb.from('dept_snapshots')
+        .select('*')
+        .eq('dept_id', deptId)
+        .eq('year', year)
+        .order('approved_at', { ascending: false })
+        .limit(1);
+    const snap = snaps?.[0];
+    if(!snap) { showToast('אין snapshot שמור לאישור האחרון'); return; }
+
+    // טען נתונים נוכחיים
+    const { data: current } = await sb.from('placements')
+        .select('*, teachers(name,id_number)')
+        .eq('dept_id', deptId)
+        .eq('year', year);
+
+    const snapMap = {};
+    (snap.snapshot||[]).forEach(s => {
+        const key = s.teacher_id + '|' + s.subject + '|' + s.grade;
+        snapMap[key] = s;
+    });
+    const currMap = {};
+    (current||[]).forEach(p => {
+        const key = p.teacher_id + '|' + p.subject + '|' + p.grade;
+        currMap[key] = { teacher_name: p.teachers?.name||p.teacher_id, subject: p.subject, grade: p.grade, contact: p.contact, bonus: p.bonus };
+    });
+
+    const allKeys = new Set([...Object.keys(snapMap), ...Object.keys(currMap)]);
+    const changes = [];
+    allKeys.forEach(key => {
+        const s = snapMap[key];
+        const c = currMap[key];
+        if(!s && c) changes.push({ type:'added',   ...c });
+        else if(s && !c) changes.push({ type:'removed', ...s });
+        else if(s && c) {
+            if(parseFloat(s.contact)!==parseFloat(c.contact) || parseFloat(s.bonus)!==parseFloat(c.bonus)) {
+                changes.push({ type:'changed', ...c,
+                    old_contact: s.contact, old_bonus: s.bonus,
+                    new_contact: c.contact, new_bonus: c.bonus });
+            }
+        }
+    });
+
+    if(!changes.length) { showToast('לא נמצאו שינויים לעומת האישור האחרון'); return; }
+
+    const approvedDate = new Date(snap.approved_at).toLocaleDateString('he-IL');
+    const rows = changes.map(ch => {
+        if(ch.type==='added') return `<tr style="background:#f0fdf4;">
+            <td style="padding:9px 14px;font-weight:800;color:#166534;">+ נוסף</td>
+            <td style="padding:9px 14px;font-weight:800;">${ch.teacher_name}</td>
+            <td style="padding:9px 14px;">${ch.subject||'—'}</td>
+            <td style="padding:9px 14px;text-align:center;">${ch.grade||'—'}</td>
+            <td style="padding:9px 14px;text-align:center;">—</td>
+            <td style="padding:9px 14px;text-align:center;font-weight:800;color:#166534;">${parseFloat(ch.contact).toFixed(1)} / ${parseFloat(ch.bonus).toFixed(1)}</td>
+        </tr>`;
+        if(ch.type==='removed') return `<tr style="background:#fff1f2;">
+            <td style="padding:9px 14px;font-weight:800;color:#b91c1c;">− הוסר</td>
+            <td style="padding:9px 14px;font-weight:800;">${ch.teacher_name}</td>
+            <td style="padding:9px 14px;">${ch.subject||'—'}</td>
+            <td style="padding:9px 14px;text-align:center;">${ch.grade||'—'}</td>
+            <td style="padding:9px 14px;text-align:center;font-weight:800;color:#b91c1c;">${parseFloat(ch.old_contact).toFixed(1)} / ${parseFloat(ch.old_bonus).toFixed(1)}</td>
+            <td style="padding:9px 14px;text-align:center;">—</td>
+        </tr>`;
+        return `<tr style="background:#fff7ed;">
+            <td style="padding:9px 14px;font-weight:800;color:#c2410c;">~ שונה</td>
+            <td style="padding:9px 14px;font-weight:800;">${ch.teacher_name}</td>
+            <td style="padding:9px 14px;">${ch.subject||'—'}</td>
+            <td style="padding:9px 14px;text-align:center;">${ch.grade||'—'}</td>
+            <td style="padding:9px 14px;text-align:center;color:#c2410c;text-decoration:line-through;">${parseFloat(ch.old_contact).toFixed(1)} / ${parseFloat(ch.old_bonus).toFixed(1)}</td>
+            <td style="padding:9px 14px;text-align:center;font-weight:800;color:#c2410c;">${parseFloat(ch.new_contact).toFixed(1)} / ${parseFloat(ch.new_bonus).toFixed(1)}</td>
+        </tr>`;
+    }).join('');
+
+    const html = `<div style="background:white;border-radius:16px;border:2px solid #ef4444;padding:20px;margin-top:20px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:10px;">
+            <h3 style="font-family:'Secular One';font-size:18px;color:#b91c1c;margin:0;">⚠️ שינויים לאחר אישור — ${deptId}</h3>
+            <span style="font-size:12px;color:#64748b;">לעומת אישור מ-${approvedDate}</span>
+        </div>
+        <div style="overflow-x:auto;">
+            <table style="width:100%;border-collapse:collapse;font-size:13px;">
+                <thead><tr style="background:#1e293b;color:white;">
+                    <th style="padding:9px 14px;text-align:right;">סוג</th>
+                    <th style="padding:9px 14px;text-align:right;">מורה</th>
+                    <th style="padding:9px 14px;text-align:right;">מקצוע</th>
+                    <th style="padding:9px 14px;text-align:center;">שכבה</th>
+                    <th style="padding:9px 14px;text-align:center;">לפני (מגע/גמול)</th>
+                    <th style="padding:9px 14px;text-align:center;">עכשיו (מגע/גמול)</th>
+                </tr></thead>
+                <tbody>${rows}</tbody>
+            </table>
+        </div>
+    </div>`;
+
+    // הצג מתחת לכרטיס הממתינים
+    let el = document.getElementById('dirtyComparePanel');
+    if(!el) { el = document.createElement('div'); el.id='dirtyComparePanel'; document.getElementById('pendingCard').after(el); }
+    el.innerHTML = html;
+    el.scrollIntoView({ behavior:'smooth', block:'nearest' });
+}
+
+// ===== END DASHBOARD =====
+
+// ===== ROLE DEFINITIONS =====
+let rolesImportData = [];
+
+async function loadRoleDefs() {
+    const { data, error } = await sb.from('role_definitions').select('*').order('name');
+    allRoleDefinitions = (data || []).map(r => ({ id: r.id, name: r.name, default_hours: parseFloat(r.default_hours)||0 }));
+    renderRoleDefsTable();
+}
+
+function renderRoleDefsTable() {
+    const wrap = document.getElementById('rolesTableWrap');
+    if(!allRoleDefinitions.length) {
+        wrap.innerHTML = '<div style="text-align:center;padding:30px;color:#94a3b8;">אין תפקידים במערכת — ייבא מאקסל או הוסף ידנית</div>';
+        return;
+    }
+    wrap.innerHTML = `<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:13px;">
+        <thead><tr style="background:var(--admin);color:white;">
+            <th style="padding:11px 16px;text-align:right;">שם תפקיד</th>
+            <th style="padding:11px 16px;text-align:center;">שעות ברירת מחדל</th>
+            <th style="padding:11px 16px;text-align:center;">פעולות</th>
+        </tr></thead>
+        <tbody>${allRoleDefinitions.map(r => `
+        <tr style="border-bottom:1px solid #f1f5f9;" onmouseover="this.style.background='#f5f3ff'" onmouseout="this.style.background=''">
+            <td style="padding:11px 16px;font-weight:800;">${r.name}</td>
+            <td style="padding:11px 16px;text-align:center;">
+                <input type="number" value="${r.default_hours}" step="0.5" min="0"
+                    style="width:70px;padding:5px 8px;border:2px solid var(--border);border-radius:8px;font-family:Heebo,sans-serif;font-size:13px;text-align:center;outline:none;"
+                    onchange="updateRoleDefHours(${r.id},this.value)"
+                    onfocus="this.style.borderColor='var(--primary)'" onblur="this.style.borderColor='var(--border)'">
+            </td>
+            <td style="padding:11px 16px;text-align:center;">
+                <button onclick="deleteRoleDef(${r.id})" style="background:#fee2e2;color:var(--danger);border:none;padding:6px 14px;border-radius:8px;font-family:Heebo,sans-serif;font-size:12px;font-weight:700;cursor:pointer;">מחק</button>
+            </td>
+        </tr>`).join('')}
+        </tbody>
+    </table></div>`;
+}
+
+async function addRoleDef() {
+    const name = document.getElementById('newRoleName').value.trim();
+    const hours = parseFloat(document.getElementById('newRoleHours').value);
+    if(!name) { showToast('יש להזין שם תפקיד'); return; }
+    if(!hours || hours <= 0) { showToast('יש להזין מספר שעות'); return; }
+    const { error } = await sb.from('role_definitions').insert({ name, default_hours: hours });
+    if(error) { showToast('שגיאה: ' + error.message); return; }
+    document.getElementById('newRoleName').value = '';
+    document.getElementById('newRoleHours').value = '';
+    await loadRoleDefs();
+    showToast('✅ תפקיד נוסף');
+}
+
+async function updateRoleDefHours(id, val) {
+    const hours = parseFloat(val)||0;
+    await sb.from('role_definitions').update({ default_hours: hours }).eq('id', id);
+    const r = allRoleDefinitions.find(x => x.id === id);
+    if(r) r.default_hours = hours;
+}
+
+async function deleteRoleDef(id) {
+    if(!confirm('למחוק תפקיד זה מהמערכת?')) return;
+    await sb.from('role_definitions').delete().eq('id', id);
+    await loadRoleDefs();
+    showToast('🗑 תפקיד נמחק');
+}
+
+// ייבוא מאקסל
+function onRolesDragOver(e) { e.preventDefault(); document.getElementById('rolesDropZone').classList.add('drag-over'); }
+function onRolesDragLeave(e) { document.getElementById('rolesDropZone').classList.remove('drag-over'); }
+function onRolesDrop(e) { e.preventDefault(); document.getElementById('rolesDropZone').classList.remove('drag-over'); processRolesFile(e.dataTransfer.files[0]); }
+function onRolesFileSelect(e) { processRolesFile(e.target.files[0]); }
+
+function processRolesFile(file) {
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        const wb = XLSX.read(e.target.result, { type: 'binary' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const raw = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
+        rolesImportData = raw
+            .filter(row => row && row[0] && row[1])
+            .map(row => ({ name: String(row[0]).trim(), default_hours: parseFloat(row[1])||0 }))
+            .filter(r => r.name && r.default_hours > 0);
+        if(!rolesImportData.length) { showToast('לא נמצאו נתונים תקינים בקובץ'); return; }
+        document.getElementById('rolesImportCount').textContent = `נמצאו ${rolesImportData.length} תפקידים`;
+        document.getElementById('rolesPreviewBody').innerHTML = rolesImportData.map(r =>
+            `<tr><td style="padding:8px 14px;font-weight:700;">${r.name}</td><td style="padding:8px 14px;text-align:center;">${r.default_hours}</td></tr>`
+        ).join('');
+        document.getElementById('ic-preview-roles').style.display = 'block';
+    document.getElementById('ic-status-roles').textContent = rolesImportData.length + ' רשומות';
+    document.getElementById('ic-status-roles').className = 'ic-status ic-status-ok';
+    };
+    reader.readAsBinaryString(file);
+}
+
+async function doRolesImport() {
+    if(!rolesImportData.length) return;
+    const { error } = await sb.from('role_definitions')
+        .upsert(rolesImportData, { onConflict: 'name' });
+    if(error) { showToast('שגיאה: ' + error.message); return; }
+    cancelRolesImport();
+    await loadRoleDefs();
+    showToast(`✅ יובאו ${rolesImportData.length} תפקידים`);
+    document.getElementById('ic-status-roles').textContent = '✓ יובא';
+    document.getElementById('ic-status-roles').className = 'ic-status ic-status-ok';
+}
+
+function cancelRolesImport() {
+    rolesImportData = [];
+    document.getElementById('ic-preview-roles').style.display = 'none';
+    document.getElementById('rolesFileInput').value = '';
+}
+
+// autofill hours when role selected
+function onRoleSelChange(teacherId) {
+    const sel = document.getElementById('role-sel-'+teacherId);
+    const opt = sel.selectedOptions[0];
+    const hrs = opt ? parseFloat(opt.dataset.hrs)||'' : '';
+    document.getElementById('role-hrs-'+teacherId).value = hrs || '';
+}
+// ===== END ROLE DEFINITIONS =====
+
+// ===== DIRTY FLAG (מנהלת) =====
+async function markDirtyForDept(deptId) {
+    if(!deptId) return;
+    const { data } = await sb.from('departments').select('status').eq('id', deptId).single();
+    if(data && data.status === 'approved') {
+        await sb.from('departments').update({
+            status: 'approved_dirty',
+            dirty_at: new Date().toISOString()
+        }).eq('id', deptId);
+    }
+}
+// ===== END DIRTY FLAG =====
+
+// ===== MISHROT =====
+// תפקידים נטענים מ-DB
+let allRoleDefinitions = []; // {id, name, default_hours}
+let allMishrotData = [], allTeacherRoles = [], allPrevPlacements = [];
+
+// חישוב שעות גיל: גיל ביום 1.9 של שנת הלימודים
+// תשפו = 2025/2026 → 1.9.2025, תשפז = 2026/2027 → 1.9.2026
+function getAgeHours(birthDateStr, hebrewYear) {
+    if(!birthDateStr) return 0;
+    // שנת הלימודים: תשפו = 2025/26 → בדיקה לפי 31.12.2025
+    //               תשפז = 2026/27 → בדיקה לפי 31.12.2026
+    const yearMap = { 'תשפו': 2025, 'תשפז': 2026 };
+    const calYear = yearMap[hebrewYear] || (new Date().getFullYear());
+    const dec31 = new Date(calYear, 11, 31); // 31 בדצמבר
+    const birth = new Date(birthDateStr);
+    if(isNaN(birth)) return 0;
+    // גיל ביום 31.12 של השנה הקלנדרית
+    let age = calYear - birth.getFullYear();
+    // אם יום ההולדת אחרי 31.12 — לא יקרה (31.12 הוא הסוף), אז תמיד age = calYear - birthYear
+    if(age >= 55) return 4;
+    if(age >= 50) return 2;
+    return 0;
+}
+
+// בסיס משרה = 25 פחות שעות הגיל
+// מורה עם 2 שעות גיל: בסיס = 23 (= 100% = 23 שעות עבודה)
+// מורה עם 4 שעות גיל: בסיס = 21
+function getMishraBase(ageHours) {
+    return Math.max(1, 38 - (ageHours||0));
+}
+
+async function loadMishrot() {
+    const year = document.getElementById('mishrotYear').value;
+    const prevYear = getPrevMishrotYear(year);
+
+    const [placementsRes, rolesRes, prevPlRes, notesRes] = await Promise.all([
+        sb.from('placements').select('*, teachers(name,id_number)').eq('year', year),
+        sb.from('teacher_roles').select('*').eq('year', year),
+        prevYear ? sb.from('placements').select('teacher_id,contact,bonus').eq('year', prevYear) : Promise.resolve({data:[]}),
+        sb.from('teacher_hours').select('teacher_id,notes').eq('year', year)
+    ]);
+
+    const placements = placementsRes.data || [];
+    allTeacherRoles = rolesRes.data || [];
+    allPrevPlacements = prevPlRes.data || [];
+    const notesData = notesRes.data || [];
+
+    // שעות מגע / פרטנות / גמול מ-placements
+    const loads = {};
+    placements.forEach(p => {
+        const id = p.teacher_id;
+        if(!loads[id]) {
+            const t = allTeachers.find(x => x.id_number === id);
+            loads[id] = { name: p.teachers?.name || id, contact:0, bonus:0, partanutFromDepts:0, birth_date: t?.birth_date || null };
+        }
+        if(p.type === 'פרטנות') {
+            loads[id].partanutFromDepts += parseFloat(p.partanut)||parseFloat(p.contact)||0;
+        } else {
+            loads[id].contact += parseFloat(p.contact)||0;
+        }
+        loads[id].bonus += parseFloat(p.bonus)||0;
+    });
+
+    // הוסף מורים שיש להם תפקידים אבל לא שיבוצים
+    allTeacherRoles.forEach(r => {
+        if(!loads[r.teacher_id]) {
+            const t = allTeachers.find(x => x.id_number === r.teacher_id);
+            loads[r.teacher_id] = { name: t?.name || r.teacher_id, contact:0, bonus:0, partanutFromDepts:0, birth_date: t?.birth_date || null };
+        }
+    });
+
+    // הוסף את כל המורים מהמאגר — גם אם אין להם שיבוצים ותפקידים
+    // ועדכן birth_date לכולם (גם למי שכבר קיים מ-placements)
+    allTeachers.forEach(t => {
+        if(!loads[t.id_number]) {
+            loads[t.id_number] = { name: t.name, contact:0, bonus:0, partanutFromDepts:0, birth_date: t.birth_date || null };
+        } else {
+            loads[t.id_number].birth_date = t.birth_date || null;
+        }
+    });
+
+    // שנה קודמת — סה"כ לכל מורה
+    const prevTotals = {};
+    allPrevPlacements.forEach(p => {
+        if(!prevTotals[p.teacher_id]) prevTotals[p.teacher_id] = 0;
+        prevTotals[p.teacher_id] += (parseFloat(p.contact)||0)+(parseFloat(p.bonus)||0);
+    });
+    // הוסף תפקידים שנה קודמת
+    if(prevYear) {
+        const {data: prevRoles} = await sb.from('teacher_roles').select('teacher_id,hours').eq('year', prevYear);
+        (prevRoles||[]).forEach(r => {
+            if(!prevTotals[r.teacher_id]) prevTotals[r.teacher_id]=0;
+            prevTotals[r.teacher_id] += parseFloat(r.hours)||0;
+        });
+    }
+
+    // פירוט לפי מגמה לכל מורה
+    const deptBreakdown = {};
+    placements.forEach(p => {
+        const id = p.teacher_id;
+        if(!deptBreakdown[id]) deptBreakdown[id] = {};
+        const dept = p.dept_id || '—';
+        if(!deptBreakdown[id][dept]) deptBreakdown[id][dept] = { contact:0, bonus:0, partanut:0 };
+        if(p.type === 'פרטנות') {
+            deptBreakdown[id][dept].partanut += parseFloat(p.partanut)||parseFloat(p.contact)||0;
+        } else {
+            deptBreakdown[id][dept].contact += parseFloat(p.contact)||0;
+        }
+        deptBreakdown[id][dept].bonus += parseFloat(p.bonus)||0;
+    });
+
+    allMishrotData = Object.entries(loads).map(([id, d]) => {
+        const roles = allTeacherRoles.filter(r => r.teacher_id === id);
+        const roleHours = roles.reduce((s,r) => s+(parseFloat(r.hours)||0), 0);
+        const note = notesData.find(n => n.teacher_id === id);
+        const ageHours = getAgeHours(d.birth_date, year);
+        return {
+            id, name: d.name,
+            contact: d.contact, bonus: d.bonus,
+            roles, roleHours,
+            ageHours,
+            partanut: parseFloat(note?.partanut)||0,
+            partanutFromDepts: d.partanutFromDepts||0,
+            stay: parseFloat(note?.stay)||0,
+            birth_date: d.birth_date,
+            depts: deptBreakdown[id] || {},
+            prevTotal: prevTotals[id] || null,
+            notes: note?.notes || ''
+        };
+    }).sort((a,b) => a.name.localeCompare(b.name, 'he'));
+
+    renderMishrot(allMishrotData);
+}
+
+function getPrevMishrotYear(year) {
+    const order = ['תשפו','תשפז'];
+    const i = order.indexOf(year);
+    return i > 0 ? order[i-1] : null;
+}
+
+function filterMishrot() {
+    const q = document.getElementById('mishrotSearch').value.toLowerCase();
+    renderMishrot(allMishrotData.filter(r => r.name.toLowerCase().includes(q) || r.id.includes(q)));
+}
+
+function renderMishrot(data) {
+    const empty = document.getElementById('mishrotEmpty');
+    if(!data.length) { document.getElementById('mishrotBody').innerHTML=''; empty.style.display='block'; return; }
+    empty.style.display = 'none';
+
+    document.getElementById('mishrotBody').innerHTML = data.map((r,i) => {
+        const total = r.contact + r.bonus + r.partanut + r.stay + r.roleHours;
+        const mishraBase = getMishraBase(r.ageHours);
+        const pct = total / mishraBase * 100;
+        const color = pct>100?'#ef4444':pct<50&&total>0?'#f97316':'#10b981';
+        const prevDiff = r.prevTotal !== null ? (total - r.prevTotal) : null;
+        const prevLabel = r.prevTotal !== null
+            ? `<span class="${prevDiff>0.05?'prev-up':prevDiff<-0.05?'prev-down':''}">${prevDiff>0.05?'▲':prevDiff<-0.05?'▼':'='} ${r.prevTotal.toFixed(1)}</span>`
+            : '<span style="color:#cbd5e1">—</span>';
+
+        const rolesSummary = r.roles.length
+            ? r.roles.map(rl=>`<span style="background:#ede9fe;color:#5b21b6;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;margin:1px;display:inline-block;">${rl.role_name} ${parseFloat(rl.hours).toFixed(1)}</span>`).join('')
+            : '<span style="color:#cbd5e1;font-size:12px;">לחץ להוספה</span>';
+
+        const ageLabel = r.ageHours > 0
+            ? `<span style="background:#fef3c7;color:#92400e;padding:3px 10px;border-radius:10px;font-size:12px;font-weight:800;">${r.ageHours}</span>`
+            : (r.birth_date ? '<span style="color:#cbd5e1;font-size:12px;">—</span>' : '<span style="color:#fca5a5;font-size:11px;" title="אין תאריך לידה">?</span>');
+
+        return `
+        <tr class="mish-tr" onclick="toggleMishRow('mish-exp-${i}','arr-${i}')">
+            <td style="text-align:center;padding:11px 8px;"><span class="expand-arrow" id="arr-${i}">▶</span></td>
+            <td style="font-family:monospace;font-size:11px;color:#94a3b8;">${r.id}</td>
+            <td style="font-weight:800;">${r.name}</td>
+            <td style="text-align:center;font-weight:700;color:#0f766e;">${r.contact.toFixed(1)}</td>
+            <td style="text-align:center;font-weight:700;color:#7c3aed;">${r.bonus.toFixed(1)}</td>
+            <td style="text-align:center;">
+                ${r.partanutFromDepts > 0 && r.partanut === 0 ? `<div style="font-size:10px;color:#6366f1;font-weight:700;margin-bottom:3px;">הצעה: ${r.partanutFromDepts.toFixed(1)}</div>` : ''}
+                ${r.partanutFromDepts > 0 && r.partanut > 0 && r.partanut !== r.partanutFromDepts ? `<div style="font-size:10px;color:#94a3b8;margin-bottom:2px;">מגמות: ${r.partanutFromDepts.toFixed(1)}</div>` : ''}
+                <input type="number" step="0.5" min="0" max="20" value="${r.partanut||0}"
+                    style="width:58px;padding:5px 6px;border:2px solid ${r.partanutFromDepts>0&&r.partanut===0?'#a5b4fc':'#bfdbfe'};border-radius:8px;font-family:Heebo,sans-serif;font-size:13px;font-weight:700;color:#1d4ed8;text-align:center;outline:none;"
+                    onclick="event.stopPropagation()"
+                    onchange="saveExtraHours('${r.id}','partanut',this.value,${i})">
+            </td>
+            <td style="text-align:center;">
+                <input type="number" step="0.5" min="0" max="20" value="${r.stay||0}"
+                    style="width:58px;padding:5px 6px;border:2px solid #bbf7d0;border-radius:8px;font-family:Heebo,sans-serif;font-size:13px;font-weight:700;color:#15803d;text-align:center;outline:none;"
+                    onclick="event.stopPropagation()"
+                    onchange="saveExtraHours('${r.id}','stay',this.value,${i})">
+            </td>
+            <td style="text-align:center;">${rolesSummary}</td>
+            <td style="text-align:center;">${ageLabel}</td>
+            <td style="text-align:center;font-weight:900;font-size:15px;">${total.toFixed(1)}<span style="font-size:10px;color:#94a3b8;"> / ${mishraBase}</span></td>
+            <td style="text-align:center;">
+                <div class="pct-cell">
+                    <span style="font-weight:900;color:${color};min-width:36px;">${pct.toFixed(0)}%</span>
+                    <span class="pct-bar"><span class="pct-fill" style="width:${Math.min(pct,100)}%;background:${color};"></span></span>
+                </div>
+            </td>
+            <td class="prev-year-cell" style="text-align:center;">${prevLabel}</td>
+            <td><input class="notes-inp" value="${r.notes.replace(/"/g,'&quot;')}" placeholder="הערה..." onchange="saveMishrotNote('${r.id}',this.value)" onclick="event.stopPropagation()"></td>
+        </tr>
+        <tr class="mish-expand" id="mish-exp-${i}">
+            <td colspan="13">
+                <div style="max-width:800px;">
+                    <!-- סיכום מרכיבי משרה -->
+                    <div style="background:white;border-radius:12px;border:1px solid var(--border);margin-bottom:16px;overflow:hidden;">
+                        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:0;border-bottom:1px solid var(--border);">
+                            <div style="text-align:center;padding:12px 8px;border-left:1px solid var(--border);">
+                                <div style="font-size:10px;font-weight:700;color:#64748b;margin-bottom:3px;letter-spacing:0.5px;">שעות מגע</div>
+                                <div style="font-size:20px;font-weight:900;color:#0f766e;">${r.contact.toFixed(1)}</div>
+                                <div style="font-size:10px;color:#94a3b8;">מתוך 25</div>
+                            </div>
+                            <div style="text-align:center;padding:12px 8px;border-left:1px solid var(--border);">
+                                <div style="font-size:10px;font-weight:700;color:#64748b;margin-bottom:3px;letter-spacing:0.5px;">שעות גמול</div>
+                                <div style="font-size:20px;font-weight:900;color:#7c3aed;">${r.bonus.toFixed(1)}</div>
+                            </div>
+                            <div style="text-align:center;padding:12px 8px;border-left:1px solid var(--border);">
+                                <div style="font-size:10px;font-weight:700;color:#64748b;margin-bottom:3px;letter-spacing:0.5px;">פרטנות</div>
+                                <div style="font-size:20px;font-weight:900;color:#1d4ed8;">${r.partanut.toFixed(1)}</div>
+                                <div style="font-size:10px;color:#94a3b8;">מתוך 5</div>
+                            </div>
+                            <div style="text-align:center;padding:12px 8px;border-left:1px solid var(--border);">
+                                <div style="font-size:10px;font-weight:700;color:#64748b;margin-bottom:3px;letter-spacing:0.5px;">שהייה</div>
+                                <div style="font-size:20px;font-weight:900;color:#15803d;">${r.stay.toFixed(1)}</div>
+                                <div style="font-size:10px;color:#94a3b8;">מתוך 10</div>
+                            </div>
+                            <div style="text-align:center;padding:12px 8px;border-left:1px solid var(--border);">
+                                <div style="font-size:10px;font-weight:700;color:#64748b;margin-bottom:3px;letter-spacing:0.5px;">תפקיד</div>
+                                <div style="font-size:20px;font-weight:900;color:#1d4ed8;">${r.roleHours.toFixed(1)}</div>
+                            </div>
+                            <div style="text-align:center;padding:12px 8px;border-left:1px solid var(--border);">
+                                <div style="font-size:10px;font-weight:700;color:#64748b;margin-bottom:3px;letter-spacing:0.5px;">גיל ↓</div>
+                                <div style="font-size:20px;font-weight:900;color:#92400e;">${r.ageHours > 0 ? '-'+r.ageHours.toFixed(1) : '—'}</div>
+                                <div style="font-size:10px;color:#94a3b8;">בסיס: ${mishraBase}</div>
+                            </div>
+                            <div style="text-align:center;padding:12px 8px;border-left:2px solid #6366f1;background:#f5f3ff;">
+                                <div style="font-size:10px;font-weight:700;color:#64748b;margin-bottom:3px;letter-spacing:0.5px;">סה"כ / בסיס</div>
+                                <div style="font-size:20px;font-weight:900;color:${color};">${total.toFixed(1)} / ${mishraBase}</div>
+                            </div>
+                            <div style="text-align:center;padding:12px 8px;background:#f5f3ff;">
+                                <div style="font-size:10px;font-weight:700;color:#64748b;margin-bottom:3px;letter-spacing:0.5px;">% משרה</div>
+                                <div style="font-size:20px;font-weight:900;color:${color};">${pct.toFixed(0)}%</div>
+                            </div>
+                        </div>
+                        <!-- פירוט לפי מגמה -->
+                        ${Object.keys(r.depts).length > 0 ? `
+                        <div style="padding:10px 14px;">
+                            <div style="font-size:10px;font-weight:700;color:#94a3b8;letter-spacing:0.5px;margin-bottom:8px;">פירוט לפי מגמה</div>
+                            <div style="display:flex;flex-wrap:wrap;gap:8px;">
+                                ${Object.entries(r.depts).map(([dept,h])=>`
+                                <div style="background:#f8fafc;border:1px solid var(--border);border-radius:10px;padding:8px 14px;min-width:130px;">
+                                    <div style="font-size:12px;font-weight:800;color:#1e293b;margin-bottom:4px;">${dept}</div>
+                                    <div style="display:flex;gap:10px;font-size:12px;flex-wrap:wrap;">
+                                        <span style="color:#0f766e;font-weight:700;">מגע: ${h.contact.toFixed(1)}</span>
+                                        <span style="color:#7c3aed;font-weight:700;">גמול: ${h.bonus.toFixed(1)}</span>
+                                        ${h.partanut>0?`<span style="color:#1d4ed8;font-weight:700;">פרטנות: ${h.partanut.toFixed(1)}</span>`:''}
+                                    </div>
+                                </div>`).join('')}
+                            </div>
+                        </div>` : ''}
+                    </div>
+                    <!-- תפקידים -->
+                    ${!r.birth_date ? `
+                    <div style="background:#fff1f2;border:1px solid #fecdd3;border-radius:10px;padding:12px 16px;margin-bottom:14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+                        <span style="font-size:13px;color:#b91c1c;font-weight:700;">⚠️ אין תאריך לידה — לא ניתן לחשב שעות גיל</span>
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            <input type="date" id="bd-inp-${r.id}"
+                                style="padding:6px 10px;border:2px solid #fca5a5;border-radius:8px;font-family:Heebo,sans-serif;font-size:13px;outline:none;"
+                                onfocus="this.style.borderColor='#6366f1'" onblur="this.style.borderColor='#fca5a5'">
+                            <button onclick="saveBirthDate('${r.id}',document.getElementById('bd-inp-${r.id}').value)"
+                                style="padding:6px 14px;background:#6366f1;color:white;border:none;border-radius:8px;font-family:Heebo,sans-serif;font-size:13px;font-weight:700;cursor:pointer;">
+                                שמור
+                            </button>
+                        </div>
+                    </div>` : ''}
+                    <div style="font-size:12px;font-weight:700;color:#64748b;margin-bottom:10px;letter-spacing:0.5px;">תפקידים של ${r.name}</div>
+                    <div class="roles-list" id="roles-list-${r.id}">
+                        ${renderRolesList(r.roles, r.id)}
+                    </div>
+                    <div class="add-role-row">
+                        <select class="role-select" id="role-sel-${r.id}" onchange="onRoleSelChange('${r.id}')">
+                            <option value="">— בחר תפקיד —</option>
+                            ${allRoleDefinitions.map(rd=>`<option value="${rd.name}" data-hrs="${rd.default_hours}">${rd.name} (${rd.default_hours}ש')</option>`).join('')}
+                        </select>
+                        <input type="number" class="role-hrs-input" id="role-hrs-${r.id}" placeholder="שעות" step="0.5" min="0.5" max="20">
+                        <button class="btn-add-role" onclick="addRole('${r.id}')">+ הוסף תפקיד</button>
+                    </div>
+                </div>
+            </td>
+        </tr>`;
+    }).join('');
+}
+
+function renderRolesList(roles, teacherId) {
+    if(!roles.length) return '<div style="color:#94a3b8;font-size:12px;padding:6px 0;">אין תפקידים — הוסף למטה</div>';
+    return roles.map(r => `
+        <div class="role-row">
+            <span class="role-name">${r.role_name}</span>
+            <span class="role-hrs">${parseFloat(r.hours).toFixed(1)}</span>
+            <button class="btn-del-role" onclick="deleteRole(${r.id},'${teacherId}')">✕</button>
+        </div>`).join('');
+}
+
+function toggleMishRow(expId, arrId) {
+    const exp = document.getElementById(expId);
+    const arr = document.getElementById(arrId);
+    if(!exp) return;
+    exp.classList.toggle('open');
+    if(arr) arr.classList.toggle('open');
+}
+
+async function addRole(teacherId) {
+    const year = document.getElementById('mishrotYear').value;
+    const roleName = document.getElementById('role-sel-'+teacherId).value;
+    const hours = parseFloat(document.getElementById('role-hrs-'+teacherId).value);
+    if(!roleName) { showToast('יש לבחור תפקיד'); return; }
+    if(!hours || hours <= 0) { showToast('יש להזין מספר שעות'); return; }
+
+    const { data, error } = await sb.from('teacher_roles')
+        .insert({ teacher_id: teacherId, year, role_name: roleName, hours })
+        .select().single();
+    if(error) { showToast('שגיאה: ' + error.message); return; }
+
+    // mark dirty for all depts this teacher is assigned to
+    const teacherDepts = [...new Set(allPlacements.filter(p=>p.teacher_id===teacherId && p.year===year).map(p=>p.dept_id))];
+    await Promise.all(teacherDepts.map(d => markDirtyForDept(d)));
+
+    // update local
+    const row = allMishrotData.find(r => r.id === teacherId);
+    if(row) {
+        row.roles.push(data);
+        row.roleHours += hours;
+        document.getElementById('roles-list-'+teacherId).innerHTML = renderRolesList(row.roles, teacherId);
+        document.getElementById('role-sel-'+teacherId).value = '';
+        document.getElementById('role-hrs-'+teacherId).value = '';
+        renderMishrot(allMishrotData);
+    }
+    showToast('✅ תפקיד נוסף');
+}
+
+async function deleteRole(roleId, teacherId) {
+    if(!confirm('למחוק תפקיד זה?')) return;
+    const { error } = await sb.from('teacher_roles').delete().eq('id', roleId);
+    if(error) { showToast('שגיאה: ' + error.message); return; }
+
+    // mark dirty
+    const year = document.getElementById('mishrotYear').value;
+    const teacherDepts2 = [...new Set(allPlacements.filter(p=>p.teacher_id===teacherId && p.year===year).map(p=>p.dept_id))];
+    await Promise.all(teacherDepts2.map(d => markDirtyForDept(d)));
+
+    const row = allMishrotData.find(r => r.id === teacherId);
+    if(row) {
+        const deleted = row.roles.find(r => r.id === roleId);
+        row.roles = row.roles.filter(r => r.id !== roleId);
+        row.roleHours -= deleted ? (parseFloat(deleted.hours)||0) : 0;
+        renderMishrot(allMishrotData);
+    }
+    showToast('🗑 תפקיד נמחק');
+}
+
+async function saveExtraHours(teacherId, field, value, rowIndex) {
+    const year = document.getElementById('mishrotYear').value;
+    const val = parseFloat(value)||0;
+    const updateObj = { teacher_id: teacherId, year, updated_at: new Date().toISOString() };
+    updateObj[field] = val;
+    const { error } = await sb.from('teacher_hours').upsert(updateObj, { onConflict: 'teacher_id,year' });
+    if(error) { showToast('שגיאה: ' + error.message); return; }
+    const row = allMishrotData.find(r => r.id === teacherId);
+    if(row) {
+        row[field] = val;
+        renderMishrot(allMishrotData);
+    }
+    showToast('✅ נשמר');
+}
+
+async function saveMishrotNote(teacherId, value) {
+    const year = document.getElementById('mishrotYear').value;
+    await sb.from('teacher_hours').upsert(
+        { teacher_id: teacherId, year, notes: value, updated_at: new Date().toISOString() },
+        { onConflict: 'teacher_id,year' }
+    );
+    const row = allMishrotData.find(r => r.id === teacherId);
+    if(row) row.notes = value;
+}
+
+function exportMishrot() {
+    const year = document.getElementById('mishrotYear').value;
+    const rows = [['ת.ז','שם מורה','שעות מגע','שעות גמול','פרטנות','שהייה','תפקידים','שעות תפקיד','שעות גיל','בסיס משרה','סה"כ','% משרה','הערות']];
+    allMishrotData.forEach(r => {
+        const total = r.contact + r.bonus + r.partanut + r.stay + r.roleHours;
+        const base = getMishraBase(r.ageHours);
+        const roleDesc = r.roles.map(rl => rl.role_name+'('+parseFloat(rl.hours).toFixed(1)+')').join(' | ');
+        rows.push([r.id, r.name, r.contact.toFixed(1), r.bonus.toFixed(1), r.partanut.toFixed(1), r.stay.toFixed(1), roleDesc, r.roleHours.toFixed(1), r.ageHours.toFixed(1), base, total.toFixed(1), (total/base*100).toFixed(0)+'%', r.notes]);
+    });
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols'] = [{wch:14},{wch:20},{wch:10},{wch:10},{wch:10},{wch:10},{wch:30},{wch:12},{wch:10},{wch:10},{wch:10},{wch:10},{wch:20}];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'משרות '+year);
+    XLSX.writeFile(wb, 'משרות_מורים_'+year+'.xlsx');
+}
+// ===== END MISHROT =====
+
+
+// TOAST
+async function saveBirthDate(teacherId, dateVal) {
+    if(!dateVal) { showToast('יש להזין תאריך'); return; }
+    const { error } = await sb.from('teachers').update({ birth_date: dateVal }).eq('id_number', teacherId);
+    if(error) { showToast('שגיאה: ' + error.message); return; }
+    // Update local
+    const t = allTeachers.find(x => x.id_number === teacherId);
+    if(t) t.birth_date = dateVal;
+    const row = allMishrotData.find(r => r.id === teacherId);
+    if(row) {
+        row.birth_date = dateVal;
+        const year = document.getElementById('mishrotYear').value;
+        row.ageHours = getAgeHours(dateVal, year);
+        renderMishrot(allMishrotData);
+    }
+    showToast('✅ תאריך לידה נשמר');
+}
+
+function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 3000);
+}
+</script>
+</body>
+</html>
