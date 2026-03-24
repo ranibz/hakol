@@ -9,11 +9,10 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
     <style>
-        :root { --primary: #2563eb; --bg: #f8fafc; --card-bg: #ffffff; }
-        body { font-family: 'Assistant', sans-serif; background-color: var(--bg); color: #1e293b; padding-top: 20px; }
-        .main-card { background: var(--card-bg); border: none; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); padding: 30px; margin-bottom: 30px; }
+        :root { --primary: #2563eb; --bg: #f8fafc; }
+        body { font-family: 'Assistant', sans-serif; background-color: var(--bg); padding-top: 20px; }
+        .main-card { background: white; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); padding: 30px; margin-bottom: 30px; border: none; }
         h1 { font-family: 'Frank Ruhl Libre', serif; font-weight: 700; color: #1e3a8a; }
-        .btn-primary { background-color: var(--primary); border: none; padding: 12px 25px; border-radius: 10px; font-weight: 600; }
         .question-preview { border-right: 4px solid var(--primary); background: #f1f5f9; padding: 20px; border-radius: 8px; margin-bottom: 15px; }
     </style>
 </head>
@@ -32,7 +31,7 @@
             </div>
             <div class="col-md-6">
                 <label class="form-label">נושא אקטואלי</label>
-                <input type="text" id="main-topic" class="form-control" placeholder="למשל: השפעת פרסומות על דימוי גוף">
+                <input type="text" id="main-topic" class="form-control" placeholder="למשל: השפעת הטיקטוק על נוער">
             </div>
             <div class="col-12">
                 <label class="form-label">מושגים (הפרד בפסיק)</label>
@@ -40,7 +39,7 @@
             </div>
         </div>
         <div class="mt-4 d-flex gap-2">
-            <button id="btn-gen" class="btn btn-primary w-100" onclick="generateQuestion()">✨ צור שאלה ב-AI</button>
+            <button id="btn-gen" class="btn btn-primary w-100 p-3 fw-bold" onclick="generateQuestion()">✨ צור שאלה ב-AI</button>
             <button id="btn-save" class="btn btn-success w-100" style="display:none;" onclick="saveToFirebase()">💾 שמור והפץ לתלמידים</button>
         </div>
     </div>
@@ -48,18 +47,12 @@
 </div>
 
 <script>
-// הגדרות הפרויקט המקוריות שלך
-const firebaseConfig = {
-    apiKey: "AIzaSyCCHvn_ulmiyM56DuslNzNC0Ge6a8i2vhY",
-    databaseURL: "https://tests-fd938-default-rtdb.europe-west1.firebasedatabase.app",
-    projectId: "tests-fd938"
-};
+// הגדרות Firebase שלך
+const firebaseConfig = { apiKey: "AIzaSyCCHvn_ulmiyM56DuslNzNC0Ge6a8i2vhY", databaseURL: "https://tests-fd938-default-rtdb.europe-west1.firebasedatabase.app", projectId: "tests-fd938" };
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
-// התיקון לכתובת ה-API והמפתח שלך
-const GEMINI_API_KEY = "AIzaSyDXexsbNZ-uMT-oIuxyIJQyF9rMmU9ObiI";
-const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+const API_KEY = "AIzaSyDXexsbNZ-uMT-oIuxyIJQyF9rMmU9ObiI";
 
 let questions = [];
 
@@ -69,20 +62,20 @@ async function generateQuestion() {
     const btn = document.getElementById('btn-gen');
     if(!topic) { alert("נא להזין נושא"); return; }
     btn.disabled = true;
-    btn.innerHTML = 'ה-AI בונה שאלה... <span class="spinner-border spinner-border-sm"></span>';
+    btn.innerHTML = 'ה-AI בונה שאלה...';
 
-    const prompt = `אתה מורה לתקשורת. צור שאלת בגרות על ${topic} עם המושגים: ${concepts}. החזר JSON נקי בלבד: {"context":"קטע רקע","question":"השאלה","requirements":"דרישות"}`;
+    // כתובת URL מפורשת כדי למנוע טעויות
+    const url = "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=" + API_KEY;
 
     try {
-        const response = await fetch(GEMINI_URL, {
+        const response = await fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                contents: [{ parts: [{ text: prompt }] }],
+                contents: [{ parts: [{ text: "צור שאלת בגרות בתקשורת על " + topic + " עם המושגים: " + concepts + ". החזר JSON נקי: {\"context\":\"\",\"question\":\"\",\"requirements\":\"\"}" }] }],
                 generationConfig: { response_mime_type: "application/json" }
             })
         });
-        if (!response.ok) throw new Error(`API Error: ${response.status}`);
         const data = await response.json();
         const q = JSON.parse(data.candidates[0].content.parts[0].text);
         questions.push(q);
@@ -91,24 +84,22 @@ async function generateQuestion() {
         btn.innerHTML = '✨ צור שאלה נוספת';
         document.getElementById('btn-save').style.display = 'block';
     } catch (e) {
-        alert("שגיאה ביצירה. בדוק את ה-Console בדפדפן.");
+        console.error(e);
+        alert("שגיאה. נסה שוב.");
         btn.disabled = false;
-        btn.innerHTML = '✨ נסה שוב';
     }
 }
 
 function renderQuestion(q) {
-    const area = document.getElementById('questions-area');
     const div = document.createElement('div');
     div.className = "main-card question-preview";
     div.innerHTML = `<h5>${q.context.substring(0, 60)}...</h5><p>${q.question}</p><small class="text-primary">${q.requirements}</small>`;
-    area.prepend(div);
+    document.getElementById('questions-area').prepend(div);
 }
 
 function saveToFirebase() {
     const title = document.getElementById('exam-title').value;
-    const examData = { title, questions, createdAt: Date.now(), teacherName: "רני בן זאב" }; //
-    db.ref('exams').push(examData).then(() => alert("המבחן נשמר!"));
+    db.ref('exams').push({ title, questions, createdAt: Date.now() }).then(() => alert("המבחן נשמר!"));
 }
 </script>
 </body>
