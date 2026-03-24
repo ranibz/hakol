@@ -4,21 +4,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ביצוע מבחן — תקשורת וחברה</title>
-    <link href="[https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css](https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css)" rel="stylesheet">
-    <link href="[https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700&display=swap](https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700&display=swap)" rel="stylesheet">
-    <script src="[https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js](https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js)"></script>
-    <script src="[https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js](https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js)"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700&display=swap" rel="stylesheet">
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
     <style>
         body { font-family: 'Assistant', sans-serif; background-color: #f1f5f9; padding: 20px; }
-        .exam-page { max-width: 800px; margin: auto; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        .exam-page { max-width: 800px; margin: auto; background: white; padding: 35px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
         h2 { color: #1e3a8a; font-weight: 700; margin-bottom: 25px; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; }
         .q-block { border-bottom: 2px solid #e2e8f0; padding-bottom: 25px; margin-bottom: 30px; position: relative; }
-        .q-context { background: #f8fafc; border-right: 4px solid #2563eb; padding: 15px; border-radius: 8px; font-size: 0.95rem; line-height: 1.7; margin-bottom: 15px; }
-        .q-text { font-weight: 600; font-size: 1.1rem; margin-bottom: 10px; }
-        textarea { width: 100%; border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px; min-height: 150px; font-family: inherit; font-size: 14px; outline: none; }
-        textarea:focus { border-color: #2563eb; box-shadow: 0 0 0 2px rgba(37,99,235,0.1); }
-        .mic-btn { position: absolute; bottom: 35px; left: 15px; border-radius: 50%; width: 42px; height: 42px; border: none; background: #ef4444; color: white; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; }
-        .mic-btn:hover { background: #b91c1c; }
+        .q-context { background: #f8fafc; border-right: 4px solid #2563eb; padding: 15px; border-radius: 8px; margin-bottom: 15px; font-size: 0.95rem; }
+        textarea { width: 100%; border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px; min-height: 150px; outline: none; }
+        .mic-btn { position: absolute; bottom: 35px; left: 15px; border-radius: 50%; width: 42px; height: 42px; border: none; background: #ef4444; color: white; display: flex; align-items: center; justify-content: center; cursor: pointer; }
         .mic-btn.recording { animation: pulse 1.5s infinite; background: #b91c1c; }
         @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(185,28,28, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(185,28,28, 0); } 100% { box-shadow: 0 0 0 0 rgba(185,28,28, 0); } }
     </style>
@@ -27,9 +24,9 @@
 <div class="exam-page">
     <h2 id="exam-title">טוען מבחן...</h2>
     
-    <div class="row g-3 mb-4 card p-3 bg-light">
-        <div class="col-md-6"><input type="text" id="student-name" class="form-control" placeholder="שם מלא"></div>
-        <div class="col-md-6"><input type="text" id="student-class" class="form-control" placeholder="כיתה"></div>
+    <div class="row g-3 mb-4 p-3 bg-light border-radius-8">
+        <div class="col-md-6"><input type="text" id="student-name" class="form-control" placeholder="שם מלא של התלמיד"></div>
+        <div class="col-md-6"><input type="text" id="student-class" class="form-control" placeholder="כיתה (למשל יא2)"></div>
     </div>
 
     <div id="questions-container"></div>
@@ -37,29 +34,26 @@
 </div>
 
 <script>
-// הגדרות Firebase שלך (זהה ל-exam-create)
-const firebaseConfig = { apiKey: "AIzaSyCCHvn_ulmiyM56DuslNzNC0Ge6a8i2vhY", databaseURL: "[https://tests-fd938-default-rtdb.europe-west1.firebasedatabase.app](https://tests-fd938-default-rtdb.europe-west1.firebasedatabase.app)", projectId: "tests-fd938" };
+// Firebase Setup
+const firebaseConfig = { apiKey: "AIzaSyCCHvn_ulmiyM56DuslNzNC0Ge6a8i2vhY", databaseURL: "https://tests-fd938-default-rtdb.europe-west1.firebasedatabase.app", projectId: "tests-fd938" };
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
-// חילוץ ה-ID מהקישור (URL)
 const params = new URLSearchParams(window.location.search);
 const examId = params.get('id');
-let questionsCount = 0;
+let questionsData = [];
 
 if (examId) {
     db.ref('exams/' + examId).once('value').then(snap => {
         const data = snap.val();
         if(data) {
             document.getElementById('exam-title').innerText = "📋 " + data.title;
-            questionsCount = data.questions.length;
+            questionsData = data.questions;
             renderExam(data.questions);
         } else {
-            alert("המבחן לא נמצא.");
+            alert("מבחן לא נמצא.");
         }
     });
-} else {
-    alert("קישור לא תקין. נא לבקש מהמורה את הקישור המלא.");
 }
 
 function renderExam(qs) {
@@ -70,7 +64,7 @@ function renderExam(qs) {
         div.innerHTML = `
             <h4>שאלה ${i+1}</h4>
             <p class="q-context">${q.context}</p>
-            <p class="q-text">${q.question}</p>
+            <p class="fw-bold mb-2">${q.question}</p>
             <textarea id="ans-${i}" placeholder="כתוב את תשובתך כאן..."></textarea>
             <button class="mic-btn" onclick="startSpeech(${i})" title="הקלט תשובה">🎤</button>
         `;
@@ -78,28 +72,17 @@ function renderExam(qs) {
     });
 }
 
-// מנגנון הקלטה קולית (Speech-to-Text) ממוקד לשאלה
 function startSpeech(index) {
     const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
     recognition.lang = 'he-IL';
     const btn = document.querySelectorAll('.mic-btn')[index];
     const textarea = document.getElementById(`ans-${index}`);
 
-    recognition.onstart = () => {
-        btn.classList.add('recording');
-        textarea.placeholder = "מקשיב... דבר עכשיו.";
-    };
-    recognition.onend = () => {
-        btn.classList.remove('recording');
-        textarea.placeholder = "כתוב את תשובתך כאן...";
-    };
+    recognition.onstart = () => btn.classList.add('recording');
+    recognition.onend = () => btn.classList.remove('recording');
     recognition.onresult = (event) => {
-        // הוספת הטקסט המוקלט לסוף הטקסט הקיים בתיבה
         textarea.value += event.results[0][0].transcript + " ";
     };
-    recognition.onerror = () => {
-        alert("שגיאה בהקלטה. וודא שנתת הרשאת מיקרופון לדפדפן.");
-    }
     recognition.start();
 }
 
@@ -107,24 +90,12 @@ function submitExam() {
     const name = document.getElementById('student-name').value;
     if(!name) { alert("נא למלא שם מלא"); return; }
     
-    // איסוף התשובות
-    const answers = [];
-    for(let i=0; i<questionsCount; i++) {
-        answers.push(document.getElementById(`ans-${i}`).value);
-    }
+    const answers = questionsData.map((_, i) => document.getElementById(`ans-${i}`).value);
+    const submission = { examId, studentName: name, studentClass: document.getElementById('student-class').value, answers, submittedAt: Date.now() };
     
-    const submission = {
-        examId,
-        studentName: name,
-        studentClass: document.getElementById('student-class').value,
-        answers,
-        submittedAt: Date.now()
-    };
-    
-    // שמירת ההגשה בתיקייה נפרדת (submissions)
     db.ref('submissions').push(submission).then(() => {
-        alert("תשובותיך נשלחו לרני! בהצלחה.");
-        document.body.innerHTML = '<div class="container mt-5 text-center exam-page"><h3>✅ המבחן הוגש בהצלחה!</h3><p>כל הכבוד. בהצלחה.</p></div>';
+        alert("תשובותיך נשלחו בהצלחה!");
+        document.body.innerHTML = '<div class="container mt-5 text-center exam-page"><h3>✅ המבחן הוגש!</h3><p>כל הכבוד. בהצלחה.</p></div>';
     });
 }
 </script>
