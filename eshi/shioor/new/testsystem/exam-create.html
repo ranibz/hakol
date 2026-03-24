@@ -16,10 +16,9 @@
         body { font-family: 'Assistant', sans-serif; background-color: var(--bg); padding-top: 20px; color: #1e293b; }
         .main-card { background: white; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); padding: 30px; margin-bottom: 25px; border: none; }
         h1 { font-family: 'Frank Ruhl Libre', serif; font-weight: 700; color: #1e3a8a; }
-        .btn-primary { background-color: var(--primary); border: none; padding: 12px 25px; border-radius: 10px; font-weight: 600; transition: 0.3s; }
-        .btn-primary:hover { background-color: #1d4ed8; }
+        .btn-primary { background-color: var(--primary); border: none; padding: 12px 25px; border-radius: 10px; font-weight: 600; }
         .question-box { border-right: 4px solid var(--primary); background: #f1f5f9; padding: 20px; border-radius: 8px; margin-bottom: 15px; }
-        #share-link-box { display: none; background: #ecfdf5; border: 2px solid #10b981; padding: 15px; border-radius: 8px; margin-top: 15px; }
+        #share-box { display: none; background: #ecfdf5; border: 2px solid #10b981; padding: 15px; border-radius: 8px; margin-top: 15px; }
     </style>
 </head>
 <body>
@@ -34,15 +33,15 @@
         <h4 class="mb-4">⚙️ הגדרות המבחן</h4>
         <div class="row g-3">
             <div class="col-md-6">
-                <label class="form-label">שם המבחן</label>
+                <label class="form-label fw-bold">שם המבחן</label>
                 <input type="text" id="exam-title" class="form-control" placeholder="למשל: מבחן תקשורת — יא">
             </div>
             <div class="col-md-6">
-                <label class="form-label">נושא אקטואלי</label>
-                <input type="text" id="main-topic" class="form-control" placeholder="למשל: תקשורת ופייק ניוז">
+                <label class="form-label fw-bold">נושא אקטואלי</label>
+                <input type="text" id="main-topic" class="form-control" placeholder="למשל: פרסומות סמויות ברשת">
             </div>
             <div class="col-12">
-                <label class="form-label">מושגים (הפרד בפסיק)</label>
+                <label class="form-label fw-bold">מושגים (הפרד בפסיק)</label>
                 <input type="text" id="concepts" class="form-control" value="מסגור, סדר יום, פייק ניוז">
             </div>
         </div>
@@ -51,7 +50,7 @@
             <button id="btn-save" class="btn btn-success w-100" style="display:none;" onclick="saveToFirebase()">💾 שמור והפץ לתלמידים</button>
         </div>
         
-        <div id="share-link-box">
+        <div id="share-box">
             <h6 class="text-success mb-2">✓ המבחן נשמר! קישור לתלמידים:</h6>
             <div class="input-group">
                 <input type="text" id="student-link" class="form-control" readonly>
@@ -63,7 +62,7 @@
 </div>
 
 <script>
-// Firebase Setup
+// Firebase - הגדרות שלך
 const firebaseConfig = {
     apiKey: "AIzaSyCCHvn_ulmiyM56DuslNzNC0Ge6a8i2vhY",
     databaseURL: "https://tests-fd938-default-rtdb.europe-west1.firebasedatabase.app",
@@ -72,9 +71,9 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
-// API Setup
+// Gemini API - הגדרה יציבה
 const API_KEY = "AIzaSyDXexsbNZ-uMT-oIuxyIJQyF9rMmU9ObiI";
-const API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" + API_KEY;
+const API_URL = "https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=" + API_KEY;
 
 let questions = [];
 
@@ -83,15 +82,13 @@ async function generateQuestion() {
     const concepts = document.getElementById('concepts').value;
     const btn = document.getElementById('btn-gen');
 
-    if(!topic) { alert("נא להזין נושא למבחן"); return; }
+    if(!topic) { alert("נא להזין נושא"); return; }
 
     btn.disabled = true;
-    btn.innerHTML = 'בונה שאלה... <span class="spinner-border spinner-border-sm"></span>';
+    btn.innerHTML = 'מייצר שאלה... <span class="spinner-border spinner-border-sm"></span>';
 
-    // פרומפט משופר למניעת שגיאות JSON
-    const promptText = `פעל כמורה לתקשורת. צור שאלת בגרות על "${topic}" המשלבת את המושגים: ${concepts}. 
-    החזר תשובה בפורמט JSON בלבד, ללא Markdown, עם המבנה הבא: 
-    {"context": "קטע רקע", "question": "השאלה", "requirements": "דרישות מהתלמיד"}`;
+    const promptText = `פעל כמורה לתקשורת. צור שאלת בגרות על "${topic}" עם המושגים: ${concepts}. 
+    החזר JSON בלבד ללא Markdown: {"context": "רקע", "question": "שאלה", "requirements": "דרישות"}`;
 
     try {
         const response = await fetch(API_URL, {
@@ -103,12 +100,10 @@ async function generateQuestion() {
         });
 
         const data = await response.json();
-
-        // בדיקה אם ה-API החזיר תשובה תקינה
-        if (data.candidates && data.candidates[0] && data.candidates[0].content) {
+        
+        if (data.candidates && data.candidates[0]) {
             let rawText = data.candidates[0].content.parts[0].text;
-            
-            // ניקוי תגיות Markdown אם קיימות
+            // ניקוי תגיות אם ה-AI מוסיף אותן בטעות
             rawText = rawText.replace(/```json/g, "").replace(/```/g, "").trim();
             
             const q = JSON.parse(rawText);
@@ -119,12 +114,11 @@ async function generateQuestion() {
             btn.innerHTML = '✨ צור שאלה נוספת';
             document.getElementById('btn-save').style.display = 'block';
         } else {
-            throw new Error("תשובה לא תקינה מה-AI");
+            throw new Error("API Error");
         }
-
     } catch (e) {
-        console.error("Error details:", e);
-        alert("הייתה תקלה בתקשורת עם גוגל. וודא שנושא המבחן ברור ונסה שוב.");
+        console.error(e);
+        alert("תקלה בתקשורת עם גוגל. נסה שוב בעוד רגע.");
         btn.disabled = false;
         btn.innerHTML = '✨ נסה שוב';
     }
@@ -144,7 +138,7 @@ function saveToFirebase() {
         const examId = newRef.key;
         const baseUrl = window.location.href.split('exam-create.html')[0];
         document.getElementById('student-link').value = baseUrl + 'exam-take.html?id=' + examId;
-        document.getElementById('share-link-box').style.display = 'block';
+        document.getElementById('share-box').style.display = 'block';
     });
 }
 
