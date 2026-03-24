@@ -11,11 +11,11 @@
     <style>
         body { font-family: 'Assistant', sans-serif; background-color: #f1f5f9; padding: 20px; }
         .exam-page { max-width: 800px; margin: auto; background: white; padding: 35px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
-        h2 { color: #1e3a8a; font-weight: 700; margin-bottom: 25px; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; }
+        h2 { color: #1e3a8a; font-weight: 700; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 25px; }
         .q-block { border-bottom: 2px solid #e2e8f0; padding-bottom: 25px; margin-bottom: 30px; position: relative; }
-        .q-context { background: #f8fafc; border-right: 4px solid #2563eb; padding: 15px; border-radius: 8px; margin-bottom: 15px; font-size: 0.95rem; }
+        .q-context { background: #f8fafc; border-right: 4px solid #2563eb; padding: 15px; border-radius: 8px; margin-bottom: 15px; font-size: 0.95rem; line-height: 1.6; }
         textarea { width: 100%; border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px; min-height: 150px; outline: none; }
-        .mic-btn { position: absolute; bottom: 35px; left: 15px; border-radius: 50%; width: 42px; height: 42px; border: none; background: #ef4444; color: white; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+        .mic-btn { position: absolute; bottom: 35px; left: 15px; border-radius: 50%; width: 42px; height: 42px; border: none; background: #ef4444; color: white; display: flex; align-items: center; justify-content: center; }
         .mic-btn.recording { animation: pulse 1.5s infinite; background: #b91c1c; }
         @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(185,28,28, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(185,28,28, 0); } 100% { box-shadow: 0 0 0 0 rgba(185,28,28, 0); } }
     </style>
@@ -23,36 +23,31 @@
 <body>
 <div class="exam-page">
     <h2 id="exam-title">טוען מבחן...</h2>
-    
-    <div class="row g-3 mb-4 p-3 bg-light border-radius-8">
+    <div class="row g-3 mb-4 p-3 bg-light rounded">
         <div class="col-md-6"><input type="text" id="student-name" class="form-control" placeholder="שם מלא של התלמיד"></div>
-        <div class="col-md-6"><input type="text" id="student-class" class="form-control" placeholder="כיתה (למשל יא2)"></div>
+        <div class="col-md-6"><input type="text" id="student-class" class="form-control" placeholder="כיתה (למשל יא/2)"></div>
     </div>
-
     <div id="questions-container"></div>
     <button id="btn-submit" class="btn btn-primary w-100 p-3 fw-bold" onclick="submitExam()">✅ שלח מבחן לבדיקה</button>
 </div>
 
 <script>
-// Firebase Setup
 const firebaseConfig = { apiKey: "AIzaSyCCHvn_ulmiyM56DuslNzNC0Ge6a8i2vhY", databaseURL: "https://tests-fd938-default-rtdb.europe-west1.firebasedatabase.app", projectId: "tests-fd938" };
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
 const params = new URLSearchParams(window.location.search);
 const examId = params.get('id');
-let questionsData = [];
+let currentQuestions = [];
 
 if (examId) {
     db.ref('exams/' + examId).once('value').then(snap => {
         const data = snap.val();
         if(data) {
             document.getElementById('exam-title').innerText = "📋 " + data.title;
-            questionsData = data.questions;
+            currentQuestions = data.questions;
             renderExam(data.questions);
-        } else {
-            alert("מבחן לא נמצא.");
-        }
+        } else { alert("המבחן לא נמצא."); }
     });
 }
 
@@ -73,16 +68,17 @@ function renderExam(qs) {
 }
 
 function startSpeech(index) {
-    const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) { alert("הדפדפן שלך לא תומך בהקלטה קולית."); return; }
+    
+    const recognition = new SpeechRecognition();
     recognition.lang = 'he-IL';
     const btn = document.querySelectorAll('.mic-btn')[index];
     const textarea = document.getElementById(`ans-${index}`);
 
     recognition.onstart = () => btn.classList.add('recording');
     recognition.onend = () => btn.classList.remove('recording');
-    recognition.onresult = (event) => {
-        textarea.value += event.results[0][0].transcript + " ";
-    };
+    recognition.onresult = (event) => { textarea.value += event.results[0][0].transcript + " "; };
     recognition.start();
 }
 
@@ -90,11 +86,11 @@ function submitExam() {
     const name = document.getElementById('student-name').value;
     if(!name) { alert("נא למלא שם מלא"); return; }
     
-    const answers = questionsData.map((_, i) => document.getElementById(`ans-${i}`).value);
+    const answers = currentQuestions.map((_, i) => document.getElementById(`ans-${i}`).value);
     const submission = { examId, studentName: name, studentClass: document.getElementById('student-class').value, answers, submittedAt: Date.now() };
     
     db.ref('submissions').push(submission).then(() => {
-        alert("תשובותיך נשלחו בהצלחה!");
+        alert("המבחן הוגש בהצלחה!");
         document.body.innerHTML = '<div class="container mt-5 text-center exam-page"><h3>✅ המבחן הוגש!</h3><p>כל הכבוד. בהצלחה.</p></div>';
     });
 }
