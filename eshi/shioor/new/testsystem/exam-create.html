@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>מחולל המבחנים — גרסת הברזל</title>
+    <title>מחולל המבחנים — סביבת עבודה יציבה</title>
     
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;700&display=swap">
@@ -12,51 +12,55 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 
     <style>
-        body { font-family: 'Assistant', sans-serif; background: #f8fafc; padding: 20px; }
-        .main-card { background: white; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); padding: 30px; max-width: 900px; margin: auto; }
-        .btn-primary { background: #2563eb; border: none; padding: 12px; font-weight: 700; }
-        .q-box { border-right: 4px solid #2563eb; background: #f1f5f9; padding: 15px; border-radius: 8px; margin-top: 15px; }
-        #share-box { display: none; background: #ecfdf5; border: 2px solid #10b981; padding: 15px; border-radius: 8px; margin-top: 15px; }
+        :root { --blue: #2563eb; --light: #f8fafc; }
+        body { font-family: 'Assistant', sans-serif; background: var(--light); color: #1e293b; padding-top: 30px; }
+        .card-main { background: white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); padding: 30px; border: none; }
+        .btn-gen { background: var(--blue); color: white; border: none; padding: 12px; font-weight: 700; border-radius: 8px; }
+        .btn-gen:hover { background: #1d4ed8; }
+        .q-preview { border-right: 4px solid var(--blue); background: #f1f5f9; padding: 15px; border-radius: 6px; margin-top: 15px; }
+        #link-section { display: none; background: #ecfdf5; border: 1px solid #10b981; padding: 15px; border-radius: 8px; margin-top: 15px; }
     </style>
 </head>
 <body>
 
-<div class="main-card">
-    <h1 class="text-center mb-4" style="color: #1e3a8a;">מחולל המבחנים החכם</h1>
-    
-    <div class="row g-3">
-        <div class="col-md-6">
-            <label class="form-label fw-bold">שם המבחן</label>
-            <input type="text" id="exam-title" class="form-control" placeholder="למשל: תקשורת יא׳">
+<div class="container" style="max-width: 850px;">
+    <div class="card-main">
+        <h2 class="text-center mb-4" style="color: #1e3a8a;">יצירת מבחן חכם</h2>
+        
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label class="form-label fw-bold">שם המבחן</label>
+                <input type="text" id="exam-title" class="form-control" placeholder="למשל: תקשורת יא׳">
+            </div>
+            <div class="col-md-6">
+                <label class="form-label fw-bold">נושא המבחן</label>
+                <input type="text" id="main-topic" class="form-control" placeholder="למשל: רשתות חברתיות">
+            </div>
+            <div class="col-12">
+                <label class="form-label fw-bold">מושגים (מופרדים בפסיק)</label>
+                <input type="text" id="concepts" class="form-control" value="מסגור, סדר יום, פייק ניוז">
+            </div>
         </div>
-        <div class="col-md-6">
-            <label class="form-label fw-bold">נושא אקטואלי</label>
-            <input type="text" id="main-topic" class="form-control" placeholder="למשל: רשתות חברתיות">
-        </div>
-        <div class="col-12">
-            <label class="form-label fw-bold">מושגים (מופרדים בפסיק)</label>
-            <input type="text" id="concepts" class="form-control" value="מסגור, סדר יום, פייק ניוז">
-        </div>
-    </div>
 
-    <div class="mt-4">
-        <button id="btn-gen" class="btn btn-primary w-100 mb-2" onclick="generateQuestion()">✨ צור שאלה ב-AI</button>
-        <button id="btn-save" class="btn btn-success w-100" style="display:none;" onclick="saveToFirebase()">💾 שמור והפץ</button>
-    </div>
-
-    <div id="share-box">
-        <label class="form-label fw-bold text-success">המבחן מוכן! שלח לתלמידים:</label>
-        <div class="input-group">
-            <input type="text" id="student-link" class="form-control" readonly>
-            <button class="btn btn-outline-success" onclick="copyLink()">העתק</button>
+        <div class="mt-4">
+            <button id="btn-gen" class="btn btn-gen w-100 mb-2" onclick="generateQuestion()">✨ צור שאלה ב-AI</button>
+            <button id="btn-save" class="btn btn-success w-100" style="display:none;" onclick="saveToFirebase()">💾 שמור והפץ לתלמידים</button>
         </div>
-    </div>
 
-    <div id="questions-area"></div>
+        <div id="link-section">
+            <label class="form-label fw-bold text-success">המבחן נשמר ב-Firebase! שלח קישור זה:</label>
+            <div class="input-group">
+                <input type="text" id="final-link" class="form-control" readonly>
+                <button class="btn btn-outline-success" onclick="copyText()">העתק</button>
+            </div>
+        </div>
+
+        <div id="display-area" class="mt-4"></div>
+    </div>
 </div>
 
 <script>
-// Firebase Config - וודא שהפרטים האלו מדויקים אצלך
+// Firebase Config - וודא שהפרטים האלו מדויקים
 const firebaseConfig = {
     apiKey: "AIzaSyCCHvn_ulmiyM56DuslNzNC0Ge6a8i2vhY",
     databaseURL: "https://tests-fd938-default-rtdb.europe-west1.firebasedatabase.app",
@@ -65,10 +69,9 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 
-// הגדרות API - שימוש ב-v1 ובשם מודל יציב
+// API Setup - שימוש בגרסה היציבה ביותר
 const API_KEY = "AIzaSyDXexsbNZ-uMT-oIuxyIJQyF9rMmU9ObiI";
-const MODEL = "gemini-1.5-flash"; // מודל יציב ביותר לשימוש API
-const API_URL = `https://generativelanguage.googleapis.com/v1/models/${MODEL}:generateContent?key=${API_KEY}`;
+const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
 
 let questions = [];
 
@@ -80,9 +83,9 @@ async function generateQuestion() {
     if(!topic) return alert("נא להזין נושא");
     
     btn.disabled = true;
-    btn.innerHTML = 'מייצר שאלה... ⏳';
+    btn.innerHTML = 'בונה שאלה... ⏳';
 
-    const prompt = `צור שאלת בגרות בתקשורת על "${topic}" עם המושגים: ${concepts}. החזר JSON בלבד: {"context":"רקע","question":"שאלה"}`;
+    const prompt = `צור שאלת בגרות בתקשורת על "${topic}" הכוללת את המושגים: ${concepts}. החזר JSON נקי בלבד ללא טקסט מסביב: {"context":"רקע","question":"שאלה"}`;
 
     try {
         const response = await fetch(API_URL, {
@@ -96,51 +99,51 @@ async function generateQuestion() {
 
         const data = await response.json();
         
-        // בדיקת שגיאות מהשרת של גוגל
         if (data.error) throw new Error(data.error.message);
 
-        const rawText = data.candidates[0].content.parts[0].text;
-        const q = JSON.parse(rawText);
+        // חילוץ JSON נקי - המנגנון החסין
+        let rawText = data.candidates[0].content.parts[0].text;
+        rawText = rawText.replace(/```json/g, "").replace(/```/g, "").trim();
         
+        const q = JSON.parse(rawText);
         questions.push(q);
-        renderQuestion(q, questions.length);
+        
+        renderUI(q, questions.length);
         
         btn.disabled = false;
         btn.innerHTML = '✨ צור שאלה נוספת';
         document.getElementById('btn-save').style.display = 'block';
 
     } catch (e) {
-        console.error("Critical Error:", e);
-        alert("תקלה: " + e.message);
+        console.error("Error:", e);
+        alert("שגיאה: " + e.message);
         btn.disabled = false;
         btn.innerHTML = '✨ נסה שוב';
     }
 }
 
-function renderQuestion(q, num) {
-    const area = document.getElementById('questions-area');
+function renderUI(q, num) {
     const div = document.createElement('div');
-    div.className = "q-box";
-    div.innerHTML = `<h5>שאלה ${num}</h5><p>${q.context}</p><p class="fw-bold">${q.question}</p>`;
-    area.prepend(div);
+    div.className = "q-preview";
+    div.innerHTML = `<strong>שאלה ${num}</strong><p>${q.context}</p><p class="fw-bold">${q.question}</p>`;
+    document.getElementById('display-area').prepend(div);
 }
 
 function saveToFirebase() {
     const title = document.getElementById('exam-title').value || "מבחן ללא שם";
-    const newRef = db.ref('exams').push();
-    newRef.set({ title, questions, createdAt: Date.now() }).then(() => {
-        const examId = newRef.key;
-        // יצירת הקישור - וודא שהקובץ exam-take.html נמצא באותה תיקייה בשרת
-        const baseUrl = window.location.href.split('exam-create.html')[0];
-        document.getElementById('student-link').value = baseUrl + 'exam-take.html?id=' + examId;
-        document.getElementById('share-box').style.display = 'block';
+    const ref = db.ref('exams').push();
+    ref.set({ title, questions, createdAt: Date.now() }).then(() => {
+        const id = ref.key;
+        const url = window.location.href.replace('exam-create.html', 'exam-take.html') + '?id=' + id;
+        document.getElementById('final-link').value = url;
+        document.getElementById('link-section').style.display = 'block';
     });
 }
 
-function copyLink() {
-    const input = document.getElementById('student-link');
-    input.select();
-    navigator.clipboard.writeText(input.value);
+function copyText() {
+    const inp = document.getElementById('final-link');
+    inp.select();
+    navigator.clipboard.writeText(inp.value);
     alert("הקישור הועתק!");
 }
 </script>
