@@ -2514,20 +2514,19 @@ async function askAI() {
     const mishrotData = allMishrotData || [];
     const placementsData = allPlacements || [];
 
-    // סיכום משרות
-    const mishrotSummary = mishrotData.slice(0,100).map(r => {
+    // סיכום משרות מלא — כל מה שהמנהלת רואה
+    const mishrotSummary = mishrotData.map(r => {
         const base = r.framework === 'אופק חדש' ? (r.ofekBase||36) : Math.max(1,38-(r.ageHours||0));
         const maxFront = r.framework === 'אופק חדש' ? base : (r.ageHours>=4?21:r.ageHours>=2?23:25);
         const pct = r.framework === 'אופק חדש'
             ? (r.contact/base*100).toFixed(0)
             : ((r.contact+r.bonus)/maxFront*100).toFixed(0);
         const total = r.contact+r.bonus+r.partanut+r.stay+r.roleHours;
-        // שיבוצים של המורה
         const teacherPlacements = placementsData.filter(p=>p.year===year && p.teacher_id===r.id);
-        const placStr = teacherPlacements.map(p=>`${p.dept_id}/${p.subject_manual||p.subject}/${p.contact}ש${p.bonus?'+'+p.bonus+'גמול':''}`).join(' | ');
-        // תפקידים
-        const rolesStr = (r.roles||[]).map(role=>`${role.role_name}(${role.hours}ש)`).join(', ');
-        return `${r.name} | ${r.framework||'עוז'} | מגע=${r.contact.toFixed(1)} גמול=${r.bonus.toFixed(1)} פרטנות=${r.partanut.toFixed(1)} שהייה=${r.stay.toFixed(1)} תפקיד=${r.roleHours.toFixed(1)} | סה"כ=${total.toFixed(1)}/${base} = ${pct}%${rolesStr?' | תפקידים: '+rolesStr:''}${placStr?' | שיבוצים: '+placStr:''}`;
+        const placStr = teacherPlacements.map(p=>`${p.dept_id} / ${p.subject_manual||p.subject} / מגע:${p.contact} גמול:${p.bonus||0}${p.is_semester?' [סימסטריאלי]':''}`).join(' | ');
+        const rolesStr = (r.roles||[]).map(role=>`${role.role_name} ${role.hours}ש`).join(', ');
+        const notesStr = r.notes ? ` | הערות: ${r.notes}` : '';
+        return `${r.name} (${r.id}) | ${r.framework||'עוז'} | גיל:${r.birth_date||'לא ידוע'} | מגע:${r.contact.toFixed(1)} גמול:${r.bonus.toFixed(1)} פרטנות:${r.partanut.toFixed(1)} שהייה:${r.stay.toFixed(1)} תפקידים:${r.roleHours.toFixed(1)} | סה"כ:${total.toFixed(1)} מתוך ${base} = ${pct}% משרה${rolesStr ? ' | תפקידים: '+rolesStr : ''}${placStr ? ' | שיבוצים: '+placStr : ''}${notesStr}`;
     }).join('\n');
 
     const systemPrompt = `אתה עוזר למנהלת בית ספר בישראל שמנהלת מערכת שיבוץ מורים.
