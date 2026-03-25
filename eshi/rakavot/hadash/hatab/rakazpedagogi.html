@@ -407,11 +407,32 @@ async function saveConfig() {
         if(label) rows['row'+(i+1)] = { label, subjects };
     });
 
+    // מצא מקצועות שנמחקו — השווה מקצועות ישנים לחדשים
+    const oldSubjects = Object.values(deptConfig?.structure || {}).flatMap(r => {
+        const subs = r.subjects || [];
+        return subs.map(s => typeof s === 'object' ? s.name : s);
+    });
+    const newSubjects = Object.values(rows).flatMap(r => {
+        const subs = r.subjects || [];
+        return subs.map(s => typeof s === 'object' ? s.name : s);
+    });
+    const removedSubjects = oldSubjects.filter(s => !newSubjects.includes(s));
+
     const existing = deptConfig?.status || 'editing';
     const payload = { id: currentDept, name: currentDept, teachers: selectedTeachers, structure: rows, status: existing };
     const existingStatus = deptConfig?.status || 'editing';
     const { error } = await sb.from('departments').upsert(payload, { onConflict: 'id' });
     if(error) { showToast('שגיאה: ' + error.message); return; }
+
+    // מחק placements של מקצועות שנמחקו
+    if(removedSubjects.length > 0) {
+        await sb.from('placements').delete()
+            .eq('dept_id', currentDept)
+            .in('subject', removedSubjects);
+        showToast(`✅ הגדרות נשמרו — ${removedSubjects.length} מקצוע/ות הוסר/ו עם שיבוציהם`);
+    } else {
+        showToast('✅ הגדרות נשמרו בהצלחה');
+    }
 
     deptConfig = { ...deptConfig, ...payload };
     if(existingStatus === 'approved') {
@@ -420,7 +441,6 @@ async function saveConfig() {
     }
     updateShareLink();
     updateStatusBar();
-    showToast('✅ הגדרות נשמרו בהצלחה');
 }
 
 let currentFramework = 'עוז';

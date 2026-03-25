@@ -188,7 +188,10 @@
             <div id="dash-view-main">
                 <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px;">
                     <h2 style="font-family:'Secular One';font-size:20px;color:var(--admin);">מנהלות פדגוגיות</h2>
-                    <button class="btn-csv" onclick="exportAll()">⬇ ייצוא לאקסל</button>
+                    <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                        <button onclick="cleanOrphanPlacements()" style="background:#fff7ed;color:#c2410c;border:2px solid #f97316;padding:10px 16px;border-radius:10px;font-family:Heebo;font-size:13px;font-weight:800;cursor:pointer;">🧹 נקה שיבוצים לא תקינים</button>
+                        <button class="btn-csv" onclick="exportAll()">⬇ ייצוא לאקסל</button>
+                    </div>
                 </div>
                 <div id="dashPMGrid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:16px;margin-bottom:24px;"></div>
                 <div class="card" id="pendingCard" style="display:none;margin-bottom:20px;border:2px solid #f97316;">
@@ -2326,6 +2329,47 @@ function showSemesterList() {
         }
         document.getElementById('semesterModal').style.display = 'block';
     });
+}
+
+async function cleanOrphanPlacements() {
+    if(!confirm('זה ימחק את כל השיבוצים של מקצועות שלא קיימים יותר במבנה המגמות. להמשיך?')) return;
+
+    // בנה רשימת כל המקצועות התקינים לפי מגמה
+    const validSubjects = {}; // dept_id -> Set of valid subject names
+    allDepts.forEach(d => {
+        const subjects = new Set();
+        Object.values(d.structure || {}).forEach(row => {
+            (row.subjects || []).forEach(s => {
+                const name = typeof s === 'object' ? s.name : s;
+                if(name) subjects.add(name);
+            });
+        });
+        validSubjects[d.id] = subjects;
+    });
+
+    // מצא placements שהמקצוע שלהם לא קיים
+    const toDelete = allPlacements.filter(p => {
+        const valid = validSubjects[p.dept_id];
+        if(!valid) return false;
+        // בדוק את שם המקצוע האמיתי
+        const subj = p.subject_manual || (p.subject !== 'פרטנות' ? p.subject : null);
+        if(!subj) return false;
+        return !valid.has(subj);
+    });
+
+    if(!toDelete.length) {
+        showToast('✅ אין שיבוצים לא תקינים');
+        return;
+    }
+
+    // מחק בקבוצות
+    const ids = toDelete.map(p => p.id);
+    const { error } = await sb.from('placements').delete().in('id', ids);
+    if(error) { showToast('שגיאה: ' + error.message); return; }
+
+    showToast(`🧹 נמחקו ${ids.length} שיבוצים לא תקינים`);
+    await loadPlacements();
+    renderDashboard();
 }
 
 function showToast(msg) {
