@@ -2515,24 +2515,20 @@ async function askAI() {
     const placementsData = allPlacements || [];
 
     // סיכום משרות
-    const mishrotSummary = mishrotData.slice(0,80).map(r => {
+    const mishrotSummary = mishrotData.slice(0,100).map(r => {
         const base = r.framework === 'אופק חדש' ? (r.ofekBase||36) : Math.max(1,38-(r.ageHours||0));
         const maxFront = r.framework === 'אופק חדש' ? base : (r.ageHours>=4?21:r.ageHours>=2?23:25);
         const pct = r.framework === 'אופק חדש'
             ? (r.contact/base*100).toFixed(0)
             : ((r.contact+r.bonus)/maxFront*100).toFixed(0);
         const total = r.contact+r.bonus+r.partanut+r.stay+r.roleHours;
-        return `${r.name} (${r.framework||'עוז'}): מגע=${r.contact.toFixed(1)} גמול=${r.bonus.toFixed(1)} פרטנות=${r.partanut.toFixed(1)} שהייה=${r.stay.toFixed(1)} תפקיד=${r.roleHours.toFixed(1)} סה"כ=${total.toFixed(1)}/${base} = ${pct}%`;
+        // שיבוצים של המורה
+        const teacherPlacements = placementsData.filter(p=>p.year===year && p.teacher_id===r.id);
+        const placStr = teacherPlacements.map(p=>`${p.dept_id}/${p.subject_manual||p.subject}/${p.contact}ש${p.bonus?'+'+p.bonus+'גמול':''}`).join(' | ');
+        // תפקידים
+        const rolesStr = (r.roles||[]).map(role=>`${role.role_name}(${role.hours}ש)`).join(', ');
+        return `${r.name} | ${r.framework||'עוז'} | מגע=${r.contact.toFixed(1)} גמול=${r.bonus.toFixed(1)} פרטנות=${r.partanut.toFixed(1)} שהייה=${r.stay.toFixed(1)} תפקיד=${r.roleHours.toFixed(1)} | סה"כ=${total.toFixed(1)}/${base} = ${pct}%${rolesStr?' | תפקידים: '+rolesStr:''}${placStr?' | שיבוצים: '+placStr:''}`;
     }).join('\n');
-
-    // שיבוצים לפי מגמה (מקוצר)
-    const deptMap = {};
-    placementsData.filter(p=>p.year===year).forEach(p => {
-        if(!deptMap[p.dept_id]) deptMap[p.dept_id] = [];
-        const t = allTeachers.find(x=>x.id_number===p.teacher_id);
-        deptMap[p.dept_id].push(`${t?.name||p.teacher_id}/${p.subject}/${p.contact}ש`);
-    });
-    const deptsStr = Object.entries(deptMap).slice(0,20).map(([d,ps])=>`${d}: ${ps.slice(0,5).join(', ')}`).join('\n');
 
     const systemPrompt = `אתה עוזר למנהלת בית ספר בישראל שמנהלת מערכת שיבוץ מורים.
 ענה בעברית, בצורה ברורה וממוקדת.
@@ -2540,9 +2536,6 @@ async function askAI() {
 
 נתוני משרות מורים (${mishrotData.length} מורים):
 ${mishrotSummary}
-
-שיבוצים לפי מגמה (${year}):
-${deptsStr}
 
 ענה על שאלות המנהלת על בסיס הנתונים הנ"ל בלבד. אם המידע לא קיים, ציין זאת.`;
 
