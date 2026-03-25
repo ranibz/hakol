@@ -427,7 +427,8 @@
         <div id="tab-pm" class="tab-content">
             <div class="pm-grid">
                 <div class="card">
-                    <h2>הוספת מנהלת פדגוגית</h2>
+                    <h2 id="pmFormTitle">הוספת מנהלת פדגוגית</h2>
+                    <input type="hidden" id="pmEditId" value="">
                     <div class="form-group">
                         <label>שם המנהלת</label>
                         <select id="pmTeacherSelect">
@@ -438,7 +439,10 @@
                         <label>מגמות אחראיות (הפרד בפסיק)</label>
                         <input type="text" id="pmDepts" placeholder="למשל: תקשורת, קולנוע, אמנות">
                     </div>
-                    <button class="btn-primary" onclick="addPM()">שמור מינוי</button>
+                    <div style="display:flex;gap:10px;">
+                        <button class="btn-primary" onclick="savePM()" style="flex:1;">שמור מינוי</button>
+                        <button id="pmCancelBtn" onclick="cancelEditPM()" style="display:none;padding:14px;background:#f1f5f9;color:#64748b;border:none;border-radius:12px;font-family:Heebo;font-size:14px;font-weight:700;cursor:pointer;">ביטול</button>
+                    </div>
                 </div>
                 <div class="card">
                     <h2>מנהלות פדגוגיות קיימות</h2>
@@ -645,7 +649,7 @@ async function loadPMs() {
 }
 
 async function loadPlacements() {
-    const { data } = await sb.from('placements').select('*, teachers(name, id_number)');
+    const { data } = await sb.from('placements').select('*,is_semester, teachers(name, id_number)');
     allPlacements = data || [];
 }
 
@@ -927,27 +931,58 @@ function populatePMSelect() {
         allTeachers.map(t => `<option value="${t.name}">${t.name}</option>`).join('');
 }
 
-async function addPM() {
+async function savePM() {
     const name = document.getElementById('pmTeacherSelect').value;
     const depts = document.getElementById('pmDepts').value.trim();
+    const editId = document.getElementById('pmEditId').value;
     if(!name || !depts) { showToast('נא למלא שם ומגמות'); return; }
     const assigned = depts.split(',').map(s => s.trim()).filter(Boolean);
-    const { error } = await sb.from('pedagogical_managers').insert({ name, assigned_depts: assigned });
-    if(error) { showToast('שגיאה: ' + error.message); return; }
-    document.getElementById('pmDepts').value = '';
-    showToast('✅ מנהלת פדגוגית נוספה');
+    if(editId) {
+        const { error } = await sb.from('pedagogical_managers').update({ name, assigned_depts: assigned }).eq('id', editId);
+        if(error) { showToast('שגיאה: ' + error.message); return; }
+        showToast('✅ מנהלת עודכנה');
+    } else {
+        const { error } = await sb.from('pedagogical_managers').insert({ name, assigned_depts: assigned });
+        if(error) { showToast('שגיאה: ' + error.message); return; }
+        showToast('✅ מנהלת פדגוגית נוספה');
+    }
+    cancelEditPM();
     await loadPMs();
     updateStats();
 }
 
+function editPM(id) {
+    const pm = allPMs.find(p => p.id === id);
+    if(!pm) return;
+    document.getElementById('pmEditId').value = id;
+    document.getElementById('pmTeacherSelect').value = pm.name;
+    document.getElementById('pmDepts').value = (pm.assigned_depts||[]).join(', ');
+    document.getElementById('pmFormTitle').textContent = 'עריכת מנהלת פדגוגית';
+    document.getElementById('pmCancelBtn').style.display = 'block';
+    document.querySelector('#tab-pm').scrollIntoView({behavior:'smooth'});
+}
+
+function cancelEditPM() {
+    document.getElementById('pmEditId').value = '';
+    document.getElementById('pmTeacherSelect').value = '';
+    document.getElementById('pmDepts').value = '';
+    document.getElementById('pmFormTitle').textContent = 'הוספת מנהלת פדגוגית';
+    document.getElementById('pmCancelBtn').style.display = 'none';
+}
+
+async function addPM() { savePM(); }
+
 function renderPMList() {
     document.getElementById('pmList').innerHTML = allPMs.length
         ? allPMs.map(pm => `<div class="pm-card">
-            <div>
+            <div style="flex:1;">
                 <div class="pm-name">${pm.name}</div>
                 <div class="pm-depts">${(pm.assigned_depts||[]).join(' | ')}</div>
             </div>
-            <button class="btn-del" onclick="deletePM(${pm.id})">✖</button>
+            <div style="display:flex;gap:6px;align-items:center;">
+                <button onclick="editPM(${pm.id})" style="background:#ede9fe;color:#6366f1;border:none;padding:6px 12px;border-radius:8px;font-family:Heebo;font-size:12px;font-weight:800;cursor:pointer;">✏️ עריכה</button>
+                <button class="btn-del" onclick="deletePM(${pm.id})">✖</button>
+            </div>
         </div>`).join('')
         : '<div style="color:#94a3b8;text-align:center;padding:20px;">אין מנהלות פדגוגיות</div>';
 }
@@ -965,9 +1000,9 @@ function calcLoads(year) {
     allPlacements.filter(p => p.year === year).forEach(p => {
         const id = p.teacher_id;
         if(!loads[id]) loads[id] = { name: p.teachers?.name || id, depts: new Set(), contact: 0, bonus: 0, total: 0 };
-        loads[id].contact += parseFloat(p.contact) || 0;
-        loads[id].bonus += parseFloat(p.bonus) || 0;
-        loads[id].total += (parseFloat(p.contact)||0) + (parseFloat(p.bonus)||0);
+        loads[id].contact += effContact(p);
+        loads[id].bonus += effBonus(p);
+        loads[id].total += effContact(p) + effBonus(p);
         if(p.dept_id) loads[id].depts.add(p.dept_id);
     });
     return loads;
@@ -1046,8 +1081,8 @@ async function loadHistory() {
 function renderDashboard() {
     const year = document.getElementById('globalYear').value;
     const yp = allPlacements.filter(p => p.year === year);
-    const totalC = yp.reduce((s,p)=>s+(parseFloat(p.contact)||0),0);
-    const totalB = yp.reduce((s,p)=>s+(parseFloat(p.bonus)||0),0);
+    const totalC = yp.reduce((s,p)=>s+effContact(p),0);
+    const totalB = yp.reduce((s,p)=>s+effBonus(p),0);
     const loads = calcLoads(year);
     const alertCount = Object.values(loads).filter(l=>{const pct=l.total/25*100;return pct>100||(pct<50&&l.total>0);}).length;
 
@@ -1082,10 +1117,10 @@ function renderDashPMGrid(year) {
     document.getElementById('dashPMGrid').innerHTML = allPMs.map(pm => {
         const depts = pm.assigned_depts || [];
         const pmp = allPlacements.filter(p=>p.year===year && depts.includes(p.dept_id));
-        const c = pmp.reduce((s,p)=>s+(parseFloat(p.contact)||0),0);
-        const b = pmp.reduce((s,p)=>s+(parseFloat(p.bonus)||0),0);
+        const c = pmp.reduce((s,p)=>s+effContact(p),0);
+        const b = pmp.reduce((s,p)=>s+effBonus(p),0);
         const loads2 = {};
-        pmp.forEach(p=>{if(!loads2[p.teacher_id])loads2[p.teacher_id]={total:0};loads2[p.teacher_id].total+=(parseFloat(p.contact)||0)+(parseFloat(p.bonus)||0);});
+        pmp.forEach(p=>{if(!loads2[p.teacher_id])loads2[p.teacher_id]={total:0};loads2[p.teacher_id].total+=effContact(p)+effBonus(p);});
         const alerts = Object.values(loads2).filter(l=>{const pct=l.total/25*100;return pct>100||(pct<50&&l.total>0);}).length;
 
         const deptStatuses = depts.map(d => getDeptStatus(d));
@@ -1157,8 +1192,8 @@ function showDashPM(pmName) {
     document.getElementById('dashDeptsTitle').textContent = 'מגמות תחת: ' + pmName;
     document.getElementById('dashDeptsGrid').innerHTML = depts.map(deptId => {
         const dp = allPlacements.filter(p=>p.year===year&&p.dept_id===deptId);
-        const c = dp.reduce((s,p)=>s+(parseFloat(p.contact)||0),0);
-        const b = dp.reduce((s,p)=>s+(parseFloat(p.bonus)||0),0);
+        const c = dp.reduce((s,p)=>s+effContact(p),0);
+        const b = dp.reduce((s,p)=>s+effBonus(p),0);
         return `<div onclick="showDashDept('${deptId}')" style="background:white;border-radius:16px;padding:18px;border:1px solid var(--border);cursor:pointer;box-shadow:0 4px 10px rgba(0,0,0,0.04);transition:0.2s;" onmouseover="this.style.borderColor='var(--primary)'" onmouseout="this.style.borderColor='var(--border)'">
             <div style="font-weight:900;font-size:15px;color:var(--admin);margin-bottom:8px;">📚 ${deptId}</div>
             <div style="display:flex;justify-content:space-between;font-size:13px;font-weight:700;">
@@ -1180,7 +1215,7 @@ async function showDashDept(deptId) {
         showToast('⚠️ המגמה עדיין לא אושרה — ניתן לצפות בלבד');
     }
     const year = document.getElementById('globalYear').value;
-    const { data: placements } = await sb.from('placements').select('*, teachers(name,id_number)').eq('dept_id',deptId).eq('year',year);
+    const { data: placements } = await sb.from('placements').select('*,is_semester, teachers(name,id_number)').eq('dept_id',deptId).eq('year',year);
     const dp = placements || [];
     const { data: hist } = await sb.from('placement_history').select('*').eq('dept_id',deptId).order('changed_at',{ascending:false});
     const recentChanges = new Set((hist||[]).map(h=>h.placement_id));
@@ -1195,7 +1230,7 @@ async function showDashDept(deptId) {
 
     // job table
     const loads = {};
-    dp.forEach(p=>{const id=p.teacher_id;if(!loads[id])loads[id]={name:p.teachers?.name||id,contact:0,bonus:0,total:0};loads[id].contact+=parseFloat(p.contact)||0;loads[id].bonus+=parseFloat(p.bonus)||0;loads[id].total+=(parseFloat(p.contact)||0)+(parseFloat(p.bonus)||0);});
+    dp.forEach(p=>{const id=p.teacher_id;if(!loads[id])loads[id]={name:p.teachers?.name||id,contact:0,bonus:0,total:0};loads[id].contact+=effContact(p);loads[id].bonus+=effBonus(p);loads[id].total+=effContact(p)+effBonus(p);});
     document.getElementById('dashJobBody').innerHTML = Object.entries(loads).sort((a,b)=>b[1].total-a[1].total).map(([id,l])=>{
         const pct=l.total/25*100;const color=pct>100?'var(--danger)':pct<50&&l.total>0?'var(--warning)':'var(--success)';
         return `<tr><td style="font-family:monospace;font-size:11px;color:#94a3b8;">${id}</td><td style="font-weight:800;">${l.name}</td><td style="text-align:center;">${l.contact.toFixed(1)}</td><td style="text-align:center;">${l.bonus.toFixed(1)}</td><td style="text-align:center;font-weight:900;">${l.total.toFixed(1)}</td><td style="font-weight:900;color:${color};">${pct.toFixed(0)}%</td><td><span class="badge ${pct>100?'badge-over':pct<50&&l.total>0?'badge-low':'badge-ok'}">${pct>100?'⚠️ חריגה':pct<50&&l.total>0?'⚡ חסר':'✓ תקין'}</span></td></tr>`;
@@ -1288,7 +1323,7 @@ async function exportAll() {
 async function exportDept() {
     if(!dashCurrentDept) return;
     const year = document.getElementById('globalYear').value;
-    const {data}=await sb.from('placements').select('*,teachers(name,id_number)').eq('dept_id',dashCurrentDept).eq('year',year);
+    const {data}=await sb.from('placements').select('*,is_semester,teachers(name,id_number)').eq('dept_id',dashCurrentDept).eq('year',year);
     const rows=[['ת.ז','שם','שכבה','מקצוע','מגע','גמול','סה"כ']];
     (data||[]).forEach(p=>rows.push([p.teacher_id,p.teachers?.name||'—',p.grade,p.subject,p.contact,p.bonus,(parseFloat(p.contact)||0)+(parseFloat(p.bonus)||0)]));
     const ws=XLSX.utils.aoa_to_sheet(rows);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,dashCurrentDept);XLSX.writeFile(wb,`רכבת_${dashCurrentDept}_${year}.xlsx`);
@@ -1307,11 +1342,11 @@ function getPrevYear(year) { const idx=YEAR_ORDER.indexOf(year); return idx>0?YE
 async function buildComparisonHTML(deptId, currentYear) {
     const prevYear = getPrevYear(currentYear);
     if (!prevYear) return '<div style="color:#94a3b8;padding:20px;text-align:center;">אין נתוני שנה קודמת להשוואה</div>';
-    const {data:prevData} = await sb.from('placements').select('*,teachers(name,id_number)').eq('dept_id',deptId).eq('year',prevYear);
-    const {data:currData} = await sb.from('placements').select('*,teachers(name,id_number)').eq('dept_id',deptId).eq('year',currentYear);
+    const {data:prevData} = await sb.from('placements').select('*,is_semester,teachers(name,id_number)').eq('dept_id',deptId).eq('year',prevYear);
+    const {data:currData} = await sb.from('placements').select('*,is_semester,teachers(name,id_number)').eq('dept_id',deptId).eq('year',currentYear);
     const prev={}, curr={};
-    (prevData||[]).forEach(p=>{if(!prev[p.teacher_id])prev[p.teacher_id]={name:p.teachers?.name||p.teacher_id,total:0};prev[p.teacher_id].total+=(parseFloat(p.contact)||0)+(parseFloat(p.bonus)||0);});
-    (currData||[]).forEach(p=>{if(!curr[p.teacher_id])curr[p.teacher_id]={name:p.teachers?.name||p.teacher_id,total:0};curr[p.teacher_id].total+=(parseFloat(p.contact)||0)+(parseFloat(p.bonus)||0);});
+    (prevData||[]).forEach(p=>{if(!prev[p.teacher_id])prev[p.teacher_id]={name:p.teachers?.name||p.teacher_id,total:0};prev[p.teacher_id].total+=effContact(p)+effBonus(p);});
+    (currData||[]).forEach(p=>{if(!curr[p.teacher_id])curr[p.teacher_id]={name:p.teachers?.name||p.teacher_id,total:0};curr[p.teacher_id].total+=effContact(p)+effBonus(p);});
     const allIds=[...new Set([...Object.keys(curr),...Object.keys(prev)])];
     const rows=allIds.map(id=>({id,name:curr[id]?.name||prev[id]?.name||id,curr:curr[id]?.total||0,prev:prev[id]?.total||0,isNew:!prev[id]})).sort((a,b)=>b.curr-a.curr);
     const maxVal=Math.max(...rows.map(r=>Math.max(r.curr,r.prev)),1);
@@ -1795,9 +1830,9 @@ async function loadMishrot() {
     const prevYear = getPrevMishrotYear(year);
 
     const [placementsRes, rolesRes, prevPlRes, notesRes] = await Promise.all([
-        sb.from('placements').select('*, teachers(name,id_number)').eq('year', year),
+        sb.from('placements').select('*,is_semester, teachers(name,id_number)').eq('year', year),
         sb.from('teacher_roles').select('*').eq('year', year),
-        prevYear ? sb.from('placements').select('teacher_id,contact,bonus,partanut,type,framework').eq('year', prevYear) : Promise.resolve({data:[]}),
+        prevYear ? sb.from('placements').select('teacher_id,contact,bonus,partanut,type,framework,is_semester').eq('year', prevYear) : Promise.resolve({data:[]}),
         sb.from('teacher_hours').select('*').eq('year', year)
     ]);
 
@@ -1816,28 +1851,32 @@ async function loadMishrot() {
         const loads = isOfek ? loadsOfek : loadsOz;
         const t = allTeachers.find(x => x.id_number === id);
         if(!loads[id]) {
-            loads[id] = { name: p.teachers?.name || id, contact:0, bonus:0, partanutFromDepts:0, birth_date: t?.birth_date || null };
+            loads[id] = { name: p.teachers?.name || id, contact:0, bonus:0, partanutFromDepts:0, semesterHours:0, birth_date: t?.birth_date || null };
         }
         if(p.type === 'פרטנות') {
-            loads[id].partanutFromDepts += parseFloat(p.partanut)||parseFloat(p.contact)||0;
+            loads[id].partanutFromDepts += effContact(p);
         } else {
-            loads[id].contact += parseFloat(p.contact)||0;
+            loads[id].contact += effContact(p);
         }
-        loads[id].bonus += parseFloat(p.bonus)||0;
+        loads[id].bonus += effBonus(p);
+        if(p.is_semester) {
+            const raw = p.type === 'פרטנות' ? (parseFloat(p.partanut)||parseFloat(p.contact)||0) : (parseFloat(p.contact)||0);
+            loads[id].semesterHours += raw;
+        }
     });
 
     // הוסף מורים עם תפקידים בלבד לעוז
     allTeacherRoles.forEach(r => {
         if(!loadsOz[r.teacher_id] && !loadsOfek[r.teacher_id]) {
             const t = allTeachers.find(x => x.id_number === r.teacher_id);
-            loadsOz[r.teacher_id] = { name: t?.name || r.teacher_id, contact:0, bonus:0, partanutFromDepts:0, birth_date: t?.birth_date || null };
+            loadsOz[r.teacher_id] = { name: t?.name || r.teacher_id, contact:0, bonus:0, partanutFromDepts:0, semesterHours:0, birth_date: t?.birth_date || null };
         }
     });
 
     // הוסף כל מורה מהמאגר — לפחות לעוז
     allTeachers.forEach(t => {
         if(!loadsOz[t.id_number] && !loadsOfek[t.id_number]) {
-            loadsOz[t.id_number] = { name: t.name, contact:0, bonus:0, partanutFromDepts:0, birth_date: t.birth_date || null };
+            loadsOz[t.id_number] = { name: t.name, contact:0, bonus:0, partanutFromDepts:0, semesterHours:0, birth_date: t.birth_date || null };
         }
         if(loadsOz[t.id_number]) loadsOz[t.id_number].birth_date = t.birth_date || null;
         if(loadsOfek[t.id_number]) loadsOfek[t.id_number].birth_date = t.birth_date || null;
@@ -1847,8 +1886,8 @@ async function loadMishrot() {
     const prevTotals = {};
     allPrevPlacements.forEach(p => {
         if(!prevTotals[p.teacher_id]) prevTotals[p.teacher_id] = 0;
-        if(p.type === 'פרטנות') prevTotals[p.teacher_id] += parseFloat(p.partanut)||parseFloat(p.contact)||0;
-        else prevTotals[p.teacher_id] += (parseFloat(p.contact)||0)+(parseFloat(p.bonus)||0);
+        if(p.type === 'פרטנות') prevTotals[p.teacher_id] += effContact(p);
+        else prevTotals[p.teacher_id] += effContact(p)+effBonus(p);
     });
     if(prevYear) {
         const {data: prevRoles} = await sb.from('teacher_roles').select('teacher_id,hours').eq('year', prevYear);
@@ -1865,9 +1904,9 @@ async function loadMishrot() {
         if(!deptBreakdown[id]) deptBreakdown[id] = {};
         const dept = (p.framework==='אופק' ? '\u05d7\u05d8"\u05d1 ' : '') + (p.dept_id || '—');
         if(!deptBreakdown[id][dept]) deptBreakdown[id][dept] = { contact:0, bonus:0, partanut:0 };
-        if(p.type === 'פרטנות') deptBreakdown[id][dept].partanut += parseFloat(p.partanut)||parseFloat(p.contact)||0;
-        else deptBreakdown[id][dept].contact += parseFloat(p.contact)||0;
-        deptBreakdown[id][dept].bonus += parseFloat(p.bonus)||0;
+        if(p.type === 'פרטנות') deptBreakdown[id][dept].partanut += effContact(p);
+        else deptBreakdown[id][dept].contact += effContact(p);
+        deptBreakdown[id][dept].bonus += effBonus(p);
     });
 
     // בניית שורות עוז
@@ -1884,6 +1923,7 @@ async function loadMishrot() {
             partanut: parseFloat(note?.partanut)||0,
             partanutFromDepts: d.partanutFromDepts||0,
             stay: parseFloat(note?.stay)||0,
+            semesterHours: d.semesterHours||0,
             birth_date: d.birth_date,
             depts: deptBreakdown[id] || {},
             prevTotal: prevTotals[id] || null,
@@ -2064,6 +2104,14 @@ function renderMishrot(data) {
                                     </div>
                                 </div>`).join('')}
                             </div>
+                        </div>` : ''}
+                        ${r.semesterHours > 0 ? `
+                        <div style="padding:10px 14px;background:#fffbeb;border-top:1px solid #fde68a;">
+                            <span style="font-size:12px;font-weight:800;color:#92400e;">📅 כולל שעות סימסטריאליות: </span>
+                            <span style="font-size:13px;font-weight:900;color:#92400e;">${r.semesterHours.toFixed(1)}</span>
+                            <span style="font-size:12px;color:#92400e;"> שעות גולמיות → חושבו כ-</span>
+                            <span style="font-size:13px;font-weight:900;color:#92400e;">${(r.semesterHours * 0.5).toFixed(1)}</span>
+                            <span style="font-size:12px;color:#92400e;"> שעות שנתיות (×0.5)</span>
                         </div>` : ''}
                     </div>
                     <!-- תפקידים -->
@@ -2251,14 +2299,12 @@ try {
 
 function showSemesterList() {
     const year = document.getElementById('mishrotYear').value;
-    const { createClient } = supabase;
-    const sb2 = createClient(SUPABASE_URL, SUPABASE_KEY);
-    sb2.from('placements').select('teacher_id,subject,subject_manual,grade,dept_id,contact,partanut,type,teachers(name)').eq('year', year).eq('is_semester', true).then(({data}) => {
+    sb.from('placements').select('teacher_id,subject,subject_manual,grade,dept_id,contact,partanut,type,teachers(name)').eq('year', year).eq('is_semester', true).then(({data}) => {
         if(!data || !data.length) {
             document.getElementById('semesterListContent').innerHTML = '<p style="color:#94a3b8;text-align:center;padding:20px;">אין מקצועות סימסטריאליים בשנה זו</p>';
         } else {
             const rows = data.map(p => {
-                const hrs = p.type==='פרטנות' ? (parseFloat(p.partanut)||parseFloat(p.contact)||0) : (parseFloat(p.contact)||0);
+                const hrs = effContact(p);
                 const subj = p.subject_manual || p.subject;
                 return `<tr style="border-bottom:1px solid #f1f5f9;">
                     <td style="padding:10px 14px;font-weight:800;">${p.teachers?.name||p.teacher_id}</td>
