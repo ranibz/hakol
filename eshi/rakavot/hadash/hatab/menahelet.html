@@ -502,9 +502,24 @@
                     </div>
                 </div>
             </div>
-        </div>
 
-        <!-- TAB: מנהלות פדגוגיות -->
+            <!-- גיבוי ושחזור -->
+            <div class="card" style="border:2px solid #6366f1;">
+                <h2 style="color:#6366f1;">💾 גיבוי ושחזור נתונים</h2>
+                <p style="font-size:13px;color:#64748b;margin-bottom:16px;">ייצא את כל הנתונים לקובץ JSON לגיבוי, או טען קובץ גיבוי קיים לשחזור מלא.</p>
+                <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;">
+                    <button onclick="exportBackup()" style="padding:12px 24px;background:#6366f1;color:white;border:none;border-radius:12px;font-family:Heebo;font-size:14px;font-weight:800;cursor:pointer;">
+                        ⬇ ייצוא גיבוי מלא
+                    </button>
+                    <button onclick="document.getElementById('restoreInput').click()" style="padding:12px 24px;background:white;color:#6366f1;border:2px solid #6366f1;border-radius:12px;font-family:Heebo;font-size:14px;font-weight:800;cursor:pointer;">
+                        ⬆ שחזור מגיבוי
+                    </button>
+                    <input type="file" id="restoreInput" accept=".json" style="display:none" onchange="importBackup(event)">
+                    <span id="backupStatus" style="font-size:13px;color:#64748b;"></span>
+                </div>
+                <p style="font-size:11px;color:#94a3b8;margin-top:12px;">⚠️ שחזור מגיבוי ידרוס נתונים קיימים. מומלץ לייצא גיבוי לפני שחזור.</p>
+            </div>
+        </div>
         <div id="tab-pm" class="tab-content">
             <div class="pm-grid">
                 <div class="card">
@@ -2564,6 +2579,78 @@ ${mishrotSummary}
         document.getElementById('aiLoading').style.display = 'none';
         document.getElementById('aiBtn').disabled = false;
     }
+}
+
+async function exportBackup() {
+    document.getElementById('backupStatus').textContent = 'מייצא...';
+    try {
+        const [teachers, placements, departments, teacherHours, teacherRoles, pms] = await Promise.all([
+            sb.from('teachers').select('*').then(r=>r.data||[]),
+            sb.from('placements').select('*').then(r=>r.data||[]),
+            sb.from('departments').select('*').then(r=>r.data||[]),
+            sb.from('teacher_hours').select('*').then(r=>r.data||[]),
+            sb.from('teacher_roles').select('*').then(r=>r.data||[]),
+            sb.from('pedagogical_managers').select('*').then(r=>r.data||[]),
+        ]);
+        const backup = {
+            version: 1,
+            date: new Date().toISOString(),
+            tables: { teachers, placements, departments, teacher_hours: teacherHours, teacher_roles: teacherRoles, pedagogical_managers: pms }
+        };
+        const blob = new Blob([JSON.stringify(backup, null, 2)], {type:'application/json'});
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `rakavot-backup-${new Date().toISOString().slice(0,10)}.json`;
+        a.click();
+        document.getElementById('backupStatus').textContent = `✅ גיבוי הורד — ${teachers.length} מורים, ${placements.length} שיבוצים`;
+    } catch(e) {
+        document.getElementById('backupStatus').textContent = 'שגיאה: ' + e.message;
+    }
+}
+
+async function importBackup(event) {
+    const file = event.target.files[0];
+    if(!file) return;
+    if(!confirm('שחזור ידרוס את כל הנתונים הקיימים. להמשיך?')) return;
+    document.getElementById('backupStatus').textContent = 'מעבד קובץ...';
+    try {
+        const text = await file.text();
+        const backup = JSON.parse(text);
+        if(!backup.tables) throw new Error('קובץ גיבוי לא תקין');
+        const { teachers, placements, departments, teacher_hours, teacher_roles, pedagogical_managers } = backup.tables;
+        document.getElementById('backupStatus').textContent = 'משחזר נתונים...';
+
+        // מחיקה והכנסה מחדש לכל טבלה
+        if(teachers?.length) {
+            await sb.from('teachers').upsert(teachers, {onConflict:'id_number'});
+        }
+        if(departments?.length) {
+            await sb.from('departments').upsert(departments, {onConflict:'id'});
+        }
+        if(placements?.length) {
+            // מחק הכל ואז הכנס
+            const ids = placements.map(p=>p.id).filter(Boolean);
+            for(let i=0; i<placements.length; i+=100) {
+                await sb.from('placements').upsert(placements.slice(i,i+100), {onConflict:'id'});
+            }
+        }
+        if(teacher_hours?.length) {
+            await sb.from('teacher_hours').upsert(teacher_hours, {onConflict:'teacher_id,year'});
+        }
+        if(teacher_roles?.length) {
+            await sb.from('teacher_roles').upsert(teacher_roles, {onConflict:'id'});
+        }
+        if(pedagogical_managers?.length) {
+            await sb.from('pedagogical_managers').upsert(pedagogical_managers, {onConflict:'id'});
+        }
+
+        document.getElementById('backupStatus').textContent = `✅ שוחזר בהצלחה — ${teachers?.length||0} מורים, ${placements?.length||0} שיבוצים`;
+        showToast('✅ שחזור הושלם בהצלחה');
+        await loadAll();
+    } catch(e) {
+        document.getElementById('backupStatus').textContent = 'שגיאה: ' + e.message;
+    }
+    event.target.value = '';
 }
 
 function showToast(msg) {
