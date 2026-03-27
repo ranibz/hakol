@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>אירוע מדיה — דף התלמיד</title>
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@300;400;700;900&family=Heebo:wght@300;400;500;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<style>
+:root{--paper:#f5f0e8;--ink:#1a1208;--accent:#6b2d8b;--accent-light:#f3eaf7;--muted:#6b5d45;--shadow:4px 4px 0 #1a1208;--shadow-sm:2px 2px 0 #1a1208;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;background-image:repeating-linear-gradient(0deg,transparent,transparent 27px,rgba(26,18,8,.04) 27px,rgba(26,18,8,.04) 28px);}
+.masthead{background:var(--ink);color:var(--paper);}
+.mh-top{display:flex;justify-content:space-between;padding:8px 28px;font-size:11px;letter-spacing:2px;opacity:.5;border-bottom:1px solid #3a3020;}
+.mh-main{text-align:center;padding:24px 20px 18px;}
+.mh-main h1{font-family:'Frank Ruhl Libre',serif;font-size:clamp(24px,5vw,54px);font-weight:900;line-height:1.15;}
+.mh-main h1 span{color:#c0a060;}
+.mh-sub{font-size:11px;letter-spacing:5px;text-transform:uppercase;opacity:.5;margin-top:6px;}
+#teacher-banner{display:none;background:#1a1208;color:#c9a84c;padding:10px 24px;text-align:center;font-size:13px;border-bottom:3px solid var(--accent);}
+.modal-overlay{position:fixed;inset:0;background:rgba(26,18,8,.9);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px;}
+.modal-box{background:var(--paper);border:3px solid var(--ink);box-shadow:var(--shadow);max-width:480px;width:100%;overflow:hidden;}
+.modal-head{background:var(--accent);color:#fff;padding:16px 24px;}
+.modal-head h2{font-family:'Frank Ruhl Libre',serif;font-size:22px;font-weight:900;}
+.modal-head p{font-size:13px;opacity:.85;margin-top:4px;}
+.modal-body{padding:24px;}
+.mf{margin-bottom:14px;}
+.mf label{display:block;font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:5px;color:var(--muted);}
+.mf input{width:100%;padding:11px 14px;border:2px solid var(--ink);background:#fff;font-family:'Heebo',sans-serif;font-size:14px;box-shadow:var(--shadow-sm);}
+.mf input:focus{outline:none;border-color:var(--accent);}
+.btn-create{width:100%;background:var(--accent);color:#fff;border:2px solid var(--ink);padding:13px;font-family:'Frank Ruhl Libre',serif;font-size:17px;font-weight:900;cursor:pointer;box-shadow:var(--shadow-sm);margin-top:4px;}
+.btn-student{width:100%;background:#fff;color:var(--ink);border:2px solid var(--ink);padding:11px;font-family:'Heebo',sans-serif;font-size:14px;font-weight:700;cursor:pointer;margin-top:10px;}
+.url-box{display:none;margin-top:16px;background:#e8f5e9;border:2px solid #2e7d32;padding:14px;}
+.url-text{font-size:12px;word-break:break-all;background:#fff;padding:8px;border:1px solid #2e7d32;direction:ltr;text-align:left;font-family:monospace;}
+.btn-copy{margin-top:8px;background:#2e7d32;color:#fff;border:none;padding:8px 18px;font-size:13px;font-weight:700;cursor:pointer;width:100%;}
+.page{max-width:700px;margin:0 auto;padding:36px 24px 80px;}
+.hero{text-align:center;padding:28px 20px;background:#fff;border:2px solid var(--ink);box-shadow:var(--shadow);margin-bottom:28px;}
+.hero h2{font-family:'Frank Ruhl Libre',serif;font-size:26px;font-weight:900;margin-bottom:10px;}
+.hero p{font-size:14px;color:var(--muted);line-height:1.7;}
+.links-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:28px;}
+.link-card{background:#fff;border:2px solid var(--ink);box-shadow:var(--shadow);text-decoration:none;color:var(--ink);padding:22px 18px;display:block;transition:transform .12s,box-shadow .12s;text-align:center;}
+.link-card:hover{transform:translate(-2px,-2px);box-shadow:6px 6px 0 var(--ink);}
+.lcs{height:5px;margin:-22px -18px 16px;background:var(--accent);}
+.link-card-icon{font-size:2.2rem;margin-bottom:10px;display:block;}
+.link-card-title{font-family:'Frank Ruhl Libre',serif;font-size:17px;font-weight:900;margin-bottom:4px;}
+.link-card-desc{font-size:12px;color:var(--muted);line-height:1.5;}
+.info-box{background:#fff;border:2px solid var(--ink);padding:18px 20px;border-right:5px solid var(--accent);}
+.info-box h3{font-family:'Frank Ruhl Libre',serif;font-size:16px;font-weight:900;margin-bottom:10px;}
+.info-box li{font-size:13.5px;line-height:1.8;margin-bottom:4px;}
+@media(max-width:500px){.links-grid{grid-template-columns:1fr;}}
+</style>
+</head>
+<body>
+<header class="masthead">
+  <div class="mh-top"><span>הכל בכף היד — תקשורת וחברה</span><span>אירוע מדיה</span></div>
+  <div class="mh-main">
+    <h1>אירוע <span>מדיה</span></h1>
+    <div class="mh-sub">דף התלמיד</div>
+  </div>
+</header>
+<div id="teacher-banner">
+  <span>המורה: <strong id="banner-name" style="color:white;"></strong></span>
+  &nbsp;|&nbsp;
+  <span>קוד כיתה: <strong id="banner-code" style="color:white;letter-spacing:1px;"></strong></span>
+</div>
+<div class="modal-overlay" id="link-modal">
+  <div class="modal-box">
+    <div class="modal-head"><h2>יצירת קישור לתלמידים</h2><p>הזינו פרטים ליצירת קישור ממוען</p></div>
+    <div class="modal-body">
+      <div class="mf"><label>טלפון</label><input type="tel" id="lm-phone" placeholder="05X-XXXXXXX" style="direction:ltr"></div>
+      <div class="mf"><label>קוד כיתה</label><input type="text" id="lm-code" placeholder="לדוגמה: י1א"></div>
+      <button class="btn-create" onclick="createLink()">צור קישור לתלמידים ←</button>
+      <button class="btn-student" onclick="closeModal()">אני תלמיד — כניסה ישירה</button>
+      <div class="url-box" id="url-box">
+        <div style="font-weight:700;font-size:13px;color:#2e7d32;margin-bottom:8px;">✅ שלחו לתלמידים:</div>
+        <div class="url-text" id="generated-url"></div>
+        <button class="btn-copy" onclick="copyUrl()">📋 העתק קישור</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="page">
+  <div class="hero">
+    <h2>ברוכים הבאים לשיעור</h2>
+    <p>בשיעור זה נעסוק באירוע מדיה — מה גורם לתקשורת לוותר על רווח, ומהן הדילמות.</p>
+  </div>
+  <div class="links-grid">
+    <a href="media_event-lesson.html" class="link-card">
+      <div class="lcs"></div>
+      <span class="link-card-icon">📖</span>
+      <div class="link-card-title">שיעור אינטראקטיבי</div>
+      <div class="link-card-desc">למדו את המושגים עם דוגמאות ודילמות</div>
+    </a>
+    <a href="media_event-worksheet.html" class="link-card" id="link-worksheet">
+      <div class="lcs" style="background:#8b1a1a;"></div>
+      <span class="link-card-icon">✏️</span>
+      <div class="link-card-title">מטלה</div>
+      <div class="link-card-desc">מלאו את המטלה ושלחו למורה</div>
+    </a>
+    <a href="../mygrades.html" class="link-card" id="link-mygrades">
+      <div class="lcs" style="background:#1a3c6e;"></div>
+      <span class="link-card-icon">📊</span>
+      <div class="link-card-title">הציונים שלי</div>
+      <div class="link-card-desc">צפו במשוב וציון מהמורה</div>
+    </a>
+    <a href="https://hakolbakaf.co.il/agron/index.html" class="link-card" target="_blank">
+      <div class="lcs" style="background:#b8960c;"></div>
+      <span class="link-card-icon">📚</span>
+      <div class="link-card-title">אגרון מושגים</div>
+      <div class="link-card-desc">כל המושגים של תקשורת וחברה</div>
+    </a>
+  </div>
+  <div class="info-box">
+    <h3>📋 הנחיות לשיעור</h3>
+    <ul style="padding-right:18px;">
+      <li>התחילו בשיעור האינטראקטיבי</li>
+      <li>המשיכו למטלה ושלחו</li>
+      <li>לאחר בדיקת המורה — צפו בציון ובמשוב</li>
+    </ul>
+  </div>
+</div>
+<script>
+const FC={apiKey:"AIzaSyCCHvn_ulmiyM56DuslNzNC0Ge6a8i2vhY",authDomain:"tests-fd938.firebaseapp.com",databaseURL:"https://tests-fd938-default-rtdb.europe-west1.firebasedatabase.app",projectId:"tests-fd938"};
+firebase.initializeApp(FC);const db=firebase.database();
+const _code=new URLSearchParams(location.search).get('code');
+if(_code){
+  document.getElementById('link-modal').style.display='none';
+  document.getElementById('link-worksheet').href='media_event-worksheet.html?code='+encodeURIComponent(_code);
+  document.getElementById('link-mygrades').href='../mygrades.html?code='+encodeURIComponent(_code);
+  db.ref('teacher_codes/'+_code).once('value').then(snap=>{
+    const tID=snap.val();if(!tID)return;
+    const dc=_code.includes('_')?_code.split('_')[0]:_code;
+    db.ref('teachers/'+tID).once('value').then(ts=>{
+      const t=ts.val();if(!t)return;
+      const name=(t.firstName&&t.lastName)?t.firstName+' '+t.lastName:(t.name||'');
+      if(name){document.getElementById('banner-name').textContent=name;document.getElementById('banner-code').textContent=dc;document.getElementById('teacher-banner').style.display='block';}
+    });
+  });
+}
+function createLink(){
+  const phone=document.getElementById('lm-phone').value.trim().replace(/\D/g,'');
+  const code=document.getElementById('lm-code').value.trim();
+  if(!phone||!code){alert('נא למלא טלפון וקוד כיתה');return;}
+  db.ref('teachers').once('value').then(snap=>{
+    let tk='',fk=false;
+    snap.forEach(c=>{if(fk)return;const t=c.val();if(t.phone&&t.phone.replace(/\D/g,'')===phone&&t.status==='approved'){tk=c.key;fk=true;}});
+    if(!tk){alert('מורה לא נמצא או לא מאושר');return;}
+    const fc=code+'_'+tk;
+    db.ref('teacher_codes/'+fc).set(tk).then(()=>{
+      const url=location.origin+location.pathname+'?code='+encodeURIComponent(fc);
+      document.getElementById('generated-url').textContent=url;
+      document.getElementById('url-box').style.display='block';
+    });
+  });
+}
+function closeModal(){document.getElementById('link-modal').style.display='none';}
+function copyUrl(){navigator.clipboard.writeText(document.getElementById('generated-url').textContent).then(()=>alert('הקישור הועתק!'));}
+</script>
+</body>
+</html>

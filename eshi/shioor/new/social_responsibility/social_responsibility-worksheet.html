@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>תקשורת ואחריות חברתית — מטלה</title>
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@300;400;700;900&family=Heebo:wght@300;400;500;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<style>
+:root{--paper:#f5f0e8;--ink:#1a1208;--accent:#2e5c3e;--accent-light:#e8f5ee;--muted:#6b5d45;--shadow:4px 4px 0 #1a1208;--shadow-sm:2px 2px 0 #1a1208;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;}
+.masthead{background:var(--ink);color:var(--paper);}
+.mh-top{display:flex;justify-content:space-between;padding:8px 28px;font-size:11px;letter-spacing:2px;opacity:.5;border-bottom:1px solid #3a3020;}
+.mh-main{text-align:center;padding:20px;}
+.mh-main h1{font-family:'Frank Ruhl Libre',serif;font-size:clamp(22px,4vw,46px);font-weight:900;line-height:1.15;}
+.mh-main h1 span{color:#c0a060;}
+.pbar{position:sticky;top:0;z-index:100;background:#fff;border-bottom:2px solid var(--ink);padding:8px 20px;display:flex;align-items:center;gap:12px;}
+.pbar-track{flex:1;background:#e0d8cc;height:10px;border:1.5px solid var(--ink);}
+.pbar-fill{height:100%;background:var(--accent);transition:width .4s;}
+.pbar-lbl{font-size:12px;font-weight:700;white-space:nowrap;color:var(--accent);}
+.pbar-pct{font-size:11px;color:var(--muted);}
+.modal-overlay{position:fixed;inset:0;background:rgba(26,18,8,.85);z-index:1000;display:flex;align-items:center;justify-content:center;padding:20px;}
+.modal-box{background:var(--paper);border:3px solid var(--ink);box-shadow:var(--shadow);max-width:460px;width:100%;overflow:hidden;}
+.modal-head{background:var(--accent);color:#fff;padding:16px 24px;}
+.modal-head h2{font-family:'Frank Ruhl Libre',serif;font-size:22px;font-weight:900;}
+.modal-body{padding:22px 24px;}
+.mf{margin-bottom:14px;}
+.mf label{display:block;font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:5px;color:var(--muted);}
+.mf input,.mf select{width:100%;padding:10px 14px;border:2px solid var(--ink);background:#fff;font-family:'Heebo',sans-serif;font-size:14px;box-shadow:var(--shadow-sm);}
+.mf input:focus,.mf select:focus{outline:none;border-color:var(--accent);}
+.btn-enter{width:100%;background:var(--accent);color:#fff;border:2px solid var(--ink);padding:13px;font-family:'Frank Ruhl Libre',serif;font-size:17px;font-weight:900;cursor:pointer;box-shadow:var(--shadow-sm);margin-top:6px;}
+.modal-err{color:#8b1a1a;font-size:13px;margin-top:8px;display:none;font-weight:700;}
+.register-link{text-align:center;margin-top:14px;font-size:12px;color:var(--muted);}
+.register-link a{color:var(--accent);font-weight:700;text-decoration:none;}
+.mainpage{display:none;}
+.page{max-width:720px;margin:0 auto;padding:28px 20px 80px;}
+.phase{display:none;}.phase.active{display:block;}
+.q-card{background:#fff;border:2px solid var(--ink);box-shadow:var(--shadow);margin-bottom:24px;overflow:hidden;}
+.q-head{background:var(--accent);color:#fff;padding:12px 20px;display:flex;align-items:center;gap:10px;}
+.q-head h3{font-family:'Frank Ruhl Libre',serif;font-size:18px;font-weight:900;}
+.q-num{font-family:'Frank Ruhl Libre',serif;font-size:32px;font-weight:900;opacity:.2;line-height:1;margin-right:auto;}
+.q-body{padding:20px;}
+.q-body p{font-size:14px;line-height:1.8;margin-bottom:14px;}
+.q-context{background:var(--accent-light);border-right:4px solid var(--accent);padding:12px 16px;margin-bottom:16px;font-size:13.5px;line-height:1.7;font-style:italic;}
+textarea{width:100%;border:2px solid var(--ink);padding:12px;font-family:'Heebo',sans-serif;font-size:14px;line-height:1.7;resize:none;background:#fafaf8;min-height:90px;box-shadow:var(--shadow-sm);}
+textarea:focus{outline:none;border-color:var(--accent);}
+.mic-row{display:flex;align-items:center;gap:8px;margin-top:6px;}
+.mic-btn{background:none;border:2px solid var(--ink);padding:5px 12px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:5px;box-shadow:var(--shadow-sm);}
+.mic-btn:hover{background:var(--accent-light);}
+.mic-btn.rec{background:#ffebee;border-color:#8b1a1a;color:#8b1a1a;animation:pulse 1s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+.char-count{font-size:11px;color:var(--muted);margin-right:auto;}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;}
+.chip{background:#fff;border:2px solid var(--ink);padding:7px 14px;font-size:13px;cursor:pointer;transition:all .12s;box-shadow:var(--shadow-sm);}
+.chip:hover{background:var(--accent-light);}
+.chip.sel{background:var(--accent);color:#fff;border-color:var(--accent);}
+.nav-row{display:flex;gap:12px;margin-top:24px;justify-content:space-between;}
+.btn-nav{background:var(--ink);color:var(--paper);border:none;padding:12px 28px;font-family:'Frank Ruhl Libre',serif;font-size:16px;font-weight:900;cursor:pointer;box-shadow:var(--shadow-sm);}
+.btn-nav.secondary{background:#fff;color:var(--ink);border:2px solid var(--ink);}
+.btn-submit{background:var(--accent);color:#fff;border:2px solid var(--ink);padding:14px 36px;font-family:'Frank Ruhl Libre',serif;font-size:18px;font-weight:900;cursor:pointer;box-shadow:var(--shadow);display:block;width:100%;margin-top:20px;}
+.phase-success{display:none;text-align:center;padding:48px 20px;}
+.phase-success h2{font-family:'Frank Ruhl Libre',serif;font-size:36px;font-weight:900;margin-bottom:16px;}
+#mhead{display:none;background:var(--ink);color:var(--paper);padding:10px 20px;border-bottom:3px solid var(--accent);}
+#mhead .mh-inner{max-width:720px;margin:0 auto;display:flex;justify-content:space-between;align-items:center;}
+#bname{font-family:'Frank Ruhl Libre',serif;font-size:16px;font-weight:900;}
+#bcls{font-size:12px;color:#c0a060;letter-spacing:1px;}
+</style>
+</head>
+<body>
+<header class="masthead">
+  <div class="mh-top"><span>הכל בכף היד</span><span>תקשורת ואחריות חברתית — מטלה</span></div>
+  <div class="mh-main"><h1>תקשורת ו<span>אחריות חברתית</span></h1></div>
+</header>
+
+<div class="modal-overlay" id="modal">
+  <div class="modal-box">
+    <div class="modal-head"><h2>כניסה למטלה</h2></div>
+    <div class="modal-body">
+      <div class="mf"><label>שם פרטי</label><input id="inp-fn" placeholder="שם פרטי"></div>
+      <div class="mf"><label>שם משפחה</label><input id="inp-ln" placeholder="שם משפחה"></div>
+      <div class="mf"><label>מייל</label><input id="inp-email" type="email" style="direction:ltr" placeholder="your@email.com"></div>
+      <div class="mf"><label>שכבה</label>
+        <select id="inp-grade"><option value="">בחר שכבה</option><option>י׳</option><option>יא׳</option><option>יב׳</option></select>
+      </div>
+      <div class="mf" id="field-code"><label>קוד מורה</label><input id="inp-code" placeholder="קוד שקיבלת מהמורה"></div>
+      <button class="btn-enter" onclick="enterPage()">כניסה למטלה ←</button>
+      <div class="modal-err" id="modal-err"></div>
+      <div class="register-link"><a href="../teacher-register.html">מורה? לחץ כאן להרשמה</a></div>
+    </div>
+  </div>
+</div>
+
+<div class="pbar" id="pbar" style="display:none">
+  <span class="pbar-lbl" id="plbl">שלב 1/3</span>
+  <div class="pbar-track"><div class="pbar-fill" id="pfill" style="width:33%"></div></div>
+  <span class="pbar-pct" id="ppct">33%</span>
+</div>
+<div id="mhead"><div class="mh-inner"><span id="bname"></span><span id="bcls"></span></div></div>
+
+<div class="mainpage" id="mainpage">
+<div class="page">
+
+  <!-- שלב 1 -->
+  <div class="phase active" id="phase-1">
+    <div class="q-card">
+      <div class="q-head"><h3>זיהוי אחריות חברתית</h3><span class="q-num">1</span></div>
+      <div class="q-body">
+        <div class="q-context">"ב-7 באוקטובר 2023 הפסיקו כל ערוצי הטלוויזיה לשדר פרסומות ותוכניות בידור. הם שידרו שבוע שלם ללא הכנסות, תוך ויתור על מיליונים."</div>
+        <p>מהי אחריות חברתית? הסבירו מדוע הדוגמה הזו ממחישה אותה, ומה ההבדל בין זה לחוק.</p>
+        <textarea id="ans_definition" placeholder="הגדרה + ניתוח הדוגמה..." oninput="ar(this);uc(this,'cnt1')" onpaste="return false"></textarea>
+        <div class="mic-row"><button class="mic-btn" id="m1" onclick="mic('ans_definition',this)">🎙 הקלטה</button><span class="char-count" id="cnt1">0 תווים</span></div>
+      </div>
+    </div>
+    <div class="q-card">
+      <div class="q-head"><h3>מאפייני האחריות</h3><span class="q-num">2</span></div>
+      <div class="q-body">
+        <p>בחרו את המאפיינים הנכונים של אחריות חברתית בתקשורת:</p>
+        <div class="chips" id="chips-features">
+          <div class="chip" onclick="toggleChip(this,'chips-features',10)">פועלת גם בשגרה וגם בחירום</div>
+          <div class="chip" onclick="toggleChip(this,'chips-features',10)">מחייבת על פי חוק</div>
+          <div class="chip" onclick="toggleChip(this,'chips-features',10)">מאפיינת תקשורת מסורתית</div>
+          <div class="chip" onclick="toggleChip(this,'chips-features',10)">מאפיינת רשתות חברתיות</div>
+          <div class="chip" onclick="toggleChip(this,'chips-features',10)">כוללת ויתור מרצון על רווח</div>
+          <div class="chip" onclick="toggleChip(this,'chips-features',10)">בחירה לפגוע בחופש הביטוי העצמי</div>
+        </div>
+        <p style="margin-top:14px">הסבירו: מה ההבדל בין אחריות חברתית של תקשורת מרכזית לתקשורת מגזרית?</p>
+        <textarea id="ans_types" placeholder="הסבר ההבדל עם דוגמה..." oninput="ar(this);uc(this,'cnt2')" onpaste="return false"></textarea>
+        <div class="mic-row"><button class="mic-btn" id="m2" onclick="mic('ans_types',this)">🎙 הקלטה</button><span class="char-count" id="cnt2">0 תווים</span></div>
+      </div>
+    </div>
+    <div class="nav-row"><div></div><button class="btn-nav" onclick="goP(2)">לשלב הבא ←</button></div>
+  </div>
+
+  <!-- שלב 2 -->
+  <div class="phase" id="phase-2">
+    <div class="q-card">
+      <div class="q-head"><h3>דוגמאות מחרבות ברזל</h3><span class="q-num">3</span></div>
+      <div class="q-body">
+        <p>במלחמת חרבות ברזל, התקשורת הפגינה אחריות חברתית בכמה דרכים. תנו <strong>שתי דוגמאות</strong> ולכל אחת הסבירו מה ויתרה התקשורת ולמה:</p>
+        <p><strong>דוגמה 1:</strong></p>
+        <textarea id="ans_example1" placeholder="תיאור הדוגמה + מה ויתרו + למה..." oninput="ar(this);uc(this,'cnt3')" onpaste="return false"></textarea>
+        <div class="mic-row"><button class="mic-btn" id="m3" onclick="mic('ans_example1',this)">🎙 הקלטה</button><span class="char-count" id="cnt3">0 תווים</span></div>
+        <p style="margin-top:14px"><strong>דוגמה 2:</strong></p>
+        <textarea id="ans_example2" placeholder="תיאור הדוגמה + מה ויתרו + למה..." oninput="ar(this);uc(this,'cnt4')" onpaste="return false"></textarea>
+        <div class="mic-row"><button class="mic-btn" id="m4" onclick="mic('ans_example2',this)">🎙 הקלטה</button><span class="char-count" id="cnt4">0 תווים</span></div>
+      </div>
+    </div>
+    <div class="q-card">
+      <div class="q-head"><h3>האיזון הקשה</h3><span class="q-num">4</span></div>
+      <div class="q-body">
+        <p>מה הסכנה שאחריות חברתית עלולה להפוך ל"תקשורת מגויסת"? בחרו:</p>
+        <div class="chips" id="chips-danger">
+          <div class="chip" onclick="selOne(this,'chips-danger')">ביקורת שלטון נעלמת</div>
+          <div class="chip" onclick="selOne(this,'chips-danger')">הציבור לא מקבל מידע אמיתי</div>
+          <div class="chip" onclick="selOne(this,'chips-danger')">התקשורת הופכת לכלי של הממשלה</div>
+          <div class="chip" onclick="selOne(this,'chips-danger')">כל האפשרויות נכונות</div>
+        </div>
+        <p style="margin-top:14px">הסבירו מה ההבדל בין אחריות חברתית לגיטימית לבין תקשורת מגויסת:</p>
+        <textarea id="ans_danger" placeholder="הסבר ההבדל..." oninput="ar(this);uc(this,'cnt5')" onpaste="return false"></textarea>
+        <div class="mic-row"><button class="mic-btn" id="m5" onclick="mic('ans_danger',this)">🎙 הקלטה</button><span class="char-count" id="cnt5">0 תווים</span></div>
+      </div>
+    </div>
+    <div class="nav-row"><button class="btn-nav secondary" onclick="goP(1)">← חזרה</button><button class="btn-nav" onclick="goP(3)">לשלב הבא ←</button></div>
+  </div>
+
+  <!-- שלב 3 -->
+  <div class="phase" id="phase-3">
+    <div class="q-card">
+      <div class="q-head"><h3>דילמה אישית</h3><span class="q-num">5</span></div>
+      <div class="q-body">
+        <div class="q-context">"שבועיים אחרי פרוץ המלחמה, עיתונאית מגלה ראיות לכשל ממשלתי חמור לפני ה-7 באוקטובר. אם תפרסם — יתקפו אותה שהיא 'פוגעת במורל', 'מסייעת לאויב'. אם לא תפרסם — הציבור לא יידע את האמת."</div>
+        <p>מה הייתם עושים? קשרו לדילמה בין אחריות חברתית לביקורת שלטון.</p>
+        <textarea id="ans_dilemma" placeholder="עמדתכם + נימוק + קשר לחומר..." oninput="ar(this);uc(this,'cnt6')" onpaste="return false"></textarea>
+        <div class="mic-row"><button class="mic-btn" id="m6" onclick="mic('ans_dilemma',this)">🎙 הקלטה</button><span class="char-count" id="cnt6">0 תווים</span></div>
+      </div>
+    </div>
+    <div class="q-card">
+      <div class="q-head"><h3>הקשר חוצה זירות</h3><span class="q-num">6</span></div>
+      <div class="q-body">
+        <p>תנו דוגמה אחת לאחריות חברתית <strong>מחוץ</strong> לתחום החדשות — מריאליטי, ספורט, פרסום או תחום אחר. הסבירו מה ויתרה התקשורת ולמה.</p>
+        <textarea id="ans_cross_arena" placeholder="דוגמה + ניתוח..." oninput="ar(this);uc(this,'cnt7')" onpaste="return false"></textarea>
+        <div class="mic-row"><button class="mic-btn" id="m7" onclick="mic('ans_cross_arena',this)">🎙 הקלטה</button><span class="char-count" id="cnt7">0 תווים</span></div>
+      </div>
+    </div>
+    <div class="nav-row"><button class="btn-nav secondary" onclick="goP(2)">← חזרה</button><div></div></div>
+    <button class="btn-submit" onclick="submitWS()">שליחת המטלה ✓</button>
+  </div>
+
+  <div class="phase-success" id="phase-success">
+    <div style="font-size:3.5rem;margin-bottom:16px;">✅</div>
+    <h2>המטלה נשלחה!</h2>
+    <p>תודה <span id="success-name"></span>.<br>המורה יעיין בתשובותיך ויחזור עם משוב.</p>
+  </div>
+</div>
+</div>
+
+<script>
+const FC={apiKey:"AIzaSyCCHvn_ulmiyM56DuslNzNC0Ge6a8i2vhY",authDomain:"tests-fd938.firebaseapp.com",databaseURL:"https://tests-fd938-default-rtdb.europe-west1.firebasedatabase.app",projectId:"tests-fd938"};
+firebase.initializeApp(FC);
+const db=firebase.database();
+let student={};let mediaRec={};
+
+const _urlCode=new URLSearchParams(location.search).get('code');
+if(_urlCode){document.getElementById('inp-code').value=_urlCode;document.getElementById('field-code').style.display='none';}
+
+function enterPage(){
+  const fn=document.getElementById('inp-fn').value.trim();
+  const ln=document.getElementById('inp-ln').value.trim();
+  const email=document.getElementById('inp-email').value.trim().toLowerCase();
+  const grade=document.getElementById('inp-grade').value;
+  const code=document.getElementById('inp-code').value.trim();
+  const err=document.getElementById('modal-err');
+  if(!fn||!ln||!email||!grade||!code){err.textContent='נא למלא את כל השדות';err.style.display='block';return;}
+  db.ref('teacher_codes/'+code).once('value').then(snap=>{
+    const teacherID=snap.val()||'';
+    const displayCode=code.includes('_')?code.split('_')[0]:code;
+    student={name:fn+' '+ln,firstName:fn,lastName:ln,email,class:grade,classCode:displayCode,teacherID};
+    document.getElementById('modal').style.display='none';
+    document.getElementById('pbar').style.display='flex';
+    document.getElementById('mhead').style.display='block';
+    document.getElementById('mainpage').style.display='block';
+    document.getElementById('bname').textContent=fn+' '+ln;
+    document.getElementById('bcls').textContent='כיתה: '+grade;
+    goP(1);
+  });
+}
+
+function goP(n){
+  document.querySelectorAll('.phase').forEach(p=>p.classList.remove('active'));
+  document.getElementById('phase-'+n).classList.add('active');
+  window.scrollTo({top:0,behavior:'smooth'});
+  const l=['שלב 1/3','שלב 2/3','שלב 3/3'],p=[33,66,100];
+  document.getElementById('plbl').textContent=l[n-1];
+  document.getElementById('pfill').style.width=p[n-1]+'%';
+  document.getElementById('ppct').textContent=p[n-1]+'%';
+}
+function ar(el){el.style.height='auto';el.style.height=el.scrollHeight+'px';}
+function uc(el,cid){document.getElementById(cid).textContent=el.value.length+' תווים';}
+function toggleChip(btn,gid,max){
+  const sel=[...document.querySelectorAll('#'+gid+' .chip.sel')];
+  if(btn.classList.contains('sel')){btn.classList.remove('sel');return;}
+  if(sel.length>=max)return;btn.classList.add('sel');
+}
+function selOne(btn,gid){document.querySelectorAll('#'+gid+' .chip').forEach(c=>c.classList.remove('sel'));btn.classList.add('sel');}
+function getChips(gid){return[...document.querySelectorAll('#'+gid+' .chip.sel')].map(c=>c.textContent).join(', ');}
+
+function mic(tid,btn){
+  if(mediaRec[tid]&&mediaRec[tid].state==='recording'){mediaRec[tid].stop();btn.classList.remove('rec');btn.textContent='🎙 הקלטה';return;}
+  navigator.mediaDevices.getUserMedia({audio:true}).then(stream=>{
+    const rec=new MediaRecorder(stream);mediaRec[tid]=rec;
+    rec.ondataavailable=()=>{};rec.onstop=()=>{stream.getTracks().forEach(t=>t.stop());};
+    rec.start();btn.classList.add('rec');btn.textContent='⏹ עצור';
+    const sr=new(window.SpeechRecognition||window.webkitSpeechRecognition)();
+    sr.lang='he-IL';sr.continuous=true;sr.interimResults=true;
+    sr.onresult=e=>{let t='';for(let i=e.resultIndex;i<e.results.length;i++)t+=e.results[i][0].transcript;document.getElementById(tid).value=t;ar(document.getElementById(tid));};
+    sr.onerror=()=>{};sr.start();
+    mediaRec[tid]._sr=sr;
+    mediaRec[tid].addEventListener('stop',()=>{try{sr.stop();}catch(e){}});
+  }).catch(()=>alert('לא ניתן לגשת למיקרופון'));
+}
+
+function submitWS(){
+  const answers={
+    definition:document.getElementById('ans_definition').value.trim(),
+    features:getChips('chips-features'),
+    media_types:document.getElementById('ans_types').value.trim(),
+    example1:document.getElementById('ans_example1').value.trim(),
+    example2:document.getElementById('ans_example2').value.trim(),
+    danger_choice:getChips('chips-danger'),
+    vs_enlisted:document.getElementById('ans_danger').value.trim(),
+    dilemma:document.getElementById('ans_dilemma').value.trim(),
+    cross_arena:document.getElementById('ans_cross_arena').value.trim()
+  };
+  if(!answers.definition||!answers.dilemma||!answers.cross_arena){
+    alert('נא למלא לפחות את שאלות 1, 5 ו-6 לפני שליחה');return;
+  }
+  const data={student:{...student},teacherID:student.teacherID,answers,submittedAt:Date.now()};
+  db.ref('tests/social_responsibility/').push(data).then(()=>{
+    document.querySelectorAll('.phase').forEach(p=>p.classList.remove('active'));
+    document.getElementById('phase-success').style.display='block';
+    document.getElementById('success-name').textContent=student.firstName;
+    document.getElementById('pbar').style.display='none';
+  }).catch(()=>alert('שגיאה בשליחה — בדוק חיבור'));
+}
+</script>
+</body>
+</html>
