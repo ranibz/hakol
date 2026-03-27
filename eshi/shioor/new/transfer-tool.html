@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>העברת הגשה בין מורים</title>
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@400;700;900&family=Heebo:wght@300;400;500;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<style>
+:root{--paper:#f5f0e8;--paper-dark:#e8e0cc;--ink:#1a1208;--ink-light:#6b5d45;--accent:#8b1a1a;--green:#2d7a2d;--blue:#2563af;--shadow:4px 4px 0 #1a1208;--shadow-sm:2px 2px 0 #1a1208;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;line-height:1.7;background-image:repeating-linear-gradient(0deg,transparent,transparent 27px,rgba(26,18,8,.055) 27px,rgba(26,18,8,.055) 28px);min-height:100vh;}
+.masthead{background:var(--ink);color:var(--paper);text-align:center;padding:22px 20px;border-bottom:6px double var(--paper-dark);}
+.masthead h1{font-family:'Frank Ruhl Libre',serif;font-size:28px;font-weight:900;}
+.masthead p{font-size:12px;letter-spacing:3px;text-transform:uppercase;opacity:.55;margin-top:4px;}
+.page{max-width:720px;margin:0 auto;padding:32px 20px 80px;}
+.section{background:white;border:2px solid var(--ink);box-shadow:var(--shadow-sm);padding:22px 24px;margin-bottom:20px;}
+.section h2{font-family:'Frank Ruhl Libre',serif;font-size:18px;font-weight:900;margin-bottom:14px;border-bottom:2px solid var(--paper-dark);padding-bottom:8px;}
+label{display:block;font-size:11px;letter-spacing:2px;text-transform:uppercase;font-weight:700;color:var(--ink-light);margin-bottom:5px;}
+input{width:100%;padding:10px 13px;border:2px solid var(--ink);background:var(--paper);font-family:'Heebo',sans-serif;font-size:15px;color:var(--ink);outline:none;}
+input:focus{border-color:var(--accent);}
+.row{display:flex;gap:10px;align-items:flex-end;}
+.row input{flex:1;margin-bottom:0;}
+button{padding:10px 20px;background:var(--ink);color:var(--paper);border:none;font-family:'Frank Ruhl Libre',serif;font-size:15px;font-weight:700;cursor:pointer;box-shadow:var(--shadow-sm);}
+button:hover{background:var(--accent);}
+button:disabled{background:#aaa;cursor:default;box-shadow:none;}
+.status{margin-top:10px;font-size:13px;min-height:20px;}
+.status.err{color:var(--accent);font-weight:700;}
+.status.ok{color:var(--green);font-weight:700;}
+.status.info{color:var(--ink-light);}
+.card{border:2px solid var(--ink);padding:14px 16px;margin-bottom:10px;cursor:pointer;transition:all .15s;background:var(--paper);}
+.card:hover{background:var(--paper-dark);}
+.card.selected{background:#e8f4e8;border-color:var(--green);box-shadow:var(--shadow-sm);}
+.card-top{display:flex;justify-content:space-between;align-items:center;gap:10px;}
+.card-name{font-family:'Frank Ruhl Libre',serif;font-size:17px;font-weight:900;}
+.card-topic{background:var(--ink);color:var(--paper);font-size:10px;letter-spacing:1px;text-transform:uppercase;padding:2px 8px;font-weight:700;}
+.card-meta{font-size:12px;color:var(--ink-light);margin-top:5px;line-height:1.6;}
+.card-meta code{font-family:monospace;font-size:11px;background:var(--paper-dark);padding:1px 5px;}
+.select-btn{padding:6px 14px;font-size:12px;background:var(--ink);color:var(--paper);border:none;cursor:pointer;font-family:'Frank Ruhl Libre',serif;font-weight:700;}
+.select-btn:hover{background:var(--accent);}
+.card.selected .select-btn{background:var(--green);}
+.selected-banner{background:var(--paper-dark);border:2px solid var(--ink);padding:10px 14px;font-size:13px;margin-bottom:14px;border-right:4px solid var(--green);}
+.selected-banner strong{font-family:'Frank Ruhl Libre',serif;}
+footer{text-align:center;font-size:12px;color:var(--ink-light);border-top:3px double var(--ink);padding-top:14px;margin-top:40px;}
+</style>
+</head>
+<body>
+
+<div class="masthead">
+  <h1>העברת הגשה בין מורים</h1>
+  <p>כלי ניהול — hakolbakaf.co.il</p>
+</div>
+
+<div class="page">
+
+  <!-- שלב 1: חיפוש -->
+  <div class="section">
+    <h2>שלב א׳ — חיפוש תלמיד</h2>
+    <label>שם התלמיד (חלקי או מלא)</label>
+    <div class="row">
+      <input type="text" id="search-name" placeholder="לדוגמה: דניאל או כהן..." autocomplete="off">
+      <button onclick="searchStudent()">חיפוש</button>
+    </div>
+    <div class="status info" id="search-status"></div>
+  </div>
+
+  <!-- שלב 2: תוצאות -->
+  <div class="section" id="results-section" style="display:none">
+    <h2>שלב ב׳ — בחר הגשה</h2>
+    <div id="results-list"></div>
+  </div>
+
+  <!-- שלב 3: העברה -->
+  <div class="section" id="transfer-section" style="display:none">
+    <h2>שלב ג׳ — העבר למורה</h2>
+    <div class="selected-banner" id="selected-banner"></div>
+    <label>טלפון המורה הנכון</label>
+    <div class="row">
+      <input type="tel" id="target-phone" placeholder="05X-XXXXXXX" style="direction:ltr;" autocomplete="off">
+      <button onclick="doTransfer()">העבר</button>
+    </div>
+    <div class="status" id="transfer-status"></div>
+  </div>
+
+</div>
+
+<footer>פיתוח: רני בן זאב &nbsp;|&nbsp; כלי פנימי בלבד</footer>
+
+<script>
+const FC={apiKey:"AIzaSyCCHvn_ulmiyM56DuslNzNC0Ge6a8i2vhY",authDomain:"tests-fd938.firebaseapp.com",databaseURL:"https://tests-fd938-default-rtdb.europe-west1.firebasedatabase.app",projectId:"tests-fd938"};
+firebase.initializeApp(FC);
+const db=firebase.database();
+
+const TOPICS={
+  fakenews:'פייק ניוז',
+  childhood:'אובדן הילדות',
+  ownership:'בעלות צולבת',
+  determinism:'דטרמיניזם טכנולוגי',
+  msagur:'מסגור תקשורתי',
+  reyting:'רייטינג',
+  konotazia:'קונוטציה',
+  praklit:'פרקליט ושומר סף',
+  denotation:'דנוטציה וקונוטציה',
+  satirah:'סאטירה',
+  agendah:'סדר יום תקשורתי',
+  globalizatziah:'גלובליזציה',
+  tzilum:'צילום עיתונאי'
+};
+
+let foundSubmissions=[];
+let selectedIdx=null;
+
+function setStatus(id,msg,type){
+  const el=document.getElementById(id);
+  el.textContent=msg;
+  el.className='status'+(type?' '+type:'');
+}
+
+document.getElementById('search-name').addEventListener('keydown',e=>{
+  if(e.key==='Enter') searchStudent();
+});
+
+async function searchStudent(){
+  const name=document.getElementById('search-name').value.trim().toLowerCase();
+  if(!name){setStatus('search-status','יש להזין שם לחיפוש','err');return;}
+  setStatus('search-status','מחפש בכל הנושאים...','info');
+  document.getElementById('results-section').style.display='none';
+  document.getElementById('transfer-section').style.display='none';
+  foundSubmissions=[];
+  selectedIdx=null;
+
+  const promises=Object.keys(TOPICS).map(topic=>
+    db.ref('tests/'+topic).once('value').then(snap=>{
+      const raw=snap.val()||{};
+      Object.entries(raw).forEach(([k,v])=>{
+        const sname=(
+          v.student?.name||
+          ((v.student?.firstName||'')+' '+(v.student?.lastName||''))
+        ).trim().toLowerCase();
+        if(sname.includes(name)){
+          foundSubmissions.push({key:k,topic,...v});
+        }
+      });
+    }).catch(()=>{})
+  );
+
+  await Promise.all(promises);
+
+  if(!foundSubmissions.length){
+    setStatus('search-status','לא נמצאו הגשות על שם זה','err');
+    return;
+  }
+
+  foundSubmissions.sort((a,b)=>(b.submittedAt||0)-(a.submittedAt||0));
+  setStatus('search-status','נמצאו '+foundSubmissions.length+' הגשות — בחרו הגשה להעברה','info');
+  renderResults();
+}
+
+function renderResults(){
+  const list=document.getElementById('results-list');
+  list.innerHTML='';
+  foundSubmissions.forEach((d,i)=>{
+    const dt=d.submittedAt
+      ?new Date(d.submittedAt).toLocaleDateString('he-IL')+' '+new Date(d.submittedAt).toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'})
+      :'—';
+    const name=d.student?.name||((d.student?.firstName||'')+' '+(d.student?.lastName||'')).trim()||'—';
+    const div=document.createElement('div');
+    div.className='card'+(i===selectedIdx?' selected':'');
+    div.id='card-'+i;
+    div.innerHTML=`
+      <div class="card-top">
+        <div>
+          <span class="card-name">${name}</span>
+          &nbsp;
+          <span class="card-topic">${TOPICS[d.topic]||d.topic}</span>
+        </div>
+        <button class="select-btn" onclick="selectSub(${i})">${i===selectedIdx?'✓ נבחר':'בחר'}</button>
+      </div>
+      <div class="card-meta">
+        כיתה: ${d.student?.class||'—'} &nbsp;|&nbsp;
+        מייל: ${d.student?.email||'—'} &nbsp;|&nbsp;
+        ${dt}<br>
+        teacherID נוכחי: <code>${d.student?.teacherID||'—'}</code>
+      </div>`;
+    list.appendChild(div);
+  });
+  document.getElementById('results-section').style.display='block';
+}
+
+function selectSub(i){
+  selectedIdx=i;
+  renderResults();
+  const d=foundSubmissions[i];
+  const name=d.student?.name||((d.student?.firstName||'')+(d.student?.lastName||'')).trim()||'—';
+  document.getElementById('selected-banner').innerHTML=
+    '<strong>'+name+'</strong> — '+( TOPICS[d.topic]||d.topic)+' — כיתה '+(d.student?.class||'—');
+  document.getElementById('transfer-section').style.display='block';
+  document.getElementById('transfer-status').textContent='';
+  document.getElementById('target-phone').value='';
+  document.getElementById('target-phone').focus();
+  document.getElementById('transfer-section').scrollIntoView({behavior:'smooth'});
+}
+
+async function doTransfer(){
+  const phone=document.getElementById('target-phone').value.trim();
+  if(!phone){setStatus('transfer-status','יש להזין טלפון','err');return;}
+  if(selectedIdx===null){setStatus('transfer-status','יש לבחור הגשה','err');return;}
+
+  setStatus('transfer-status','מחפש מורה בבסיס הנתונים...','info');
+
+  const snap=await db.ref('teachers').once('value');
+  let newTeacherID='',newTeacherName='';
+  snap.forEach(child=>{
+    if(newTeacherID) return;
+    const t=child.val();
+    if(t.phone===phone&&t.status==='approved'){
+      newTeacherID=child.key;
+      newTeacherName=(t.firstName&&t.lastName)
+        ?t.firstName+' '+t.lastName
+        :(t.name||child.key);
+    }
+  });
+
+  if(!newTeacherID){
+    setStatus('transfer-status','מורה עם טלפון זה לא נמצא או לא מאושר במערכת','err');
+    return;
+  }
+
+  setStatus('transfer-status','מעביר...','info');
+  const d=foundSubmissions[selectedIdx];
+  await db.ref('tests/'+d.topic+'/'+d.key+'/student/teacherID').set(newTeacherID);
+
+  setStatus('transfer-status','✓ ההגשה הועברה בהצלחה אל '+newTeacherName,'ok');
+  foundSubmissions[selectedIdx].student.teacherID=newTeacherID;
+  selectedIdx=null;
+  renderResults();
+  document.getElementById('transfer-section').style.display='none';
+}
+</script>
+</body>
+</html>
