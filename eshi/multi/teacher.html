@@ -227,14 +227,27 @@ function updModes(mode){
 window.setMode=async m=>{await sb.from('sessions').update({mode:m}).eq('code',code)};
 window.navigate=async dir=>{
   if(!session?.slides)return;
+  const total=session.slides.length;
   const n=curIdx+dir;
-  if(n<0||n>=session.slides.length)return;
+  if(n<0||n>=total)return;
   revealed=false;clearInterval(timerInt);timerInt=null;timerLeft=0;
-  await sb.from('sessions').update({current_slide:n,mode:session.slides[n].type}).eq('code',code);
+  curIdx=n;session.current_slide=n;session.mode=session.slides[n].type;
+  updModes(session.mode);renderStrip();renderSlide();
+  document.getElementById("nav-ind").textContent=`${n+1} / ${total}`;
+  document.getElementById("btn-prev").disabled=n===0;
+  document.getElementById("btn-next").disabled=n>=total-1;
+  sb.from("sessions").update({current_slide:n,mode:session.slides[n].type}).eq("code",code);
 };
 window.jumpTo=async idx=>{
+  if(!session?.slides)return;
   revealed=false;clearInterval(timerInt);timerInt=null;timerLeft=0;
-  await sb.from('sessions').update({current_slide:idx,mode:session.slides[idx].type}).eq('code',code);
+  const total=session.slides.length;
+  curIdx=idx;session.current_slide=idx;session.mode=session.slides[idx].type;
+  updModes(session.mode);renderStrip();renderSlide();
+  document.getElementById("nav-ind").textContent=`${idx+1} / ${total}`;
+  document.getElementById("btn-prev").disabled=idx===0;
+  document.getElementById("btn-next").disabled=idx>=total-1;
+  sb.from("sessions").update({current_slide:idx,mode:session.slides[idx].type}).eq("code",code);
 };
 window.pullStudents=async()=>{
   await sb.from('sessions').update({pull_signal:Date.now()}).eq('code',code);
