@@ -35,7 +35,19 @@ body{background:linear-gradient(135deg,#fde8f5 0%,#e8f0fd 35%,#e8fdf0 70%,#fdf5e
 .mode-pill{font-size:11px;padding:3px 12px;border-radius:20px;font-weight:700;flex-shrink:0;border:1.5px solid}
 .mp-b{background:var(--blue);border-color:var(--blue-b);color:var(--blue-t)}.mp-v{background:var(--pink);border-color:var(--pink-b);color:var(--pink-t)}.mp-t{background:var(--green);border-color:var(--green-b);color:var(--green-t)}.mp-f{background:var(--yellow);border-color:var(--yellow-b);color:var(--yellow-t)}
 .slide-view{padding:20px;flex:1}
-.sl-title{font-size:22px;font-weight:900;margin-bottom:12px;line-height:1.3}.sl-body{font-size:15px;color:var(--muted);line-height:1.8;margin-bottom:16px}
+.sl-title{font-size:22px;font-weight:900;margin-bottom:12px;line-height:1.3}
+.sl-body{font-size:15px;color:var(--muted);line-height:1.8;margin-bottom:16px}
+.sl-body .highlight{background:linear-gradient(120deg,var(--pink) 0%,var(--yellow) 100%);padding:2px 8px;border-radius:6px;font-weight:700;color:var(--text)}
+.sl-body .box{background:rgba(255,255,255,0.75);border:1.5px solid var(--border);border-radius:14px;padding:14px 16px;margin:10px 0;font-size:14px}
+.sl-body .box-blue{border-color:var(--blue-b);background:var(--blue)}
+.sl-body .box-pink{border-color:var(--pink-b);background:var(--pink)}
+.sl-body .box-green{border-color:var(--green-b);background:var(--green)}
+.sl-body .box-yellow{border-color:var(--yellow-b);background:var(--yellow)}
+.sl-body .box h4{font-size:13px;font-weight:800;margin-bottom:6px;color:var(--text)}
+.sl-body ul{padding-right:18px;margin:8px 0}
+.sl-body li{margin-bottom:6px}
+.sl-body .example{border-right:4px solid var(--purple-b);padding-right:12px;margin:10px 0;font-style:italic;color:var(--text)}
+.sl-body strong{color:var(--text);font-weight:800}
 .vote-opts{display:flex;flex-direction:column;gap:10px;margin-top:8px}
 .vote-opt{padding:14px 18px;border-radius:16px;border:2px solid var(--border);background:rgba(255,255,255,.7);font-size:15px;font-weight:700;cursor:pointer;transition:all .15s;text-align:right}
 .vote-opt:nth-child(1){border-color:var(--pink-b)}.vote-opt:nth-child(2){border-color:var(--blue-b)}.vote-opt:nth-child(3){border-color:var(--green-b)}.vote-opt:nth-child(4){border-color:var(--yellow-b)}
@@ -59,6 +71,9 @@ body{background:linear-gradient(135deg,#fde8f5 0%,#e8f0fd 35%,#e8fdf0 70%,#fdf5e
 .sub-msg{text-align:center;padding:20px;color:var(--green-t);font-size:15px;font-weight:800;background:var(--green);border-radius:16px;border:1.5px solid var(--green-b)}
 .free-card{background:rgba(255,255,255,.65);border:1.5px solid var(--yellow-b);border-radius:18px;padding:24px;text-align:center;margin-top:8px}
 .free-icon{font-size:40px;margin-bottom:10px}.free-card p{font-size:14px;color:var(--yellow-t);line-height:1.7;font-weight:700}
+.sl-body img{max-width:100%;border-radius:12px;margin:10px 0;display:block}
+.sl-body .video-wrap{position:relative;padding-bottom:56.25%;height:0;overflow:hidden;border-radius:12px;margin:10px 0}
+.sl-body .video-wrap iframe{position:absolute;top:0;left:0;width:100%;height:100%;border:none;border-radius:12px}
 .waiting{flex:1;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px;padding:40px;min-height:200px}
 .spinner{width:36px;height:36px;border:3px solid rgba(180,100,220,.2);border-top-color:#c8a0f0;border-radius:50%;animation:spin .7s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
@@ -167,6 +182,12 @@ function listenToSession(){
   },2000);
 }
 
+function processContent(html){
+  // Convert YouTube links to embedded iframes
+  return html.replace(/(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/g,
+    (match,id)=>`<div class="video-wrap"><iframe src="https://www.youtube.com/embed/${id}" allowfullscreen></iframe></div>`
+  );
+}
 async function renderSlide(data){
   const idx=frozenSlide!==null?frozenSlide:(data.current_slide||0);
   const slide=data.slides?.[idx];if(!slide)return;
@@ -174,10 +195,10 @@ async function renderSlide(data){
   let h='';
 
   if(slide.type==='broadcast'){
-    h=`<div class="sl-title">${slide.title||''}</div><div class="sl-body">${slide.content||''}</div>`;
+    h=`<div class="sl-title">${slide.title||''}</div><div class="sl-body">${processContent(slide.content||'')} </div>`;
   }
   else if(slide.type==='vote'){
-    h=`<div class="sl-title">${slide.title||''}</div><div class="sl-body">${slide.content||''}</div>`;
+    h=`<div class="sl-title">${slide.title||''}</div><div class="sl-body">${processContent(slide.content||'')} </div>`;
     const alreadyVoted=myVotes[idx]!==undefined;
     if(data.reveal_votes){
       const {data:votes}=await sb.from('votes').select('*').eq('session_code',myCode).eq('slide_idx',idx);
@@ -200,7 +221,7 @@ async function renderSlide(data){
   else if(slide.type==='task'){
     const tl=data.timer_left!==null&&data.timer_left!==undefined?data.timer_left:(slide.timer||120);
     const cls=tl<=30?' danger':tl<=60?' warn':'';
-    h=`<div class="sl-title">${slide.title||''}</div><div class="sl-body">${slide.content||''}</div>`;
+    h=`<div class="sl-title">${slide.title||''}</div><div class="sl-body">${processContent(slide.content||'')} </div>`;
     h+=`<div class="task-timer${cls}">${fmt(tl)}</div>`;
     if(mySubs[idx]){
       h+=`<div class="sub-msg">✓ הוגש בהצלחה! 🎉</div>`;
