@@ -1,4 +1,4 @@
-<!-- version: 11 -->
+<!-- version: 12 -->
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
@@ -110,7 +110,7 @@
   <span class="lesson-title" id="h-title">טוען...</span>
   <span class="mode-badge" id="h-mode">—</span>
   <div class="header-right">
-    <span class="ver">v11</span>
+    <span class="ver">v12</span>
   </div>
 </header>
 
@@ -388,24 +388,24 @@ window.selectStudent = function(idx) {
 window.approveStudent = async function() {
   if (!selectedStudent) return;
 
-  await sb.from('student_responses')
-    .update({ approved: true })
+  // עדכון הרשומה הכי אחרונה של התלמיד (השקף שהוא נמצא בו)
+  const { data } = await sb.from('student_responses')
+    .select('id, slide_index')
     .eq('session_code', CODE)
     .eq('student_name', selectedStudent)
-    .eq('slide_index', currentSlide);
+    .eq('approved', false)
+    .order('slide_index', { ascending: false })
+    .limit(1);
 
-  // יצירת רשומה לשקף הבא
-  const nextSlide = currentSlide + 1;
-  if (nextSlide < (session?.slides?.length || 0)) {
-    try {
-      await sb.from('student_responses').insert({
-        session_code: CODE,
-        student_name: selectedStudent,
-        slide_index: nextSlide,
-        approved: false
-      });
-    } catch(e) {}
+  if (!data || data.length === 0) {
+    const fbSent = document.getElementById('modal-feedback-sent');
+    if (fbSent) fbSent.textContent = '⚠️ אין שקף לאשר';
+    return;
   }
+
+  await sb.from('student_responses')
+    .update({ approved: true })
+    .eq('id', data[0].id);
 
   const fbSent = document.getElementById('modal-feedback-sent');
   const approveBtn = document.getElementById('modal-approve');
