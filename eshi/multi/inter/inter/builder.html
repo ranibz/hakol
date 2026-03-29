@@ -152,6 +152,7 @@ header{background:rgba(255,255,255,0.75);backdrop-filter:blur(12px);border-botto
   <div class="header-btns">
     <button class="btn btn-pink" onclick="loadLesson()">📂 פתח</button><button class="btn btn-big" onclick="window.openCreateModal()" style="background:linear-gradient(135deg,#d94fbf,#9030e0);color:#fff;border:none">✍️ צור שיעור</button><button class="btn btn-blue" onclick="loadJSON()" style="background:#eeddf8;color:#5810a0;border-color:#c8a8e8">📋 הדבק JSON</button><button class="btn btn-blue" onclick="window.openLibrary()" style="background:#ddf5ea;color:#185c38;border-color:#a8e0c8">📚 מאגר שיעורים</button>
     <button class="btn btn-blue" onclick="saveLesson()">💾 שמור</button>
+    <button class="btn btn-blue" onclick="addToLibrary()" style="background:#fff8e6;color:#b07000;border-color:#f0c040">📌 הוסף למאגר</button>
     <div class="mode-toggle" style="height:36px;margin:0">
       <div class="mode-opt sel" id="mode-live" onclick="window.setLaunchMode('live')">📡 שיעור חי</div>
       <div class="mode-opt" id="mode-free" onclick="window.setLaunchMode('free')">🔓 עצמאי</div>
@@ -372,6 +373,18 @@ window.ao=()=>{slides[activeIdx].options.push('');re()};
 window.ro=i=>{slides[activeIdx].options.splice(i,1);re();rs()};
 
 window.saveLesson=()=>{const t=document.getElementById('lesson-title').value||'שיעור';const k='lesson_'+Date.now();localStorage.setItem(k,JSON.stringify({title:t,slides}));localStorage.setItem('lastLesson',k);rsl();alert('✅ נשמר!')};
+window.addToLibrary=async()=>{
+  if(!slides.length){alert('הוסף לפחות שקף אחד');return}
+  const title=document.getElementById('lesson-title').value||'שיעור';
+  if(!title||title==='שיעור'){const t=prompt('שם השיעור למאגר:',title);if(!t)return;document.getElementById('lesson-title').value=t;}
+  const finalTitle=document.getElementById('lesson-title').value;
+  const code='tmpl_'+Date.now();
+  const{error}=await sb.from('sessions').upsert({
+    code,title:finalTitle,slides,current_slide:0,mode:'broadcast',started:false,session_type:'live',is_template:true
+  });
+  if(error){alert('שגיאה: '+error.message);return}
+  alert('✅ השיעור נוסף למאגר!');
+};
 window.loadLesson=()=>{const k=localStorage.getItem('lastLesson');if(!k){alert('אין שיעור שמור');return}const d=JSON.parse(localStorage.getItem(k));document.getElementById('lesson-title').value=d.title;slides=d.slides;activeIdx=0;ra();rsl()};
 function rsl(){const el=document.getElementById('saved-list');const keys=Object.keys(localStorage).filter(k=>k.startsWith('lesson_'));if(!keys.length){el.textContent='אין שיעורים שמורים';return}el.innerHTML=keys.map(k=>{const d=JSON.parse(localStorage.getItem(k));return`<div class="saved-item" onclick="lk('${k}')">${d.title}</div>`}).join('')}
 window.lk=k=>{const d=JSON.parse(localStorage.getItem(k));document.getElementById('lesson-title').value=d.title;slides=d.slides;activeIdx=0;ra()};
