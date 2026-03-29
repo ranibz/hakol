@@ -1,4 +1,4 @@
-<!-- version: 6 -->
+<!-- version: 7 -->
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
@@ -6,8 +6,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>כיתה חיה — הפעלת שיעור</title>
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;600;700;900&family=Assistant:wght@400;600&display=swap" rel="stylesheet">
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 <style>
   :root {
     --bg: #f4f6f9;
@@ -228,7 +226,7 @@
 
 <header>
   <div class="logo"><span class="dot"></span> כיתה חיה</div>
-  <span class="ver">v6</span>
+  <span class="ver">v7</span>
 </header>
 
 <main>
@@ -278,36 +276,39 @@
 
 </main>
 
-<script>
-const FIREBASE_CONFIG = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "tests-fd938.firebaseapp.com",
-  databaseURL: "https://tests-fd938-default-rtdb.europe-west1.firebasedatabase.app",
-  projectId: "tests-fd938"
-};
+<script type="module">
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+const sb = createClient(
+  'https://seuskpyofhkvejyooghk.supabase.co',
+  'sb_publishable_qrLorZwzfmjFh9S3iRa1sQ_u6DVP29b'
+);
 
 const STUDENT_URL    = "https://hakolbakaf.co.il/kita-haya/student.html";
 const TEACHER_SCREEN = "https://hakolbakaf.co.il/kita-haya/teacher-screen.html";
-
-firebase.initializeApp(FIREBASE_CONFIG);
-const db = firebase.database();
 
 let selectedLesson = null;
 let selectedMode   = 'live';
 let activeCode     = null;
 let launched       = false;
 
+// ── טעינת שיעורים מ-Supabase ──
 async function loadLessons() {
   const list = document.getElementById('lesson-list');
   try {
-    const snap = await db.ref('kita_haya_lessons').once('value');
-    if (!snap.exists()) {
-      list.innerHTML = '<div class="empty">אין שיעורים במאגר</div>';
+    const { data, error } = await sb
+      .from('sessions')
+      .select('code, title, mode, session_type, slides')
+      .order('code', { ascending: false });
+
+    if (error) throw error;
+
+    if (!data || data.length === 0) {
+      list.innerHTML = '<div class="empty">אין שיעורים שמורים. בנה שיעור בבילדר תחילה.</div>';
       return;
     }
-    const lessons = [];
-    snap.forEach(c => lessons.push({ id: c.key, ...c.val() }));
-    renderLessons(lessons);
+
+    renderLessons(data);
   } catch(e) {
     list.innerHTML = '<div class="empty">שגיאה בטעינה: ' + e.message + '</div>';
   }
@@ -317,22 +318,23 @@ function renderLessons(lessons) {
   const list = document.getElementById('lesson-list');
   list.innerHTML = '';
   lessons.forEach(lesson => {
+    const slideCount = Array.isArray(lesson.slides) ? lesson.slides.length : '?';
     const div = document.createElement('div');
     div.className = 'lesson-item';
     div.innerHTML = `
       <div class="radio"></div>
       <div>
-        <div class="lesson-title">${lesson.title || lesson.id}</div>
-        ${lesson.subject ? `<div class="lesson-sub">${lesson.subject}</div>` : ''}
+        <div class="lesson-title">${lesson.title || 'שיעור ללא שם'}</div>
+        <div class="lesson-sub">${slideCount} שקפים</div>
       </div>
-      ${lesson.grade ? `<span class="lesson-tag">כיתה ${lesson.grade}</span>` : ''}
+      <span class="lesson-tag">קוד ${lesson.code}</span>
     `;
     div.onclick = () => selectLesson(div, lesson);
     list.appendChild(div);
   });
 }
 
-function selectLesson(el, lesson) {
+window.selectLesson = function(el, lesson) {
   document.querySelectorAll('.lesson-item').forEach(i => i.classList.remove('selected'));
   el.classList.add('selected');
   selectedLesson = lesson;
@@ -342,7 +344,7 @@ function selectLesson(el, lesson) {
   updateButtons();
 }
 
-function selectMode(mode) {
+window.selectMode = function(mode) {
   selectedMode = mode;
   document.getElementById('mode-live').className = 'mode-card' + (mode==='live' ? ' sel-live' : '');
   document.getElementById('mode-self').className = 'mode-card' + (mode==='self' ? ' sel-self' : '');
@@ -360,7 +362,7 @@ function resetLaunchBtn() {
   btn.disabled = !selectedLesson;
 }
 
-async function launchLesson() {
+window.launchLesson = async function() {
   if (!selectedLesson) return;
   const btn = document.getElementById('btn-launch');
   btn.disabled = true;
@@ -370,14 +372,19 @@ async function launchLesson() {
     const code = Math.floor(1000 + Math.random() * 9000).toString();
     activeCode = code;
 
-    await db.ref(`teacher_codes/${code}`).set({
-      lessonID:    selectedLesson.id,
-      lessonTitle: selectedLesson.title || selectedLesson.id,
-      mode:        selectedMode,
-      step:        0,
-      active:      true,
-      launchedAt:  Date.now()
+    const sessionMode = selectedMode === 'live' ? 'broadcast' : 'self';
+
+    const { error } = await sb.from('sessions').upsert({
+      code,
+      title:         selectedLesson.title,
+      slides:        selectedLesson.slides,
+      current_slide: 0,
+      mode:          sessionMode,
+      started:       true,
+      session_type:  selectedMode === 'live' ? 'live' : 'free'
     });
+
+    if (error) throw error;
 
     launched = true;
     btn.textContent = '✓ מופעל';
@@ -396,15 +403,13 @@ async function launchLesson() {
   }
 }
 
-async function enterTeacher() {
-  if (!launched) {
-    await launchLesson();
-  }
+window.enterTeacher = async function() {
+  if (!launched) await window.launchLesson();
   if (!activeCode) return;
   window.open(`${TEACHER_SCREEN}?code=${activeCode}&mode=${selectedMode}`, '_blank');
 }
 
-function copyCode() {
+window.copyCode = function() {
   const link = `${STUDENT_URL}?code=${activeCode}`;
   navigator.clipboard.writeText(link).then(() => {
     const btn = document.getElementById('btn-copy');
