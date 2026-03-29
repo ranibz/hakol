@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>בונה שיעור – כיתה חיה v5</title>
+<title>בונה שיעור – כיתה חיה v6</title>
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;700;900&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -119,6 +119,15 @@ header{background:rgba(255,255,255,0.75);backdrop-filter:blur(12px);border-botto
 .insert-btn.ib-box{border-color:var(--green-b);color:var(--green-t)}
 .insert-btn.ib-q{border-color:var(--pink-b);color:var(--pink-t)}
 .insert-btn.ib-del{border-color:var(--coral-b);color:var(--coral-t);background:rgba(255,224,216,0.5)}
+.q-modal{position:fixed;inset:0;background:rgba(20,10,40,.7);backdrop-filter:blur(4px);z-index:400;display:none;align-items:center;justify-content:center;padding:20px}
+.q-modal.open{display:flex}
+.q-box{background:#fff;border-radius:18px;padding:24px;width:100%;max-width:480px;direction:rtl}
+.q-box h4{font-size:16px;font-weight:800;color:#2a1a3a;margin-bottom:14px}
+.q-inp{width:100%;border:1.5px solid #e0d0f0;border-radius:10px;padding:10px;font-family:Heebo,sans-serif;font-size:14px;outline:none;direction:rtl;margin-bottom:10px}
+.q-inp:focus{border-color:#9030e0}
+.q-opts-list{display:flex;flex-direction:column;gap:6px;margin-bottom:10px}
+.q-opt-row{display:flex;gap:6px;align-items:center}
+.q-opt-row input{flex:1}
 .img-preview{margin-top:8px;display:flex;flex-wrap:wrap;gap:6px}
 .img-thumb{position:relative;display:inline-block}
 .img-thumb img{width:60px;height:60px;object-fit:cover;border-radius:8px;border:1.5px solid var(--border)}
@@ -139,7 +148,7 @@ header{background:rgba(255,255,255,0.75);backdrop-filter:blur(12px);border-botto
 </head>
 <body>
 <header>
-  <div class="logo">כיתה <em>חיה</em> — בונה שיעור <span style="font-size:11px;font-weight:400;color:var(--muted);vertical-align:middle">v5</span></div>
+  <div class="logo">כיתה <em>חיה</em> — בונה שיעור <span style="font-size:11px;font-weight:400;color:var(--muted);vertical-align:middle">v6</span></div>
   <div class="header-btns">
     <button class="btn btn-pink" onclick="loadLesson()">📂 פתח</button><button class="btn btn-big" onclick="window.openCreateModal()" style="background:linear-gradient(135deg,#d94fbf,#9030e0);color:#fff;border:none">✍️ צור שיעור</button><button class="btn btn-blue" onclick="loadJSON()" style="background:#eeddf8;color:#5810a0;border-color:#c8a8e8">📋 הדבק JSON</button><button class="btn btn-blue" onclick="window.openLibrary()" style="background:#ddf5ea;color:#185c38;border-color:#a8e0c8">📚 מאגר שיעורים</button>
     <button class="btn btn-blue" onclick="saveLesson()">💾 שמור</button>
@@ -175,6 +184,17 @@ header{background:rgba(255,255,255,0.75);backdrop-filter:blur(12px);border-botto
       <button class="insert-btn ib-q" onclick="insertMedia('link')">🔗 קישור</button>
       <button class="insert-btn ib-del" onclick="window.removeLastImg()" style="grid-column:span 2">🗑️ מחק תמונה אחרונה</button>
     </div>
+    <div style="margin-top:10px">
+      <span class="insert-label">שאלת בדיקה לשקף</span>
+      <div class="insert-grid">
+        <button class="insert-btn ib-q" onclick="window.addQuestion('open')" style="grid-column:span 2">❓ שאלה פתוחה</button>
+        <button class="insert-btn ib-q" onclick="window.addQuestion('mc')" style="grid-column:span 2">🔘 שאלה אמריקאית</button>
+        <button class="insert-btn ib-del" onclick="window.removeQuestion()" style="grid-column:span 2">🗑️ הסר שאלה</button>
+      </div>
+    </div>
+    <div id="question-preview" style="margin-top:8px;font-size:12px;color:var(--purple-t);display:none"></div>
+    <div style="display:none">
+    </div>
     <div class="divider"></div>
     <span class="sec-label">סוגי שקפים</span>
     <div class="type-card tc-b" draggable="true" ondragstart="dragType('broadcast')" onclick="addSlide('broadcast')"><div class="type-icon">📺</div><div><div class="type-name">שידור</div><div class="type-desc">תוכן / הסבר</div></div></div>
@@ -197,6 +217,23 @@ header{background:rgba(255,255,255,0.75);backdrop-filter:blur(12px);border-botto
   <div class="editor">
     <span class="ed-label">עריכת שקף</span>
     <div id="editor-content"><div class="ed-empty">בחר שקף מהרשימה</div></div>
+  </div>
+</div>
+<div class="q-modal" id="q-modal">
+  <div class="q-box">
+    <h4 id="q-modal-title">❓ שאלה פתוחה</h4>
+    <input class="q-inp" id="q-text" placeholder="טקסט השאלה...">
+    <div id="q-opts-wrap" style="display:none">
+      <div class="q-opts-list" id="q-opts-list">
+        <div class="q-opt-row"><input class="q-inp" placeholder="אפשרות 1"><button onclick="this.parentElement.remove()" style="border:none;background:#fee;border-radius:8px;padding:4px 8px;cursor:pointer">✕</button></div>
+        <div class="q-opt-row"><input class="q-inp" placeholder="אפשרות 2"><button onclick="this.parentElement.remove()" style="border:none;background:#fee;border-radius:8px;padding:4px 8px;cursor:pointer">✕</button></div>
+      </div>
+      <button onclick="window.addQOpt()" style="font-size:12px;color:#5810a0;background:none;border:none;cursor:pointer">+ הוסף אפשרות</button>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px">
+      <button onclick="document.getElementById('q-modal').classList.remove('open')" style="padding:8px 16px;border-radius:10px;background:#f0e8f8;color:#5810a0;border:none;font-weight:700;cursor:pointer">ביטול</button>
+      <button onclick="window.saveQuestion()" style="padding:8px 20px;border-radius:10px;background:linear-gradient(135deg,#d94fbf,#9030e0);color:#fff;border:none;font-weight:700;cursor:pointer">הוסף שאלה ✓</button>
+    </div>
   </div>
 </div>
 <div class="library-modal" id="library-modal">
@@ -444,6 +481,45 @@ const LESSON_LIBRARY = [
   }
 ];
 
+let currentQType='open';
+window.addQuestion=type=>{
+  if(activeIdx===null||!slides[activeIdx]){alert('בחר שקף broadcast תחילה');return}
+  if(slides[activeIdx].type!=='broadcast'){alert('שאלת בדיקה תתאפשר רק בשקף שידור');return}
+  currentQType=type;
+  document.getElementById('q-modal-title').textContent=type==='open'?'❓ שאלה פתוחה':'🔘 שאלה אמריקאית';
+  document.getElementById('q-opts-wrap').style.display=type==='mc'?'block':'none';
+  document.getElementById('q-text').value=slides[activeIdx].question?.text||'';
+  document.getElementById('q-modal').classList.add('open');
+};
+window.addQOpt=()=>{
+  const row=document.createElement('div');
+  row.className='q-opt-row';
+  const n=document.querySelectorAll('#q-opts-list .q-opt-row').length+1;
+  row.innerHTML=`<input class="q-inp" placeholder="אפשרות ${n}"><button onclick="this.parentElement.remove()" style="border:none;background:#fee;border-radius:8px;padding:4px 8px;cursor:pointer">✕</button>`;
+  document.getElementById('q-opts-list').appendChild(row);
+};
+window.saveQuestion=()=>{
+  const text=document.getElementById('q-text').value.trim();
+  if(!text){alert('כתוב את השאלה');return}
+  const q={type:currentQType,text};
+  if(currentQType==='mc'){
+    const opts=[...document.querySelectorAll('#q-opts-list .q-opt-row input')].map(i=>i.value.trim()).filter(Boolean);
+    if(opts.length<2){alert('הוסף לפחות 2 אפשרויות');return}
+    q.options=opts;
+  }
+  slides[activeIdx].question=q;
+  ra();
+  const preview=document.getElementById('question-preview');
+  preview.style.display='block';
+  preview.textContent=`✓ שאלה: ${text}`;
+  document.getElementById('q-modal').classList.remove('open');
+};
+window.removeQuestion=()=>{
+  if(activeIdx===null)return;
+  delete slides[activeIdx].question;
+  ra();
+  document.getElementById('question-preview').style.display='none';
+};
 window.openLibrary=()=>{
   const el=document.getElementById('library-list');
   el.innerHTML=LESSON_LIBRARY.map(lesson=>`

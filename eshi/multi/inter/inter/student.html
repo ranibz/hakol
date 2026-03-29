@@ -70,6 +70,16 @@ body{background:linear-gradient(135deg,#fde8f5 0%,#e8f0fd 35%,#e8fdf0 70%,#fdf5e
 .sub-btn:hover{box-shadow:0 6px 18px rgba(50,180,100,.3);transform:translateY(-2px)}
 .sub-msg{text-align:center;padding:20px;color:var(--green-t);font-size:15px;font-weight:800;background:var(--green);border-radius:16px;border:1.5px solid var(--green-b)}
 .free-card{background:rgba(255,255,255,.65);border:1.5px solid var(--yellow-b);border-radius:18px;padding:24px;text-align:center;margin-top:8px}
+.inline-q{background:rgba(255,255,255,0.75);border:1.5px solid var(--purple-b);border-radius:16px;padding:16px;margin-top:16px}
+.inline-q .iq-title{font-size:15px;font-weight:800;color:var(--purple-t);margin-bottom:10px}
+.inline-q .iq-open textarea{width:100%;border:1.5px solid var(--border);border-radius:10px;padding:10px;font-family:Heebo,sans-serif;font-size:14px;resize:none;outline:none;direction:rtl;min-height:80px}
+.inline-q .iq-open textarea:focus{border-color:var(--purple-b)}
+.inline-q .iq-opts{display:flex;flex-direction:column;gap:8px}
+.inline-q .iq-opt{padding:12px 16px;border-radius:12px;border:1.5px solid var(--border);background:rgba(255,255,255,0.7);font-size:14px;font-weight:600;cursor:pointer;text-align:right;transition:all .15s}
+.inline-q .iq-opt:hover{background:var(--purple);border-color:var(--purple-b)}
+.inline-q .iq-opt.sel{background:var(--purple);border-color:var(--purple-b);color:var(--purple-t)}
+.inline-q .iq-submit{margin-top:10px;padding:10px 24px;border-radius:12px;background:var(--purple-t);color:#fff;border:none;font-size:14px;font-weight:700;cursor:pointer;width:100%}
+.inline-q .iq-done{text-align:center;color:var(--green-t);font-weight:700;font-size:14px;padding:8px}
 .free-icon{font-size:40px;margin-bottom:10px}.free-card p{font-size:14px;color:var(--yellow-t);line-height:1.7;font-weight:700}
 .sl-body img{max-width:100%;border-radius:12px;margin:10px 0;display:block}
 .sl-body .video-wrap{position:relative;padding-bottom:56.25%;height:0;overflow:hidden;border-radius:12px;margin:10px 0}
@@ -196,6 +206,18 @@ async function renderSlide(data){
 
   if(slide.type==='broadcast'){
     h=`<div class="sl-title">${slide.title||''}</div><div class="sl-body">${processContent(slide.content||'')} </div>`;
+    if(slide.question){
+      const qKey=`q_${idx}`;
+      const done=mySubs[qKey];
+      if(done){
+        h+=`<div class="inline-q"><div class="iq-done">✓ תשובתך נשמרה!</div></div>`;
+      } else if(slide.question.type==='open'){
+        h+=`<div class="inline-q"><div class="iq-title">❓ ${slide.question.text}</div><div class="iq-open"><textarea id="iq-ta-${idx}" placeholder="כתוב את תשובתך..."></textarea></div><button class="iq-submit" onclick="submitInlineQ(${idx},'open')">הגש ✓</button></div>`;
+      } else if(slide.question.type==='mc'){
+        const opts=(slide.question.options||[]).map((o,i)=>`<div class="iq-opt${myVotes['iq_'+idx]===i?' sel':''}" onclick="selectIQ(${idx},${i})">${o}</div>`).join('');
+        h+=`<div class="inline-q"><div class="iq-title">❓ ${slide.question.text}</div><div class="iq-opts">${opts}</div><button class="iq-submit" onclick="submitInlineQ(${idx},'mc')">הגש ✓</button></div>`;
+      }
+    }
   }
   else if(slide.type==='vote'){
     h=`<div class="sl-title">${slide.title||''}</div><div class="sl-body">${processContent(slide.content||'')} </div>`;
@@ -236,6 +258,31 @@ async function renderSlide(data){
   view.innerHTML=h;
 }
 
+window.selectIQ=(idx,i)=>{
+  myVotes['iq_'+idx]=i;
+  renderSlide(session);
+};
+window.submitInlineQ=async(idx,type)=>{
+  const qKey=`q_${idx}`;
+  let answer='';
+  if(type==='open'){
+    answer=document.getElementById(`iq-ta-${idx}`)?.value?.trim();
+    if(!answer)return;
+  } else {
+    const choice=myVotes['iq_'+idx];
+    if(choice===undefined){alert('בחר תשובה');return;}
+    answer=session.slides[idx].question.options[choice];
+  }
+  mySubs[qKey]=true;
+  await sb.from('responses').upsert({
+    id:`${sid}_q_${idx}`,
+    session_code:myCode,
+    slide_idx:idx,
+    student_name:myName,
+    answer:`[שאלת בדיקה] ${answer}`
+  });
+  renderSlide(session);
+};
 window.castVote=async(slideIdx,choice)=>{
   if(myVotes[slideIdx]!==undefined)return;
   myVotes[slideIdx]=choice;
