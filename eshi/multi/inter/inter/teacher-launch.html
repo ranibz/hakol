@@ -1,4 +1,4 @@
-<!-- version: 4 -->
+<!-- version: 5 -->
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
@@ -569,28 +569,10 @@
     <span class="dot"></span>
     כיתה חיה
   </div>
-  <div id="header-teacher" style="display:none" class="teacher-info">
-    <span>שלום, <span class="teacher-name" id="teacher-display-name">—</span></span>
-    <button id="btn-logout">יציאה</button>
-  </div>
-  <span style="font-size:.7rem;color:#444;margin-right:auto">v4</span>
+  <span style="font-size:.7rem;color:#444;margin-right:auto">v5</span>
 </header>
 
-<!-- ══════════ LOGIN ══════════ -->
-<div id="screen-login" style="width:100%;">
-  <div class="login-card">
-    <h2>כניסת מורה</h2>
-    <p>הזן את קוד המורה שלך</p>
 
-    <div class="field">
-      <label>קוד מורה</label>
-      <input type="text" id="inp-code" placeholder="לדוגמה: teacher_abc123" autocomplete="off">
-    </div>
-
-    <button class="btn-primary" id="btn-login" onclick="doLogin()">כניסה</button>
-    <div id="login-error"></div>
-  </div>
-</div>
 
 <!-- ══════════ APP ══════════ -->
 <main id="screen-app">
@@ -700,79 +682,15 @@ firebase.initializeApp(FIREBASE_CONFIG);
 const db = firebase.database();
 const sbClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-let currentTeacherID = null;
-let currentTeacherName = '';
 let selectedLesson = null;
 let selectedMode = 'live';
 let activeClassCode = null;
 let launched = false;
 
-// ══════════════════════════════════════════════
-//  LOGIN — קוד מורה בלבד
-// ══════════════════════════════════════════════
-async function doLogin() {
-  const code  = document.getElementById('inp-code').value.trim();
-  const errEl = document.getElementById('login-error');
-  errEl.textContent = '';
-
-  if (!code) { errEl.textContent = 'נא להזין קוד מורה'; return; }
-
-  document.getElementById('btn-login').disabled = true;
-  document.getElementById('btn-login').textContent = 'מתחבר...';
-
-  try {
-    const snap = await db.ref(`teachers/${code}`).once('value');
-    if (!snap.exists()) throw new Error('קוד מורה לא נמצא');
-
-    const data = snap.val();
-    currentTeacherID   = code;
-    currentTeacherName = data.name || data.displayName || code;
-
-    sessionStorage.setItem('tl_teacherID',   currentTeacherID);
-    sessionStorage.setItem('tl_teacherName', currentTeacherName);
-
-    showApp();
-  } catch(e) {
-    errEl.textContent = e.message || 'שגיאת כניסה';
-    document.getElementById('btn-login').disabled = false;
-    document.getElementById('btn-login').textContent = 'כניסה';
-  }
-}
-
-document.getElementById('inp-code').addEventListener('keydown', e => {
-  if (e.key === 'Enter') doLogin();
-});
-
-// ══════════════════════════════════════════════
-//  SESSION RESTORE
-// ══════════════════════════════════════════════
 window.addEventListener('DOMContentLoaded', () => {
-  const tid  = sessionStorage.getItem('tl_teacherID');
-  const name = sessionStorage.getItem('tl_teacherName');
-  if (tid) {
-    currentTeacherID   = tid;
-    currentTeacherName = name || tid;
-    showApp();
-  }
-});
-
-// ══════════════════════════════════════════════
-//  SHOW APP
-// ══════════════════════════════════════════════
-function showApp() {
-  document.getElementById('screen-login').style.display = 'none';
-  document.getElementById('screen-app').style.display   = 'flex';
-  document.getElementById('screen-app').style.flexDirection = 'column';
-  document.getElementById('header-teacher').style.display   = 'flex';
-  document.getElementById('teacher-display-name').textContent = currentTeacherName;
   loadLessons();
   updateSummary();
-}
-
-document.getElementById('btn-logout').onclick = () => {
-  sessionStorage.clear();
-  location.reload();
-};
+});
 
 // ══════════════════════════════════════════════
 //  LOAD LESSONS FROM SUPABASE
@@ -883,21 +801,19 @@ async function launchLesson() {
   setStatus('מפעיל שיעור...');
 
   try {
-    // קוד כיתה: teacherID_lessonID
-    const code = `${currentTeacherID}_${selectedLesson.id}`;
+    // קוד אקראי 4 ספרות
+    const code = Math.floor(1000 + Math.random() * 9000).toString();
     activeClassCode = code;
 
     const sessionData = {
-      lessonID:   selectedLesson.id,
+      lessonID:    selectedLesson.id,
       lessonTitle: selectedLesson.title,
-      teacherID:  currentTeacherID,
-      mode:       selectedMode,
-      step:       0,
-      active:     true,
-      launchedAt: Date.now()
+      mode:        selectedMode,
+      step:        0,
+      active:      true,
+      launchedAt:  Date.now()
     };
 
-    // שמירה ב-Firebase תחת teacher_codes
     await db.ref(`teacher_codes/${code}`).set(sessionData);
 
     // עדכון תצוגה
