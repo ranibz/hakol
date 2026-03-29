@@ -1,4 +1,4 @@
-<!-- version: 3 -->
+<!-- version: 4 -->
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
@@ -573,22 +573,18 @@
     <span>שלום, <span class="teacher-name" id="teacher-display-name">—</span></span>
     <button id="btn-logout">יציאה</button>
   </div>
-  <span style="font-size:.7rem;color:#444;margin-right:auto">v3</span>
+  <span style="font-size:.7rem;color:#444;margin-right:auto">v4</span>
 </header>
 
 <!-- ══════════ LOGIN ══════════ -->
 <div id="screen-login" style="width:100%;">
   <div class="login-card">
     <h2>כניסת מורה</h2>
-    <p>כיתה חיה — מערכת ניהול שיעורים</p>
+    <p>הזן את קוד המורה שלך</p>
 
     <div class="field">
-      <label>מספר טלפון</label>
-      <input type="text" id="inp-phone" placeholder="05X-XXXXXXX" inputmode="tel">
-    </div>
-    <div class="field">
-      <label>סיסמה</label>
-      <input type="password" id="inp-pass" placeholder="••••••••">
+      <label>קוד מורה</label>
+      <input type="text" id="inp-code" placeholder="לדוגמה: teacher_abc123" autocomplete="off">
     </div>
 
     <button class="btn-primary" id="btn-login" onclick="doLogin()">כניסה</button>
@@ -712,32 +708,25 @@ let activeClassCode = null;
 let launched = false;
 
 // ══════════════════════════════════════════════
-//  LOGIN
+//  LOGIN — קוד מורה בלבד
 // ══════════════════════════════════════════════
 async function doLogin() {
-  const phone = document.getElementById('inp-phone').value.trim().replace(/-/g,'');
-  const pass  = document.getElementById('inp-pass').value.trim();
+  const code  = document.getElementById('inp-code').value.trim();
   const errEl = document.getElementById('login-error');
   errEl.textContent = '';
 
-  if (!phone || !pass) { errEl.textContent = 'נא למלא טלפון וסיסמה'; return; }
+  if (!code) { errEl.textContent = 'נא להזין קוד מורה'; return; }
 
   document.getElementById('btn-login').disabled = true;
   document.getElementById('btn-login').textContent = 'מתחבר...';
 
   try {
-    const snap = await db.ref('teachers').orderByChild('phone').equalTo(phone).once('value');
-    if (!snap.exists()) throw new Error('מספר טלפון לא נמצא');
+    const snap = await db.ref(`teachers/${code}`).once('value');
+    if (!snap.exists()) throw new Error('קוד מורה לא נמצא');
 
-    let teacherID = null, teacherData = null;
-    snap.forEach(child => {
-      if (child.val().password === pass) { teacherID = child.key; teacherData = child.val(); }
-    });
-
-    if (!teacherID) throw new Error('סיסמה שגויה');
-
-    currentTeacherID   = teacherID;
-    currentTeacherName = teacherData.name || teacherData.displayName || phone;
+    const data = snap.val();
+    currentTeacherID   = code;
+    currentTeacherName = data.name || data.displayName || code;
 
     sessionStorage.setItem('tl_teacherID',   currentTeacherID);
     sessionStorage.setItem('tl_teacherName', currentTeacherName);
@@ -750,7 +739,7 @@ async function doLogin() {
   }
 }
 
-document.getElementById('inp-pass').addEventListener('keydown', e => {
+document.getElementById('inp-code').addEventListener('keydown', e => {
   if (e.key === 'Enter') doLogin();
 });
 
