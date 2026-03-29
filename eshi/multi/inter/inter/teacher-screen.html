@@ -1,4 +1,4 @@
-<!-- version: 3 -->
+<!-- version: 4 -->
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
@@ -110,7 +110,7 @@
   <span class="lesson-title" id="h-title">טוען...</span>
   <span class="mode-badge" id="h-mode">—</span>
   <div class="header-right">
-    <span class="ver">v3</span>
+    <span class="ver">v4</span>
   </div>
 </header>
 
@@ -119,8 +119,8 @@
   <!-- עמודה ראשית -->
   <div style="display:flex;flex-direction:column;gap:16px;">
 
-    <!-- ניווט שקפים (מצב חי בלבד) -->
-    <div class="card" id="nav-card" style="display:none">
+    <!-- ניווט שקפים -->
+    <div class="card" id="nav-card">
       <div class="card-title">שליטה בשקף</div>
       <div class="slide-nav">
         <button class="btn-nav" id="btn-prev" onclick="moveSlide(-1)">→ הקודם</button>
@@ -130,6 +130,11 @@
         </div>
         <button class="btn-nav" id="btn-next" onclick="moveSlide(1)">← הבא</button>
       </div>
+      <button onclick="advanceAll()" style="width:100%;padding:10px;background:#f0f2f5;border:1.5px solid var(--border);border-radius:8px;font-family:Heebo,sans-serif;font-weight:700;font-size:.88rem;cursor:pointer;color:var(--text);margin-top:4px;transition:all .15s;"
+        onmouseover="this.style.background='#fffbf0';this.style.borderColor='var(--accent)'"
+        onmouseout="this.style.background='#f0f2f5';this.style.borderColor='var(--border)'">
+        📣 העבר את כולם לשקף הבא
+      </button>
     </div>
 
     <!-- תוכן השקף הנוכחי -->
@@ -170,9 +175,9 @@
         </div>
         <div class="answer-box" id="answer-box"><span class="answer-empty">אין תגובה עדיין</span></div>
 
-        <!-- אישור מעבר (פרטני) -->
+        <!-- אישור מעבר (פרטני) — תמיד מוצג במצב פרטני -->
         <button id="btn-approve" onclick="approveStudent()" style="display:none;width:100%;padding:11px;background:linear-gradient(135deg,#1a9e4a,#157a3a);color:#fff;border:none;border-radius:8px;font-family:Heebo,sans-serif;font-weight:800;font-size:.95rem;cursor:pointer;margin-bottom:10px;">
-          ✅ אשר מעבר לשקף הבא
+          ✅ שחרר לשקף הבא
         </button>
 
         <div style="font-size:.75rem;color:var(--muted);margin-bottom:6px">הערת מורה:</div>
@@ -367,16 +372,58 @@ window.selectStudent = function(name) {
   const ans = s.answers[currentSlide];
   answerBox.innerHTML = ans ? ans : '<span class="answer-empty">אין תגובה עדיין</span>';
 
-  // כפתור אישור — רק במצב פרטני ואם יש תגובה
+  // כפתור שחרור — מוצג תמיד במצב פרטני
   const approveBtn = document.getElementById('btn-approve');
   if (approveBtn) {
-    approveBtn.style.display = (session?.session_type === 'personal' && ans) ? '' : 'none';
+    approveBtn.style.display = session?.session_type === 'personal' ? '' : 'none';
   }
 
   document.getElementById('feedback-ta').value = s.feedback[currentSlide] || '';
   document.getElementById('feedback-sent').textContent = '';
-
   loadChat(name);
+};
+
+window.approveStudent = async function() {
+  if (!selectedStudent) return;
+  const nextSlide = currentSlide + 1;
+
+  // שמירת אישור + הקדמה לשקף הבא עבור התלמיד
+  await sb.from('student_responses').upsert({
+    session_code: CODE,
+    student_name: selectedStudent,
+    slide_index: currentSlide,
+    approved: true
+  }, { onConflict: 'session_code,student_name,slide_index' });
+
+  document.getElementById('feedback-sent').textContent = `✅ ${selectedStudent} שוחרר לשקף הבא`;
+  document.getElementById('btn-approve').textContent = '✓ שוחרר';
+  setTimeout(() => {
+    document.getElementById('feedback-sent').textContent = '';
+    document.getElementById('btn-approve').textContent = '✅ שחרר לשקף הבא';
+  }, 3000);
+};
+
+window.advanceAll = async function() {
+  if (!session?.slides) return;
+  const next = currentSlide + 1;
+  if (next >= session.slides.length) return;
+
+  await sb.from('sessions').update({ current_slide: next }).eq('code', CODE);
+  currentSlide = next;
+  updateSlideUI();
+
+  // אם מצב פרטני — שחרר גם את כולם
+  if (session?.session_type === 'personal') {
+    const names = Object.keys(students);
+    for (const name of names) {
+      await sb.from('student_responses').upsert({
+        session_code: CODE,
+        student_name: name,
+        slide_index: currentSlide - 1,
+        approved: true
+      }, { onConflict: 'session_code,student_name,slide_index' });
+    }
+  }
 };
 
 window.sendFeedback = async function() {
