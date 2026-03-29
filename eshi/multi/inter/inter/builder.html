@@ -84,6 +84,20 @@ header{background:rgba(255,255,255,0.75);backdrop-filter:blur(12px);border-botto
 .btn-big{padding:13px 28px;border-radius:28px;font-size:15px;background:linear-gradient(135deg,#c8a0f0,#f0a0d0);border:none;color:#4a0a7a;box-shadow:0 4px 16px rgba(180,100,220,.25)}
 .btn-big:hover{box-shadow:0 6px 20px rgba(180,100,220,.35);transform:translateY(-2px)}
 .overlay{position:fixed;inset:0;background:rgba(80,30,120,.25);backdrop-filter:blur(4px);z-index:200;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s}
+.create-modal{position:fixed;inset:0;background:rgba(20,10,40,.7);backdrop-filter:blur(6px);z-index:300;display:none;align-items:center;justify-content:center;padding:20px}
+.create-modal.open{display:flex}
+.create-box{background:#fff;border-radius:20px;padding:28px;width:100%;max-width:520px;direction:rtl}
+.create-box h3{font-size:18px;font-weight:800;color:#2a1a3a;margin-bottom:6px}
+.create-box p{font-size:13px;color:#7a6a8a;margin-bottom:16px;line-height:1.6}
+.create-ta{width:100%;min-height:130px;border:1.5px solid #e0d0f0;border-radius:12px;padding:12px 14px;font-family:Heebo,sans-serif;font-size:14px;color:#2a1a3a;resize:vertical;outline:none;direction:rtl}
+.create-ta:focus{border-color:#9030e0}
+.create-opts{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+.copt{padding:6px 14px;border-radius:20px;border:1.5px solid #e0d0f0;font-size:12px;font-weight:700;cursor:pointer;color:#7a6a8a;transition:all .15s}
+.copt.sel{background:#eeddf8;border-color:#c8a8e8;color:#5810a0}
+.create-footer{display:flex;gap:8px;justify-content:flex-end;margin-top:16px}
+.btn-create{padding:10px 24px;border-radius:12px;background:linear-gradient(135deg,#d94fbf,#9030e0);color:#fff;font-size:14px;font-weight:800;border:none;cursor:pointer}
+.btn-cancel{padding:10px 18px;border-radius:12px;background:#f0e8f8;color:#5810a0;font-size:14px;font-weight:700;border:none;cursor:pointer}
+.create-loading{text-align:center;padding:20px;font-size:14px;color:#9030e0;font-weight:700;display:none}
 .overlay.open{opacity:1;pointer-events:all}
 .modal{background:linear-gradient(135deg,#fde8f8,#e8effe);border:1.5px solid rgba(255,255,255,.9);border-radius:24px;padding:28px 24px;width:92%;max-width:380px;transform:scale(.96);transition:transform .2s;box-shadow:0 20px 60px rgba(100,40,160,.15)}
 .overlay.open .modal{transform:scale(1)}
@@ -96,7 +110,7 @@ header{background:rgba(255,255,255,0.75);backdrop-filter:blur(12px);border-botto
 <header>
   <div class="logo">כיתה <em>חיה</em> — בונה שיעור</div>
   <div class="header-btns">
-    <button class="btn btn-pink" onclick="loadLesson()">📂 פתח</button><button class="btn btn-blue" onclick="loadJSON()" style="background:#eeddf8;color:#5810a0;border-color:#c8a8e8">📋 הדבק JSON</button>
+    <button class="btn btn-pink" onclick="loadLesson()">📂 פתח</button><button class="btn btn-big" onclick="window.openCreateModal()" style="background:linear-gradient(135deg,#d94fbf,#9030e0);color:#fff;border:none">✍️ צור שיעור</button><button class="btn btn-blue" onclick="loadJSON()" style="background:#eeddf8;color:#5810a0;border-color:#c8a8e8">📋 הדבק JSON</button>
     <button class="btn btn-blue" onclick="saveLesson()">💾 שמור</button>
     <button class="btn btn-big" onclick="launchLesson()">▶ הפעל שיעור</button>
   </div>
@@ -137,6 +151,23 @@ header{background:rgba(255,255,255,0.75);backdrop-filter:blur(12px);border-botto
   <div class="editor">
     <span class="ed-label">עריכת שקף</span>
     <div id="editor-content"><div class="ed-empty">בחר שקף מהרשימה</div></div>
+  </div>
+</div>
+<div class="create-modal" id="create-modal">
+  <div class="create-box">
+    <h3>✍️ צור שיעור עם AI</h3>
+    <p>תאר את הנושא, רמת הכיתה והמטרות — ה-AI יבנה שיעור מלא של 6-8 שקפים</p>
+    <textarea class="create-ta" id="create-input" placeholder="לדוגמה: נושא: מסגור תקשורתי. רמה: כיתה י׳. מטרה: להבין איך התקשורת בוחרת זווית. כלול שאלת פתיחה, הסברים, הצבעות ומשימת סיכום."></textarea>
+    <div class="create-opts">
+      <div class="copt sel" data-val="6" onclick="selNum(this)">6 שקפים</div>
+      <div class="copt" data-val="8" onclick="selNum(this)">8 שקפים</div>
+      <div class="copt" data-val="10" onclick="selNum(this)">10 שקפים</div>
+    </div>
+    <div class="create-loading" id="create-loading">⏳ ה-AI בונה את השיעור...</div>
+    <div class="create-footer">
+      <button class="btn-cancel" onclick="window.closeCreateModal()">ביטול</button>
+      <button class="btn-create" onclick="window.generateLesson()">צור שיעור ✨</button>
+    </div>
   </div>
 </div>
 <div class="overlay" id="launch-modal">
@@ -254,6 +285,64 @@ window.loadJSON=()=>{
     slides=parsed.map(s=>({id:Date.now()+Math.random(),type:s.type||'broadcast',title:s.title||'',content:s.content||'',options:s.options||[],timer:s.timer||0}));
     activeIdx=0;ra();
   }catch(e){alert('שגיאה: '+e.message);}
+};
+window.openCreateModal=()=>document.getElementById('create-modal').classList.add('open');
+window.closeCreateModal=()=>document.getElementById('create-modal').classList.remove('open');
+
+window.selNum=el=>{
+  document.querySelectorAll('.copt').forEach(e=>e.classList.remove('sel'));
+  el.classList.add('sel');
+};
+
+window.generateLesson=async()=>{
+  const input=document.getElementById('create-input').value.trim();
+  if(!input){alert('נא לתאר את הנושא');return}
+  const num=document.querySelector('.copt.sel')?.dataset.val||'8';
+  document.getElementById('create-loading').style.display='block';
+  document.querySelector('.btn-create').disabled=true;
+  try{
+    const resp=await fetch('https://kitah-haya-gemini.ranbenzeev.workers.dev',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        model:'claude-sonnet-4-20250514',
+        max_tokens:1000,
+        system:`אתה בונה שיעורים אינטראקטיביים לכיתה חיה. החזר JSON בלבד — מערך של ${num} שקפים.
+כל שקף הוא אחד מ-4 סוגים:
+- broadcast: הצגת תוכן. שדות: type, title, content (HTML פשוט עם <strong>, <br>, <div class='box box-blue'> וכו')
+- vote: הצבעה. שדות: type, title, content, options (מערך של 2-4 מחרוזות)
+- task: משימת כתיבה. שדות: type, title, content, timer (שניות: 60/90/120/180)
+- free: עבודה עצמאית. שדות: type, title, content
+
+כללים:
+- התחל תמיד בשקף broadcast פותח
+- סיים תמיד בשקף task סיכום
+- שלב בין סוגי שקפים
+- תוכן עשיר ומעניין בעברית
+- החזר JSON בלבד, בלי טקסט נוסף`,
+        messages:[{role:'user',content:`בנה שיעור על פי ההגדרות הבאות:
+${input}`}]
+      })
+    });
+    const data=await resp.json();
+    const raw=data.content?.[0]?.text||'[]';
+    const arrStart=raw.indexOf('[');
+    const arrEnd=raw.lastIndexOf(']');
+    if(arrStart===-1||arrEnd===-1)throw new Error('לא נמצא JSON');
+    const parsed=JSON.parse(raw.slice(arrStart,arrEnd+1));
+    slides=parsed.map(s=>({id:Date.now()+Math.random(),type:s.type||'broadcast',title:s.title||'',content:s.content||'',options:s.options||[],timer:s.timer||0}));
+    const titleMatch=input.match(/נושא[:\s]+([^\.
+]+)/);
+    if(titleMatch)document.getElementById('lesson-title').value=titleMatch[1].trim();
+    activeIdx=0;ra();
+    window.closeCreateModal();
+    alert('✅ נוצרו '+slides.length+' שקפים!');
+  }catch(err){
+    alert('שגיאה: '+err.message);
+  }finally{
+    document.getElementById('create-loading').style.display='none';
+    document.querySelector('.btn-create').disabled=false;
+  }
 };
 window.closeLaunch=()=>document.getElementById('launch-modal').classList.remove('open');
 
