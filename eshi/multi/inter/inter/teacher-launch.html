@@ -136,7 +136,9 @@
   .empty { color:var(--muted); font-size:.9rem; padding:12px 0; }
 
   /* מצב */
-  .mode-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .mode-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+  .mode-card.sel-personal { border-color: #8a10b0; background: #fce8fe; }
+  .mode-card.sel-personal .mode-label { color: #8a10b0; }
 
   .mode-card {
     padding: 16px;
@@ -216,7 +218,7 @@
 
   #status { font-size: .85rem; color: var(--muted); margin-top: 10px; min-height: 18px; }
 
-  @media(max-width:560px){
+  @media(max-width:600px){
     .mode-row{grid-template-columns:1fr;}
     .action-row{flex-direction:column;}
   }
@@ -226,7 +228,7 @@
 
 <header>
   <div class="logo"><span class="dot"></span> כיתה חיה</div>
-  <span class="ver">v9</span>
+  <span class="ver">v10</span>
 </header>
 
 <main>
@@ -244,14 +246,21 @@
       <div class="mode-card sel-live" id="mode-live" onclick="selectMode('live')">
         <div class="mode-icon">📡</div>
         <div>
-          <div class="mode-label">מצב חי</div>
-          <div class="mode-desc">המורה שולט בקצב. התלמידים עוקבים בזמן אמת.</div>
+          <div class="mode-label">חי קבוצתי</div>
+          <div class="mode-desc">המורה מקדם שקף לכולם יחד.</div>
+        </div>
+      </div>
+      <div class="mode-card" id="mode-personal" onclick="selectMode('personal')">
+        <div class="mode-icon">✋</div>
+        <div>
+          <div class="mode-label">חי פרטני</div>
+          <div class="mode-desc">תלמיד עובר שקף רק אחרי אישור מורה.</div>
         </div>
       </div>
       <div class="mode-card" id="mode-self" onclick="selectMode('self')">
         <div class="mode-icon">🧭</div>
         <div>
-          <div class="mode-label">מצב עצמאי</div>
+          <div class="mode-label">עצמאי</div>
           <div class="mode-desc">כל תלמיד מתקדם בקצב האישי שלו.</div>
         </div>
       </div>
@@ -347,8 +356,9 @@ window.selectLesson = function(el, lesson) {
 
 window.selectMode = function(mode) {
   selectedMode = mode;
-  document.getElementById('mode-live').className = 'mode-card' + (mode==='live' ? ' sel-live' : '');
-  document.getElementById('mode-self').className = 'mode-card' + (mode==='self' ? ' sel-self' : '');
+  document.getElementById('mode-live').className     = 'mode-card' + (mode==='live'     ? ' sel-live'     : '');
+  document.getElementById('mode-personal').className = 'mode-card' + (mode==='personal' ? ' sel-personal' : '');
+  document.getElementById('mode-self').className     = 'mode-card' + (mode==='self'     ? ' sel-self'     : '');
 }
 
 function updateButtons() {
@@ -373,7 +383,7 @@ window.launchLesson = async function() {
     const code = Math.floor(1000 + Math.random() * 9000).toString();
     activeCode = code;
 
-    const sessionMode = selectedMode === 'live' ? 'broadcast' : 'self';
+    const sessionMode = selectedMode === 'self' ? 'self' : 'broadcast';
 
     const { error } = await sb.from('sessions').upsert({
       code,
@@ -381,8 +391,8 @@ window.launchLesson = async function() {
       slides:        selectedLesson.slides,
       current_slide: 0,
       mode:          sessionMode,
-      started:       true,
-      session_type:  selectedMode === 'live' ? 'live' : 'free'
+      session_type:  selectedMode,
+      started:       true
     });
 
     if (error) throw error;
@@ -393,8 +403,8 @@ window.launchLesson = async function() {
 
     document.getElementById('code-val').textContent = code;
     document.getElementById('code-box').style.display = 'flex';
-    document.getElementById('status').textContent =
-      `✅ השיעור פעיל במצב ${selectedMode === 'live' ? 'חי 📡' : 'עצמאי 🧭'}`;
+    const modeLabel = selectedMode==='live' ? 'חי קבוצתי 📡' : selectedMode==='personal' ? 'חי פרטני ✋' : 'עצמאי 🧭';
+    document.getElementById('status').textContent = `✅ השיעור פעיל במצב ${modeLabel}`;
     document.getElementById('btn-teacher').disabled = false;
 
   } catch(e) {
