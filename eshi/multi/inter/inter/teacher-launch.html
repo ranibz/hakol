@@ -1,0 +1,974 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>כיתה חיה — הפעלת שיעור</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700;900&family=Assistant:wght@300;400;600&display=swap" rel="stylesheet">
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+
+<!-- Supabase -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --surface2: #1c2333;
+    --border: #30363d;
+    --accent: #f0a500;
+    --accent2: #e05a00;
+    --live: #3fb950;
+    --self: #58a6ff;
+    --text: #e6edf3;
+    --muted: #7d8590;
+    --danger: #f85149;
+    --radius: 10px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Assistant', sans-serif;
+    font-size: 16px;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  /* ─── HEADER ─── */
+  header {
+    width: 100%;
+    padding: 18px 28px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+  }
+
+  .logo {
+    font-family: 'Heebo', sans-serif;
+    font-weight: 900;
+    font-size: 1.35rem;
+    color: var(--accent);
+    letter-spacing: -.5px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .logo .dot {
+    width: 10px; height: 10px;
+    border-radius: 50%;
+    background: var(--live);
+    box-shadow: 0 0 8px var(--live);
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%,100% { opacity:1; transform:scale(1); }
+    50% { opacity:.5; transform:scale(.8); }
+  }
+
+  .teacher-info {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: .9rem;
+    color: var(--muted);
+  }
+
+  .teacher-name {
+    color: var(--text);
+    font-weight: 600;
+  }
+
+  #btn-logout {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 5px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: 'Assistant', sans-serif;
+    font-size: .85rem;
+    transition: all .2s;
+  }
+  #btn-logout:hover { border-color: var(--danger); color: var(--danger); }
+
+  /* ─── MAIN LAYOUT ─── */
+  main {
+    width: 100%;
+    max-width: 860px;
+    padding: 32px 20px 60px;
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+  }
+
+  /* ─── LOGIN SCREEN ─── */
+  #screen-login {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: calc(100vh - 70px);
+    width: 100%;
+    padding: 20px;
+  }
+
+  .login-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 40px 36px;
+    width: 100%;
+    max-width: 400px;
+  }
+
+  .login-card h2 {
+    font-family: 'Heebo', sans-serif;
+    font-weight: 700;
+    font-size: 1.5rem;
+    margin-bottom: 6px;
+    color: var(--accent);
+  }
+
+  .login-card p {
+    color: var(--muted);
+    font-size: .9rem;
+    margin-bottom: 28px;
+  }
+
+  .field {
+    margin-bottom: 16px;
+  }
+
+  label {
+    display: block;
+    font-size: .85rem;
+    color: var(--muted);
+    margin-bottom: 6px;
+    font-weight: 600;
+  }
+
+  input[type="text"], input[type="password"] {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 11px 14px;
+    color: var(--text);
+    font-family: 'Assistant', sans-serif;
+    font-size: 1rem;
+    outline: none;
+    transition: border-color .2s;
+    direction: ltr;
+    text-align: right;
+  }
+
+  input:focus { border-color: var(--accent); }
+  input::placeholder { color: var(--muted); }
+
+  .btn-primary {
+    width: 100%;
+    padding: 13px;
+    background: var(--accent);
+    color: #000;
+    border: none;
+    border-radius: var(--radius);
+    font-family: 'Heebo', sans-serif;
+    font-weight: 700;
+    font-size: 1rem;
+    cursor: pointer;
+    margin-top: 8px;
+    transition: background .2s, transform .1s;
+  }
+
+  .btn-primary:hover { background: #ffb800; }
+  .btn-primary:active { transform: scale(.98); }
+
+  #login-error {
+    color: var(--danger);
+    font-size: .85rem;
+    margin-top: 10px;
+    text-align: center;
+    min-height: 20px;
+  }
+
+  /* ─── APP SCREEN ─── */
+  #screen-app { display: none; }
+
+  /* ─── SECTION TITLES ─── */
+  .section-title {
+    font-family: 'Heebo', sans-serif;
+    font-weight: 700;
+    font-size: 1.05rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 14px;
+    font-size: .8rem;
+  }
+
+  /* ─── LESSON LIST ─── */
+  #lesson-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: 340px;
+    overflow-y: auto;
+    padding-left: 2px;
+  }
+
+  #lesson-list::-webkit-scrollbar { width: 5px; }
+  #lesson-list::-webkit-scrollbar-track { background: transparent; }
+  #lesson-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 10px; }
+
+  .lesson-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: border-color .18s, background .18s;
+    user-select: none;
+  }
+
+  .lesson-item:hover { border-color: #444c5c; background: var(--surface2); }
+
+  .lesson-item.selected {
+    border-color: var(--accent);
+    background: rgba(240,165,0,.07);
+  }
+
+  .lesson-radio {
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    border: 2px solid var(--border);
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: border-color .18s;
+  }
+
+  .lesson-item.selected .lesson-radio {
+    border-color: var(--accent);
+    background: var(--accent);
+  }
+
+  .lesson-item.selected .lesson-radio::after {
+    content: '';
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: #000;
+  }
+
+  .lesson-meta {
+    flex: 1;
+  }
+
+  .lesson-title {
+    font-weight: 600;
+    font-size: 1rem;
+    color: var(--text);
+  }
+
+  .lesson-sub {
+    font-size: .8rem;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+
+  .lesson-tag {
+    font-size: .75rem;
+    padding: 3px 9px;
+    border-radius: 20px;
+    background: var(--surface2);
+    color: var(--muted);
+    border: 1px solid var(--border);
+    white-space: nowrap;
+  }
+
+  /* ─── MODE SELECTOR ─── */
+  .mode-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .mode-card {
+    padding: 18px 20px;
+    border-radius: var(--radius);
+    border: 2px solid var(--border);
+    cursor: pointer;
+    transition: all .2s;
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+  }
+
+  .mode-card:hover { border-color: #444c5c; }
+
+  .mode-card.selected-live {
+    border-color: var(--live);
+    background: rgba(63,185,80,.06);
+  }
+
+  .mode-card.selected-self {
+    border-color: var(--self);
+    background: rgba(88,166,255,.06);
+  }
+
+  .mode-icon {
+    font-size: 1.6rem;
+    flex-shrink: 0;
+  }
+
+  .mode-label {
+    font-family: 'Heebo', sans-serif;
+    font-weight: 700;
+    font-size: 1rem;
+    margin-bottom: 4px;
+  }
+
+  .mode-card.selected-live .mode-label { color: var(--live); }
+  .mode-card.selected-self .mode-label { color: var(--self); }
+
+  .mode-desc {
+    font-size: .82rem;
+    color: var(--muted);
+    line-height: 1.4;
+  }
+
+  /* ─── LAUNCH PANEL ─── */
+  .launch-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+  }
+
+  .launch-summary {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 20px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+
+  .summary-item {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .summary-label {
+    font-size: .75rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: .5px;
+  }
+
+  .summary-val {
+    font-weight: 600;
+    font-size: .95rem;
+  }
+
+  .summary-sep {
+    width: 1px;
+    height: 36px;
+    background: var(--border);
+  }
+
+  .badge-live {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    background: rgba(63,185,80,.15);
+    color: var(--live);
+    font-size: .85rem;
+    font-weight: 600;
+    border: 1px solid rgba(63,185,80,.3);
+  }
+
+  .badge-self {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    background: rgba(88,166,255,.12);
+    color: var(--self);
+    font-size: .85rem;
+    font-weight: 600;
+    border: 1px solid rgba(88,166,255,.3);
+  }
+
+  .badge-live::before {
+    content: '';
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--live);
+    animation: pulse 1.5s infinite;
+  }
+
+  /* ─── ACTION BUTTONS ─── */
+  .action-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .btn-launch {
+    flex: 1;
+    min-width: 160px;
+    padding: 14px 20px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: #000;
+    border: none;
+    border-radius: var(--radius);
+    font-family: 'Heebo', sans-serif;
+    font-weight: 800;
+    font-size: 1.05rem;
+    cursor: pointer;
+    transition: opacity .2s, transform .1s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .btn-launch:hover { opacity: .9; }
+  .btn-launch:active { transform: scale(.98); }
+  .btn-launch:disabled { opacity: .4; cursor: default; }
+
+  .btn-teacher {
+    padding: 14px 20px;
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text);
+    border-radius: var(--radius);
+    font-family: 'Heebo', sans-serif;
+    font-weight: 600;
+    font-size: .95rem;
+    cursor: pointer;
+    transition: border-color .2s, background .2s;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .btn-teacher:hover {
+    border-color: var(--accent);
+    background: rgba(240,165,0,.06);
+  }
+
+  .btn-teacher:disabled { opacity: .4; cursor: default; }
+
+  /* ─── CLASS CODE BADGE ─── */
+  #code-display {
+    display: none;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    background: rgba(63,185,80,.08);
+    border: 1px solid rgba(63,185,80,.25);
+    border-radius: 8px;
+    margin-top: 14px;
+  }
+
+  #code-display .code-label { font-size: .8rem; color: var(--muted); }
+  #code-display .code-val {
+    font-family: 'Heebo', monospace;
+    font-weight: 800;
+    font-size: 1.4rem;
+    color: var(--live);
+    letter-spacing: 4px;
+  }
+
+  #btn-copy-code {
+    background: none;
+    border: 1px solid rgba(63,185,80,.3);
+    color: var(--live);
+    border-radius: 6px;
+    padding: 4px 10px;
+    font-size: .8rem;
+    cursor: pointer;
+    transition: background .2s;
+    font-family: 'Assistant', sans-serif;
+  }
+  #btn-copy-code:hover { background: rgba(63,185,80,.12); }
+
+  /* ─── LOADING / EMPTY ─── */
+  .loading-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--muted);
+    padding: 20px 0;
+    font-size: .9rem;
+  }
+
+  .spinner {
+    width: 18px; height: 18px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin .7s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .empty-msg {
+    color: var(--muted);
+    font-size: .9rem;
+    padding: 18px 0;
+    text-align: center;
+  }
+
+  /* ─── STATUS MSG ─── */
+  #status-msg {
+    font-size: .85rem;
+    min-height: 20px;
+    margin-top: 8px;
+    color: var(--muted);
+  }
+
+  /* ─── RESPONSIVE ─── */
+  @media (max-width: 600px) {
+    .mode-row { grid-template-columns: 1fr; }
+    .action-row { flex-direction: column; }
+    .launch-summary { gap: 12px; }
+    .summary-sep { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <span class="dot"></span>
+    כיתה חיה
+  </div>
+  <div class="teacher-info" id="header-teacher" style="display:none">
+    <span>שלום, <span class="teacher-name" id="teacher-display-name">—</span></span>
+    <button id="btn-logout">יציאה</button>
+  </div>
+</header>
+
+<!-- ══════════ LOGIN ══════════ -->
+<div id="screen-login" style="width:100%;">
+  <div class="login-card">
+    <h2>כניסת מורה</h2>
+    <p>כיתה חיה — מערכת ניהול שיעורים</p>
+
+    <div class="field">
+      <label>מספר טלפון</label>
+      <input type="text" id="inp-phone" placeholder="05X-XXXXXXX" inputmode="tel">
+    </div>
+    <div class="field">
+      <label>סיסמה</label>
+      <input type="password" id="inp-pass" placeholder="••••••••">
+    </div>
+
+    <button class="btn-primary" id="btn-login" onclick="doLogin()">כניסה</button>
+    <div id="login-error"></div>
+  </div>
+</div>
+
+<!-- ══════════ APP ══════════ -->
+<main id="screen-app">
+
+  <!-- 1. מאגר שיעורים -->
+  <section>
+    <div class="section-title">1 — בחירת שיעור</div>
+    <div id="lesson-list">
+      <div class="loading-row"><div class="spinner"></div> טוען שיעורים...</div>
+    </div>
+  </section>
+
+  <!-- 2. מצב -->
+  <section>
+    <div class="section-title">2 — מצב הפעלה</div>
+    <div class="mode-row">
+
+      <div class="mode-card selected-live" id="mode-live" onclick="selectMode('live')">
+        <div class="mode-icon">📡</div>
+        <div>
+          <div class="mode-label">מצב חי</div>
+          <div class="mode-desc">המורה שולט בקצב. התלמידים עוקבים בזמן אמת מהמכשיר שלהם.</div>
+        </div>
+      </div>
+
+      <div class="mode-card" id="mode-self" onclick="selectMode('self')">
+        <div class="mode-icon">🧭</div>
+        <div>
+          <div class="mode-label">מצב עצמאי</div>
+          <div class="mode-desc">כל תלמיד מתקדם בקצב האישי שלו. המורה יכול לעקוב.</div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- 3. הפעלה -->
+  <section>
+    <div class="section-title">3 — הפעלה</div>
+    <div class="launch-panel">
+
+      <div class="launch-summary">
+        <div class="summary-item">
+          <div class="summary-label">שיעור</div>
+          <div class="summary-val" id="sum-lesson">—</div>
+        </div>
+        <div class="summary-sep"></div>
+        <div class="summary-item">
+          <div class="summary-label">מצב</div>
+          <div class="summary-val" id="sum-mode">
+            <span class="badge-live">חי</span>
+          </div>
+        </div>
+        <div class="summary-sep"></div>
+        <div class="summary-item">
+          <div class="summary-label">קוד כיתה</div>
+          <div class="summary-val" id="sum-code">—</div>
+        </div>
+      </div>
+
+      <div class="action-row">
+        <button class="btn-launch" id="btn-launch" onclick="launchLesson()" disabled>
+          <span>▶</span> הפעל שיעור
+        </button>
+        <button class="btn-teacher" id="btn-enter-teacher" onclick="enterTeacherScreen()" disabled>
+          🖥 מסך מורה
+        </button>
+      </div>
+
+      <div id="code-display">
+        <div>
+          <div class="code-label">שלחו לתלמידים:</div>
+          <div class="code-val" id="code-val-text">—</div>
+        </div>
+        <button id="btn-copy-code" onclick="copyCode()">העתק</button>
+      </div>
+
+      <div id="status-msg"></div>
+    </div>
+  </section>
+
+</main>
+
+<script>
+// ══════════════════════════════════════════════
+//  CONFIG — עדכן לפי הפרויקט
+// ══════════════════════════════════════════════
+const FIREBASE_CONFIG = {
+  apiKey: "YOUR_FIREBASE_API_KEY",
+  authDomain: "tests-fd938.firebaseapp.com",
+  databaseURL: "https://tests-fd938-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "tests-fd938"
+};
+
+const SUPABASE_URL  = "https://seuskpyofhkvejyooghk.supabase.co";
+const SUPABASE_KEY  = "sb_publishable_qrLorZwzfmjFh9S3iRa1sQ_u6DVP29b";
+
+// כתובת דף הלמידה של התלמידים
+const STUDENT_URL   = "https://hakolbakaf.co.il/kita-haya/student.html";
+// כתובת מסך המורה
+const TEACHER_SCREEN_URL = "https://hakolbakaf.co.il/kita-haya/teacher-screen.html";
+
+// ══════════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════════
+firebase.initializeApp(FIREBASE_CONFIG);
+const db = firebase.database();
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let currentTeacherID = null;
+let currentTeacherName = '';
+let selectedLesson = null;
+let selectedMode = 'live';
+let activeClassCode = null;
+let launched = false;
+
+// ══════════════════════════════════════════════
+//  LOGIN
+// ══════════════════════════════════════════════
+async function doLogin() {
+  const phone = document.getElementById('inp-phone').value.trim().replace(/-/g,'');
+  const pass  = document.getElementById('inp-pass').value.trim();
+  const errEl = document.getElementById('login-error');
+  errEl.textContent = '';
+
+  if (!phone || !pass) { errEl.textContent = 'נא למלא טלפון וסיסמה'; return; }
+
+  document.getElementById('btn-login').disabled = true;
+  document.getElementById('btn-login').textContent = 'מתחבר...';
+
+  try {
+    const snap = await db.ref('teachers').orderByChild('phone').equalTo(phone).once('value');
+    if (!snap.exists()) throw new Error('מספר טלפון לא נמצא');
+
+    let teacherID = null, teacherData = null;
+    snap.forEach(child => {
+      if (child.val().password === pass) { teacherID = child.key; teacherData = child.val(); }
+    });
+
+    if (!teacherID) throw new Error('סיסמה שגויה');
+
+    currentTeacherID   = teacherID;
+    currentTeacherName = teacherData.name || teacherData.displayName || phone;
+
+    sessionStorage.setItem('tl_teacherID',   currentTeacherID);
+    sessionStorage.setItem('tl_teacherName', currentTeacherName);
+
+    showApp();
+  } catch(e) {
+    errEl.textContent = e.message || 'שגיאת כניסה';
+    document.getElementById('btn-login').disabled = false;
+    document.getElementById('btn-login').textContent = 'כניסה';
+  }
+}
+
+document.getElementById('inp-pass').addEventListener('keydown', e => {
+  if (e.key === 'Enter') doLogin();
+});
+
+// ══════════════════════════════════════════════
+//  SESSION RESTORE
+// ══════════════════════════════════════════════
+window.addEventListener('DOMContentLoaded', () => {
+  const tid  = sessionStorage.getItem('tl_teacherID');
+  const name = sessionStorage.getItem('tl_teacherName');
+  if (tid) {
+    currentTeacherID   = tid;
+    currentTeacherName = name || tid;
+    showApp();
+  }
+});
+
+// ══════════════════════════════════════════════
+//  SHOW APP
+// ══════════════════════════════════════════════
+function showApp() {
+  document.getElementById('screen-login').style.display = 'none';
+  document.getElementById('screen-app').style.display   = 'flex';
+  document.getElementById('screen-app').style.flexDirection = 'column';
+  document.getElementById('header-teacher').style.display   = 'flex';
+  document.getElementById('teacher-display-name').textContent = currentTeacherName;
+  loadLessons();
+  updateSummary();
+}
+
+document.getElementById('btn-logout').onclick = () => {
+  sessionStorage.clear();
+  location.reload();
+};
+
+// ══════════════════════════════════════════════
+//  LOAD LESSONS FROM SUPABASE
+// ══════════════════════════════════════════════
+async function loadLessons() {
+  const list = document.getElementById('lesson-list');
+  list.innerHTML = '<div class="loading-row"><div class="spinner"></div> טוען שיעורים...</div>';
+
+  try {
+    // ננסה לטעון מ-Supabase — טבלת lessons
+    const { data, error } = await supabase
+      .from('lessons')
+      .select('id, title, subject, grade')
+      .order('title', { ascending: true });
+
+    if (error) throw error;
+
+    if (!data || data.length === 0) {
+      list.innerHTML = '<div class="empty-msg">אין שיעורים זמינים כרגע</div>';
+      return;
+    }
+
+    renderLessons(data);
+  } catch(e) {
+    // fallback — שיעורים לדוגמה אם Supabase לא זמין
+    console.warn('Supabase error, using fallback:', e.message);
+    const fallback = [
+      { id:'demo1', title:'פוטוג\'ורנליזם ואמת', subject:'תקשורת', grade:'י' },
+      { id:'demo2', title:'סאטירה ודמוקרטיה', subject:'תקשורת', grade:'י' },
+      { id:'demo3', title:'ויראליות ומֵמִים', subject:'תקשורת', grade:'יא' },
+      { id:'demo4', title:'גלובליזציה ומדיה', subject:'חברה', grade:'יב' },
+      { id:'demo5', title:'ספירלת השתיקה', subject:'תקשורת', grade:'יב' },
+    ];
+    renderLessons(fallback);
+  }
+}
+
+function renderLessons(lessons) {
+  const list = document.getElementById('lesson-list');
+  list.innerHTML = '';
+  lessons.forEach(lesson => {
+    const div = document.createElement('div');
+    div.className = 'lesson-item';
+    div.dataset.id    = lesson.id;
+    div.dataset.title = lesson.title;
+    div.innerHTML = `
+      <div class="lesson-radio"></div>
+      <div class="lesson-meta">
+        <div class="lesson-title">${lesson.title}</div>
+        <div class="lesson-sub">${lesson.subject || ''}</div>
+      </div>
+      ${lesson.grade ? `<span class="lesson-tag">כיתה ${lesson.grade}</span>` : ''}
+    `;
+    div.addEventListener('click', () => selectLesson(div, lesson));
+    list.appendChild(div);
+  });
+}
+
+function selectLesson(el, lesson) {
+  document.querySelectorAll('.lesson-item').forEach(i => i.classList.remove('selected'));
+  el.classList.add('selected');
+  selectedLesson = lesson;
+  launched = false;
+  activeClassCode = null;
+  document.getElementById('code-display').style.display = 'none';
+  updateSummary();
+}
+
+// ══════════════════════════════════════════════
+//  MODE SELECTOR
+// ══════════════════════════════════════════════
+function selectMode(mode) {
+  selectedMode = mode;
+  document.getElementById('mode-live').className = 'mode-card' + (mode==='live' ? ' selected-live' : '');
+  document.getElementById('mode-self').className = 'mode-card' + (mode==='self' ? ' selected-self' : '');
+  launched = false;
+  activeClassCode = null;
+  document.getElementById('code-display').style.display = 'none';
+  updateSummary();
+}
+
+// ══════════════════════════════════════════════
+//  SUMMARY UPDATE
+// ══════════════════════════════════════════════
+function updateSummary() {
+  document.getElementById('sum-lesson').textContent =
+    selectedLesson ? selectedLesson.title : '—';
+
+  const modeEl = document.getElementById('sum-mode');
+  modeEl.innerHTML = selectedMode === 'live'
+    ? '<span class="badge-live">חי</span>'
+    : '<span class="badge-self">עצמאי</span>';
+
+  const ready = !!selectedLesson;
+  document.getElementById('btn-launch').disabled = !ready;
+  document.getElementById('btn-enter-teacher').disabled = !ready;
+}
+
+// ══════════════════════════════════════════════
+//  LAUNCH
+// ══════════════════════════════════════════════
+async function launchLesson() {
+  if (!selectedLesson) return;
+  const btn = document.getElementById('btn-launch');
+  btn.disabled = true;
+  btn.textContent = '...מפעיל';
+
+  setStatus('מפעיל שיעור...');
+
+  try {
+    // קוד כיתה: teacherID_lessonID
+    const code = `${currentTeacherID}_${selectedLesson.id}`;
+    activeClassCode = code;
+
+    const sessionData = {
+      lessonID:   selectedLesson.id,
+      lessonTitle: selectedLesson.title,
+      teacherID:  currentTeacherID,
+      mode:       selectedMode,
+      step:       0,
+      active:     true,
+      launchedAt: Date.now()
+    };
+
+    // שמירה ב-Firebase תחת teacher_codes
+    await db.ref(`teacher_codes/${code}`).set(sessionData);
+
+    // עדכון תצוגה
+    document.getElementById('sum-code').textContent = code;
+    launched = true;
+
+    if (selectedMode === 'live') {
+      document.getElementById('code-display').style.display = 'flex';
+      document.getElementById('code-val-text').textContent = code;
+    }
+
+    btn.textContent = '✓ מופעל';
+    btn.style.background = 'linear-gradient(135deg, #3fb950, #2ea043)';
+    setStatus(`✅ השיעור פעיל במצב ${selectedMode === 'live' ? 'חי 📡' : 'עצמאי 🧭'}`);
+
+    document.getElementById('btn-enter-teacher').disabled = false;
+
+  } catch(e) {
+    console.error(e);
+    setStatus('❌ שגיאה בהפעלה: ' + e.message);
+    btn.disabled = false;
+    btn.textContent = '▶ הפעל שיעור';
+  }
+}
+
+// ══════════════════════════════════════════════
+//  ENTER TEACHER SCREEN
+// ══════════════════════════════════════════════
+function enterTeacherScreen() {
+  if (!selectedLesson) return;
+
+  // אם עוד לא הופעל — מפעיל קודם אוטומטית
+  if (!launched || !activeClassCode) {
+    launchLesson().then(() => {
+      if (activeClassCode) openTeacherWindow();
+    });
+    return;
+  }
+  openTeacherWindow();
+}
+
+function openTeacherWindow() {
+  const url = `${TEACHER_SCREEN_URL}?code=${encodeURIComponent(activeClassCode)}&mode=${selectedMode}`;
+  window.open(url, '_blank');
+}
+
+// ══════════════════════════════════════════════
+//  COPY CODE
+// ══════════════════════════════════════════════
+function copyCode() {
+  if (!activeClassCode) return;
+  const studentLink = `${STUDENT_URL}?code=${encodeURIComponent(activeClassCode)}`;
+  navigator.clipboard.writeText(studentLink).then(() => {
+    const btn = document.getElementById('btn-copy-code');
+    btn.textContent = 'הועתק ✓';
+    setTimeout(() => btn.textContent = 'העתק', 2000);
+  });
+}
+
+function setStatus(msg) {
+  document.getElementById('status-msg').textContent = msg;
+}
+</script>
+</body>
+</html>
