@@ -1,4 +1,4 @@
-<!-- version: 6 -->
+<!-- version: 7 -->
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
@@ -191,7 +191,7 @@
   <div class="logo"><span class="dot"></span> כיתה חיה</div>
   <span class="student-name-badge" id="h-name" style="display:none"></span>
   <span class="slide-progress" id="h-progress" style="display:none"></span>
-  <span class="ver">v6</span>
+  <span class="ver">v7</span>
 </header>
 
 <!-- ══ כניסה ══ -->
@@ -549,8 +549,54 @@ function subscribeUpdates() {
     })
     .subscribe();
 
-  // הודעות דו-שיח
-  sb.channel('chat-' + sessionCode)
+  // polling כל 3 שניות — גיבוי ל-Realtime
+  setInterval(async () => {
+    if (!sessionCode || !studentName) return;
+
+    // בדיקת אישור מעבר
+    const { data } = await sb.from('student_responses')
+      .select('approved, feedback, slide_index')
+      .eq('session_code', sessionCode)
+      .eq('student_name', studentName)
+      .eq('slide_index', currentSlide)
+      .single();
+
+    if (!data) return;
+
+    if (data.approved) {
+      if (currentSlide < session.slides.length - 1) {
+        currentSlide++;
+        selectedVote = null;
+        registerSlide();
+        renderSlide();
+      } else {
+        document.getElementById('screen-lesson').style.display = 'none';
+        document.getElementById('screen-done').style.display = 'block';
+      }
+    }
+
+    if (data.feedback) {
+      const fb = document.getElementById('feedback-box');
+      const ft = document.getElementById('feedback-text');
+      if (fb && ft && ft.textContent !== data.feedback) {
+        fb.style.display = '';
+        ft.textContent = data.feedback;
+      }
+    }
+
+    // בדיקת שקף נוכחי (מצב חי)
+    const { data: sess } = await sb.from('sessions')
+      .select('current_slide, session_type')
+      .eq('code', sessionCode)
+      .single();
+
+    if (sess && sess.session_type === 'live' && sess.current_slide !== currentSlide) {
+      currentSlide = sess.current_slide;
+      selectedVote = null;
+      clearInterval(timerInterval);
+      renderSlide();
+    }
+  }, 3000);
     .on('postgres_changes', {
       event: 'INSERT', schema: 'public', table: 'chat_messages'
     }, payload => {
