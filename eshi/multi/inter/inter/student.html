@@ -1,4 +1,4 @@
-<!-- version: 1 -->
+<!-- version: 2 -->
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
@@ -191,7 +191,7 @@
   <div class="logo"><span class="dot"></span> כיתה חיה</div>
   <span class="student-name-badge" id="h-name" style="display:none"></span>
   <span class="slide-progress" id="h-progress" style="display:none"></span>
-  <span class="ver">v1</span>
+  <span class="ver">v2</span>
 </header>
 
 <!-- ══ כניסה ══ -->
@@ -263,17 +263,17 @@ window.enterLesson = async function() {
   sessionCode = code;
   currentSlide = session.session_type === 'live' ? (session.current_slide || 0) : 0;
 
-  // רישום התלמיד
-  await sb.from('student_responses').upsert({
-    session_code: sessionCode,
-    student_name: studentName,
-    slide_index:  currentSlide,
-    answer:       null,
-    feedback:     null
-  }, { onConflict: 'session_code,student_name,slide_index' });
+  // רישום התלמיד — לא עוצרים אם נכשל
+  try {
+    await sb.from('student_responses').insert({
+      session_code: sessionCode,
+      student_name: studentName,
+      slide_index:  currentSlide
+    });
+  } catch(e) { /* כבר רשום */ }
 
   document.getElementById('screen-login').style.display  = 'none';
-  document.getElementById('screen-lesson').style.display = '';
+  document.getElementById('screen-lesson').style.display = 'block';
   document.getElementById('h-name').style.display = '';
   document.getElementById('h-name').textContent   = name;
 
@@ -405,13 +405,11 @@ window.submitAnswer = async function() {
   const btn = document.getElementById('btn-submit');
   if (btn) { btn.disabled = true; btn.textContent = '...שולח'; }
 
-  await sb.from('student_responses').upsert({
-    session_code: sessionCode,
-    student_name: studentName,
-    slide_index:  currentSlide,
-    answer,
-    feedback: null
-  }, { onConflict: 'session_code,student_name,slide_index' });
+  await sb.from('student_responses')
+    .update({ answer })
+    .eq('session_code', sessionCode)
+    .eq('student_name', studentName)
+    .eq('slide_index', currentSlide);
 
   if (btn) { btn.disabled = true; btn.textContent = '✓ נשלח'; }
 
@@ -430,12 +428,23 @@ window.nextSlide = function() {
   if (currentSlide < session.slides.length - 1) {
     currentSlide++;
     selectedVote = null;
+    registerSlide();
     renderSlide();
   } else {
     document.getElementById('screen-lesson').style.display = 'none';
-    document.getElementById('screen-done').style.display   = '';
+    document.getElementById('screen-done').style.display   = 'block';
   }
 };
+
+async function registerSlide() {
+  try {
+    await sb.from('student_responses').insert({
+      session_code: sessionCode,
+      student_name: studentName,
+      slide_index:  currentSlide
+    });
+  } catch(e) { /* כבר קיים */ }
+}
 
 // ── טיימר ──
 let timerInterval = null;
