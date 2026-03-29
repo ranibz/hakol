@@ -1,4 +1,4 @@
-<!-- version: 17 -->
+<!-- version: 18 -->
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
@@ -56,15 +56,18 @@
   #students-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:12px; }
   .student-card {
     border:2px solid var(--border); border-radius:12px; padding:18px 14px;
-    cursor:pointer; transition:all .15s; text-align:center; position:relative;
+    cursor:pointer; transition:all .2s; text-align:center; position:relative;
     min-height:90px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px;
+    background: var(--white);
   }
-  .student-card:hover { border-color:#bcc5d6; background:#fafbfc; }
-  .student-card.answered { border-color:#e05a00; background:#fff3ee; }
+  .student-card:hover { transform:translateY(-2px); box-shadow:0 4px 12px rgba(0,0,0,.08); }
+  .student-card.has-chat { border-color:#d4a800; background:#fffbe6; }
+  .student-card.has-answer { border-color:#1a9e4a; background:#edfaf2; }
   .student-card.selected { box-shadow:0 0 0 3px var(--accent); }
-  .student-name { font-weight:700; font-size:1rem; }
+  .student-name { font-weight:700; font-size:1rem; color:var(--text); }
   .student-slide { font-size:.75rem; color:var(--muted); }
-  .student-card.answered .student-slide { color:#e05a00; font-weight:600; }
+  .student-card.has-answer .student-slide { color:var(--live); font-weight:600; }
+  .student-card.has-chat .student-slide { color:#b07800; font-weight:600; }
 
   /* stats bar */
   .stats-bar { display:flex; gap:16px; margin-bottom:16px; flex-wrap:wrap; }
@@ -110,7 +113,7 @@
   <span class="lesson-title" id="h-title">טוען...</span>
   <span class="mode-badge" id="h-mode">—</span>
   <div class="header-right">
-    <span class="ver">v17</span>
+    <span class="ver">v18</span>
   </div>
 </header>
 
@@ -138,9 +141,9 @@
     </div>
 
     <!-- תוכן השקף הנוכחי -->
-    <div class="card" id="slide-content-card" style="padding:14px;">
-      <div class="card-title" style="margin-bottom:8px">שקף נוכחי</div>
-      <div id="slide-content-preview" style="font-size:.82rem;line-height:1.5;color:#2a3040;max-height:120px;overflow:hidden;">
+    <div class="card" id="slide-content-card" style="padding:12px;">
+      <div class="card-title" style="margin-bottom:6px;font-size:.7rem;">שקף נוכחי</div>
+      <div id="slide-content-preview" style="font-size:.78rem;line-height:1.4;color:#2a3040;max-height:100px;overflow:hidden;position:relative;">
         <div style="color:var(--muted)">טוען...</div>
       </div>
     </div>
@@ -264,7 +267,7 @@ function updateSlideUI() {
   let html = `<span style="display:inline-block;font-size:.7rem;font-weight:700;padding:2px 10px;border-radius:20px;background:${TC[s?.type]||'#f0f2f5'};color:${TCt[s?.type]||'#7a8499'};margin-bottom:10px">${TB[s?.type]||s?.type}</span>
     <div style="font-family:Heebo,sans-serif;font-weight:800;font-size:1.1rem;margin-bottom:10px">${s?.title||''}</div>`;
   if (s?.type !== 'vote' && s?.content) {
-    html += `<div style="font-size:.88rem;color:#2a3040;line-height:1.6">${s.content}</div>`;
+    html += `<div style="font-size:.78rem;color:#2a3040;line-height:1.5">${s.content.replace(/<img /g,'<img style="max-height:60px;max-width:100%;object-fit:contain;" ')}</div>`;
   }
   if (s?.type === 'vote' && s?.options?.length) {
     html += s.options.filter(o=>o).map((o,i) =>
@@ -306,6 +309,19 @@ function subscribeAll() {
     })
     .subscribe();
 
+  // האזנה לצ'אט — צביעה צהובה
+  sb.channel('chat-teacher-' + CODE)
+    .on('postgres_changes', { event:'INSERT', schema:'public', table:'chat_messages' }, payload => {
+      const msg = payload.new;
+      if (!msg || msg.session_code !== CODE) return;
+      if (msg.sender === 'student') {
+        if (!students[msg.student_name]) students[msg.student_name] = { name:msg.student_name, answers:{}, feedback:{}, chatCount:0 };
+        students[msg.student_name].chatCount = (students[msg.student_name].chatCount || 0) + 1;
+        renderStudents();
+      }
+    })
+    .subscribe();
+
   // טעינה ראשונית של תלמידים
   loadStudents();
 
@@ -322,7 +338,7 @@ async function loadStudents() {
 
 function handleStudentUpdate(row) {
   if (!row?.student_name) return;
-  if (!students[row.student_name]) students[row.student_name] = { name: row.student_name, answers:{}, feedback:{} };
+  if (!students[row.student_name]) students[row.student_name] = { name: row.student_name, answers:{}, feedback:{}, chatCount:0 };
   const s = students[row.student_name];
   s.current_slide = row.slide_index;
   if (row.answer) s.answers[row.slide_index] = row.answer;
@@ -344,11 +360,17 @@ function renderStudents() {
 
   grid.innerHTML = list.map((s, idx) => {
     const hasAnswer = !!s.answers[s.current_slide];
+    const hasChat   = !!(s.chatCount && s.chatCount > 0);
     const isSelected = selectedStudent === s.name;
     const slideNum = (s.current_slide || 0) + 1;
-    return `<div class="student-card${hasAnswer?' answered':''}${isSelected?' selected':''}" onclick="window.selectStudent(${idx})">
-      <div class="student-name">${s.name}</div>
-      <div class="student-slide">${hasAnswer ? '✓ ענה' : 'ממתין'} | שקף ${slideNum}</div>
+    let cls = 'student-card';
+    if (hasAnswer) cls += ' has-answer';
+    else if (hasChat) cls += ' has-chat';
+    if (isSelected) cls += ' selected';
+    const icon = hasAnswer ? '✓' : hasChat ? '💬' : '';
+    return `<div class="${cls}" onclick="window.selectStudent(${idx})">
+      <div class="student-name">${icon ? icon + ' ' : ''}${s.name}</div>
+      <div class="student-slide">שקף ${slideNum}</div>
     </div>`;
   }).join('');
 }
@@ -384,6 +406,8 @@ window.selectStudent = function(idx) {
   approveBtn.style.display = session?.session_type === 'personal' ? '' : 'none';
 
   document.getElementById('student-modal').style.display = 'flex';
+  if (students[name]) students[name].chatCount = 0;
+  renderStudents();
   loadChat(name);
 };
 
