@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>בונה שיעור AI</title>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;600;700;900&family=Assistant:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f4f6f9;
+    --white: #fff;
+    --border: #dde2ea;
+    --accent: #f0a500;
+    --accent2: #e05a00;
+    --text: #1a1f2e;
+    --muted: #7a8499;
+    --radius: 10px;
+    --b: #e8f0fe; --bt: #1a56c4;
+    --v: #fce8fe; --vt: #8a10b0;
+    --t: #fef3e2; --tt: #b05a00;
+    --f: #e8fef0; --ft: #0a7a30;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--bg); color:var(--text); font-family:'Assistant',sans-serif; font-size:16px; min-height:100vh; }
+
+  header {
+    background:var(--white); border-bottom:1px solid var(--border);
+    padding:14px 24px; display:flex; align-items:center; gap:12px;
+  }
+  .logo { font-family:'Heebo',sans-serif; font-weight:900; font-size:1.15rem; color:var(--accent); }
+  .logo span { color:var(--muted); font-weight:400; font-size:.85rem; margin-right:8px; }
+
+  main { max-width:860px; margin:0 auto; padding:28px 16px 60px; display:flex; flex-direction:column; gap:20px; }
+
+  .card { background:var(--white); border:1px solid var(--border); border-radius:12px; padding:22px; }
+  .card-title { font-family:'Heebo',sans-serif; font-weight:700; font-size:.78rem; color:var(--muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:14px; }
+
+  textarea {
+    width:100%; border:1.5px solid var(--border); border-radius:8px;
+    padding:12px 14px; font-family:'Assistant',sans-serif; font-size:1rem;
+    color:var(--text); background:var(--white); outline:none;
+    resize:vertical; min-height:180px; transition:border-color .15s; line-height:1.6;
+  }
+  textarea:focus { border-color:var(--accent); }
+
+  .btn-primary {
+    padding:13px 26px; background:linear-gradient(135deg,var(--accent),var(--accent2));
+    color:#fff; border:none; border-radius:var(--radius);
+    font-family:'Heebo',sans-serif; font-weight:800; font-size:1rem;
+    cursor:pointer; transition:opacity .2s; display:flex; align-items:center; gap:8px;
+  }
+  .btn-primary:hover { opacity:.88; }
+  .btn-primary:disabled { opacity:.4; cursor:default; }
+
+  .btn-secondary {
+    padding:13px 20px; background:var(--white); border:1.5px solid var(--border);
+    color:var(--text); border-radius:var(--radius);
+    font-family:'Heebo',sans-serif; font-weight:600; font-size:.95rem;
+    cursor:pointer; transition:border-color .15s;
+  }
+  .btn-secondary:hover { border-color:var(--accent); }
+
+  /* תצוגת שקפים */
+  #slides-preview { display:flex; flex-direction:column; gap:12px; }
+
+  .slide-card {
+    border:1.5px solid var(--border); border-radius:10px; padding:16px;
+    background:var(--white);
+  }
+  .slide-header { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+  .slide-num { font-family:'Heebo',sans-serif; font-weight:700; color:var(--muted); font-size:.85rem; }
+  .badge { font-size:.72rem; font-weight:700; padding:3px 10px; border-radius:20px; }
+  .bd-b { background:var(--b); color:var(--bt); }
+  .bd-v { background:var(--v); color:var(--vt); }
+  .bd-t { background:var(--t); color:var(--tt); }
+  .bd-f { background:var(--f); color:var(--ft); }
+
+  .slide-title { font-weight:700; font-size:1rem; margin-bottom:6px; }
+  .slide-content { font-size:.88rem; color:var(--muted); line-height:1.5; white-space:pre-wrap; }
+  .slide-options { display:flex; flex-direction:column; gap:4px; margin-top:8px; }
+  .slide-option { font-size:.85rem; padding:5px 10px; background:#f8f9fb; border-radius:6px; color:var(--text); }
+  .slide-timer { display:inline-block; margin-top:8px; font-size:.78rem; padding:3px 10px; background:var(--t); color:var(--tt); border-radius:20px; font-weight:600; }
+
+  /* JSON output */
+  #json-output {
+    background:#1a1f2e; color:#a8e6c0; font-family:monospace; font-size:.78rem;
+    border-radius:10px; padding:16px; white-space:pre-wrap; max-height:320px;
+    overflow-y:auto; display:none;
+  }
+
+  .action-row { display:flex; gap:10px; flex-wrap:wrap; align-items:center; }
+
+  /* loading */
+  .loading-msg { display:none; align-items:center; gap:10px; color:var(--muted); font-size:.9rem; padding:8px 0; }
+  .spinner { width:18px;height:18px;border:2px solid #ddd;border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite; flex-shrink:0; }
+  @keyframes spin { to{transform:rotate(360deg)} }
+
+  #error-msg { color:#c0392b; font-size:.88rem; margin-top:8px; min-height:18px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">✍️ בונה שיעור AI <span>מבוסס Claude</span></div>
+</header>
+
+<main>
+
+  <!-- קלט -->
+  <div class="card">
+    <div class="card-title">הדבק תוכן לשיעור</div>
+    <textarea id="input-content" placeholder="הדבק כאן את תוכן השיעור — טקסט, נקודות מרכזיות, שאלות, כל מה שיש לך..."></textarea>
+    <div style="margin-top:14px;" class="action-row">
+      <button class="btn-primary" id="btn-generate" onclick="generateLesson()">
+        ✨ צור מבנה שיעור
+      </button>
+      <div class="loading-msg" id="loading">
+        <div class="spinner"></div> Claude בונה את השיעור...
+      </div>
+    </div>
+    <div id="error-msg"></div>
+  </div>
+
+  <!-- תצוגה מקדימה -->
+  <div class="card" id="preview-card" style="display:none">
+    <div class="card-title">מבנה השיעור המוצע</div>
+    <div id="slides-preview"></div>
+  </div>
+
+  <!-- JSON -->
+  <div class="card" id="json-card" style="display:none">
+    <div class="card-title">JSON להדבקה בבילדר</div>
+    <div class="action-row" style="margin-bottom:14px">
+      <button class="btn-secondary" id="btn-copy" onclick="copyJSON()">📋 העתק JSON</button>
+      <button class="btn-secondary" onclick="generateLesson()">🔄 נסה שוב</button>
+    </div>
+    <div id="json-output"></div>
+  </div>
+
+</main>
+
+<script>
+const TB = { broadcast:'bd-b', vote:'bd-v', task:'bd-t', free:'bd-f' };
+const TL = { broadcast:'שידור 📺', vote:'הצבעה 🗳️', task:'משימה 📝', free:'חופשי 🔓' };
+
+let lastJSON = '';
+
+async function generateLesson() {
+  const content = document.getElementById('input-content').value.trim();
+  if (!content) { showError('נא להדביק תוכן לשיעור'); return; }
+
+  setLoading(true);
+  showError('');
+  document.getElementById('preview-card').style.display = 'none';
+  document.getElementById('json-card').style.display = 'none';
+
+  const systemPrompt = `אתה מומחה בתכנון שיעורים אינטראקטיביים דיגיטליים.
+קבל תוכן ובנה מבנה שיעור אינטראקטיבי עם שקפים מגוונים.
+
+סוגי שקפים אפשריים:
+- broadcast: שקף הסבר/תוכן. שדות: title, content (HTML בסיסי מותר: <strong>, <br>)
+- vote: שאלת הצבעה. שדות: title (השאלה), options (מערך של 2-4 אפשרויות טקסט)
+- task: משימה עם טיימר. שדות: title, content (הוראות), timer (שניות: 60/120/180/300)
+- free: עבודה עצמאית. שדות: title, content
+
+כללים:
+- בנה 6-10 שקפים
+- השיעור חייב לכלול לפחות: 2 broadcast, 1 vote, 1 task
+- התחל תמיד עם שקף broadcast פתיחה
+- סיים תמיד עם vote או task סיכום
+- החזר אך ורק JSON תקני — מערך של שקפים, ללא טקסט נוסף, ללא backticks
+
+פורמט כל שקף:
+{"type":"broadcast","title":"...","content":"...","options":[],"timer":0}`;
+
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: `בנה שיעור אינטראקטיבי מהתוכן הבא:\n\n${content}` }]
+      })
+    });
+
+    const data = await response.json();
+    const text = data.content?.[0]?.text || '';
+
+    let slides;
+    try {
+      slides = JSON.parse(text.replace(/```json|```/g, '').trim());
+    } catch {
+      throw new Error('תגובה לא תקינה מה-AI. נסה שוב.');
+    }
+
+    if (!Array.isArray(slides) || slides.length === 0) throw new Error('לא נוצרו שקפים. נסה שוב.');
+
+    // נקה והוסף id
+    slides = slides.map(s => ({
+      id: Date.now() + Math.random(),
+      type: s.type || 'broadcast',
+      title: s.title || '',
+      content: s.content || '',
+      options: Array.isArray(s.options) ? s.options : [],
+      timer: s.timer || 0
+    }));
+
+    renderPreview(slides);
+    renderJSON(slides);
+
+  } catch(e) {
+    showError('שגיאה: ' + e.message);
+  } finally {
+    setLoading(false);
+  }
+}
+
+function renderPreview(slides) {
+  const container = document.getElementById('slides-preview');
+  container.innerHTML = slides.map((s, i) => `
+    <div class="slide-card">
+      <div class="slide-header">
+        <span class="slide-num">${i + 1}</span>
+        <span class="badge ${TB[s.type] || 'bd-b'}">${TL[s.type] || s.type}</span>
+      </div>
+      <div class="slide-title">${s.title || '—'}</div>
+      ${s.type !== 'vote' && s.content ? `<div class="slide-content">${s.content}</div>` : ''}
+      ${s.type === 'vote' && s.options.length ? `
+        <div class="slide-options">
+          ${s.options.filter(o=>o).map(o => `<div class="slide-option">• ${o}</div>`).join('')}
+        </div>` : ''}
+      ${s.timer ? `<div class="slide-timer">⏱ ${s.timer/60} דקות</div>` : ''}
+    </div>
+  `).join('');
+
+  document.getElementById('preview-card').style.display = '';
+}
+
+function renderJSON(slides) {
+  const clean = slides.map(s => ({
+    id: s.id,
+    type: s.type,
+    title: s.title,
+    content: s.content,
+    options: s.options,
+    timer: s.timer
+  }));
+  lastJSON = JSON.stringify(clean, null, 2);
+  document.getElementById('json-output').textContent = lastJSON;
+  document.getElementById('json-output').style.display = 'block';
+  document.getElementById('json-card').style.display = '';
+}
+
+function copyJSON() {
+  navigator.clipboard.writeText(lastJSON).then(() => {
+    const btn = document.getElementById('btn-copy');
+    btn.textContent = '✓ הועתק!';
+    setTimeout(() => btn.textContent = '📋 העתק JSON', 2000);
+  });
+}
+
+function setLoading(on) {
+  document.getElementById('btn-generate').disabled = on;
+  document.getElementById('loading').style.display = on ? 'flex' : 'none';
+}
+
+function showError(msg) {
+  document.getElementById('error-msg').textContent = msg;
+}
+</script>
+</body>
+</html>
