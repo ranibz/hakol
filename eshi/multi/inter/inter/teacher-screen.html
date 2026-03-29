@@ -1,0 +1,356 @@
+<!-- version: 1 -->
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>מסך מורה — כיתה חיה</title>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;600;700;900&family=Assistant:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f4f6f9;
+    --white: #fff;
+    --border: #dde2ea;
+    --accent: #f0a500;
+    --text: #1a1f2e;
+    --muted: #7a8499;
+    --live: #1a9e4a;
+    --live-bg: #edfaf2;
+    --danger: #e05a00;
+    --radius: 10px;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--bg); color:var(--text); font-family:'Assistant',sans-serif; font-size:15px; min-height:100vh; }
+
+  header {
+    background:var(--white); border-bottom:1px solid var(--border);
+    padding:12px 20px; display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+  }
+  .logo { font-family:'Heebo',sans-serif; font-weight:900; font-size:1.1rem; color:var(--accent); display:flex; align-items:center; gap:7px; }
+  .dot { width:8px;height:8px;border-radius:50%;background:var(--live);box-shadow:0 0 6px var(--live);animation:pulse 2s infinite; }
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+  .lesson-title { font-weight:700; font-size:.95rem; }
+  .code-badge { background:var(--live-bg); color:var(--live); border:1px solid #a8e8c0; border-radius:20px; padding:3px 12px; font-family:'Heebo',sans-serif; font-weight:900; font-size:1rem; letter-spacing:3px; }
+  .mode-badge { font-size:.75rem; padding:3px 10px; border-radius:20px; background:#f0f2f5; color:var(--muted); font-weight:600; }
+  .header-right { margin-right:auto; display:flex; align-items:center; gap:10px; }
+  .ver { font-size:.68rem; color:#ccc; }
+
+  /* layout */
+  .layout { display:grid; grid-template-columns:1fr 320px; gap:16px; padding:20px; max-width:1200px; margin:0 auto; }
+  @media(max-width:800px){ .layout{grid-template-columns:1fr;} }
+
+  /* card */
+  .card { background:var(--white); border:1px solid var(--border); border-radius:12px; padding:18px; }
+  .card-title { font-family:'Heebo',sans-serif; font-weight:700; font-size:.75rem; color:var(--muted); text-transform:uppercase; letter-spacing:1px; margin-bottom:14px; }
+
+  /* slide nav */
+  .slide-nav { display:flex; align-items:center; gap:10px; margin-bottom:16px; }
+  .btn-nav { padding:8px 16px; border:1.5px solid var(--border); background:var(--white); border-radius:8px; font-family:'Heebo',sans-serif; font-weight:700; cursor:pointer; font-size:.9rem; transition:all .15s; }
+  .btn-nav:hover:not(:disabled) { border-color:var(--accent); background:#fffbf0; }
+  .btn-nav:disabled { opacity:.3; cursor:default; }
+  .slide-info { flex:1; text-align:center; }
+  .slide-counter { font-family:'Heebo',sans-serif; font-weight:700; font-size:1rem; }
+  .slide-name { font-size:.78rem; color:var(--muted); margin-top:2px; }
+
+  /* students grid */
+  #students-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(140px,1fr)); gap:10px; }
+  .student-card {
+    border:1.5px solid var(--border); border-radius:10px; padding:12px;
+    cursor:pointer; transition:all .15s; text-align:center; position:relative;
+  }
+  .student-card:hover { border-color:#bcc5d6; background:#fafbfc; }
+  .student-card.answered { border-color:var(--live); background:var(--live-bg); }
+  .student-card.selected { border-color:var(--accent); background:#fffbf0; box-shadow:0 0 0 2px var(--accent); }
+  .student-name { font-weight:700; font-size:.9rem; margin-bottom:4px; }
+  .student-status { font-size:.72rem; color:var(--muted); }
+  .student-card.answered .student-status { color:var(--live); font-weight:600; }
+  .answered-dot { width:8px;height:8px;border-radius:50%;background:var(--live);position:absolute;top:8px;left:8px; }
+
+  /* stats bar */
+  .stats-bar { display:flex; gap:16px; margin-bottom:16px; flex-wrap:wrap; }
+  .stat { text-align:center; }
+  .stat-num { font-family:'Heebo',sans-serif; font-weight:900; font-size:1.4rem; }
+  .stat-label { font-size:.72rem; color:var(--muted); }
+  .stat-num.green { color:var(--live); }
+  .stat-num.orange { color:var(--accent); }
+
+  /* answer panel */
+  #answer-panel { display:none; }
+  .student-header { display:flex; align-items:center; gap:10px; margin-bottom:14px; }
+  .student-avatar { width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--danger));display:flex;align-items:center;justify-content:center;color:#fff;font-family:'Heebo',sans-serif;font-weight:900;font-size:1rem; }
+  .answer-box { background:#f8f9fb; border-radius:8px; padding:14px; font-size:.9rem; line-height:1.6; min-height:60px; margin-bottom:14px; border:1px solid var(--border); }
+  .answer-empty { color:var(--muted); font-style:italic; }
+
+  textarea.feedback-ta {
+    width:100%; border:1.5px solid var(--border); border-radius:8px;
+    padding:10px 12px; font-family:'Assistant',sans-serif; font-size:.9rem;
+    color:var(--text); outline:none; resize:vertical; min-height:70px;
+    transition:border-color .15s; margin-bottom:10px;
+  }
+  textarea.feedback-ta:focus { border-color:var(--accent); }
+
+  .btn-send { width:100%; padding:11px; background:linear-gradient(135deg,var(--accent),var(--danger)); color:#fff; border:none; border-radius:8px; font-family:'Heebo',sans-serif; font-weight:800; font-size:.95rem; cursor:pointer; transition:opacity .2s; }
+  .btn-send:hover { opacity:.88; }
+
+  .feedback-sent { color:var(--live); font-size:.82rem; text-align:center; margin-top:6px; min-height:16px; }
+
+  /* empty */
+  .empty-msg { color:var(--muted); font-size:.88rem; padding:24px 0; text-align:center; }
+
+  /* spinner */
+  .spinner { width:16px;height:16px;border:2px solid #ddd;border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;display:inline-block; }
+  @keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo"><span class="dot"></span> כיתה חיה</div>
+  <span class="code-badge" id="h-code">—</span>
+  <span class="lesson-title" id="h-title">טוען...</span>
+  <span class="mode-badge" id="h-mode">—</span>
+  <div class="header-right">
+    <span class="ver">v1</span>
+  </div>
+</header>
+
+<div class="layout">
+
+  <!-- עמודה ראשית -->
+  <div style="display:flex;flex-direction:column;gap:16px;">
+
+    <!-- ניווט שקפים (מצב חי בלבד) -->
+    <div class="card" id="nav-card" style="display:none">
+      <div class="card-title">שליטה בשקף</div>
+      <div class="slide-nav">
+        <button class="btn-nav" id="btn-prev" onclick="moveSlide(-1)">→ הקודם</button>
+        <div class="slide-info">
+          <div class="slide-counter" id="slide-counter">—</div>
+          <div class="slide-name" id="slide-name">—</div>
+        </div>
+        <button class="btn-nav" id="btn-next" onclick="moveSlide(1)">← הבא</button>
+      </div>
+    </div>
+
+    <!-- תלמידים -->
+    <div class="card">
+      <div class="card-title">תלמידים מחוברים</div>
+      <div class="stats-bar">
+        <div class="stat"><div class="stat-num orange" id="stat-total">0</div><div class="stat-label">נכנסו</div></div>
+        <div class="stat"><div class="stat-num green" id="stat-answered">0</div><div class="stat-label">שלחו</div></div>
+        <div class="stat"><div class="stat-num" id="stat-pending">0</div><div class="stat-label">ממתינים</div></div>
+      </div>
+      <div id="students-grid">
+        <div class="empty-msg">ממתין לתלמידים...</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- עמודה ימנית — תגובת תלמיד -->
+  <div>
+    <div class="card">
+      <div class="card-title">תגובת תלמיד</div>
+      <div id="no-selection" class="empty-msg">לחץ על תלמיד לצפייה בתגובה</div>
+      <div id="answer-panel">
+        <div class="student-header">
+          <div class="student-avatar" id="student-avatar">—</div>
+          <div>
+            <div style="font-weight:700" id="selected-name">—</div>
+            <div style="font-size:.75rem;color:var(--muted)" id="selected-status">—</div>
+          </div>
+        </div>
+        <div class="answer-box" id="answer-box"><span class="answer-empty">אין תגובה עדיין</span></div>
+        <div style="font-size:.75rem;color:var(--muted);margin-bottom:6px">הערת מורה:</div>
+        <textarea class="feedback-ta" id="feedback-ta" placeholder="כתוב הערה לתלמיד..."></textarea>
+        <button class="btn-send" onclick="sendFeedback()">✉ שלח הערה</button>
+        <div class="feedback-sent" id="feedback-sent"></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script type="module">
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+const sb = createClient(
+  'https://seuskpyofhkvejyooghk.supabase.co',
+  'sb_publishable_qrLorZwzfmjFh9S3iRa1sQ_u6DVP29b'
+);
+
+const params = new URLSearchParams(location.search);
+const CODE   = params.get('code');
+const MODE   = params.get('mode') || 'live';
+
+if (!CODE) {
+  document.body.innerHTML = '<div style="padding:40px;text-align:center;font-family:Heebo,sans-serif;color:#e05a00">❌ חסר קוד שיעור ב-URL</div>';
+  throw new Error('no code');
+}
+
+let session   = null;
+let students  = {};   // name → { name, current_slide, answers:{slideIdx:text}, feedback:{slideIdx:text} }
+let selectedStudent = null;
+let currentSlide = 0;
+
+// ── טעינת הסשן ──
+async function loadSession() {
+  const { data, error } = await sb.from('sessions').select('*').eq('code', CODE).single();
+  if (error || !data) { alert('שיעור לא נמצא'); return; }
+  session = data;
+  currentSlide = data.current_slide || 0;
+
+  document.getElementById('h-code').textContent   = CODE;
+  document.getElementById('h-title').textContent  = data.title || 'שיעור';
+  document.getElementById('h-mode').textContent   = MODE === 'live' ? '📡 חי' : '🧭 עצמאי';
+
+  if (MODE === 'live') document.getElementById('nav-card').style.display = '';
+  updateSlideUI();
+  subscribeAll();
+}
+
+// ── עדכון UI שקף ──
+function updateSlideUI() {
+  if (!session?.slides) return;
+  const slides = session.slides;
+  const s = slides[currentSlide];
+  document.getElementById('slide-counter').textContent = `${currentSlide+1} / ${slides.length}`;
+  document.getElementById('slide-name').textContent    = s?.title || '';
+  document.getElementById('btn-prev').disabled = currentSlide === 0;
+  document.getElementById('btn-next').disabled = currentSlide === slides.length - 1;
+}
+
+// ── הזזת שקף (מצב חי) ──
+window.moveSlide = async function(dir) {
+  if (!session?.slides) return;
+  const next = currentSlide + dir;
+  if (next < 0 || next >= session.slides.length) return;
+  currentSlide = next;
+  await sb.from('sessions').update({ current_slide: currentSlide }).eq('code', CODE);
+  updateSlideUI();
+};
+
+// ── Realtime subscriptions ──
+function subscribeAll() {
+  // האזנה לשינויים בסשן (שקף נוכחי)
+  sb.channel('session-' + CODE)
+    .on('postgres_changes', { event:'UPDATE', schema:'public', table:'sessions', filter:`code=eq.${CODE}` }, payload => {
+      session = { ...session, ...payload.new };
+      currentSlide = payload.new.current_slide || 0;
+      updateSlideUI();
+    })
+    .subscribe();
+
+  // האזנה לתלמידים
+  sb.channel('students-' + CODE)
+    .on('postgres_changes', { event:'*', schema:'public', table:'student_responses', filter:`session_code=eq.${CODE}` }, payload => {
+      handleStudentUpdate(payload.new || payload.old);
+      renderStudents();
+    })
+    .subscribe();
+
+  // טעינה ראשונית של תלמידים
+  loadStudents();
+
+  // רענון כל 10 שניות
+  setInterval(loadStudents, 10000);
+}
+
+async function loadStudents() {
+  const { data } = await sb.from('student_responses').select('*').eq('session_code', CODE);
+  if (!data) return;
+  data.forEach(handleStudentUpdate);
+  renderStudents();
+}
+
+function handleStudentUpdate(row) {
+  if (!row?.student_name) return;
+  if (!students[row.student_name]) students[row.student_name] = { name: row.student_name, answers:{}, feedback:{} };
+  const s = students[row.student_name];
+  s.current_slide = row.slide_index;
+  if (row.answer) s.answers[row.slide_index] = row.answer;
+  if (row.feedback) s.feedback[row.slide_index] = row.feedback;
+}
+
+function renderStudents() {
+  const grid = document.getElementById('students-grid');
+  const list = Object.values(students);
+
+  if (!list.length) {
+    grid.innerHTML = '<div class="empty-msg">ממתין לתלמידים...</div>';
+    updateStats(0, 0);
+    return;
+  }
+
+  const answered = list.filter(s => s.answers[currentSlide]).length;
+  updateStats(list.length, answered);
+
+  grid.innerHTML = list.map(s => {
+    const hasAnswer = !!s.answers[currentSlide];
+    const isSelected = selectedStudent === s.name;
+    return `<div class="student-card${hasAnswer?' answered':''}${isSelected?' selected':''}" onclick="selectStudent('${s.name}')">
+      ${hasAnswer ? '<div class="answered-dot"></div>' : ''}
+      <div class="student-name">${s.name}</div>
+      <div class="student-status">${hasAnswer ? '✓ שלח' : 'ממתין...'}</div>
+    </div>`;
+  }).join('');
+}
+
+function updateStats(total, answered) {
+  document.getElementById('stat-total').textContent    = total;
+  document.getElementById('stat-answered').textContent = answered;
+  document.getElementById('stat-pending').textContent  = total - answered;
+}
+
+window.selectStudent = function(name) {
+  selectedStudent = name;
+  renderStudents();
+
+  const s = students[name];
+  if (!s) return;
+
+  document.getElementById('no-selection').style.display = 'none';
+  document.getElementById('answer-panel').style.display = '';
+
+  const initials = name.slice(0,2);
+  document.getElementById('student-avatar').textContent  = initials;
+  document.getElementById('selected-name').textContent   = name;
+  document.getElementById('selected-status').textContent = s.answers[currentSlide] ? '✓ שלח תגובה' : 'טרם שלח';
+
+  const answerBox = document.getElementById('answer-box');
+  const ans = s.answers[currentSlide];
+  answerBox.innerHTML = ans ? ans : '<span class="answer-empty">אין תגובה עדיין</span>';
+
+  // הצג הערה קודמת אם יש
+  document.getElementById('feedback-ta').value = s.feedback[currentSlide] || '';
+  document.getElementById('feedback-sent').textContent = '';
+};
+
+window.sendFeedback = async function() {
+  if (!selectedStudent) return;
+  const text = document.getElementById('feedback-ta').value.trim();
+  if (!text) return;
+
+  const { error } = await sb.from('student_responses')
+    .update({ feedback: text })
+    .eq('session_code', CODE)
+    .eq('student_name', selectedStudent)
+    .eq('slide_index', currentSlide);
+
+  if (error) {
+    document.getElementById('feedback-sent').textContent = '❌ שגיאה בשליחה';
+    return;
+  }
+
+  if (students[selectedStudent]) {
+    students[selectedStudent].feedback[currentSlide] = text;
+  }
+
+  document.getElementById('feedback-sent').textContent = '✅ ההערה נשלחה';
+  setTimeout(() => { document.getElementById('feedback-sent').textContent = ''; }, 3000);
+};
+
+loadSession();
+</script>
+</body>
+</html>
