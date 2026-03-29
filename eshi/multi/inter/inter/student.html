@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>כיתה חיה</title>
+<title>כיתה חיה — תלמיד v1</title>
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;700;900&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
@@ -85,6 +85,14 @@ body{background:linear-gradient(135deg,#fde8f5 0%,#e8f0fd 35%,#e8fdf0 70%,#fdf5e
 .sl-body .video-wrap{position:relative;padding-bottom:56.25%;height:0;overflow:hidden;border-radius:12px;margin:10px 0}
 .sl-body .video-wrap iframe{position:absolute;top:0;left:0;width:100%;height:100%;border:none;border-radius:12px}
 .waiting{flex:1;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px;padding:40px;min-height:200px}
+.free-nav{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-top:1px solid var(--border);background:rgba(255,255,255,0.6);position:sticky;bottom:0}
+.free-nav-btn{padding:10px 20px;border-radius:14px;border:none;font-size:14px;font-weight:700;cursor:pointer;transition:all .15s}
+.free-nav-btn.prev{background:var(--purple);color:var(--purple-t)}
+.free-nav-btn.next{background:linear-gradient(135deg,#c8a0f0,#f0a0d0);color:#4a0a7a}
+.free-nav-btn:disabled{opacity:0.4;cursor:not-allowed}
+.free-nav-btn.locked{background:var(--yellow);color:var(--yellow-t);cursor:not-allowed}
+.free-progress{font-size:12px;font-weight:700;color:var(--muted)}
+.locked-msg{text-align:center;font-size:13px;color:var(--coral-t);font-weight:700;padding:8px;background:var(--coral);border-radius:10px;margin-top:8px}
 .spinner{width:36px;height:36px;border:3px solid rgba(180,100,220,.2);border-top-color:#c8a0f0;border-radius:50%;animation:spin .7s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 .waiting p{font-size:14px;color:var(--muted);font-weight:600}
@@ -94,7 +102,7 @@ body{background:linear-gradient(135deg,#fde8f5 0%,#e8f0fd 35%,#e8fdf0 70%,#fdf5e
 </head>
 <body>
 <div id="join-screen">
-  <div class="brand">כיתה <em>חיה</em></div>
+  <div class="brand">כיתה <em>חיה</em> <span style="font-size:11px;font-weight:400;opacity:0.5;vertical-align:middle">v1</span></div>
   <div class="join-card">
     <h2>🎒 כניסה לשיעור</h2>
     <p>הזן את הקוד שהמורה מציג בכיתה</p>
@@ -113,6 +121,11 @@ body{background:linear-gradient(135deg,#fde8f5 0%,#e8f0fd 35%,#e8fdf0 70%,#fdf5e
   <div class="slide-view" id="slide-view">
     <div class="waiting"><div class="spinner"></div><p>מחכה לשיעור...</p></div>
   </div>
+  <div class="free-nav" id="free-nav" style="display:none">
+    <button class="free-nav-btn next" id="nav-next" onclick="window.freeNext()">הבא ←</button>
+    <span class="free-progress" id="free-progress"></span>
+    <button class="free-nav-btn prev" id="nav-prev" onclick="window.freePrev()">→ הקודם</button>
+  </div>
 </div>
 <script type="module">
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
@@ -127,7 +140,7 @@ if(params.get('code'))document.getElementById('code-input').value=params.get('co
 let session=null,myCode=null,myName=null;
 const sid=sessionStorage.getItem('kitah_sid')||('S_'+Math.random().toString(36).slice(2,8));
 sessionStorage.setItem('kitah_sid',sid);
-let myVotes={},mySubs={},frozenSlide=null,lastPull=null;
+let myVotes={},mySubs={},frozenSlide=null,lastPull=null,freeIdx=0,isFreeMode=false;
 const ML={broadcast:'📺 שידור',vote:'🗳️ הצבעה',task:'📝 משימה',free:'🔓 חופשי'};
 const MC={broadcast:'mode-pill mp-b',vote:'mode-pill mp-v',task:'mode-pill mp-t',free:'mode-pill mp-f'};
 
@@ -172,11 +185,21 @@ function applySession(d){console.log('apply',d?.current_slide,d?.mode);
   const sameSlide=session&&session.current_slide===d.current_slide&&session.mode===d.mode&&session.reveal_votes===d.reveal_votes;
   document.getElementById('s-title').textContent=d.title||'כיתה חיה';
   const pill=document.getElementById('mode-pill');
-  pill.textContent=ML[d.mode]||'';pill.className=MC[d.mode]||'mode-pill';
-  if(d.mode==='free'&&frozenSlide===null)frozenSlide=d.current_slide||0;
-  else if(d.mode!=='free')frozenSlide=null;
+  // detect free/self mode
+  isFreeMode=d.session_type==='free'||d.mode==='self';
+  if(isFreeMode){
+    pill.textContent='🔓 עצמאי';pill.className='mode-pill mp-f';
+    document.getElementById('free-nav').style.display='flex';
+    updateFreeNav(d);
+  } else {
+    pill.textContent=ML[d.mode]||'';pill.className=MC[d.mode]||'mode-pill';
+    document.getElementById('free-nav').style.display='none';
+    if(d.mode==='free'&&frozenSlide===null)frozenSlide=d.current_slide||0;
+    else if(d.mode!=='free')frozenSlide=null;
+  }
   session=d;
-  if(!sameSlide)renderSlide(d);
+  if(isFreeMode){renderFreeSlide(d);}
+  else if(!sameSlide){renderSlide(d);}
 }
 function listenToSession(){
   sb.channel('student-'+myCode+'-'+sid)
@@ -258,6 +281,115 @@ async function renderSlide(data){
   view.innerHTML=h;
 }
 
+function isSlideComplete(slide,idx){
+  if(!slide)return true;
+  // check task
+  if(slide.type==='task'&&!mySubs[idx])return false;
+  // check vote
+  if(slide.type==='vote'&&myVotes[idx]===undefined)return false;
+  // check inline question
+  if(slide.question&&!mySubs[`q_${idx}`])return false;
+  return true;
+}
+
+function updateFreeNav(d){
+  const total=(d.slides||[]).length;
+  document.getElementById('free-progress').textContent=`${freeIdx+1} / ${total}`;
+  document.getElementById('nav-prev').disabled=freeIdx===0;
+  const slide=d.slides?.[freeIdx];
+  const complete=isSlideComplete(slide,freeIdx);
+  const nextBtn=document.getElementById('nav-next');
+  if(freeIdx>=total-1){
+    nextBtn.textContent='סיום ✓';
+    nextBtn.disabled=!complete;
+    nextBtn.className='free-nav-btn next'+(complete?'':' locked');
+  } else {
+    nextBtn.textContent='הבא ←';
+    nextBtn.disabled=!complete;
+    nextBtn.className='free-nav-btn next'+(complete?'':' locked');
+    if(!complete)nextBtn.title='השלם את המשימה כדי להמשיך';
+  }
+}
+
+async function renderFreeSlide(d){
+  freeIdx=Math.min(freeIdx,(d.slides||[]).length-1);
+  const slide=d.slides?.[freeIdx];if(!slide)return;
+  const view=document.getElementById('slide-view');
+  let h='';
+  // render same as normal but always show content
+  if(slide.type==='broadcast'){
+    h=`<div class="sl-title">${slide.title||''}</div><div class="sl-body">${processContent(slide.content||'')} </div>`;
+    if(slide.question){
+      const qKey=`q_${freeIdx}`;
+      const done=mySubs[qKey];
+      if(done){
+        h+=`<div class="inline-q"><div class="iq-done">✓ תשובתך נשמרה!</div></div>`;
+      } else if(slide.question.type==='open'){
+        h+=`<div class="inline-q"><div class="iq-title">❓ ${slide.question.text}</div><div class="iq-open"><textarea id="iq-ta-${freeIdx}" placeholder="כתוב את תשובתך..."></textarea></div><button class="iq-submit" onclick="submitInlineQ(${freeIdx},'open')">הגש ✓</button></div>`;
+      } else if(slide.question.type==='mc'){
+        const opts=(slide.question.options||[]).map((o,i)=>`<div class="iq-opt${myVotes['iq_'+freeIdx]===i?' sel':''}" onclick="selectIQ(${freeIdx},${i})">${o}</div>`).join('');
+        h+=`<div class="inline-q"><div class="iq-title">❓ ${slide.question.text}</div><div class="iq-opts">${opts}</div><button class="iq-submit" onclick="submitInlineQ(${freeIdx},'mc')">הגש ✓</button></div>`;
+      }
+    }
+  } else if(slide.type==='vote'){
+    h=`<div class="sl-title">${slide.title||''}</div><div class="sl-body">${processContent(slide.content||'')} </div>`;
+    if(myVotes[freeIdx]!==undefined){
+      h+=`<div class="voted-msg">✓ הצבעת!</div>`;
+    } else {
+      h+='<div class="vote-opts">';
+      (slide.options||[]).forEach((opt,i)=>{h+=`<div class="vote-opt" onclick="castVoteFree(${freeIdx},${i})">${opt}</div>`;});
+      h+='</div>';
+    }
+  } else if(slide.type==='task'){
+    h=`<div class="sl-title">${slide.title||''}</div><div class="sl-body">${processContent(slide.content||'')} </div>`;
+    if(mySubs[freeIdx]){
+      h+=`<div class="sub-msg">✓ הוגש בהצלחה! 🎉</div>`;
+    } else {
+      h+=`<textarea class="task-ta" id="task-ans" placeholder="כתוב את תשובתך כאן..."></textarea><button class="sub-btn" onclick="submitTaskFree(${freeIdx})">הגש תשובה ✓</button>`;
+    }
+  } else if(slide.type==='free'){
+    h=`<div class="sl-title">${slide.title||''}</div><div class="free-card"><div class="free-icon">🔓</div><p>${slide.content||'עבודה עצמאית'}</p></div>`;
+  }
+  view.innerHTML=h;
+  updateFreeNav(d);
+}
+
+window.freeNext=()=>{
+  if(!session)return;
+  const slide=session.slides?.[freeIdx];
+  if(!isSlideComplete(slide,freeIdx)){
+    // flash locked message
+    const nextBtn=document.getElementById('nav-next');
+    nextBtn.textContent='השלם קודם! 🔒';
+    setTimeout(()=>{nextBtn.textContent=freeIdx>=session.slides.length-1?'סיום ✓':'הבא ←';},1500);
+    return;
+  }
+  if(freeIdx<session.slides.length-1){
+    freeIdx++;
+    renderFreeSlide(session);
+  } else {
+    alert('🎉 סיימת את השיעור!');
+  }
+};
+
+window.freePrev=()=>{
+  if(freeIdx>0){freeIdx--;renderFreeSlide(session);}
+};
+
+window.castVoteFree=async(slideIdx,choice)=>{
+  myVotes[slideIdx]=choice;
+  await sb.from('votes').upsert({id:`${sid}_${slideIdx}`,session_code:myCode,slide_idx:slideIdx,student_name:myName,choice});
+  renderFreeSlide(session);
+};
+
+window.submitTaskFree=async idx=>{
+  const ans=document.getElementById('task-ans')?.value?.trim();
+  if(!ans)return;
+  mySubs[idx]=true;
+  await sb.from('responses').upsert({id:`${sid}_${idx}`,session_code:myCode,slide_idx:idx,student_name:myName,answer:ans});
+  renderFreeSlide(session);
+};
+
 window.selectIQ=(idx,i)=>{
   myVotes['iq_'+idx]=i;
   renderSlide(session);
@@ -281,7 +413,8 @@ window.submitInlineQ=async(idx,type)=>{
     student_name:myName,
     answer:`[שאלת בדיקה] ${answer}`
   });
-  renderSlide(session);
+  if(isFreeMode)renderFreeSlide(session);
+  else renderSlide(session);
 };
 window.castVote=async(slideIdx,choice)=>{
   if(myVotes[slideIdx]!==undefined)return;
