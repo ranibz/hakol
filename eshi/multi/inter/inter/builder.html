@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>בונה שיעור – כיתה חיה v4</title>
+<title>בונה שיעור – כיתה חיה v5</title>
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;700;900&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -129,14 +129,24 @@ header{background:rgba(255,255,255,0.75);backdrop-filter:blur(12px);border-botto
 .modal h2{font-size:19px;font-weight:900;color:var(--purple-t);margin-bottom:6px}.modal p{font-size:13px;color:var(--muted);margin-bottom:18px;line-height:1.6}
 .code-box{background:rgba(255,255,255,.8);border:2.5px solid var(--purple-b);border-radius:16px;text-align:center;padding:18px;font-size:50px;font-weight:900;letter-spacing:10px;color:var(--purple-t);margin-bottom:18px;font-family:monospace}
 .modal-footer{display:flex;gap:8px;justify-content:flex-end}
+.mode-toggle{display:flex;gap:0;border-radius:14px;overflow:hidden;border:1.5px solid var(--purple-b);margin-bottom:16px}
+.mode-opt{flex:1;padding:10px;text-align:center;font-size:13px;font-weight:700;cursor:pointer;transition:all .15s;color:var(--muted);background:rgba(255,255,255,0.5)}
+.mode-opt.sel{background:var(--purple);color:var(--purple-t)}
+.mode-badge{display:inline-block;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:700;margin-bottom:8px}
+.mode-live{background:var(--blue);color:var(--blue-t)}
+.mode-free{background:var(--green);color:var(--green-t)}
 </style>
 </head>
 <body>
 <header>
-  <div class="logo">כיתה <em>חיה</em> — בונה שיעור <span style="font-size:11px;font-weight:400;color:var(--muted);vertical-align:middle">v4</span></div>
+  <div class="logo">כיתה <em>חיה</em> — בונה שיעור <span style="font-size:11px;font-weight:400;color:var(--muted);vertical-align:middle">v5</span></div>
   <div class="header-btns">
     <button class="btn btn-pink" onclick="loadLesson()">📂 פתח</button><button class="btn btn-big" onclick="window.openCreateModal()" style="background:linear-gradient(135deg,#d94fbf,#9030e0);color:#fff;border:none">✍️ צור שיעור</button><button class="btn btn-blue" onclick="loadJSON()" style="background:#eeddf8;color:#5810a0;border-color:#c8a8e8">📋 הדבק JSON</button><button class="btn btn-blue" onclick="window.openLibrary()" style="background:#ddf5ea;color:#185c38;border-color:#a8e0c8">📚 מאגר שיעורים</button>
     <button class="btn btn-blue" onclick="saveLesson()">💾 שמור</button>
+    <div class="mode-toggle" style="height:36px;margin:0">
+      <div class="mode-opt sel" id="mode-live" onclick="window.setLaunchMode('live')">📡 שיעור חי</div>
+      <div class="mode-opt" id="mode-free" onclick="window.setLaunchMode('free')">🔓 עצמאי</div>
+    </div>
     <button class="btn btn-big" onclick="launchLesson()">▶ הפעל שיעור</button>
   </div>
 </header>
@@ -218,11 +228,12 @@ header{background:rgba(255,255,255,0.75);backdrop-filter:blur(12px);border-botto
 <div class="overlay" id="launch-modal">
   <div class="modal">
     <h2>🎉 השיעור מוכן!</h2>
+    <div id="launch-mode-badge"></div>
     <p>שתף את הקוד עם התלמידים — יכנסו דרך student.html</p>
     <div class="code-box" id="session-code">----</div>
     <div class="modal-footer">
       <button class="btn btn-coral" onclick="closeLaunch()">ביטול</button>
-      <button class="btn btn-big" onclick="goTeacher()">פתח מסך מורה ←</button>
+      <button class="btn btn-big" id="teacher-btn" onclick="goTeacher()">פתח מסך מורה ←</button>
     </div>
   </div>
 </div>
@@ -328,15 +339,31 @@ window.loadLesson=()=>{const k=localStorage.getItem('lastLesson');if(!k){alert('
 function rsl(){const el=document.getElementById('saved-list');const keys=Object.keys(localStorage).filter(k=>k.startsWith('lesson_'));if(!keys.length){el.textContent='אין שיעורים שמורים';return}el.innerHTML=keys.map(k=>{const d=JSON.parse(localStorage.getItem(k));return`<div class="saved-item" onclick="lk('${k}')">${d.title}</div>`}).join('')}
 window.lk=k=>{const d=JSON.parse(localStorage.getItem(k));document.getElementById('lesson-title').value=d.title;slides=d.slides;activeIdx=0;ra()};
 
+let launchMode='live';
+window.setLaunchMode=m=>{
+  launchMode=m;
+  document.getElementById('mode-live').classList.toggle('sel',m==='live');
+  document.getElementById('mode-free').classList.toggle('sel',m==='free');
+};
 window.launchLesson=async()=>{
   if(!slides.length){alert('הוסף לפחות שקף אחד');return}
   sessionCode=Math.floor(1000+Math.random()*9000).toString();
   const title=document.getElementById('lesson-title').value||'שיעור';
+  const sessionMode=launchMode==='free'?'self':'broadcast';
   const {error}=await sb.from('sessions').upsert({
-    code:sessionCode,title,slides,current_slide:0,mode:'broadcast',started:true
+    code:sessionCode,title,slides,current_slide:0,mode:sessionMode,started:true,session_type:launchMode
   });
   if(error){alert('שגיאה: '+error.message);return}
   document.getElementById('session-code').textContent=sessionCode;
+  const badge=document.getElementById('launch-mode-badge');
+  const teacherBtn=document.getElementById('teacher-btn');
+  if(launchMode==='free'){
+    badge.innerHTML='<span class="mode-badge mode-free">🔓 מצב עצמאי — התלמידים עובדים בקצב שלהם</span>';
+    teacherBtn.style.display='none';
+  } else {
+    badge.innerHTML='<span class="mode-badge mode-live">📡 שיעור חי — שלוט מסך המורה</span>';
+    teacherBtn.style.display='';
+  }
   document.getElementById('launch-modal').classList.add('open');
 };
 window.loadJSON=()=>{
