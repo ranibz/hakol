@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>בונה שיעור – כיתה חיה v1</title>
+<title>בונה שיעור – כיתה חיה v2</title>
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;700;900&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -84,6 +84,16 @@ header{background:rgba(255,255,255,0.75);backdrop-filter:blur(12px);border-botto
 .btn-big{padding:13px 28px;border-radius:28px;font-size:15px;background:linear-gradient(135deg,#c8a0f0,#f0a0d0);border:none;color:#4a0a7a;box-shadow:0 4px 16px rgba(180,100,220,.25)}
 .btn-big:hover{box-shadow:0 6px 20px rgba(180,100,220,.35);transform:translateY(-2px)}
 .overlay{position:fixed;inset:0;background:rgba(80,30,120,.25);backdrop-filter:blur(4px);z-index:200;display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s}
+.library-modal{position:fixed;inset:0;background:rgba(20,10,40,.7);backdrop-filter:blur(6px);z-index:300;display:none;align-items:center;justify-content:center;padding:20px}
+.library-modal.open{display:flex}
+.library-box{background:#fff;border-radius:20px;padding:28px;width:100%;max-width:600px;max-height:80vh;overflow-y:auto;direction:rtl}
+.library-box h3{font-size:18px;font-weight:800;color:#2a1a3a;margin-bottom:16px}
+.lib-item{border:1.5px solid #e0d0f0;border-radius:14px;padding:16px;margin-bottom:10px;cursor:pointer;transition:all .15s}
+.lib-item:hover{background:#f8f0ff;border-color:#c8a8e8}
+.lib-title{font-size:15px;font-weight:700;color:#2a1a3a;margin-bottom:4px}
+.lib-meta{font-size:12px;color:#7a6a8a}
+.lib-tags{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+.lib-tag{padding:2px 10px;border-radius:20px;font-size:11px;font-weight:700;background:#eeddf8;color:#5810a0}
 .create-modal{position:fixed;inset:0;background:rgba(20,10,40,.7);backdrop-filter:blur(6px);z-index:300;display:none;align-items:center;justify-content:center;padding:20px}
 .create-modal.open{display:flex}
 .create-box{background:#fff;border-radius:20px;padding:28px;width:100%;max-width:520px;direction:rtl}
@@ -108,9 +118,9 @@ header{background:rgba(255,255,255,0.75);backdrop-filter:blur(12px);border-botto
 </head>
 <body>
 <header>
-  <div class="logo">כיתה <em>חיה</em> — בונה שיעור <span style="font-size:11px;font-weight:400;color:var(--muted);vertical-align:middle">v1</span></div>
+  <div class="logo">כיתה <em>חיה</em> — בונה שיעור <span style="font-size:11px;font-weight:400;color:var(--muted);vertical-align:middle">v2</span></div>
   <div class="header-btns">
-    <button class="btn btn-pink" onclick="loadLesson()">📂 פתח</button><button class="btn btn-big" onclick="window.openCreateModal()" style="background:linear-gradient(135deg,#d94fbf,#9030e0);color:#fff;border:none">✍️ צור שיעור</button><button class="btn btn-blue" onclick="loadJSON()" style="background:#eeddf8;color:#5810a0;border-color:#c8a8e8">📋 הדבק JSON</button>
+    <button class="btn btn-pink" onclick="loadLesson()">📂 פתח</button><button class="btn btn-big" onclick="window.openCreateModal()" style="background:linear-gradient(135deg,#d94fbf,#9030e0);color:#fff;border:none">✍️ צור שיעור</button><button class="btn btn-blue" onclick="loadJSON()" style="background:#eeddf8;color:#5810a0;border-color:#c8a8e8">📋 הדבק JSON</button><button class="btn btn-blue" onclick="window.openLibrary()" style="background:#ddf5ea;color:#185c38;border-color:#a8e0c8">📚 מאגר שיעורים</button>
     <button class="btn btn-blue" onclick="saveLesson()">💾 שמור</button>
     <button class="btn btn-big" onclick="launchLesson()">▶ הפעל שיעור</button>
   </div>
@@ -151,6 +161,15 @@ header{background:rgba(255,255,255,0.75);backdrop-filter:blur(12px);border-botto
   <div class="editor">
     <span class="ed-label">עריכת שקף</span>
     <div id="editor-content"><div class="ed-empty">בחר שקף מהרשימה</div></div>
+  </div>
+</div>
+<div class="library-modal" id="library-modal">
+  <div class="library-box">
+    <h3>📚 מאגר שיעורים מוכנים</h3>
+    <div id="library-list"></div>
+    <div style="text-align:left;margin-top:16px">
+      <button onclick="window.closeLibrary()" style="padding:8px 18px;border-radius:10px;background:#f0e8f8;color:#5810a0;border:none;font-weight:700;cursor:pointer">סגור</button>
+    </div>
   </div>
 </div>
 <div class="create-modal" id="create-modal">
@@ -343,6 +362,40 @@ ${input}`}]
     document.querySelector('.btn-create').disabled=false;
   }
 };
+const LESSON_LIBRARY = [
+  {
+    id: 'seder-yom',
+    title: 'סדר יום תקשורתי',
+    description: 'תיאוריית סדר היום, שלושת סדרי היום, השפעה על בחירות',
+    tags: ['תקשורת וחברה', 'כל הרמות', '9 שקפים'],
+    slides: [{"type":"broadcast","title":"סדר יום תקשורתי — מה זה? 📰","content":"<div class='box box-blue'><h4>הגדרה</h4>תיאוריה הטוענת שלתקשורת ההמונים השפעה רבה — היא קובעת <strong>מהן הסוגיות החשובות</strong> שמעסיקות את הציבור ובהן יש לדון.</div><p>ככל שהתקשורת תבליט נושא מסוים, כך הוא ייתפס כ<span class='highlight'>חשוב יותר</span>.</p>"},{"type":"vote","title":"מי קובע מה חשוב? 🤔","content":"מי לדעתך קובע אילו נושאים חשובים לציבור?","options":["הציבור עצמו","הפוליטיקאים","התקשורת","שילוב של כולם"]},{"type":"broadcast","title":"שלושת סדרי היום 🔄","content":"<div class='box box-pink'><h4>📋 סדר יום פוליטי</h4>פוליטיקאים ויועצי תקשורת <strong>מתמרנים את התקשורת</strong> למטרותיהם</div><div class='box box-blue'><h4>📺 סדר יום תקשורתי</h4>כלי תקשורת מסקרים מתוך <strong>אג'נדה ותפיסת עולם</strong> מסוימים</div><div class='box box-green'><h4>👥 סדר יום ציבורי</h4>הציבור ברשתות, הפגנות וארגונים מעלים נושאים <strong>חשובים לו</strong></div>"},{"type":"task","title":"ניתוח עיתון 📋","content":"חשבו על כותרת חדשות שראיתם לאחרונה.<br><br><div class='box box-yellow'>כתבו: האם הנושא קיבל כיסוי רב כי הוא באמת חשוב — או כי מישהו הדליק אותו?</div>","timer":90},{"type":"broadcast","title":"איך התקשורת עושה זאת? 🛠️","content":"<ul><li><strong>שער העיתון</strong> ותחילת החדשות</li><li><strong>כותרות גדולות</strong> והרבה צבע</li><li><strong>הרבה מקום וזמן</strong> במדיה</li></ul><div class='box box-purple' style='border-color:#c8a8e8;background:#eeddf8'><h4>התוצאה:</h4>נושאים שזוכים לסיקור רב — נתפסים כחשובים יותר</div>"},{"type":"vote","title":"בחירות ותקשורת 🗳️","content":"פוליטיקאי שמופיע הרבה בטלוויזיה — האם יקבל יותר קולות?","options":["כן — חשיפה = אהדה","לא — הציבור מחליט לפי תוכן","תלוי — יכול לפגוע אם שלילי"]},{"type":"task","title":"התקשורת כשומרת סף ✏️","content":"<div class='box box-green'>הביאו דוגמה: נושא שעלה לחדשות ← הציבור נסער ← המדינה פעלה. מה קרה?</div>","timer":120},{"type":"vote","title":"האם התקשורת אובייקטיבית? 🤥","content":"האם אפשר לסקר חדשות באופן אובייקטיבי לחלוטין?","options":["כן — עיתונאי טוב יכול להיות ניטרלי","לא — תמיד יש אג'נדה","חלקית — אפשר להיות הוגן"]},{"type":"task","title":"סיכום אישי 🎯","content":"כתבו 2-3 משפטים: <strong>מה תשנו</strong> בדרך שאתם צורכים חדשות אחרי שלמדתם על תיאוריית סדר היום?","timer":90}]
+  }
+];
+
+window.openLibrary=()=>{
+  const el=document.getElementById('library-list');
+  el.innerHTML=LESSON_LIBRARY.map(lesson=>`
+    <div class="lib-item" onclick="window.loadFromLibrary('${lesson.id}')">
+      <div class="lib-title">${lesson.title}</div>
+      <div class="lib-meta">${lesson.description}</div>
+      <div class="lib-tags">${lesson.tags.map(t=>`<span class="lib-tag">${t}</span>`).join('')}</div>
+    </div>
+  `).join('');
+  document.getElementById('library-modal').classList.add('open');
+};
+
+window.closeLibrary=()=>document.getElementById('library-modal').classList.remove('open');
+
+window.loadFromLibrary=id=>{
+  const lesson=LESSON_LIBRARY.find(l=>l.id===id);
+  if(!lesson)return;
+  slides=lesson.slides.map(s=>({id:Date.now()+Math.random(),type:s.type||'broadcast',title:s.title||'',content:s.content||'',options:s.options||[],timer:s.timer||0}));
+  document.getElementById('lesson-title').value=lesson.title;
+  activeIdx=0;ra();
+  window.closeLibrary();
+  alert('✅ נטען: '+lesson.title);
+};
+
 window.closeLaunch=()=>document.getElementById('launch-modal').classList.remove('open');
 
 window.importDrop=e=>{e.preventDefault();e.currentTarget.classList.remove('over');const f=e.dataTransfer.files[0];if(f)importFile(f)};
