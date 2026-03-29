@@ -1,4 +1,4 @@
-<!-- version: 8 -->
+<!-- version: 9 -->
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
@@ -191,7 +191,7 @@
   <div class="logo"><span class="dot"></span> כיתה חיה</div>
   <span class="student-name-badge" id="h-name" style="display:none"></span>
   <span class="slide-progress" id="h-progress" style="display:none"></span>
-  <span class="ver">v8</span>
+  <span class="ver">v9</span>
 </header>
 
 <!-- ══ כניסה ══ -->
@@ -261,9 +261,21 @@ window.enterLesson = async function() {
   session     = data;
   studentName = name;
   sessionCode = code;
-  currentSlide = session.session_type === 'live' ? (session.current_slide || 0) : 0;
 
-  // רישום התלמיד
+  // בדוק אם התלמיד כבר היה פה — המשך מהשקף האחרון
+  if (session.session_type === 'live') {
+    currentSlide = session.current_slide || 0;
+  } else {
+    const { data: prev } = await sb.from('student_responses')
+      .select('slide_index')
+      .eq('session_code', code)
+      .eq('student_name', name)
+      .order('slide_index', { ascending: false })
+      .limit(1);
+    currentSlide = (prev && prev.length > 0) ? prev[0].slide_index : 0;
+  }
+
+  // רישום התלמיד בשקף הנוכחי
   await sb.from('student_responses').insert({
     session_code: sessionCode,
     student_name: studentName,
