@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>כיתה חיה — תלמיד v1</title>
+<title>כיתה חיה — תלמיד v4</title>
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;700;900&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
@@ -102,7 +102,7 @@ body{background:linear-gradient(135deg,#fde8f5 0%,#e8f0fd 35%,#e8fdf0 70%,#fdf5e
 </head>
 <body>
 <div id="join-screen">
-  <div class="brand">כיתה <em>חיה</em> <span style="font-size:11px;font-weight:400;opacity:0.5;vertical-align:middle">v1</span></div>
+  <div class="brand">כיתה <em>חיה</em> <span style="font-size:11px;font-weight:400;opacity:0.5;vertical-align:middle">v4</span></div>
   <div class="join-card">
     <h2>🎒 כניסה לשיעור</h2>
     <p>הזן את הקוד שהמורה מציג בכיתה</p>
@@ -198,8 +198,11 @@ function applySession(d){console.log('apply',d?.current_slide,d?.mode);
     else if(d.mode!=='free')frozenSlide=null;
   }
   session=d;
-  if(isFreeMode){renderFreeSlide(d);}
-  else if(!sameSlide){renderSlide(d);}
+  // don't re-render if user is actively typing in a textarea
+  const activeEl=document.activeElement;
+  const isTyping=activeEl&&(activeEl.tagName==='TEXTAREA'||activeEl.tagName==='INPUT');
+  if(isFreeMode){if(!isTyping)renderFreeSlide(d);}
+  else if(!sameSlide){if(!isTyping)renderSlide(d);}
 }
 function listenToSession(){
   sb.channel('student-'+myCode+'-'+sid)
@@ -220,6 +223,19 @@ function processContent(html){
   return html.replace(/(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/g,
     (match,id)=>`<div class="video-wrap"><iframe src="https://www.youtube.com/embed/${id}" allowfullscreen></iframe></div>`
   );
+}
+function saveTextareaState(){
+  const ta=document.querySelector('#slide-view textarea');
+  if(ta)return{id:ta.id,value:ta.value,start:ta.selectionStart,end:ta.selectionEnd};
+  return null;
+}
+function restoreTextareaState(state){
+  if(!state)return;
+  const ta=document.getElementById(state.id);
+  if(!ta)return;
+  ta.value=state.value;
+  ta.setSelectionRange(state.start,state.end);
+  if(document.activeElement?.tagName==='BODY')ta.focus();
 }
 async function renderSlide(data){
   const idx=frozenSlide!==null?frozenSlide:(data.current_slide||0);
@@ -350,7 +366,9 @@ async function renderFreeSlide(d){
   } else if(slide.type==='free'){
     h=`<div class="sl-title">${slide.title||''}</div><div class="free-card"><div class="free-icon">🔓</div><p>${slide.content||'עבודה עצמאית'}</p></div>`;
   }
+  const savedFreeState=saveTextareaState();
   view.innerHTML=h;
+  restoreTextareaState(savedFreeState);
   updateFreeNav(d);
 }
 
