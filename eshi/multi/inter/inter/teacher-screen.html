@@ -1,4 +1,4 @@
-<!-- version: 8 -->
+<!-- version: 9 -->
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
@@ -110,7 +110,7 @@
   <span class="lesson-title" id="h-title">טוען...</span>
   <span class="mode-badge" id="h-mode">—</span>
   <div class="header-right">
-    <span class="ver">v8</span>
+    <span class="ver">v9</span>
   </div>
 </header>
 
@@ -385,21 +385,31 @@ window.selectStudent = function(idx) {
 
 window.approveStudent = async function() {
   if (!selectedStudent) return;
+
+  await sb.from('student_responses')
+    .update({ approved: true })
+    .eq('session_code', CODE)
+    .eq('student_name', selectedStudent)
+    .eq('slide_index', currentSlide);
+
+  // יצירת רשומה לשקף הבא
   const nextSlide = currentSlide + 1;
+  if (nextSlide < (session?.slides?.length || 0)) {
+    try {
+      await sb.from('student_responses').insert({
+        session_code: CODE,
+        student_name: selectedStudent,
+        slide_index: nextSlide,
+        approved: false
+      });
+    } catch(e) {}
+  }
 
-  // שמירת אישור + הקדמה לשקף הבא עבור התלמיד
-  await sb.from('student_responses').upsert({
-    session_code: CODE,
-    student_name: selectedStudent,
-    slide_index: currentSlide,
-    approved: true
-  }, { onConflict: 'session_code,student_name,slide_index' });
-
-  document.getElementById('feedback-sent').textContent = `✅ ${selectedStudent} שוחרר לשקף הבא`;
-  document.getElementById('btn-approve').textContent = '✓ שוחרר';
+  document.getElementById('modal-feedback-sent').textContent = `✅ ${selectedStudent} שוחרר`;
+  document.getElementById('modal-approve').textContent = '✓ שוחרר';
   setTimeout(() => {
-    document.getElementById('feedback-sent').textContent = '';
-    document.getElementById('btn-approve').textContent = '✅ שחרר לשקף הבא';
+    document.getElementById('modal-feedback-sent').textContent = '';
+    document.getElementById('modal-approve').textContent = '✅ שחרר לשקף הבא';
   }, 3000);
 };
 
