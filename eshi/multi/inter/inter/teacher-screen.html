@@ -1,4 +1,4 @@
-<!-- version: 1 -->
+<!-- version: 2 -->
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
@@ -110,7 +110,7 @@
   <span class="lesson-title" id="h-title">טוען...</span>
   <span class="mode-badge" id="h-mode">—</span>
   <div class="header-right">
-    <span class="ver">v1</span>
+    <span class="ver">v2</span>
   </div>
 </header>
 
@@ -152,7 +152,7 @@
     <div class="card">
       <div class="card-title">תגובת תלמיד</div>
       <div id="no-selection" class="empty-msg">לחץ על תלמיד לצפייה בתגובה</div>
-      <div id="answer-panel">
+      <div id="answer-panel" style="display:none">
         <div class="student-header">
           <div class="student-avatar" id="student-avatar">—</div>
           <div>
@@ -161,10 +161,31 @@
           </div>
         </div>
         <div class="answer-box" id="answer-box"><span class="answer-empty">אין תגובה עדיין</span></div>
+
+        <!-- אישור מעבר (פרטני) -->
+        <button id="btn-approve" onclick="approveStudent()" style="display:none;width:100%;padding:11px;background:linear-gradient(135deg,#1a9e4a,#157a3a);color:#fff;border:none;border-radius:8px;font-family:Heebo,sans-serif;font-weight:800;font-size:.95rem;cursor:pointer;margin-bottom:10px;">
+          ✅ אשר מעבר לשקף הבא
+        </button>
+
         <div style="font-size:.75rem;color:var(--muted);margin-bottom:6px">הערת מורה:</div>
         <textarea class="feedback-ta" id="feedback-ta" placeholder="כתוב הערה לתלמיד..."></textarea>
         <button class="btn-send" onclick="sendFeedback()">✉ שלח הערה</button>
         <div class="feedback-sent" id="feedback-sent"></div>
+
+        <!-- דו-שיח -->
+        <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:14px">
+          <div style="font-size:.75rem;color:var(--muted);font-weight:700;margin-bottom:8px;text-transform:uppercase;letter-spacing:.5px">דו-שיח עם התלמיד</div>
+          <div id="chat-messages" style="display:flex;flex-direction:column;gap:6px;max-height:180px;overflow-y:auto;margin-bottom:8px"></div>
+          <div style="display:flex;gap:8px">
+            <input id="chat-input" placeholder="הודעה לתלמיד..."
+              style="flex:1;border:1.5px solid var(--border);border-radius:8px;padding:8px 11px;font-family:Assistant,sans-serif;font-size:.88rem;outline:none;"
+              onkeydown="if(event.key==='Enter')sendChat()">
+            <button onclick="sendChat()"
+              style="padding:8px 14px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-family:Heebo,sans-serif;font-weight:700;cursor:pointer;font-size:.85rem;">
+              שלח
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -321,9 +342,16 @@ window.selectStudent = function(name) {
   const ans = s.answers[currentSlide];
   answerBox.innerHTML = ans ? ans : '<span class="answer-empty">אין תגובה עדיין</span>';
 
-  // הצג הערה קודמת אם יש
+  // כפתור אישור — רק במצב פרטני ואם יש תגובה
+  const approveBtn = document.getElementById('btn-approve');
+  if (approveBtn) {
+    approveBtn.style.display = (session?.session_type === 'personal' && ans) ? '' : 'none';
+  }
+
   document.getElementById('feedback-ta').value = s.feedback[currentSlide] || '';
   document.getElementById('feedback-sent').textContent = '';
+
+  loadChat(name);
 };
 
 window.sendFeedback = async function() {
@@ -337,17 +365,64 @@ window.sendFeedback = async function() {
     .eq('student_name', selectedStudent)
     .eq('slide_index', currentSlide);
 
-  if (error) {
-    document.getElementById('feedback-sent').textContent = '❌ שגיאה בשליחה';
-    return;
-  }
-
-  if (students[selectedStudent]) {
-    students[selectedStudent].feedback[currentSlide] = text;
-  }
-
+  if (error) { document.getElementById('feedback-sent').textContent = '❌ שגיאה בשליחה'; return; }
+  if (students[selectedStudent]) students[selectedStudent].feedback[currentSlide] = text;
   document.getElementById('feedback-sent').textContent = '✅ ההערה נשלחה';
   setTimeout(() => { document.getElementById('feedback-sent').textContent = ''; }, 3000);
+};
+
+window.approveStudent = async function() {
+  if (!selectedStudent) return;
+  await sb.from('student_responses')
+    .update({ approved: true })
+    .eq('session_code', CODE)
+    .eq('student_name', selectedStudent)
+    .eq('slide_index', currentSlide);
+
+  document.getElementById('feedback-sent').textContent = '✅ אושר מעבר לתלמיד';
+  document.getElementById('btn-approve').style.display = 'none';
+  setTimeout(() => { document.getElementById('feedback-sent').textContent = ''; }, 3000);
+};
+
+let chatData = [];
+async function loadChat(studentName) {
+  const { data } = await sb.from('chat_messages')
+    .select('*')
+    .eq('session_code', CODE)
+    .eq('student_name', studentName)
+    .order('created_at', { ascending: true });
+  chatData = data || [];
+  renderChat();
+}
+
+function renderChat() {
+  const container = document.getElementById('chat-messages');
+  if (!container) return;
+  container.innerHTML = chatData.map(m => `
+    <div style="display:flex;flex-direction:column;align-items:${m.sender==='teacher'?'flex-end':'flex-start'}">
+      <div style="font-size:.68rem;color:var(--muted);margin-bottom:2px">${m.sender==='teacher'?'אתה':m.student_name}</div>
+      <div style="padding:8px 12px;border-radius:10px;font-size:.85rem;max-width:85%;background:${m.sender==='teacher'?'#fff8e6':'#f0f2f5'};color:var(--text);">
+        ${m.message}
+      </div>
+    </div>
+  `).join('');
+  container.scrollTop = container.scrollHeight;
+}
+
+window.sendChat = async function() {
+  if (!selectedStudent) return;
+  const input = document.getElementById('chat-input');
+  const msg = input?.value.trim();
+  if (!msg) return;
+  input.value = '';
+
+  await sb.from('chat_messages').insert({
+    session_code: CODE,
+    student_name: selectedStudent,
+    sender: 'teacher',
+    message: msg,
+    slide_index: currentSlide
+  });
 };
 
 loadSession();
