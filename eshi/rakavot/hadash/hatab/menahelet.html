@@ -179,6 +179,8 @@
             <button class="tab-btn" id="tbtn-pm" onclick="switchTab('pm')">👤 מנהלות פדגוגיות</button>
             <button class="tab-btn" id="tbtn-roles" onclick="switchTab('roles')">🏷️ תפקידים</button>
             <button class="tab-btn" id="tbtn-mishrot" onclick="switchTab('mishrot')">📋 משרות מורים</button>
+            <button class="tab-btn" id="tbtn-unassigned" onclick="switchTab('unassigned')">⚠️ מקצועות ללא שיבוץ</button>
+            <button class="tab-btn" id="tbtn-subjects" onclick="switchTab('subjects')">📚 סיכום לפי מקצוע</button>
         </div>
 
         <!-- TAB: דשבורד -->
@@ -711,6 +713,30 @@
             </div>
             <div id="mishrotEmpty" style="text-align:center;padding:40px;color:#94a3b8;display:none;">אין נתונים לשנה זו</div>
         </div>
+        <!-- TAB: מקצועות ללא שיבוץ -->
+        <div id="tab-unassigned" class="tab-content">
+            <div style="display:flex;align-items:center;gap:14px;margin-bottom:22px;flex-wrap:wrap;">
+                <select id="unassignedYear" onchange="loadUnassigned()" style="padding:10px 14px;border:2px solid var(--border);border-radius:10px;font-family:Heebo,sans-serif;font-size:14px;font-weight:700;outline:none;">
+                    <option value="תשפו">תשפ"ו (נוכחית)</option>
+                    <option value="תשפז">תשפ"ז (הבאה)</option>
+                </select>
+                <span style="font-size:.85rem;color:#64748b;">מקצועות שהוגדרו במגמות אך אין להם אף שיבוץ בשנה הנבחרת</span>
+            </div>
+            <div id="unassigned-content"><div style="text-align:center;padding:40px;color:#94a3b8;">טוען...</div></div>
+        </div>
+
+        <!-- TAB: סיכום לפי מקצוע -->
+        <div id="tab-subjects" class="tab-content">
+            <div style="display:flex;align-items:center;gap:14px;margin-bottom:22px;flex-wrap:wrap;">
+                <select id="subjectsYear" onchange="loadSubjectsSummary()" style="padding:10px 14px;border:2px solid var(--border);border-radius:10px;font-family:Heebo,sans-serif;font-size:14px;font-weight:700;outline:none;">
+                    <option value="תשפו">תשפ"ו (נוכחית)</option>
+                    <option value="תשפז">תשפ"ז (הבאה)</option>
+                </select>
+                <span style="font-size:.85rem;color:#64748b;">סיכום שעות מגע, גמול ופרטנות לפי מקצוע</span>
+            </div>
+            <div id="subjects-content"><div style="text-align:center;padding:40px;color:#94a3b8;">טוען...</div></div>
+        </div>
+
 <div id="semesterModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9000;overflow-y:auto;padding:30px 20px;" onclick="if(event.target===this)this.style.display='none'">
     <div style="background:white;border-radius:20px;max-width:700px;margin:0 auto;padding:28px;position:relative;">
         <button onclick="document.getElementById('semesterModal').style.display='none'" style="position:absolute;top:14px;left:14px;background:#fee2e2;color:#ef4444;border:none;width:30px;height:30px;border-radius:50%;font-size:16px;cursor:pointer;font-weight:900;">✕</button>
@@ -1189,7 +1215,8 @@ function switchTab(tab) {
         document.getElementById('mishrotYear').value = gYear;
         loadMishrot();
     }
-    if(tab === 'roles') loadRoleDefs();
+    if(tab === 'unassigned') loadUnassigned();
+    if(tab === 'subjects') loadSubjectsSummary();
 }
 
 
@@ -2658,6 +2685,136 @@ function showToast(msg) {
     t.textContent = msg;
     t.classList.add('show');
     setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// ===== מקצועות ללא שיבוץ =====
+async function loadUnassigned() {
+    const year = document.getElementById('unassignedYear').value;
+    const el = document.getElementById('unassigned-content');
+    el.innerHTML = '<div style="text-align:center;padding:40px;color:#94a3b8;">טוען...</div>';
+
+    const [deptsRes, placementsRes] = await Promise.all([
+        sb.from('departments').select('id, structure'),
+        sb.from('placements').select('dept_id, subject, grade').eq('year', year)
+    ]);
+
+    const depts = deptsRes.data || [];
+    const placements = placementsRes.data || [];
+
+    // בנה set של שיבוצים קיימים: dept|grade|subject
+    const assigned = new Set(placements.map(p => `${p.dept_id}|${p.grade}|${p.subject}`));
+
+    const missing = [];
+    depts.forEach(dept => {
+        const struct = dept.structure || {};
+        Object.values(struct).forEach(row => {
+            (row.subjects || []).forEach(s => {
+                const subj = typeof s === 'object' ? s.name : s;
+                ['ז','ח','ט'].forEach(grade => {
+                    const key = `${dept.id}|${grade}|${subj}`;
+                    if (!assigned.has(key)) {
+                        missing.push({ dept: dept.id, grade, subject: subj });
+                    }
+                });
+            });
+        });
+    });
+
+    if (!missing.length) {
+        el.innerHTML = '<div style="text-align:center;padding:40px;color:#10b981;font-size:1.1rem;font-weight:800;">✅ כל המקצועות משובצים!</div>';
+        return;
+    }
+
+    // קיבוץ לפי מגמה
+    const byDept = {};
+    missing.forEach(m => {
+        if (!byDept[m.dept]) byDept[m.dept] = [];
+        byDept[m.dept].push(m);
+    });
+
+    el.innerHTML = `<div style="margin-bottom:12px;font-size:.85rem;color:#ef4444;font-weight:700;">נמצאו ${missing.length} מקצועות ללא שיבוץ</div>` +
+    Object.entries(byDept).map(([dept, items]) => `
+        <div style="background:white;border-radius:16px;padding:20px;margin-bottom:14px;border:1.5px solid #fecaca;box-shadow:0 2px 6px rgba(0,0,0,.04);">
+            <div style="font-family:'Secular One';font-size:1rem;color:#1e293b;margin-bottom:12px;">📌 ${dept}</div>
+            <div style="display:flex;flex-wrap:wrap;gap:8px;">
+                ${items.map(m => `
+                    <span style="background:#fee2e2;color:#b91c1c;padding:5px 12px;border-radius:8px;font-size:.82rem;font-weight:700;">
+                        שכבה ${m.grade} — ${m.subject}
+                    </span>`).join('')}
+            </div>
+        </div>`).join('');
+}
+
+// ===== סיכום לפי מקצוע =====
+async function loadSubjectsSummary() {
+    const year = document.getElementById('subjectsYear').value;
+    const el = document.getElementById('subjects-content');
+    el.innerHTML = '<div style="text-align:center;padding:40px;color:#94a3b8;">טוען...</div>';
+
+    const { data, error } = await sb.from('placements').select('subject, type, contact, bonus, partanut, is_semester').eq('year', year);
+    if (error || !data?.length) {
+        el.innerHTML = '<div style="text-align:center;padding:40px;color:#94a3b8;">אין נתונים לשנה זו</div>';
+        return;
+    }
+
+    const bySubject = {};
+    data.forEach(p => {
+        const subj = p.subject || '—';
+        if (!bySubject[subj]) bySubject[subj] = { contact: 0, bonus: 0, partanut: 0, count: 0 };
+        const factor = p.is_semester ? 0.5 : 1;
+        if (p.type === 'פרטנות') {
+            bySubject[subj].partanut += (parseFloat(p.partanut) || parseFloat(p.contact) || 0) * factor;
+        } else {
+            bySubject[subj].contact += (parseFloat(p.contact) || 0) * factor;
+            bySubject[subj].bonus   += (parseFloat(p.bonus)   || 0) * factor;
+        }
+        bySubject[subj].count++;
+    });
+
+    const rows = Object.entries(bySubject).sort((a,b) => {
+        const ta = a[1].contact + a[1].bonus + a[1].partanut;
+        const tb = b[1].contact + b[1].bonus + b[1].partanut;
+        return tb - ta;
+    });
+
+    el.innerHTML = `
+    <div style="overflow-x:auto;">
+    <table style="width:100%;border-collapse:collapse;background:white;border-radius:16px;overflow:hidden;box-shadow:0 4px 10px rgba(0,0,0,.05);font-size:14px;">
+        <thead>
+            <tr style="background:#1e293b;color:white;">
+                <th style="padding:13px 16px;text-align:right;">מקצוע</th>
+                <th style="padding:13px 16px;text-align:center;">שיבוצים</th>
+                <th style="padding:13px 16px;text-align:center;">שעות מגע</th>
+                <th style="padding:13px 16px;text-align:center;">שעות גמול</th>
+                <th style="padding:13px 16px;text-align:center;">פרטנות</th>
+                <th style="padding:13px 16px;text-align:center;">סה"כ</th>
+            </tr>
+        </thead>
+        <tbody>
+            ${rows.map(([subj, d]) => {
+                const total = d.contact + d.bonus + d.partanut;
+                return `<tr style="border-bottom:1px solid #f1f5f9;">
+                    <td style="padding:12px 16px;font-weight:800;">${subj}</td>
+                    <td style="padding:12px 16px;text-align:center;color:#64748b;">${d.count}</td>
+                    <td style="padding:12px 16px;text-align:center;color:#6366f1;font-weight:700;">${d.contact.toFixed(1)}</td>
+                    <td style="padding:12px 16px;text-align:center;color:#10b981;font-weight:700;">${d.bonus.toFixed(1)}</td>
+                    <td style="padding:12px 16px;text-align:center;color:#1d4ed8;font-weight:700;">${d.partanut > 0 ? d.partanut.toFixed(1) : '—'}</td>
+                    <td style="padding:12px 16px;text-align:center;font-weight:900;font-size:1rem;">${total.toFixed(1)}</td>
+                </tr>`;
+            }).join('')}
+        </tbody>
+        <tfoot>
+            <tr style="background:#f8fafc;font-weight:900;">
+                <td style="padding:13px 16px;">סה"כ</td>
+                <td style="padding:13px 16px;text-align:center;">${data.length}</td>
+                <td style="padding:13px 16px;text-align:center;color:#6366f1;">${rows.reduce((s,[,d])=>s+d.contact,0).toFixed(1)}</td>
+                <td style="padding:13px 16px;text-align:center;color:#10b981;">${rows.reduce((s,[,d])=>s+d.bonus,0).toFixed(1)}</td>
+                <td style="padding:13px 16px;text-align:center;color:#1d4ed8;">${rows.reduce((s,[,d])=>s+d.partanut,0).toFixed(1)}</td>
+                <td style="padding:13px 16px;text-align:center;">${rows.reduce((s,[,d])=>s+d.contact+d.bonus+d.partanut,0).toFixed(1)}</td>
+            </tr>
+        </tfoot>
+    </table>
+    </div>`;
 }
 </script>
 </body>
