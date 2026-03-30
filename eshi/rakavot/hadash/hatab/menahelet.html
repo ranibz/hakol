@@ -2693,30 +2693,24 @@ async function loadUnassigned() {
     const el = document.getElementById('unassigned-content');
     el.innerHTML = '<div style="text-align:center;padding:40px;color:#94a3b8;">טוען...</div>';
 
-    const [deptsRes, placementsRes] = await Promise.all([
-        sb.from('departments').select('id, structure'),
-        sb.from('placements').select('dept_id, subject, grade').eq('year', year)
+    const [pmsRes, placementsRes] = await Promise.all([
+        sb.from('pedagogical_managers').select('name, assigned_depts'),
+        sb.from('placements').select('dept_id').eq('year', year)
     ]);
 
-    const depts = deptsRes.data || [];
+    const pms = pmsRes.data || [];
     const placements = placementsRes.data || [];
 
-    // בנה set של שיבוצים קיימים: dept|grade|subject
-    const assigned = new Set(placements.map(p => `${p.dept_id}|${p.grade}|${p.subject}`));
+    // מגמות שיש להן שיבוץ
+    const assignedDepts = new Set(placements.map(p => p.dept_id));
 
     const missing = [];
-    depts.forEach(dept => {
-        const struct = dept.structure || {};
-        Object.values(struct).forEach(row => {
-            (row.subjects || []).forEach(s => {
-                const subj = typeof s === 'object' ? s.name : s;
-                ['ז','ח','ט'].forEach(grade => {
-                    const key = `${dept.id}|${grade}|${subj}`;
-                    if (!assigned.has(key)) {
-                        missing.push({ dept: dept.id, grade, subject: subj });
-                    }
-                });
-            });
+    pms.forEach(pm => {
+        const depts = pm.assigned_depts || [];
+        depts.forEach(dept => {
+            if (!assignedDepts.has(dept)) {
+                missing.push({ pm: pm.name, dept });
+            }
         });
     });
 
@@ -2725,21 +2719,21 @@ async function loadUnassigned() {
         return;
     }
 
-    // קיבוץ לפי מגמה
-    const byDept = {};
+    // קיבוץ לפי מנהלת
+    const byPM = {};
     missing.forEach(m => {
-        if (!byDept[m.dept]) byDept[m.dept] = [];
-        byDept[m.dept].push(m);
+        if (!byPM[m.pm]) byPM[m.pm] = [];
+        byPM[m.pm].push(m.dept);
     });
 
-    el.innerHTML = `<div style="margin-bottom:12px;font-size:.85rem;color:#ef4444;font-weight:700;">נמצאו ${missing.length} מקצועות ללא שיבוץ</div>` +
-    Object.entries(byDept).map(([dept, items]) => `
+    el.innerHTML = `<div style="margin-bottom:14px;font-size:.85rem;color:#ef4444;font-weight:700;">נמצאו ${missing.length} מקצועות ללא שיבוץ בשנת ${year}</div>` +
+    Object.entries(byPM).map(([pm, depts]) => `
         <div style="background:white;border-radius:16px;padding:20px;margin-bottom:14px;border:1.5px solid #fecaca;box-shadow:0 2px 6px rgba(0,0,0,.04);">
-            <div style="font-family:'Secular One';font-size:1rem;color:#1e293b;margin-bottom:12px;">📌 ${dept}</div>
+            <div style="font-family:'Secular One';font-size:1rem;color:#1e293b;margin-bottom:12px;">👤 ${pm}</div>
             <div style="display:flex;flex-wrap:wrap;gap:8px;">
-                ${items.map(m => `
-                    <span style="background:#fee2e2;color:#b91c1c;padding:5px 12px;border-radius:8px;font-size:.82rem;font-weight:700;">
-                        שכבה ${m.grade} — ${m.subject}
+                ${depts.map(d => `
+                    <span style="background:#fee2e2;color:#b91c1c;padding:5px 14px;border-radius:8px;font-size:.85rem;font-weight:700;">
+                        ❌ ${d}
                     </span>`).join('')}
             </div>
         </div>`).join('');
