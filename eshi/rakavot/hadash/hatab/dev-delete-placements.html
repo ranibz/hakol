@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>כלי מחיקת שיבוצים</title>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;700;900&family=Secular+One&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root {
+    --bg: #f1f5f9; --white: #fff; --border: #e2e8f0;
+    --primary: #6366f1; --danger: #ef4444; --success: #10b981;
+    --admin: #1e293b; --muted: #64748b;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:'Heebo',sans-serif; background:var(--bg); min-height:100vh; direction:rtl; display:flex; align-items:center; justify-content:center; padding:20px; }
+
+  .card {
+    background:var(--white); border-radius:24px; padding:36px 32px;
+    box-shadow:0 20px 40px rgba(0,0,0,.08); width:100%; max-width:600px;
+    border-top:6px solid var(--danger);
+  }
+
+  h1 { font-family:'Secular One'; font-size:1.5rem; color:var(--admin); margin-bottom:6px; }
+  .subtitle { color:var(--muted); font-size:.88rem; margin-bottom:28px; }
+
+  .field { margin-bottom:16px; }
+  .field label { display:block; font-size:.75rem; font-weight:800; color:var(--muted); margin-bottom:6px; letter-spacing:.5px; text-transform:uppercase; }
+  .field input, .field select {
+    width:100%; padding:12px 14px; border:2px solid var(--border); border-radius:10px;
+    font-family:'Heebo'; font-size:.95rem; color:var(--admin); outline:none;
+    transition:border-color .2s; background:#f8fafc;
+  }
+  .field input:focus, .field select:focus { border-color:var(--primary); background:var(--white); }
+
+  .btn-search {
+    width:100%; padding:14px; background:var(--primary); color:#fff;
+    border:none; border-radius:12px; font-family:'Heebo'; font-weight:800;
+    font-size:1rem; cursor:pointer; margin-top:4px; transition:opacity .2s;
+  }
+  .btn-search:hover { opacity:.88; }
+  .btn-search:disabled { opacity:.4; cursor:default; }
+
+  /* תוצאות */
+  #results { margin-top:28px; display:none; }
+  .results-title { font-weight:800; font-size:.9rem; color:var(--admin); margin-bottom:12px; }
+
+  .placement-row {
+    background:#f8fafc; border:1.5px solid var(--border); border-radius:12px;
+    padding:14px 16px; margin-bottom:10px; display:flex; align-items:center;
+    justify-content:space-between; gap:12px; transition:border-color .2s;
+  }
+  .placement-row:hover { border-color:#fca5a5; background:#fff5f5; }
+  .placement-row.selected { border-color:var(--danger); background:#fee2e2; }
+
+  .row-info { flex:1; }
+  .row-main { font-weight:800; font-size:.95rem; color:var(--admin); margin-bottom:4px; }
+  .row-details { font-size:.78rem; color:var(--muted); display:flex; gap:10px; flex-wrap:wrap; }
+  .tag { background:var(--border); padding:2px 8px; border-radius:6px; font-weight:700; }
+  .tag.type-partanut { background:#dbeafe; color:#1d4ed8; }
+  .tag.type-megaa { background:#dcfce7; color:#166534; }
+  .tag.semester { background:#fef3c7; color:#92400e; }
+
+  .row-checkbox { width:22px; height:22px; cursor:pointer; accent-color:var(--danger); flex-shrink:0; }
+
+  .actions { display:flex; gap:10px; margin-top:18px; }
+  .btn-delete {
+    flex:1; padding:13px; background:var(--danger); color:#fff;
+    border:none; border-radius:12px; font-family:'Heebo'; font-weight:800;
+    font-size:.95rem; cursor:pointer; transition:opacity .2s;
+  }
+  .btn-delete:disabled { opacity:.35; cursor:default; }
+  .btn-delete:hover:not(:disabled) { opacity:.88; }
+  .btn-clear {
+    padding:13px 20px; background:var(--bg); border:2px solid var(--border);
+    border-radius:12px; font-family:'Heebo'; font-weight:700; font-size:.9rem;
+    cursor:pointer; color:var(--muted);
+  }
+
+  .empty { text-align:center; color:var(--muted); padding:24px; font-size:.9rem; }
+
+  /* toast */
+  .toast {
+    position:fixed; bottom:30px; left:50%; transform:translateX(-50%);
+    background:var(--admin); color:#fff; padding:12px 24px; border-radius:12px;
+    font-weight:700; font-size:.9rem; z-index:9999; display:none;
+    box-shadow:0 8px 20px rgba(0,0,0,.2);
+  }
+  .toast.show { display:block; animation:fadeUp .3s; }
+  @keyframes fadeUp { from{opacity:0;transform:translateX(-50%) translateY(8px)} to{opacity:1;transform:translateX(-50%) translateY(0)} }
+
+  .spinner { display:inline-block; width:16px; height:16px; border:2px solid #ddd; border-top-color:var(--primary); border-radius:50%; animation:spin .7s linear infinite; vertical-align:middle; margin-left:8px; }
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  .counter { font-size:.82rem; color:var(--muted); margin-top:8px; }
+  .counter span { font-weight:800; color:var(--danger); }
+</style>
+</head>
+<body>
+
+<div class="card">
+  <h1>🗑 כלי מחיקת שיבוצים</h1>
+  <p class="subtitle">חיפוש וניהול שיבוצים לפי פרמטרים — למפתחים בלבד</p>
+
+  <div class="field">
+    <label>תעודת זהות מורה</label>
+    <input type="text" id="inp-id" placeholder="מספר ת.ז (9 ספרות)" inputmode="numeric" maxlength="9">
+  </div>
+
+  <div class="field">
+    <label>מגמה / dept_id (אופציונלי)</label>
+    <input type="text" id="inp-dept" placeholder="למשל: מדעים חטב">
+  </div>
+
+  <div class="field">
+    <label>מקצוע (אופציונלי)</label>
+    <input type="text" id="inp-subject" placeholder="למשל: מדעים">
+  </div>
+
+  <div class="field">
+    <label>שנה (אופציונלי)</label>
+    <select id="inp-year">
+      <option value="">— כל השנים —</option>
+      <option value="תשפז">תשפ"ז</option>
+      <option value="תשפו">תשפ"ו</option>
+      <option value="תשפה">תשפ"ה</option>
+    </select>
+  </div>
+
+  <button class="btn-search" id="btn-search" onclick="search()">🔍 חפש שיבוצים</button>
+
+  <div id="results">
+    <div class="results-title" id="results-title"></div>
+    <div id="results-list"></div>
+    <div class="counter" id="counter"></div>
+    <div class="actions">
+      <button class="btn-delete" id="btn-delete" onclick="deleteSelected()" disabled>🗑 מחק מסומנים</button>
+      <button class="btn-clear" onclick="clearResults()">ביטול</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const { createClient } = supabase;
+const sb = createClient(
+  'https://xxrrqaolggawkutjwtbk.supabase.co',
+  'sb_publishable_JPaHTkx93APc1b1IbYbFSg_QBvdjQN1'
+);
+
+let foundPlacements = [];
+let selected = new Set();
+
+async function search() {
+  const id      = document.getElementById('inp-id').value.trim();
+  const dept    = document.getElementById('inp-dept').value.trim();
+  const subject = document.getElementById('inp-subject').value.trim();
+  const year    = document.getElementById('inp-year').value;
+
+  if (!id && !dept && !subject) {
+    showToast('נא למלא לפחות שדה אחד לחיפוש');
+    return;
+  }
+
+  const btn = document.getElementById('btn-search');
+  btn.disabled = true;
+  btn.innerHTML = 'מחפש... <span class="spinner"></span>';
+
+  let query = sb.from('placements').select('*, teachers(name)');
+  if (id)      query = query.eq('teacher_id', id);
+  if (dept)    query = query.eq('dept_id', dept);
+  if (subject) query = query.ilike('subject', `%${subject}%`);
+  if (year)    query = query.eq('year', year);
+
+  const { data, error } = await query.order('year').order('grade');
+
+  btn.disabled = false;
+  btn.textContent = '🔍 חפש שיבוצים';
+
+  if (error) { showToast('שגיאה: ' + error.message); return; }
+
+  foundPlacements = data || [];
+  selected.clear();
+  renderResults();
+}
+
+function renderResults() {
+  const el = document.getElementById('results');
+  const list = document.getElementById('results-list');
+  const title = document.getElementById('results-title');
+  el.style.display = 'block';
+
+  if (!foundPlacements.length) {
+    title.textContent = 'לא נמצאו שיבוצים';
+    list.innerHTML = '<div class="empty">אין תוצאות לפי הפרמטרים שהוזנו</div>';
+    updateCounter();
+    return;
+  }
+
+  title.textContent = `נמצאו ${foundPlacements.length} שיבוצים — סמן לפני מחיקה:`;
+  list.innerHTML = foundPlacements.map((p, i) => {
+    const typeTag = p.type === 'פרטנות'
+      ? '<span class="tag type-partanut">פרטנות</span>'
+      : '<span class="tag type-megaa">מגע</span>';
+    const semTag = p.is_semester ? '<span class="tag semester">סמסטריאלי</span>' : '';
+    const hours = p.type === 'פרטנות'
+      ? `פרטנות: ${p.partanut||p.contact}`
+      : `מגע: ${p.contact} | גמול: ${p.bonus}`;
+
+    return `<div class="placement-row" id="row-${i}">
+      <input type="checkbox" class="row-checkbox" onchange="toggleSelect(${i}, this.checked)">
+      <div class="row-info">
+        <div class="row-main">${p.teachers?.name || p.teacher_id} — ${p.subject}</div>
+        <div class="row-details">
+          <span class="tag">${p.year}</span>
+          <span class="tag">שכבה ${p.grade}</span>
+          <span class="tag">${p.dept_id}</span>
+          ${typeTag}${semTag}
+          <span>${hours}</span>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  updateCounter();
+}
+
+function toggleSelect(i, checked) {
+  if (checked) selected.add(i);
+  else selected.delete(i);
+  const row = document.getElementById('row-' + i);
+  row.classList.toggle('selected', checked);
+  updateCounter();
+}
+
+function updateCounter() {
+  const c = document.getElementById('counter');
+  const btn = document.getElementById('btn-delete');
+  if (selected.size > 0) {
+    c.innerHTML = `<span>${selected.size}</span> שיבוצים מסומנים למחיקה`;
+    btn.disabled = false;
+  } else {
+    c.innerHTML = 'לא סומנו שיבוצים';
+    btn.disabled = true;
+  }
+}
+
+async function deleteSelected() {
+  if (!selected.size) return;
+  const names = [...selected].map(i => {
+    const p = foundPlacements[i];
+    return `${p.teachers?.name || p.teacher_id} — ${p.subject} (${p.year} ${p.grade})`;
+  });
+
+  const confirm_msg = `בטוח למחוק ${selected.size} שיבוצים?\n\n${names.join('\n')}`;
+  if (!confirm(confirm_msg)) return;
+
+  const ids = [...selected].map(i => foundPlacements[i].id);
+  const btn = document.getElementById('btn-delete');
+  btn.disabled = true;
+  btn.innerHTML = 'מוחק... <span class="spinner"></span>';
+
+  const { error } = await sb.from('placements').delete().in('id', ids);
+
+  btn.disabled = false;
+  btn.textContent = '🗑 מחק מסומנים';
+
+  if (error) { showToast('שגיאה: ' + error.message); return; }
+
+  showToast(`✅ ${ids.length} שיבוצים נמחקו`);
+  foundPlacements = foundPlacements.filter((_, i) => !selected.has(i));
+  selected.clear();
+  renderResults();
+}
+
+function clearResults() {
+  document.getElementById('results').style.display = 'none';
+  foundPlacements = [];
+  selected.clear();
+  document.getElementById('inp-id').value = '';
+  document.getElementById('inp-dept').value = '';
+  document.getElementById('inp-subject').value = '';
+  document.getElementById('inp-year').value = '';
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+document.getElementById('inp-id').addEventListener('keydown', e => { if(e.key==='Enter') search(); });
+</script>
+</body>
+</html>
