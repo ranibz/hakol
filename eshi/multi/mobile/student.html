@@ -1,0 +1,668 @@
+<!-- version: 9 -->
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>כיתה חיה — תלמיד</title>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;600;700;900&family=Assistant:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f4f6f9;
+    --white: #fff;
+    --border: #dde2ea;
+    --accent: #f0a500;
+    --accent2: #e05a00;
+    --live: #1a9e4a;
+    --live-bg: #edfaf2;
+    --text: #1a1f2e;
+    --muted: #7a8499;
+    --radius: 10px;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { background:var(--bg); color:var(--text); font-family:'Assistant',sans-serif; font-size:16px; min-height:100vh; }
+
+  /* ── HEADER ── */
+  header {
+    background:var(--white); border-bottom:1px solid var(--border);
+    padding:12px 20px; display:flex; align-items:center; gap:10px;
+  }
+  .logo { font-family:'Heebo',sans-serif; font-weight:900; font-size:1.1rem; color:var(--accent); display:flex; align-items:center; gap:7px; }
+  .dot { width:8px;height:8px;border-radius:50%;background:var(--live);box-shadow:0 0 6px var(--live);animation:pulse 2s infinite; }
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+  .student-name-badge { margin-right:auto; font-size:.85rem; color:var(--muted); font-weight:600; }
+  .slide-progress { font-size:.78rem; color:var(--muted); }
+  .ver { font-size:.68rem; color:#ccc; }
+
+  /* ── LOGIN ── */
+  #screen-login {
+    display:flex; align-items:center; justify-content:center;
+    min-height:calc(100vh - 57px); padding:20px;
+  }
+  .login-card {
+    background:var(--white); border:1px solid var(--border); border-radius:14px;
+    padding:36px 32px; width:100%; max-width:380px;
+  }
+  .login-card h2 { font-family:'Heebo',sans-serif; font-weight:900; font-size:1.4rem; color:var(--accent); margin-bottom:6px; }
+  .login-card p { color:var(--muted); font-size:.88rem; margin-bottom:24px; }
+  .field { margin-bottom:14px; }
+  .field label { display:block; font-size:.8rem; color:var(--muted); font-weight:700; margin-bottom:5px; }
+  .field input {
+    width:100%; border:1.5px solid var(--border); border-radius:8px;
+    padding:11px 13px; font-family:'Assistant',sans-serif; font-size:1rem;
+    color:var(--text); outline:none; transition:border-color .15s;
+    direction:ltr; text-align:right;
+  }
+  .field input:focus { border-color:var(--accent); }
+  .btn-enter {
+    width:100%; padding:13px; background:linear-gradient(135deg,var(--accent),var(--accent2));
+    color:#fff; border:none; border-radius:var(--radius);
+    font-family:'Heebo',sans-serif; font-weight:800; font-size:1rem;
+    cursor:pointer; margin-top:4px; transition:opacity .2s;
+  }
+  .btn-enter:hover { opacity:.88; }
+  .login-error { color:#e05a00; font-size:.83rem; margin-top:8px; text-align:center; min-height:18px; }
+
+  /* ── LESSON SCREEN ── */
+  #screen-lesson { display:none; max-width:720px; margin:0 auto; padding:24px 16px 60px; }
+
+  /* שקף */
+  .slide-card {
+    background:var(--white); border:1px solid var(--border); border-radius:14px;
+    padding:28px; margin-bottom:16px;
+  }
+  .slide-type-badge {
+    display:inline-block; font-size:.72rem; font-weight:700; padding:3px 10px;
+    border-radius:20px; margin-bottom:12px;
+  }
+  .tb-broadcast { background:#e8f0fe; color:#1a56c4; }
+  .tb-vote      { background:#fce8fe; color:#8a10b0; }
+  .tb-task      { background:#fef3e2; color:#b05a00; }
+  .tb-free      { background:#e8fef0; color:#0a7a30; }
+
+  .slide-title { font-family:'Heebo',sans-serif; font-weight:900; font-size:1.3rem; margin-bottom:14px; line-height:1.3; }
+  .slide-content { font-size:.95rem; line-height:1.7; color:#2a3040; }
+  .slide-content img { max-width:100%; border-radius:8px; margin:8px 0; }
+  .slide-content iframe { width:100%; aspect-ratio:16/9; border-radius:8px; border:none; margin:8px 0; }
+  .slide-content .video-wrap { margin:8px 0; }
+  .slide-content .box { background:#f0f4ff; border-radius:8px; padding:14px; margin:8px 0; border-right:3px solid #1a56c4; }
+
+  /* timer */
+  .timer-bar {
+    display:none; align-items:center; gap:10px; margin-top:14px;
+    padding:10px 14px; background:var(--live-bg); border-radius:8px;
+    border:1px solid #a8e8c0;
+  }
+  .timer-val { font-family:'Heebo',sans-serif; font-weight:900; font-size:1.2rem; color:var(--live); }
+  .timer-label { font-size:.8rem; color:var(--muted); }
+
+  /* vote options */
+  .vote-options { display:flex; flex-direction:column; gap:8px; margin-top:16px; }
+  .vote-option {
+    padding:12px 16px; border:1.5px solid var(--border); border-radius:8px;
+    cursor:pointer; font-size:.95rem; transition:all .15s; text-align:right;
+    background:var(--white);
+  }
+  .vote-option:hover { border-color:var(--accent); background:#fffbf0; }
+  .vote-option.selected { border-color:var(--live); background:var(--live-bg); color:var(--live); font-weight:700; }
+
+  /* task textarea */
+  .task-area {
+    width:100%; margin-top:14px; border:1.5px solid var(--border); border-radius:8px;
+    padding:12px 14px; font-family:'Assistant',sans-serif; font-size:.95rem;
+    color:var(--text); outline:none; resize:vertical; min-height:100px;
+    transition:border-color .15s;
+  }
+  .task-area:focus { border-color:var(--accent); }
+
+  /* כפתורים */
+  .btn-submit {
+    width:100%; padding:13px; background:linear-gradient(135deg,var(--accent),var(--accent2));
+    color:#fff; border:none; border-radius:var(--radius);
+    font-family:'Heebo',sans-serif; font-weight:800; font-size:1rem;
+    cursor:pointer; margin-top:12px; transition:opacity .2s;
+  }
+  .btn-submit:hover { opacity:.88; }
+  .btn-submit:disabled { opacity:.35; cursor:default; }
+
+  .btn-next {
+    width:100%; padding:13px; background:var(--white);
+    border:1.5px solid var(--border); color:var(--text);
+    border-radius:var(--radius); font-family:'Heebo',sans-serif;
+    font-weight:700; font-size:1rem; cursor:pointer; margin-top:10px;
+    transition:all .15s; display:none;
+  }
+  .btn-next:hover { border-color:var(--accent); background:#fffbf0; }
+
+  /* סטטוס */
+  .status-box {
+    display:none; padding:14px 16px; border-radius:10px;
+    font-size:.9rem; margin-top:12px; text-align:center; font-weight:600;
+  }
+  .status-box.waiting { background:#fef3e2; color:#b05a00; border:1px solid #f0d090; }
+  .status-box.approved { background:var(--live-bg); color:var(--live); border:1px solid #a8e8c0; }
+  .status-box.broadcast { background:#e8f0fe; color:#1a56c4; border:1px solid #b0c8f8; }
+
+  /* הערת מורה */
+  .feedback-box {
+    display:none; margin-top:14px; padding:14px 16px;
+    background:#fff8e6; border:1.5px solid #f0d090; border-radius:10px;
+  }
+  .feedback-label { font-size:.75rem; color:var(--muted); font-weight:700; margin-bottom:4px; }
+  .feedback-text { font-size:.92rem; color:var(--text); line-height:1.5; }
+
+  /* דו-שיח */
+  .chat-section { margin-top:14px; }
+  .chat-messages { display:flex; flex-direction:column; gap:8px; margin-bottom:10px; max-height:200px; overflow-y:auto; }
+  .chat-msg { padding:9px 13px; border-radius:10px; font-size:.88rem; line-height:1.4; max-width:85%; }
+  .chat-msg.teacher { background:#e8f0fe; color:#1a56c4; align-self:flex-start; border-bottom-right-radius:3px; }
+  .chat-msg.student { background:var(--live-bg); color:var(--live); align-self:flex-end; border-bottom-left-radius:3px; }
+  .chat-msg .msg-name { font-size:.7rem; font-weight:700; margin-bottom:2px; opacity:.7; }
+  .chat-input-row { display:flex; gap:8px; }
+  .chat-input {
+    flex:1; border:1.5px solid var(--border); border-radius:8px;
+    padding:9px 12px; font-family:'Assistant',sans-serif; font-size:.9rem;
+    color:var(--text); outline:none; transition:border-color .15s;
+  }
+  .chat-input:focus { border-color:var(--accent); }
+  .chat-send {
+    padding:9px 16px; background:var(--accent); color:#fff; border:none;
+    border-radius:8px; font-family:'Heebo',sans-serif; font-weight:700;
+    cursor:pointer; font-size:.88rem; transition:opacity .2s;
+  }
+  .chat-send:hover { opacity:.88; }
+
+  /* סיום */
+  #screen-done {
+    display:none; text-align:center; padding:60px 20px;
+    font-family:'Heebo',sans-serif;
+  }
+  .done-emoji { font-size:3rem; margin-bottom:16px; }
+  .done-title { font-size:1.5rem; font-weight:900; color:var(--live); margin-bottom:8px; }
+  .done-sub { color:var(--muted); font-size:.95rem; }
+
+  .spinner { width:16px;height:16px;border:2px solid #ddd;border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;display:inline-block; }
+  @keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo"><span class="dot"></span> כיתה חיה</div>
+  <span class="student-name-badge" id="h-name" style="display:none"></span>
+  <span class="slide-progress" id="h-progress" style="display:none"></span>
+  <span class="ver">v9</span>
+</header>
+
+<!-- ══ כניסה ══ -->
+<div id="screen-login">
+  <div class="login-card">
+    <h2>כניסה לשיעור</h2>
+    <p>הזן את הפרטים שלך להצטרפות</p>
+    <div class="field">
+      <label>קוד שיעור</label>
+      <input type="text" id="inp-code" placeholder="קוד השיעור" inputmode="numeric">
+    </div>
+    <div class="field">
+      <label>שם מלא</label>
+      <input type="text" id="inp-name" placeholder="שם פרטי ושם משפחה">
+    </div>
+    <button class="btn-enter" onclick="enterLesson()">כניסה לשיעור ←</button>
+    <div class="login-error" id="login-error"></div>
+  </div>
+</div>
+
+<!-- ══ שיעור ══ -->
+<div id="screen-lesson">
+  <div class="slide-card" id="slide-card">
+    <!-- מתמלא דינמית -->
+  </div>
+</div>
+
+<!-- ══ סיום ══ -->
+<div id="screen-done">
+  <div class="done-emoji">🎉</div>
+  <div class="done-title">סיימת את השיעור!</div>
+  <div class="done-sub">כל הכבוד. המורה קיבל את כל התגובות שלך.</div>
+</div>
+
+<script type="module">
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+const sb = createClient(
+  'https://seuskpyofhkvejyooghk.supabase.co',
+  'sb_publishable_qrLorZwzfmjFh9S3iRa1sQ_u6DVP29b'
+);
+
+// אם יש קוד ב-URL — מלא אוטומטית
+const urlCode = new URLSearchParams(location.search).get('code');
+if (urlCode) document.getElementById('inp-code').value = urlCode;
+
+let session     = null;
+let studentName = '';
+let sessionCode = '';
+let currentSlide = 0;
+let selectedVote = null;
+let chatMessages = [];
+let waitingApproval = false;
+
+// ── כניסה ──
+window.enterLesson = async function() {
+  const code = document.getElementById('inp-code').value.trim();
+  const name = document.getElementById('inp-name').value.trim();
+  const err  = document.getElementById('login-error');
+  err.textContent = '';
+
+  if (!code || !name) { err.textContent = 'נא למלא קוד ושם'; return; }
+
+  const { data, error } = await sb.from('sessions').select('*').eq('code', code).single();
+  if (error || !data) { err.textContent = 'קוד שיעור לא נמצא'; return; }
+
+  session     = data;
+  studentName = name;
+  sessionCode = code;
+
+  // בדוק אם התלמיד כבר היה פה — המשך מהשקף האחרון
+  if (session.session_type === 'live') {
+    currentSlide = session.current_slide || 0;
+  } else {
+    const { data: prev } = await sb.from('student_responses')
+      .select('slide_index')
+      .eq('session_code', code)
+      .eq('student_name', name)
+      .order('slide_index', { ascending: false })
+      .limit(1);
+    currentSlide = (prev && prev.length > 0) ? prev[0].slide_index : 0;
+  }
+
+  // רישום התלמיד בשקף הנוכחי
+  await sb.from('student_responses').insert({
+    session_code: sessionCode,
+    student_name: studentName,
+    slide_index:  currentSlide,
+    approved:     false
+  }).then(() => {}).catch(() => {});
+
+  document.getElementById('screen-login').style.display  = 'none';
+  document.getElementById('screen-lesson').style.display = 'block';
+  document.getElementById('h-name').style.display = '';
+  document.getElementById('h-name').textContent   = name;
+
+  renderSlide();
+  subscribeUpdates();
+};
+
+document.getElementById('inp-name').addEventListener('keydown', e => { if(e.key==='Enter') window.enterLesson(); });
+
+// ── רינדור שקף ──
+function renderSlide() {
+  const slides = session.slides;
+  if (!slides || currentSlide >= slides.length) {
+    document.getElementById('screen-lesson').style.display = 'none';
+    document.getElementById('screen-done').style.display   = '';
+    return;
+  }
+
+  const s    = slides[currentSlide];
+  const mode = session.session_type;
+  const total = slides.length;
+
+  document.getElementById('h-progress').style.display  = '';
+  document.getElementById('h-progress').textContent    = `שקף ${currentSlide+1} / ${total}`;
+
+  const typeBadge = { broadcast:'שידור 📺', vote:'הצבעה 🗳️', task:'משימה 📝', free:'חופשי 🔓' };
+  const typeCls   = { broadcast:'tb-broadcast', vote:'tb-vote', task:'tb-task', free:'tb-free' };
+
+  let html = `<span class="slide-type-badge ${typeCls[s.type]||'tb-broadcast'}">${typeBadge[s.type]||s.type}</span>
+    <div class="slide-title">${s.title||''}</div>`;
+
+  // תוכן
+  if (s.type !== 'vote' && s.content) {
+    html += `<div class="slide-content">${s.content}</div>`;
+  }
+
+  // טיימר
+  if (s.timer) {
+    html += `<div class="timer-bar" id="timer-bar">
+      <span class="timer-val" id="timer-val">${formatTime(s.timer)}</span>
+      <span class="timer-label">נותרו</span>
+    </div>`;
+  }
+
+  // אפשרויות הצבעה
+  if (s.type === 'vote' && s.options?.length) {
+    html += `<div class="vote-options">`;
+    s.options.filter(o=>o).forEach((o, i) => {
+      html += `<div class="vote-option" id="opt-${i}" onclick="selectVote(${i},'${o.replace(/'/g,"\\'")}')">
+        ${i+1}. ${o}
+      </div>`;
+    });
+    html += `</div>`;
+  }
+
+  // שדה משימה / חופשי
+  if (s.type === 'task' || s.type === 'free') {
+    html += `<textarea class="task-area" id="task-input" placeholder="כתוב את תגובתך כאן..."></textarea>`;
+  }
+
+  // כפתור שליחה
+  const showSubmit = s.type !== 'broadcast';
+  if (showSubmit) {
+    html += `<button class="btn-submit" id="btn-submit" onclick="submitAnswer()">שלח ✓</button>`;
+  }
+
+  // סטטוס המתנה / אישור
+  html += `<div class="status-box" id="status-box"></div>`;
+
+  // הערת מורה
+  html += `<div class="feedback-box" id="feedback-box">
+    <div class="feedback-label">💬 הערת מורה:</div>
+    <div class="feedback-text" id="feedback-text"></div>
+  </div>`;
+
+  // כפתור הבא (עצמאי בלבד)
+  if (mode === 'self') {
+    html += `<button class="btn-next" id="btn-next" onclick="nextSlide()" style="display:block">המשך ←</button>`;
+  } else if (mode === 'personal') {
+    html += `<button class="btn-next" id="btn-next" onclick="nextSlide()">המשך ←</button>`;
+  }
+
+  // דו-שיח
+  html += `<div class="chat-section">
+    <div class="chat-messages" id="chat-messages"></div>
+    <div class="chat-input-row">
+      <input class="chat-input" id="chat-input" placeholder="שאל את המורה..." onkeydown="if(event.key==='Enter')sendChat()">
+      <button class="chat-send" onclick="sendChat()">שלח</button>
+    </div>
+  </div>`;
+
+  document.getElementById('slide-card').innerHTML = html;
+
+  // שידור — הצג הודעה
+  if (s.type === 'broadcast') {
+    showStatus('broadcast', '👁 צפה בתוכן ועקוב אחרי המורה');
+  }
+
+  // טיימר
+  if (s.timer) startTimer(s.timer);
+
+  // טען הודעות דו-שיח קיימות
+  loadChat();
+  loadExistingAnswer();
+  waitingApproval = false;
+}
+
+// ── בחירת תשובה הצבעה ──
+window.selectVote = function(idx, val) {
+  selectedVote = val;
+  document.querySelectorAll('.vote-option').forEach(el => el.classList.remove('selected'));
+  document.getElementById('opt-'+idx)?.classList.add('selected');
+};
+
+// ── שליחת תגובה ──
+window.submitAnswer = async function() {
+  const s    = session.slides[currentSlide];
+  const mode = session.session_type;
+  let answer = '';
+
+  if (s.type === 'vote') {
+    if (!selectedVote) return;
+    answer = selectedVote;
+  } else {
+    answer = document.getElementById('task-input')?.value.trim() || '';
+    if (!answer) return;
+  }
+
+  const btn = document.getElementById('btn-submit');
+  if (btn) { btn.disabled = true; btn.textContent = '...שולח'; }
+
+  await sb.from('student_responses')
+    .update({ answer })
+    .eq('session_code', sessionCode)
+    .eq('student_name', studentName)
+    .eq('slide_index', currentSlide);
+
+  if (btn) { btn.disabled = true; btn.textContent = '✓ נשלח'; }
+
+  if (mode === 'personal') {
+    waitingApproval = true;
+    showStatus('waiting', '⏳ ממתין לאישור המורה...');
+    const next = document.getElementById('btn-next');
+    if (next) next.style.display = 'none';
+  } else if (mode === 'self') {
+    showStatus('approved', '✓ נשלח בהצלחה');
+  }
+};
+
+// ── הבא (עצמאי) ──
+window.nextSlide = function() {
+  if (currentSlide < session.slides.length - 1) {
+    currentSlide++;
+    selectedVote = null;
+    registerSlide();
+    renderSlide();
+  } else {
+    document.getElementById('screen-lesson').style.display = 'none';
+    document.getElementById('screen-done').style.display   = 'block';
+  }
+};
+
+async function registerSlide() {
+  await sb.from('student_responses').insert({
+    session_code: sessionCode,
+    student_name: studentName,
+    slide_index:  currentSlide,
+    approved:     false
+  }).then(() => {}).catch(() => {});
+}
+
+// ── טיימר ──
+let timerInterval = null;
+function startTimer(seconds) {
+  clearInterval(timerInterval);
+  let left = seconds;
+  const bar = document.getElementById('timer-bar');
+  const val = document.getElementById('timer-val');
+  if (bar) bar.style.display = 'flex';
+  timerInterval = setInterval(() => {
+    left--;
+    if (val) val.textContent = formatTime(left);
+    if (left <= 0) clearInterval(timerInterval);
+  }, 1000);
+}
+
+function formatTime(sec) {
+  const m = Math.floor(sec/60), s = sec%60;
+  return `${m}:${String(s).padStart(2,'0')}`;
+}
+
+// ── סטטוס ──
+function showStatus(type, msg) {
+  const box = document.getElementById('status-box');
+  if (!box) return;
+  box.className = `status-box ${type}`;
+  box.textContent = msg;
+  box.style.display = '';
+}
+
+// ── טעינת תגובה קיימת ──
+async function loadExistingAnswer() {
+  const { data } = await sb.from('student_responses')
+    .select('answer,feedback')
+    .eq('session_code', sessionCode)
+    .eq('student_name', studentName)
+    .eq('slide_index', currentSlide)
+    .single();
+
+  if (!data) return;
+
+  if (data.answer) {
+    const btn = document.getElementById('btn-submit');
+    if (btn) { btn.disabled = true; btn.textContent = '✓ נשלח'; }
+    showStatus('approved', '✓ שלחת תגובה לשקף זה');
+  }
+
+  if (data.feedback) {
+    const fb = document.getElementById('feedback-box');
+    const ft = document.getElementById('feedback-text');
+    if (fb && ft) { fb.style.display = ''; ft.textContent = data.feedback; }
+  }
+}
+
+// ── Realtime ──
+function subscribeUpdates() {
+  // שינוי שקף (מצב חי קבוצתי)
+  sb.channel('session-student-' + sessionCode)
+    .on('postgres_changes', {
+      event: 'UPDATE', schema: 'public', table: 'sessions',
+      filter: `code=eq.${sessionCode}`
+    }, payload => {
+      const updated = payload.new;
+      session = { ...session, ...updated };
+
+      if (session.session_type === 'live') {
+        currentSlide = updated.current_slide || 0;
+        selectedVote = null;
+        clearInterval(timerInterval);
+        renderSlide();
+      }
+    })
+    .subscribe();
+
+  // הערות מורה + אישור מעבר
+  sb.channel('feedback-' + sessionCode + '-' + studentName)
+    .on('postgres_changes', {
+      event: 'UPDATE', schema: 'public', table: 'student_responses'
+    }, payload => {
+      if (!payload.new) return;
+      if (payload.new.student_name !== studentName) return;
+      if (payload.new.session_code !== sessionCode) return;
+
+      // הערת מורה — רק אם זה השקף הנוכחי
+      if (payload.new.feedback && payload.new.slide_index === currentSlide) {
+        const fb = document.getElementById('feedback-box');
+        const ft = document.getElementById('feedback-text');
+        if (fb && ft) { fb.style.display = ''; ft.textContent = payload.new.feedback; }
+      }
+
+      // אישור מעבר — לפי slide_index שהמורה אישר
+      if (payload.new.approved && payload.new.slide_index === currentSlide) {
+        waitingApproval = false;
+        if (currentSlide < session.slides.length - 1) {
+          currentSlide++;
+          selectedVote = null;
+          registerSlide();
+          renderSlide();
+        } else {
+          document.getElementById('screen-lesson').style.display = 'none';
+          document.getElementById('screen-done').style.display = 'block';
+        }
+      }
+    })
+    .subscribe();
+
+  // polling כל 3 שניות — גיבוי ל-Realtime
+  setInterval(async () => {
+    if (!sessionCode || !studentName) return;
+
+    // בדיקת אישור מעבר
+    const { data } = await sb.from('student_responses')
+      .select('approved, feedback, slide_index')
+      .eq('session_code', sessionCode)
+      .eq('student_name', studentName)
+      .eq('slide_index', currentSlide)
+      .single();
+
+    if (!data) return;
+
+    if (data.approved) {
+      if (currentSlide < session.slides.length - 1) {
+        currentSlide++;
+        selectedVote = null;
+        registerSlide();
+        renderSlide();
+      } else {
+        document.getElementById('screen-lesson').style.display = 'none';
+        document.getElementById('screen-done').style.display = 'block';
+      }
+    }
+
+    if (data.feedback) {
+      const fb = document.getElementById('feedback-box');
+      const ft = document.getElementById('feedback-text');
+      if (fb && ft && ft.textContent !== data.feedback) {
+        fb.style.display = '';
+        ft.textContent = data.feedback;
+      }
+    }
+
+    // בדיקת שקף נוכחי (מצב חי)
+    const { data: sess } = await sb.from('sessions')
+      .select('current_slide, session_type')
+      .eq('code', sessionCode)
+      .single();
+
+    if (sess && sess.session_type === 'live' && sess.current_slide !== currentSlide) {
+      currentSlide = sess.current_slide;
+      selectedVote = null;
+      clearInterval(timerInterval);
+      renderSlide();
+    }
+  }, 3000);
+
+  // הודעות דו-שיח
+  sb.channel('chat-' + sessionCode)
+    .on('postgres_changes', {
+      event: 'INSERT', schema: 'public', table: 'chat_messages'
+    }, payload => {
+      const msg = payload.new;
+      if (!msg) return;
+      if (msg.session_code !== sessionCode) return;
+      if (msg.student_name === studentName || msg.sender === 'teacher') {
+        chatMessages.push(msg);
+        renderChat();
+      }
+    })
+    .subscribe();
+}
+
+// ── דו-שיח ──
+async function loadChat() {
+  const { data } = await sb.from('chat_messages')
+    .select('*')
+    .eq('session_code', sessionCode)
+    .eq('student_name', studentName)
+    .order('created_at', { ascending: true });
+  chatMessages = data || [];
+  renderChat();
+}
+
+function renderChat() {
+  const container = document.getElementById('chat-messages');
+  if (!container) return;
+  container.innerHTML = chatMessages.map(m => `
+    <div class="chat-msg ${m.sender==='teacher'?'teacher':'student'}">
+      <div class="msg-name">${m.sender==='teacher'?'המורה':studentName}</div>
+      ${m.message}
+    </div>
+  `).join('');
+  container.scrollTop = container.scrollHeight;
+}
+
+window.sendChat = async function() {
+  const input = document.getElementById('chat-input');
+  const msg = input?.value.trim();
+  if (!msg) return;
+  input.value = '';
+
+  await sb.from('chat_messages').insert({
+    session_code: sessionCode,
+    student_name: studentName,
+    sender: 'student',
+    message: msg,
+    slide_index: currentSlide
+  });
+};
+</script>
+</body>
+</html>
