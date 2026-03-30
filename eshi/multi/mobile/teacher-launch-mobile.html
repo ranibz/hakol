@@ -1,4 +1,4 @@
-<!-- version: 1 -->
+<!-- version: 2 -->
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
@@ -115,7 +115,7 @@
 
 <header>
   <div class="logo"><span class="dot"></span> כיתה חיה</div>
-  <span class="ver">v1</span>
+  <span class="ver">v2</span>
 </header>
 
 <main>
@@ -168,10 +168,23 @@
     <div class="code-label">קוד לתלמידים:</div>
     <div class="code-val" id="code-val">—</div>
     <button class="btn-copy" onclick="copyCode()">📋 העתק קישור לתלמידים</button>
-    <button class="btn-teacher-screen" onclick="goToTeacher()">🖥 כנס למסך מורה</button>
+    <button class="btn-teacher-screen" onclick="goToTeacher()">🖥 מסך מורה מלא</button>
+    <button class="btn-teacher-screen" onclick="openSummary()" style="margin-top:8px;background:#f0f2f5;border-color:#dde2ea;">📊 תוצרי תלמידים</button>
   </div>
 
 </main>
+
+<!-- ── SUMMARY MODAL ── -->
+<div id="summary-modal" style="display:none;position:fixed;inset:0;z-index:300;background:#f0f2f5;overflow-y:auto;">
+  <div style="padding:16px 16px 40px;max-width:560px;margin:0 auto;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;padding-top:8px;">
+      <div style="font-family:Heebo,sans-serif;font-weight:900;font-size:1.15rem;">📊 תוצרי תלמידים</div>
+      <button onclick="document.getElementById('summary-modal').style.display='none'"
+        style="background:none;border:1.5px solid #dde2ea;border-radius:8px;padding:6px 12px;font-size:.85rem;cursor:pointer;">סגור ✕</button>
+    </div>
+    <div id="summary-content"><div style="text-align:center;color:#7a8499;padding:30px">טוען...</div></div>
+  </div>
+</div>
 
 <script type="module">
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
@@ -284,6 +297,54 @@ window.copyCode = function() {
 
 window.goToTeacher = function() {
   location.href = `${TEACHER_MOBILE}?code=${activeCode}&mode=${selectedMode}`;
+};
+
+window.openSummary = async function() {
+  if (!activeCode) return;
+  const modal   = document.getElementById('summary-modal');
+  const content = document.getElementById('summary-content');
+  modal.style.display = 'block';
+  content.innerHTML = '<div style="text-align:center;color:#7a8499;padding:30px">טוען...</div>';
+
+  const { data } = await sb.from('student_responses')
+    .select('*').eq('session_code', activeCode)
+    .order('student_name').order('slide_index');
+
+  if (!data?.length) {
+    content.innerHTML = '<div style="text-align:center;color:#7a8499;padding:30px">אין תוצרים עדיין</div>';
+    return;
+  }
+
+  const bySlide = {};
+  data.forEach(r => {
+    if (!r.answer) return;
+    if (!bySlide[r.slide_index]) bySlide[r.slide_index] = [];
+    bySlide[r.slide_index].push(r);
+  });
+
+  const slides = selectedLesson?.slides || [];
+  let html = '';
+
+  Object.keys(bySlide).sort((a,b)=>+a-+b).forEach(idx => {
+    const slide = slides[+idx];
+    const title = slide?.title || `שקף ${+idx+1}`;
+    const responses = bySlide[idx];
+    html += `<div style="margin-bottom:22px;background:#fff;border-radius:14px;padding:16px;border:1px solid #dde2ea;">
+      <div style="font-family:Heebo,sans-serif;font-weight:800;font-size:.95rem;margin-bottom:12px;color:#1a1f2e;">
+        שקף ${+idx+1} — ${title}
+        <span style="font-size:.75rem;color:#7a8499;font-weight:400;margin-right:6px">(${responses.length} תשובות)</span>
+      </div>
+      ${responses.map(r => `
+        <div style="border-top:1px solid #f0f2f5;padding:10px 0;">
+          <div style="font-family:Heebo,sans-serif;font-weight:700;font-size:.82rem;color:#7a8499;margin-bottom:4px">${r.student_name}</div>
+          <div style="font-size:.9rem;color:#2a3040;line-height:1.5">${r.answer}</div>
+          ${r.feedback ? `<div style="margin-top:6px;font-size:.78rem;color:#b07000;background:#fff8e6;padding:5px 9px;border-radius:6px;">💬 ${r.feedback}</div>` : ''}
+        </div>
+      `).join('')}
+    </div>`;
+  });
+
+  content.innerHTML = html || '<div style="text-align:center;color:#7a8499;padding:30px">אין תשובות עדיין</div>';
 };
 
 loadLessons();
