@@ -1,0 +1,508 @@
+<!-- version: 1 -->
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>מסך מורה — נייד</title>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;600;700;900&family=Assistant:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f0f2f5;
+    --white: #fff;
+    --border: #dde2ea;
+    --accent: #f0a500;
+    --text: #1a1f2e;
+    --muted: #7a8499;
+    --live: #1a9e4a;
+    --radius: 12px;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+  body { background:var(--bg); color:var(--text); font-family:'Assistant',sans-serif; font-size:16px; min-height:100vh; }
+
+  /* ── HEADER ── */
+  .top-bar {
+    position:fixed; top:0; right:0; left:0; z-index:100;
+    background:var(--white); border-bottom:1px solid var(--border);
+    padding:10px 14px;
+  }
+
+  .top-row1 {
+    display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;
+  }
+  .logo { font-family:'Heebo',sans-serif; font-weight:900; font-size:1rem; color:var(--accent); display:flex; align-items:center; gap:6px; }
+  .dot { width:8px;height:8px;border-radius:50%;background:var(--live);box-shadow:0 0 5px var(--live);animation:pulse 2s infinite; }
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+  .session-info { font-size:.78rem; color:var(--muted); text-align:left; }
+  .code-badge { font-family:'Heebo',sans-serif; font-weight:900; color:var(--live); font-size:.9rem; letter-spacing:2px; }
+  .ver { font-size:.65rem; color:#ccc; }
+
+  .top-row2 {
+    display:flex; align-items:center; gap:8px;
+  }
+  .btn-nav {
+    padding:8px 16px; border:1.5px solid var(--border); background:var(--white);
+    border-radius:8px; font-family:'Heebo',sans-serif; font-weight:700;
+    font-size:.9rem; cursor:pointer; flex:1; text-align:center;
+    transition:all .15s; touch-action:manipulation;
+  }
+  .btn-nav:active { background:#f0f2f5; }
+  .btn-nav:disabled { opacity:.3; }
+  .slide-info { flex:1; text-align:center; }
+  .slide-counter { font-family:'Heebo',sans-serif; font-weight:900; font-size:1rem; }
+  .slide-title-sm { font-size:.72rem; color:var(--muted); margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+  .btn-all {
+    padding:8px 12px; background:#f0f2f5; border:1.5px solid var(--border);
+    border-radius:8px; font-family:'Heebo',sans-serif; font-weight:700;
+    font-size:.78rem; cursor:pointer; white-space:nowrap; touch-action:manipulation;
+    transition:all .15s;
+  }
+  .btn-all:active { background:#e0e4ea; }
+
+  /* ── STATS ── */
+  .stats-bar {
+    position:fixed; top:calc(var(--header-h, 105px)); right:0; left:0; z-index:99;
+    background:var(--white); border-bottom:1px solid var(--border);
+    display:flex; padding:8px 14px; gap:0;
+  }
+  .stat { flex:1; text-align:center; }
+  .stat-num { font-family:'Heebo',sans-serif; font-weight:900; font-size:1.2rem; }
+  .stat-num.g { color:var(--live); }
+  .stat-num.y { color:var(--accent); }
+  .stat-num.w { color:var(--muted); }
+  .stat-label { font-size:.68rem; color:var(--muted); }
+
+  /* ── CONTENT ── */
+  .content { padding-top:155px; padding-bottom:20px; }
+
+  /* ── STUDENT CARDS ── */
+  .student-list { display:flex; flex-direction:column; gap:10px; padding:12px; }
+
+  .student-card {
+    background:var(--white); border-radius:var(--radius); border:2px solid var(--border);
+    padding:14px 16px; transition:all .2s; position:relative; overflow:hidden;
+  }
+  .student-card.s-white { border-color:var(--border); background:var(--white); }
+  .student-card.s-yellow { border-color:#e09000; background:#fff8cc; }
+  .student-card.s-green  { border-color:#0a8a35; background:#c8f5dc; }
+
+  .card-top { display:flex; align-items:center; gap:12px; margin-bottom:8px; }
+  .avatar {
+    width:40px; height:40px; border-radius:50%; flex-shrink:0;
+    background:linear-gradient(135deg,var(--accent),#e05a00);
+    display:flex; align-items:center; justify-content:center;
+    color:#fff; font-family:'Heebo',sans-serif; font-weight:900; font-size:.95rem;
+  }
+  .student-card.s-green .avatar { background:linear-gradient(135deg,#1a9e4a,#0a6a30); }
+  .student-card.s-yellow .avatar { background:linear-gradient(135deg,#e09000,#b06000); }
+
+  .card-meta { flex:1; min-width:0; }
+  .s-name { font-family:'Heebo',sans-serif; font-weight:800; font-size:1rem; }
+  .s-status { font-size:.75rem; color:var(--muted); margin-top:2px; }
+  .student-card.s-green  .s-status { color:#0a6a30; font-weight:600; }
+  .student-card.s-yellow .s-status { color:#7a5000; font-weight:600; }
+
+  .card-actions { display:flex; gap:8px; align-items:center; flex-shrink:0; }
+
+  .btn-release {
+    padding:8px 14px; background:var(--live); color:#fff; border:none;
+    border-radius:8px; font-family:'Heebo',sans-serif; font-weight:700;
+    font-size:.82rem; cursor:pointer; touch-action:manipulation;
+    transition:opacity .15s; white-space:nowrap;
+  }
+  .btn-release:active { opacity:.8; }
+
+  .btn-chat {
+    padding:8px 12px; background:#f0f2f5; border:1.5px solid var(--border);
+    border-radius:8px; font-size:.9rem; cursor:pointer; touch-action:manipulation;
+    transition:all .15s; position:relative;
+  }
+  .btn-chat.has-msg { background:#fff8cc; border-color:#e09000; }
+  .chat-badge {
+    position:absolute; top:-4px; right:-4px; width:16px; height:16px;
+    background:#e05a00; color:#fff; border-radius:50%; font-size:.6rem;
+    display:flex; align-items:center; justify-content:center; font-weight:700;
+  }
+
+  /* תשובת תלמיד */
+  .answer-preview {
+    background:#f8f9fb; border-radius:8px; padding:10px 12px;
+    font-size:.85rem; color:var(--text); line-height:1.5;
+    border:1px solid var(--border); margin-top:0;
+    display:none;
+  }
+  .student-card.s-green .answer-preview { display:block; }
+
+  /* ── CHAT MODAL ── */
+  #chat-modal {
+    display:none; position:fixed; inset:0; z-index:200;
+    background:rgba(0,0,0,.5); align-items:flex-end;
+  }
+  .chat-sheet {
+    background:var(--white); border-radius:20px 20px 0 0;
+    padding:20px 16px 30px; width:100%; max-height:85vh;
+    display:flex; flex-direction:column;
+  }
+  .chat-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+  .chat-student-name { font-family:'Heebo',sans-serif; font-weight:800; font-size:1.1rem; }
+  .btn-close-chat { background:none; border:none; font-size:1.4rem; cursor:pointer; color:var(--muted); padding:4px; }
+
+  .chat-answer {
+    background:#f0f2f5; border-radius:10px; padding:12px;
+    font-size:.88rem; margin-bottom:12px; line-height:1.5;
+  }
+  .chat-answer-label { font-size:.72rem; color:var(--muted); font-weight:700; margin-bottom:4px; }
+
+  .chat-messages {
+    flex:1; overflow-y:auto; display:flex; flex-direction:column;
+    gap:8px; margin-bottom:12px; max-height:250px;
+  }
+  .chat-msg { padding:9px 13px; border-radius:14px; font-size:.88rem; max-width:80%; line-height:1.4; }
+  .chat-msg.teacher { background:#fff8e6; align-self:flex-start; border-bottom-right-radius:4px; }
+  .chat-msg.student { background:#edfaf2; align-self:flex-end; border-bottom-left-radius:4px; color:#0a5a20; }
+  .msg-name { font-size:.68rem; color:var(--muted); margin-bottom:2px; font-weight:700; }
+
+  .chat-input-row { display:flex; gap:8px; }
+  .chat-input {
+    flex:1; border:1.5px solid var(--border); border-radius:10px;
+    padding:11px 14px; font-family:'Assistant',sans-serif; font-size:1rem;
+    outline:none; background:var(--white);
+  }
+  .chat-input:focus { border-color:var(--accent); }
+  .btn-chat-send {
+    padding:11px 18px; background:var(--accent); color:#fff; border:none;
+    border-radius:10px; font-family:'Heebo',sans-serif; font-weight:800;
+    font-size:.95rem; cursor:pointer; touch-action:manipulation;
+  }
+
+  .feedback-row { margin-bottom:10px; display:flex; gap:8px; }
+  .feedback-input {
+    flex:1; border:1.5px solid var(--border); border-radius:10px;
+    padding:10px 13px; font-family:'Assistant',sans-serif; font-size:.9rem; outline:none;
+  }
+  .btn-feedback-send {
+    padding:10px 14px; background:#1a9e4a; color:#fff; border:none;
+    border-radius:10px; font-family:'Heebo',sans-serif; font-weight:700;
+    font-size:.85rem; cursor:pointer;
+  }
+
+  .empty-list { text-align:center; color:var(--muted); padding:40px 20px; font-size:.95rem; }
+</style>
+</head>
+<body>
+
+<!-- ── HEADER ── -->
+<div class="top-bar" id="top-bar">
+  <div class="top-row1">
+    <div class="logo"><span class="dot"></span> כיתה חיה</div>
+    <div class="session-info">
+      <div class="code-badge" id="h-code">—</div>
+      <div id="h-title" style="font-size:.72rem;color:var(--muted)">טוען...</div>
+    </div>
+    <span class="ver">v1</span>
+  </div>
+  <div class="top-row2">
+    <button class="btn-nav" id="btn-prev" onclick="moveSlide(-1)" disabled>→</button>
+    <div class="slide-info">
+      <div class="slide-counter" id="slide-counter">— / —</div>
+      <div class="slide-title-sm" id="slide-title">—</div>
+    </div>
+    <button class="btn-nav" id="btn-next" onclick="moveSlide(1)" disabled>←</button>
+    <button class="btn-all" onclick="advanceAll()">📣 כולם →</button>
+  </div>
+</div>
+
+<!-- ── STATS ── -->
+<div class="stats-bar">
+  <div class="stat"><div class="stat-num w" id="stat-total">0</div><div class="stat-label">נכנסו</div></div>
+  <div class="stat"><div class="stat-num g" id="stat-answered">0</div><div class="stat-label">ענו</div></div>
+  <div class="stat"><div class="stat-num y" id="stat-chat">0</div><div class="stat-label">צ'אט</div></div>
+</div>
+
+<!-- ── CONTENT ── -->
+<div class="content">
+  <div class="student-list" id="student-list">
+    <div class="empty-list">ממתין לתלמידים...</div>
+  </div>
+</div>
+
+<!-- ── CHAT MODAL ── -->
+<div id="chat-modal" onclick="closeChatIfOutside(event)">
+  <div class="chat-sheet">
+    <div class="chat-header">
+      <div class="chat-student-name" id="chat-student-name">—</div>
+      <button class="btn-close-chat" onclick="closeChat()">✕</button>
+    </div>
+
+    <div class="answer-preview chat-answer" id="chat-answer-box" style="display:none">
+      <div class="chat-answer-label">תשובת התלמיד:</div>
+      <div id="chat-answer-text">—</div>
+    </div>
+
+    <div class="feedback-row">
+      <input class="feedback-input" id="feedback-input" placeholder="הערה לתלמיד...">
+      <button class="btn-feedback-send" onclick="sendFeedback()">✉</button>
+    </div>
+
+    <div class="chat-messages" id="chat-messages"></div>
+
+    <div class="chat-input-row">
+      <input class="chat-input" id="chat-input" placeholder="כתוב הודעה..." onkeydown="if(event.key==='Enter')sendChat()">
+      <button class="btn-chat-send" onclick="sendChat()">שלח</button>
+    </div>
+  </div>
+</div>
+
+<script type="module">
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+const sb = createClient(
+  'https://seuskpyofhkvejyooghk.supabase.co',
+  'sb_publishable_qrLorZwzfmjFh9S3iRa1sQ_u6DVP29b'
+);
+
+const params = new URLSearchParams(location.search);
+const CODE   = params.get('code');
+const MODE   = params.get('mode') || 'personal';
+
+if (!CODE) {
+  document.body.innerHTML = '<div style="padding:40px;text-align:center;color:#e05a00;font-family:Heebo">❌ חסר קוד שיעור</div>';
+  throw new Error('no code');
+}
+
+window.students = {};
+let students    = window.students;
+let session     = null;
+let currentSlide = 0;
+let selectedStudent = null;
+let chatData    = [];
+
+// ── header height ──
+function fixHeaderHeight() {
+  const h = document.getElementById('top-bar').offsetHeight;
+  document.querySelector('.stats-bar').style.top = h + 'px';
+  document.querySelector('.content').style.paddingTop = (h + 44) + 'px';
+}
+
+// ── LOAD SESSION ──
+async function loadSession() {
+  const { data, error } = await sb.from('sessions').select('*').eq('code', CODE).single();
+  if (error || !data) { alert('שיעור לא נמצא'); return; }
+  session = data;
+  currentSlide = data.current_slide || 0;
+
+  document.getElementById('h-code').textContent  = CODE;
+  document.getElementById('h-title').textContent = data.title || 'שיעור';
+
+  updateSlideUI();
+  loadStudents();
+  subscribeAll();
+  setTimeout(fixHeaderHeight, 100);
+}
+
+function updateSlideUI() {
+  if (!session?.slides) return;
+  const s = session.slides[currentSlide];
+  document.getElementById('slide-counter').textContent = `${currentSlide+1} / ${session.slides.length}`;
+  document.getElementById('slide-title').textContent   = s?.title || '';
+  document.getElementById('btn-prev').disabled = currentSlide === 0;
+  document.getElementById('btn-next').disabled = currentSlide === session.slides.length - 1;
+}
+
+window.moveSlide = async function(dir) {
+  const next = currentSlide + dir;
+  if (!session?.slides || next < 0 || next >= session.slides.length) return;
+  currentSlide = next;
+  await sb.from('sessions').update({ current_slide: currentSlide }).eq('code', CODE);
+  updateSlideUI();
+};
+
+window.advanceAll = async function() {
+  if (!session?.slides) return;
+  const next = currentSlide + 1;
+  if (next >= session.slides.length) return;
+  currentSlide = next;
+  await sb.from('sessions').update({ current_slide: currentSlide }).eq('code', CODE);
+  updateSlideUI();
+};
+
+// ── STUDENTS ──
+async function loadStudents() {
+  const { data } = await sb.from('student_responses').select('*').eq('session_code', CODE);
+  if (!data) return;
+  data.forEach(handleRow);
+  renderList();
+}
+
+function handleRow(row) {
+  if (!row?.student_name) return;
+  if (!students[row.student_name]) students[row.student_name] = { name:row.student_name, answers:{}, feedback:{}, chatCount:0, current_slide:0 };
+  const s = students[row.student_name];
+  if (row.slide_index >= s.current_slide) s.current_slide = row.slide_index;
+  if (row.answer) s.answers[row.slide_index] = row.answer;
+  if (row.feedback) s.feedback[row.slide_index] = row.feedback;
+}
+
+function renderList() {
+  const list = document.getElementById('student-list');
+  const arr  = Object.values(students);
+
+  if (!arr.length) { list.innerHTML = '<div class="empty-list">ממתין לתלמידים...</div>'; return; }
+
+  const answered = arr.filter(s => s.answers[s.current_slide]).length;
+  const chatting = arr.filter(s => s.chatCount > 0).length;
+  document.getElementById('stat-total').textContent    = arr.length;
+  document.getElementById('stat-answered').textContent = answered;
+  document.getElementById('stat-chat').textContent     = chatting;
+
+  list.innerHTML = arr.map((s, idx) => {
+    const hasAnswer = !!s.answers[s.current_slide];
+    const hasChat   = s.chatCount > 0;
+    let cls = 'student-card s-white';
+    if (hasAnswer) cls = 'student-card s-green';
+    else if (hasChat) cls = 'student-card s-yellow';
+
+    const ans = s.answers[s.current_slide] || '';
+    const slideNum = s.current_slide + 1;
+    const statusText = hasAnswer ? `✓ ענה | שקף ${slideNum}` : `שקף ${slideNum}`;
+
+    return `<div class="${cls}" id="sc-${idx}">
+      <div class="card-top">
+        <div class="avatar">${s.name.slice(0,2)}</div>
+        <div class="card-meta">
+          <div class="s-name">${s.name}</div>
+          <div class="s-status">${statusText}</div>
+        </div>
+        <div class="card-actions">
+          ${MODE === 'personal' ? `<button class="btn-release" onclick="window.releaseStudent('${s.name}')">שחרר ←</button>` : ''}
+          <button class="btn-chat${hasChat?' has-msg':''}" onclick="window.openChat('${s.name}')">
+            💬${hasChat ? `<span class="chat-badge">${s.chatCount}</span>` : ''}
+          </button>
+        </div>
+      </div>
+      ${ans ? `<div class="answer-preview">${ans}</div>` : ''}
+    </div>`;
+  }).join('');
+}
+
+// ── RELEASE ──
+window.releaseStudent = async function(name) {
+  const s = students[name];
+  if (!s) return;
+  await sb.from('student_responses')
+    .update({ approved: true })
+    .eq('session_code', CODE)
+    .eq('student_name', name)
+    .eq('slide_index', s.current_slide);
+};
+
+// ── CHAT ──
+window.openChat = async function(name) {
+  selectedStudent = name;
+  const s = students[name];
+  if (s) s.chatCount = 0;
+  renderList();
+
+  document.getElementById('chat-student-name').textContent = name;
+
+  const ans = s?.answers[s?.current_slide];
+  const ansBox = document.getElementById('chat-answer-box');
+  if (ans) { ansBox.style.display=''; document.getElementById('chat-answer-text').textContent = ans; }
+  else ansBox.style.display='none';
+
+  document.getElementById('feedback-input').value = s?.feedback[s?.current_slide] || '';
+  document.getElementById('chat-input').value = '';
+
+  document.getElementById('chat-modal').style.display = 'flex';
+
+  const { data } = await sb.from('chat_messages')
+    .select('*').eq('session_code', CODE).eq('student_name', name)
+    .order('created_at', { ascending: true });
+  chatData = data || [];
+  renderChat();
+};
+
+function closeChat() {
+  document.getElementById('chat-modal').style.display = 'none';
+  selectedStudent = null;
+}
+
+window.closeChatIfOutside = function(e) {
+  if (e.target === document.getElementById('chat-modal')) closeChat();
+};
+
+function renderChat() {
+  const c = document.getElementById('chat-messages');
+  c.innerHTML = chatData.map(m => `
+    <div style="display:flex;flex-direction:column;align-items:${m.sender==='teacher'?'flex-start':'flex-end'}">
+      <div class="msg-name">${m.sender==='teacher'?'אתה':m.student_name}</div>
+      <div class="chat-msg ${m.sender==='teacher'?'teacher':'student'}">${m.message}</div>
+    </div>
+  `).join('');
+  c.scrollTop = c.scrollHeight;
+}
+
+window.sendChat = async function() {
+  if (!selectedStudent) return;
+  const input = document.getElementById('chat-input');
+  const msg = input.value.trim();
+  if (!msg) return;
+  input.value = '';
+  await sb.from('chat_messages').insert({
+    session_code: CODE, student_name: selectedStudent,
+    sender: 'teacher', message: msg, slide_index: currentSlide
+  });
+};
+
+window.sendFeedback = async function() {
+  if (!selectedStudent) return;
+  const text = document.getElementById('feedback-input').value.trim();
+  if (!text) return;
+  const s = students[selectedStudent];
+  await sb.from('student_responses')
+    .update({ feedback: text })
+    .eq('session_code', CODE)
+    .eq('student_name', selectedStudent)
+    .eq('slide_index', s?.current_slide || 0);
+};
+
+// ── REALTIME ──
+function subscribeAll() {
+  sb.channel('m-session-' + CODE)
+    .on('postgres_changes', { event:'UPDATE', schema:'public', table:'sessions', filter:`code=eq.${CODE}` }, payload => {
+      session = { ...session, ...payload.new };
+      currentSlide = payload.new.current_slide || 0;
+      updateSlideUI();
+    }).subscribe();
+
+  sb.channel('m-students-' + CODE)
+    .on('postgres_changes', { event:'*', schema:'public', table:'student_responses' }, payload => {
+      const row = payload.new || payload.old;
+      if (!row || row.session_code !== CODE) return;
+      handleRow(row);
+      renderList();
+    }).subscribe();
+
+  sb.channel('m-chat-' + CODE)
+    .on('postgres_changes', { event:'INSERT', schema:'public', table:'chat_messages' }, payload => {
+      const msg = payload.new;
+      if (!msg || msg.session_code !== CODE) return;
+      if (msg.sender === 'student') {
+        if (!students[msg.student_name]) students[msg.student_name] = { name:msg.student_name, answers:{}, feedback:{}, chatCount:0, current_slide:0 };
+        students[msg.student_name].chatCount++;
+        renderList();
+        if (selectedStudent === msg.student_name) {
+          chatData.push(msg);
+          renderChat();
+        }
+      }
+    }).subscribe();
+
+  setInterval(loadStudents, 8000);
+}
+
+loadSession();
+</script>
+</body>
+</html>

@@ -1,0 +1,292 @@
+<!-- version: 1 -->
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>כיתה חיה — הפעלה</title>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;600;700;900&family=Assistant:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f0f2f5;
+    --white: #fff;
+    --border: #dde2ea;
+    --accent: #f0a500;
+    --accent2: #e05a00;
+    --live: #1a9e4a;
+    --text: #1a1f2e;
+    --muted: #7a8499;
+    --radius: 14px;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+  body { background:var(--bg); color:var(--text); font-family:'Assistant',sans-serif; font-size:16px; min-height:100vh; }
+
+  header {
+    background:var(--white); border-bottom:1px solid var(--border);
+    padding:14px 18px; display:flex; align-items:center; justify-content:space-between;
+  }
+  .logo { font-family:'Heebo',sans-serif; font-weight:900; font-size:1.15rem; color:var(--accent); display:flex; align-items:center; gap:7px; }
+  .dot { width:9px;height:9px;border-radius:50%;background:var(--live);box-shadow:0 0 6px var(--live);animation:pulse 2s infinite; }
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+  .ver { font-size:.68rem; color:#ccc; }
+
+  main { padding:16px; display:flex; flex-direction:column; gap:16px; max-width:560px; margin:0 auto; padding-bottom:40px; }
+
+  .section-label {
+    font-family:'Heebo',sans-serif; font-weight:700; font-size:.72rem;
+    color:var(--muted); text-transform:uppercase; letter-spacing:1px;
+    margin-bottom:10px;
+  }
+
+  /* ── LESSON LIST ── */
+  #lesson-list { display:flex; flex-direction:column; gap:8px; }
+
+  .lesson-item {
+    background:var(--white); border:2px solid var(--border); border-radius:var(--radius);
+    padding:14px 16px; cursor:pointer; transition:all .15s;
+    display:flex; align-items:center; gap:12px;
+  }
+  .lesson-item.selected { border-color:var(--accent); background:#fffbf0; }
+  .lesson-radio {
+    width:20px; height:20px; border-radius:50%; border:2px solid var(--border);
+    flex-shrink:0; display:flex; align-items:center; justify-content:center;
+    transition:all .15s;
+  }
+  .lesson-item.selected .lesson-radio { border-color:var(--accent); background:var(--accent); }
+  .lesson-item.selected .lesson-radio::after { content:''; width:6px; height:6px; border-radius:50%; background:#fff; }
+  .lesson-title { font-weight:700; font-size:1rem; }
+  .lesson-sub { font-size:.78rem; color:var(--muted); margin-top:2px; }
+
+  .loading-row { display:flex; align-items:center; gap:10px; color:var(--muted); padding:16px 0; }
+  .spinner { width:18px;height:18px;border:2px solid #ddd;border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite; }
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .empty { color:var(--muted); font-size:.9rem; padding:12px 0; text-align:center; }
+
+  /* ── MODE ── */
+  .mode-list { display:flex; flex-direction:column; gap:10px; }
+  .mode-btn {
+    background:var(--white); border:2px solid var(--border); border-radius:var(--radius);
+    padding:16px; cursor:pointer; display:flex; align-items:center; gap:14px;
+    transition:all .15s; text-align:right;
+  }
+  .mode-btn.sel-live     { border-color:#1a9e4a; background:#edfaf2; }
+  .mode-btn.sel-personal { border-color:#8a10b0; background:#fce8fe; }
+  .mode-btn.sel-self     { border-color:#1a6ecf; background:#eef4fd; }
+  .mode-icon { font-size:1.6rem; flex-shrink:0; }
+  .mode-label { font-family:'Heebo',sans-serif; font-weight:800; font-size:1rem; margin-bottom:3px; }
+  .mode-btn.sel-live     .mode-label { color:#1a9e4a; }
+  .mode-btn.sel-personal .mode-label { color:#8a10b0; }
+  .mode-btn.sel-self     .mode-label { color:#1a6ecf; }
+  .mode-desc { font-size:.8rem; color:var(--muted); line-height:1.4; }
+
+  /* ── LAUNCH ── */
+  .btn-launch {
+    width:100%; padding:17px; background:linear-gradient(135deg,var(--accent),var(--accent2));
+    color:#fff; border:none; border-radius:var(--radius);
+    font-family:'Heebo',sans-serif; font-weight:900; font-size:1.1rem;
+    cursor:pointer; transition:opacity .2s; touch-action:manipulation;
+  }
+  .btn-launch:disabled { opacity:.35; cursor:default; }
+  .btn-launch:active { opacity:.85; }
+
+  /* ── CODE BOX ── */
+  #code-box {
+    display:none; background:#edfaf2; border:2px solid #a8e8c0;
+    border-radius:var(--radius); padding:20px; text-align:center;
+  }
+  .code-label { font-size:.8rem; color:var(--muted); margin-bottom:6px; }
+  .code-val { font-family:'Heebo',sans-serif; font-weight:900; font-size:2.4rem; color:#1a9e4a; letter-spacing:8px; margin-bottom:14px; }
+  .btn-copy {
+    padding:10px 20px; background:#1a9e4a; color:#fff; border:none;
+    border-radius:10px; font-family:'Heebo',sans-serif; font-weight:700;
+    font-size:.9rem; cursor:pointer; width:100%; margin-bottom:10px;
+    touch-action:manipulation;
+  }
+  .btn-teacher-screen {
+    padding:10px 20px; background:var(--white); border:2px solid var(--border);
+    color:var(--text); border-radius:10px; font-family:'Heebo',sans-serif;
+    font-weight:700; font-size:.9rem; cursor:pointer; width:100%;
+    touch-action:manipulation;
+  }
+  #status { font-size:.85rem; color:var(--muted); margin-top:8px; text-align:center; min-height:18px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo"><span class="dot"></span> כיתה חיה</div>
+  <span class="ver">v1</span>
+</header>
+
+<main>
+
+  <!-- 1. שיעור -->
+  <div>
+    <div class="section-label">1 — בחר שיעור</div>
+    <div id="lesson-list">
+      <div class="loading-row"><div class="spinner"></div> טוען שיעורים...</div>
+    </div>
+  </div>
+
+  <!-- 2. מצב -->
+  <div>
+    <div class="section-label">2 — מצב הפעלה</div>
+    <div class="mode-list">
+      <div class="mode-btn sel-live" id="mode-live" onclick="selectMode('live')">
+        <div class="mode-icon">📡</div>
+        <div>
+          <div class="mode-label">חי משותף</div>
+          <div class="mode-desc">כולם רואים את אותו שקף — המורה שולט בקצב</div>
+        </div>
+      </div>
+      <div class="mode-btn" id="mode-personal" onclick="selectMode('personal')">
+        <div class="mode-icon">✋</div>
+        <div>
+          <div class="mode-label">חי פרטני</div>
+          <div class="mode-desc">כל תלמיד מתקדם אחרי אישור המורה</div>
+        </div>
+      </div>
+      <div class="mode-btn" id="mode-self" onclick="selectMode('self')">
+        <div class="mode-icon">🧭</div>
+        <div>
+          <div class="mode-label">עצמאי</div>
+          <div class="mode-desc">כל תלמיד מתקדם בקצב שלו</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 3. הפעלה -->
+  <div>
+    <div class="section-label">3 — הפעל</div>
+    <button class="btn-launch" id="btn-launch" onclick="launchLesson()" disabled>▶ הפעל שיעור</button>
+    <div id="status"></div>
+  </div>
+
+  <!-- קוד -->
+  <div id="code-box">
+    <div class="code-label">קוד לתלמידים:</div>
+    <div class="code-val" id="code-val">—</div>
+    <button class="btn-copy" onclick="copyCode()">📋 העתק קישור לתלמידים</button>
+    <button class="btn-teacher-screen" onclick="goToTeacher()">🖥 כנס למסך מורה</button>
+  </div>
+
+</main>
+
+<script type="module">
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+const sb = createClient(
+  'https://seuskpyofhkvejyooghk.supabase.co',
+  'sb_publishable_qrLorZwzfmjFh9S3iRa1sQ_u6DVP29b'
+);
+
+const STUDENT_URL      = 'https://hakolbakaf.co.il/eshi/multi/inter/inter/student.html';
+const TEACHER_MOBILE   = 'https://hakolbakaf.co.il/eshi/multi/inter/inter/teacher-mobile.html';
+
+let selectedLesson = null;
+let selectedMode   = 'live';
+let activeCode     = null;
+
+// ── טעינת שיעורים ──
+async function loadLessons() {
+  const list = document.getElementById('lesson-list');
+  try {
+    const { data, error } = await sb.from('sessions')
+      .select('code, title, slides')
+      .eq('is_template', true)
+      .order('code', { ascending: false });
+
+    if (error) throw error;
+    if (!data?.length) { list.innerHTML = '<div class="empty">אין שיעורים במאגר</div>'; return; }
+
+    list.innerHTML = data.map((l, i) => {
+      const n = Array.isArray(l.slides) ? l.slides.length : '?';
+      return `<div class="lesson-item" onclick="selectLesson(${i})" data-idx="${i}">
+        <div class="lesson-radio"></div>
+        <div>
+          <div class="lesson-title">${l.title || 'שיעור'}</div>
+          <div class="lesson-sub">${n} שקפים</div>
+        </div>
+      </div>`;
+    }).join('');
+
+    window._lessons = data;
+  } catch(e) {
+    list.innerHTML = `<div class="empty">שגיאה: ${e.message}</div>`;
+  }
+}
+
+window.selectLesson = function(idx) {
+  selectedLesson = window._lessons[idx];
+  document.querySelectorAll('.lesson-item').forEach((el,i) => {
+    el.classList.toggle('selected', i === idx);
+  });
+  updateLaunch();
+};
+
+window.selectMode = function(mode) {
+  selectedMode = mode;
+  document.getElementById('mode-live').className     = 'mode-btn' + (mode==='live'     ? ' sel-live'     : '');
+  document.getElementById('mode-personal').className = 'mode-btn' + (mode==='personal' ? ' sel-personal' : '');
+  document.getElementById('mode-self').className     = 'mode-btn' + (mode==='self'     ? ' sel-self'     : '');
+};
+
+function updateLaunch() {
+  document.getElementById('btn-launch').disabled = !selectedLesson;
+}
+
+window.launchLesson = async function() {
+  if (!selectedLesson) return;
+  const btn = document.getElementById('btn-launch');
+  btn.disabled = true;
+  btn.textContent = '...מפעיל';
+
+  try {
+    const code = Math.floor(1000 + Math.random() * 9000).toString();
+    activeCode = code;
+
+    const sessionMode = selectedMode === 'self' ? 'self' : 'broadcast';
+    const { error } = await sb.from('sessions').upsert({
+      code,
+      title:         selectedLesson.title,
+      slides:        selectedLesson.slides,
+      current_slide: 0,
+      mode:          sessionMode,
+      session_type:  selectedMode,
+      started:       true
+    });
+
+    if (error) throw error;
+
+    btn.textContent = '✓ מופעל';
+    btn.style.background = 'linear-gradient(135deg,#1a9e4a,#0a6a30)';
+    document.getElementById('code-val').textContent = code;
+    document.getElementById('code-box').style.display = 'block';
+    document.getElementById('status').textContent = '';
+
+  } catch(e) {
+    document.getElementById('status').textContent = '❌ שגיאה: ' + e.message;
+    btn.disabled = false;
+    btn.textContent = '▶ הפעל שיעור';
+    btn.style.background = '';
+  }
+};
+
+window.copyCode = function() {
+  const link = `${STUDENT_URL}?code=${activeCode}`;
+  navigator.clipboard.writeText(link).then(() => {
+    const btn = document.querySelector('.btn-copy');
+    btn.textContent = '✓ הועתק!';
+    setTimeout(() => btn.textContent = '📋 העתק קישור לתלמידים', 2000);
+  });
+};
+
+window.goToTeacher = function() {
+  location.href = `${TEACHER_MOBILE}?code=${activeCode}&mode=${selectedMode}`;
+};
+
+loadLessons();
+</script>
+</body>
+</html>
