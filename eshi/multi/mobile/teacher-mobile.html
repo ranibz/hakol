@@ -1,4 +1,4 @@
-<!-- version: 1 -->
+<!-- version: 2 -->
 <!DOCTYPE html>
 <html lang="he" dir="rtl">
 <head>
@@ -200,7 +200,8 @@
       <div class="code-badge" id="h-code">—</div>
       <div id="h-title" style="font-size:.72rem;color:var(--muted)">טוען...</div>
     </div>
-    <span class="ver">v1</span>
+    <button onclick="openSummary()" style="background:none;border:1px solid var(--border);border-radius:8px;padding:6px 10px;font-size:.8rem;cursor:pointer;color:var(--muted);">📊 תוצרים</button>
+    <span class="ver">v2</span>
   </div>
   <div class="top-row2">
     <button class="btn-nav" id="btn-prev" onclick="moveSlide(-1)" disabled>→</button>
@@ -224,6 +225,18 @@
 <div class="content">
   <div class="student-list" id="student-list">
     <div class="empty-list">ממתין לתלמידים...</div>
+  </div>
+</div>
+
+<!-- ── SUMMARY MODAL ── -->
+<div id="summary-modal" style="display:none;position:fixed;inset:0;z-index:300;background:rgba(0,0,0,.6);overflow-y:auto;">
+  <div style="background:var(--white);min-height:100vh;padding:20px 16px 40px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+      <div style="font-family:Heebo,sans-serif;font-weight:900;font-size:1.2rem;">📊 תוצרי תלמידים</div>
+      <button onclick="document.getElementById('summary-modal').style.display='none'"
+        style="background:none;border:none;font-size:1.4rem;cursor:pointer;color:var(--muted);">✕</button>
+    </div>
+    <div id="summary-content"></div>
   </div>
 </div>
 
@@ -501,6 +514,53 @@ function subscribeAll() {
 
   setInterval(loadStudents, 8000);
 }
+
+window.openSummary = async function() {
+  const modal = document.getElementById('summary-modal');
+  const content = document.getElementById('summary-content');
+  modal.style.display = 'block';
+  content.innerHTML = '<div style="text-align:center;color:var(--muted);padding:30px">טוען...</div>';
+
+  const { data } = await sb.from('student_responses')
+    .select('*').eq('session_code', CODE)
+    .order('student_name').order('slide_index');
+
+  if (!data?.length) {
+    content.innerHTML = '<div style="text-align:center;color:var(--muted);padding:30px">אין תוצרים עדיין</div>';
+    return;
+  }
+
+  // קיבוץ לפי שקף
+  const bySlide = {};
+  data.forEach(r => {
+    if (!r.answer) return;
+    if (!bySlide[r.slide_index]) bySlide[r.slide_index] = [];
+    bySlide[r.slide_index].push(r);
+  });
+
+  const slides = session?.slides || [];
+  let html = '';
+
+  Object.keys(bySlide).sort((a,b)=>+a-+b).forEach(idx => {
+    const slide = slides[+idx];
+    const title = slide?.title || `שקף ${+idx+1}`;
+    const responses = bySlide[idx];
+    html += `<div style="margin-bottom:24px;">
+      <div style="font-family:Heebo,sans-serif;font-weight:800;font-size:.9rem;color:var(--muted);
+        text-transform:uppercase;letter-spacing:1px;margin-bottom:10px;padding-bottom:6px;
+        border-bottom:1px solid var(--border)">שקף ${+idx+1} — ${title}</div>
+      ${responses.map(r => `
+        <div style="background:#f8f9fb;border-radius:10px;padding:12px 14px;margin-bottom:8px;border:1px solid var(--border);">
+          <div style="font-family:Heebo,sans-serif;font-weight:700;font-size:.85rem;margin-bottom:5px;color:var(--text)">${r.student_name}</div>
+          <div style="font-size:.9rem;color:#2a3040;line-height:1.5">${r.answer}</div>
+          ${r.feedback ? `<div style="margin-top:8px;font-size:.78rem;color:#b07000;background:#fff8e6;padding:6px 10px;border-radius:6px;">💬 ${r.feedback}</div>` : ''}
+        </div>
+      `).join('')}
+    </div>`;
+  });
+
+  content.innerHTML = html || '<div style="text-align:center;color:var(--muted);padding:30px">אין תשובות עדיין</div>';
+};
 
 loadSession();
 </script>
