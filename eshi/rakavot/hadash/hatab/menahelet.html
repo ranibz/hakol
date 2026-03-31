@@ -2827,21 +2827,21 @@ async function importBackup(event) {
 
 // ===== קבוצות חסרות =====
 const SUBJECTS_HATAV = [
-  'מדעי החברה','מדעים (פיזיקה | כימיה | ביולוגיה)','מוטל','מדעי הסביבה','מוטל מגמה',
-  'הנדסת תכנה','תיאטרון','מתמטיקה חטע','מידע ונתונים','ספרות','אנגלית חטע',
-  'לשון','היסטוריה','אזרחות','חנג','תעבורה','תנך','השכלה כללית','דיפלומטיה',
-  'מעורבות חברתית חטע','בקרה ואנרגיה','ניהול עסקי','תקשורת'
+  'מדעי החברה','מדעים (פיזיקה | כימיה | ביולוגיה)','מוטל','מדעי הסביבה',
+  'הנדסת תכנה','תיאטרון','מתמטיקה חטע','מידע ונתונים','ספרות חטע','אנגלית חטע',
+  'לשון חטע','הסטוריה','אזרחות','חינוך גופני','תעבורה','תנך חטע','השכלה כללית','דיפלומטיה',
+  'מעורבות','בקרה ואנרגיה','ניהול עסקי','תקשורת'
 ];
 
 // מגמות מאוחדות: שם תצוגה → מערך dept_id-ים אמיתיים
 const MERGED_DEPT_IDS = {
   'מדעים (פיזיקה | כימיה | ביולוגיה)': [
-    'מדעים(פיסיקה | כימיה | ביולוגיה)'   // ה-id המדויק ב-Supabase (ללא רווח אחרי מדעים)
+    'מדעים(פיסיקה | כימיה | ביולוגיה)'
   ]
 };
 const SUBJECTS_HATAB = [
-  'מחנכים חטב','צעד','אנגלית חטב','מעוף','חינוך מיוחד','מדעים חטב',
-  'לשון חטב','מתמטיקה חטב','חנג חטב','רצועת מצוינות','מעורבות חברתית חטב'
+  'חינוך חטב','צעד','אנגלית חטב','מעוף חטב','חינוך מיוחד','מדעים חטב',
+  'לשון חטב','מתמטיקה חטב','חנג חטב','מצויינות חטב','מעורבות חברתית חטב'
 ];
 
 let missingDiv = 'all';
@@ -3027,9 +3027,11 @@ function renderMissing() {
 
         const placed = placedKeys[dept.id] || new Set();
         const missingGroups = allGroups.filter(g => {
-            const gradeMatch = g.group.match(/(?:^|[^א-ת])(י{1,2}[אב]?|ז|ח|ט)/) || g.group.match(/^(י{1,2}[אב]?|ז|ח|ט)/);
-            const grade = gradeMatch ? gradeMatch[1] : null;
-            return !placed.has(g.group.trim()) && !(grade && placed.has(grade));
+            const subj = (typeof g.group === 'object' ? g.group.name : g.group).trim();
+            const gradeFromLabel = (g.rowLabel || '').match(/(י{1,2}[אב]?|ז|ח|ט)/)?.[1];
+            if (gradeFromLabel && placed.has(`${gradeFromLabel}|${subj}`)) return false;
+            if (placed.has(subj)) return false;
+            return true;
         });
 
         const hasPlacement = (placedKeys[dept.id]?.size || 0) > 0;
@@ -3043,9 +3045,9 @@ function renderMissing() {
         const ci = cardIndex++;
 
         const groupsHtml = allGroups.map(g => {
-            const gradeMatch = g.group.match(/(?:^|[^א-ת])(י{1,2}[אב]?|ז|ח|ט)/) || g.group.match(/^(י{1,2}[אב]?|ז|ח|ט)/);
-            const grade = gradeMatch ? gradeMatch[1] : null;
-            const done = placed.has(g.group.trim()) || (grade && placed.has(grade));
+            const subj = (typeof g.group === 'object' ? g.group.name : g.group).trim();
+            const gradeFromLabel = (g.rowLabel || '').match(/(י{1,2}[אב]?|ז|ח|ט)/)?.[1];
+            const done = (gradeFromLabel && placed.has(`${gradeFromLabel}|${subj}`)) || placed.has(subj);
             return `<span style="background:${done?'#d1fae5':'#fee2e2'};color:${done?'#065f46':'#b91c1c'};
                 border:1px solid ${done?'#6ee7b7':'#fca5a5'};padding:4px 12px;border-radius:6px;
                 font-size:.75rem;font-weight:700;" title="${g.rowLabel}">
