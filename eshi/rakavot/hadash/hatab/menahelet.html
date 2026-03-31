@@ -179,6 +179,8 @@
             <button class="tab-btn" id="tbtn-pm" onclick="switchTab('pm')">👤 מנהלות פדגוגיות</button>
             <button class="tab-btn" id="tbtn-roles" onclick="switchTab('roles')">🏷️ תפקידים</button>
             <button class="tab-btn" id="tbtn-mishrot" onclick="switchTab('mishrot')">📋 משרות מורים</button>
+            <button class="tab-btn" id="tbtn-shibutz" onclick="switchTab('shibutz')">📚 שיבוצים לפי מקצוע</button>
+            <button class="tab-btn" id="tbtn-missing" onclick="switchTab('missing')">🔴 קבוצות חסרות</button>
         </div>
 
         <!-- TAB: דשבורד -->
@@ -711,6 +713,45 @@
             </div>
             <div id="mishrotEmpty" style="text-align:center;padding:40px;color:#94a3b8;display:none;">אין נתונים לשנה זו</div>
         </div>
+
+        <!-- TAB: קבוצות חסרות -->
+        <div id="tab-missing" class="tab-content">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;flex-wrap:wrap;">
+                <div style="display:flex;border:2px solid var(--border);border-radius:10px;overflow:hidden;">
+                    <button id="mbtn-all"   onclick="setMissingDiv('all')"   style="padding:9px 14px;border:none;font-family:Heebo,sans-serif;font-weight:700;font-size:.82rem;cursor:pointer;background:#1e293b;color:white;">הכל</button>
+                    <button id="mbtn-hatav" onclick="setMissingDiv('hatav')" style="padding:9px 14px;border:none;font-family:Heebo,sans-serif;font-weight:700;font-size:.82rem;cursor:pointer;background:white;color:#64748b;border-right:1px solid var(--border);">חטיבה עליונה</button>
+                    <button id="mbtn-hatab" onclick="setMissingDiv('hatab')" style="padding:9px 14px;border:none;font-family:Heebo,sans-serif;font-weight:700;font-size:.82rem;cursor:pointer;background:white;color:#64748b;border-right:1px solid var(--border);">חטיבת ביניים</button>
+                </div>
+                <span id="missingCount" style="font-size:.82rem;color:#64748b;"></span>
+            </div>
+            <div id="missingAccordion"><div style="text-align:center;padding:40px;color:#94a3b8;">טוען...</div></div>
+        </div>
+
+        <!-- TAB: שיבוצים לפי מקצוע -->
+        <div id="tab-shibutz" class="tab-content">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:20px;flex-wrap:wrap;">
+                <input type="text" id="shibutzSearch" placeholder="🔍 חיפוש מגמה / מקצוע..." oninput="filterShibutz()"
+                    style="padding:10px 14px;border:2px solid var(--border);border-radius:10px;font-family:Heebo,sans-serif;font-size:14px;outline:none;max-width:240px;flex:1;">
+                <select id="shibutzGrade" onchange="filterShibutz()"
+                    style="padding:10px 14px;border:2px solid var(--border);border-radius:10px;font-family:Heebo,sans-serif;font-size:14px;outline:none;">
+                    <option value="">— כל השכבות —</option>
+                    <option value="ז">ז'</option>
+                    <option value="ח">ח'</option>
+                    <option value="ט">ט'</option>
+                    <option value="י">י'</option>
+                    <option value="יא">י"א</option>
+                    <option value="יב">י"ב</option>
+                </select>
+                <div style="display:flex;border:2px solid var(--border);border-radius:10px;overflow:hidden;">
+                    <button id="btn-all"   onclick="setShibutzDiv('all')"   style="padding:9px 14px;border:none;font-family:Heebo,sans-serif;font-weight:700;font-size:.82rem;cursor:pointer;background:#1e293b;color:white;">הכל</button>
+                    <button id="btn-hatav" onclick="setShibutzDiv('hatav')" style="padding:9px 14px;border:none;font-family:Heebo,sans-serif;font-weight:700;font-size:.82rem;cursor:pointer;background:white;color:#64748b;border-right:1px solid var(--border);">חטיבה עליונה</button>
+                    <button id="btn-hatab" onclick="setShibutzDiv('hatab')" style="padding:9px 14px;border:none;font-family:Heebo,sans-serif;font-weight:700;font-size:.82rem;cursor:pointer;background:white;color:#64748b;border-right:1px solid var(--border);">חטיבת ביניים</button>
+                </div>
+                <span id="shibutzCount" style="font-size:.82rem;color:#64748b;"></span>
+            </div>
+            <div id="shibutzAccordion"></div>
+        </div>
+
 <div id="semesterModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9000;overflow-y:auto;padding:30px 20px;" onclick="if(event.target===this)this.style.display='none'">
     <div style="background:white;border-radius:20px;max-width:700px;margin:0 auto;padding:28px;position:relative;">
         <button onclick="document.getElementById('semesterModal').style.display='none'" style="position:absolute;top:14px;left:14px;background:#fee2e2;color:#ef4444;border:none;width:30px;height:30px;border-radius:50%;font-size:16px;cursor:pointer;font-weight:900;">✕</button>
@@ -1191,6 +1232,137 @@ function switchTab(tab) {
     }
     if(tab === 'unassigned') loadUnassigned();
     if(tab === 'subjects') loadSubjectsSummary();
+    if(tab === 'shibutz') loadShibutz();
+    if(tab === 'missing') renderMissing();
+}
+
+// ===== שיבוצים לפי מקצוע =====
+let allShibutzGroups = [];
+let shibutzDiv = 'all';
+
+function setShibutzDiv(div) {
+    shibutzDiv = div;
+    ['all','hatav','hatab'].forEach(d => {
+        const btn = document.getElementById('btn-'+d);
+        btn.style.background = d === div ? '#1e293b' : 'white';
+        btn.style.color      = d === div ? 'white'   : '#64748b';
+    });
+    filterShibutz();
+}
+
+async function loadShibutz() {
+    const year = document.getElementById('globalYear').value;
+    const acc = document.getElementById('shibutzAccordion');
+    acc.innerHTML = '<div style="text-align:center;padding:40px;color:#94a3b8;">טוען...</div>';
+
+    const { data, error } = await sb.from('placements')
+        .select('*, teachers(name)')
+        .eq('year', year)
+        .order('dept_id').order('grade').order('subject');
+
+    if (error || !data) { acc.innerHTML = '<div style="text-align:center;color:#ef4444;">שגיאה בטעינה</div>'; return; }
+
+    // קיבוץ לפי מגמה
+    const deptMap = {};
+    data.forEach(p => {
+        const dept = p.dept_id || '—';
+        if (!deptMap[dept]) deptMap[dept] = [];
+        deptMap[dept].push(p);
+    });
+
+    // בנה רשימה מסודרת: לכל מגמה — קיבוץ לפי שכבה+מקצוע
+    allShibutzGroups = Object.entries(deptMap).map(([dept, placements]) => {
+        const rowMap = {};
+        placements.forEach(p => {
+            const subj = p.subject_manual || p.subject || '—';
+            const key = `${p.grade}|${subj}`;
+            if (!rowMap[key]) rowMap[key] = { grade: p.grade||'—', subject: subj, teachers: new Set(), contact: 0 };
+            rowMap[key].teachers.add(p.teachers?.name || '—');
+            rowMap[key].contact += (parseFloat(p.contact)||0) * (p.is_semester ? 0.5 : 1);
+        });
+        const isHatab = dept.includes('חטב');
+        return {
+            dept,
+            isHatab,
+            rows: Object.values(rowMap).sort((a,b) => a.grade.localeCompare(b.grade))
+        };
+    }).sort((a,b) => a.dept.localeCompare(b.dept));
+
+    filterShibutz();
+}
+
+function filterShibutz() {
+    const q     = document.getElementById('shibutzSearch').value.toLowerCase();
+    const grade = document.getElementById('shibutzGrade').value;
+    const acc   = document.getElementById('shibutzAccordion');
+    const count = document.getElementById('shibutzCount');
+
+    let filtered = allShibutzGroups.filter(g => {
+        if (shibutzDiv === 'hatav' &&  g.isHatab) return false;
+        if (shibutzDiv === 'hatab' && !g.isHatab) return false;
+        if (q && !g.dept.toLowerCase().includes(q) &&
+            !g.rows.some(r => r.subject.toLowerCase().includes(q))) return false;
+        return true;
+    });
+
+    count.textContent = `${filtered.length} מגמות`;
+
+    if (!filtered.length) {
+        acc.innerHTML = '<div style="text-align:center;padding:30px;color:#94a3b8;">אין נתונים</div>';
+        return;
+    }
+
+    acc.innerHTML = filtered.map((g, gi) => {
+        const rowsFiltered = grade ? g.rows.filter(r => r.grade === grade) : g.rows;
+        if (!rowsFiltered.length) return '';
+        const totalContact = rowsFiltered.reduce((s,r) => s + r.contact, 0);
+        const divColor = g.isHatab ? '#8b5cf6' : '#0ea5e9';
+        const divBg   = g.isHatab ? '#ede9fe'  : '#e0f2fe';
+        const divLabel= g.isHatab ? 'חטב' : 'חטע';
+
+        const rowsHtml = rowsFiltered.map(r => `
+            <tr style="border-bottom:1px solid #f1f5f9;">
+                <td style="padding:9px 16px;text-align:center;font-weight:700;color:#475569;">${r.grade}</td>
+                <td style="padding:9px 16px;">${r.subject}</td>
+                <td style="padding:9px 16px;font-size:12px;color:#64748b;">${[...r.teachers].join(', ')}</td>
+                <td style="padding:9px 16px;text-align:center;font-weight:700;color:#0f766e;">${r.contact.toFixed(1)}</td>
+            </tr>`).join('');
+
+        return `
+        <div style="background:white;border-radius:14px;border:1px solid var(--border);margin-bottom:10px;overflow:hidden;">
+            <div onclick="toggleShibutzItem(${gi})" style="padding:14px 18px;display:flex;align-items:center;gap:12px;cursor:pointer;user-select:none;transition:background .15s;"
+                 onmouseenter="this.style.background='#f8fafc'" onmouseleave="this.style.background='white'">
+                <span id="acc-arrow-${gi}" style="color:#94a3b8;font-size:.9rem;transition:transform .2s;">›</span>
+                <div style="flex:1;">
+                    <div style="font-weight:800;font-size:.95rem;">${g.dept}</div>
+                    <div style="font-size:.75rem;color:#94a3b8;margin-top:2px;">${rowsFiltered.length} קבוצות · מגע: ${totalContact.toFixed(1)}</div>
+                </div>
+                <span style="background:${divBg};color:${divColor};padding:3px 10px;border-radius:6px;font-size:.7rem;font-weight:800;">${divLabel}</span>
+            </div>
+            <div id="acc-body-${gi}" style="display:none;border-top:1px solid #f1f5f9;">
+                <table style="width:100%;border-collapse:collapse;font-size:13px;">
+                    <thead>
+                        <tr style="background:#f8fafc;color:#64748b;font-size:.72rem;">
+                            <th style="padding:8px 16px;text-align:center;font-weight:800;">שכבה</th>
+                            <th style="padding:8px 16px;text-align:right;font-weight:800;">מקצוע</th>
+                            <th style="padding:8px 16px;text-align:right;font-weight:800;">מורים</th>
+                            <th style="padding:8px 16px;text-align:center;font-weight:800;">מגע</th>
+                        </tr>
+                    </thead>
+                    <tbody>${rowsHtml}</tbody>
+                </table>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function toggleShibutzItem(gi) {
+    const body  = document.getElementById('acc-body-' + gi);
+    const arrow = document.getElementById('acc-arrow-' + gi);
+    const isOpen = body.style.display !== 'none';
+    body.style.display  = isOpen ? 'none' : 'block';
+    arrow.style.transform = isOpen ? '' : 'rotate(90deg)';
+    arrow.style.color     = isOpen ? '#94a3b8' : '#6366f1';
 }
 
 
@@ -2027,20 +2199,11 @@ async function loadMishrot() {
     placements.forEach(p => {
         const id = p.teacher_id;
         if(!deptBreakdown[id]) deptBreakdown[id] = {};
-        const dept = (p.framework==='אופק' ? 'חט"ב ' : '') + (p.dept_id || '—');
-        if(!deptBreakdown[id][dept]) deptBreakdown[id][dept] = { contact:0, bonus:0, partanut:0, groups:[] };
+        const dept = (p.framework==='אופק' ? '\u05d7\u05d8"\u05d1 ' : '') + (p.dept_id || '—');
+        if(!deptBreakdown[id][dept]) deptBreakdown[id][dept] = { contact:0, bonus:0, partanut:0 };
         if(p.type === 'פרטנות') deptBreakdown[id][dept].partanut += effContact(p);
         else deptBreakdown[id][dept].contact += effContact(p);
         deptBreakdown[id][dept].bonus += effBonus(p);
-        // פירוט קבוצות
-        deptBreakdown[id][dept].groups.push({
-            grade: p.grade || '',
-            subject: p.subject_manual || p.subject || '',
-            contact: effContact(p),
-            bonus: effBonus(p),
-            type: p.type,
-            is_semester: p.is_semester
-        });
     });
 
     // בניית שורות עוז
@@ -2230,25 +2393,11 @@ function renderMishrot(data) {
                             <div style="font-size:10px;font-weight:700;color:#94a3b8;letter-spacing:0.5px;margin-bottom:8px;">פירוט לפי מגמה</div>
                             <div style="display:flex;flex-wrap:wrap;gap:8px;">
                                 ${Object.entries(r.depts).map(([dept,h])=>`
-                                <div style="background:#f8fafc;border:1px solid var(--border);border-radius:10px;padding:8px 14px;min-width:130px;cursor:pointer;transition:border-color .15s;"
-                                     onclick="toggleDeptGroups(this)"
-                                     onmouseenter="this.style.borderColor='#6366f1'" onmouseleave="this.style.borderColor='var(--border)'">
+                                <div style="background:#f8fafc;border:1px solid var(--border);border-radius:10px;padding:8px 14px;min-width:130px;">
                                     <div style="font-size:12px;font-weight:800;color:#1e293b;margin-bottom:4px;">${dept}</div>
                                     <div style="display:flex;gap:12px;font-size:12px;">
                                         <span style="color:#0f766e;font-weight:700;">מגע: ${h.contact.toFixed(1)}</span>
                                         <span style="color:#7c3aed;font-weight:700;">גמול: ${h.bonus.toFixed(1)}</span>
-                                    </div>
-                                    <!-- פאנל קבוצות -->
-                                    <div class="dept-groups-panel" style="display:none;margin-top:10px;border-top:1px solid #e2e8f0;padding-top:8px;">
-                                        ${h.groups.map(g=>`
-                                        <div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;font-size:11px;border-bottom:1px dashed #f1f5f9;">
-                                            <span style="font-weight:700;color:#1e293b;">${g.subject}${g.grade?' — שכבה '+g.grade:''}</span>
-                                            <span style="color:#64748b;margin-right:8px;">
-                                                ${g.type==='פרטנות'?`פרטנות: ${g.contact.toFixed(1)}`:`מגע: ${g.contact.toFixed(1)}`}
-                                                ${g.bonus>0?` גמול: ${g.bonus.toFixed(1)}`:''}
-                                                ${g.is_semester?' <span style="color:#d97706;font-size:10px;">[ס]</span>':''}
-                                            </span>
-                                        </div>`).join('')}
                                     </div>
                                 </div>`).join('')}
                             </div>
@@ -2292,14 +2441,6 @@ function renderMishrot(data) {
             </td>
         </tr>`;
     }).join('');
-}
-
-function toggleDeptGroups(el) {
-    const panel = el.querySelector('.dept-groups-panel');
-    if (!panel) return;
-    const isOpen = panel.style.display !== 'none';
-    panel.style.display = isOpen ? 'none' : 'block';
-    el.style.borderColor = isOpen ? 'var(--border)' : '#6366f1';
 }
 
 function renderRolesList(roles, teacherId) {
@@ -2683,6 +2824,155 @@ async function importBackup(event) {
         document.getElementById('backupStatus').textContent = 'שגיאה: ' + e.message;
     }
     event.target.value = '';
+}
+
+// ===== קבוצות חסרות =====
+const SUBJECTS_HATAV = [
+  'מדעי החברה','כימיה','פיזיקה','ביולוגיה','מוטל','מדעי הסביבה','מוטל מגמה',
+  'הנדסת תכנה','תיאטרון','מתמטיקה חטע','מידע ונתונים','ספרות','אנגלית חטע',
+  'לשון','היסטוריה','אזרחות','חנג','תעבורה','תנך','השכלה כללית','דיפלומטיה',
+  'מעורבות חברתית חטע','בקרה ואנרגיה','ניהול עסקי','תקשורת'
+];
+const SUBJECTS_HATAB = [
+  'מחנכים חטב','צעד','אנגלית חטב','מעוף','חינוך מיוחד','מדעים חטב',
+  'לשון חטב','מתמטיקה חטב','חנג חטב','רצועת מצוינות','מעורבות חברתית חטב'
+];
+
+let missingDiv = 'all';
+
+function setMissingDiv(div) {
+    missingDiv = div;
+    ['all','hatav','hatab'].forEach(d => {
+        const btn = document.getElementById('mbtn-'+d);
+        btn.style.background = d === div ? '#1e293b' : 'white';
+        btn.style.color      = d === div ? 'white'   : '#64748b';
+    });
+    renderMissing();
+}
+
+function renderMissing() {
+    const year = document.getElementById('globalYear').value;
+    const acc  = document.getElementById('missingAccordion');
+    const count= document.getElementById('missingCount');
+
+    // בנה Set של שיבוצים: dept_id → Set(grade, subject, subject_manual)
+    const placedKeys = {};
+    allPlacements.filter(p => p.year === year).forEach(p => {
+        if (!placedKeys[p.dept_id]) placedKeys[p.dept_id] = new Set();
+        if (p.grade)          placedKeys[p.dept_id].add(p.grade);
+        if (p.subject)        placedKeys[p.dept_id].add(p.subject.trim());
+        if (p.subject_manual) placedKeys[p.dept_id].add(p.subject_manual.trim());
+    });
+
+    // בנה מפה של dept.id → dept
+    const deptMap = {};
+    allDepts.forEach(d => {
+        const match = d.id.match(/\((.+)\)/);
+        const key = match ? match[1].trim() : d.id.trim();
+        deptMap[key] = d;
+        deptMap[d.id.trim()] = d;
+    });
+
+    const subjects = missingDiv === 'hatab' ? SUBJECTS_HATAB :
+                     missingDiv === 'hatav' ? SUBJECTS_HATAV :
+                     [...SUBJECTS_HATAV, ...SUBJECTS_HATAB];
+
+    let html = '';
+    let cardIndex = 0;
+    let totalMissing = 0;
+
+    subjects.forEach(subj => {
+        const isHatab = SUBJECTS_HATAB.includes(subj);
+        const dept = deptMap[subj] || allDepts.find(d =>
+            d.id.trim() === subj || d.id.includes(subj) ||
+            subj.includes(d.id.replace(/\(.*\)/,'').trim())
+        );
+
+        // מקצוע שלא הוקם
+        if (!dept) {
+            html += `
+            <div style="background:white;border-radius:14px;border:1.5px solid #e2e8f0;border-right:4px solid #cbd5e1;margin-bottom:10px;opacity:.6;">
+                <div style="padding:14px 18px;display:flex;align-items:center;gap:12px;">
+                    <div style="flex:1;">
+                        <div style="font-weight:800;font-size:.95rem;color:#94a3b8;">${subj}</div>
+                        <div style="font-size:.75rem;color:#cbd5e1;margin-top:2px;">לא הוקם עדיין</div>
+                    </div>
+                    <span style="background:#f1f5f9;color:#94a3b8;padding:3px 10px;border-radius:6px;font-size:.7rem;font-weight:800;">${isHatab?'חטב':'חטע'}</span>
+                </div>
+            </div>`;
+            return;
+        }
+
+        // חלץ קבוצות מה-structure
+        const structure = dept.structure || {};
+        const allGroups = [];
+        Object.values(structure).forEach(row => {
+            (row.subjects||[]).forEach(s => allGroups.push({ group: s, rowLabel: row.label||'' }));
+        });
+
+        const placed = placedKeys[dept.id] || new Set();
+        const missingGroups = allGroups.filter(g => {
+            const gradeMatch = g.group.match(/(?:^|[^א-ת])(י{1,2}[אב]?|ז|ח|ט)/) || g.group.match(/^(י{1,2}[אב]?|ז|ח|ט)/);
+            const grade = gradeMatch ? gradeMatch[1] : null;
+            return !placed.has(g.group.trim()) && !(grade && placed.has(grade));
+        });
+
+        const hasPlacement = (placedKeys[dept.id]?.size || 0) > 0;
+        const allMissing   = missingGroups.length === allGroups.length && allGroups.length > 0;
+        const someMissing  = missingGroups.length > 0 && !allMissing;
+        const borderColor  = allMissing ? '#ef4444' : someMissing ? '#f59e0b' : '#10b981';
+        const divColor     = isHatab ? '#8b5cf6' : '#0ea5e9';
+        const divBg        = isHatab ? '#ede9fe'  : '#e0f2fe';
+
+        totalMissing += missingGroups.length;
+        const ci = cardIndex++;
+
+        const groupsHtml = allGroups.map(g => {
+            const gradeMatch = g.group.match(/(?:^|[^א-ת])(י{1,2}[אב]?|ז|ח|ט)/) || g.group.match(/^(י{1,2}[אב]?|ז|ח|ט)/);
+            const grade = gradeMatch ? gradeMatch[1] : null;
+            const done = placed.has(g.group.trim()) || (grade && placed.has(grade));
+            return `<span style="background:${done?'#d1fae5':'#fee2e2'};color:${done?'#065f46':'#b91c1c'};
+                border:1px solid ${done?'#6ee7b7':'#fca5a5'};padding:4px 12px;border-radius:6px;
+                font-size:.75rem;font-weight:700;" title="${g.rowLabel}">
+                ${done?'✓':'✕'} ${g.group}
+            </span>`;
+        }).join('');
+
+        const pm = allPMs.find(p => (p.assigned_depts||[]).includes(dept.id))?.name || '—';
+
+        html += `
+        <div style="background:white;border-radius:14px;border:1.5px solid #e2e8f0;border-right:4px solid ${borderColor};margin-bottom:10px;overflow:hidden;">
+            <div onclick="toggleMissingItem(${ci})" style="padding:14px 18px;display:flex;align-items:center;gap:12px;cursor:pointer;user-select:none;"
+                 onmouseenter="this.style.background='#f8fafc'" onmouseleave="this.style.background='white'">
+                <span id="marrow-${ci}" style="color:#94a3b8;font-size:.9rem;transition:transform .2s;">›</span>
+                <div style="flex:1;">
+                    <div style="font-weight:800;font-size:.95rem;">${subj}</div>
+                    <div style="font-size:.75rem;color:#94a3b8;margin-top:2px;">רכזת: ${pm} · ${allGroups.length} קבוצות · ${missingGroups.length} חסרות</div>
+                </div>
+                <div style="display:flex;gap:6px;align-items:center;">
+                    ${allMissing  ? `<span style="background:#fee2e2;color:#b91c1c;padding:3px 10px;border-radius:6px;font-size:.7rem;font-weight:800;">✕ אין שיבוץ</span>` : ''}
+                    ${someMissing ? `<span style="background:#fef3c7;color:#92400e;padding:3px 10px;border-radius:6px;font-size:.7rem;font-weight:800;">⚠ חלקי</span>` : ''}
+                    ${!allMissing && !someMissing ? `<span style="background:#d1fae5;color:#065f46;padding:3px 10px;border-radius:6px;font-size:.7rem;font-weight:800;">✓ מלא</span>` : ''}
+                    <span style="background:${divBg};color:${divColor};padding:3px 10px;border-radius:6px;font-size:.7rem;font-weight:800;">${isHatab?'חטב':'חטע'}</span>
+                </div>
+            </div>
+            <div id="mbody-${ci}" style="display:none;border-top:1px solid #f1f5f9;padding:14px 18px;">
+                <div style="display:flex;flex-wrap:wrap;gap:6px;">${groupsHtml}</div>
+            </div>
+        </div>`;
+    });
+
+    count.textContent = `${totalMissing} קבוצות חסרות`;
+    acc.innerHTML = html || '<div style="text-align:center;padding:30px;color:#94a3b8;">אין נתונים</div>';
+}
+
+function toggleMissingItem(ci) {
+    const body  = document.getElementById('mbody-' + ci);
+    const arrow = document.getElementById('marrow-' + ci);
+    const isOpen = body.style.display !== 'none';
+    body.style.display    = isOpen ? 'none' : 'block';
+    arrow.style.transform = isOpen ? '' : 'rotate(90deg)';
+    arrow.style.color     = isOpen ? '#94a3b8' : '#6366f1';
 }
 
 function showToast(msg) {
