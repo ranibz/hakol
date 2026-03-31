@@ -2836,9 +2836,7 @@ const SUBJECTS_HATAV = [
 // מגמות מאוחדות: שם תצוגה → מערך dept_id-ים אמיתיים
 const MERGED_DEPT_IDS = {
   'מדעים (פיזיקה | כימיה | ביולוגיה)': [
-    'מדעים(פיסיקה | כימיה | ביולוגיה)',   // ה-dept_id שנשמר ב-Supabase
-    'מדעים (פיסיקה | כימיה | ביולוגיה)',  // וריאנט עם רווח
-    'פיסיקה', 'כימיה', 'ביולוגיה'         // וריאנטים ישנים
+    'מדעים(פיסיקה | כימיה | ביולוגיה)'   // ה-id המדויק ב-Supabase (ללא רווח אחרי מדעים)
   ]
 };
 const SUBJECTS_HATAB = [
@@ -2863,13 +2861,15 @@ function renderMissing() {
     const acc  = document.getElementById('missingAccordion');
     const count= document.getElementById('missingCount');
 
-    // בנה Set של שיבוצים: dept_id → Set(grade, subject, subject_manual)
+    // בנה Set של שיבוצים: dept_id → Set של "grade|subject"
     const placedKeys = {};
     allPlacements.filter(p => p.year === year).forEach(p => {
         if (!placedKeys[p.dept_id]) placedKeys[p.dept_id] = new Set();
-        if (p.grade)          placedKeys[p.dept_id].add(p.grade);
-        if (p.subject)        placedKeys[p.dept_id].add(p.subject.trim());
-        if (p.subject_manual) placedKeys[p.dept_id].add(p.subject_manual.trim());
+        const subj = (p.subject_manual || p.subject || '').trim();
+        const grade = (p.grade || '').trim();
+        if (grade && subj) placedKeys[p.dept_id].add(`${grade}|${subj}`);
+        if (grade)         placedKeys[p.dept_id].add(grade);           // לתאימות לאחור
+        if (subj)          placedKeys[p.dept_id].add(subj);
     });
 
     // בנה מפה של dept.id → dept
@@ -2902,12 +2902,13 @@ function renderMissing() {
                                    id.includes(d.id.trim()))
             ).filter(Boolean);
             console.log('[מדעים] depts שנמצאו:', depts.map(d=>d.id));
-            console.log('[מדעים] placedKeys:', Object.fromEntries(depts.map(d=>[d.id, [...(placedKeys[d.id]||[])]])));
             depts.forEach(dept => {
+                const pk = placedKeys[dept.id] || new Set();
+                console.log('[מדעים] placedKeys של', dept.id, ':', [...pk]);
                 const structure = dept.structure || {};
-                const groups = [];
-                Object.values(structure).forEach(row => (row.subjects||[]).forEach(s => groups.push(s)));
-                console.log('[מדעים] structure של', dept.id, ':', groups);
+                Object.entries(structure).forEach(([key, row]) => {
+                    console.log('  row:', key, '| label:', row.label, '| subjects:', JSON.stringify(row.subjects));
+                });
             });
             if (!depts.length) {
                 html += `
@@ -2919,20 +2920,28 @@ function renderMissing() {
                 </div>`;
                 return;
             }
-            // איחוד כל הקבוצות מכל 3 המגמות — עם תווית המגמה
+            // איחוד כל הקבוצות מכל 3 המגמות — עם תווית השכבה מה-row
             const allGroups = [];
             depts.forEach(dept => {
                 const structure = dept.structure || {};
                 Object.values(structure).forEach(row => {
-                    (row.subjects||[]).forEach(s => allGroups.push({ group: s, rowLabel: dept.id, deptId: dept.id }));
+                    const rowGrade = (row.label || '').trim(); // "שכבת י", "שכבת יא" וכו'
+                    (row.subjects||[]).forEach(s => allGroups.push({
+                        group: s, rowLabel: rowGrade, deptId: dept.id, deptName: dept.id
+                    }));
                 });
             });
-            const missingGroups = allGroups.filter(g => {
+
+            function isGroupPlaced(g) {
                 const placed = placedKeys[g.deptId] || new Set();
-                const gradeMatch = g.group.match(/(?:^|[^א-ת])(י{1,2}[אב]?|ז|ח|ט)/) || g.group.match(/^(י{1,2}[אב]?|ז|ח|ט)/);
-                const grade = gradeMatch ? gradeMatch[1] : null;
-                return !placed.has(g.group.trim()) && !(grade && placed.has(grade));
-            });
+                const subj = (typeof g.group === 'object' ? g.group.name : g.group).trim();
+                const gradeFromLabel = g.rowLabel.match(/(י{1,2}[אב]?|ז|ח|ט)/)?.[1];
+                if (gradeFromLabel && placed.has(`${gradeFromLabel}|${subj}`)) return true;
+                if (placed.has(subj)) return true;
+                return false;
+            }
+
+            const missingGroups = allGroups.filter(g => !isGroupPlaced(g));
             const allMissing  = missingGroups.length === allGroups.length && allGroups.length > 0;
             const someMissing = missingGroups.length > 0 && !allMissing;
             const borderColor = allMissing ? '#ef4444' : someMissing ? '#f59e0b' : '#10b981';
@@ -2941,20 +2950,27 @@ function renderMissing() {
             const pm = allPMs.find(p => mergedIds.some(id => (p.assigned_depts||[]).includes(id)))?.name || '—';
 
             const groupsHtml = depts.map(dept => {
-                const placed = placedKeys[dept.id] || new Set();
                 const structure = dept.structure || {};
-                const deptGroups = [];
-                Object.values(structure).forEach(row => (row.subjects||[]).forEach(s => deptGroups.push({ group: s })));
-                return `<div style="width:100%;margin-bottom:6px;">
-                    <div style="font-size:.72rem;font-weight:800;color:#6366f1;margin-bottom:4px;letter-spacing:.3px;">${dept.id}</div>
-                    <div style="display:flex;flex-wrap:wrap;gap:5px;">
-                    ${deptGroups.map(g => {
-                        const gradeMatch = g.group.match(/(?:^|[^א-ת])(י{1,2}[אב]?|ז|ח|ט)/) || g.group.match(/^(י{1,2}[אב]?|ז|ח|ט)/);
-                        const grade = gradeMatch ? gradeMatch[1] : null;
-                        const done = placed.has(g.group.trim()) || (grade && placed.has(grade));
-                        return `<span style="background:${done?'#d1fae5':'#fee2e2'};color:${done?'#065f46':'#b91c1c'};border:1px solid ${done?'#6ee7b7':'#fca5a5'};padding:4px 12px;border-radius:6px;font-size:.75rem;font-weight:700;">${done?'✓':'✕'} ${g.group}</span>`;
+                const rows = Object.values(structure);
+                return `<div style="width:100%;margin-bottom:10px;">
+                    <div style="font-size:.75rem;font-weight:900;color:#6366f1;margin-bottom:6px;padding-bottom:4px;border-bottom:1px solid #e0e7ff;">${dept.id}</div>
+                    ${rows.map(row => {
+                        const rowGrade = (row.label || '').trim();
+                        const gradeFromLabel = rowGrade.match(/([יאבג]{1,3}[\'"]?)$/)?.[1] ||
+                                               rowGrade.match(/(י{1,2}[אב]?|ז|ח|ט)/)?.[1];
+                        const placed = placedKeys[dept.id] || new Set();
+                        return `<div style="margin-bottom:5px;">
+                            <div style="font-size:.68rem;color:#94a3b8;font-weight:700;margin-bottom:3px;">${rowGrade}</div>
+                            <div style="display:flex;flex-wrap:wrap;gap:4px;">
+                            ${(row.subjects||[]).map(s => {
+                                const subj = (typeof s === 'object' ? s.name : s).trim();
+                                const done = (gradeFromLabel && placed.has(`${gradeFromLabel}|${subj}`)) ||
+                                             placed.has(subj);
+                                return `<span style="background:${done?'#d1fae5':'#fee2e2'};color:${done?'#065f46':'#b91c1c'};border:1px solid ${done?'#6ee7b7':'#fca5a5'};padding:3px 10px;border-radius:6px;font-size:.72rem;font-weight:700;">${done?'✓':'✕'} ${subj}</span>`;
+                            }).join('')}
+                            </div>
+                        </div>`;
                     }).join('')}
-                    </div>
                 </div>`;
             }).join('');
 
