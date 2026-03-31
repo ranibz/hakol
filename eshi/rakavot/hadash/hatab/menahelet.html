@@ -2826,23 +2826,52 @@ async function importBackup(event) {
 }
 
 // ===== קבוצות חסרות =====
-const SUBJECTS_HATAV = [
-  'מדעי החברה','מדעים (פיזיקה | כימיה | ביולוגיה)','מוטל','מדעי הסביבה',
-  'הנדסת תכנה','תיאטרון','מתמטיקה חטע','מידע ונתונים','ספרות חטע','אנגלית חטע',
-  'לשון חטע','הסטוריה','אזרחות','חינוך גופני','תעבורה','תנך חטע','השכלה כללית','דיפלומטיה',
-  'מעורבות','בקרה ואנרגיה','ניהול עסקי','תקשורת'
-];
-
 // מגמות מאוחדות: שם תצוגה → מערך dept_id-ים אמיתיים
 const MERGED_DEPT_IDS = {
   'מדעים (פיזיקה | כימיה | ביולוגיה)': [
     'מדעים(פיסיקה | כימיה | ביולוגיה)'
   ]
 };
-const SUBJECTS_HATAB = [
-  'חינוך חטב','צעד','אנגלית חטב','מעוף חטב','חינוך מיוחד','מדעים חטב',
-  'לשון חטב','מתמטיקה חטב','חנג חטב','מצויינות חטב','מעורבות חברתית חטב'
+// dept_ids שמאוחדים תחת שם אחר — לא יופיעו כפריט עצמאי
+const MERGED_CHILDREN = new Set(['מדעים(פיסיקה | כימיה | ביולוגיה)']);
+
+// רשימת מגמות חטב מפורשת (fallback אם אין division)
+const HATAB_DEPT_IDS = new Set([
+  'חינוך חטב','צעד','מעוף חטב','מדעים חטב','מעורבות חברתית חטב',
+  'אנגלית חטב','חינוך מיוחד','לשון חטב','מתמטיקה חטב','חנג חטב','מצויינות חטב'
+]);
+
+// סדר תצוגה קבוע לחטע
+const HATAV_ORDER = [
+  'מדעי החברה','מדעים (פיזיקה | כימיה | ביולוגיה)','מוטל','מדעי הסביבה',
+  'הנדסת תכנה','תיאטרון','מתמטיקה חטע','מידע ונתונים','ספרות חטע','אנגלית חטע',
+  'לשון חטע','הסטוריה חטע','אזרחות','חינוך גופני','חינוך חטע','תעבורה','תנך חטע','השכלה כללית','דיפלומטיה',
+  'מעורבות','בקרה ואנרגיה','ניהול עסקי','תקשורת'
 ];
+
+function buildSubjectLists() {
+  // סינון לפי עמודת division — אם קיימת, אחרת fallback לפי שם
+  function isHatab(d) {
+    if (d.division) return d.division === 'חטב';
+    return HATAB_DEPT_IDS.has(d.id);
+  }
+
+  const hatavFromDB = allDepts
+    .filter(d => !MERGED_CHILDREN.has(d.id) && !isHatab(d))
+    .map(d => d.id);
+  const hatavSet = new Set(HATAV_ORDER);
+  const SUBJECTS_HATAV = [
+    ...HATAV_ORDER,
+    ...hatavFromDB.filter(id => !hatavSet.has(id))
+  ];
+
+  const SUBJECTS_HATAB = allDepts
+    .filter(d => isHatab(d))
+    .map(d => d.id)
+    .sort();
+
+  return { SUBJECTS_HATAV, SUBJECTS_HATAB };
+}
 
 let missingDiv = 'all';
 
@@ -2881,6 +2910,7 @@ function renderMissing() {
         deptMap[d.id.trim()] = d;
     });
 
+    const { SUBJECTS_HATAV, SUBJECTS_HATAB } = buildSubjectLists();
     const subjects = missingDiv === 'hatab' ? SUBJECTS_HATAB :
                      missingDiv === 'hatav' ? SUBJECTS_HATAV :
                      [...SUBJECTS_HATAV, ...SUBJECTS_HATAB];
