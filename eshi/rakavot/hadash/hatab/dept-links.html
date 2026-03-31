@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>קישורי רכזי מקצוע — גליל מערבי</title>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;700;900&family=Secular+One&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root {
+    --bg:#f1f5f9; --white:#fff; --border:#e2e8f0;
+    --accent:#6366f1; --accent-bg:#eef2ff;
+    --success:#10b981; --success-bg:#d1fae5;
+    --danger:#ef4444; --danger-bg:#fee2e2;
+    --hatav:#0ea5e9; --hatav-bg:#e0f2fe;
+    --hatab:#8b5cf6; --hatab-bg:#ede9fe;
+    --text:#1e293b; --muted:#64748b; --radius:14px;
+  }
+  * { box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+  body { font-family:'Heebo',sans-serif; background:var(--bg); color:var(--text); min-height:100vh; direction:rtl; }
+
+  .header { background:var(--white); border-bottom:1px solid var(--border); padding:14px 18px; display:flex; align-items:center; justify-content:space-between; position:sticky; top:0; z-index:100; }
+  .header h1 { font-family:'Secular One'; font-size:1.05rem; color:var(--text); }
+  .btn-back { background:none; border:1px solid var(--border); color:var(--muted); padding:7px 14px; border-radius:8px; font-family:'Heebo'; font-size:.8rem; cursor:pointer; text-decoration:none; display:inline-block; }
+
+  .content { padding:16px; max-width:700px; margin:0 auto; padding-bottom:30px; }
+
+  /* TABS */
+  .tabs { display:flex; gap:8px; margin-bottom:20px; }
+  .tab-btn { flex:1; padding:11px; border-radius:12px; border:2px solid var(--border); background:var(--white); font-family:'Heebo'; font-weight:800; font-size:.88rem; cursor:pointer; text-align:center; transition:all .15s; color:var(--muted); touch-action:manipulation; }
+  .tab-btn.active-hatav { border-color:var(--hatav); background:var(--hatav-bg); color:var(--hatav); }
+  .tab-btn.active-hatab { border-color:var(--hatab); background:var(--hatab-bg); color:var(--hatab); }
+
+  .tab-content { display:none; }
+  .tab-content.active { display:block; }
+
+  /* DEPT CARD */
+  .dept-card { background:var(--white); border-radius:var(--radius); border:1px solid var(--border); margin-bottom:12px; overflow:hidden; }
+  .dept-header { padding:14px 16px; display:flex; align-items:center; justify-content:space-between; gap:10px; }
+  .dept-name { font-weight:800; font-size:1rem; }
+  .dept-pm { font-size:.78rem; color:var(--muted); margin-top:2px; }
+
+  .badge-hatav { background:var(--hatav-bg); color:var(--hatav); padding:3px 10px; border-radius:6px; font-size:.72rem; font-weight:800; white-space:nowrap; }
+  .badge-hatab { background:var(--hatab-bg); color:var(--hatab); padding:3px 10px; border-radius:6px; font-size:.72rem; font-weight:800; white-space:nowrap; }
+
+  .dept-actions { padding:0 16px 14px; display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+
+  /* COPY LINK */
+  .link-box { display:flex; gap:6px; align-items:center; flex:1; min-width:0; }
+  .link-url { flex:1; background:var(--bg); border:1px solid var(--border); border-radius:8px; padding:8px 10px; font-size:.75rem; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; direction:ltr; text-align:left; }
+  .btn-copy { padding:8px 12px; background:var(--accent); color:#fff; border:none; border-radius:8px; font-family:'Heebo'; font-weight:700; font-size:.78rem; cursor:pointer; white-space:nowrap; touch-action:manipulation; flex-shrink:0; }
+  .btn-copy:active { opacity:.8; }
+
+  /* EDIT PM */
+  .btn-edit-pm { padding:7px 12px; background:var(--bg); border:1.5px solid var(--border); border-radius:8px; font-family:'Heebo'; font-weight:700; font-size:.78rem; cursor:pointer; color:var(--muted); white-space:nowrap; touch-action:manipulation; }
+
+  /* EDIT PANEL */
+  .edit-panel { display:none; background:var(--bg); border-top:1px solid var(--border); padding:14px 16px; }
+  .edit-panel.open { display:block; }
+  .edit-label { font-size:.72rem; font-weight:800; color:var(--muted); margin-bottom:6px; text-transform:uppercase; letter-spacing:.5px; }
+  .edit-row { display:flex; gap:8px; }
+  .edit-select { flex:1; background:var(--white); border:2px solid var(--border); border-radius:8px; padding:9px 12px; font-family:'Heebo'; font-size:.9rem; color:var(--text); outline:none; transition:border-color .2s; }
+  .edit-select:focus { border-color:var(--accent); }
+  .btn-save-pm { padding:9px 16px; background:var(--success); color:#fff; border:none; border-radius:8px; font-family:'Heebo'; font-weight:800; font-size:.85rem; cursor:pointer; white-space:nowrap; touch-action:manipulation; }
+
+  /* EMPTY / SPINNER */
+  .empty { text-align:center; padding:40px; color:var(--muted); font-size:.9rem; }
+  .spinner { display:inline-block; width:18px; height:18px; border:2px solid var(--border); border-top-color:var(--accent); border-radius:50%; animation:spin .7s linear infinite; vertical-align:middle; }
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  /* TOAST */
+  .toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background:var(--text); color:#fff; padding:11px 22px; border-radius:12px; font-weight:700; font-size:.85rem; z-index:999; display:none; white-space:nowrap; box-shadow:0 8px 20px rgba(0,0,0,.2); }
+  .toast.show { display:block; animation:fadeUp .3s; }
+  @keyframes fadeUp{from{opacity:0;transform:translateX(-50%) translateY(8px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1>🔗 קישורי רכזי מקצוע</h1>
+  <a class="btn-back" href="admin.html">← חזרה</a>
+</div>
+
+<div class="content">
+  <div class="tabs">
+    <button class="tab-btn active-hatav" id="tbtn-hatav" onclick="switchTab('hatav')">🏫 חטיבה עליונה</button>
+    <button class="tab-btn" id="tbtn-hatab" onclick="switchTab('hatab')">🏛 חטיבת ביניים</button>
+  </div>
+
+  <div class="tab-content active" id="tab-hatav">
+    <div class="empty"><span class="spinner"></span></div>
+  </div>
+  <div class="tab-content" id="tab-hatab">
+    <div class="empty"><span class="spinner"></span></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const { createClient } = supabase;
+const sb = createClient(
+  'https://xxrrqaolggawkutjwtbk.supabase.co',
+  'sb_publishable_JPaHTkx93APc1b1IbYbFSg_QBvdjQN1'
+);
+
+const SUBJECTS_HATAV = [
+  'מדעי החברה','מדעים (פיזיקה | כימיה | ביולוגיה)','מוטל','מדעי הסביבה','מוטל מגמה',
+  'הנדסת תכנה','תיאטרון','מתמטיקה חטע','מידע ונתונים','ספרות','אנגלית חטע',
+  'לשון','היסטוריה','אזרחות','חנג','תעבורה','תנך','השכלה כללית','דיפלומטיה',
+  'מעורבות חברתית חטע','בקרה ואנרגיה','ניהול עסקי','תקשורת'
+];
+
+// מגמות מאוחדות: שם תצוגה → מזהי dept אמיתיים (כפי שנמצאים ב-departments.id)
+const SCIENCE_IDS = ['מדעים(פיסיקה | כימיה | ביולוגיה)', 'מדעים (פיסיקה | כימיה | ביולוגיה)', 'פיסיקה', 'כימיה', 'ביולוגיה'];
+const MERGED_DEPTS = {
+  'מדעים (פיזיקה | כימיה | ביולוגיה)': SCIENCE_IDS
+};
+
+const SUBJECTS_HATAB = [
+  'מחנכים חטב','צעד','אנגלית חטב','מעוף','חינוך מיוחד','מדעים חטב',
+  'לשון חטב','מתמטיקה חטב','חנג חטב','רצועת מצוינות','מעורבות חברתית חטב'
+];
+
+const BASE_URL_HATAV = '../rakazmegama.html';
+const BASE_URL_HATAB = '../rakazmegama-ofek.html';
+
+let allDepts = [];
+let allPMs   = [];
+let allPlacedDepts   = new Set();
+let allPlacedGroups  = {}; // dept_id → Set of placed subjects+grades
+
+async function init() {
+  const [deptsRes, pmsRes, placementsRes] = await Promise.all([
+    sb.from('departments').select('id, structure').order('id'),
+    sb.from('pedagogical_managers').select('name, assigned_depts').order('name'),
+    sb.from('placements').select('dept_id, grade, subject, subject_manual').eq('year', 'תשפז')
+  ]);
+  allDepts = deptsRes.data || [];
+  allPMs   = pmsRes.data  || [];
+
+  allPlacedDepts = new Set((placementsRes.data||[]).map(p => p.dept_id));
+
+  // בנה מפה: dept_id → Set של מפתחות (grade, subject, subject_manual)
+  allPlacedGroups = {};
+  (placementsRes.data||[]).forEach(p => {
+    if (!allPlacedGroups[p.dept_id]) allPlacedGroups[p.dept_id] = new Set();
+    if (p.grade)          allPlacedGroups[p.dept_id].add(p.grade);
+    if (p.subject)        allPlacedGroups[p.dept_id].add(p.subject.trim());
+    if (p.subject_manual) allPlacedGroups[p.dept_id].add(p.subject_manual.trim());
+  });
+
+  renderTab('hatav');
+  renderTab('hatab');
+}
+
+function getPMForDept(deptId) {
+  const pm = allPMs.find(p => (p.assigned_depts||[]).includes(deptId));
+  return pm?.name || '—';
+}
+
+function renderTab(type) {
+  const isHatab = type === 'hatab';
+  const subjects = isHatab ? SUBJECTS_HATAB : SUBJECTS_HATAV;
+  const el = document.getElementById('tab-' + type);
+  const baseUrl = isHatab ? BASE_URL_HATAB : BASE_URL_HATAV;
+  const badgeClass = isHatab ? 'badge-hatab' : 'badge-hatav';
+  const badgeLabel = isHatab ? 'חטב' : 'חטע';
+
+  // בנה מפה של dept.id → dept (חיפוש גמיש — מחפש את שם המקצוע בתוך ה-id)
+  const deptMap = {};
+  allDepts.forEach(d => {
+    // שם המקצוע יכול להיות ה-id כולו, או הסוגריים בלבד
+    const match = d.id.match(/\((.+)\)/);
+    const key = match ? match[1].trim() : d.id.trim();
+    deptMap[key] = d;
+    deptMap[d.id.trim()] = d; // גם השם המלא
+  });
+
+  let html = '';
+  subjects.forEach(subj => {
+    // חפש לפי שם מדויק או התאמה חלקית
+    const dept = deptMap[subj] || allDepts.find(d => {
+      const dName = d.id.replace(/\(.*\)/,'').trim();
+      return d.id.trim() === subj || dName === subj ||
+             d.id.includes(subj) || subj.includes(d.id.replace(/\(.*\)/,'').trim());
+    });
+
+    if (!dept) {
+      // מקצוע שלא הוקם
+      html += `<div class="dept-card" style="border-right:4px solid #cbd5e1;opacity:.6;">
+        <div class="dept-header">
+          <div>
+            <div class="dept-name" style="color:#94a3b8;">${subj}</div>
+            <div class="dept-pm" style="color:#cbd5e1;">לא הוקם עדיין</div>
+          </div>
+          <span style="background:#f1f5f9;color:#94a3b8;padding:3px 10px;border-radius:6px;font-size:.72rem;font-weight:800;">${badgeLabel}</span>
+        </div>
+      </div>`;
+      return;
+    }
+
+    const pm = getPMForDept(dept.id);
+    const link = `${baseUrl}?dept=${encodeURIComponent(dept.id)}`;
+    const hasPlacement = allPlacedDepts.has(dept.id);
+    const statusColor = hasPlacement ? '#10b981' : '#ef4444';
+    const statusBg    = hasPlacement ? '#d1fae5' : '#fee2e2';
+    const statusLabel = hasPlacement ? '✓ יש שיבוץ' : '✕ אין שיבוץ';
+
+    // חלץ קבוצות מה-structure
+    const structure = dept.structure || {};
+    const allGroups = [];
+    Object.values(structure).forEach(row => {
+      (row.subjects || []).forEach(s => allGroups.push({ group: s, rowLabel: row.label || '' }));
+    });
+    const placedKeys = allPlacedGroups[dept.id] || new Set();
+
+    const groupsHtml = allGroups.length ? `
+      <div style="padding:0 16px 14px;">
+        <div style="font-size:.7rem;font-weight:800;color:#94a3b8;letter-spacing:.5px;text-transform:uppercase;margin-bottom:8px;">קבוצות לימוד</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;">
+          ${allGroups.map(g => {
+            // בדוק לפי שם הקבוצה ישירות (מקצוע) — או לפי שכבה שמחולצת מהשם
+            const gradeMatch = g.group.match(/(?:^|[^א-ת])(י{1,2}[אב]?|ז|ח|ט)/) || g.group.match(/^(י{1,2}[אב]?|ז|ח|ט)/);
+            const grade = gradeMatch ? gradeMatch[1] : null;
+            const done = placedKeys.has(g.group.trim()) || (grade && placedKeys.has(grade));
+            return `<span style="background:${done?'#d1fae5':'#fee2e2'};color:${done?'#065f46':'#b91c1c'};
+              border:1px solid ${done?'#6ee7b7':'#fca5a5'};padding:3px 10px;border-radius:6px;
+              font-size:.72rem;font-weight:700;" title="${g.rowLabel}">
+              ${done?'✓':'✕'} ${g.group}
+            </span>`;
+          }).join('')}
+        </div>
+      </div>` : '';
+
+    html += `<div class="dept-card" style="border-right:4px solid ${statusColor};">
+      <div class="dept-header">
+        <div>
+          <div class="dept-name">${subj}</div>
+          <div class="dept-pm">רכזת: <strong>${pm}</strong></div>
+        </div>
+        <div style="display:flex;gap:6px;align-items:center;flex-shrink:0;">
+          <span style="background:${statusBg};color:${statusColor};padding:3px 10px;border-radius:6px;font-size:.72rem;font-weight:800;">${statusLabel}</span>
+          <span class="${badgeClass}">${badgeLabel}</span>
+        </div>
+      </div>
+      <div class="dept-actions">
+        <div class="link-box">
+          <div class="link-url" title="${link}">${link}</div>
+          <button class="btn-copy" onclick="copyLink('${link}','${subj}')">📋 העתק</button>
+        </div>
+      </div>
+      ${groupsHtml}
+    </div>`;
+  });
+
+  el.innerHTML = html;
+}
+
+function switchTab(type) {
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-' + type).classList.add('active');
+  document.getElementById('tbtn-hatav').className = 'tab-btn' + (type==='hatav'?' active-hatav':'');
+  document.getElementById('tbtn-hatab').className = 'tab-btn' + (type==='hatab'?' active-hatab':'');
+}
+
+function toggleEdit(cardId) {
+  const panel = document.getElementById(`edit-${cardId}`);
+  panel.classList.toggle('open');
+}
+
+async function savePM(deptId, cardId) {
+  const newPM = document.getElementById(`pm-sel-${cardId}`).value;
+
+  for (const pm of allPMs) {
+    if ((pm.assigned_depts||[]).includes(deptId)) {
+      const updated = pm.assigned_depts.filter(d => d !== deptId);
+      await sb.from('pedagogical_managers').update({ assigned_depts: updated }).eq('name', pm.name);
+      pm.assigned_depts = updated;
+    }
+  }
+
+  if (newPM) {
+    const pm = allPMs.find(p => p.name === newPM);
+    if (pm) {
+      const updated = [...(pm.assigned_depts||[]), deptId];
+      await sb.from('pedagogical_managers').update({ assigned_depts: updated }).eq('name', newPM);
+      pm.assigned_depts = updated;
+    }
+  }
+
+  document.getElementById(`pm-label-${cardId}`).textContent = newPM || '—';
+  document.getElementById(`edit-${cardId}`).classList.remove('open');
+  showToast(`✅ רכזת עודכנה`);
+}
+
+function copyLink(link, deptId) {
+  navigator.clipboard.writeText(link).then(() => showToast(`📋 קישור ${deptId} הועתק`));
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+init();
+</script>
+</body>
+</html>
