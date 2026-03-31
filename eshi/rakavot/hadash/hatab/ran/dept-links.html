@@ -121,19 +121,28 @@ const BASE_URL_HATAB = '../rakazmegama-ofek.html';
 
 let allDepts = [];
 let allPMs   = [];
-let allPlacedDepts = new Set();
+let allPlacedDepts   = new Set();
+let allPlacedGroups  = {}; // dept_id → Set of placed subjects+grades
 
 async function init() {
   const [deptsRes, pmsRes, placementsRes] = await Promise.all([
     sb.from('departments').select('id, structure').order('id'),
     sb.from('pedagogical_managers').select('name, assigned_depts').order('name'),
-    sb.from('placements').select('dept_id').eq('year', 'תשפז')
+    sb.from('placements').select('dept_id, grade, subject, subject_manual').eq('year', 'תשפז')
   ]);
   allDepts = deptsRes.data || [];
   allPMs   = pmsRes.data  || [];
 
-  // מגמות שיש להן שיבוצים
   allPlacedDepts = new Set((placementsRes.data||[]).map(p => p.dept_id));
+
+  // בנה מפה: dept_id → Set של מפתחות (grade, subject, subject_manual)
+  allPlacedGroups = {};
+  (placementsRes.data||[]).forEach(p => {
+    if (!allPlacedGroups[p.dept_id]) allPlacedGroups[p.dept_id] = new Set();
+    if (p.grade)          allPlacedGroups[p.dept_id].add(p.grade);
+    if (p.subject)        allPlacedGroups[p.dept_id].add(p.subject.trim());
+    if (p.subject_manual) allPlacedGroups[p.dept_id].add(p.subject_manual.trim());
+  });
 
   renderTab('hatav');
   renderTab('hatab');
@@ -191,17 +200,38 @@ function renderTab(type) {
     const statusColor = hasPlacement ? '#10b981' : '#ef4444';
     const statusBg    = hasPlacement ? '#d1fae5' : '#fee2e2';
     const statusLabel = hasPlacement ? '✓ יש שיבוץ' : '✕ אין שיבוץ';
-    const cardId = `${type}-${dept.id.replace(/[\s()]/g,'_')}`;
 
-    const pmOptions = allPMs.map(p =>
-      `<option value="${p.name}" ${p.name===pm?'selected':''}>${p.name}</option>`
-    ).join('');
+    // חלץ קבוצות מה-structure
+    const structure = dept.structure || {};
+    const allGroups = [];
+    Object.values(structure).forEach(row => {
+      (row.subjects || []).forEach(s => allGroups.push({ group: s, rowLabel: row.label || '' }));
+    });
+    const placedKeys = allPlacedGroups[dept.id] || new Set();
 
-    html += `<div class="dept-card" id="dcard-${cardId}" style="border-right:4px solid ${statusColor};">
+    const groupsHtml = allGroups.length ? `
+      <div style="padding:0 16px 14px;">
+        <div style="font-size:.7rem;font-weight:800;color:#94a3b8;letter-spacing:.5px;text-transform:uppercase;margin-bottom:8px;">קבוצות לימוד</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px;">
+          ${allGroups.map(g => {
+            // בדוק לפי שם הקבוצה ישירות (מקצוע) — או לפי שכבה שמחולצת מהשם
+            const gradeMatch = g.group.match(/(?:^|[^א-ת])(י{1,2}[אב]?|ז|ח|ט)/) || g.group.match(/^(י{1,2}[אב]?|ז|ח|ט)/);
+            const grade = gradeMatch ? gradeMatch[1] : null;
+            const done = placedKeys.has(g.group.trim()) || (grade && placedKeys.has(grade));
+            return `<span style="background:${done?'#d1fae5':'#fee2e2'};color:${done?'#065f46':'#b91c1c'};
+              border:1px solid ${done?'#6ee7b7':'#fca5a5'};padding:3px 10px;border-radius:6px;
+              font-size:.72rem;font-weight:700;" title="${g.rowLabel}">
+              ${done?'✓':'✕'} ${g.group}
+            </span>`;
+          }).join('')}
+        </div>
+      </div>` : '';
+
+    html += `<div class="dept-card" style="border-right:4px solid ${statusColor};">
       <div class="dept-header">
         <div>
           <div class="dept-name">${subj}</div>
-          <div class="dept-pm">רכזת: <strong id="pm-label-${cardId}">${pm}</strong></div>
+          <div class="dept-pm">רכזת: <strong>${pm}</strong></div>
         </div>
         <div style="display:flex;gap:6px;align-items:center;flex-shrink:0;">
           <span style="background:${statusBg};color:${statusColor};padding:3px 10px;border-radius:6px;font-size:.72rem;font-weight:800;">${statusLabel}</span>
@@ -213,18 +243,8 @@ function renderTab(type) {
           <div class="link-url" title="${link}">${link}</div>
           <button class="btn-copy" onclick="copyLink('${link}','${subj}')">📋 העתק</button>
         </div>
-        <button class="btn-edit-pm" onclick="toggleEdit('${cardId}')">✏️ רכזת</button>
       </div>
-      <div class="edit-panel" id="edit-${cardId}">
-        <div class="edit-label">שנה רכזת פדגוגית אחראית</div>
-        <div class="edit-row">
-          <select class="edit-select" id="pm-sel-${cardId}">
-            <option value="">— ללא רכזת —</option>
-            ${pmOptions}
-          </select>
-          <button class="btn-save-pm" onclick="savePM('${dept.id}','${cardId}')">שמור</button>
-        </div>
-      </div>
+      ${groupsHtml}
     </div>`;
   });
 
