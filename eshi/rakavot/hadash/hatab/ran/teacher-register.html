@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>הרשמת מורה — גליל מערבי</title>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;700;900&family=Secular+One&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root { --primary:#6366f1; --success:#10b981; --danger:#ef4444; --border:#e2e8f0; --bg:#f8fafc; --dark:#1e293b; --muted:#64748b; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:'Heebo',sans-serif; background:var(--bg); min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px; direction:rtl; }
+
+  .blob { position:fixed; width:500px; height:500px; border-radius:50%; filter:blur(80px); z-index:0; }
+  .blob-1 { top:-100px; right:-100px; background:rgba(99,102,241,.15); }
+  .blob-2 { bottom:-100px; left:-100px; background:rgba(16,185,129,.12); }
+
+  .card {
+    position:relative; z-index:1;
+    background:rgba(255,255,255,.9); backdrop-filter:blur(10px);
+    border-radius:28px; padding:40px 36px; width:100%; max-width:460px;
+    box-shadow:0 20px 40px rgba(0,0,0,.1); border:1px solid rgba(255,255,255,.6);
+    border-top:6px solid var(--primary);
+  }
+
+  .logo { text-align:center; margin-bottom:28px; }
+  .logo h1 { font-family:'Secular One'; font-size:1.6rem; color:var(--dark); margin-bottom:4px; }
+  .logo p { color:var(--primary); font-weight:700; font-size:.9rem; }
+
+  .field { margin-bottom:18px; }
+  .field label { display:block; font-size:.75rem; font-weight:800; color:var(--muted); margin-bottom:7px; letter-spacing:.5px; text-transform:uppercase; }
+  .field input {
+    width:100%; padding:13px 15px; border:2px solid var(--border); border-radius:12px;
+    font-family:'Heebo'; font-size:1rem; color:var(--dark); outline:none;
+    transition:border-color .2s; background:#f8fafc;
+  }
+  .field input:focus { border-color:var(--primary); background:#fff; }
+  .field .hint { font-size:.75rem; color:var(--muted); margin-top:5px; }
+
+  .btn-submit {
+    width:100%; padding:15px; background:linear-gradient(135deg,var(--primary),#4f46e5);
+    color:#fff; border:none; border-radius:14px; font-family:'Heebo';
+    font-weight:900; font-size:1.05rem; cursor:pointer; margin-top:8px;
+    transition:opacity .2s; touch-action:manipulation;
+  }
+  .btn-submit:hover { opacity:.9; }
+  .btn-submit:disabled { opacity:.4; cursor:default; }
+
+  .error { color:var(--danger); font-size:.82rem; margin-top:10px; text-align:center; min-height:18px; }
+
+  /* מסך הצלחה */
+  #screen-success { display:none; text-align:center; }
+  .success-icon { font-size:4rem; margin-bottom:16px; }
+  .success-title { font-family:'Secular One'; font-size:1.4rem; color:var(--dark); margin-bottom:10px; }
+  .success-text { color:var(--muted); font-size:.9rem; line-height:1.6; }
+</style>
+</head>
+<body>
+
+<div class="blob blob-1"></div>
+<div class="blob blob-2"></div>
+
+<div class="card">
+
+  <!-- טופס -->
+  <div id="screen-form">
+    <div class="logo">
+      <h1>הרשמה למערכת</h1>
+      <p>בית חינוך גליל מערבי</p>
+    </div>
+
+    <div class="field">
+      <label>שם מלא</label>
+      <input type="text" id="inp-name" placeholder="שם פרטי ושם משפחה">
+    </div>
+
+    <div class="field">
+      <label>תעודת זהות</label>
+      <input type="text" id="inp-id" placeholder="9 ספרות" inputmode="numeric" maxlength="9">
+    </div>
+
+    <div class="field">
+      <label>תאריך לידה</label>
+      <input type="date" id="inp-birth" max="2005-01-01">
+      <div class="hint">נדרש לחישוב שעות גיל אוטומטי</div>
+    </div>
+
+    <div style="border-top:1px solid var(--border);margin:20px 0 18px;padding-top:18px;">
+
+      <div class="field">
+        <label>טלפון</label>
+        <input type="tel" id="inp-phone" placeholder="טלפון בית" inputmode="tel">
+      </div>
+
+      <div class="field">
+        <label>נייד</label>
+        <input type="tel" id="inp-mobile" placeholder="טלפון נייד" inputmode="tel">
+      </div>
+
+      <div class="field">
+        <label>אימייל</label>
+        <input type="email" id="inp-email" placeholder="כתובת מייל" inputmode="email">
+      </div>
+
+      <div class="field">
+        <label>עיר מגורים</label>
+        <input type="text" id="inp-city" placeholder="שם העיר">
+      </div>
+
+      <div class="field">
+        <label>כתובת</label>
+        <input type="text" id="inp-address" placeholder="רחוב ומספר">
+      </div>
+
+      <div class="field">
+        <label>מקצועות הוראה</label>
+        <input type="text" id="inp-subjects" placeholder="למשל: מתמטיקה, פיזיקה">
+      </div>
+
+    </div>
+
+    <button class="btn-submit" id="btn-submit" onclick="submitForm()">שלח פרטים ←</button>
+    <div class="error" id="form-error"></div>
+  </div>
+
+  <!-- הצלחה -->
+  <div id="screen-success">
+    <div class="success-icon">✅</div>
+    <div class="success-title">הפרטים נשלחו!</div>
+    <div class="success-text">הפרטים שלך התקבלו ויאושרו על ידי מנהל המערכת בהקדם.<br>לאחר האישור תוכל להופיע בשיבוצים.</div>
+  </div>
+
+</div>
+
+<script>
+const { createClient } = supabase;
+const sb = createClient(
+  'https://xxrrqaolggawkutjwtbk.supabase.co',
+  'sb_publishable_JPaHTkx93APc1b1IbYbFSg_QBvdjQN1'
+);
+
+async function submitForm() {
+  const name  = document.getElementById('inp-name').value.trim();
+  const id    = document.getElementById('inp-id').value.trim();
+  const birth = document.getElementById('inp-birth').value;
+  const err   = document.getElementById('form-error');
+  err.textContent = '';
+
+  if (!name)  { err.textContent = 'נא להזין שם מלא'; return; }
+  if (!id || id.length < 8) { err.textContent = 'נא להזין ת.ז תקינה'; return; }
+  if (!birth) { err.textContent = 'נא להזין תאריך לידה'; return; }
+
+  const btn = document.getElementById('btn-submit');
+  btn.disabled = true;
+  btn.textContent = '...שולח';
+
+  // בדיקה אם כבר קיים
+  const { data: existing } = await sb.from('teachers').select('id_number').eq('id_number', id).single();
+  if (existing) { err.textContent = 'מורה עם ת.ז זו כבר קיים במערכת'; btn.disabled=false; btn.textContent='שלח פרטים ←'; return; }
+
+  const { data: pending } = await sb.from('teachers_pending').select('id_number').eq('id_number', id).eq('status','pending').single();
+  if (pending) { err.textContent = 'בקשה עם ת.ז זו כבר ממתינה לאישור'; btn.disabled=false; btn.textContent='שלח פרטים ←'; return; }
+
+  const { error } = await sb.from('teachers_pending').insert({
+    name, id_number: id, birth_date: birth,
+    phone:    document.getElementById('inp-phone').value.trim()    || null,
+    mobile:   document.getElementById('inp-mobile').value.trim()   || null,
+    email:    document.getElementById('inp-email').value.trim()    || null,
+    city:     document.getElementById('inp-city').value.trim()     || null,
+    address:  document.getElementById('inp-address').value.trim()  || null,
+    subjects: document.getElementById('inp-subjects').value.trim() || null,
+  });
+
+  if (error) { err.textContent = 'שגיאה: ' + error.message; btn.disabled=false; btn.textContent='שלח פרטים ←'; return; }
+
+  document.getElementById('screen-form').style.display = 'none';
+  document.getElementById('screen-success').style.display = 'block';
+}
+
+document.getElementById('inp-birth').addEventListener('keydown', e => { if(e.key==='Enter') submitForm(); });
+</script>
+</body>
+</html>
