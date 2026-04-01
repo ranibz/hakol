@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>קבוצות לימוד — גליל מערבי</title>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;700;900&family=Secular+One&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root {
+  --bg:#f1f5f9; --white:#fff; --border:#e2e8f0;
+  --primary:#6366f1; --primary-bg:#f5f3ff;
+  --success:#10b981; --success-bg:#f0fdf4;
+  --warning:#f97316; --warning-bg:#fff7ed;
+  --danger:#ef4444; --danger-bg:#fef2f2;
+  --text:#1e293b; --muted:#64748b; --dim:#94a3b8;
+  --hatav:#6366f1; --hatav-bg:#f5f3ff;
+  --hatab:#0369a1; --hatab-bg:#e0f2fe;
+  --class-color:#10b981; --class-bg:#f0fdf4;
+  --group-color:#f97316; --group-bg:#fff7ed;
+}
+* { box-sizing:border-box; margin:0; padding:0; }
+body { font-family:'Heebo',sans-serif; background:var(--bg); color:var(--text); direction:rtl; }
+
+.topbar { background:var(--text); color:white; padding:14px 24px; display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; }
+.topbar h1 { font-family:'Secular One'; font-size:18px; }
+.topbar-links { display:flex; gap:8px; }
+.topbar-links a { color:rgba(255,255,255,.7); font-size:13px; text-decoration:none; padding:6px 12px; border:1px solid rgba(255,255,255,.2); border-radius:8px; }
+
+.container { max-width:1400px; margin:0 auto; padding:24px 20px; }
+
+/* TOOLBAR */
+.toolbar { display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:20px; background:var(--white); padding:14px 18px; border-radius:16px; border:1px solid var(--border); }
+.tsel { padding:8px 12px; border:2px solid var(--border); border-radius:10px; font-family:'Heebo'; font-size:13px; font-weight:700; outline:none; background:var(--bg); cursor:pointer; }
+.tsel:focus { border-color:var(--primary); }
+.tsearch { flex:1; min-width:180px; padding:8px 14px; border:2px solid var(--border); border-radius:10px; font-family:'Heebo'; font-size:13px; outline:none; }
+.tsearch:focus { border-color:var(--primary); }
+.btn { padding:9px 18px; border:none; border-radius:10px; font-family:'Heebo'; font-size:13px; font-weight:800; cursor:pointer; transition:.15s; }
+.btn-primary { background:var(--primary); color:white; }
+.btn-primary:hover { background:#4f46e5; }
+.btn-success { background:var(--success); color:white; }
+.btn-success:hover { background:#059669; }
+.btn-warning { background:var(--warning); color:white; }
+.btn-sm { padding:6px 12px; font-size:12px; }
+
+/* STATS */
+.stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:12px; margin-bottom:20px; }
+.stat-box { background:var(--white); border-radius:14px; padding:14px; text-align:center; border:1px solid var(--border); }
+.stat-n { font-family:'Secular One'; font-size:28px; color:var(--text); }
+.stat-l { font-size:11px; color:var(--muted); font-weight:700; margin-top:3px; }
+
+/* TABLE */
+.table-wrap { background:var(--white); border-radius:16px; border:1px solid var(--border); overflow:hidden; }
+.table-header { padding:16px 20px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; }
+.table-header h2 { font-family:'Secular One'; font-size:17px; }
+
+table { width:100%; border-collapse:collapse; font-size:13px; }
+thead th { background:#f8fafc; padding:10px 14px; text-align:right; font-size:11px; font-weight:800; color:var(--muted); letter-spacing:.4px; text-transform:uppercase; border-bottom:2px solid var(--border); }
+tbody td { padding:11px 14px; border-bottom:1px solid #f8fafc; vertical-align:middle; }
+tbody tr:last-child td { border-bottom:none; }
+tbody tr:hover td { background:#fafafa; }
+
+/* BADGES */
+.badge { display:inline-flex; align-items:center; gap:4px; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:800; }
+.badge-hatav { background:var(--hatav-bg); color:var(--hatav); }
+.badge-hatab { background:var(--hatab-bg); color:var(--hatab); }
+.badge-class { background:var(--class-bg); color:var(--class-color); }
+.badge-group { background:var(--group-bg); color:var(--group-color); }
+.badge-unknown { background:#f8fafc; color:var(--dim); }
+
+/* TYPE SELECTOR */
+.type-sel-wrap { display:flex; gap:4px; align-items:center; }
+.type-btn {
+  padding:5px 12px; border-radius:8px; border:2px solid var(--border);
+  font-family:'Heebo'; font-size:12px; font-weight:800; cursor:pointer;
+  transition:.15s; background:var(--white); color:var(--muted);
+}
+.type-btn:hover { border-color:var(--primary); }
+.type-btn.active-class { background:var(--class-bg); border-color:var(--class-color); color:var(--class-color); }
+.type-btn.active-group { background:var(--group-bg); border-color:var(--group-color); color:var(--group-color); }
+
+/* CLASS ID INPUT */
+.class-input {
+  padding:5px 9px; border:2px solid var(--border); border-radius:8px;
+  font-family:'Heebo'; font-size:13px; font-weight:700; width:80px;
+  outline:none; transition:.15s;
+}
+.class-input:focus { border-color:var(--success); }
+.class-input.filled { border-color:var(--success); background:var(--success-bg); }
+
+/* GRADE SECTION */
+.grade-section { margin-bottom:4px; }
+.grade-divider { display:flex; align-items:center; gap:10px; padding:10px 14px; background:#f8fafc; border-bottom:1px solid var(--border); }
+.grade-divider span { font-size:11px; font-weight:800; color:var(--muted); letter-spacing:.5px; text-transform:uppercase; }
+.grade-divider .line { flex:1; height:1px; background:var(--border); }
+.grade-chip { padding:2px 8px; border-radius:6px; font-size:11px; font-weight:800; }
+
+/* AUTO-DETECT HINT */
+.auto-hint { font-size:10px; color:var(--success); font-weight:700; margin-top:2px; }
+
+.loading { text-align:center; padding:40px; color:var(--muted); }
+.spinner { display:inline-block; width:24px; height:24px; border:3px solid var(--border); border-top-color:var(--primary); border-radius:50%; animation:spin .7s linear infinite; }
+@keyframes spin { to { transform:rotate(360deg); } }
+
+.toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%); background:var(--text); color:white; padding:11px 22px; border-radius:12px; font-weight:700; font-size:14px; z-index:9999; display:none; white-space:nowrap; box-shadow:0 8px 20px rgba(0,0,0,.2); }
+.toast.show { display:block; animation:fadeUp .3s; }
+@keyframes fadeUp { from{opacity:0;transform:translateX(-50%) translateY(8px)} to{opacity:1;transform:translateX(-50%) translateY(0)} }
+
+.save-indicator { font-size:12px; color:var(--success); font-weight:700; display:none; }
+.save-indicator.show { display:inline; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <h1>📚 קבוצות לימוד — זיהוי סוג</h1>
+  <div class="topbar-links">
+    <a href="schedule-admin.html">⚙️ הגדרות</a>
+    <a href="schedule-grid.html">📅 מערכת שעות</a>
+    <a href="menahelet.html">← מנהלת</a>
+  </div>
+</div>
+
+<div class="container">
+
+  <div class="stats" id="statsRow">
+    <div class="stat-box"><div class="stat-n" id="stTotal">—</div><div class="stat-l">סה"כ קבוצות</div></div>
+    <div class="stat-box"><div class="stat-n" id="stClass" style="color:var(--class-color);">—</div><div class="stat-l">כיתתי ✓</div></div>
+    <div class="stat-box"><div class="stat-n" id="stGroup" style="color:var(--group-color);">—</div><div class="stat-l">קבוצת מגמה ✓</div></div>
+    <div class="stat-box"><div class="stat-n" id="stUnknown" style="color:var(--dim);">—</div><div class="stat-l">לא מוגדר</div></div>
+    <div class="stat-box"><div class="stat-n" id="stPct" style="color:var(--primary);">—</div><div class="stat-l">% הושלם</div></div>
+  </div>
+
+  <div class="toolbar">
+    <select class="tsel" id="yearSel" onchange="loadGroups()">
+      <option value="תשפז">תשפ"ז</option>
+      <option value="תשפו">תשפ"ו</option>
+    </select>
+    <select class="tsel" id="divSel" onchange="renderTable()">
+      <option value="">כל החטיבות</option>
+      <option value="חטע">חטע</option>
+      <option value="חטב">חטב</option>
+    </select>
+    <select class="tsel" id="typeSel" onchange="renderTable()">
+      <option value="">כל הסוגים</option>
+      <option value="class">כיתתי בלבד</option>
+      <option value="group">מגמה בלבד</option>
+      <option value="unknown">לא מוגדר</option>
+    </select>
+    <select class="tsel" id="gradeSel" onchange="renderTable()">
+      <option value="">כל השכבות</option>
+      <option value="ז">ז'</option>
+      <option value="ח">ח'</option>
+      <option value="ט">ט'</option>
+      <option value="י">י'</option>
+      <option value="יא">י"א</option>
+      <option value="יב">י"ב</option>
+    </select>
+    <input class="tsearch" id="searchInput" placeholder="🔍 חיפוש קבוצה / מגמה / מורה..." oninput="renderTable()">
+    <button class="btn btn-warning" onclick="autoDetectAll()">🤖 זיהוי אוטומטי</button>
+    <button class="btn btn-success" onclick="saveAll()">💾 שמור הכל</button>
+    <span class="save-indicator" id="saveIndicator">✅ נשמר</span>
+  </div>
+
+  <div class="table-wrap">
+    <div class="table-header">
+      <h2>קבוצות לימוד</h2>
+      <div style="font-size:12px;color:var(--muted);">
+        🟢 כיתתי = שיעור לכיתה אחת | 🟠 מגמה = קבוצה בין-כיתתית
+      </div>
+    </div>
+    <div id="tableContainer"><div class="loading"><div class="spinner"></div></div></div>
+  </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const { createClient } = supabase;
+const sb = createClient('https://xxrrqaolggawkutjwtbk.supabase.co','sb_publishable_JPaHTkx93APc1b1IbYbFSg_QBvdjQN1');
+
+// זיהוי כיתת אם אוטומטי
+const HOME_RE = /^(י{1,2}[אב]?|ז|ח|ט)\d+$/;
+function autoDetectType(subject) {
+  return HOME_RE.test(subject?.trim()) ? 'class' : null;
+}
+
+let allGroups   = [];  // { key, grade, subject, dept_id, teacher_name, division, type, class_id, placement_ids }
+let localState  = {};  // key → { type, class_id }  — שינויים לא שמורים
+let allTeachers = [];
+
+async function loadGroups() {
+  document.getElementById('tableContainer').innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+  const year = document.getElementById('yearSel').value;
+
+  const [plRes, tRes] = await Promise.all([
+    sb.from('placements').select('id,grade,subject,subject_manual,dept_id,teacher_id,framework,teachers(name)').eq('year', year),
+    sb.from('teachers').select('id_number,name')
+  ]);
+
+  // טען study_groups בנפרד עם טיפול בשגיאה
+  let savedStates = [];
+  try {
+    const stateRes = await sb.from('study_groups').select('*').eq('year', year);
+    savedStates = stateRes.data || [];
+  } catch(e) { savedStates = []; }
+
+  allTeachers = tRes.data || [];
+  const placements = plRes.data || [];
+  const savedMap = {};
+  savedStates.forEach(s => { savedMap[s.group_key] = { type: s.group_type, class_id: s.class_id }; });
+
+  // קבץ לפי (grade, subject, dept_id) — כל combination ייחודי
+  const groupMap = {};
+  placements.forEach(p => {
+    const subj = p.subject_manual || p.subject;
+    const key  = `${p.grade}|${subj}|${p.dept_id}`;
+    if(!groupMap[key]) {
+      const autoType = autoDetectType(subj);
+      const saved    = savedMap[key];
+      groupMap[key] = {
+        key,
+        grade:    p.grade,
+        subject:  subj,
+        dept_id:  p.dept_id,
+        division: ['י','יא','יב'].includes(p.grade) ? 'חטע' : 'חטב',
+        framework: p.framework,
+        teachers: [],
+        placement_ids: [],
+        type:     saved?.type || autoType || null,
+        class_id: saved?.class_id || (autoType==='class' ? subj.trim() : '')
+      };
+    }
+    const tname = p.teachers?.name || p.teacher_id;
+    if(!groupMap[key].teachers.includes(tname)) groupMap[key].teachers.push(tname);
+    groupMap[key].placement_ids.push(p.id);
+  });
+
+  allGroups = Object.values(groupMap).sort((a,b) => {
+    const gradeOrder = ['ז','ח','ט','י','יא','יב'];
+    const gi = gradeOrder.indexOf(a.grade) - gradeOrder.indexOf(b.grade);
+    if(gi) return gi;
+    return a.dept_id.localeCompare(b.dept_id,'he');
+  });
+
+  // אתחל localState
+  localState = {};
+  allGroups.forEach(g => { localState[g.key] = { type: g.type, class_id: g.class_id||'' }; });
+
+  renderTable();
+  updateStats();
+}
+
+function renderTable() {
+  const divFilter   = document.getElementById('divSel').value;
+  const typeFilter  = document.getElementById('typeSel').value;
+  const gradeFilter = document.getElementById('gradeSel').value;
+  const q           = document.getElementById('searchInput').value.toLowerCase();
+
+  let filtered = allGroups.filter(g => {
+    if(divFilter   && g.division !== divFilter) return false;
+    if(gradeFilter && g.grade    !== gradeFilter) return false;
+    if(typeFilter === 'class'   && localState[g.key]?.type !== 'class')   return false;
+    if(typeFilter === 'group'   && localState[g.key]?.type !== 'group')   return false;
+    if(typeFilter === 'unknown' && localState[g.key]?.type)               return false;
+    if(q && !g.subject.includes(q) && !g.dept_id.includes(q) && !g.teachers.join().includes(q)) return false;
+    return true;
+  });
+
+  if(!filtered.length) {
+    document.getElementById('tableContainer').innerHTML = '<div class="loading" style="padding:30px;color:var(--muted);">אין קבוצות לתצוגה</div>';
+    return;
+  }
+
+  // קבץ לפי שכבה
+  const byGrade = {};
+  filtered.forEach(g => {
+    if(!byGrade[g.grade]) byGrade[g.grade] = [];
+    byGrade[g.grade].push(g);
+  });
+
+  const gradeOrder = ['ז','ח','ט','י','יא','יב'];
+  const divLabel = { 'ז':'חטב','ח':'חטב','ט':'חטב','י':'חטע','יא':'חטע','יב':'חטע' };
+  const divColor = { 'ז':'var(--hatab)','ח':'var(--hatab)','ט':'var(--hatab)','י':'var(--hatav)','יא':'var(--hatav)','יב':'var(--hatav)' };
+
+  let html = `<table>
+    <thead><tr>
+      <th>שכבה</th>
+      <th>מגמה / מקצוע</th>
+      <th>קבוצה (subject)</th>
+      <th>מורים</th>
+      <th style="text-align:center;">סוג קבוצה</th>
+      <th style="text-align:center;">מזהה כיתה</th>
+      <th style="text-align:center;">שיבוצים</th>
+    </tr></thead>
+    <tbody>`;
+
+  gradeOrder.forEach(grade => {
+    if(!byGrade[grade]) return;
+    const dc = divColor[grade];
+    html += `<tr class="grade-divider-row">
+      <td colspan="7" style="padding:8px 14px;background:#f8fafc;border-bottom:1px solid var(--border);">
+        <span style="font-size:11px;font-weight:800;color:${dc};letter-spacing:.5px;">
+          שכבת ${grade} — ${divLabel[grade]}
+        </span>
+        <span style="font-size:11px;color:var(--dim);margin-right:8px;">(${byGrade[grade].length} קבוצות)</span>
+      </td>
+    </tr>`;
+
+    byGrade[grade].forEach(g => {
+      const state   = localState[g.key];
+      const type    = state?.type || null;
+      const classId = state?.class_id || '';
+      const autoHint = autoDetectType(g.subject) ? '<div class="auto-hint">זוהה אוטומטית ✓</div>' : '';
+
+      const divBadge = g.division === 'חטע'
+        ? '<span class="badge badge-hatav">חטע</span>'
+        : '<span class="badge badge-hatab">חטב</span>';
+
+      const typeBadge = !type
+        ? '<span class="badge badge-unknown">?</span>'
+        : type === 'class'
+          ? '<span class="badge badge-class">כיתתי</span>'
+          : '<span class="badge badge-group">מגמה</span>';
+
+      const classCellVal = classId ? `value="${classId}" class="class-input filled"` : `class="class-input"`;
+      const showClassInput = type === 'class';
+
+      html += `<tr data-key="${g.key}">
+        <td>${divBadge} ${g.grade}</td>
+        <td style="font-weight:800;">${g.dept_id}</td>
+        <td>
+          <span style="font-weight:700;">${g.subject}</span>
+          ${autoHint}
+        </td>
+        <td style="font-size:12px;color:var(--muted);">${g.teachers.join(', ')}</td>
+        <td style="text-align:center;">
+          <div class="type-sel-wrap" style="justify-content:center;">
+            <button class="type-btn ${type==='class'?'active-class':''}"
+              onclick="setType('${g.key}','class')">🏠 כיתתי</button>
+            <button class="type-btn ${type==='group'?'active-group':''}"
+              onclick="setType('${g.key}','group')">👥 מגמה</button>
+          </div>
+        </td>
+        <td style="text-align:center;">
+          ${showClassInput
+            ? `<input ${classCellVal} placeholder="לדוגמה: יב4"
+                onchange="setClassId('${g.key}',this.value)"
+                oninput="this.className='class-input'+(this.value?' filled':'')">`
+            : `<span style="color:var(--dim);font-size:12px;">—</span>`}
+        </td>
+        <td style="text-align:center;">
+          <span style="background:#f1f5f9;color:var(--muted);padding:2px 8px;border-radius:6px;font-size:12px;font-weight:700;">
+            ${g.placement_ids.length}
+          </span>
+        </td>
+      </tr>`;
+    });
+  });
+
+  html += '</tbody></table>';
+  document.getElementById('tableContainer').innerHTML = html;
+}
+
+function setType(key, type) {
+  localState[key] = { ...localState[key], type };
+  // אם כיתתי — מלא class_id אוטומטית אם subject מתאים
+  if(type === 'class') {
+    const g = allGroups.find(x=>x.key===key);
+    if(g && autoDetectType(g.subject)) {
+      localState[key].class_id = g.subject.trim();
+    }
+  }
+  updateStats();
+  renderTable();
+}
+
+function setClassId(key, val) {
+  localState[key] = { ...localState[key], class_id: val.trim() };
+}
+
+function autoDetectAll() {
+  let count = 0;
+  console.log('כל הקבוצות:', allGroups.map(g=>({key:g.key, subject:g.subject, codes: [...g.subject].map(c=>c.charCodeAt(0))})));
+  allGroups.forEach(g => {
+    const auto = autoDetectType(g.subject);
+    console.log(g.subject, '→', auto, '| trim:', g.subject.trim(), '| RE:', HOME_RE.test(g.subject.trim()));
+    if(auto && !localState[g.key]?.type) {
+      localState[g.key] = { type: 'class', class_id: g.subject.trim() };
+      count++;
+    }
+  });
+  updateStats();
+  renderTable();
+  showToast(`🤖 זוהו אוטומטית ${count} קבוצות כיתתיות`);
+}
+
+async function saveAll() {
+  const year = document.getElementById('yearSel').value;
+
+  // בנה רשומות לשמירה
+  const rows = allGroups.map(g => ({
+    year,
+    group_key:  g.key,
+    grade:      g.grade,
+    subject:    g.subject,
+    dept_id:    g.dept_id,
+    division:   g.division,
+    group_type: localState[g.key]?.type || null,
+    class_id:   localState[g.key]?.class_id || null,
+    placement_ids: g.placement_ids
+  })).filter(r => r.group_type); // שמור רק אלה שסווגו
+
+  if(!rows.length) { showToast('אין קבוצות מסווגות לשמירה'); return; }
+
+  // ודא שטבלת study_groups קיימת — אם לא, צור אותה
+  const { error } = await sb.from('study_groups').upsert(rows, { onConflict: 'year,group_key' });
+
+  if(error) {
+    showToast('⚠️ צור טבלת study_groups — ראה הוראות');
+    showSQLHint();
+    return;
+  }
+
+  document.getElementById('saveIndicator').classList.add('show');
+  setTimeout(() => document.getElementById('saveIndicator').classList.remove('show'), 3000);
+  showToast(`✅ נשמרו ${rows.length} קבוצות`);
+}
+
+function showSQLHint() {
+  alert(`הרץ את ה-SQL הבא ב-Supabase ואז שמור שוב:\n\nCREATE TABLE study_groups (\n  id SERIAL PRIMARY KEY,\n  year TEXT NOT NULL,\n  group_key TEXT NOT NULL,\n  grade TEXT,\n  subject TEXT,\n  dept_id TEXT,\n  division TEXT,\n  group_type TEXT,\n  class_id TEXT,\n  placement_ids INTEGER[],\n  UNIQUE(year, group_key)\n);`);
+}
+
+function updateStats() {
+  const total   = allGroups.length;
+  const cls     = allGroups.filter(g=>localState[g.key]?.type==='class').length;
+  const grp     = allGroups.filter(g=>localState[g.key]?.type==='group').length;
+  const unknown = total - cls - grp;
+  const pct     = total ? Math.round((cls+grp)/total*100) : 0;
+  document.getElementById('stTotal').textContent   = total;
+  document.getElementById('stClass').textContent   = cls;
+  document.getElementById('stGroup').textContent   = grp;
+  document.getElementById('stUnknown').textContent = unknown;
+  document.getElementById('stPct').textContent     = pct + '%';
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+loadGroups();
+</script>
+</body>
+</html>
