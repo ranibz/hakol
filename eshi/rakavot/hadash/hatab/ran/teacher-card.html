@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>כרטיס עבודה מורה — גליל מערבי</title>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;700;900&family=Secular+One&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Heebo', sans-serif; background: #e8edf2; direction: rtl; font-size: 13px; }
+
+.controls { background: #1e293b; color: white; padding: 12px 20px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.controls h1 { font-family: 'Secular One'; font-size: 17px; flex:1; }
+.ctrl-sel { padding: 7px 12px; border: 1px solid rgba(255,255,255,0.3); border-radius: 8px; background: rgba(255,255,255,0.1); color: white; font-family: 'Heebo'; font-size: 13px; font-weight: 700; cursor: pointer; min-width: 180px; }
+.ctrl-sel option { color: #1e293b; background: white; }
+.btn-print { padding: 8px 20px; background: #6366f1; color: white; border: none; border-radius: 8px; font-family: 'Heebo'; font-size: 13px; font-weight: 800; cursor: pointer; }
+
+.manual-panel { background: #fffbeb; border: 2px solid #fbbf24; border-radius: 10px; padding: 14px 18px; margin: 14px auto; max-width: 960px; display: none; }
+.manual-panel h3 { font-size: 13px; font-weight: 800; color: #92400e; margin-bottom: 10px; }
+.manual-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(155px,1fr)); gap: 10px; }
+.mf label { display: block; font-size: 10px; font-weight: 800; color: #64748b; margin-bottom: 3px; letter-spacing: .3px; }
+.mf input { width: 100%; padding: 6px 9px; border: 1.5px solid #e2e8f0; border-radius: 7px; font-family: 'Heebo'; font-size: 13px; font-weight: 700; outline: none; background: white; }
+.mf input:focus { border-color: #6366f1; }
+.btn-apply { margin-top: 10px; padding: 8px 20px; background: #1e293b; color: white; border: none; border-radius: 8px; font-family: 'Heebo'; font-size: 13px; font-weight: 800; cursor: pointer; }
+
+.page-wrap { padding: 14px; max-width: 960px; margin: 0 auto; }
+.card { background: white; border: 1.5px solid #334155; }
+
+.ch { background: #1e293b; color: white; padding: 9px 16px; display: flex; justify-content: space-between; align-items: center; }
+.ch-title { font-family: 'Secular One'; font-size: 16px; }
+.ch-sub { font-size: 11px; color: rgba(255,255,255,.6); margin-top: 1px; }
+.ch-right { text-align: left; font-size: 11px; color: rgba(255,255,255,.7); line-height: 1.6; }
+
+.info-row { display: grid; border-bottom: 1.5px solid #334155; }
+.ic { padding: 7px 12px; border-left: 1px solid #e2e8f0; }
+.ic:last-child { border-left: none; }
+.ic-lbl { font-size: 9px; font-weight: 800; color: #94a3b8; letter-spacing: .4px; margin-bottom: 2px; text-transform: uppercase; }
+.ic-val { font-weight: 800; font-size: 13px; color: #0f172a; }
+
+.extra-row { display: grid; border-bottom: 1.5px solid #334155; background: #f1f5f9; }
+.ec { padding: 6px 12px; border-left: 1px solid #e2e8f0; }
+.ec:last-child { border-left: none; }
+.ec-lbl { font-size: 9px; font-weight: 800; color: #64748b; letter-spacing: .3px; }
+.ec-val { font-weight: 800; font-size: 12px; color: #0f172a; }
+
+.sum-bar { display: grid; background: #f8fafc; border-bottom: 1.5px solid #334155; }
+.sc { text-align: center; padding: 8px 4px; border-left: 1px solid #e2e8f0; }
+.sc:last-child { border-left: none; }
+.sc-lbl { font-size: 9px; font-weight: 800; color: #64748b; letter-spacing: .3px; }
+.sc-val { font-size: 20px; font-weight: 900; font-family: 'Secular One'; margin-top: 1px; }
+.sc-sub { font-size: 9px; color: #94a3b8; }
+
+.two-col { display: grid; grid-template-columns: 1fr 1fr; border-bottom: 1.5px solid #334155; }
+.col { border-left: 1.5px solid #334155; }
+.col:first-child { border-left: none; }
+.sec-title { background: #334155; color: white; padding: 5px 12px; font-size: 10px; font-weight: 800; letter-spacing: .4px; }
+.sec-title.blue { background: #0369a1; }
+.sec-title.green { background: #065f46; }
+.sec-title.purple { background: #5b21b6; }
+
+.pt { width: 100%; border-collapse: collapse; }
+.pt th { background: #f1f5f9; padding: 5px 8px; text-align: right; font-size: 9px; font-weight: 800; color: #64748b; border-bottom: 1px solid #e2e8f0; }
+.pt td { padding: 5px 8px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
+.pt tr:last-child td { border-bottom: none; }
+.pt tr:nth-child(even) td { background: #fafafa; }
+.gb { display: inline-block; background: #e0e7ff; color: #3730a3; border-radius: 3px; padding: 1px 5px; font-size: 10px; font-weight: 800; }
+.pb { background: #dbeafe; color: #1d4ed8; }
+.sb { background: #fef3c7; color: #92400e; font-size: 9px; padding: 1px 4px; border-radius: 3px; margin-right: 2px; }
+.hc { color: #0f766e; font-weight: 700; }
+.hb { color: #7c3aed; font-weight: 700; }
+.hp { color: #1d4ed8; font-weight: 700; }
+
+.rt { width: 100%; border-collapse: collapse; }
+.rt td { padding: 5px 10px; border-bottom: 1px solid #f1f5f9; font-size: 12px; }
+.rt tr:last-child td { border-bottom: none; }
+.rt .tot td { background: #f8fafc; font-weight: 800; }
+
+.ht { width: 100%; border-collapse: collapse; }
+.ht th { background: #f1f5f9; padding: 5px 12px; font-size: 9px; font-weight: 800; color: #64748b; border-bottom: 1px solid #e2e8f0; border-left: 1px solid #e2e8f0; text-align: center; }
+.ht th:first-child { text-align: right; border-left: none; }
+.ht td { padding: 5px 12px; border-bottom: 1px solid #f1f5f9; border-left: 1px solid #f1f5f9; text-align: center; }
+.ht td:first-child { text-align: right; font-weight: 700; border-left: none; }
+.ht .cur td { background: #f0fdf4; font-weight: 900; }
+
+.cf { background: #f8fafc; border-top: 1.5px solid #334155; padding: 8px 14px; display: flex; justify-content: space-between; align-items: center; font-size: 10px; color: #64748b; }
+.pct-bg { background: #e2e8f0; border-radius: 3px; height: 5px; width: 90px; display: inline-block; vertical-align: middle; overflow: hidden; margin: 0 5px; }
+.pct-fill { height: 100%; border-radius: 3px; }
+
+.empty-msg { text-align: center; padding: 12px; color: #94a3b8; font-style: italic; font-size: 11px; }
+.loading-wrap { text-align: center; padding: 50px; color: #64748b; }
+.spinner { display: inline-block; width: 28px; height: 28px; border: 3px solid #e2e8f0; border-top-color: #6366f1; border-radius: 50%; animation: spin .8s linear infinite; margin-bottom: 8px; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+@media print {
+  .controls, .manual-panel { display: none !important; }
+  body { background: white; }
+  .page-wrap { padding: 0; max-width: none; }
+  .card { border: 1px solid #334155; }
+  @page { margin: .8cm; size: A4 landscape; }
+}
+</style>
+</head>
+<body>
+
+<div class="controls">
+  <h1>🗒 כרטיס עבודה מורה — גליל מערבי</h1>
+  <select class="ctrl-sel" id="yearSel" onchange="loadCard()">
+    <option value="תשפז">תשפ"ז</option>
+    <option value="תשפו" selected>תשפ"ו</option>
+    <option value="תשפה">תשפ"ה</option>
+  </select>
+  <select class="ctrl-sel" id="teacherSel" onchange="loadCard()">
+    <option value="">— בחר מורה —</option>
+  </select>
+  <button class="btn-print" onclick="window.print()">🖨 הדפסה / PDF</button>
+</div>
+
+<div class="manual-panel" id="manualPanel">
+  <h3>✏️ נתונים ידניים — ישמרו בדפדפן ויוצגו בכרטיס</h3>
+  <div class="manual-grid">
+    <div class="mf"><label>דרגת קידום עוז</label><input id="mDarga" placeholder="3"></div>
+    <div class="mf"><label>ותק (שנים)</label><input id="mVetek" type="number" placeholder="8" min="0"></div>
+    <div class="mf"><label>ג. השתלמות (שעות)</label><input id="mHashtalm" type="number" placeholder="21" step=".5"></div>
+    <div class="mf"><label>דרגת אופק חדש</label><input id="mDargaOfek" placeholder="—"></div>
+    <div class="mf"><label>גמול הכשרות %</label><input id="mHachsh" type="number" placeholder="0" step=".5"></div>
+    <div class="mf"><label>גמול פיצול %</label><input id="mPitzul" type="number" placeholder="0" step=".5"></div>
+    <div class="mf"><label>גמול בגרות %</label><input id="mBagrut" type="number" placeholder="0" step=".5"></div>
+    <div class="mf"><label>בסיס משרה (שעות)</label><input id="mBasis" type="number" placeholder="32" step=".5"></div>
+    <div class="mf"><label>מוסד משלם</label><input id="mMosad" placeholder="משכרת"></div>
+    <div class="mf"><label>הערות לכרטיס</label><input id="mNotes" placeholder="הסידור אינו קבוע..."></div>
+  </div>
+  <button class="btn-apply" onclick="applyManual()">✅ עדכן כרטיס</button>
+</div>
+
+<div class="page-wrap">
+  <div id="cardContainer">
+    <div class="loading-wrap"><div class="spinner"></div><br>טוען נתונים...</div>
+  </div>
+</div>
+
+<script>
+const { createClient } = supabase;
+const sbClient = createClient('https://xxrrqaolggawkutjwtbk.supabase.co','sb_publishable_JPaHTkx93APc1b1IbYbFSg_QBvdjQN1');
+const YEAR_ORDER = ['תשפד','תשפה','תשפו','תשפז'];
+let allTeachers = [], currentData = null;
+
+async function init() {
+  const { data } = await sbClient.from('teachers').select('*').order('name');
+  allTeachers = data || [];
+  const sel = document.getElementById('teacherSel');
+  allTeachers.forEach(t => sel.innerHTML += `<option value="${t.id_number}">${t.name}</option>`);
+  const p = new URLSearchParams(window.location.search);
+  if(p.get('id')) {
+    sel.value = p.get('id');
+    if(p.get('year')) document.getElementById('yearSel').value = p.get('year');
+    loadManual(); loadCard();
+  } else {
+    document.getElementById('cardContainer').innerHTML = '<div class="loading-wrap">בחר מורה ושנה</div>';
+  }
+}
+
+const sf = p => p.is_semester ? 0.5 : 1;
+const ec = p => p.type==='פרטנות' ? (parseFloat(p.partanut)||parseFloat(p.contact)||0)*sf(p) : (parseFloat(p.contact)||0)*sf(p);
+const eb = p => (parseFloat(p.bonus)||0)*sf(p);
+function ageHrs(bd, year) {
+  if(!bd) return 0;
+  const ym = {'תשפד':2023,'תשפה':2024,'תשפו':2025,'תשפז':2026};
+  const age = (ym[year]||2026) - new Date(bd).getFullYear();
+  return age>=55?4:age>=50?2:0;
+}
+
+function sk() { return `tc_${document.getElementById('teacherSel').value}_${document.getElementById('yearSel').value}`; }
+function saveManual() {
+  const ids=['mDarga','mVetek','mHashtalm','mDargaOfek','mHachsh','mPitzul','mBasis','mMosad','mNotes'];
+  const obj={}; ids.forEach(id=>obj[id]=document.getElementById(id)?.value||'');
+  try{localStorage.setItem(sk(),JSON.stringify(obj));}catch(e){}
+}
+function loadManual() {
+  try {
+    const raw=localStorage.getItem(sk()); if(!raw)return;
+    const obj=JSON.parse(raw);
+    Object.entries(obj).forEach(([id,v])=>{ const el=document.getElementById(id); if(el)el.value=v; });
+  }catch(e){}
+}
+function getManual() {
+  const g=id=>document.getElementById(id)?.value.trim()||'';
+  const gn=id=>parseFloat(document.getElementById(id)?.value)||0;
+  return {
+    darga:g('mDarga'), vetek:g('mVetek'), hashtalm:gn('mHashtalm'),
+    dargaOfek:g('mDargaOfek'), hachsh:gn('mHachsh'), pitzul:gn('mPitzul'),
+    basis:gn('mBasis')||null, mosad:g('mMosad'), notes:g('mNotes'),
+    roles: []
+  };
+}
+function applyManual() { saveManual(); if(currentData) renderCard(currentData, getManual()); }
+
+async function loadCard() {
+  const tid=document.getElementById('teacherSel').value;
+  const year=document.getElementById('yearSel').value;
+  if(!tid) return;
+  document.getElementById('cardContainer').innerHTML='<div class="loading-wrap"><div class="spinner"></div><br>טוען...</div>';
+  document.getElementById('manualPanel').style.display='block';
+  const teacher=allTeachers.find(t=>t.id_number===tid);
+  if(!teacher) return;
+  loadManual();
+  const [plRes,rolesRes,notesRes] = await Promise.all([
+    sbClient.from('placements').select('*').eq('teacher_id',tid),
+    sbClient.from('teacher_roles').select('*').eq('teacher_id',tid).eq('year',year),
+    sbClient.from('teacher_hours').select('*').eq('teacher_id',tid)
+  ]);
+  currentData = { teacher, year, allPl:plRes.data||[], roles:rolesRes.data||[], note:(notesRes.data||[]).find(n=>!n.year||n.year===year)||{} };
+  renderCard(currentData, getManual());
+  const url=new URL(window.location);
+  url.searchParams.set('id',tid); url.searchParams.set('year',year);
+  history.replaceState({},''  ,url);
+}
+
+function renderCard(data, m) {
+  const {teacher,year,allPl,roles,note} = data;
+  const pls = allPl.filter(p=>p.year===year);
+  const ozPl = pls.filter(p=>p.framework!=='אופק');
+  const ofekPl = pls.filter(p=>p.framework==='אופק');
+
+  const ozC  = ozPl.filter(p=>p.type!=='פרטנות').reduce((s,p)=>s+ec(p),0);
+  const ozB  = ozPl.reduce((s,p)=>s+eb(p),0);
+  const ozP  = parseFloat(note.partanut)||0;
+  const ozS  = parseFloat(note.stay)||0;
+  const age  = ageHrs(teacher.birth_date, year);
+  const dbRoles = roles.map(r=>({name:r.role_name,hrs:parseFloat(r.hours)||0}));
+  const allRoles = dbRoles;
+  const roleH = allRoles.reduce((s,r)=>s+r.hrs,0);
+  const basis = m.basis || Math.max(1,38-age);
+  const maxC  = Math.min(25,basis);
+  const ozTot = ozC+ozB+ozP+ozS+roleH;
+  const pct   = maxC>0 ? ozC/maxC*100 : 0;
+  const col   = pct>100?'#ef4444':pct<50&&ozC>0?'#f97316':'#10b981';
+
+  const ofC = ofekPl.filter(p=>p.type!=='פרטנות').reduce((s,p)=>s+ec(p),0);
+  const ofB = ofekPl.reduce((s,p)=>s+eb(p),0);
+  const ofP = parseFloat(note.partanut_ofek)||0;
+  const ofS = parseFloat(note.stay_ofek)||0;
+  const ofTot = ofC+ofB+ofP+ofS;
+
+  const histYears = YEAR_ORDER.filter(y=>y!==year);
+  const hd = {}; histYears.forEach(y=>hd[y]={c:0,b:0,p:0});
+  allPl.forEach(p=>{ if(!hd[p.year])return; if(p.type==='פרטנות')hd[p.year].p+=ec(p); else{hd[p.year].c+=ec(p);hd[p.year].b+=eb(p);} });
+
+  const bd = teacher.birth_date ? new Date(teacher.birth_date).toLocaleDateString('he-IL') : '—';
+
+  function plR(list) {
+    if(!list.length) return `<tr><td colspan="5" class="empty-msg">אין שיבוצים</td></tr>`;
+    return [...list].sort((a,b)=>(a.dept_id||'').localeCompare(b.dept_id||'','he'))
+    .map((p,i)=>{
+      const s=p.subject_manual||p.subject, isPart=p.type==='פרטנות';
+      const sem=p.is_semester?'<span class="sb">ס׳</span>':'';
+      const hrs=isPart?`<span class="hp">${p.partanut||p.contact}</span>`:`<span class="hc">${p.contact}</span>${p.bonus>0?` <span class="hb">+${p.bonus}ג</span>`:''}`;
+      return `<tr><td style="text-align:center;color:#94a3b8;font-size:10px;">${i+1}</td><td><span class="gb ${isPart?'pb':''}">${p.grade||'—'}</span></td><td style="font-size:11px;">${p.dept_id||'—'}</td><td>${sem}${s}${isPart?' <span style="font-size:10px;color:#1d4ed8;">(פרטנות)</span>':''}</td><td style="text-align:center;">${hrs}</td></tr>`;
+    }).join('');
+  }
+
+  function roleR() {
+    if(!allRoles.length) return `<tr><td colspan="2" class="empty-msg">אין תפקידים</td></tr>`;
+    const rows=allRoles.map(r=>`<tr><td>${r.name}</td><td style="text-align:center;font-weight:800;">${r.hrs.toFixed(1)}</td></tr>`).join('');
+    const tot=allRoles.length>1?`<tr class="tot"><td>סה"כ</td><td style="text-align:center;">${roleH.toFixed(1)}</td></tr>`:'';
+    return rows+tot;
+  }
+
+  document.getElementById('cardContainer').innerHTML = `
+  <div class="card">
+    <div class="ch">
+      <div>
+        <div class="ch-sub">בית חינוך תיכון — גליל מערבי | ${m.notes||'ח.נ. הסידור אינו קבוע ויתכנו בו שינויים'}</div>
+        <div class="ch-title">כרטיס עבודה: ${teacher.name} | ${year}</div>
+      </div>
+      <div class="ch-right">ת.ז: ${teacher.id_number}<br>תאריך לידה: ${bd}</div>
+    </div>
+
+    <div class="info-row" style="grid-template-columns:repeat(5,1fr);">
+      <div class="ic"><div class="ic-lbl">שם מורה</div><div class="ic-val">${teacher.name}</div></div>
+      <div class="ic"><div class="ic-lbl">כתובת</div><div class="ic-val">${teacher.address||teacher.city||'—'}</div></div>
+      <div class="ic"><div class="ic-lbl">טלפון</div><div class="ic-val" style="direction:ltr;text-align:right;">${teacher.mobile||teacher.phone||'—'}</div></div>
+      <div class="ic"><div class="ic-lbl">תאריך לידה</div><div class="ic-val">${bd}</div></div>
+      <div class="ic"><div class="ic-lbl">ת.ז</div><div class="ic-val" style="font-family:monospace;">${teacher.id_number}</div></div>
+    </div>
+
+    <div class="extra-row" style="grid-template-columns:repeat(8,1fr);">
+      <div class="ec"><div class="ec-lbl">דרגת קידום עוז</div><div class="ec-val">${m.darga||'—'}</div></div>
+      <div class="ec"><div class="ec-lbl">ותק</div><div class="ec-val">${m.vetek||'—'}</div></div>
+      <div class="ec"><div class="ec-lbl">ג. השתלמות</div><div class="ec-val">${m.hashtalm||'—'}</div></div>
+      <div class="ec"><div class="ec-lbl">דרגת אופק</div><div class="ec-val">${m.dargaOfek||'—'}</div></div>
+      <div class="ec"><div class="ec-lbl">שעות גיל</div><div class="ec-val">${age>0?'-'+age:'—'}</div></div>
+      <div class="ec"><div class="ec-lbl">בסיס משרה</div><div class="ec-val">${basis}</div></div>
+      <div class="ec"><div class="ec-lbl">גמול הכשרות</div><div class="ec-val">${m.hachsh||'—'}%</div></div>
+      <div class="ec"><div class="ec-lbl">מוסד משלם</div><div class="ec-val">${m.mosad||'—'}</div></div>
+    </div>
+
+    <div class="sum-bar" style="grid-template-columns:repeat(${ofTot>0?8:7},1fr);">
+      <div class="sc"><div class="sc-lbl">מגע חטע</div><div class="sc-val" style="color:#0f766e;">${ozC.toFixed(1)}</div><div class="sc-sub">מתוך ${maxC}</div></div>
+      <div class="sc"><div class="sc-lbl">גמול</div><div class="sc-val" style="color:#7c3aed;">${ozB.toFixed(1)}</div></div>
+      <div class="sc"><div class="sc-lbl">פרטנות</div><div class="sc-val" style="color:#1d4ed8;">${ozP.toFixed(1)}</div></div>
+      <div class="sc"><div class="sc-lbl">שהייה</div><div class="sc-val" style="color:#15803d;">${ozS.toFixed(1)}</div></div>
+      <div class="sc"><div class="sc-lbl">תפקידים</div><div class="sc-val" style="color:#0369a1;">${roleH.toFixed(1)}</div></div>
+      ${ofTot>0?`<div class="sc"><div class="sc-lbl">מגע חטב</div><div class="sc-val" style="color:#0e7490;">${ofC.toFixed(1)}</div></div>`:''}
+      <div class="sc" style="background:#f0fdf4;"><div class="sc-lbl">סה"כ / בסיס</div><div class="sc-val" style="color:${col};">${ozTot.toFixed(1)}<span style="font-size:10px;color:#94a3b8;">/${basis}</span></div><div class="sc-sub">${pct.toFixed(0)}%</div></div>
+      <div class="sc" style="background:#f0fdf4;"><div class="sc-lbl">% משרה</div><div style="margin-top:3px;"><div class="pct-bg" style="width:70px;margin:0 auto;"><div class="pct-fill" style="width:${Math.min(pct,100)}%;background:${col};"></div></div><div style="font-weight:900;font-size:14px;color:${col};margin-top:2px;">${pct.toFixed(1)}%</div></div></div>
+    </div>
+
+    <div class="two-col">
+      <div class="col">
+        <div class="sec-title">📚 שיבוצים — חטיבה עליונה (עוז לתמורה)</div>
+        <table class="pt"><thead><tr><th style="width:22px;">#</th><th>שכבה</th><th>מגמה</th><th>מקצוע</th><th style="text-align:center;">שעות</th></tr></thead>
+        <tbody>${plR(ozPl)}</tbody>
+        ${ozPl.length?`<tfoot><tr style="background:#f8fafc;"><td colspan="4" style="padding:5px 8px;font-weight:800;font-size:11px;">סה"כ: מגע <span class="hc">${ozC.toFixed(1)}</span> | גמול <span class="hb">${ozB.toFixed(1)}</span></td><td></td></tr></tfoot>`:''}</table>
+        ${ofekPl.length?`<div class="sec-title blue">📚 שיבוצים — חטיבת ביניים (אופק חדש)</div>
+        <table class="pt"><thead><tr><th style="width:22px;">#</th><th>שכבה</th><th>מגמה</th><th>מקצוע</th><th style="text-align:center;">שעות</th></tr></thead>
+        <tbody>${plR(ofekPl)}</tbody></table>`:''}
+      </div>
+      <div class="col">
+        <div class="sec-title purple">🏷 תפקידים</div>
+        <table class="rt"><tbody>${roleR()}</tbody></table>
+        <div class="sec-title green">📋 גמולים</div>
+        <table class="rt"><tbody>
+          <tr><td>גמול פיצול</td><td style="text-align:center;">${m.pitzul||'—'}%</td></tr>
+          <tr><td>גמול הכשרות</td><td style="text-align:center;">${m.hachsh||'—'}%</td></tr>
+        </tbody></table>
+        ${ofTot>0?`<div class="sec-title blue">📊 סיכום אופק חדש</div>
+        <table class="rt"><tbody>
+          <tr><td>שעות מגע</td><td style="text-align:center;" class="hc">${ofC.toFixed(1)}</td></tr>
+          <tr><td>גמול</td><td style="text-align:center;" class="hb">${ofB.toFixed(1)}</td></tr>
+          ${ofP>0?`<tr><td>פרטנות</td><td style="text-align:center;" class="hp">${ofP.toFixed(1)}</td></tr>`:''}
+          ${ofS>0?`<tr><td>שהייה</td><td style="text-align:center;">${ofS.toFixed(1)}</td></tr>`:''}
+          <tr class="tot"><td>סה"כ</td><td style="text-align:center;">${ofTot.toFixed(1)}</td></tr>
+        </tbody></table>`:''}
+      </div>
+    </div>
+
+    <div style="border-top:1.5px solid #334155;">
+      <div class="sec-title">📈 היסטוריית שנים קודמות</div>
+      <table class="ht">
+        <thead><tr><th>שנה</th><th>שעות מגע</th><th>שעות גמול</th><th>פרטנות</th><th>תפקידים</th><th>סה"כ</th></tr></thead>
+        <tbody>
+          ${histYears.map(y=>{const h=hd[y],t=h.c+h.b+h.p;return `<tr><td>${y}</td><td style="color:#0f766e;font-weight:700;">${h.c>0?h.c.toFixed(1):'—'}</td><td style="color:#7c3aed;font-weight:700;">${h.b>0?h.b.toFixed(1):'—'}</td><td style="color:#1d4ed8;font-weight:700;">${h.p>0?h.p.toFixed(1):'—'}</td><td>—</td><td style="font-weight:900;">${t>0?t.toFixed(1):'—'}</td></tr>`;}).join('')}
+          <tr class="cur"><td>${year} (נוכחית)</td><td style="color:#0f766e;">${ozC.toFixed(1)}</td><td style="color:#7c3aed;">${ozB.toFixed(1)}</td><td style="color:#1d4ed8;">${ozP.toFixed(1)}</td><td style="color:#0369a1;">${roleH.toFixed(1)}</td><td>${ozTot.toFixed(1)}</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="cf">
+      <span>הופק: ${new Date().toLocaleDateString('he-IL')} | מערכת שיבוץ מורים — גליל מערבי</span>
+      <span style="display:flex;align-items:center;gap:5px;">% משרה: <span class="pct-bg"><span class="pct-fill" style="width:${Math.min(pct,100)}%;background:${col};"></span></span><strong style="color:${col};">${pct.toFixed(1)}%</strong></span>
+    </div>
+  </div>`;
+}
+
+init();
+</script>
+</body>
+</html>
