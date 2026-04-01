@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>מערכת שעות — גליל מערבי</title>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;700;900&family=Secular+One&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root {
+  --bg: #0f1117; --surface: #1a1d27; --surface2: #22263a;
+  --border: #2e3347; --border2: #3d4260;
+  --accent: #6c63ff; --accent2: #8b85ff; --accent-bg: rgba(108,99,255,.15);
+  --success: #00d4a0; --success-bg: rgba(0,212,160,.12);
+  --warning: #ffa94d; --warning-bg: rgba(255,169,77,.12);
+  --danger: #ff6b6b; --danger-bg: rgba(255,107,107,.12);
+  --hatav: #6c63ff; --hatav-bg: rgba(108,99,255,.1);
+  --hatab: #00b4d8; --hatab-bg: rgba(0,180,216,.1);
+  --text: #e8eaf0; --muted: #8b90a7; --dim: #4a4f6a;
+  --radius: 12px; --radius-sm: 8px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Heebo', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; direction: rtl; }
+
+/* ===== TOPBAR ===== */
+.topbar {
+  background: var(--surface); border-bottom: 1px solid var(--border);
+  padding: 0 24px; display: flex; align-items: center; gap: 0; height: 56px;
+  position: sticky; top: 0; z-index: 200;
+}
+.topbar-logo { font-family: 'Secular One'; font-size: 16px; color: var(--text); padding-left: 24px; border-left: 1px solid var(--border); margin-left: 0; white-space: nowrap; }
+.topbar-logo span { color: var(--accent2); }
+
+.view-toggle { display: flex; background: var(--surface2); border-radius: var(--radius-sm); padding: 3px; margin: 0 20px; gap: 2px; }
+.vt-btn { padding: 6px 16px; border-radius: 6px; border: none; font-family: 'Heebo'; font-size: 13px; font-weight: 700; cursor: pointer; transition: all .2s; background: transparent; color: var(--muted); }
+.vt-btn.active { background: var(--accent); color: white; }
+
+.topbar-selects { display: flex; gap: 10px; flex: 1; align-items: center; }
+.tsel {
+  background: var(--surface2); border: 1px solid var(--border); color: var(--text);
+  padding: 7px 12px; border-radius: var(--radius-sm); font-family: 'Heebo'; font-size: 13px;
+  font-weight: 700; cursor: pointer; outline: none; transition: border-color .2s;
+}
+.tsel:focus { border-color: var(--accent); }
+.tsel option { background: #1a1d27; }
+
+.topbar-right { display: flex; gap: 8px; margin-right: auto; }
+.tb-btn { padding: 7px 14px; border-radius: var(--radius-sm); border: 1px solid var(--border); background: transparent; color: var(--muted); font-family: 'Heebo'; font-size: 12px; font-weight: 700; cursor: pointer; transition: all .2s; white-space: nowrap; }
+.tb-btn:hover { border-color: var(--accent); color: var(--accent2); }
+.tb-btn.primary { background: var(--accent); color: white; border-color: var(--accent); }
+.tb-btn.primary:hover { background: var(--accent2); }
+
+/* ===== LAYOUT ===== */
+.layout { display: flex; height: calc(100vh - 56px); overflow: hidden; }
+
+/* SIDEBAR */
+.sidebar {
+  width: 240px; flex-shrink: 0; background: var(--surface);
+  border-left: 1px solid var(--border); overflow-y: auto;
+  display: flex; flex-direction: column;
+}
+.sidebar-section { padding: 14px 12px; border-bottom: 1px solid var(--border); }
+.sidebar-title { font-size: 10px; font-weight: 800; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; margin-bottom: 8px; }
+.sidebar-item {
+  display: flex; align-items: center; gap: 8px; padding: 8px 10px;
+  border-radius: var(--radius-sm); cursor: pointer; transition: all .15s;
+  font-size: 13px; font-weight: 700; color: var(--muted); border: 1px solid transparent;
+}
+.sidebar-item:hover { background: var(--surface2); color: var(--text); }
+.sidebar-item.active { background: var(--accent-bg); color: var(--accent2); border-color: rgba(108,99,255,.3); }
+.sidebar-item .badge { margin-right: auto; font-size: 10px; background: var(--surface2); padding: 1px 6px; border-radius: 4px; color: var(--muted); }
+.sidebar-item.active .badge { background: rgba(108,99,255,.2); color: var(--accent2); }
+.grade-header { font-size: 10px; font-weight: 900; color: var(--dim); letter-spacing: .5px; padding: 6px 10px 3px; text-transform: uppercase; }
+
+/* MAIN */
+.main { flex: 1; overflow-y: auto; padding: 20px; }
+
+/* ===== GRID ===== */
+.grid-header {
+  display: flex; align-items: center; gap: 16px; margin-bottom: 16px; flex-wrap: wrap;
+}
+.grid-title { font-family: 'Secular One'; font-size: 20px; color: var(--text); }
+.grid-subtitle { font-size: 12px; color: var(--muted); }
+.legend { display: flex; gap: 10px; flex-wrap: wrap; }
+.leg-item { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--muted); }
+.leg-dot { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+
+.schedule-wrap { overflow-x: auto; }
+.schedule-table { border-collapse: separate; border-spacing: 3px; min-width: 700px; width: 100%; }
+
+/* ROW HEADER */
+.th-period {
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: 8px 12px; text-align: right; white-space: nowrap;
+  font-size: 11px; color: var(--muted); min-width: 90px;
+}
+.th-period .pnum { font-family: 'Secular One'; font-size: 18px; color: var(--text); display: block; line-height: 1; }
+.th-period .ptime { font-size: 10px; color: var(--dim); display: block; margin-top: 1px; direction: ltr; }
+
+/* COL HEADER */
+.th-day {
+  background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm);
+  padding: 10px 8px; text-align: center; font-family: 'Secular One'; font-size: 15px; color: var(--text);
+}
+.th-day .day-date { font-size: 10px; color: var(--muted); font-family: 'Heebo'; font-weight: 400; display: block; margin-top: 2px; }
+
+/* CELL */
+.cell {
+  background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius-sm);
+  min-height: 70px; vertical-align: top; padding: 0; position: relative;
+  transition: all .15s; cursor: pointer;
+}
+.cell:hover { border-color: var(--border2); background: #262a3d; }
+.cell.blocked { background: var(--bg); border-color: var(--border); cursor: default; opacity: .4; }
+.cell.conflict { border-color: var(--danger) !important; background: var(--danger-bg) !important; }
+.cell.teacher-unavail { background: repeating-linear-gradient(45deg, var(--bg) 0px, var(--bg) 4px, var(--surface) 4px, var(--surface) 8px); cursor: not-allowed; }
+
+/* LESSON CARD */
+.lesson {
+  padding: 8px 10px; height: 100%; min-height: 70px;
+  display: flex; flex-direction: column; gap: 3px;
+}
+.lesson-subject { font-weight: 800; font-size: 13px; color: var(--text); line-height: 1.2; }
+.lesson-teacher { font-size: 11px; color: var(--muted); }
+.lesson-dept { font-size: 10px; color: var(--dim); }
+.lesson-badge { display: inline-block; font-size: 9px; font-weight: 800; padding: 1px 5px; border-radius: 3px; margin-top: 2px; }
+.lb-home { background: rgba(0,212,160,.2); color: var(--success); }
+.lb-group { background: var(--accent-bg); color: var(--accent2); }
+.lb-conflict { background: var(--danger-bg); color: var(--danger); }
+.lb-unavail { background: var(--warning-bg); color: var(--warning); }
+
+/* EMPTY CELL */
+.cell-empty { width: 100%; height: 70px; display: flex; align-items: center; justify-content: center; }
+.cell-empty-icon { font-size: 18px; opacity: .2; }
+
+/* CONFLICT PANEL */
+.conflict-panel {
+  background: var(--danger-bg); border: 1px solid var(--danger);
+  border-radius: var(--radius); padding: 14px 16px; margin-bottom: 16px;
+  display: none;
+}
+.conflict-panel.show { display: block; }
+.conflict-panel h3 { font-size: 13px; font-weight: 800; color: var(--danger); margin-bottom: 8px; }
+.conflict-item { font-size: 12px; color: #ffaaaa; margin-bottom: 4px; }
+
+/* STATS BAR */
+.stats-bar {
+  display: flex; gap: 16px; background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 12px 18px; margin-bottom: 16px; flex-wrap: wrap;
+}
+.stat { text-align: center; }
+.stat-n { font-family: 'Secular One'; font-size: 22px; color: var(--text); }
+.stat-l { font-size: 10px; color: var(--muted); font-weight: 700; letter-spacing: .3px; }
+
+/* EMPTY STATE */
+.empty-state { text-align: center; padding: 60px 20px; color: var(--muted); }
+.empty-state .icon { font-size: 48px; opacity: .3; margin-bottom: 12px; }
+.empty-state h3 { font-family: 'Secular One'; font-size: 20px; color: var(--text); margin-bottom: 8px; }
+
+/* LOADING */
+.loading-overlay { text-align: center; padding: 60px; color: var(--muted); }
+.spinner { display: inline-block; width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* TOOLTIP */
+.tooltip {
+  position: absolute; z-index: 500; background: #1a1d27; border: 1px solid var(--border2);
+  border-radius: var(--radius-sm); padding: 10px 14px; min-width: 180px;
+  box-shadow: 0 8px 24px rgba(0,0,0,.4); pointer-events: none; display: none;
+  font-size: 12px; color: var(--text); top: 100%; right: 0; margin-top: 4px;
+}
+.cell:hover .tooltip { display: block; }
+
+/* SCROLLBAR */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+/* PRINT */
+@media print {
+  .topbar, .sidebar, .topbar-right, .conflict-panel { display: none !important; }
+  body { background: white; color: black; }
+  .layout { height: auto; overflow: visible; }
+  .main { overflow: visible; }
+  .surface, .surface2 { background: white !important; }
+  .cell { border: 1px solid #ccc !important; background: white !important; }
+  .lesson-subject { color: black !important; }
+  .lesson-teacher, .lesson-dept { color: #666 !important; }
+  @page { size: A4 landscape; margin: 1cm; }
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-logo">📅 מערכת שעות <span>גליל מערבי</span></div>
+
+  <div class="view-toggle">
+    <button class="vt-btn active" id="vt-class" onclick="setView('class')">🏫 לפי כיתה</button>
+    <button class="vt-btn" id="vt-teacher" onclick="setView('teacher')">👩‍🏫 לפי מורה</button>
+  </div>
+
+  <div class="topbar-selects">
+    <select class="tsel" id="yearSel" onchange="onYearChange()" style="min-width:110px;">
+      <option value="תשפז">תשפ"ז</option>
+      <option value="תשפו">תשפ"ו</option>
+    </select>
+    <select class="tsel" id="divSel" onchange="onDivChange()" style="min-width:130px;" id="divSel">
+      <option value="">כל החטיבות</option>
+      <option value="חטע">חטיבה עליונה</option>
+      <option value="חטב">חטיבת ביניים</option>
+    </select>
+  </div>
+
+  <div class="topbar-right">
+    <button class="tb-btn" onclick="window.print()">🖨 הדפסה</button>
+    <button class="tb-btn" onclick="checkAllConflicts()">⚡ בדוק התנגשויות</button>
+    <button class="tb-btn primary" onclick="autoSchedule()">🤖 שבץ אוטומטית</button>
+    <a href="schedule-admin.html" style="text-decoration:none;"><button class="tb-btn">⚙️ הגדרות</button></a>
+  </div>
+</div>
+
+<div class="layout">
+
+  <!-- SIDEBAR -->
+  <div class="sidebar" id="sidebar">
+    <div style="padding:12px;border-bottom:1px solid var(--border);">
+      <input type="text" id="sidebarSearch" placeholder="🔍 חיפוש..."
+        style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--text);padding:7px 10px;border-radius:var(--radius-sm);font-family:Heebo;font-size:13px;outline:none;"
+        oninput="filterSidebar(this.value)">
+    </div>
+    <div id="sidebarList" style="flex:1;overflow-y:auto;"></div>
+  </div>
+
+  <!-- MAIN -->
+  <div class="main" id="mainArea">
+    <div class="empty-state">
+      <div class="icon">📅</div>
+      <h3>בחר כיתה או מורה מהרשימה</h3>
+      <p>תצוגת מערכת השעות תופיע כאן</p>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const { createClient } = supabase;
+const sb = createClient('https://xxrrqaolggawkutjwtbk.supabase.co','sb_publishable_JPaHTkx93APc1b1IbYbFSg_QBvdjQN1');
+
+const DAYS = ['א','ב','ג','ד','ה'];
+const PERIODS = [
+  {p:1,s:'08:25',e:'09:10'},{p:2,s:'09:10',e:'09:55'},{p:3,s:'10:10',e:'10:55'},
+  {p:4,s:'10:55',e:'11:40'},{p:5,s:'12:00',e:'12:40'},{p:6,s:'12:40',e:'13:25'},
+  {p:7,s:'13:45',e:'14:30'},{p:8,s:'14:30',e:'15:15'},{p:9,s:'15:25',e:'16:10'},
+  {p:10,s:'16:10',e:'16:55'}
+];
+// ביום ג' רק 8 שעות
+const MAX_PERIOD = { 'א':10,'ב':10,'ג':8,'ד':10,'ה':10 };
+
+// זיהוי כיתת אם — subject מתאים לתבנית שכבה+מספר
+const HOME_CLASS_RE = /^(י{1,2}[אב]?|ז|ח|ט)\d+$/;
+function isHomeClass(subject) { return HOME_CLASS_RE.test(subject?.trim()); }
+
+let currentView   = 'class';   // 'class' | 'teacher'
+let currentYear   = 'תשפז';
+let currentDiv    = '';
+let currentEntity = null;      // id של כיתה/מורה שנבחר
+
+let allPlacements = [];    // כל השיבוצים של השנה
+let allTeachers   = [];
+let allClasses    = [];    // מטבלת classes
+let allConstraints= [];    // מגבלות מורים
+let allSchedule   = [];    // schedule_entries
+let allTimeSlots  = [];
+
+async function init() {
+  const year = document.getElementById('yearSel').value;
+  currentYear = year;
+
+  const [plRes, tRes, clRes, conRes, schRes, slRes] = await Promise.all([
+    sb.from('placements').select('*,teachers(name,id_number)').eq('year', year),
+    sb.from('teachers').select('id_number,name').order('name'),
+    sb.from('classes').select('*').eq('year', year).order('grade').order('number'),
+    sb.from('teacher_constraints').select('*').eq('year', year),
+    sb.from('schedule_entries').select('*').eq('year', year),
+    sb.from('time_slots').select('*').order('period')
+  ]);
+
+  allPlacements  = plRes.data  || [];
+  allTeachers    = tRes.data   || [];
+  allClasses     = clRes.data  || [];
+  allConstraints = conRes.data || [];
+  allSchedule    = schRes.data || [];
+  allTimeSlots   = slRes.data  || [];
+
+  buildSidebar();
+}
+
+// ===== VIEW =====
+function setView(v) {
+  currentView = v;
+  currentEntity = null;
+  document.getElementById('vt-class').classList.toggle('active', v==='class');
+  document.getElementById('vt-teacher').classList.toggle('active', v==='teacher');
+  buildSidebar();
+  document.getElementById('mainArea').innerHTML = `
+    <div class="empty-state">
+      <div class="icon">${v==='class'?'🏫':'👩‍🏫'}</div>
+      <h3>בחר ${v==='class'?'כיתה':'מורה'} מהרשימה</h3>
+    </div>`;
+}
+
+function onYearChange() { currentYear = document.getElementById('yearSel').value; init(); }
+function onDivChange()  { currentDiv  = document.getElementById('divSel').value; buildSidebar(); }
+
+// ===== SIDEBAR =====
+function buildSidebar() {
+  if(currentView === 'class') buildClassSidebar();
+  else buildTeacherSidebar();
+}
+
+function buildClassSidebar() {
+  const div = currentDiv;
+  // גזור כיתות מ-placements + מטבלת classes
+  const classSet = new Set();
+  allPlacements.forEach(p => {
+    const subj = p.subject_manual || p.subject;
+    if(isHomeClass(subj)) classSet.add(subj.trim());
+  });
+  allClasses.forEach(c => classSet.add(c.id));
+
+  // מיין לפי שכבה ומספר
+  const gradeOrder = ['ז','ח','ט','י','יא','יב'];
+  const sorted = [...classSet].sort((a,b) => {
+    const ga = a.match(/^(י{1,2}[אב]?|ז|ח|ט)/)?.[1]||a;
+    const gb = b.match(/^(י{1,2}[אב]?|ז|ח|ט)/)?.[1]||b;
+    const oi = gradeOrder.indexOf(ga) - gradeOrder.indexOf(gb);
+    if(oi !== 0) return oi;
+    return parseInt(a.replace(/\D/g,''))||0 - parseInt(b.replace(/\D/g,''))||0;
+  });
+
+  // קבץ לפי שכבה
+  const byGrade = {};
+  sorted.forEach(cls => {
+    const g = cls.match(/^(י{1,2}[אב]?|ז|ח|ט)/)?.[1]||'?';
+    if(!byGrade[g]) byGrade[g] = [];
+    byGrade[g].push(cls);
+  });
+
+  // סנן לפי חטיבה אם צריך
+  const hatavGrades = ['י','יא','יב'];
+  const hatabGrades = ['ז','ח','ט'];
+
+  let html = '';
+  Object.entries(byGrade).forEach(([grade, classes]) => {
+    const isHatav = hatavGrades.includes(grade);
+    if(div === 'חטע' && !isHatav) return;
+    if(div === 'חטב' && isHatav) return;
+    const divLabel = isHatav ? 'חטע' : 'חטב';
+    const divColor = isHatav ? 'var(--hatav)' : 'var(--hatab)';
+    html += `<div class="grade-header" style="color:${divColor};">שכבת ${grade} — ${divLabel}</div>`;
+    classes.forEach(cls => {
+      const lessons = getClassLessons(cls);
+      const active = currentEntity === cls ? 'active' : '';
+      html += `<div class="sidebar-item ${active}" onclick="selectEntity('${cls}')">
+        <span style="font-size:16px;font-weight:900;color:${divColor};">${cls}</span>
+        <span class="badge">${lessons} שיעורים</span>
+      </div>`;
+    });
+  });
+
+  document.getElementById('sidebarList').innerHTML = html || '<div style="padding:20px;text-align:center;color:var(--muted);font-size:13px;">אין כיתות — הגדר ב<a href="schedule-admin.html" style="color:var(--accent2);">הגדרות</a></div>';
+}
+
+function buildTeacherSidebar() {
+  // מורים שיש להם שיבוצים בשנה זו
+  const teacherIds = [...new Set(allPlacements.map(p=>p.teacher_id))];
+  const teachers = allTeachers.filter(t => teacherIds.includes(t.id_number));
+
+  let html = '';
+  teachers.forEach(t => {
+    const count = allPlacements.filter(p=>p.teacher_id===t.id_number).length;
+    const hasConstraints = allConstraints.some(c=>c.teacher_id===t.id_number);
+    const active = currentEntity === t.id_number ? 'active' : '';
+    html += `<div class="sidebar-item ${active}" onclick="selectEntity('${t.id_number}')">
+      <span style="font-size:13px;">${t.name}${hasConstraints?' <span style="color:var(--warning);font-size:10px;">⚠</span>':''}</span>
+      <span class="badge">${count}</span>
+    </div>`;
+  });
+
+  document.getElementById('sidebarList').innerHTML = html || '<div style="padding:20px;text-align:center;color:var(--muted);font-size:13px;">אין מורים</div>';
+}
+
+function filterSidebar(q) {
+  document.querySelectorAll('.sidebar-item').forEach(el => {
+    el.style.display = q ? (el.textContent.includes(q) ? '' : 'none') : '';
+  });
+}
+
+function getClassLessons(cls) {
+  return allPlacements.filter(p => {
+    const subj = p.subject_manual || p.subject;
+    return subj?.trim() === cls || p.subject?.trim() === cls;
+  }).length;
+}
+
+// ===== SELECT =====
+function selectEntity(id) {
+  currentEntity = id;
+  // עדכן sidebar
+  document.querySelectorAll('.sidebar-item').forEach(el => el.classList.remove('active'));
+  event.currentTarget.classList.add('active');
+
+  if(currentView === 'class') renderClassGrid(id);
+  else renderTeacherGrid(id);
+}
+
+// ===== CLASS GRID =====
+function renderClassGrid(classId) {
+  // מצא את כל השיבוצים של הכיתה הזו
+  const lessons = allPlacements.filter(p => {
+    const subj = p.subject_manual || p.subject;
+    return subj?.trim() === classId || p.subject?.trim() === classId;
+  });
+
+  // בנה מפת schedule: day_period → lesson
+  const schedMap = {};
+  allSchedule.filter(s => s.class_id === classId && s.year === currentYear).forEach(s => {
+    const slot = allTimeSlots.find(t => t.id === s.time_slot_id);
+    if(slot) schedMap[`${slot.day}_${slot.period}`] = s;
+  });
+
+  // סטטיסטיקות
+  const placed = Object.keys(schedMap).length;
+  const total  = lessons.length;
+  const divLabel = ['י','יא','יב'].includes(classId.match(/^(י{1,2}[אב]?|ז|ח|ט)/)?.[1]) ? 'חטיבה עליונה' : 'חטיבת ביניים';
+
+  const html = `
+  <div class="grid-header">
+    <div>
+      <div class="grid-title">כיתה ${classId}</div>
+      <div class="grid-subtitle">${divLabel} | ${currentYear}</div>
+    </div>
+    <div class="stats-bar" style="margin:0;flex:1;max-width:400px;">
+      <div class="stat"><div class="stat-n">${total}</div><div class="stat-l">קבוצות</div></div>
+      <div class="stat"><div class="stat-n" style="color:${placed>0?'var(--success)':'var(--muted)'};">${placed}</div><div class="stat-l">שובצו</div></div>
+      <div class="stat"><div class="stat-n" style="color:${total-placed>0?'var(--danger)':'var(--success)'};">${total-placed}</div><div class="stat-l">חסרים</div></div>
+    </div>
+    <div class="legend">
+      <div class="leg-item"><div class="leg-dot" style="background:var(--success-bg);border:1px solid var(--success);"></div>כיתת אם</div>
+      <div class="leg-item"><div class="leg-dot" style="background:var(--accent-bg);border:1px solid var(--accent);"></div>קבוצת מגמה</div>
+      <div class="leg-item"><div class="leg-dot" style="background:var(--danger-bg);border:1px solid var(--danger);"></div>התנגשות</div>
+    </div>
+  </div>
+
+  <div class="conflict-panel" id="conflictPanel"></div>
+
+  <div class="schedule-wrap">
+  <table class="schedule-table">
+    <thead>
+      <tr>
+        <th class="th-period" style="background:transparent;border:none;"></th>
+        ${DAYS.map(d=>`<th class="th-day">יום ${d}'</th>`).join('')}
+      </tr>
+    </thead>
+    <tbody>
+      ${PERIODS.map(({p,s,e}) => `
+      <tr>
+        <td class="th-period">
+          <span class="pnum">${p}</span>
+          <span class="ptime">${s}–${e}</span>
+        </td>
+        ${DAYS.map(d => {
+          const isBlocked = p > MAX_PERIOD[d];
+          if(isBlocked) return `<td class="cell blocked"><div class="cell-empty"><div class="cell-empty-icon">—</div></div></td>`;
+
+          const key = `${d}_${p}`;
+          const entry = schedMap[key];
+
+          if(entry) {
+            const pl = allPlacements.find(x=>x.id===entry.placement_id);
+            const teacher = pl ? (pl.teachers?.name || pl.teacher_id) : '—';
+            const subj = pl ? (pl.subject_manual||pl.subject) : '—';
+            const dept = pl?.dept_id || '';
+            const isHome = isHomeClass(subj);
+            return `<td class="cell">
+              <div class="lesson">
+                <span class="lesson-subject">${subj}</span>
+                <span class="lesson-teacher">${teacher}</span>
+                <span class="lesson-dept">${dept}</span>
+                <span class="lesson-badge ${isHome?'lb-home':'lb-group'}">${isHome?'כיתת אם':'מגמה'}</span>
+              </div>
+            </td>`;
+          }
+
+          return `<td class="cell" onclick="openAssign('${classId}','${d}',${p})">
+            <div class="cell-empty"><div class="cell-empty-icon">＋</div></div>
+          </td>`;
+        }).join('')}
+      </tr>`).join('')}
+    </tbody>
+  </table>
+  </div>`;
+
+  document.getElementById('mainArea').innerHTML = html;
+}
+
+// ===== TEACHER GRID =====
+function renderTeacherGrid(teacherId) {
+  const teacher = allTeachers.find(t => t.id_number === teacherId);
+  const lessons  = allPlacements.filter(p => p.teacher_id === teacherId && p.year === currentYear);
+  const constraints = allConstraints.filter(c => c.teacher_id === teacherId);
+
+  // בנה Set של חריצים חסומים
+  const unavailSet = new Set();
+  constraints.filter(c=>c.constraint_type==='unavailable').forEach(c => {
+    if(c.day && c.period) unavailSet.add(`${c.day}_${c.period}`);
+    else if(c.day) PERIODS.forEach(({p})=>unavailSet.add(`${c.day}_${p}`));
+    else if(c.period) DAYS.forEach(d=>unavailSet.add(`${d}_${c.period}`));
+  });
+
+  // בנה מפת שיבוצים: day_period → placement
+  const schedMap = {};
+  allSchedule.filter(s=>s.teacher_id===teacherId && s.year===currentYear).forEach(s => {
+    const slot = allTimeSlots.find(t=>t.id===s.time_slot_id);
+    if(slot) schedMap[`${slot.day}_${slot.period}`] = s;
+  });
+
+  // חשב עומס יומי
+  const dailyLoad = {};
+  DAYS.forEach(d => {
+    dailyLoad[d] = Object.keys(schedMap).filter(k=>k.startsWith(d+'_')).length;
+  });
+
+  const totalH = lessons.reduce((s,p) => {
+    if(p.type==='פרטנות') return s+(parseFloat(p.partanut)||parseFloat(p.contact)||0)*(p.is_semester?.5:1);
+    return s+(parseFloat(p.contact)||0)*(p.is_semester?.5:1);
+  },0);
+
+  const html = `
+  <div class="grid-header">
+    <div>
+      <div class="grid-title">${teacher?.name||teacherId}</div>
+      <div class="grid-subtitle">${currentYear} | ${lessons.length} שיבוצים | ${totalH.toFixed(1)} שעות מגע</div>
+    </div>
+    <div class="stats-bar" style="margin:0;flex:1;max-width:500px;">
+      ${DAYS.map(d=>`<div class="stat">
+        <div class="stat-n" style="color:${dailyLoad[d]>5?'var(--danger)':dailyLoad[d]>0?'var(--success)':'var(--muted)'};">${dailyLoad[d]}</div>
+        <div class="stat-l">יום ${d}'</div>
+      </div>`).join('')}
+    </div>
+    <div class="legend">
+      <div class="leg-item"><div class="leg-dot" style="background:var(--warning-bg);border:1px solid var(--warning);"></div>לא זמין</div>
+      <div class="leg-item"><div class="leg-dot" style="background:var(--danger-bg);border:1px solid var(--danger);"></div>התנגשות</div>
+    </div>
+  </div>
+
+  <div class="conflict-panel" id="conflictPanel"></div>
+
+  <div class="schedule-wrap">
+  <table class="schedule-table">
+    <thead>
+      <tr>
+        <th class="th-period" style="background:transparent;border:none;"></th>
+        ${DAYS.map(d=>`<th class="th-day">יום ${d}'<span class="day-date">${dailyLoad[d]} שיעורים</span></th>`).join('')}
+      </tr>
+    </thead>
+    <tbody>
+      ${PERIODS.map(({p,s,e}) => `
+      <tr>
+        <td class="th-period">
+          <span class="pnum">${p}</span>
+          <span class="ptime">${s}–${e}</span>
+        </td>
+        ${DAYS.map(d => {
+          const isBlocked = p > MAX_PERIOD[d];
+          if(isBlocked) return `<td class="cell blocked"></td>`;
+
+          const key = `${d}_${p}`;
+          const isUnavail = unavailSet.has(key);
+          const entry = schedMap[key];
+
+          if(isUnavail && !entry) {
+            return `<td class="cell teacher-unavail">
+              <div class="lesson"><span class="lesson-badge lb-unavail">לא זמין</span></div>
+            </td>`;
+          }
+
+          if(entry) {
+            const pl = allPlacements.find(x=>x.id===entry.placement_id);
+            const subj = pl ? (pl.subject_manual||pl.subject) : entry.subject || '—';
+            const dept = pl?.dept_id || entry.dept_id || '';
+            const classId = entry.class_id;
+            const conflict = isUnavail ? 'conflict' : '';
+            return `<td class="cell ${conflict}">
+              <div class="lesson">
+                <span class="lesson-subject">${subj}</span>
+                <span class="lesson-teacher" style="color:var(--accent2);">${classId||''}</span>
+                <span class="lesson-dept">${dept}</span>
+                ${isUnavail?'<span class="lesson-badge lb-conflict">⚠ התנגשות</span>':''}
+              </div>
+            </td>`;
+          }
+
+          return `<td class="cell">
+            <div class="cell-empty"><div class="cell-empty-icon" style="opacity:.1;">·</div></div>
+          </td>`;
+        }).join('')}
+      </tr>`).join('')}
+    </tbody>
+  </table>
+  </div>`;
+
+  document.getElementById('mainArea').innerHTML = html;
+}
+
+// ===== CONFLICT CHECK =====
+function checkAllConflicts() {
+  const conflicts = [];
+
+  // בדוק כל חריץ זמן — האם מורה מופיע פעמיים
+  const teacherSlots = {};
+  allSchedule.filter(s=>s.year===currentYear).forEach(s => {
+    const slot = allTimeSlots.find(t=>t.id===s.time_slot_id);
+    if(!slot || !s.teacher_id) return;
+    const key = `${s.teacher_id}_${slot.day}_${slot.period}`;
+    if(!teacherSlots[key]) teacherSlots[key] = [];
+    teacherSlots[key].push(s);
+  });
+
+  Object.entries(teacherSlots).forEach(([key, entries]) => {
+    if(entries.length > 1) {
+      const [tid, day, period] = key.split('_');
+      const teacher = allTeachers.find(t=>t.id_number===tid)?.name || tid;
+      conflicts.push(`המורה ${teacher} משובץ פעמיים ביום ${day}' שעה ${period}`);
+    }
+  });
+
+  // בדוק התנגשות עם מגבלות
+  allSchedule.filter(s=>s.year===currentYear && s.teacher_id).forEach(s => {
+    const slot = allTimeSlots.find(t=>t.id===s.time_slot_id);
+    if(!slot) return;
+    const isUnavail = allConstraints.some(c =>
+      c.teacher_id===s.teacher_id && c.constraint_type==='unavailable' &&
+      (!c.day || c.day===slot.day) && (!c.period || c.period===slot.period)
+    );
+    if(isUnavail) {
+      const teacher = allTeachers.find(t=>t.id_number===s.teacher_id)?.name || s.teacher_id;
+      conflicts.push(`${teacher} שובץ ביום ${slot.day}' שעה ${slot.period} למרות שלא זמין`);
+    }
+  });
+
+  if(!conflicts.length) {
+    alert('✅ לא נמצאו התנגשויות!');
+    return;
+  }
+
+  const panel = document.getElementById('conflictPanel');
+  if(panel) {
+    panel.className = 'conflict-panel show';
+    panel.innerHTML = `<h3>⚠️ נמצאו ${conflicts.length} התנגשויות</h3>` +
+      conflicts.map(c=>`<div class="conflict-item">• ${c}</div>`).join('');
+  } else {
+    alert(`נמצאו ${conflicts.length} התנגשויות:\n\n${conflicts.slice(0,5).join('\n')}${conflicts.length>5?'\n...':''}`);
+  }
+}
+
+function openAssign(classId, day, period) {
+  console.log('assign:', classId, day, period);
+}
+
+// ===== AUTO SCHEDULE =====
+async function autoSchedule() {
+  if(!confirm('זה ימחק את כל השיבוצים הקיימים ויבנה מחדש. להמשיך?')) return;
+
+  document.getElementById('mainArea').innerHTML = `
+    <div class="loading-overlay">
+      <div class="spinner"></div>
+      <p style="margin-top:16px;font-size:14px;">מחשב מערכת שעות...</p>
+      <p id="schedProgress" style="margin-top:8px;font-size:12px;color:var(--muted);"></p>
+    </div>`;
+
+  await sb.from('schedule_entries').delete().eq('year', currentYear);
+
+  const slots = allTimeSlots.map(s => ({ id: s.id, day: s.day, period: s.period }));
+
+  // מפת אי-זמינות מורים
+  const unavailMap = {};
+  allConstraints.filter(c=>c.constraint_type==='unavailable').forEach(c => {
+    if(!unavailMap[c.teacher_id]) unavailMap[c.teacher_id] = new Set();
+    if(c.day && c.period) unavailMap[c.teacher_id].add(`${c.day}_${c.period}`);
+    else if(c.day)    PERIODS.forEach(({p}) => unavailMap[c.teacher_id].add(`${c.day}_${p}`));
+    else if(c.period) DAYS.forEach(d => unavailMap[c.teacher_id].add(`${d}_${c.period}`));
+  });
+
+  // בנה רשימת שיעורים בודדים לשיבוץ
+  const tasks = [];
+  allPlacements.filter(p => p.year === currentYear).forEach(p => {
+    const hours = Math.round((parseFloat(p.contact)||0) * (p.is_semester ? 0.5 : 1));
+    const subj  = p.subject_manual || p.subject;
+    for(let i = 0; i < hours; i++) {
+      tasks.push({
+        placement_id: p.id,
+        teacher_id:   p.teacher_id,
+        class_id:     subj?.trim() || p.grade,
+        dept_id:      p.dept_id,
+        subject:      subj,
+        grade:        p.grade
+      });
+    }
+  });
+
+  setProgress(`${tasks.length} שיעורים לשיבוץ...`);
+  await sleep(30);
+
+  // מצב גריד
+  const teacherBusy    = {};
+  const classBusy      = {};
+  const teacherDayLoad = {};
+  const classDayLoad   = {};
+
+  // מיין: קודם מורים עם הכי הרבה שיעורים (קשה יותר)
+  const tc = {};
+  tasks.forEach(t => tc[t.teacher_id] = (tc[t.teacher_id]||0)+1);
+  tasks.sort((a,b) => (tc[b.teacher_id]||0)-(tc[a.teacher_id]||0));
+
+  const newEntries = [];
+  const failed     = [];
+
+  for(const task of tasks) {
+    if(!teacherBusy[task.teacher_id]) teacherBusy[task.teacher_id] = new Set();
+    if(!classBusy[task.class_id])     classBusy[task.class_id]     = new Set();
+
+    const slot = findBestSlot(task, slots, teacherBusy, classBusy, unavailMap, teacherDayLoad, classDayLoad);
+
+    if(slot) {
+      teacherBusy[task.teacher_id].add(slot.id);
+      classBusy[task.class_id].add(slot.id);
+      teacherDayLoad[`${task.teacher_id}_${slot.day}`] = (teacherDayLoad[`${task.teacher_id}_${slot.day}`]||0)+1;
+      classDayLoad[`${task.class_id}_${slot.day}`]     = (classDayLoad[`${task.class_id}_${slot.day}`]||0)+1;
+      newEntries.push({
+        year: currentYear, class_id: task.class_id, time_slot_id: slot.id,
+        teacher_id: task.teacher_id, dept_id: task.dept_id,
+        subject: task.subject, placement_id: task.placement_id, locked: false
+      });
+    } else {
+      failed.push(task);
+    }
+  }
+
+  // שמור ב-Supabase
+  setProgress(`שומר ${newEntries.length} שיבוצים...`);
+  for(let i = 0; i < newEntries.length; i += 100) {
+    await sb.from('schedule_entries').insert(newEntries.slice(i, i+100));
+    setProgress(`שומר... ${Math.min(i+100,newEntries.length)}/${newEntries.length}`);
+  }
+
+  const { data } = await sb.from('schedule_entries').select('*').eq('year', currentYear);
+  allSchedule = data || [];
+
+  const msg = failed.length
+    ? `✅ שובצו ${newEntries.length} שיעורים\n⚠️ לא שובצו ${failed.length} שיעורים`
+    : `✅ שובצו ${newEntries.length} שיעורים בהצלחה!`;
+  alert(msg);
+
+  buildSidebar();
+  document.getElementById('mainArea').innerHTML = `
+    <div class="empty-state"><div class="icon">✅</div>
+    <h3>השיבוץ הושלם</h3>
+    <p>${newEntries.length} שיעורים שובצו. בחר כיתה או מורה לצפייה.</p></div>`;
+}
+
+function findBestSlot(task, slots, teacherBusy, classBusy, unavailMap, teacherDayLoad, classDayLoad) {
+  const tid     = task.teacher_id;
+  const cid     = task.class_id;
+  const unavail = unavailMap[tid] || new Set();
+
+  const candidates = slots.filter(s =>
+    s.period <= MAX_PERIOD[s.day] &&
+    !teacherBusy[tid]?.has(s.id) &&
+    !classBusy[cid]?.has(s.id) &&
+    !unavail.has(`${s.day}_${s.period}`)
+  );
+
+  if(!candidates.length) return null;
+
+  // דרג: העדף פיזור ימים + שעות מוקדמות
+  candidates.sort((a,b) => {
+    const sa = (teacherDayLoad[`${tid}_${a.day}`]||0) + (classDayLoad[`${cid}_${a.day}`]||0) + (a.period > 6 ? 2 : 0);
+    const sb2 = (teacherDayLoad[`${tid}_${b.day}`]||0) + (classDayLoad[`${cid}_${b.day}`]||0) + (b.period > 6 ? 2 : 0);
+    return sa - sb2;
+  });
+
+  return candidates[0];
+}
+
+function setProgress(msg) { const el=document.getElementById('schedProgress'); if(el) el.textContent=msg; }
+function sleep(ms) { return new Promise(r=>setTimeout(r,ms)); }
+
+init();
+</script>
+</body>
+</html>
