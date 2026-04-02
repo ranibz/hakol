@@ -144,10 +144,20 @@
 
 <script>
 const { createClient } = supabase;
-const sb = createClient(
+
+// מערכת ישנה
+const sbOld = createClient(
   'https://xxrrqaolggawkutjwtbk.supabase.co',
   'sb_publishable_JPaHTkx93APc1b1IbYbFSg_QBvdjQN1'
 );
+
+// מערכת חדשה
+const sbNew = createClient(
+  'https://xskbltxewgnxvckdtovd.supabase.co',
+  'sb_publishable__6lDOlmAYFTqs2D19IObFw_HN6gKtug'
+);
+
+const sb = sbOld; // חיפוש מהישן
 
 let foundPlacements = [];
 let selected = new Set();
@@ -261,12 +271,16 @@ async function deleteSelected() {
   btn.disabled = true;
   btn.innerHTML = 'מוחק... <span class="spinner"></span>';
 
-  const { error } = await sb.from('placements').delete().in('id', ids);
+  const [resOld, resNew] = await Promise.all([
+    sbOld.from('placements').delete().in('id', ids),
+    sbNew.from('placements').delete().in('id', ids)
+  ]);
 
   btn.disabled = false;
   btn.textContent = '🗑 מחק מסומנים';
 
-  if (error) { showToast('שגיאה: ' + error.message); return; }
+  if (resOld.error) { showToast('שגיאה (ישן): ' + resOld.error.message); return; }
+  if (resNew.error) { showToast('שגיאה (חדש): ' + resNew.error.message); return; }
 
   showToast(`✅ ${ids.length} שיבוצים נמחקו`);
   foundPlacements = foundPlacements.filter((_, i) => !selected.has(i));
