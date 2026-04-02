@@ -134,9 +134,17 @@
 
 <script>
 const { createClient } = supabase;
-const sb = createClient(
+
+// מערכת ישנה
+const sbOld = createClient(
   'https://xxrrqaolggawkutjwtbk.supabase.co',
   'sb_publishable_JPaHTkx93APc1b1IbYbFSg_QBvdjQN1'
+);
+
+// מערכת חדשה
+const sbNew = createClient(
+  'https://xskbltxewgnxvckdtovd.supabase.co',
+  'sb_publishable__6lDOlmAYFTqs2D19IObFw_HN6gKtug'
 );
 
 async function submitForm() {
@@ -154,14 +162,14 @@ async function submitForm() {
   btn.disabled = true;
   btn.textContent = '...שולח';
 
-  // בדיקה אם כבר קיים
-  const { data: existing } = await sb.from('teachers').select('id_number').eq('id_number', id).single();
+  // בדיקה אם כבר קיים (בישן)
+  const { data: existing } = await sbOld.from('teachers').select('id_number').eq('id_number', id).single();
   if (existing) { err.textContent = 'מורה עם ת.ז זו כבר קיים במערכת'; btn.disabled=false; btn.textContent='שלח פרטים ←'; return; }
 
-  const { data: pending } = await sb.from('teachers_pending').select('id_number').eq('id_number', id).eq('status','pending').single();
+  const { data: pending } = await sbOld.from('teachers_pending').select('id_number').eq('id_number', id).eq('status','pending').single();
   if (pending) { err.textContent = 'בקשה עם ת.ז זו כבר ממתינה לאישור'; btn.disabled=false; btn.textContent='שלח פרטים ←'; return; }
 
-  const { error } = await sb.from('teachers_pending').insert({
+  const record = {
     name, id_number: id, birth_date: birth,
     phone:    document.getElementById('inp-phone').value.trim()    || null,
     mobile:   document.getElementById('inp-mobile').value.trim()   || null,
@@ -169,9 +177,15 @@ async function submitForm() {
     city:     document.getElementById('inp-city').value.trim()     || null,
     address:  document.getElementById('inp-address').value.trim()  || null,
     subjects: document.getElementById('inp-subjects').value.trim() || null,
-  });
+  };
 
-  if (error) { err.textContent = 'שגיאה: ' + error.message; btn.disabled=false; btn.textContent='שלח פרטים ←'; return; }
+  // שליחה לשתי המערכות במקביל
+  const [resOld, resNew] = await Promise.all([
+    sbOld.from('teachers_pending').insert(record),
+    sbNew.from('teachers_pending').insert(record)
+  ]);
+
+  if (resOld.error) { err.textContent = 'שגיאה: ' + resOld.error.message; btn.disabled=false; btn.textContent='שלח פרטים ←'; return; }
 
   document.getElementById('screen-form').style.display = 'none';
   document.getElementById('screen-success').style.display = 'block';
