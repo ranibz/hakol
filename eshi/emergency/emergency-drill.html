@@ -575,7 +575,7 @@
 
                     // מצא שורת כותרות
                     let headerRow = -1;
-                    let cols = { id: -1, name: -1, shihva: -1, classNum: -1, phone: -1 };
+                    let cols = { id: -1, firstName: -1, lastName: -1, name: -1, shihva: -1, classNum: -1, phone: -1 };
 
                     for (let i = 0; i < Math.min(rows.length, 15); i++) {
                         const row = rows[i];
@@ -584,13 +584,16 @@
                         for (let j = 0; j < row.length; j++) {
                             const cell = String(row[j] || '').replace(/\s+/g, '').toLowerCase();
                             if (cell.includes('ת.ז') || cell === 'תז' || cell === 'id') cols.id = j;
-                            else if (cell.includes('שםהתלמיד') || cell === 'שם' || cell.includes('שםפרטי')) cols.name = j;
+                            else if (cell.includes('שםמשפחה')) cols.lastName = j;
+                            else if (cell.includes('שםפרטי')) cols.firstName = j;
+                            else if (cell.includes('שםהתלמיד') || cell === 'שם') cols.name = j;
                             else if (cell.includes('שכבה')) cols.shihva = j;
                             else if (cell.includes('מקבילה') || cell.includes('כיתה')) cols.classNum = j;
                             else if (cell.includes('טלפון') || cell.includes('סלולר') || cell.includes('נייד')) cols.phone = j;
                         }
                         
-                        if (cols.id !== -1 && cols.name !== -1) {
+                        // יש ת.ז ויש שם (או שם משפחה + שם פרטי)
+                        if (cols.id !== -1 && (cols.name !== -1 || (cols.firstName !== -1 && cols.lastName !== -1))) {
                             headerRow = i;
                             break;
                         }
@@ -606,7 +609,19 @@
                     const students = [];
                     for (let i = headerRow + 1; i < rows.length; i++) {
                         const row = rows[i];
-                        if (!row || !row[cols.id] || !row[cols.name]) continue;
+                        if (!row || !row[cols.id]) continue;
+                        
+                        // בנה שם מלא
+                        let fullName = '';
+                        if (cols.lastName !== -1 && cols.firstName !== -1) {
+                            const lastName = String(row[cols.lastName] || '').trim();
+                            const firstName = String(row[cols.firstName] || '').trim();
+                            fullName = (lastName + ' ' + firstName).trim();
+                        } else if (cols.name !== -1) {
+                            fullName = String(row[cols.name] || '').trim();
+                        }
+                        
+                        if (!fullName) continue;
                         
                         const shihva = cols.shihva !== -1 ? String(row[cols.shihva] || '').trim() : '';
                         const classNum = cols.classNum !== -1 ? String(row[cols.classNum] || '').trim() : '';
@@ -619,7 +634,7 @@
                         
                         students.push({
                             id: String(row[cols.id]).trim(),
-                            name: String(row[cols.name]).trim(),
+                            name: fullName,
                             class: cls,
                             phone: phone
                         });
@@ -631,25 +646,31 @@
                         return;
                     }
 
+                    // הסר כפילויות לפי ת.ז
+                    const uniqueStudents = {};
+                    students.forEach(s => { uniqueStudents[s.id] = s; });
+                    const finalStudents = Object.values(uniqueStudents);
+                    
                     // שמור ל-Supabase
-                    statusDiv.textContent = '⏳ שומר ' + students.length + ' תלמידים...';
+                    statusDiv.textContent = '⏳ שומר ' + finalStudents.length + ' תלמידים...';
                     
                     // מחק קיימים ושמור חדשים
                     await api('emergency_drill?student_id=neq.0', { method: 'DELETE' });
                     await api('students?id=neq.0', { method: 'DELETE' });
                     
-                    // הוסף בקבוצות
+                    // הוסף בקבוצות עם upsert
                     const batchSize = 50;
-                    for (let i = 0; i < students.length; i += batchSize) {
-                        const batch = students.slice(i, i + batchSize);
+                    for (let i = 0; i < finalStudents.length; i += batchSize) {
+                        const batch = finalStudents.slice(i, i + batchSize);
                         await api('students', {
                             method: 'POST',
+                            prefer: 'resolution=merge-duplicates',
                             body: JSON.stringify(batch)
                         });
                     }
 
                     statusDiv.style.color = 'var(--success)';
-                    statusDiv.textContent = `✅ נוספו ${students.length} תלמידים!`;
+                    statusDiv.textContent = `✅ נוספו ${finalStudents.length} תלמידים!`;
                     
                     setTimeout(() => {
                         document.getElementById('excelZone').style.display = 'none';
