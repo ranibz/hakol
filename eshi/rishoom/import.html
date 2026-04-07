@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ייבוא תלמידים</title>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;700;900&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{--primary:#1565c0;--green:#2e7d32;--red:#c62828;--bg:#f5f5f5;--card:#fff;--border:#e0e0e0;--text2:#757575}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Heebo',sans-serif;background:var(--bg);min-height:100vh;padding:20px}
+.container{max-width:600px;margin:0 auto}
+h1{text-align:center;color:var(--primary);margin-bottom:24px;font-size:1.8rem}
+.card{background:var(--card);border-radius:16px;padding:24px;margin-bottom:16px;box-shadow:0 2px 8px rgba(0,0,0,.08)}
+.card h2{font-size:1rem;color:var(--primary);margin-bottom:16px}
+.upload-zone{border:3px dashed var(--border);border-radius:12px;padding:40px 20px;text-align:center;cursor:pointer;transition:.2s}
+.upload-zone:hover{border-color:var(--primary);background:#e3f2fd}
+.upload-zone.drag{border-color:var(--green);background:#e8f5e9}
+.upload-icon{font-size:3rem;margin-bottom:12px}
+.upload-text{color:var(--text2);font-size:.9rem}
+input[type="file"]{display:none}
+.btn{width:100%;padding:14px;border:none;border-radius:10px;font-family:'Heebo',sans-serif;font-size:1rem;font-weight:700;cursor:pointer;transition:.2s}
+.btn-primary{background:var(--primary);color:#fff}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed}
+.btn-danger{background:var(--red);color:#fff;margin-top:10px}
+.preview{margin-top:16px;max-height:300px;overflow:auto;border:1px solid var(--border);border-radius:8px}
+.preview table{width:100%;border-collapse:collapse;font-size:.85rem}
+.preview th,.preview td{padding:8px 10px;border-bottom:1px solid var(--border);text-align:right}
+.preview th{background:#f5f5f5;font-weight:700;position:sticky;top:0}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
+.stat{background:#f5f5f5;border-radius:10px;padding:12px;text-align:center}
+.stat-num{font-size:1.5rem;font-weight:900;color:var(--primary)}
+.stat-lbl{font-size:.75rem;color:var(--text2)}
+.progress{height:8px;background:#e0e0e0;border-radius:4px;overflow:hidden;margin:16px 0}
+.progress-bar{height:100%;background:var(--green);transition:width .3s}
+.log{background:#f5f5f5;border-radius:8px;padding:12px;font-size:.8rem;max-height:150px;overflow:auto;margin-top:12px}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);padding:12px 24px;border-radius:8px;color:#fff;font-weight:700;opacity:0;transition:.3s;z-index:999}
+.toast.show{opacity:1}
+.toast.ok{background:var(--green)}
+.toast.err{background:var(--red)}
+a{color:var(--primary);text-decoration:none;font-weight:700}
+</style>
+</head>
+<body>
+
+<div class="container">
+  <h1>📥 ייבוא תלמידים</h1>
+  
+  <div class="card">
+    <h2>העלאת קובץ אקסל</h2>
+    <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
+      <div class="upload-icon">📄</div>
+      <div class="upload-text">לחץ או גרור קובץ אקסל לכאן</div>
+    </div>
+    <input type="file" id="fileInput" accept=".xlsx,.xls" onchange="handleFile(this.files[0])">
+  </div>
+
+  <div class="card" id="previewCard" style="display:none">
+    <h2>תצוגה מקדימה</h2>
+    <div class="stats">
+      <div class="stat"><div class="stat-num" id="statTotal">0</div><div class="stat-lbl">סה"כ</div></div>
+      <div class="stat"><div class="stat-num" id="statGrades">0</div><div class="stat-lbl">שכבות</div></div>
+      <div class="stat"><div class="stat-num" id="statClasses">0</div><div class="stat-lbl">כיתות</div></div>
+    </div>
+    <div class="preview" id="preview"></div>
+    <div class="progress" style="display:none" id="progressWrap">
+      <div class="progress-bar" id="progressBar"></div>
+    </div>
+    <div class="log" id="log" style="display:none"></div>
+    <button class="btn btn-primary" id="importBtn" onclick="importStudents()">📤 ייבא לסופרבייס</button>
+    <button class="btn btn-danger" id="deleteBtn" onclick="deleteAll()" style="display:none">🗑️ מחק את כל התלמידים</button>
+  </div>
+
+  <div class="card" style="text-align:center">
+    <a href="attendance.html">← חזור למערכת נוכחות</a>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const SURL = 'https://tgpzrruizmmxykotmmrh.supabase.co';
+const SKEY = 'sb_publishable_6nBdIfsdAqots_FKp1IN5w_oNJh4yI5';
+
+let studentsData = [];
+
+// Drag & Drop
+const zone = document.getElementById('uploadZone');
+zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag'); });
+zone.addEventListener('dragleave', () => zone.classList.remove('drag'));
+zone.addEventListener('drop', e => { e.preventDefault(); zone.classList.remove('drag'); handleFile(e.dataTransfer.files[0]); });
+
+function handleFile(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const data = new Uint8Array(e.target.result);
+    const workbook = XLSX.read(data, { type: 'array' });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const json = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+    
+    // מצא שורת הכותרות
+    let headerRow = -1;
+    for (let i = 0; i < Math.min(10, json.length); i++) {
+      const row = json[i];
+      if (row && row.some(c => c === 'ת.ז' || c === 'שם משפחה')) {
+        headerRow = i;
+        break;
+      }
+    }
+    
+    if (headerRow === -1) {
+      toast('לא נמצאו כותרות בקובץ', 'err');
+      return;
+    }
+    
+    const headers = json[headerRow];
+    const idxId = headers.findIndex(h => h === 'ת.ז');
+    const idxLast = headers.findIndex(h => h === 'שם משפחה');
+    const idxFirst = headers.findIndex(h => h === 'שם פרטי');
+    const idxGrade = headers.findIndex(h => h === 'שכבה');
+    const idxClass = headers.findIndex(h => h === 'מקבילה');
+    const idxGender = headers.findIndex(h => h === 'מין');
+    
+    studentsData = [];
+    for (let i = headerRow + 1; i < json.length; i++) {
+      const row = json[i];
+      if (!row || !row[idxId]) continue;
+      studentsData.push({
+        id: String(row[idxId]).replace(/^0+/, ''),
+        first_name: row[idxFirst] || '',
+        last_name: row[idxLast] || '',
+        grade: row[idxGrade] || '',
+        class_num: String(row[idxClass] || ''),
+        gender: row[idxGender] || ''
+      });
+    }
+    
+    showPreview();
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function showPreview() {
+  document.getElementById('previewCard').style.display = 'block';
+  document.getElementById('statTotal').textContent = studentsData.length;
+  
+  const grades = [...new Set(studentsData.map(s => s.grade))];
+  const classes = [...new Set(studentsData.map(s => s.grade + s.class_num))];
+  document.getElementById('statGrades').textContent = grades.length;
+  document.getElementById('statClasses').textContent = classes.length;
+  
+  const sample = studentsData.slice(0, 10);
+  let html = '<table><tr><th>ת.ז</th><th>שם משפחה</th><th>שם פרטי</th><th>שכבה</th><th>כיתה</th></tr>';
+  sample.forEach(s => {
+    html += `<tr><td>${s.id}</td><td>${s.last_name}</td><td>${s.first_name}</td><td>${s.grade}</td><td>${s.class_num}</td></tr>`;
+  });
+  if (studentsData.length > 10) html += `<tr><td colspan="5" style="text-align:center;color:var(--text2)">... ועוד ${studentsData.length - 10} תלמידים</td></tr>`;
+  html += '</table>';
+  document.getElementById('preview').innerHTML = html;
+}
+
+async function api(path, opts = {}) {
+  const r = await fetch(SURL + '/rest/v1/' + path, {
+    ...opts,
+    headers: {
+      'apikey': SKEY,
+      'Authorization': 'Bearer ' + SKEY,
+      'Content-Type': 'application/json',
+      'Prefer': opts.method === 'POST' ? 'resolution=merge-duplicates' : '',
+      ...(opts.headers || {})
+    }
+  });
+  if (!r.ok) throw new Error(await r.text());
+  const t = await r.text();
+  return t ? JSON.parse(t) : null;
+}
+
+async function importStudents() {
+  const btn = document.getElementById('importBtn');
+  btn.disabled = true;
+  btn.textContent = '⏳ מייבא...';
+  
+  const progressWrap = document.getElementById('progressWrap');
+  const progressBar = document.getElementById('progressBar');
+  const log = document.getElementById('log');
+  progressWrap.style.display = 'block';
+  log.style.display = 'block';
+  log.innerHTML = '';
+  
+  const batchSize = 50;
+  let imported = 0;
+  let errors = 0;
+  
+  for (let i = 0; i < studentsData.length; i += batchSize) {
+    const batch = studentsData.slice(i, i + batchSize);
+    try {
+      await api('students', {
+        method: 'POST',
+        body: JSON.stringify(batch)
+      });
+      imported += batch.length;
+      log.innerHTML += `✅ יובאו ${imported} תלמידים<br>`;
+    } catch (e) {
+      errors += batch.length;
+      log.innerHTML += `❌ שגיאה: ${e.message}<br>`;
+    }
+    progressBar.style.width = Math.round((i + batch.length) / studentsData.length * 100) + '%';
+    log.scrollTop = log.scrollHeight;
+  }
+  
+  btn.disabled = false;
+  btn.textContent = '📤 ייבא לסופרבייס';
+  document.getElementById('deleteBtn').style.display = 'block';
+  
+  if (errors === 0) {
+    toast(`✅ יובאו ${imported} תלמידים בהצלחה!`, 'ok');
+  } else {
+    toast(`יובאו ${imported}, נכשלו ${errors}`, 'err');
+  }
+}
+
+async function deleteAll() {
+  if (!confirm('האם למחוק את כל התלמידים? פעולה זו בלתי הפיכה!')) return;
+  try {
+    await api('attendance?student_id=neq.0', { method: 'DELETE' });
+    await api('students?id=neq.0', { method: 'DELETE' });
+    toast('✅ כל הנתונים נמחקו', 'ok');
+  } catch (e) {
+    toast('שגיאה: ' + e.message, 'err');
+  }
+}
+
+function toast(msg, type) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show ' + (type || '');
+  setTimeout(() => t.className = 'toast', 3000);
+}
+</script>
+</body>
+</html>

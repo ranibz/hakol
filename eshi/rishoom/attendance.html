@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>נוכחות יומית</title>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --primary:#1565c0;
+  --green:#2e7d32;--green-bg:#e8f5e9;--green-border:#66bb6a;
+  --yellow:#f57f17;--yellow-bg:#fff8e1;--yellow-border:#ffca28;
+  --red:#c62828;--red-bg:#ffebee;--red-border:#ef5350;
+  --gray:#78909c;--gray-bg:#eceff1;--gray-border:#b0bec5;
+  --bg:#f5f5f5;--card:#fff;--border:#e0e0e0;--text2:#757575
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:'Heebo',sans-serif;background:var(--bg);min-height:100vh}
+
+/* HEADER */
+.header{background:var(--primary);color:#fff;padding:14px 16px;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.2)}
+.header-row{display:flex;align-items:center;justify-content:space-between}
+.header h1{font-size:1.1rem;font-weight:900}
+.header-date{font-size:.8rem;opacity:.8;margin-top:2px}
+.btn-back{background:rgba(255,255,255,.15);border:none;color:#fff;padding:6px 12px;border-radius:20px;font-family:'Heebo',sans-serif;font-size:.8rem;font-weight:700;cursor:pointer}
+
+/* CLASS SELECT */
+.class-select{padding:14px;background:#fff;border-bottom:1px solid var(--border)}
+.class-select h2{font-size:.85rem;color:var(--text2);margin-bottom:10px}
+.class-grid{display:flex;flex-wrap:wrap;gap:8px}
+.class-btn{padding:10px 16px;border:2px solid var(--border);background:#fff;border-radius:10px;font-family:'Heebo',sans-serif;font-size:.9rem;font-weight:700;cursor:pointer;color:var(--text2);transition:.15s}
+.class-btn:hover{border-color:var(--primary);color:var(--primary)}
+.class-btn.sel{border-color:var(--primary);background:#e3f2fd;color:var(--primary)}
+
+/* SUMMARY BAR */
+.summary-bar{display:flex;gap:12px;padding:10px 14px;background:#fff;border-bottom:1px solid var(--border);overflow-x:auto}
+.summary-item{display:flex;align-items:center;gap:5px;font-size:.8rem;font-weight:700;white-space:nowrap}
+.summary-dot{width:10px;height:10px;border-radius:50%}
+
+/* STUDENT LIST */
+.student-list{padding:10px}
+.student-card{display:flex;align-items:center;justify-content:space-between;background:#fff;border-radius:12px;padding:14px 16px;margin-bottom:8px;box-shadow:0 1px 4px rgba(0,0,0,.06);border-right:5px solid var(--gray);cursor:pointer;transition:.15s;user-select:none}
+.student-card:active{transform:scale(.98)}
+.student-card.present{border-right-color:var(--green);background:var(--green-bg)}
+.student-card.late{border-right-color:var(--yellow);background:var(--yellow-bg)}
+.student-card.absent{border-right-color:var(--red);background:var(--red-bg)}
+.student-name{font-size:1rem;font-weight:700}
+.student-card.present .student-name{color:var(--green)}
+.student-card.late .student-name{color:var(--yellow)}
+.student-card.absent .student-name{color:var(--red)}
+.student-status{font-size:1.3rem}
+
+/* LEGEND */
+.legend{display:flex;justify-content:center;gap:16px;padding:12px;background:#fff;border-top:1px solid var(--border);position:sticky;bottom:0}
+.legend-item{display:flex;align-items:center;gap:5px;font-size:.75rem;color:var(--text2)}
+.legend-dot{width:12px;height:12px;border-radius:50%}
+
+/* EMPTY */
+.empty{text-align:center;padding:60px 20px;color:var(--text2)}
+.empty-icon{font-size:3rem;margin-bottom:12px}
+
+/* TOAST */
+.toast{position:fixed;bottom:70px;left:50%;transform:translateX(-50%);padding:10px 20px;border-radius:8px;color:#fff;font-weight:700;font-size:.85rem;opacity:0;transition:.3s;z-index:999;pointer-events:none}
+.toast.show{opacity:1}
+.toast.ok{background:var(--green)}
+.toast.err{background:var(--red)}
+
+/* ADMIN LINK */
+.admin-link{text-align:center;padding:16px;background:#fff;margin-top:10px}
+.admin-link a{color:var(--primary);text-decoration:none;font-size:.85rem;font-weight:700}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-row">
+    <div>
+      <h1 id="pageTitle">📋 נוכחות יומית</h1>
+      <div class="header-date" id="todayDate"></div>
+    </div>
+    <button class="btn-back" id="btnBack" style="display:none" onclick="backToClasses()">← כיתות</button>
+  </div>
+</div>
+
+<div id="classSelectWrap" class="class-select">
+  <h2>בחר כיתה</h2>
+  <div class="class-grid" id="classGrid"><div class="empty"><div class="empty-icon">⏳</div>טוען...</div></div>
+</div>
+
+<div id="summaryBar" class="summary-bar" style="display:none"></div>
+
+<div id="studentList" class="student-list" style="display:none"></div>
+
+<div class="legend" id="legend" style="display:none">
+  <div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div>נוכח</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--yellow)"></div>איחור</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--red)"></div>חסר</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--gray)"></div>טרם סומן</div>
+</div>
+
+<div class="admin-link">
+  <a href="import.html">📥 ייבוא תלמידים מאקסל</a>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const SURL = 'https://tgpzrruizmmxykotmmrh.supabase.co';
+const SKEY = 'sb_publishable_6nBdIfsdAqots_FKp1IN5w_oNJh4yI5';
+
+// מצבים: none -> present -> late -> absent -> none
+const STATUS_CYCLE = ['none', 'present', 'late', 'absent'];
+const STATUS_ICONS = { none: '⚪', present: '✅', late: '🟡', absent: '❌' };
+const STATUS_LABELS = { none: 'טרם סומן', present: 'נוכח', late: 'איחור', absent: 'חסר' };
+
+let allStudents = [];
+let attendanceMap = {};
+let currentClass = null;
+
+// תאריך היום
+const today = new Date().toISOString().split('T')[0];
+document.getElementById('todayDate').textContent = new Date().toLocaleDateString('he-IL', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+
+async function api(path, opts = {}) {
+  const r = await fetch(SURL + '/rest/v1/' + path, {
+    ...opts,
+    headers: {
+      'apikey': SKEY,
+      'Authorization': 'Bearer ' + SKEY,
+      'Content-Type': 'application/json',
+      ...(opts.headers || {})
+    }
+  });
+  if (!r.ok) throw new Error(await r.text());
+  const t = await r.text();
+  return t ? JSON.parse(t) : null;
+}
+
+async function init() {
+  try {
+    allStudents = await api('students?order=grade,class_num,last_name') || [];
+    if (!allStudents.length) {
+      document.getElementById('classGrid').innerHTML = '<div class="empty"><div class="empty-icon">📭</div>אין תלמידים במערכת<br><a href="import.html" style="color:var(--primary)">ייבא תלמידים מאקסל</a></div>';
+      return;
+    }
+    renderClassButtons();
+  } catch (e) {
+    document.getElementById('classGrid').innerHTML = '<div class="empty"><div class="empty-icon">❌</div>שגיאה בטעינה<br>' + e.message + '</div>';
+  }
+}
+
+function renderClassButtons() {
+  const classes = [...new Set(allStudents.map(s => s.grade + '-' + s.class_num))].sort((a, b) => {
+    const [gA, cA] = a.split('-');
+    const [gB, cB] = b.split('-');
+    const gradeOrder = { 'ז': 1, 'ח': 2, 'ט': 3, 'י': 4, 'יא': 5, 'יב': 6 };
+    if (gradeOrder[gA] !== gradeOrder[gB]) return (gradeOrder[gA] || 99) - (gradeOrder[gB] || 99);
+    return parseInt(cA) - parseInt(cB);
+  });
+  
+  document.getElementById('classGrid').innerHTML = classes.map(cls => {
+    const [grade, classNum] = cls.split('-');
+    return `<button class="class-btn" onclick="selectClass('${grade}','${classNum}')">${grade}'${classNum}</button>`;
+  }).join('');
+}
+
+async function selectClass(grade, classNum) {
+  currentClass = { grade, classNum };
+  
+  document.getElementById('classSelectWrap').style.display = 'none';
+  document.getElementById('summaryBar').style.display = 'flex';
+  document.getElementById('studentList').style.display = 'block';
+  document.getElementById('legend').style.display = 'flex';
+  document.getElementById('btnBack').style.display = 'block';
+  document.getElementById('pageTitle').textContent = `📋 כיתה ${grade}'${classNum}`;
+  
+  // טען נוכחות קיימת להיום
+  const classStudents = allStudents.filter(s => s.grade === grade && s.class_num === classNum);
+  const ids = classStudents.map(s => s.id);
+  
+  attendanceMap = {};
+  classStudents.forEach(s => attendanceMap[s.id] = 'none');
+  
+  if (ids.length) {
+    try {
+      const existing = await api(`attendance?date=eq.${today}&student_id=in.(${ids.join(',')})`) || [];
+      existing.forEach(a => attendanceMap[a.student_id] = a.status);
+    } catch (e) {}
+  }
+  
+  renderStudents();
+}
+
+function renderStudents() {
+  const classStudents = allStudents.filter(s => s.grade === currentClass.grade && s.class_num === currentClass.classNum);
+  
+  let html = '';
+  classStudents.forEach(s => {
+    const status = attendanceMap[s.id] || 'none';
+    html += `<div class="student-card ${status}" id="card-${s.id}" onclick="toggleStatus('${s.id}')">
+      <div class="student-name">${s.last_name} ${s.first_name}</div>
+      <div class="student-status">${STATUS_ICONS[status]}</div>
+    </div>`;
+  });
+  
+  document.getElementById('studentList').innerHTML = html || '<div class="empty"><div class="empty-icon">📭</div>אין תלמידים בכיתה זו</div>';
+  updateSummary();
+}
+
+async function toggleStatus(studentId) {
+  const currentStatus = attendanceMap[studentId] || 'none';
+  const currentIndex = STATUS_CYCLE.indexOf(currentStatus);
+  const newStatus = STATUS_CYCLE[(currentIndex + 1) % STATUS_CYCLE.length];
+  
+  attendanceMap[studentId] = newStatus;
+  
+  // עדכון UI מיידי
+  const card = document.getElementById('card-' + studentId);
+  card.className = `student-card ${newStatus}`;
+  card.querySelector('.student-status').textContent = STATUS_ICONS[newStatus];
+  updateSummary();
+  
+  // שמירה ל-DB
+  try {
+    if (newStatus === 'none') {
+      await api(`attendance?student_id=eq.${studentId}&date=eq.${today}`, { method: 'DELETE' });
+    } else {
+      // upsert
+      await api('attendance', {
+        method: 'POST',
+        headers: { 'Prefer': 'resolution=merge-duplicates' },
+        body: JSON.stringify({ student_id: studentId, date: today, status: newStatus })
+      });
+    }
+  } catch (e) {
+    toast('שגיאה בשמירה', 'err');
+  }
+}
+
+function updateSummary() {
+  const classStudents = allStudents.filter(s => s.grade === currentClass.grade && s.class_num === currentClass.classNum);
+  const counts = { present: 0, late: 0, absent: 0, none: 0 };
+  classStudents.forEach(s => counts[attendanceMap[s.id] || 'none']++);
+  
+  document.getElementById('summaryBar').innerHTML = `
+    <div class="summary-item"><div class="summary-dot" style="background:var(--green)"></div>${counts.present} נוכחים</div>
+    <div class="summary-item"><div class="summary-dot" style="background:var(--yellow)"></div>${counts.late} איחורים</div>
+    <div class="summary-item"><div class="summary-dot" style="background:var(--red)"></div>${counts.absent} חסרים</div>
+    <div class="summary-item"><div class="summary-dot" style="background:var(--gray)"></div>${counts.none} טרם</div>
+  `;
+}
+
+function backToClasses() {
+  currentClass = null;
+  document.getElementById('classSelectWrap').style.display = 'block';
+  document.getElementById('summaryBar').style.display = 'none';
+  document.getElementById('studentList').style.display = 'none';
+  document.getElementById('legend').style.display = 'none';
+  document.getElementById('btnBack').style.display = 'none';
+  document.getElementById('pageTitle').textContent = '📋 נוכחות יומית';
+}
+
+function toast(msg, type) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast show ' + (type || '');
+  setTimeout(() => t.className = 'toast', 2500);
+}
+
+init();
+</script>
+</body>
+</html>
