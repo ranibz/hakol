@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>מערכת חירום - בית חינוך גליל מערבי</title>
-    <!-- VERSION 18 -->
+    <!-- VERSION 19 -->
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700;900&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -124,7 +124,7 @@
     <div class="header">
         <div style="text-align:center;">
             <h1>🚨 מערכת חירום - גליל מערבי</h1>
-            <span class="header-credit">פיתוח - רני בן זאב | v18</span>
+            <span class="header-credit">פיתוח - רני בן זאב | v19</span>
         </div>
         <div id="userInfo" style="display:none;">
             <button class="btn-logout" onclick="logout()">יציאה</button>
@@ -580,9 +580,16 @@ async function enterEmergencyClass(cls) {
             continue;
         }
         
-        // בדיקה 2: האם התלמיד לא סומן כנוכח בבוקר?
+        // בדיקה 2: האם התלמיד סומן כנוכח בבוקר?
         const morningStatus = dailyAttendance[id];
-        if (morningStatus !== 'present') {
+        if (morningStatus === 'present') {
+            // נוכח בבוקר - סמן כנוכח גם בחירום
+            try {
+                await api('emergency_drill', { method: 'POST', prefer: 'resolution=merge-duplicates', body: JSON.stringify({ student_id: id, status: 'present' }) });
+                emergencyStatus[id] = 'present';
+            } catch (e) { console.error(e); }
+        } else {
+            // לא נוכח בבוקר - סמן כלא הגיע
             try {
                 await api('emergency_drill', { method: 'POST', prefer: 'resolution=merge-duplicates', body: JSON.stringify({ student_id: id, status: 'absent_today' }) });
                 emergencyStatus[id] = 'absent_today';
