@@ -1,0 +1,1248 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>מערכת שער - בית חינוך גליל מערבי</title>
+    <!-- VERSION 6 -->
+    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0f172a;
+            --card: #1e293b;
+            --border: #334155;
+            --primary: #3b82f6;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --purple: #8b5cf6;
+            --pink: #ec4899;
+            --cyan: #06b6d4;
+        }
+        * { box-sizing: border-box; font-family: 'Rubik', sans-serif; margin: 0; padding: 0; }
+        body { background: var(--bg); color: #f1f5f9; min-height: 100vh; }
+        
+        .header {
+            background: linear-gradient(135deg, var(--card) 0%, #0f172a 100%);
+            padding: 25px 20px;
+            text-align: center;
+            border-bottom: 1px solid var(--border);
+        }
+        .header h1 { font-size: 1.5rem; font-weight: 900; margin-bottom: 5px; }
+        .header p { opacity: 0.6; font-size: 0.9rem; }
+        .version { position: absolute; top: 15px; left: 15px; font-size: 0.75rem; opacity: 0.4; }
+        
+        .container { padding: 25px 15px; max-width: 1200px; margin: 0 auto; }
+        
+        /* מסך ראשי - כרטיסי פעולה */
+        .action-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 15px;
+        }
+        .action-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 25px 15px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-decoration: none;
+            color: inherit;
+        }
+        .action-card:hover { transform: translateY(-5px); border-color: var(--c); box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
+        .action-card .icon {
+            width: 60px; height: 60px;
+            background: rgba(255,255,255,0.05);
+            border-radius: 16px;
+            display: flex; align-items: center; justify-content: center;
+            margin: 0 auto 15px;
+            font-size: 28px;
+            transition: 0.3s;
+        }
+        .action-card:hover .icon { background: var(--c); transform: scale(1.1); }
+        .action-card h3 { font-size: 1rem; font-weight: 700; margin-bottom: 8px; }
+        .action-card p { font-size: 0.75rem; opacity: 0.5; line-height: 1.4; }
+        
+        /* מסכים */
+        .screen { display: none; animation: fadeIn 0.3s; }
+        .screen.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        
+        .btn-back {
+            background: none; border: none; color: var(--primary);
+            font-size: 1rem; cursor: pointer; margin-bottom: 20px;
+            display: flex; align-items: center; gap: 5px;
+        }
+        
+        .screen-header {
+            background: var(--card);
+            padding: 20px;
+            border-radius: 16px;
+            margin-bottom: 20px;
+            border-right: 5px solid var(--c);
+        }
+        .screen-header h2 { font-size: 1.3rem; display: flex; align-items: center; gap: 10px; }
+        
+        /* טפסים */
+        .form-group { margin-bottom: 18px; }
+        .form-group label { display: block; margin-bottom: 8px; font-weight: 600; font-size: 0.9rem; opacity: 0.8; }
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%; padding: 14px 16px;
+            background: var(--bg); border: 1px solid var(--border);
+            border-radius: 12px; color: #f1f5f9; font-size: 1rem;
+        }
+        .form-group input:focus, .form-group select:focus { outline: none; border-color: var(--primary); }
+        .form-group input::placeholder { color: #64748b; }
+        
+        .btn-submit {
+            width: 100%; padding: 16px;
+            background: var(--primary); color: white;
+            border: none; border-radius: 12px;
+            font-size: 1.1rem; font-weight: 700;
+            cursor: pointer; transition: 0.2s;
+            display: flex; align-items: center; justify-content: center; gap: 10px;
+        }
+        .btn-submit:hover { opacity: 0.9; }
+        .btn-submit.success { background: var(--success); }
+        .btn-submit.warning { background: var(--warning); }
+        .btn-submit.danger { background: var(--danger); }
+        
+        /* חיפוש תלמיד */
+        .search-box {
+            position: relative;
+            margin-bottom: 20px;
+        }
+        .search-box input {
+            width: 100%; padding: 16px 20px 16px 50px;
+            background: var(--card); border: 1px solid var(--border);
+            border-radius: 14px; color: #f1f5f9; font-size: 1.1rem;
+        }
+        .search-box .icon {
+            position: absolute; right: 18px; top: 50%; transform: translateY(-50%);
+            color: #64748b; font-size: 24px;
+        }
+        
+        /* רשימת תלמידים */
+        .student-list { max-height: 400px; overflow-y: auto; }
+        .student-item {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .student-item:hover { border-color: var(--primary); }
+        .student-item.selected { border-color: var(--success); background: rgba(16, 185, 129, 0.1); }
+        .student-item .info h4 { font-size: 1.05rem; margin-bottom: 4px; }
+        .student-item .info span { font-size: 0.85rem; opacity: 0.6; }
+        .student-item .check { width: 24px; height: 24px; border: 2px solid var(--border); border-radius: 50%; }
+        .student-item.selected .check { background: var(--success); border-color: var(--success); }
+        
+        /* רשימת שחרורים */
+        .release-item {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 18px;
+            margin-bottom: 12px;
+        }
+        .release-item .top { display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px; }
+        .release-item h4 { font-size: 1.1rem; margin-bottom: 5px; }
+        .release-item .class { font-size: 0.85rem; opacity: 0.6; }
+        .release-item .status {
+            padding: 6px 12px; border-radius: 20px;
+            font-size: 0.8rem; font-weight: 700;
+        }
+        .status.pending { background: rgba(245, 158, 11, 0.2); color: var(--warning); }
+        .status.approved { background: rgba(16, 185, 129, 0.2); color: var(--success); }
+        .status.released { background: rgba(59, 130, 246, 0.2); color: var(--primary); }
+        .release-item .details { font-size: 0.85rem; opacity: 0.7; margin-bottom: 12px; }
+        .release-item .actions { display: flex; gap: 10px; }
+        .release-item .btn-action {
+            flex: 1; padding: 10px;
+            border: none; border-radius: 10px;
+            font-weight: 700; cursor: pointer;
+            font-size: 0.9rem;
+        }
+        .btn-action.approve { background: var(--success); color: white; }
+        .btn-action.release { background: var(--primary); color: white; }
+        
+        /* אורחים */
+        .guest-item {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 18px;
+            margin-bottom: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .guest-item .info h4 { margin-bottom: 5px; }
+        .guest-item .info p { font-size: 0.85rem; opacity: 0.6; }
+        .guest-item .btn-exit {
+            padding: 10px 20px;
+            background: var(--danger);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        
+        /* סטטיסטיקות */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-bottom: 25px;
+        }
+        .stat-box {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 18px;
+            text-align: center;
+        }
+        .stat-box .num { font-size: 2rem; font-weight: 900; }
+        .stat-box .label { font-size: 0.8rem; opacity: 0.6; margin-top: 5px; }
+        
+        .toast {
+            position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+            padding: 14px 28px; border-radius: 12px;
+            color: white; font-weight: 700;
+            z-index: 999; opacity: 0; transition: 0.3s;
+        }
+        .toast.show { opacity: 1; }
+        .toast.success { background: var(--success); }
+        .toast.error { background: var(--danger); }
+        
+        .empty-state {
+            text-align: center;
+            padding: 50px 20px;
+            opacity: 0.5;
+        }
+        .empty-state .icon { font-size: 60px; margin-bottom: 15px; }
+        
+        /* רשת כיתות */
+        .class-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
+            gap: 10px;
+        }
+        .class-btn {
+            background: var(--card);
+            border: 2px solid var(--border);
+            border-radius: 14px;
+            padding: 18px 10px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            color: #f1f5f9;
+            font-weight: 700;
+            font-size: 1.1rem;
+        }
+        .class-btn:hover { border-color: var(--primary); transform: scale(1.05); }
+        .class-btn:active { transform: scale(0.98); }
+        
+        /* מודל */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.8);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .modal.active { display: flex; }
+        .modal-content {
+            background: var(--bg);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            width: 100%;
+            max-width: 500px;
+            max-height: 80vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px;
+            border-bottom: 1px solid var(--border);
+        }
+        .modal-header h3 { font-size: 1.2rem; }
+        .modal-close {
+            background: none;
+            border: none;
+            color: #f1f5f9;
+            font-size: 1.5rem;
+            cursor: pointer;
+            opacity: 0.6;
+        }
+        .modal-close:hover { opacity: 1; }
+        .modal-content .search-box { margin: 15px; }
+        .modal-content .student-list {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0 15px 15px;
+            max-height: 50vh;
+        }
+        
+        /* כפתורי סיבה */
+        .reason-buttons {
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .reason-btn {
+            background: var(--card);
+            border: 2px solid var(--c);
+            border-radius: 14px;
+            padding: 20px;
+            color: #f1f5f9;
+            font-size: 1.1rem;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            transition: all 0.2s;
+        }
+        .reason-btn span { font-size: 1.5rem; }
+        .reason-btn:hover { background: var(--c); transform: scale(1.02); }
+        
+        /* סקשנים של אדמין */
+        .admin-section {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .admin-section h3 { margin-bottom: 15px; font-size: 1.1rem; }
+        .admin-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 15px;
+            background: var(--bg);
+            border-radius: 10px;
+            margin-bottom: 8px;
+        }
+        .admin-item .info { flex: 1; }
+        .admin-item .info span { font-size: 0.8rem; opacity: 0.5; }
+        .admin-item .btn-delete {
+            background: var(--danger);
+            border: none;
+            color: white;
+            width: 32px;
+            height: 32px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1.2rem;
+        }
+        
+        /* מסך שומר מפוצל */
+        .guard-split {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        @media (max-width: 700px) {
+            .guard-split { grid-template-columns: 1fr; }
+        }
+        .guard-panel {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            overflow: hidden;
+        }
+        .guard-panel-header {
+            padding: 15px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .guard-panel-header h3 { font-size: 1rem; margin: 0; }
+        .guard-panel-header .badge {
+            background: rgba(255,255,255,0.2);
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-weight: 700;
+        }
+        .guard-panel-body {
+            padding: 15px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        
+        /* כפתורי toggle */
+        .toggle-group {
+            display: flex;
+            gap: 10px;
+        }
+        .toggle-btn {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid var(--border);
+            background: var(--bg);
+            color: #f1f5f9;
+            border-radius: 10px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .toggle-btn.active {
+            border-color: var(--primary);
+            background: var(--primary);
+        }
+        .toggle-btn.active-danger {
+            border-color: var(--danger);
+            background: var(--danger);
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <span class="version">v6</span>
+        <h1>🚪 מערכת שער</h1>
+        <p>בית חינוך גליל מערבי</p>
+    </div>
+
+    <div class="container">
+        <!-- מסך ראשי -->
+        <div id="screen-main" class="screen active">
+            <div class="action-grid">
+                <div class="action-card" style="--c: var(--primary);" onclick="showScreen('release')">
+                    <div class="icon">🚶</div>
+                    <h3>שחרור תלמיד</h3>
+                    <p>בקשת שחרור חדשה</p>
+                </div>
+                <div class="action-card" style="--c: var(--success);" onclick="showScreen('guard')">
+                    <div class="icon">🛡️</div>
+                    <h3>מסך שומר</h3>
+                    <p>אימות שחרורים</p>
+                </div>
+                <div class="action-card" style="--c: var(--warning);" onclick="showScreen('guests')">
+                    <div class="icon">🛂</div>
+                    <h3>כניסת אורחים</h3>
+                    <p>רישום מבקרים</p>
+                </div>
+                <div class="action-card" style="--c: var(--purple);" onclick="showScreen('admin')">
+                    <div class="icon">⚙️</div>
+                    <h3>ניהול</h3>
+                    <p>סטטיסטיקה ויומן</p>
+                </div>
+                <div class="action-card" style="--c: var(--danger);" onclick="showScreen('superadmin')">
+                    <div class="icon">🔧</div>
+                    <h3>אדמין</h3>
+                    <p>הגדרות מערכת</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- מסך שחרור תלמיד -->
+        <div id="screen-release" class="screen">
+            <button class="btn-back" onclick="showScreen('main')">
+                <span class="material-icons-round">arrow_forward</span> חזור
+            </button>
+            <div class="screen-header" style="--c: var(--primary);">
+                <h2>🚶 שחרור תלמיד</h2>
+            </div>
+            
+            <div id="classSelection">
+                <h3 style="margin-bottom:15px; color:var(--cyan);">חטיבת ביניים (ז-ט)</h3>
+                <div class="class-grid" id="classGridJunior"></div>
+                
+                <h3 style="margin:25px 0 15px; color:var(--warning);">חטיבה עליונה (י-יב)</h3>
+                <div class="class-grid" id="classGridSenior"></div>
+            </div>
+        </div>
+        
+        <!-- מודל בחירת תלמיד -->
+        <div id="studentModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 id="modalClassTitle">כיתה</h3>
+                    <button class="modal-close" onclick="closeStudentModal()">✕</button>
+                </div>
+                <div class="search-box" style="margin-bottom:15px;">
+                    <span class="material-icons-round icon">search</span>
+                    <input type="text" id="modalSearch" placeholder="חפש תלמיד..." oninput="filterModalStudents()">
+                </div>
+                <div class="student-list" id="modalStudentList"></div>
+            </div>
+        </div>
+        
+        <!-- מודל סיבת שחרור -->
+        <div id="reasonModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3 id="reasonModalTitle">בחר סיבה</h3>
+                    <button class="modal-close" onclick="closeReasonModal()">✕</button>
+                </div>
+                <div class="reason-buttons">
+                    <button class="reason-btn" style="--c:var(--danger);" onclick="selectReason('רפואי')">
+                        <span>🏥</span> רפואי
+                    </button>
+                    <button class="reason-btn" style="--c:var(--purple);" onclick="selectReason('אישי')">
+                        <span>👤</span> אישי
+                    </button>
+                    <button class="reason-btn" style="--c:var(--primary);" onclick="selectReason('בקשת הורים')">
+                        <span>👨‍👩‍👧</span> בקשת הורים
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- מסך שומר -->
+        <div id="screen-guard" class="screen">
+            <button class="btn-back" onclick="showScreen('main')">
+                <span class="material-icons-round">arrow_forward</span> חזור
+            </button>
+            <div class="screen-header" style="--c: var(--success);">
+                <h2>🛡️ מסך שומר</h2>
+            </div>
+            
+            <div class="guard-split">
+                <!-- צד ימין - שחרור תלמידים -->
+                <div class="guard-panel">
+                    <div class="guard-panel-header" style="background:var(--primary);">
+                        <h3>🚶 שחרור תלמידים</h3>
+                        <span class="badge" id="statPending">0</span>
+                    </div>
+                    <div class="guard-panel-body" id="releasesList"></div>
+                </div>
+                
+                <!-- צד שמאל - כניסת אורחים -->
+                <div class="guard-panel">
+                    <div class="guard-panel-header" style="background:var(--warning);">
+                        <h3>🛂 כניסת אורחים</h3>
+                        <span class="badge" id="statGuestsPending">0</span>
+                    </div>
+                    <div class="guard-panel-body" id="guestsWaitingList"></div>
+                </div>
+            </div>
+            
+            <div class="stats-grid" style="margin-top:20px;">
+                <div class="stat-box">
+                    <div class="num" id="statReleased" style="color:var(--success);">0</div>
+                    <div class="label">שוחררו היום</div>
+                </div>
+                <div class="stat-box">
+                    <div class="num" id="statGuestsInside" style="color:var(--warning);">0</div>
+                    <div class="label">אורחים בפנים</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- מסך אורחים -->
+        <div id="screen-guests" class="screen">
+            <button class="btn-back" onclick="showScreen('main')">
+                <span class="material-icons-round">arrow_forward</span> חזור
+            </button>
+            <div class="screen-header" style="--c: var(--warning);">
+                <h2>🛂 רישום אורח מראש</h2>
+            </div>
+            
+            <div class="form-group">
+                <label>שם האורח</label>
+                <input type="text" id="guestName" placeholder="שם מלא">
+            </div>
+            <div class="form-group">
+                <label>תעודת זהות</label>
+                <input type="text" id="guestId" placeholder="מספר ת.ז">
+            </div>
+            <div class="form-group">
+                <label>טלפון</label>
+                <input type="tel" id="guestPhone" placeholder="050-0000000">
+            </div>
+            <div class="form-group">
+                <label>תאריך ושעת הגעה צפויה</label>
+                <div style="display:flex;gap:10px;">
+                    <input type="date" id="guestDate" style="flex:1;">
+                    <input type="time" id="guestTime" style="flex:1;">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>מטרת הביקור</label>
+                <select id="guestPurpose">
+                    <option value="">בחר...</option>
+                    <option value="פגישה עם מורה">פגישה עם מורה</option>
+                    <option value="פגישה עם הנהלה">פגישה עם הנהלה</option>
+                    <option value="ספק/שירות">ספק/שירות</option>
+                    <option value="הורה">הורה</option>
+                    <option value="אחר">אחר</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>שם המארח בביה"ס</label>
+                <input type="text" id="guestHost" placeholder="שם איש קשר">
+            </div>
+            <div class="form-group">
+                <label>האם חמוש?</label>
+                <div class="toggle-group">
+                    <button type="button" class="toggle-btn" id="armedNo" onclick="setArmed(false)">לא</button>
+                    <button type="button" class="toggle-btn" id="armedYes" onclick="setArmed(true)">כן</button>
+                </div>
+            </div>
+            <div class="form-group" id="weaponLicenseGroup" style="display:none;">
+                <label>מספר רשיון נשק</label>
+                <input type="text" id="weaponLicense" placeholder="מספר רשיון">
+            </div>
+            <button class="btn-submit warning" onclick="registerGuest()">
+                <span class="material-icons-round">person_add</span> רשום אורח
+            </button>
+            
+            <h3 style="margin: 30px 0 15px; opacity:0.7;">אורחים בתוך ביה"ס:</h3>
+            <div id="guestsList"></div>
+        </div>
+
+        <!-- מסך ניהול -->
+        <div id="screen-admin" class="screen">
+            <button class="btn-back" onclick="showScreen('main')">
+                <span class="material-icons-round">arrow_forward</span> חזור
+            </button>
+            <div class="screen-header" style="--c: var(--purple);">
+                <h2>⚙️ ניהול מערכת</h2>
+            </div>
+            
+            <div class="stats-grid">
+                <div class="stat-box">
+                    <div class="num" id="statTodayReleases" style="color:var(--primary);">0</div>
+                    <div class="label">שחרורים היום</div>
+                </div>
+                <div class="stat-box">
+                    <div class="num" id="statTodayGuests" style="color:var(--warning);">0</div>
+                    <div class="label">אורחים היום</div>
+                </div>
+            </div>
+            
+            <h3 style="margin-bottom:15px; opacity:0.7;">יומן פעילות אחרון:</h3>
+            <div id="activityLog"></div>
+        </div>
+
+        <!-- מסך אדמין -->
+        <div id="screen-superadmin" class="screen">
+            <button class="btn-back" onclick="showScreen('main')">
+                <span class="material-icons-round">arrow_forward</span> חזור
+            </button>
+            <div class="screen-header" style="--c: var(--danger);">
+                <h2>🔧 הגדרות מערכת</h2>
+            </div>
+            
+            <!-- ניהול סיבות שחרור -->
+            <div class="admin-section">
+                <h3>📋 סיבות שחרור</h3>
+                <div id="reasonsList"></div>
+                <div class="form-group" style="margin-top:15px;">
+                    <div style="display:flex;gap:10px;">
+                        <input type="text" id="newReasonText" placeholder="סיבה חדשה..." style="flex:1;">
+                        <button class="btn-submit" style="width:auto;padding:14px 20px;" onclick="addReason()">
+                            <span class="material-icons-round">add</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- ניהול מכשירים -->
+            <div class="admin-section">
+                <h3>📱 מכשירים מורשים</h3>
+                <div id="devicesList"></div>
+                <div class="form-group" style="margin-top:15px;">
+                    <input type="text" id="newDeviceName" placeholder="שם המכשיר..." style="margin-bottom:10px;">
+                    <select id="newDeviceRole" style="width:100%;padding:14px;background:var(--bg);border:1px solid var(--border);border-radius:12px;color:#f1f5f9;margin-bottom:10px;">
+                        <option value="staff">מזכירות</option>
+                        <option value="guard">שומר</option>
+                    </select>
+                    <button class="btn-submit success" onclick="addDevice()">
+                        <span class="material-icons-round">add</span> הוסף מכשיר
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+<script>
+const SURL = 'https://skfriefqnoxfzmamcokd.supabase.co';
+const SKEY = 'sb_publishable_Qx7EDPbdyYE9iv7uMQBKhQ_Aeojd_Q0';
+
+const PASSWORDS = {
+    release: '123456',
+    guard: '1234',
+    guests: null,
+    admin: '123456',
+    superadmin: 'Galil2025!'
+};
+
+let allStudents = {};
+let selectedStudent = null;
+
+async function api(path, opts = {}) {
+    const r = await fetch(SURL + '/rest/v1/' + path, {
+        ...opts,
+        headers: { 'apikey': SKEY, 'Authorization': 'Bearer ' + SKEY, 'Content-Type': 'application/json', 'Prefer': opts.prefer || '' }
+    });
+    if (!r.ok) throw new Error(await r.text());
+    const t = await r.text();
+    return t ? JSON.parse(t) : null;
+}
+
+function showScreen(name) {
+    const password = PASSWORDS[name];
+    
+    if (password) {
+        const input = prompt('הזן סיסמה:');
+        if (input !== password) {
+            toast('סיסמה שגויה', 'error');
+            return;
+        }
+    }
+    
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById('screen-' + name).classList.add('active');
+    
+    if (name === 'release') loadStudents();
+    if (name === 'guard') loadReleases();
+    if (name === 'guests') loadGuests();
+    if (name === 'admin') loadAdmin();
+    if (name === 'superadmin') loadSuperAdmin();
+}
+
+// ========== שחרור תלמיד ==========
+let currentModalClass = null;
+
+async function loadStudents() {
+    try {
+        const students = await api('students?order=name');
+        allStudents = {};
+        (students || []).forEach(s => { allStudents[s.id] = s; });
+        renderClassGrid();
+    } catch (e) { console.error(e); }
+}
+
+function renderClassGrid() {
+    const classes = [...new Set(Object.values(allStudents).map(s => s.class).filter(Boolean))].sort();
+    
+    const junior = classes.filter(c => c.startsWith('ז') || c.startsWith('ח') || c.startsWith('ט'));
+    const senior = classes.filter(c => c.startsWith('י') || c.startsWith('יא') || c.startsWith('יב'));
+    
+    document.getElementById('classGridJunior').innerHTML = junior.map(c => 
+        `<button class="class-btn" onclick="openClassModal('${c}')">${c}</button>`
+    ).join('') || '<p style="opacity:0.5;">אין כיתות</p>';
+    
+    document.getElementById('classGridSenior').innerHTML = senior.map(c => 
+        `<button class="class-btn" onclick="openClassModal('${c}')">${c}</button>`
+    ).join('') || '<p style="opacity:0.5;">אין כיתות</p>';
+}
+
+function openClassModal(cls) {
+    currentModalClass = cls;
+    document.getElementById('modalClassTitle').textContent = 'כיתה ' + cls;
+    document.getElementById('modalSearch').value = '';
+    document.getElementById('studentModal').classList.add('active');
+    renderModalStudents();
+}
+
+function closeStudentModal() {
+    document.getElementById('studentModal').classList.remove('active');
+    currentModalClass = null;
+}
+
+function filterModalStudents() {
+    renderModalStudents();
+}
+
+function renderModalStudents() {
+    const query = document.getElementById('modalSearch').value.trim();
+    const students = Object.values(allStudents)
+        .filter(s => s.class === currentModalClass)
+        .filter(s => !query || s.name.includes(query))
+        .sort((a, b) => a.name.localeCompare(b.name));
+    
+    const list = document.getElementById('modalStudentList');
+    
+    if (students.length === 0) {
+        list.innerHTML = '<div class="empty-state"><div class="icon">🔍</div><p>לא נמצאו תלמידים</p></div>';
+        return;
+    }
+    
+    list.innerHTML = students.map(s => `
+        <div class="student-item" onclick="selectStudentForRelease('${s.id}')">
+            <div class="info">
+                <h4>${s.name}</h4>
+                <span>${s.class}</span>
+            </div>
+            <span class="material-icons-round" style="opacity:0.3;">chevron_left</span>
+        </div>
+    `).join('');
+}
+
+function selectStudentForRelease(id) {
+    selectedStudent = id;
+    closeStudentModal();
+    document.getElementById('reasonModalTitle').textContent = allStudents[id].name;
+    document.getElementById('reasonModal').classList.add('active');
+}
+
+function closeReasonModal() {
+    document.getElementById('reasonModal').classList.remove('active');
+    selectedStudent = null;
+}
+
+async function selectReason(reason) {
+    if (!selectedStudent) return;
+    
+    try {
+        await api('student_releases', {
+            method: 'POST',
+            body: JSON.stringify({
+                student_id: selectedStudent,
+                release_reason: reason,
+                picked_up_by: '',
+                phone: '',
+                released_by: 'מזכירות',
+                status: 'pending'
+            })
+        });
+        
+        await logActivity('release_request', `בקשת שחרור: ${allStudents[selectedStudent].name} - ${reason}`);
+        
+        closeReasonModal();
+        toast('בקשת השחרור נשלחה!', 'success');
+    } catch (e) {
+        toast('שגיאה: ' + e.message, 'error');
+    }
+}
+
+function searchStudents() {
+    // לא בשימוש יותר
+}
+
+// ========== מסך שומר ==========
+async function loadReleases() {
+    try {
+        const today = new Date().toISOString().split('T')[0];
+        
+        // שחרור תלמידים
+        const releases = await api(`student_releases?released_at=gte.${today}T00:00:00&order=released_at.desc`);
+        const pending = (releases || []).filter(r => r.status === 'pending');
+        const released = (releases || []).filter(r => r.status === 'released');
+        
+        document.getElementById('statPending').textContent = pending.length;
+        document.getElementById('statReleased').textContent = released.length;
+        
+        // אורחים
+        const guests = await api(`guests?order=id.desc`);
+        const guestsPending = (guests || []).filter(g => g.status === 'pending');
+        const guestsInside = (guests || []).filter(g => g.status === 'inside');
+        
+        document.getElementById('statGuestsPending').textContent = guestsPending.length;
+        document.getElementById('statGuestsInside').textContent = guestsInside.length;
+        
+        // רשימת שחרורים
+        const releaseList = document.getElementById('releasesList');
+        const active = (releases || []).filter(r => r.status !== 'released');
+        
+        if (active.length === 0) {
+            releaseList.innerHTML = '<div class="empty-state"><div class="icon">✅</div><p>אין בקשות</p></div>';
+        } else {
+            if (Object.keys(allStudents).length === 0) {
+                const students = await api('students');
+                (students || []).forEach(s => { allStudents[s.id] = s; });
+            }
+            
+            releaseList.innerHTML = active.map(r => {
+                const student = allStudents[r.student_id] || { name: 'לא ידוע', class: '' };
+                const time = new Date(r.released_at).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+                return `
+                    <div class="release-item" style="margin-bottom:10px;">
+                        <div class="top">
+                            <div>
+                                <h4>${student.name}</h4>
+                                <div class="class">${student.class || ''} | ${time}</div>
+                            </div>
+                        </div>
+                        <div class="details"><strong>סיבה:</strong> ${r.release_reason}</div>
+                        <button class="btn-action release" onclick="completeRelease('${r.id}')" style="width:100%;margin-top:8px;">🚪 שוחרר</button>
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        // רשימת אורחים ממתינים
+        const guestList = document.getElementById('guestsWaitingList');
+        
+        if (guestsPending.length === 0) {
+            guestList.innerHTML = '<div class="empty-state"><div class="icon">✅</div><p>אין אורחים ממתינים</p></div>';
+        } else {
+            guestList.innerHTML = guestsPending.map(g => {
+                const expectedTime = g.expected_time || '';
+                return `
+                    <div class="release-item" style="margin-bottom:10px;">
+                        <div class="top">
+                            <div>
+                                <h4>${g.name} ${g.is_armed ? '🔫' : ''}</h4>
+                                <div class="class">${g.purpose || ''} ${expectedTime ? '| ' + expectedTime : ''}</div>
+                            </div>
+                        </div>
+                        <div class="details">
+                            <strong>מארח:</strong> ${g.host_name || '-'}
+                            ${g.is_armed ? '<br><strong>רשיון נשק:</strong> ' + (g.weapon_license || '-') : ''}
+                        </div>
+                        <button class="btn-action approve" onclick="approveGuestEntry('${g.id}')" style="width:100%;margin-top:8px;">✓ נכנס לביה"ס</button>
+                    </div>
+                `;
+            }).join('');
+        }
+    } catch (e) { console.error(e); }
+}
+
+async function approveRelease(id) {
+    try {
+        await api(`student_releases?id=eq.${id}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ status: 'approved' })
+        });
+        await logActivity('release_approved', 'אושרה בקשת שחרור');
+        toast('הבקשה אושרה!', 'success');
+        loadReleases();
+    } catch (e) { toast('שגיאה', 'error'); }
+}
+
+async function completeRelease(id) {
+    try {
+        await api(`student_releases?id=eq.${id}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ status: 'released' })
+        });
+        await logActivity('release_complete', 'תלמיד שוחרר מביה"ס');
+        toast('התלמיד שוחרר!', 'success');
+        loadReleases();
+    } catch (e) { toast('שגיאה', 'error'); }
+}
+
+// ========== אורחים ==========
+let isArmed = false;
+
+function setArmed(armed) {
+    isArmed = armed;
+    document.getElementById('armedNo').className = 'toggle-btn' + (!armed ? ' active' : '');
+    document.getElementById('armedYes').className = 'toggle-btn' + (armed ? ' active-danger' : '');
+    document.getElementById('weaponLicenseGroup').style.display = armed ? 'block' : 'none';
+}
+
+async function loadGuests() {
+    try {
+        const today = new Date().toISOString().split('T')[0];
+        const guests = await api(`guests?entered_at=gte.${today}T00:00:00&status=eq.inside&order=entered_at.desc`);
+        
+        const list = document.getElementById('guestsList');
+        
+        if (!guests || guests.length === 0) {
+            list.innerHTML = '<div class="empty-state"><div class="icon">👥</div><p>אין אורחים בפנים כרגע</p></div>';
+            return;
+        }
+        
+        list.innerHTML = guests.map(g => {
+            const time = new Date(g.entered_at).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+            return `
+                <div class="guest-item">
+                    <div class="info">
+                        <h4>${g.name} ${g.is_armed ? '🔫' : ''}</h4>
+                        <p>${g.purpose || ''} | נכנס ב-${time}</p>
+                    </div>
+                    <button class="btn-exit" onclick="exitGuest('${g.id}')">יציאה</button>
+                </div>
+            `;
+        }).join('');
+    } catch (e) { console.error(e); }
+}
+
+async function registerGuest() {
+    const name = document.getElementById('guestName').value;
+    const idNumber = document.getElementById('guestId').value;
+    const phone = document.getElementById('guestPhone').value;
+    const visitDate = document.getElementById('guestDate').value;
+    const visitTime = document.getElementById('guestTime').value;
+    const purpose = document.getElementById('guestPurpose').value;
+    const host = document.getElementById('guestHost').value;
+    const weaponLicense = document.getElementById('weaponLicense').value;
+    
+    if (!name) return toast('הזן שם אורח', 'error');
+    if (isArmed && !weaponLicense) return toast('הזן מספר רשיון נשק', 'error');
+    
+    try {
+        await api('guests', {
+            method: 'POST',
+            body: JSON.stringify({
+                name, 
+                id_number: idNumber, 
+                phone, 
+                purpose, 
+                host_name: host, 
+                status: 'pending',
+                expected_date: visitDate || null,
+                expected_time: visitTime || null,
+                is_armed: isArmed,
+                weapon_license: isArmed ? weaponLicense : null
+            })
+        });
+        
+        await logActivity('guest_registered', `נרשם אורח: ${name}`);
+        
+        toast('האורח נרשם! ממתין לאישור בשער', 'success');
+        document.getElementById('guestName').value = '';
+        document.getElementById('guestId').value = '';
+        document.getElementById('guestPhone').value = '';
+        document.getElementById('guestDate').value = '';
+        document.getElementById('guestTime').value = '';
+        document.getElementById('guestPurpose').value = '';
+        document.getElementById('guestHost').value = '';
+        document.getElementById('weaponLicense').value = '';
+        setArmed(false);
+        loadGuests();
+    } catch (e) { toast('שגיאה', 'error'); }
+}
+
+async function exitGuest(id) {
+    try {
+        await api(`guests?id=eq.${id}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ status: 'exited', exited_at: new Date().toISOString() })
+        });
+        await logActivity('guest_exit', 'יציאת אורח');
+        toast('האורח יצא', 'success');
+        loadGuests();
+        loadReleases(); // רענון מסך שומר
+    } catch (e) { toast('שגיאה', 'error'); }
+}
+
+async function approveGuestEntry(id) {
+    try {
+        await api(`guests?id=eq.${id}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ status: 'inside', entered_at: new Date().toISOString() })
+        });
+        await logActivity('guest_enter', 'אורח נכנס לביה"ס');
+        toast('האורח נכנס!', 'success');
+        loadReleases();
+    } catch (e) { toast('שגיאה', 'error'); }
+}
+
+// ========== ניהול ==========
+async function loadAdmin() {
+    try {
+        const today = new Date().toISOString().split('T')[0];
+        
+        const [releases, guests, logs] = await Promise.all([
+            api(`student_releases?released_at=gte.${today}T00:00:00`),
+            api(`guests?entered_at=gte.${today}T00:00:00`),
+            api(`activity_log?order=created_at.desc&limit=20`)
+        ]);
+        
+        document.getElementById('statTodayReleases').textContent = (releases || []).length;
+        document.getElementById('statTodayGuests').textContent = (guests || []).length;
+        
+        const logList = document.getElementById('activityLog');
+        if (!logs || logs.length === 0) {
+            logList.innerHTML = '<div class="empty-state"><div class="icon">📝</div><p>אין פעילות</p></div>';
+            return;
+        }
+        
+        logList.innerHTML = logs.map(l => {
+            const time = new Date(l.created_at).toLocaleString('he-IL', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' });
+            return `
+                <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px;margin-bottom:8px;">
+                    <div style="display:flex;justify-content:space-between;">
+                        <span>${l.description}</span>
+                        <span style="opacity:0.5;font-size:0.8rem;">${time}</span>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    } catch (e) { console.error(e); }
+}
+
+async function logActivity(type, description) {
+    try {
+        await api('activity_log', {
+            method: 'POST',
+            body: JSON.stringify({ action_type: type, description })
+        });
+    } catch (e) { console.error(e); }
+}
+
+// ========== אדמין ==========
+let releaseReasons = ['רפואי', 'אישי', 'בקשת הורים'];
+
+async function loadSuperAdmin() {
+    renderReasonsList();
+    loadDevices();
+}
+
+function renderReasonsList() {
+    const list = document.getElementById('reasonsList');
+    list.innerHTML = releaseReasons.map((r, i) => `
+        <div class="admin-item">
+            <div class="info">${r}</div>
+            <button class="btn-delete" onclick="deleteReason(${i})">✕</button>
+        </div>
+    `).join('');
+    
+    // עדכון כפתורי הסיבות במודל
+    updateReasonButtons();
+}
+
+function updateReasonButtons() {
+    const container = document.querySelector('.reason-buttons');
+    if (!container) return;
+    
+    const colors = ['var(--danger)', 'var(--purple)', 'var(--primary)', 'var(--warning)', 'var(--cyan)', 'var(--success)'];
+    const icons = ['🏥', '👤', '👨‍👩‍👧', '📋', '🔔', '📝'];
+    
+    container.innerHTML = releaseReasons.map((r, i) => `
+        <button class="reason-btn" style="--c:${colors[i % colors.length]};" onclick="selectReason('${r}')">
+            <span>${icons[i % icons.length]}</span> ${r}
+        </button>
+    `).join('');
+}
+
+function addReason() {
+    const input = document.getElementById('newReasonText');
+    const text = input.value.trim();
+    if (!text) return toast('הזן סיבה', 'error');
+    if (releaseReasons.includes(text)) return toast('סיבה קיימת', 'error');
+    
+    releaseReasons.push(text);
+    input.value = '';
+    renderReasonsList();
+    toast('הסיבה נוספה!', 'success');
+}
+
+function deleteReason(index) {
+    if (releaseReasons.length <= 1) return toast('חייבת להיות לפחות סיבה אחת', 'error');
+    releaseReasons.splice(index, 1);
+    renderReasonsList();
+    toast('הסיבה נמחקה', 'success');
+}
+
+async function loadDevices() {
+    try {
+        const devices = await api('authorized_devices?order=created_at.desc');
+        const list = document.getElementById('devicesList');
+        
+        if (!devices || devices.length === 0) {
+            list.innerHTML = '<p style="opacity:0.5;text-align:center;padding:20px;">אין מכשירים רשומים</p>';
+            return;
+        }
+        
+        list.innerHTML = devices.map(d => `
+            <div class="admin-item">
+                <div class="info">
+                    <div>${d.device_name}</div>
+                    <span>${d.role === 'staff' ? 'מזכירות' : 'שומר'} ${d.is_active ? '✓' : '✗'}</span>
+                </div>
+                <button class="btn-delete" onclick="deleteDevice('${d.id}')">✕</button>
+            </div>
+        `).join('');
+    } catch (e) { console.error(e); }
+}
+
+async function addDevice() {
+    const name = document.getElementById('newDeviceName').value.trim();
+    const role = document.getElementById('newDeviceRole').value;
+    
+    if (!name) return toast('הזן שם מכשיר', 'error');
+    
+    const token = 'DEV_' + Math.random().toString(36).substr(2, 9).toUpperCase();
+    
+    try {
+        await api('authorized_devices', {
+            method: 'POST',
+            body: JSON.stringify({ device_name: name, device_token: token, role, is_active: true })
+        });
+        
+        document.getElementById('newDeviceName').value = '';
+        loadDevices();
+        toast(`מכשיר נוסף! קוד: ${token}`, 'success');
+    } catch (e) { toast('שגיאה', 'error'); }
+}
+
+async function deleteDevice(id) {
+    if (!confirm('למחוק מכשיר?')) return;
+    try {
+        await api(`authorized_devices?id=eq.${id}`, { method: 'DELETE' });
+        loadDevices();
+        toast('המכשיר נמחק', 'success');
+    } catch (e) { toast('שגיאה', 'error'); }
+}
+
+function toast(msg, type) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = 'toast show ' + (type || '');
+    setTimeout(() => t.className = 'toast', 3000);
+}
+
+// ========== איפוס יומי ==========
+async function checkDailyReset() {
+    const today = new Date().toISOString().split('T')[0];
+    const lastActiveDate = localStorage.getItem('gateSystem_lastActiveDate');
+    
+    if (lastActiveDate !== today) {
+        console.log('יום חדש - מאפס נתונים...');
+        await resetDailyData();
+        localStorage.setItem('gateSystem_lastActiveDate', today);
+    }
+}
+
+async function resetDailyData() {
+    try {
+        // סגירת כל האורחים שנשארו "בפנים" מאתמול
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        const yesterdayStr = yesterday.toISOString().split('T')[0];
+        
+        await api(`guests?status=eq.inside&entered_at=lt.${new Date().toISOString().split('T')[0]}T00:00:00`, {
+            method: 'PATCH',
+            body: JSON.stringify({ 
+                status: 'exited', 
+                exited_at: new Date().toISOString() 
+            })
+        });
+        
+        // סגירת אורחים ממתינים מאתמול
+        await api(`guests?status=eq.pending&expected_date=lt.${new Date().toISOString().split('T')[0]}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ status: 'cancelled' })
+        });
+        
+        await logActivity('daily_reset', 'איפוס יומי אוטומטי');
+        console.log('איפוס יומי הושלם');
+    } catch (e) {
+        console.error('שגיאה באיפוס יומי:', e);
+    }
+}
+
+// טעינה ראשונית
+checkDailyReset().then(() => loadStudents());
+</script>
+</body>
+</html>

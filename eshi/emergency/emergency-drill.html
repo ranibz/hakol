@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>מערכת חירום - בית חינוך גליל מערבי</title>
-    <!-- VERSION 15 -->
+    <!-- VERSION 16 -->
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700;900&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -122,7 +122,7 @@
     <div class="header">
         <div style="text-align:center;">
             <h1>🚨 מערכת חירום - גליל מערבי</h1>
-            <span class="header-credit">פיתוח - רני בן זאב | v15</span>
+            <span class="header-credit">פיתוח - רני בן זאב | v16</span>
         </div>
         <div id="userInfo" style="display:none;">
             <button class="btn-logout" onclick="logout()">יציאה</button>
@@ -543,13 +543,32 @@ function toggleEmergencyPanel(cls, el) {
 async function enterEmergencyClass(cls) {
     activeClass = cls;
     
-    // סימון אוטומטי של תלמידים שחסרו בנוכחות הבוקר
-    // תלמיד נחשב חסר אם: לא סומן כנוכח (undefined או absent)
+    const today = new Date().toISOString().split('T')[0];
     const classStudents = Object.entries(allStudents).filter(([,s]) => s.class === cls);
+    
+    // טעינת שחרורים של היום
+    let releasedToday = {};
+    try {
+        const releases = await api(`student_releases?status=eq.released&released_at=gte.${today}T00:00:00`);
+        (releases || []).forEach(r => { releasedToday[r.student_id] = true; });
+    } catch (e) { console.error(e); }
+    
     for (const [id] of classStudents) {
+        // אם התלמיד כבר מסומן בחירום - דלג
+        if (emergencyStatus[id]) continue;
+        
+        // בדיקה 1: האם התלמיד שוחרר היום דרך מערכת השער?
+        if (releasedToday[id]) {
+            try {
+                await api('emergency_drill', { method: 'POST', prefer: 'resolution=merge-duplicates', body: JSON.stringify({ student_id: id, status: 'left_school' }) });
+                emergencyStatus[id] = 'left_school';
+            } catch (e) { console.error(e); }
+            continue;
+        }
+        
+        // בדיקה 2: האם התלמיד לא סומן כנוכח בבוקר?
         const morningStatus = dailyAttendance[id];
-        // אם התלמיד לא סומן כנוכח בבוקר ועדיין לא מסומן בחירום
-        if (morningStatus !== 'present' && !emergencyStatus[id]) {
+        if (morningStatus !== 'present') {
             try {
                 await api('emergency_drill', { method: 'POST', prefer: 'resolution=merge-duplicates', body: JSON.stringify({ student_id: id, status: 'absent_today' }) });
                 emergencyStatus[id] = 'absent_today';
