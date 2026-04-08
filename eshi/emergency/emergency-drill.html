@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>מערכת חירום - בית חינוך גליל מערבי</title>
-    <!-- VERSION 24 -->
+    <!-- VERSION 25 -->
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700;900&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -64,6 +64,17 @@
             .summary-top-row, .summary-bottom-row { grid-template-columns: 1fr; }
             .summary-stats { grid-template-columns: repeat(2, 1fr); }
         }
+        .summary-actions { display: flex; gap: 15px; margin-top: 15px; }
+        .btn-action-big { flex: 1; padding: 15px; border: none; border-radius: 12px; font-weight: 700; font-size: 1rem; cursor: pointer; color: white; display: flex; align-items: center; justify-content: center; gap: 10px; }
+        .btn-action-big.archive { background: #9b59b6; }
+        .btn-action-big.history { background: #3498db; }
+        @media (max-width: 500px) { .summary-actions { flex-direction: column; } }
+        .history-item { background: #f8f9fa; padding: 15px; border-radius: 10px; margin-bottom: 10px; border-right: 5px solid #9b59b6; }
+        .history-item .date { font-weight: 900; font-size: 1.1rem; color: #2c3e50; }
+        .history-item .type { display: inline-block; padding: 3px 10px; border-radius: 15px; font-size: 0.75rem; font-weight: 700; margin-right: 10px; }
+        .history-item .type.emergency { background: #fdedec; color: #e74c3c; }
+        .history-item .type.attendance { background: #e8f8f5; color: #27ae60; }
+        .history-item .stats { display: flex; gap: 15px; margin-top: 8px; font-size: 0.9rem; }
 
         /* כרטיסי כיתה */
         .class-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 12px; }
@@ -156,7 +167,7 @@
     <div class="header">
         <div style="text-align:center;">
             <h1>🚨 מערכת חירום - גליל מערבי</h1>
-            <span class="header-credit">פיתוח - רני בן זאב | v24</span>
+            <span class="header-credit">פיתוח - רני בן זאב | v25</span>
         </div>
         <div id="userInfo" style="display:none;">
             <button class="btn-logout" onclick="logout()">יציאה</button>
@@ -249,6 +260,24 @@
                 <div class="summary-section">
                     <h3>🏘️ לפי ישובים</h3>
                     <div id="summaryByCity" class="summary-grid"></div>
+                </div>
+            </div>
+            
+            <!-- כפתורי פעולה -->
+            <div class="summary-actions">
+                <button class="btn-action-big archive" onclick="archiveDailyAttendance()">
+                    <span class="material-icons-round">event_available</span> סיום יום ושמירה בארכיון
+                </button>
+                <button class="btn-action-big history" onclick="showHistory()">
+                    <span class="material-icons-round">history</span> צפייה בהיסטוריה
+                </button>
+            </div>
+            
+            <!-- היסטוריה -->
+            <div id="historySection" style="display:none;">
+                <div class="summary-section" style="margin-top:15px;">
+                    <h3>📅 היסטוריית אירועים</h3>
+                    <div id="historyList"></div>
                 </div>
             </div>
         </div>
@@ -1099,6 +1128,115 @@ async function loadSummaryData() {
     } catch (e) {
         console.error(e);
         toast('שגיאה בטעינת נתונים', 'err');
+    }
+}
+
+async function archiveDailyAttendance() {
+    if (prompt('סיסמה לסיום היום:') !== '1234') return;
+    if (!confirm('לשמור את נוכחות היום בארכיון ולאפס?')) return;
+    
+    try {
+        toast('שומר בארכיון...', 'ok');
+        
+        const students = await api('students');
+        const attendance = await api('daily_attendance');
+        const today = new Date().toISOString().split('T')[0];
+        const releases = await api(`student_releases?status=eq.released&released_at=gte.${today}T00:00:00`);
+        
+        const attendanceMap = {};
+        (attendance || []).forEach(a => { attendanceMap[a.student_id] = a.status; });
+        
+        const releasedSet = new Set();
+        (releases || []).forEach(r => { releasedSet.add(r.student_id); });
+        
+        let present = 0, absent = 0;
+        const details = { students: [] };
+        
+        students.forEach(s => {
+            const status = attendanceMap[s.id] || 'absent';
+            if (status === 'present') present++;
+            else absent++;
+            
+            details.students.push({
+                id: s.id,
+                name: s.name,
+                class: s.class,
+                status: status,
+                released: releasedSet.has(s.id)
+            });
+        });
+        
+        await api('event_history', {
+            method: 'POST',
+            body: JSON.stringify({
+                event_date: today,
+                event_type: 'daily_attendance',
+                total_students: students.length,
+                present_count: present,
+                absent_count: absent,
+                released_count: releasedSet.size,
+                missing_count: 0,
+                details: details
+            })
+        });
+        
+        await api('daily_attendance?student_id=neq.0', { method: 'DELETE' });
+        await api(`student_releases?released_at=gte.${today}T00:00:00`, { method: 'DELETE' });
+        
+        dailyAttendance = {};
+        
+        toast('היום נשמר בארכיון!', 'ok');
+        loadSummaryData();
+        
+    } catch (e) {
+        console.error(e);
+        toast('שגיאה בשמירה', 'err');
+    }
+}
+
+async function showHistory() {
+    const section = document.getElementById('historySection');
+    const list = document.getElementById('historyList');
+    
+    if (section.style.display === 'block') {
+        section.style.display = 'none';
+        return;
+    }
+    
+    try {
+        list.innerHTML = '<p style="text-align:center;color:#7f8c8d;">טוען...</p>';
+        section.style.display = 'block';
+        
+        const history = await api('event_history?order=event_date.desc&limit=20');
+        
+        if (!history || history.length === 0) {
+            list.innerHTML = '<p style="text-align:center;color:#7f8c8d;">אין היסטוריה</p>';
+            return;
+        }
+        
+        list.innerHTML = history.map(h => {
+            const date = new Date(h.event_date).toLocaleDateString('he-IL', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+            const typeClass = h.event_type === 'emergency_drill' ? 'emergency' : 'attendance';
+            const typeName = h.event_type === 'emergency_drill' ? 'תרגיל חירום' : 'נוכחות יומית';
+            
+            return `
+                <div class="history-item">
+                    <span class="date">${date}</span>
+                    <span class="type ${typeClass}">${typeName}</span>
+                    <div class="stats">
+                        <span>סה"כ: ${h.total_students}</span>
+                        <span style="color:#27ae60;">✓ ${h.present_count}</span>
+                        <span style="color:#e74c3c;">✗ ${h.absent_count}</span>
+                        ${h.released_count > 0 ? `<span style="color:#e67e22;">🚪 ${h.released_count}</span>` : ''}
+                        ${h.missing_count > 0 ? `<span style="color:#e74c3c;">❓ ${h.missing_count}</span>` : ''}
+                    </div>
+                </div>
+            `;
+        }).join('');
+        
+    } catch (e) {
+        console.error(e);
+        list.innerHTML = '<p style="text-align:center;color:#e74c3c;">שגיאה בטעינה</p>';
     }
 }
 </script>
