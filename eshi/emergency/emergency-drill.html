@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>מערכת חירום - בית חינוך גליל מערבי</title>
-    <!-- VERSION 13 -->
+    <!-- VERSION 14 -->
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700;900&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -53,9 +53,10 @@
         .student-phone { font-size: 0.85rem; color: var(--info); margin-top: 3px; }
         
         /* כרטיסי לחיצה מהירים - שלב 1 */
-        .student-tap { background: #e74c3c; color: white; padding: 18px 20px; border-radius: 12px; margin-bottom: 8px; font-weight: 700; font-size: 1.15rem; cursor: pointer; text-align: center; transition: all 0.15s; user-select: none; -webkit-tap-highlight-color: transparent; }
+        .student-tap { background: #27ae60; color: white; padding: 18px 20px; border-radius: 12px; margin-bottom: 8px; font-weight: 700; font-size: 1.15rem; cursor: pointer; text-align: center; transition: all 0.15s; user-select: none; -webkit-tap-highlight-color: transparent; }
         .student-tap:active { transform: scale(0.98); }
-        .student-tap.tapped { background: #27ae60; }
+        .student-tap.not-marked { background: white; color: #333; border: 2px solid #bdc3c7; }
+        .student-tap.tapped { background: #27ae60; color: white; border: none; }
         .student-tap.absent-today { background: #95a5a6; cursor: default; display: flex; justify-content: space-between; align-items: center; }
         
         .btn-mark { padding: 10px 18px; border: none; border-radius: 20px; font-weight: 700; cursor: pointer; font-size: 0.9rem; }
@@ -120,7 +121,7 @@
     <div class="header">
         <div style="text-align:center;">
             <h1>🚨 מערכת חירום - גליל מערבי</h1>
-            <span class="header-credit">פיתוח - רני בן זאב | v13</span>
+            <span class="header-credit">פיתוח - רני בן זאב | v14</span>
         </div>
         <div id="userInfo" style="display:none;">
             <button class="btn-logout" onclick="logout()">יציאה</button>
@@ -406,9 +407,9 @@ function renderAttendanceClass() {
         .filter(([,s]) => s.class === activeClass)
         .sort((a,b) => a[1].name.localeCompare(b[1].name))
         .forEach(([id, student]) => {
-            const status = dailyAttendance[id];
+            const isPresent = dailyAttendance[id] === 'present';
             const row = document.createElement('div');
-            row.className = 'student-tap' + (status === 'present' ? ' tapped' : '');
+            row.className = 'student-tap' + (isPresent ? ' tapped' : ' not-marked');
             row.innerHTML = `<span>${student.name}</span>`;
             row.onclick = () => toggleDailyAttendance(id);
             list.appendChild(row);
@@ -542,10 +543,12 @@ async function enterEmergencyClass(cls) {
     activeClass = cls;
     
     // סימון אוטומטי של תלמידים שחסרו בנוכחות הבוקר
+    // תלמיד נחשב חסר אם: לא סומן כנוכח (undefined או absent)
     const classStudents = Object.entries(allStudents).filter(([,s]) => s.class === cls);
     for (const [id] of classStudents) {
-        // אם התלמיד חסר בבוקר ועדיין לא מסומן בחירום
-        if (dailyAttendance[id] === 'absent' && !emergencyStatus[id]) {
+        const morningStatus = dailyAttendance[id];
+        // אם התלמיד לא סומן כנוכח בבוקר ועדיין לא מסומן בחירום
+        if (morningStatus !== 'present' && !emergencyStatus[id]) {
             try {
                 await api('emergency_drill', { method: 'POST', prefer: 'resolution=merge-duplicates', body: JSON.stringify({ student_id: id, status: 'absent_today' }) });
                 emergencyStatus[id] = 'absent_today';
@@ -621,7 +624,8 @@ function renderEmergencyClass() {
                 row.className = 'student-tap absent-today';
                 row.innerHTML = `<span>${student.name}</span><span style="font-size:0.8rem;">🏠 לא הגיע היום</span>`;
             } else {
-                row.className = 'student-tap' + (isPresent ? ' tapped' : '');
+                // תלמיד רגיל - לבן או ירוק
+                row.className = 'student-tap' + (isPresent ? ' tapped' : ' not-marked');
                 row.innerHTML = `<span>${student.name}</span>`;
                 row.onclick = () => toggleEmergencyPresent(id);
             }
