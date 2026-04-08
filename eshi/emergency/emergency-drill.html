@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>מערכת חירום - בית חינוך גליל מערבי</title>
-    <!-- VERSION 14 -->
+    <!-- VERSION 15 -->
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700;900&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -69,6 +69,7 @@
         .missing-btn { padding: 10px 14px; border: 2px solid #bdc3c7; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 0.85rem; background: #f8f9fa; color: #7f8c8d; }
         .missing-btn:hover { background: #ecf0f1; }
         .missing-btn.active.absent { background: #95a5a6; color: white; border-color: #95a5a6; }
+        .missing-btn.active.left { background: #e67e22; color: white; border-color: #e67e22; }
         .missing-btn.active.found { background: #27ae60; color: white; border-color: #27ae60; }
         .missing-btn.active.phone { background: #3498db; color: white; border-color: #3498db; }
 
@@ -121,7 +122,7 @@
     <div class="header">
         <div style="text-align:center;">
             <h1>🚨 מערכת חירום - גליל מערבי</h1>
-            <span class="header-credit">פיתוח - רני בן זאב | v14</span>
+            <span class="header-credit">פיתוח - רני בן זאב | v15</span>
         </div>
         <div id="userInfo" style="display:none;">
             <button class="btn-logout" onclick="logout()">יציאה</button>
@@ -520,7 +521,7 @@ function renderEmergencyLobby() {
         } else {
             missing.forEach(([id, student]) => {
                 const st = emergencyStatus[id];
-                const txt = st === 'found' ? '✓ אותר' : st === 'absent_today' ? '🏠 לא הגיע' : st === 'found_phone' ? '📞 טלפונית' : '❓ לא אותר';
+                const txt = st === 'found' ? '✓ אותר' : st === 'absent_today' ? '🏠 לא הגיע' : st === 'left_school' ? '🚪 יצא' : st === 'found_phone' ? '📞 טלפונית' : '❓ לא אותר';
                 body.innerHTML += `<div class="student-row ${st && st !== 'missing' ? 'handled' : ''}" style="padding:10px 15px;"><span style="font-weight:600;">${student.name}</span><span style="font-size:0.85rem;">${txt}</span></div>`;
             });
         }
@@ -611,6 +612,7 @@ function renderEmergencyClass() {
                 </div>
                 <div class="missing-actions">
                     <button class="missing-btn absent ${status === 'absent_today' ? 'active' : ''}" onclick="setEmergencyStatus('${id}','absent_today')">🏠 לא הגיע</button>
+                    <button class="missing-btn left ${status === 'left_school' ? 'active' : ''}" onclick="setEmergencyStatus('${id}','left_school')">🚪 יצא</button>
                     <button class="missing-btn found ${status === 'found' ? 'active' : ''}" onclick="setEmergencyStatus('${id}','found')">✓ אותר</button>
                     <button class="missing-btn phone ${status === 'found_phone' ? 'active' : ''}" onclick="setEmergencyStatus('${id}','found_phone')">📞 טלפונית</button>
                 </div>`;
@@ -657,12 +659,13 @@ async function setEmergencyStatus(id, status) {
 
 async function finishRollCall() {
     try {
-        // שאיבת נוכחות יומית - מי שלא הגיע היום, מסומן אוטומטית
+        // כל תלמיד שלא סומן (לא ירוק ולא אפור) = נעדר (missing)
         const classStudents = Object.entries(allStudents).filter(([,s]) => s.class === activeClass);
         for (const [id] of classStudents) {
-            if (dailyAttendance[id] === 'absent' && !emergencyStatus[id]) {
-                await api('emergency_drill', { method: 'POST', prefer: 'resolution=merge-duplicates', body: JSON.stringify({ student_id: id, status: 'absent_today' }) });
-                emergencyStatus[id] = 'absent_today';
+            // אם התלמיד לא מסומן בכלל בחירום = נעדר
+            if (!emergencyStatus[id]) {
+                await api('emergency_drill', { method: 'POST', prefer: 'resolution=merge-duplicates', body: JSON.stringify({ student_id: id, status: 'missing' }) });
+                emergencyStatus[id] = 'missing';
             }
         }
         
