@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>מערכת חירום - בית חינוך גליל מערבי</title>
-    <!-- VERSION 25 -->
+    <!-- VERSION 26 -->
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700;900&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -75,6 +75,15 @@
         .history-item .type.emergency { background: #fdedec; color: #e74c3c; }
         .history-item .type.attendance { background: #e8f8f5; color: #27ae60; }
         .history-item .stats { display: flex; gap: 15px; margin-top: 8px; font-size: 0.9rem; }
+        
+        /* מודל היסטוריה */
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); z-index: 1000; justify-content: center; align-items: center; }
+        .modal-overlay.active { display: flex; }
+        .modal-content { background: white; border-radius: 15px; width: 90%; max-width: 600px; max-height: 80vh; overflow: hidden; }
+        .modal-header { padding: 15px 20px; background: #9b59b6; color: white; display: flex; justify-content: space-between; align-items: center; }
+        .modal-header h3 { margin: 0; }
+        .modal-close { background: none; border: none; color: white; font-size: 1.5rem; cursor: pointer; }
+        .modal-body { padding: 20px; max-height: 60vh; overflow-y: auto; }
 
         /* כרטיסי כיתה */
         .class-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 12px; }
@@ -145,6 +154,7 @@
         .btn-demo { background: #e67e22; }
         .btn-export { background: var(--info); }
         .btn-archive { background: #9b59b6; }
+        .btn-history { background: #1abc9c; }
 
         /* העלאת אקסל */
         .settings-link { display: inline-block; margin-top: 30px; color: #7f8c8d; text-decoration: underline; cursor: pointer; font-size: 0.9rem; }
@@ -167,7 +177,7 @@
     <div class="header">
         <div style="text-align:center;">
             <h1>🚨 מערכת חירום - גליל מערבי</h1>
-            <span class="header-credit">פיתוח - רני בן זאב | v25</span>
+            <span class="header-credit">פיתוח - רני בן זאב | v26</span>
         </div>
         <div id="userInfo" style="display:none;">
             <button class="btn-logout" onclick="logout()">יציאה</button>
@@ -341,6 +351,7 @@
                 <button class="btn-demo" onclick="generateDemo()"><span class="material-icons-round">shuffle</span> דמו</button>
                 <button class="btn-export" onclick="exportMissing()"><span class="material-icons-round">download</span> ייצוא</button>
                 <button class="btn-archive" onclick="archiveEvent()"><span class="material-icons-round">archive</span> סיום וארכיון</button>
+                <button class="btn-history" onclick="showHistoryModal()"><span class="material-icons-round">history</span> היסטוריה</button>
             </div>
             <div class="stats-grid">
                 <div class="stat-box"><div class="stat-num" id="statTotal" style="color:var(--primary);">0</div><div>סה"כ</div></div>
@@ -367,6 +378,19 @@
     </div>
 
     <div class="toast" id="toast"></div>
+    
+    <!-- מודל היסטוריה -->
+    <div class="modal-overlay" id="historyModal" onclick="closeHistoryModal(event)">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <h3>📅 היסטוריית אירועים</h3>
+                <button class="modal-close" onclick="closeHistoryModal()">&times;</button>
+            </div>
+            <div class="modal-body" id="historyModalContent">
+                טוען...
+            </div>
+        </div>
+    </div>
 
 <script>
 const SURL = 'https://skfriefqnoxfzmamcokd.supabase.co';
@@ -1238,6 +1262,52 @@ async function showHistory() {
         console.error(e);
         list.innerHTML = '<p style="text-align:center;color:#e74c3c;">שגיאה בטעינה</p>';
     }
+}
+
+async function showHistoryModal() {
+    const modal = document.getElementById('historyModal');
+    const content = document.getElementById('historyModalContent');
+    
+    modal.classList.add('active');
+    content.innerHTML = '<p style="text-align:center;color:#7f8c8d;">טוען...</p>';
+    
+    try {
+        const history = await api('event_history?order=event_date.desc&limit=20');
+        
+        if (!history || history.length === 0) {
+            content.innerHTML = '<p style="text-align:center;color:#7f8c8d;">אין היסטוריה</p>';
+            return;
+        }
+        
+        content.innerHTML = history.map(h => {
+            const date = new Date(h.event_date).toLocaleDateString('he-IL', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+            const typeClass = h.event_type === 'emergency_drill' ? 'emergency' : 'attendance';
+            const typeName = h.event_type === 'emergency_drill' ? 'תרגיל חירום' : 'נוכחות יומית';
+            
+            return `
+                <div class="history-item">
+                    <span class="date">${date}</span>
+                    <span class="type ${typeClass}">${typeName}</span>
+                    <div class="stats">
+                        <span>סה"כ: ${h.total_students}</span>
+                        <span style="color:#27ae60;">✓ ${h.present_count}</span>
+                        <span style="color:#e74c3c;">✗ ${h.absent_count}</span>
+                        ${h.released_count > 0 ? `<span style="color:#e67e22;">🚪 ${h.released_count}</span>` : ''}
+                        ${h.missing_count > 0 ? `<span style="color:#e74c3c;">❓ ${h.missing_count}</span>` : ''}
+                    </div>
+                </div>
+            `;
+        }).join('');
+        
+    } catch (e) {
+        console.error(e);
+        content.innerHTML = '<p style="text-align:center;color:#e74c3c;">שגיאה בטעינה</p>';
+    }
+}
+
+function closeHistoryModal(event) {
+    if (event && event.target !== event.currentTarget) return;
+    document.getElementById('historyModal').classList.remove('active');
 }
 </script>
 </body>
