@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>מערכת חירום - בית חינוך גליל מערבי</title>
-    <!-- VERSION 20 -->
+    <!-- VERSION 21 -->
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700;900&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -33,6 +33,28 @@
         .event-card p { color: #7f8c8d; font-size: 0.95rem; }
         .event-card.attendance .icon { color: var(--info); }
         .event-card.emergency .icon { color: var(--danger); }
+        .event-card.summary { border-right-color: #9b59b6; }
+        .event-card.summary .icon { color: #9b59b6; }
+
+        /* מסך סיכום */
+        .summary-section { background: white; border-radius: 12px; padding: 20px; margin-bottom: 15px; }
+        .summary-section h3 { margin: 0 0 15px 0; color: #2c3e50; font-size: 1.1rem; }
+        .summary-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+        .summary-stat { text-align: center; padding: 15px 10px; border-radius: 10px; background: #f8f9fa; }
+        .summary-stat .stat-num { font-size: 2rem; font-weight: 900; color: #2c3e50; }
+        .summary-stat.present { background: #d5f5e3; }
+        .summary-stat.present .stat-num { color: #27ae60; }
+        .summary-stat.absent { background: #fdedec; }
+        .summary-stat.absent .stat-num { color: #e74c3c; }
+        .summary-stat.released { background: #fef9e7; }
+        .summary-stat.released .stat-num { color: #e67e22; }
+        .summary-row { display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; border-radius: 8px; margin-bottom: 8px; background: #f8f9fa; }
+        .summary-row .label { font-weight: 700; }
+        .summary-row .numbers { display: flex; gap: 15px; font-size: 0.9rem; }
+        .summary-row .num-present { color: #27ae60; font-weight: 700; }
+        .summary-row .num-absent { color: #e74c3c; font-weight: 700; }
+        .summary-row .num-released { color: #e67e22; font-weight: 700; }
+        @media (max-width: 500px) { .summary-stats { grid-template-columns: repeat(2, 1fr); } }
 
         /* כרטיסי כיתה */
         .class-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 12px; }
@@ -124,7 +146,7 @@
     <div class="header">
         <div style="text-align:center;">
             <h1>🚨 מערכת חירום - גליל מערבי</h1>
-            <span class="header-credit">פיתוח - רני בן זאב | v20</span>
+            <span class="header-credit">פיתוח - רני בן זאב | v21</span>
         </div>
         <div id="userInfo" style="display:none;">
             <button class="btn-logout" onclick="logout()">יציאה</button>
@@ -138,15 +160,20 @@
             <p style="text-align:center; color: #7f8c8d;">בחר את סוג האירוע שברצונך להפעיל</p>
             
             <div class="event-cards">
+                <div class="event-card emergency" onclick="startEvent('emergency')">
+                    <span class="material-icons-round icon">warning</span>
+                    <h3>תרגיל חירום</h3>
+                    <p>רעידת אדמה / אירוע ביטחוני</p>
+                </div>
                 <div class="event-card attendance" onclick="startEvent('attendance')">
                     <span class="material-icons-round icon">how_to_reg</span>
                     <h3>נוכחות יומית</h3>
                     <p>בדיקת נוכחות תלמידים בתחילת היום</p>
                 </div>
-                <div class="event-card emergency" onclick="startEvent('emergency')">
-                    <span class="material-icons-round icon">warning</span>
-                    <h3>תרגיל חירום</h3>
-                    <p>רעידת אדמה / אירוע ביטחוני</p>
+                <div class="event-card summary" onclick="startEvent('summary')">
+                    <span class="material-icons-round icon">assessment</span>
+                    <h3>סיכום בית ספרי</h3>
+                    <p>סטטיסטיקות נוכחות ושחרורים</p>
                 </div>
             </div>
 
@@ -170,6 +197,56 @@
             </div>
             <h3 style="margin-bottom:15px;">בחר כיתה:</h3>
             <div class="class-grid" id="attendanceClassGrid"></div>
+        </div>
+
+        <!-- מסך סיכום בית ספרי -->
+        <div id="screen-summary" class="screen">
+            <button class="btn-back" onclick="backToEvents()"><span class="material-icons-round">arrow_forward</span> חזור</button>
+            <div class="event-header">
+                <div class="event-title"><span class="material-icons-round">assessment</span> סיכום בית ספרי</div>
+                <span class="event-badge" style="background:#9b59b6;">היום</span>
+            </div>
+            
+            <!-- סטטיסטיקות כלליות -->
+            <div class="summary-section">
+                <h3>📊 סיכום כללי</h3>
+                <div class="summary-stats">
+                    <div class="summary-stat">
+                        <div class="stat-num" id="summaryTotal">0</div>
+                        <div>סה"כ תלמידים</div>
+                    </div>
+                    <div class="summary-stat present">
+                        <div class="stat-num" id="summaryPresent">0</div>
+                        <div>נוכחים</div>
+                    </div>
+                    <div class="summary-stat absent">
+                        <div class="stat-num" id="summaryAbsent">0</div>
+                        <div>חסרים</div>
+                    </div>
+                    <div class="summary-stat released">
+                        <div class="stat-num" id="summaryReleased">0</div>
+                        <div>שוחררו</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- לפי חטיבות -->
+            <div class="summary-section">
+                <h3>🏫 לפי חטיבות</h3>
+                <div id="summaryByLevel"></div>
+            </div>
+            
+            <!-- לפי כיתות -->
+            <div class="summary-section">
+                <h3>📚 לפי כיתות</h3>
+                <div id="summaryByClass"></div>
+            </div>
+            
+            <!-- לפי ישובים -->
+            <div class="summary-section">
+                <h3>🏘️ לפי ישובים</h3>
+                <div id="summaryByCity"></div>
+            </div>
         </div>
 
         <!-- מסך נוכחות יומית - כיתה -->
@@ -338,6 +415,9 @@ function startEvent(type) {
         showScreen('screen-attendance-lobby');
         loadData();
         refreshInterval = setInterval(loadData, 5000);
+    } else if (type === 'summary') {
+        showScreen('screen-summary');
+        loadSummaryData();
     } else {
         showScreen('screen-emergency-role');
         loadData();
@@ -793,7 +873,7 @@ function handleExcelUpload(event) {
             
             // עמודות קבועות
             let headerRow = 2;
-            let cols = { id: 1, firstName: 3, lastName: 2, shihva: 4, classNum: 5, phone: 19 };
+            let cols = { id: 1, firstName: 3, lastName: 2, shihva: 4, classNum: 5, phone: 19, city: 13 };
             
             const students = [];
             for (let i = headerRow + 1; i < rows.length; i++) {
@@ -804,7 +884,8 @@ function handleExcelUpload(event) {
                 const cls = (String(row[cols.shihva] || '') + ' ' + String(row[cols.classNum] || '')).trim() || 'ללא';
                 let phone = String(row[cols.phone] || '').replace(/[-\s()]/g, '');
                 if (phone.startsWith('+972')) phone = '0' + phone.substring(4);
-                students.push({ id: String(row[cols.id]).trim(), name: fullName, class: cls, phone: phone });
+                const city = String(row[cols.city] || '').trim() || 'לא ידוע';
+                students.push({ id: String(row[cols.id]).trim(), name: fullName, class: cls, phone: phone, city: city });
             }
             
             const unique = {};
@@ -833,6 +914,109 @@ function toast(msg, type) {
     t.textContent = msg;
     t.className = 'toast show ' + (type || '');
     setTimeout(() => t.className = 'toast', 3000);
+}
+
+// ========== סיכום בית ספרי ==========
+async function loadSummaryData() {
+    try {
+        // טעינת נתונים
+        const students = await api('students');
+        const today = new Date().toISOString().split('T')[0];
+        const attendance = await api(`daily_attendance?order=student_id`);
+        const releases = await api(`student_releases?status=eq.released&released_at=gte.${today}T00:00:00`);
+        
+        // מיפוי נתונים
+        const attendanceMap = {};
+        (attendance || []).forEach(a => { attendanceMap[a.student_id] = a.status; });
+        
+        const releasedSet = new Set();
+        (releases || []).forEach(r => { releasedSet.add(r.student_id); });
+        
+        // חישוב סטטיסטיקות
+        const total = students.length;
+        let present = 0, absent = 0, released = releasedSet.size;
+        
+        const byLevel = { 'חט"ב (ז-ט)': { total: 0, present: 0, absent: 0, released: 0 }, 'חט"ע (י-יב)': { total: 0, present: 0, absent: 0, released: 0 } };
+        const byClass = {};
+        const byCity = {};
+        
+        students.forEach(s => {
+            const isPresent = attendanceMap[s.id] === 'present';
+            const isReleased = releasedSet.has(s.id);
+            const cls = s.class || 'ללא';
+            const city = s.city || 'לא ידוע';
+            const level = cls.startsWith('ז') || cls.startsWith('ח') || cls.startsWith('ט') ? 'חט"ב (ז-ט)' : 'חט"ע (י-יב)';
+            
+            if (isPresent) present++;
+            else absent++;
+            
+            // לפי חטיבה
+            byLevel[level].total++;
+            if (isPresent) byLevel[level].present++;
+            else byLevel[level].absent++;
+            if (isReleased) byLevel[level].released++;
+            
+            // לפי כיתה
+            if (!byClass[cls]) byClass[cls] = { total: 0, present: 0, absent: 0, released: 0 };
+            byClass[cls].total++;
+            if (isPresent) byClass[cls].present++;
+            else byClass[cls].absent++;
+            if (isReleased) byClass[cls].released++;
+            
+            // לפי ישוב
+            if (!byCity[city]) byCity[city] = { total: 0, present: 0 };
+            byCity[city].total++;
+            if (isPresent) byCity[city].present++;
+        });
+        
+        // עדכון תצוגה - סיכום כללי
+        document.getElementById('summaryTotal').textContent = total;
+        document.getElementById('summaryPresent').textContent = present;
+        document.getElementById('summaryAbsent').textContent = absent;
+        document.getElementById('summaryReleased').textContent = released;
+        
+        // לפי חטיבות
+        document.getElementById('summaryByLevel').innerHTML = Object.entries(byLevel).map(([name, data]) => `
+            <div class="summary-row">
+                <span class="label">${name}</span>
+                <div class="numbers">
+                    <span>סה"כ: ${data.total}</span>
+                    <span class="num-present">✓ ${data.present}</span>
+                    <span class="num-absent">✗ ${data.absent}</span>
+                    <span class="num-released">🚪 ${data.released}</span>
+                </div>
+            </div>
+        `).join('');
+        
+        // לפי כיתות - מיון
+        const sortedClasses = Object.entries(byClass).sort((a, b) => a[0].localeCompare(b[0], 'he'));
+        document.getElementById('summaryByClass').innerHTML = sortedClasses.map(([name, data]) => `
+            <div class="summary-row">
+                <span class="label">${name}</span>
+                <div class="numbers">
+                    <span class="num-present">✓ ${data.present}/${data.total}</span>
+                    <span class="num-absent">✗ ${data.absent}</span>
+                    ${data.released > 0 ? `<span class="num-released">🚪 ${data.released}</span>` : ''}
+                </div>
+            </div>
+        `).join('');
+        
+        // לפי ישובים - מיון לפי כמות נוכחים
+        const sortedCities = Object.entries(byCity).sort((a, b) => b[1].present - a[1].present);
+        document.getElementById('summaryByCity').innerHTML = sortedCities.map(([name, data]) => `
+            <div class="summary-row">
+                <span class="label">${name}</span>
+                <div class="numbers">
+                    <span class="num-present">✓ ${data.present} נוכחים</span>
+                    <span style="color:#7f8c8d;">מתוך ${data.total}</span>
+                </div>
+            </div>
+        `).join('');
+        
+    } catch (e) {
+        console.error(e);
+        toast('שגיאה בטעינת נתונים', 'err');
+    }
 }
 </script>
 </body>
