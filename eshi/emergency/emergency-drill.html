@@ -4,360 +4,313 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>מערכת חירום - בית חינוך גליל מערבי</title>
-    <!-- VERSION 9 -->
+    <!-- VERSION 10 -->
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700;900&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
-        :root { --primary: #2c3e50; --success: #27ae60; --danger: #c0392b; --warning: #f39c12; --bg: #ecf0f1; --white: #fff; }
-        * { box-sizing: border-box; font-family: 'Rubik', sans-serif; -webkit-tap-highlight-color: transparent; margin: 0; padding: 0; }
+        :root { --primary: #2c3e50; --success: #27ae60; --danger: #c0392b; --warning: #f39c12; --info: #3498db; --bg: #ecf0f1; --white: #fff; }
+        * { box-sizing: border-box; font-family: 'Rubik', sans-serif; margin: 0; padding: 0; }
         body { background: var(--bg); color: #333; min-height: 100vh; }
-        .header { background: var(--primary); color: var(--white); padding: 15px 20px; display: flex; justify-content: center; align-items: center; position: sticky; top: 0; z-index: 100; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
-        .header-titles { display: flex; flex-direction: column; align-items: center; text-align: center; }
-        .header h1 { font-size: 1.4rem; font-weight: 900; }
-        .header-credit { font-size: 1rem; font-weight: 700; color: #00cec9; margin-top: 5px; }
+        .header { background: var(--primary); color: var(--white); padding: 15px 20px; display: flex; justify-content: center; align-items: center; position: sticky; top: 0; z-index: 100; }
+        .header h1 { font-size: 1.3rem; font-weight: 900; }
+        .header-credit { font-size: 0.9rem; color: #00cec9; margin-top: 5px; }
         #userInfo { position: absolute; left: 15px; display: flex; align-items: center; gap: 10px; }
         .btn-logout { background: rgba(255,255,255,0.2); border: none; color: white; padding: 8px 16px; border-radius: 20px; cursor: pointer; font-weight: bold; }
-        @media (max-width: 600px) { .header h1 { font-size: 1.1rem; } #userName { display: none; } }
-        .container { padding: 20px; max-width: 800px; margin: 0 auto; }
+        .container { padding: 20px; max-width: 900px; margin: 0 auto; }
         .screen { display: none; animation: fadeIn 0.3s ease; }
         .screen.active { display: block; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        .login-box { background: var(--white); padding: 30px; border-radius: 15px; text-align: center; box-shadow: 0 5px 15px rgba(0,0,0,0.05); margin-top: 50px; }
-        .role-btn { width: 100%; padding: 18px; margin: 10px 0; border: none; border-radius: 10px; font-size: 1.2rem; font-weight: 700; cursor: pointer; color: white; display: flex; align-items: center; justify-content: center; gap: 10px; }
-        .btn-teacher { background: #3498db; }
-        .btn-admin { background: #9b59b6; }
-        .role-note { font-size: 0.9rem; color: #7f8c8d; margin: 0 0 10px 0; text-align: right; padding: 0 5px; }
-        .class-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 15px; }
-        .class-card { background: var(--white); padding: 20px 10px; border-radius: 12px; text-align: center; cursor: pointer; font-weight: 900; font-size: 1.3rem; box-shadow: 0 3px 6px rgba(0,0,0,0.05); color: var(--primary); border-right: 8px solid; position: relative; }
+
+        /* מסך בחירת אירוע */
+        .event-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-top: 30px; }
+        .event-card { background: white; border-radius: 15px; padding: 30px; text-align: center; cursor: pointer; transition: transform 0.2s, box-shadow 0.2s; border-right: 8px solid; }
+        .event-card:hover { transform: translateY(-5px); box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+        .event-card.attendance { border-right-color: var(--info); }
+        .event-card.emergency { border-right-color: var(--danger); }
+        .event-card .icon { font-size: 60px; margin-bottom: 15px; }
+        .event-card h3 { font-size: 1.4rem; margin-bottom: 10px; }
+        .event-card p { color: #7f8c8d; font-size: 0.95rem; }
+        .event-card.attendance .icon { color: var(--info); }
+        .event-card.emergency .icon { color: var(--danger); }
+
+        /* כרטיסי כיתה */
+        .class-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 12px; }
+        .class-card { background: white; padding: 18px 10px; border-radius: 10px; text-align: center; cursor: pointer; font-weight: 900; font-size: 1.2rem; border-right: 6px solid; }
         .class-card.completed { background: #d5f5e3; }
         .class-card.in-progress { background: #fef9e7; }
-        .class-status { font-size: 0.75rem; font-weight: 600; margin-top: 8px; padding: 4px 8px; border-radius: 10px; display: inline-block; }
+        .class-status { font-size: 0.7rem; font-weight: 600; margin-top: 6px; padding: 3px 6px; border-radius: 8px; display: inline-block; }
         .status-waiting { background: #f0f3f4; color: #7f8c8d; }
         .status-done { background: #27ae60; color: white; }
-        .status-missing { background: #e74c3c; color: white; }
-        .student-row { display: flex; justify-content: space-between; align-items: center; background: var(--white); padding: 15px; border-radius: 10px; margin-bottom: 12px; border-right: 5px solid #bdc3c7; }
+        .status-partial { background: #e74c3c; color: white; }
+
+        /* שורות תלמידים */
+        .student-row { display: flex; justify-content: space-between; align-items: center; background: white; padding: 12px 15px; border-radius: 10px; margin-bottom: 10px; border-right: 5px solid #bdc3c7; }
         .student-row.present { border-right-color: var(--success); background: #e8f8f5; }
-        .student-row.missing-handled { border-right-color: var(--warning); background: #fef9e7; }
-        .student-info { display: flex; flex-direction: column; gap: 4px; }
-        .student-name { font-weight: 700; font-size: 1.1rem; }
-        .student-phone { font-size: 0.9rem; color: #2980b9; }
-        .btn-mark { padding: 10px 20px; border: none; border-radius: 20px; font-weight: 700; cursor: pointer; font-size: 0.95rem; }
-        .btn-mark.missing { background: #f0f3f4; color: #7f8c8d; border: 1px solid #bdc3c7; }
+        .student-row.absent { border-right-color: var(--danger); background: #fdedec; }
+        .student-row.handled { border-right-color: var(--warning); background: #fef9e7; }
+        .student-name { font-weight: 700; font-size: 1.05rem; }
+        .student-phone { font-size: 0.85rem; color: var(--info); margin-top: 3px; }
+        .btn-mark { padding: 10px 18px; border: none; border-radius: 20px; font-weight: 700; cursor: pointer; font-size: 0.9rem; }
         .btn-mark.present { background: var(--success); color: white; }
-        .btn-finish { width: 100%; padding: 18px; background: var(--success); color: white; border: none; border-radius: 12px; font-size: 1.2rem; font-weight: 900; cursor: pointer; margin-top: 20px; display: flex; align-items: center; justify-content: center; gap: 10px; }
-        .btn-finish:disabled { background: #bdc3c7; cursor: not-allowed; }
-        .missing-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
-        .missing-btn { padding: 10px 14px; border: 2px solid #bdc3c7; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 0.9rem; display: flex; align-items: center; gap: 5px; background: #f8f9fa; color: #7f8c8d; transition: all 0.2s; }
+        .btn-mark.absent { background: var(--danger); color: white; }
+        .btn-mark.neutral { background: #f0f3f4; color: #7f8c8d; border: 1px solid #bdc3c7; }
+
+        /* כפתורי פעולה לנעדרים */
+        .missing-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+        .missing-btn { padding: 10px 14px; border: 2px solid #bdc3c7; border-radius: 8px; font-weight: 600; cursor: pointer; font-size: 0.85rem; background: #f8f9fa; color: #7f8c8d; }
         .missing-btn:hover { background: #ecf0f1; }
         .missing-btn.active.absent { background: #95a5a6; color: white; border-color: #95a5a6; }
         .missing-btn.active.found { background: #27ae60; color: white; border-color: #27ae60; }
         .missing-btn.active.phone { background: #3498db; color: white; border-color: #3498db; }
+
+        /* סטטיסטיקות */
         .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 20px; }
-        .stat-box { background: white; padding: 15px 10px; border-radius: 12px; text-align: center; }
-        .stat-num { font-size: 2rem; font-weight: 900; margin-bottom: 5px; }
-        .admin-class-group { margin-bottom: 10px; }
-        .admin-class-header { background: white; padding: 15px 20px; border-radius: 10px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; border-right: 8px solid; }
-        .admin-class-body { display: none; padding: 15px 5px 5px 5px; }
-        .admin-class-body.active { display: block; }
-        .class-badge { padding: 6px 12px; border-radius: 15px; font-weight: 700; font-size: 0.85rem; }
-        .badge-complete { background: #27ae60; color: white; }
-        .badge-waiting { background: #f0f3f4; color: #7f8c8d; }
-        .badge-missing { background: #e74c3c; color: white; }
-        .admin-student-row { background: white; padding: 12px; border-radius: 8px; margin-bottom: 8px; border-right: 4px solid var(--danger); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
-        .admin-student-row.handled { border-right-color: var(--warning); opacity: 0.7; }
-        .admin-actions { display: flex; gap: 10px; margin-bottom: 25px; flex-wrap: wrap; }
-        .admin-actions button { flex: 1; padding: 12px; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; font-size: 0.95rem; display: flex; align-items: center; justify-content: center; gap: 8px; color: white; }
+        .stat-box { background: white; padding: 15px; border-radius: 12px; text-align: center; }
+        .stat-num { font-size: 2rem; font-weight: 900; }
+
+        /* כותרת אירוע */
+        .event-header { background: white; padding: 15px 20px; border-radius: 12px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
+        .event-title { font-size: 1.3rem; font-weight: 900; display: flex; align-items: center; gap: 10px; }
+        .event-badge { padding: 8px 15px; border-radius: 20px; font-weight: 700; font-size: 0.9rem; color: white; }
+        .badge-attendance { background: var(--info); }
+        .badge-emergency { background: var(--danger); }
+
+        /* פאנלים מתקפלים */
+        .panel-group { margin-bottom: 10px; }
+        .panel-header { background: white; padding: 15px 20px; border-radius: 10px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; border-right: 6px solid; }
+        .panel-body { display: none; padding: 15px 5px; }
+        .panel-body.active { display: block; }
+        .panel-badge { padding: 5px 12px; border-radius: 15px; font-weight: 700; font-size: 0.85rem; }
+
+        /* כפתורים */
+        .btn-finish { width: 100%; padding: 16px; background: var(--success); color: white; border: none; border-radius: 12px; font-size: 1.1rem; font-weight: 900; cursor: pointer; margin-top: 20px; display: flex; align-items: center; justify-content: center; gap: 10px; }
+        .btn-back { background: none; border: none; color: var(--info); font-weight: bold; font-size: 1rem; cursor: pointer; margin-bottom: 15px; display: flex; align-items: center; }
+        .admin-actions { display: flex; gap: 10px; margin-bottom: 20px; flex-wrap: wrap; }
+        .admin-actions button { flex: 1; padding: 12px; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; color: white; display: flex; align-items: center; justify-content: center; gap: 8px; }
         .btn-reset { background: var(--danger); }
         .btn-demo { background: #e67e22; }
-        .btn-export { background: #2980b9; }
-        .btn-back { background: none; border: none; color: #3498db; font-weight: bold; font-size: 1.1rem; cursor: pointer; margin-bottom: 20px; display: flex; align-items: center; }
-        .toggle-excel-btn { display: inline-block; margin-top: 25px; font-size: 0.9rem; color: #7f8c8d; text-decoration: underline; cursor: pointer; }
-        .excel-upload-zone { display: none; margin-top: 15px; padding: 20px; background: #f8f9fa; border: 2px dashed #bdc3c7; border-radius: 10px; text-align: center; }
-        .excel-upload-zone input { display: none; }
-        .btn-excel { background: #27ae60; color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; }
+        .btn-export { background: var(--info); }
+
+        /* העלאת אקסל */
+        .settings-link { display: inline-block; margin-top: 30px; color: #7f8c8d; text-decoration: underline; cursor: pointer; font-size: 0.9rem; }
+        .upload-zone { display: none; margin-top: 15px; padding: 20px; background: #f8f9fa; border: 2px dashed #bdc3c7; border-radius: 10px; text-align: center; }
+        .upload-zone input { display: none; }
+        .btn-upload { background: var(--success); color: white; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; }
+
         .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); padding: 12px 24px; border-radius: 10px; color: white; font-weight: 700; z-index: 999; opacity: 0; transition: 0.3s; }
         .toast.show { opacity: 1; }
         .toast.ok { background: var(--success); }
         .toast.err { background: var(--danger); }
-        .class-header-box { background: white; padding: 15px 20px; border-radius: 10px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; border-right: 8px solid var(--primary); }
-        .phase-indicator { background: #3498db; color: white; padding: 8px 15px; border-radius: 20px; font-weight: 700; font-size: 0.9rem; }
-        .phase-indicator.phase2 { background: #e67e22; }
-        .admin-tabs { display: flex; gap: 10px; margin-bottom: 20px; }
-        .admin-tab { flex: 1; padding: 12px; border: 2px solid #3498db; background: white; color: #3498db; border-radius: 10px; font-weight: 700; cursor: pointer; font-size: 1rem; }
-        .admin-tab.active { background: #3498db; color: white; }
+
+        .class-header-box { background: white; padding: 15px 20px; border-radius: 10px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; border-right: 6px solid var(--primary); }
+        .phase-badge { padding: 8px 15px; border-radius: 20px; font-weight: 700; font-size: 0.85rem; color: white; }
+        .phase-1 { background: var(--info); }
+        .phase-2 { background: var(--warning); }
     </style>
 </head>
 <body>
     <div class="header">
-        <div class="header-titles">
-            <h1>🚨 חירום - בית חינוך גליל מערבי</h1>
-            <span class="header-credit">פיתוח - רני בן זאב | v9</span>
+        <div style="text-align:center;">
+            <h1>🚨 מערכת חירום - גליל מערבי</h1>
+            <span class="header-credit">פיתוח - רני בן זאב | v10</span>
         </div>
         <div id="userInfo" style="display:none;">
-            <span id="userName"></span>
             <button class="btn-logout" onclick="logout()">יציאה</button>
         </div>
     </div>
+
     <div class="container">
-        <div id="screen-login" class="screen active">
-            <div class="login-box">
-                <span class="material-icons-round" style="font-size: 60px; color: var(--danger); margin-bottom: 15px;">campaign</span>
-                <h2 style="margin-top: 0; font-size: 1.8rem; color: var(--primary);">מערכת דיווח נוכחות</h2>
-                <p style="color: #7f8c8d; margin-bottom: 30px;">בחר את תפקידך:</p>
-                <button class="role-btn btn-teacher" onclick="login('teacher')"><span class="material-icons-round">groups</span> כניסת מחנך/ת</button>
-                <p class="role-note">דיווח נוכחות תלמידים בנקודת הכינוס</p>
-                <button class="role-btn btn-admin" onclick="login('admin')"><span class="material-icons-round">admin_panel_settings</span> מסך ניהול</button>
-                <p class="role-note">צפייה במצב כל הכיתות</p>
-                <div class="toggle-excel-btn" onclick="document.getElementById('excelZone').style.display='block'; this.style.display='none';">⚙️ עדכון מצבת תלמידים</div>
-                <div class="excel-upload-zone" id="excelZone">
-                    <p style="font-size: 0.85rem; color: #777; margin-bottom: 10px;">העלה קובץ Excel</p>
-                    <input type="file" id="excelFile" accept=".xlsx,.xls" onchange="handleExcelUpload(event)">
-                    <button class="btn-excel" onclick="document.getElementById('excelFile').click()">📁 בחר קובץ</button>
-                    <div id="uploadStatus" style="margin-top: 10px; font-weight: bold;"></div>
+        <!-- מסך בחירת אירוע -->
+        <div id="screen-events" class="screen active">
+            <h2 style="text-align:center; color: var(--primary); margin-bottom: 10px;">בחר אירוע</h2>
+            <p style="text-align:center; color: #7f8c8d;">בחר את סוג האירוע שברצונך להפעיל</p>
+            
+            <div class="event-cards">
+                <div class="event-card attendance" onclick="startEvent('attendance')">
+                    <span class="material-icons-round icon">how_to_reg</span>
+                    <h3>נוכחות יומית</h3>
+                    <p>בדיקת נוכחות תלמידים בתחילת היום</p>
+                </div>
+                <div class="event-card emergency" onclick="startEvent('emergency')">
+                    <span class="material-icons-round icon">warning</span>
+                    <h3>תרגיל חירום</h3>
+                    <p>רעידת אדמה / אירוע ביטחוני</p>
                 </div>
             </div>
-        </div>
-        <div id="screen-teacher-lobby" class="screen">
-            <h2 style="margin-bottom: 20px; color: var(--primary);">בחר כיתה:</h2>
-            <div class="class-grid" id="classGrid"></div>
-        </div>
-        <div id="screen-teacher-phase1" class="screen">
-            <button class="btn-back" onclick="goBackToLobby()"><span class="material-icons-round">arrow_forward</span> חזור</button>
-            <div class="class-header-box"><h2 id="phase1Title" style="margin: 0;">כיתה</h2><div class="phase-indicator">שלב 1: קריאת שמות</div></div>
-            <p style="color: #7f8c8d; margin-bottom: 15px;">לחץ על כל תלמיד שנמצא פיזית</p>
-            <div id="phase1List"></div>
-            <button class="btn-finish" onclick="finishPhase1()"><span class="material-icons-round">check_circle</span> סיום קריאת שמות</button>
-        </div>
-        <div id="screen-teacher-phase2" class="screen">
-            <button class="btn-back" onclick="goBackToLobby()"><span class="material-icons-round">arrow_forward</span> חזור</button>
-            <div class="class-header-box"><h2 id="phase2Title" style="margin: 0;">כיתה</h2><div class="phase-indicator phase2">שלב 2: נעדרים</div></div>
-            <p style="color: #7f8c8d; margin-bottom: 15px;">עדכן סטטוס לכל נעדר:</p>
-            <div id="phase2List"></div>
-            <div id="phase2Complete" style="display:none; text-align:center; padding:40px; color:var(--success);"><span class="material-icons-round" style="font-size:60px;">celebration</span><h2>כולם אותרו!</h2></div>
-        </div>
-        <div id="screen-admin" class="screen">
-            <div class="admin-tabs">
-                <button class="admin-tab active" onclick="switchAdminTab('overview')">📊 סקירה כללית</button>
-                <button class="admin-tab" onclick="switchAdminTab('teacher')">👩‍🏫 פאנל מחנכים</button>
+
+            <div class="settings-link" onclick="document.getElementById('uploadZone').style.display='block'; this.style.display='none';">
+                ⚙️ עדכון מצבת תלמידים (Excel)
             </div>
-            <div id="admin-overview">
-                <div class="admin-actions">
-                    <button class="btn-reset" onclick="resetDrill()"><span class="material-icons-round">restart_alt</span> איפוס</button>
-                    <button class="btn-demo" onclick="generateDemo()"><span class="material-icons-round">shuffle</span> דמו</button>
-                    <button class="btn-export" onclick="exportMissing()"><span class="material-icons-round">download</span> ייצוא</button>
-                </div>
-                <div class="stats-grid">
-                    <div class="stat-box" style="border-bottom: 4px solid var(--primary);"><div class="stat-num" id="statTotal">0</div><div>סה"כ</div></div>
-                    <div class="stat-box" style="border-bottom: 4px solid var(--success);"><div class="stat-num" id="statPresent" style="color:var(--success);">0</div><div>אותרו</div></div>
-                    <div class="stat-box" style="border-bottom: 4px solid var(--danger);"><div class="stat-num" id="statMissing" style="color:var(--danger);">0</div><div>נעדרים</div></div>
-                </div>
-                <h3 style="margin-bottom: 15px; color: var(--primary);">מצב כיתות:</h3>
-                <div id="adminClassList"></div>
+            <div class="upload-zone" id="uploadZone">
+                <p style="margin-bottom:10px; color:#777;">העלה קובץ Excel</p>
+                <input type="file" id="excelFile" accept=".xlsx,.xls" onchange="handleExcelUpload(event)">
+                <button class="btn-upload" onclick="document.getElementById('excelFile').click()">📁 בחר קובץ</button>
+                <div id="uploadStatus" style="margin-top:10px; font-weight:bold;"></div>
             </div>
-            <div id="admin-teacher" style="display:none;">
-                <h3 style="margin-bottom: 15px; color: var(--primary);">בחר כיתה:</h3>
-                <div class="class-grid" id="adminClassGrid"></div>
+        </div>
+
+        <!-- מסך נוכחות יומית - בחירת כיתה -->
+        <div id="screen-attendance-lobby" class="screen">
+            <button class="btn-back" onclick="backToEvents()"><span class="material-icons-round">arrow_forward</span> חזור</button>
+            <div class="event-header">
+                <div class="event-title"><span class="material-icons-round">how_to_reg</span> נוכחות יומית</div>
+                <span class="event-badge badge-attendance">פעיל</span>
             </div>
+            <h3 style="margin-bottom:15px;">בחר כיתה:</h3>
+            <div class="class-grid" id="attendanceClassGrid"></div>
+        </div>
+
+        <!-- מסך נוכחות יומית - כיתה -->
+        <div id="screen-attendance-class" class="screen">
+            <button class="btn-back" onclick="backToAttendanceLobby()"><span class="material-icons-round">arrow_forward</span> חזור</button>
+            <div class="class-header-box">
+                <h2 id="attendanceClassTitle">כיתה</h2>
+                <span class="phase-badge phase-1">נוכחות יומית</span>
+            </div>
+            <p style="color:#7f8c8d; margin-bottom:15px;">סמן את התלמידים שהגיעו היום לבית הספר</p>
+            <div id="attendanceStudentList"></div>
+            <button class="btn-finish" onclick="finishAttendance()">
+                <span class="material-icons-round">check_circle</span> סיום נוכחות
+            </button>
+        </div>
+
+        <!-- מסך חירום - בחירת כיתה -->
+        <div id="screen-emergency-lobby" class="screen">
+            <button class="btn-back" onclick="backToEvents()"><span class="material-icons-round">arrow_forward</span> חזור</button>
+            <div class="event-header">
+                <div class="event-title"><span class="material-icons-round">warning</span> תרגיל חירום</div>
+                <span class="event-badge badge-emergency">פעיל</span>
+            </div>
+            <div class="admin-actions">
+                <button class="btn-reset" onclick="resetEmergency()"><span class="material-icons-round">restart_alt</span> איפוס</button>
+                <button class="btn-demo" onclick="generateDemo()"><span class="material-icons-round">shuffle</span> דמו</button>
+                <button class="btn-export" onclick="exportMissing()"><span class="material-icons-round">download</span> ייצוא</button>
+            </div>
+            <div class="stats-grid">
+                <div class="stat-box"><div class="stat-num" id="statTotal" style="color:var(--primary);">0</div><div>סה"כ</div></div>
+                <div class="stat-box"><div class="stat-num" id="statPresent" style="color:var(--success);">0</div><div>אותרו</div></div>
+                <div class="stat-box"><div class="stat-num" id="statMissing" style="color:var(--danger);">0</div><div>חסרים</div></div>
+            </div>
+            <h3 style="margin-bottom:15px;">מצב כיתות:</h3>
+            <div id="emergencyClassList"></div>
+        </div>
+
+        <!-- מסך חירום - כיתה -->
+        <div id="screen-emergency-class" class="screen">
+            <button class="btn-back" onclick="backToEmergencyLobby()"><span class="material-icons-round">arrow_forward</span> חזור</button>
+            <div class="class-header-box" id="emergencyClassHeader">
+                <h2 id="emergencyClassTitle">כיתה</h2>
+                <span class="phase-badge phase-1" id="emergencyPhaseBadge">שלב 1: קריאת שמות</span>
+            </div>
+            <p id="emergencyInstructions" style="color:#7f8c8d; margin-bottom:15px;">לחץ על כל תלמיד שנמצא בנקודת הכינוס</p>
+            <div id="emergencyStudentList"></div>
+            <button class="btn-finish" id="btnFinishRollCall" onclick="finishRollCall()">
+                <span class="material-icons-round">check_circle</span> סיום קריאת שמות
+            </button>
         </div>
     </div>
+
     <div class="toast" id="toast"></div>
+
 <script>
 const SURL = 'https://skfriefqnoxfzmamcokd.supabase.co';
 const SKEY = 'sb_publishable_Qx7EDPbdyYE9iv7uMQBKhQ_Aeojd_Q0';
-let currentRole = null, allStudents = {}, drillStatus = {}, classStatus = {}, activeClass = null, refreshInterval = null;
+
+let currentEvent = null; // 'attendance' | 'emergency'
+let activeClass = null;
+let allStudents = {};
+let dailyAttendance = {}; // student_id -> 'present' | 'absent'
+let emergencyStatus = {}; // student_id -> status
+let classPhase = {}; // class_name -> 'phase1_done'
+let openPanels = new Set();
+let refreshInterval = null;
 
 async function api(path, opts = {}) {
-    const r = await fetch(SURL + '/rest/v1/' + path, { ...opts, headers: { 'apikey': SKEY, 'Authorization': 'Bearer ' + SKEY, 'Content-Type': 'application/json', 'Prefer': opts.prefer || '' } });
+    const r = await fetch(SURL + '/rest/v1/' + path, { 
+        ...opts, 
+        headers: { 'apikey': SKEY, 'Authorization': 'Bearer ' + SKEY, 'Content-Type': 'application/json', 'Prefer': opts.prefer || '' } 
+    });
     if (!r.ok) throw new Error(await r.text());
-    const t = await r.text(); return t ? JSON.parse(t) : null;
+    const t = await r.text(); 
+    return t ? JSON.parse(t) : null;
 }
 
-function getColor(cls) { const c = (cls || ''); if (c.startsWith('ז')) return '#3498db'; if (c.startsWith('ח')) return '#9b59b6'; if (c.startsWith('ט')) return '#e67e22'; if (c.startsWith('יא')) return '#27ae60'; if (c.startsWith('יב')) return '#f1c40f'; if (c.startsWith('י')) return '#e74c3c'; return '#7f8c8d'; }
+function getColor(cls) { 
+    const c = (cls || ''); 
+    if (c.startsWith('ז')) return '#3498db'; 
+    if (c.startsWith('ח')) return '#9b59b6'; 
+    if (c.startsWith('ט')) return '#e67e22'; 
+    if (c.startsWith('יא')) return '#27ae60'; 
+    if (c.startsWith('יב')) return '#f1c40f'; 
+    if (c.startsWith('י')) return '#e74c3c'; 
+    return '#7f8c8d'; 
+}
+
+function showScreen(id) { 
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active')); 
+    document.getElementById(id).classList.add('active'); 
+}
 
 async function loadData() {
     try {
-        const [students, drill, clsStatus] = await Promise.all([api('students?order=class,name'), api('emergency_drill'), api('class_status')]);
-        allStudents = {}; (students || []).forEach(s => { allStudents[s.id] = { name: s.name, class: s.class, phone: s.phone }; });
-        drillStatus = {}; (drill || []).forEach(d => { drillStatus[d.student_id] = d.status; });
-        classStatus = {}; (clsStatus || []).forEach(c => { classStatus[c.class_name] = c.status; });
-        routeDataToUI();
+        const [students, daily, emergency, phases] = await Promise.all([
+            api('students?order=class,name'),
+            api('daily_attendance'),
+            api('emergency_drill'),
+            api('class_status')
+        ]);
+        allStudents = {};
+        (students || []).forEach(s => { allStudents[s.id] = { name: s.name, class: s.class, phone: s.phone }; });
+        dailyAttendance = {};
+        (daily || []).forEach(d => { dailyAttendance[d.student_id] = d.status; });
+        emergencyStatus = {};
+        (emergency || []).forEach(e => { emergencyStatus[e.student_id] = e.status; });
+        classPhase = {};
+        (phases || []).forEach(p => { classPhase[p.class_name] = p.status; });
+        
+        renderCurrentScreen();
     } catch (e) { console.error(e); }
 }
 
-function routeDataToUI() {
-    if (currentRole === 'teacher') { if (activeClass) { renderPhase1(); } else renderTeacherLobby(); }
-    else if (currentRole === 'admin') renderAdminView();
+function renderCurrentScreen() {
+    if (currentEvent === 'attendance') {
+        if (activeClass) renderAttendanceClass();
+        else renderAttendanceLobby();
+    } else if (currentEvent === 'emergency') {
+        if (activeClass) renderEmergencyClass();
+        else renderEmergencyLobby();
+    }
 }
 
-function showScreen(id) { document.querySelectorAll('.screen').forEach(s => s.classList.remove('active')); document.getElementById(id).classList.add('active'); }
-function login(role) { currentRole = role; document.getElementById('userInfo').style.display = 'flex'; document.getElementById('userName').textContent = role === 'teacher' ? '👩‍🏫 מחנך' : '⚙️ ניהול'; showScreen(role === 'teacher' ? 'screen-teacher-lobby' : 'screen-admin'); loadData(); refreshInterval = setInterval(loadData, 5000); }
-function logout() { currentRole = null; activeClass = null; if (refreshInterval) clearInterval(refreshInterval); document.getElementById('userInfo').style.display = 'none'; showScreen('screen-login'); }
-function goBackToLobby() { 
-    activeClass = null; 
-    if (currentRole === 'admin') {
-        showScreen('screen-admin');
-        renderAdminTeacherGrid();
+// ========== אירועים ==========
+function startEvent(type) {
+    currentEvent = type;
+    document.getElementById('userInfo').style.display = 'flex';
+    if (type === 'attendance') {
+        showScreen('screen-attendance-lobby');
     } else {
-        showScreen('screen-teacher-lobby'); 
-        loadData(); 
+        showScreen('screen-emergency-lobby');
     }
+    loadData();
+    refreshInterval = setInterval(loadData, 5000);
 }
 
-function renderTeacherLobby() {
-    const grid = document.getElementById('classGrid'); grid.innerHTML = '';
-    const classes = [...new Set(Object.values(allStudents).map(s => s.class).filter(Boolean))].sort((a, b) => { const order = { 'ז': 1, 'ח': 2, 'ט': 3, 'י': 4, 'יא': 5, 'יב': 6 }; const aK = a.startsWith('יא') || a.startsWith('יב') ? a.substring(0, 2) : a.charAt(0); const bK = b.startsWith('יא') || b.startsWith('יב') ? b.substring(0, 2) : b.charAt(0); return (order[aK] || 99) - (order[bK] || 99) || a.localeCompare(b); });
-    classes.forEach(cls => {
-        const students = Object.entries(allStudents).filter(([, s]) => s.class === cls);
-        const present = students.filter(([id]) => drillStatus[id] === 'present').length;
-        const handled = students.filter(([id]) => { const s = drillStatus[id]; return s && s !== 'present' && s !== 'missing'; }).length;
-        const phase = classStatus[cls];
-        let statusHtml = '', cardClass = '';
-        if (phase === 'phase1_done' && present + handled === students.length) { statusHtml = '<div class="class-status status-done">✅ הושלם</div>'; cardClass = 'completed'; }
-        else if (phase === 'phase1_done') { statusHtml = `<div class="class-status status-missing">${students.length - present - handled} נעדרים</div>`; cardClass = 'in-progress'; }
-        else { statusHtml = '<div class="class-status status-waiting">ממתין</div>'; }
-        const card = document.createElement('div'); card.className = 'class-card ' + cardClass; card.style.borderRightColor = getColor(cls);
-        card.innerHTML = `<div>${cls}</div>${statusHtml}`; card.onclick = () => { activeClass = cls; loadData(); }; grid.appendChild(card);
-    });
+function backToEvents() {
+    currentEvent = null;
+    activeClass = null;
+    if (refreshInterval) clearInterval(refreshInterval);
+    document.getElementById('userInfo').style.display = 'none';
+    showScreen('screen-events');
 }
 
-function renderPhase1() {
-    showScreen('screen-teacher-phase1'); 
-    document.getElementById('phase1Title').textContent = 'כיתה ' + activeClass;
-    const list = document.getElementById('phase1List'); 
-    list.innerHTML = '';
-    const phase = classStatus[activeClass];
-    const isPhase2 = phase === 'phase1_done';
-    
-    // עדכון כפתור סיום
-    const finishBtn = document.querySelector('#screen-teacher-phase1 .btn-finish');
-    if (isPhase2) {
-        finishBtn.style.display = 'none';
-        document.querySelector('#screen-teacher-phase1 .phase-indicator').textContent = 'שלב 2: טיפול בנעדרים';
-        document.querySelector('#screen-teacher-phase1 .phase-indicator').classList.add('phase2');
-        document.querySelector('#screen-teacher-phase1 p').textContent = 'עדכן סטטוס לכל תלמיד נעדר:';
-    } else {
-        finishBtn.style.display = 'flex';
-        document.querySelector('#screen-teacher-phase1 .phase-indicator').textContent = 'שלב 1: קריאת שמות';
-        document.querySelector('#screen-teacher-phase1 .phase-indicator').classList.remove('phase2');
-        document.querySelector('#screen-teacher-phase1 p').textContent = 'לחץ על כל תלמיד שנמצא פיזית';
-    }
-    
-    const students = Object.entries(allStudents).filter(([, s]) => s.class === activeClass).sort((a, b) => a[1].name.localeCompare(b[1].name));
-    
-    // בשלב 2 מציגים רק נעדרים
-    const displayStudents = isPhase2 ? students.filter(([id]) => drillStatus[id] !== 'present') : students;
-    
-    if (isPhase2 && displayStudents.length === 0) {
-        list.innerHTML = '<div style="text-align:center; padding:40px; color:var(--success);"><span class="material-icons-round" style="font-size:60px;">celebration</span><h2>כל התלמידים אותרו!</h2></div>';
-        return;
-    }
-    
-    displayStudents.forEach(([id, student]) => {
-        const isPresent = drillStatus[id] === 'present';
-        const status = drillStatus[id];
-        const isHandled = status && status !== 'missing' && status !== 'present';
-        const phone = student.phone && student.phone.trim() && student.phone !== '0' ? student.phone : null;
-        
-        const row = document.createElement('div');
-        
-        if (isPhase2) {
-            // שלב 2 - טיפול בנעדרים
-            row.className = 'student-row' + (isHandled ? ' missing-handled' : '');
-            row.innerHTML = `
-                <div class="student-info">
-                    <span class="student-name">${student.name}</span>
-                    ${phone ? `<a href="tel:${phone}" class="student-phone" onclick="event.stopPropagation();">📞 ${phone}</a>` : '<span style="color:#aaa;font-size:0.85rem;">אין טלפון</span>'}
-                </div>
-                <div class="missing-actions">
-                    <button class="missing-btn absent ${status === 'absent_today' ? 'active' : ''}" onclick="event.stopPropagation(); setStatus('${id}','absent_today')">🏠 לא הגיע</button>
-                    <button class="missing-btn found ${status === 'found' ? 'active' : ''}" onclick="event.stopPropagation(); setStatus('${id}','found')">✅ אותר</button>
-                    <button class="missing-btn phone ${status === 'found_phone' ? 'active' : ''}" onclick="event.stopPropagation(); setStatus('${id}','found_phone')">📞 טלפונית</button>
-                </div>`;
-        } else {
-            // שלב 1 - קריאת שמות
-            row.className = 'student-row' + (isPresent ? ' present' : '');
-            row.innerHTML = `<div class="student-info"><span class="student-name">${student.name}</span></div><button class="btn-mark ${isPresent ? 'present' : 'missing'}">${isPresent ? '✓ נוכח' : 'סמן'}</button>`;
-            row.onclick = () => togglePresent(id);
-        }
-        list.appendChild(row);
-    });
-}
+function logout() { backToEvents(); }
 
-async function togglePresent(id) {
-    try { if (drillStatus[id] === 'present') { await api(`emergency_drill?student_id=eq.${id}`, { method: 'DELETE' }); delete drillStatus[id]; } else { await api('emergency_drill', { method: 'POST', prefer: 'resolution=merge-duplicates', body: JSON.stringify({ student_id: id, status: 'present' }) }); drillStatus[id] = 'present'; } renderPhase1(); } catch (e) { toast('שגיאה', 'err'); }
-}
-
-async function finishPhase1() {
-    try { await api('class_status', { method: 'POST', prefer: 'resolution=merge-duplicates', body: JSON.stringify({ class_name: activeClass, status: 'phase1_done' }) }); classStatus[activeClass] = 'phase1_done'; toast('קריאת שמות הושלמה!', 'ok'); renderPhase2(); } catch (e) { toast('שגיאה', 'err'); }
-}
-
-function renderPhase2() {
-    showScreen('screen-teacher-phase2'); document.getElementById('phase2Title').textContent = 'כיתה ' + activeClass;
-    const list = document.getElementById('phase2List'), completeDiv = document.getElementById('phase2Complete'); list.innerHTML = '';
-    const missing = Object.entries(allStudents).filter(([id, s]) => s.class === activeClass && drillStatus[id] !== 'present').sort((a, b) => a[1].name.localeCompare(b[1].name));
-    if (missing.length === 0) { list.style.display = 'none'; completeDiv.style.display = 'block'; return; }
-    list.style.display = 'block'; completeDiv.style.display = 'none';
-    missing.forEach(([id, student]) => {
-        const status = drillStatus[id], isHandled = status && status !== 'missing';
-        const phone = student.phone && student.phone.trim() && student.phone !== '0' ? student.phone : null;
-        const row = document.createElement('div'); row.className = 'student-row' + (isHandled ? ' missing-handled' : '');
-        row.innerHTML = `<div class="student-info"><span class="student-name">${student.name}</span>${phone ? `<a href="tel:${phone}" class="student-phone" onclick="event.stopPropagation();">📞 ${phone}</a>` : ''}</div>
-            <div class="missing-actions"><button class="missing-btn found ${status === 'found' ? 'active' : ''}" onclick="setStatus('${id}','found')">✅ אותר</button><button class="missing-btn absent ${status === 'absent_today' ? 'active' : ''}" onclick="setStatus('${id}','absent_today')">🏠 לא בביה"ס</button><button class="missing-btn phone ${status === 'found_phone' ? 'active' : ''}" onclick="setStatus('${id}','found_phone')">📞 טלפונית</button></div>`;
-        list.appendChild(row);
-    });
-}
-
-async function setStatus(id, status) { try { await api('emergency_drill', { method: 'POST', prefer: 'resolution=merge-duplicates', body: JSON.stringify({ student_id: id, status: status }) }); drillStatus[id] = status; renderPhase2(); } catch (e) { toast('שגיאה', 'err'); } }
-
-let openPanels = new Set();
-
-function renderAdminView() {
-    const total = Object.keys(allStudents).length;
-    const present = Object.values(drillStatus).filter(s => s === 'present').length;
-    const handled = Object.values(drillStatus).filter(s => s && s !== 'present' && s !== 'missing').length;
-    document.getElementById('statTotal').textContent = total;
-    document.getElementById('statPresent').textContent = present + handled;
-    document.getElementById('statMissing').textContent = total - present - handled;
-    const list = document.getElementById('adminClassList'); list.innerHTML = '';
-    const classes = [...new Set(Object.values(allStudents).map(s => s.class).filter(Boolean))].sort();
-    classes.forEach(cls => {
-        const students = Object.entries(allStudents).filter(([, s]) => s.class === cls);
-        const presentCount = students.filter(([id]) => drillStatus[id] === 'present').length;
-        const handledCount = students.filter(([id]) => { const s = drillStatus[id]; return s && s !== 'present' && s !== 'missing'; }).length;
-        const missingCount = students.length - presentCount - handledCount;
-        const phase = classStatus[cls];
-        let badge = phase === 'phase1_done' && missingCount === 0 ? '<span class="class-badge badge-complete">✅ הושלם</span>' : phase === 'phase1_done' ? `<span class="class-badge badge-missing">${missingCount} נעדרים</span>` : '<span class="class-badge badge-waiting">ממתין</span>';
-        const group = document.createElement('div'); group.className = 'admin-class-group';
-        const isOpen = openPanels.has(cls);
-        group.innerHTML = `<div class="admin-class-header" style="border-right-color:${getColor(cls)};" onclick="togglePanel('${cls}', this)"><div style="font-weight:900;">${cls} <span style="font-weight:400;color:#7f8c8d;">(${presentCount + handledCount}/${students.length})</span></div>${badge}</div><div class="admin-class-body ${isOpen ? 'active' : ''}"></div>`;
-        const body = group.querySelector('.admin-class-body');
-        const missingStudents = students.filter(([id]) => drillStatus[id] !== 'present');
-        if (missingStudents.length === 0) body.innerHTML = '<p style="color:var(--success);text-align:center;padding:15px;">🎉 כולם נוכחים!</p>';
-        else missingStudents.forEach(([id, student]) => { const st = drillStatus[id]; const txt = st === 'found' ? '✅ אותר' : st === 'absent_today' ? '🏠 לא בביה"ס' : st === 'found_phone' ? '📞 טלפונית' : '❓ לא אותר'; body.innerHTML += `<div class="admin-student-row ${st && st !== 'missing' ? 'handled' : ''}"><span style="font-weight:600;">${student.name}</span><span style="font-size:0.85rem;">${txt}</span></div>`; });
-        list.appendChild(group);
-    });
-}
-
-function togglePanel(cls, el) {
-    const body = el.nextElementSibling;
-    body.classList.toggle('active');
-    if (body.classList.contains('active')) openPanels.add(cls);
-    else openPanels.delete(cls);
-}
-
-let adminTab = 'overview';
-function switchAdminTab(tab) {
-    adminTab = tab;
-    document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
-    document.querySelector(`.admin-tab:${tab === 'overview' ? 'first-child' : 'last-child'}`).classList.add('active');
-    document.getElementById('admin-overview').style.display = tab === 'overview' ? 'block' : 'none';
-    document.getElementById('admin-teacher').style.display = tab === 'teacher' ? 'block' : 'none';
-    if (tab === 'teacher') renderAdminTeacherGrid();
-}
-
-function renderAdminTeacherGrid() {
-    const grid = document.getElementById('adminClassGrid'); grid.innerHTML = '';
+// ========== נוכחות יומית ==========
+function renderAttendanceLobby() {
+    showScreen('screen-attendance-lobby');
+    const grid = document.getElementById('attendanceClassGrid');
+    grid.innerHTML = '';
     const classes = [...new Set(Object.values(allStudents).map(s => s.class).filter(Boolean))].sort((a, b) => {
         const order = { 'ז': 1, 'ח': 2, 'ט': 3, 'י': 4, 'יא': 5, 'יב': 6 };
         const aK = a.startsWith('יא') || a.startsWith('יב') ? a.substring(0, 2) : a.charAt(0);
@@ -365,51 +318,350 @@ function renderAdminTeacherGrid() {
         return (order[aK] || 99) - (order[bK] || 99) || a.localeCompare(b);
     });
     classes.forEach(cls => {
-        const students = Object.entries(allStudents).filter(([, s]) => s.class === cls);
-        const present = students.filter(([id]) => drillStatus[id] === 'present').length;
-        const handled = students.filter(([id]) => { const s = drillStatus[id]; return s && s !== 'present' && s !== 'missing'; }).length;
-        const phase = classStatus[cls];
-        let statusHtml = '', cardClass = '';
-        if (phase === 'phase1_done' && present + handled === students.length) { statusHtml = '<div class="class-status status-done">✅ הושלם</div>'; cardClass = 'completed'; }
-        else if (phase === 'phase1_done') { statusHtml = `<div class="class-status status-missing">${students.length - present - handled} נעדרים</div>`; cardClass = 'in-progress'; }
-        else { statusHtml = '<div class="class-status status-waiting">ממתין</div>'; }
-        const card = document.createElement('div'); card.className = 'class-card ' + cardClass; card.style.borderRightColor = getColor(cls);
-        card.innerHTML = `<div>${cls}</div>${statusHtml}`; 
-        card.onclick = () => { currentRole = 'teacher'; activeClass = cls; renderPhase1(); }; 
+        const students = Object.entries(allStudents).filter(([,s]) => s.class === cls);
+        const present = students.filter(([id]) => dailyAttendance[id] === 'present').length;
+        const absent = students.filter(([id]) => dailyAttendance[id] === 'absent').length;
+        const done = present + absent === students.length && students.length > 0;
+        
+        const card = document.createElement('div');
+        card.className = 'class-card' + (done ? ' completed' : (present + absent > 0 ? ' in-progress' : ''));
+        card.style.borderRightColor = getColor(cls);
+        card.innerHTML = `<div>${cls}</div><div class="class-status ${done ? 'status-done' : 'status-waiting'}">${done ? '✓ הושלם' : present + absent + '/' + students.length}</div>`;
+        card.onclick = () => { activeClass = cls; renderAttendanceClass(); };
         grid.appendChild(card);
     });
 }
 
-async function resetDrill() { if (prompt('סיסמה:') !== '1234') return; if (!confirm('למחוק הכל?')) return; await api('emergency_drill?student_id=neq.0', { method: 'DELETE' }); await api('class_status?class_name=neq.0', { method: 'DELETE' }); drillStatus = {}; classStatus = {}; toast('אופס!', 'ok'); loadData(); }
-async function generateDemo() { if (prompt('סיסמה:') !== '1234') return; await api('emergency_drill?student_id=neq.0', { method: 'DELETE' }); await api('class_status?class_name=neq.0', { method: 'DELETE' }); const updates = [], classNames = new Set(); Object.entries(allStudents).forEach(([id, s]) => { classNames.add(s.class); const r = Math.random(); if (r < 0.7) updates.push({ student_id: id, status: 'present' }); else if (r < 0.85) updates.push({ student_id: id, status: 'found' }); else if (r < 0.92) updates.push({ student_id: id, status: 'absent_today' }); else if (r < 0.96) updates.push({ student_id: id, status: 'found_phone' }); }); if (updates.length) await api('emergency_drill', { method: 'POST', body: JSON.stringify(updates) }); const clsUpdates = [...classNames].map(c => ({ class_name: c, status: 'phase1_done' })); if (clsUpdates.length) await api('class_status', { method: 'POST', body: JSON.stringify(clsUpdates) }); toast('דמו!', 'ok'); loadData(); }
-function exportMissing() { const data = [['כיתה', 'שם', 'טלפון', 'סטטוס']]; Object.entries(allStudents).forEach(([id, s]) => { if (drillStatus[id] !== 'present') { const st = drillStatus[id]; data.push([s.class, s.name, s.phone || '', st === 'found' ? 'אותר' : st === 'absent_today' ? 'לא בביה"ס' : st === 'found_phone' ? 'טלפונית' : 'לא אותר']); } }); if (data.length === 1) { alert('אין נעדרים!'); return; } const ws = XLSX.utils.aoa_to_sheet(data); const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, 'נעדרים'); XLSX.writeFile(wb, 'נעדרים.xlsx'); }
+function renderAttendanceClass() {
+    showScreen('screen-attendance-class');
+    document.getElementById('attendanceClassTitle').textContent = 'כיתה ' + activeClass;
+    const list = document.getElementById('attendanceStudentList');
+    list.innerHTML = '';
+    
+    Object.entries(allStudents)
+        .filter(([,s]) => s.class === activeClass)
+        .sort((a,b) => a[1].name.localeCompare(b[1].name))
+        .forEach(([id, student]) => {
+            const status = dailyAttendance[id];
+            const row = document.createElement('div');
+            row.className = 'student-row' + (status === 'present' ? ' present' : status === 'absent' ? ' absent' : '');
+            row.innerHTML = `
+                <div><span class="student-name">${student.name}</span></div>
+                <div style="display:flex; gap:8px;">
+                    <button class="btn-mark ${status === 'present' ? 'present' : 'neutral'}" onclick="setDailyAttendance('${id}','present')">✓ הגיע</button>
+                    <button class="btn-mark ${status === 'absent' ? 'absent' : 'neutral'}" onclick="setDailyAttendance('${id}','absent')">✗ חסר</button>
+                </div>`;
+            list.appendChild(row);
+        });
+}
 
+async function setDailyAttendance(studentId, status) {
+    try {
+        await api('daily_attendance', { 
+            method: 'POST', 
+            prefer: 'resolution=merge-duplicates', 
+            body: JSON.stringify({ student_id: studentId, status: status }) 
+        });
+        dailyAttendance[studentId] = status;
+        renderAttendanceClass();
+    } catch (e) { toast('שגיאה', 'err'); }
+}
+
+async function finishAttendance() {
+    toast('נוכחות נשמרה!', 'ok');
+    activeClass = null;
+    renderAttendanceLobby();
+}
+
+function backToAttendanceLobby() {
+    activeClass = null;
+    renderAttendanceLobby();
+}
+
+// ========== חירום ==========
+function renderEmergencyLobby() {
+    showScreen('screen-emergency-lobby');
+    
+    // סטטיסטיקות
+    const total = Object.keys(allStudents).length;
+    const present = Object.values(emergencyStatus).filter(s => s === 'present').length;
+    const handled = Object.values(emergencyStatus).filter(s => s && s !== 'present' && s !== 'missing').length;
+    document.getElementById('statTotal').textContent = total;
+    document.getElementById('statPresent').textContent = present + handled;
+    document.getElementById('statMissing').textContent = total - present - handled;
+    
+    // רשימת כיתות
+    const list = document.getElementById('emergencyClassList');
+    list.innerHTML = '';
+    const classes = [...new Set(Object.values(allStudents).map(s => s.class).filter(Boolean))].sort();
+    
+    classes.forEach(cls => {
+        const students = Object.entries(allStudents).filter(([,s]) => s.class === cls);
+        const presentCount = students.filter(([id]) => emergencyStatus[id] === 'present').length;
+        const handledCount = students.filter(([id]) => { const s = emergencyStatus[id]; return s && s !== 'present' && s !== 'missing'; }).length;
+        const missingCount = students.length - presentCount - handledCount;
+        const phase = classPhase[cls];
+        
+        let badge = '';
+        if (phase === 'phase1_done' && missingCount === 0) badge = '<span class="panel-badge" style="background:#27ae60;color:white;">✓ הושלם</span>';
+        else if (phase === 'phase1_done') badge = `<span class="panel-badge" style="background:#e74c3c;color:white;">${missingCount} חסרים</span>`;
+        else badge = '<span class="panel-badge" style="background:#f0f3f4;color:#7f8c8d;">ממתין</span>';
+        
+        const isOpen = openPanels.has(cls);
+        const group = document.createElement('div');
+        group.className = 'panel-group';
+        group.innerHTML = `
+            <div class="panel-header" style="border-right-color:${getColor(cls)};" onclick="toggleEmergencyPanel('${cls}', this)">
+                <div style="font-weight:900;">${cls} <span style="font-weight:400;color:#7f8c8d;">(${presentCount + handledCount}/${students.length})</span></div>
+                ${badge}
+            </div>
+            <div class="panel-body ${isOpen ? 'active' : ''}"></div>`;
+        
+        const body = group.querySelector('.panel-body');
+        const missing = students.filter(([id]) => emergencyStatus[id] !== 'present');
+        if (missing.length === 0) {
+            body.innerHTML = '<p style="color:var(--success);text-align:center;padding:15px;">🎉 כולם נוכחים!</p>';
+        } else {
+            missing.forEach(([id, student]) => {
+                const st = emergencyStatus[id];
+                const txt = st === 'found' ? '✓ אותר' : st === 'absent_today' ? '🏠 לא הגיע' : st === 'found_phone' ? '📞 טלפונית' : '❓ לא אותר';
+                body.innerHTML += `<div class="student-row ${st && st !== 'missing' ? 'handled' : ''}" style="padding:10px 15px;"><span style="font-weight:600;">${student.name}</span><span style="font-size:0.85rem;">${txt}</span></div>`;
+            });
+        }
+        
+        // כפתור כניסה לכיתה
+        body.innerHTML += `<button style="width:100%;margin-top:10px;padding:12px;background:var(--info);color:white;border:none;border-radius:8px;font-weight:bold;cursor:pointer;" onclick="enterEmergencyClass('${cls}')">📋 כניסה לכיתה</button>`;
+        
+        list.appendChild(group);
+    });
+}
+
+function toggleEmergencyPanel(cls, el) {
+    const body = el.nextElementSibling;
+    body.classList.toggle('active');
+    if (body.classList.contains('active')) openPanels.add(cls);
+    else openPanels.delete(cls);
+}
+
+function enterEmergencyClass(cls) {
+    activeClass = cls;
+    renderEmergencyClass();
+}
+
+function renderEmergencyClass() {
+    showScreen('screen-emergency-class');
+    document.getElementById('emergencyClassTitle').textContent = 'כיתה ' + activeClass;
+    
+    const phase = classPhase[activeClass];
+    const isPhase2 = phase === 'phase1_done';
+    
+    const badge = document.getElementById('emergencyPhaseBadge');
+    const instructions = document.getElementById('emergencyInstructions');
+    const finishBtn = document.getElementById('btnFinishRollCall');
+    
+    if (isPhase2) {
+        badge.textContent = 'שלב 2: טיפול בנעדרים';
+        badge.className = 'phase-badge phase-2';
+        instructions.textContent = 'עדכן סטטוס לכל תלמיד נעדר:';
+        finishBtn.style.display = 'none';
+    } else {
+        badge.textContent = 'שלב 1: קריאת שמות';
+        badge.className = 'phase-badge phase-1';
+        instructions.textContent = 'לחץ על כל תלמיד שנמצא בנקודת הכינוס';
+        finishBtn.style.display = 'flex';
+    }
+    
+    const list = document.getElementById('emergencyStudentList');
+    list.innerHTML = '';
+    
+    let students = Object.entries(allStudents).filter(([,s]) => s.class === activeClass).sort((a,b) => a[1].name.localeCompare(b[1].name));
+    
+    // בשלב 2 - רק נעדרים
+    if (isPhase2) {
+        students = students.filter(([id]) => emergencyStatus[id] !== 'present');
+        if (students.length === 0) {
+            list.innerHTML = '<div style="text-align:center;padding:40px;color:var(--success);"><span class="material-icons-round" style="font-size:60px;">celebration</span><h2>כל התלמידים אותרו!</h2></div>';
+            return;
+        }
+    }
+    
+    students.forEach(([id, student]) => {
+        const status = emergencyStatus[id];
+        const phone = student.phone && student.phone.trim() && student.phone !== '0' ? student.phone : null;
+        const row = document.createElement('div');
+        
+        if (isPhase2) {
+            const isHandled = status && status !== 'missing';
+            row.className = 'student-row' + (isHandled ? ' handled' : '');
+            row.innerHTML = `
+                <div>
+                    <div class="student-name">${student.name}</div>
+                    ${phone ? `<a href="tel:${phone}" class="student-phone" onclick="event.stopPropagation();">📞 ${phone}</a>` : '<span style="color:#aaa;font-size:0.8rem;">אין טלפון</span>'}
+                </div>
+                <div class="missing-actions">
+                    <button class="missing-btn absent ${status === 'absent_today' ? 'active' : ''}" onclick="setEmergencyStatus('${id}','absent_today')">🏠 לא הגיע</button>
+                    <button class="missing-btn found ${status === 'found' ? 'active' : ''}" onclick="setEmergencyStatus('${id}','found')">✓ אותר</button>
+                    <button class="missing-btn phone ${status === 'found_phone' ? 'active' : ''}" onclick="setEmergencyStatus('${id}','found_phone')">📞 טלפונית</button>
+                </div>`;
+        } else {
+            const isPresent = status === 'present';
+            row.className = 'student-row' + (isPresent ? ' present' : '');
+            row.innerHTML = `
+                <div class="student-name">${student.name}</div>
+                <button class="btn-mark ${isPresent ? 'present' : 'neutral'}">${isPresent ? '✓ נוכח' : 'סמן'}</button>`;
+            row.onclick = () => toggleEmergencyPresent(id);
+        }
+        list.appendChild(row);
+    });
+}
+
+async function toggleEmergencyPresent(id) {
+    try {
+        if (emergencyStatus[id] === 'present') {
+            await api(`emergency_drill?student_id=eq.${id}`, { method: 'DELETE' });
+            delete emergencyStatus[id];
+        } else {
+            await api('emergency_drill', { method: 'POST', prefer: 'resolution=merge-duplicates', body: JSON.stringify({ student_id: id, status: 'present' }) });
+            emergencyStatus[id] = 'present';
+        }
+        renderEmergencyClass();
+    } catch (e) { toast('שגיאה', 'err'); }
+}
+
+async function setEmergencyStatus(id, status) {
+    try {
+        await api('emergency_drill', { method: 'POST', prefer: 'resolution=merge-duplicates', body: JSON.stringify({ student_id: id, status: status }) });
+        emergencyStatus[id] = status;
+        renderEmergencyClass();
+    } catch (e) { toast('שגיאה', 'err'); }
+}
+
+async function finishRollCall() {
+    try {
+        // שאיבת נוכחות יומית - מי שלא הגיע היום, מסומן אוטומטית
+        const classStudents = Object.entries(allStudents).filter(([,s]) => s.class === activeClass);
+        for (const [id] of classStudents) {
+            if (dailyAttendance[id] === 'absent' && !emergencyStatus[id]) {
+                await api('emergency_drill', { method: 'POST', prefer: 'resolution=merge-duplicates', body: JSON.stringify({ student_id: id, status: 'absent_today' }) });
+                emergencyStatus[id] = 'absent_today';
+            }
+        }
+        
+        await api('class_status', { method: 'POST', prefer: 'resolution=merge-duplicates', body: JSON.stringify({ class_name: activeClass, status: 'phase1_done' }) });
+        classPhase[activeClass] = 'phase1_done';
+        toast('קריאת שמות הושלמה!', 'ok');
+        renderEmergencyClass();
+    } catch (e) { toast('שגיאה', 'err'); }
+}
+
+function backToEmergencyLobby() {
+    activeClass = null;
+    renderEmergencyLobby();
+}
+
+// ========== פעולות אדמין ==========
+async function resetEmergency() {
+    if (prompt('סיסמה:') !== '1234') return;
+    if (!confirm('למחוק את כל נתוני החירום?')) return;
+    await api('emergency_drill?student_id=neq.0', { method: 'DELETE' });
+    await api('class_status?class_name=neq.0', { method: 'DELETE' });
+    emergencyStatus = {};
+    classPhase = {};
+    toast('אופס!', 'ok');
+    renderEmergencyLobby();
+}
+
+async function generateDemo() {
+    if (prompt('סיסמה:') !== '1234') return;
+    await api('emergency_drill?student_id=neq.0', { method: 'DELETE' });
+    await api('class_status?class_name=neq.0', { method: 'DELETE' });
+    const updates = [], classNames = new Set();
+    Object.entries(allStudents).forEach(([id, s]) => {
+        classNames.add(s.class);
+        const r = Math.random();
+        if (r < 0.7) updates.push({ student_id: id, status: 'present' });
+        else if (r < 0.85) updates.push({ student_id: id, status: 'found' });
+        else if (r < 0.92) updates.push({ student_id: id, status: 'absent_today' });
+        else if (r < 0.96) updates.push({ student_id: id, status: 'found_phone' });
+    });
+    if (updates.length) await api('emergency_drill', { method: 'POST', body: JSON.stringify(updates) });
+    const clsUpdates = [...classNames].map(c => ({ class_name: c, status: 'phase1_done' }));
+    if (clsUpdates.length) await api('class_status', { method: 'POST', body: JSON.stringify(clsUpdates) });
+    await loadData();
+    toast('דמו נוצר!', 'ok');
+}
+
+function exportMissing() {
+    const data = [['כיתה', 'שם', 'טלפון', 'סטטוס']];
+    Object.entries(allStudents).forEach(([id, s]) => {
+        if (emergencyStatus[id] !== 'present') {
+            const st = emergencyStatus[id];
+            data.push([s.class, s.name, s.phone || '', st === 'found' ? 'אותר' : st === 'absent_today' ? 'לא הגיע' : st === 'found_phone' ? 'טלפונית' : 'לא אותר']);
+        }
+    });
+    if (data.length === 1) { alert('אין נעדרים!'); return; }
+    const ws = XLSX.utils.aoa_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'נעדרים');
+    XLSX.writeFile(wb, 'נעדרים.xlsx');
+}
+
+// ========== העלאת אקסל ==========
 function handleExcelUpload(event) {
-    const file = event.target.files[0]; if (!file) return;
-    const statusDiv = document.getElementById('uploadStatus'); statusDiv.textContent = '⏳ טוען...';
+    const file = event.target.files[0];
+    if (!file) return;
+    const statusDiv = document.getElementById('uploadStatus');
+    statusDiv.textContent = '⏳ טוען...';
     const reader = new FileReader();
     reader.onload = async (e) => {
         try {
             const data = new Uint8Array(e.target.result);
             const wb = XLSX.read(data, { type: 'array' });
             const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1 });
-            let headerRow = 2; // שורת הכותרות היא שורה 3 (אינדקס 2)
-            let cols = { id: 1, firstName: 3, lastName: 2, name: -1, shihva: 4, classNum: 5, phone: 19 }; // עמודות קבועות
-            console.log('Columns found:', cols);
-            console.log('Header row:', headerRow);
+            
+            // עמודות קבועות
+            let headerRow = 2;
+            let cols = { id: 1, firstName: 3, lastName: 2, shihva: 4, classNum: 5, phone: 19 };
+            
             const students = [];
-            for (let i = headerRow + 1; i < rows.length; i++) { const row = rows[i]; if (!row || !row[cols.id]) continue; let fullName = cols.lastName !== -1 && cols.firstName !== -1 ? (String(row[cols.lastName] || '') + ' ' + String(row[cols.firstName] || '')).trim() : String(row[cols.name] || '').trim(); if (!fullName) continue; const cls = ((cols.shihva !== -1 ? String(row[cols.shihva] || '') : '') + ' ' + (cols.classNum !== -1 ? String(row[cols.classNum] || '') : '')).trim() || 'ללא'; let phone = cols.phone !== -1 ? String(row[cols.phone] || '').replace(/[-\s()]/g, '') : ''; if (phone.startsWith('+972')) phone = '0' + phone.substring(4); students.push({ id: String(row[cols.id]).trim(), name: fullName, class: cls, phone: phone }); }
-            const unique = {}; students.forEach(s => { unique[s.id] = s; }); const final = Object.values(unique);
+            for (let i = headerRow + 1; i < rows.length; i++) {
+                const row = rows[i];
+                if (!row || !row[cols.id]) continue;
+                const fullName = (String(row[cols.lastName] || '') + ' ' + String(row[cols.firstName] || '')).trim();
+                if (!fullName) continue;
+                const cls = (String(row[cols.shihva] || '') + ' ' + String(row[cols.classNum] || '')).trim() || 'ללא';
+                let phone = String(row[cols.phone] || '').replace(/[-\s()]/g, '');
+                if (phone.startsWith('+972')) phone = '0' + phone.substring(4);
+                students.push({ id: String(row[cols.id]).trim(), name: fullName, class: cls, phone: phone });
+            }
+            
+            const unique = {};
+            students.forEach(s => { unique[s.id] = s; });
+            const final = Object.values(unique);
+            
             statusDiv.textContent = '⏳ שומר ' + final.length + '...';
-            await api('emergency_drill?student_id=neq.0', { method: 'DELETE' }); await api('class_status?class_name=neq.0', { method: 'DELETE' }); await api('students?id=neq.0', { method: 'DELETE' });
-            for (let i = 0; i < final.length; i += 50) { await api('students', { method: 'POST', prefer: 'resolution=merge-duplicates', body: JSON.stringify(final.slice(i, i + 50)) }); }
+            await api('emergency_drill?student_id=neq.0', { method: 'DELETE' });
+            await api('daily_attendance?student_id=neq.0', { method: 'DELETE' });
+            await api('class_status?class_name=neq.0', { method: 'DELETE' });
+            await api('students?id=neq.0', { method: 'DELETE' });
+            
+            for (let i = 0; i < final.length; i += 50) {
+                await api('students', { method: 'POST', prefer: 'resolution=merge-duplicates', body: JSON.stringify(final.slice(i, i + 50)) });
+            }
             statusDiv.textContent = '✅ ' + final.length + ' תלמידים!';
-        } catch (err) { statusDiv.textContent = '❌ ' + err.message; }
+        } catch (err) {
+            statusDiv.textContent = '❌ ' + err.message;
+        }
     };
     reader.readAsArrayBuffer(file);
 }
 
-function toast(msg, type) { const t = document.getElementById('toast'); t.textContent = msg; t.className = 'toast show ' + (type || ''); setTimeout(() => t.className = 'toast', 3000); }
+function toast(msg, type) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = 'toast show ' + (type || '');
+    setTimeout(() => t.className = 'toast', 3000);
+}
 </script>
 </body>
 </html>
