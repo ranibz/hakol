@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>מערכת חירום - בית חינוך גליל מערבי</title>
-    <!-- VERSION 11 -->
+    <!-- VERSION 12 -->
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700;900&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -119,7 +119,7 @@
     <div class="header">
         <div style="text-align:center;">
             <h1>🚨 מערכת חירום - גליל מערבי</h1>
-            <span class="header-credit">פיתוח - רני בן זאב | v11</span>
+            <span class="header-credit">פיתוח - רני בן זאב | v12</span>
         </div>
         <div id="userInfo" style="display:none;">
             <button class="btn-logout" onclick="logout()">יציאה</button>
@@ -181,9 +181,42 @@
             </button>
         </div>
 
-        <!-- מסך חירום - בחירת כיתה -->
-        <div id="screen-emergency-lobby" class="screen">
+        <!-- מסך חירום - בחירת תפקיד -->
+        <div id="screen-emergency-role" class="screen">
             <button class="btn-back" onclick="backToEvents()"><span class="material-icons-round">arrow_forward</span> חזור</button>
+            <div class="event-header">
+                <div class="event-title"><span class="material-icons-round">warning</span> תרגיל חירום</div>
+                <span class="event-badge badge-emergency">פעיל</span>
+            </div>
+            <h2 style="text-align:center; margin: 40px 0 20px;">בחר את תפקידך:</h2>
+            <div class="event-cards">
+                <div class="event-card attendance" onclick="enterEmergencyAs('teacher')" style="border-right-color: #3498db;">
+                    <span class="material-icons-round icon" style="color:#3498db;">school</span>
+                    <h3>מחנך/ת</h3>
+                    <p>קריאת שמות בנקודת הכינוס</p>
+                </div>
+                <div class="event-card emergency" onclick="enterEmergencyAs('admin')" style="border-right-color: #9b59b6;">
+                    <span class="material-icons-round icon" style="color:#9b59b6;">admin_panel_settings</span>
+                    <h3>מנהל/ת</h3>
+                    <p>צפייה במצב כל הכיתות</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- מסך חירום - לובי מחנך -->
+        <div id="screen-emergency-teacher-lobby" class="screen">
+            <button class="btn-back" onclick="backToEmergencyRole()"><span class="material-icons-round">arrow_forward</span> חזור</button>
+            <div class="event-header">
+                <div class="event-title"><span class="material-icons-round">school</span> תרגיל חירום - מחנך</div>
+                <span class="event-badge badge-emergency">פעיל</span>
+            </div>
+            <h3 style="margin-bottom:15px;">בחר כיתה:</h3>
+            <div class="class-grid" id="emergencyTeacherClassGrid"></div>
+        </div>
+
+        <!-- מסך חירום - לובי מנהל -->
+        <div id="screen-emergency-lobby" class="screen">
+            <button class="btn-back" onclick="backToEmergencyRole()"><span class="material-icons-round">arrow_forward</span> חזור</button>
             <div class="event-header">
                 <div class="event-title"><span class="material-icons-round">warning</span> תרגיל חירום</div>
                 <span class="event-badge badge-emergency">פעיל</span>
@@ -285,26 +318,50 @@ function renderCurrentScreen() {
         else renderAttendanceLobby();
     } else if (currentEvent === 'emergency') {
         if (activeClass) renderEmergencyClass();
-        else renderEmergencyLobby();
+        else if (emergencyRole === 'teacher') renderEmergencyTeacherLobby();
+        else if (emergencyRole === 'admin') renderEmergencyLobby();
     }
 }
 
 // ========== אירועים ==========
+let emergencyRole = null; // 'teacher' | 'admin'
+
 function startEvent(type) {
     currentEvent = type;
     document.getElementById('userInfo').style.display = 'flex';
     if (type === 'attendance') {
         showScreen('screen-attendance-lobby');
+        loadData();
+        refreshInterval = setInterval(loadData, 5000);
+    } else {
+        showScreen('screen-emergency-role');
+        loadData();
+    }
+}
+
+function enterEmergencyAs(role) {
+    emergencyRole = role;
+    if (role === 'teacher') {
+        showScreen('screen-emergency-teacher-lobby');
+        renderEmergencyTeacherLobby();
     } else {
         showScreen('screen-emergency-lobby');
+        renderEmergencyLobby();
     }
-    loadData();
     refreshInterval = setInterval(loadData, 5000);
+}
+
+function backToEmergencyRole() {
+    activeClass = null;
+    emergencyRole = null;
+    if (refreshInterval) clearInterval(refreshInterval);
+    showScreen('screen-emergency-role');
 }
 
 function backToEvents() {
     currentEvent = null;
     activeClass = null;
+    emergencyRole = null;
     if (refreshInterval) clearInterval(refreshInterval);
     document.getElementById('userInfo').style.display = 'none';
     showScreen('screen-events');
@@ -382,6 +439,40 @@ function backToAttendanceLobby() {
 }
 
 // ========== חירום ==========
+
+// לובי מחנך - בחירת כיתה
+function renderEmergencyTeacherLobby() {
+    showScreen('screen-emergency-teacher-lobby');
+    const grid = document.getElementById('emergencyTeacherClassGrid');
+    grid.innerHTML = '';
+    const classes = [...new Set(Object.values(allStudents).map(s => s.class).filter(Boolean))].sort((a, b) => {
+        const order = { 'ז': 1, 'ח': 2, 'ט': 3, 'י': 4, 'יא': 5, 'יב': 6 };
+        const aK = a.startsWith('יא') || a.startsWith('יב') ? a.substring(0, 2) : a.charAt(0);
+        const bK = b.startsWith('יא') || b.startsWith('יב') ? b.substring(0, 2) : b.charAt(0);
+        return (order[aK] || 99) - (order[bK] || 99) || a.localeCompare(b);
+    });
+    classes.forEach(cls => {
+        const students = Object.entries(allStudents).filter(([,s]) => s.class === cls);
+        const present = students.filter(([id]) => emergencyStatus[id] === 'present').length;
+        const handled = students.filter(([id]) => { const s = emergencyStatus[id]; return s && s !== 'present' && s !== 'missing'; }).length;
+        const phase = classPhase[cls];
+        const done = phase === 'phase1_done' && present + handled === students.length;
+        
+        const card = document.createElement('div');
+        card.className = 'class-card' + (done ? ' completed' : (phase === 'phase1_done' ? ' in-progress' : ''));
+        card.style.borderRightColor = getColor(cls);
+        card.innerHTML = `<div>${cls}</div><div class="class-status ${done ? 'status-done' : phase === 'phase1_done' ? 'status-partial' : 'status-waiting'}">${done ? '✓' : phase === 'phase1_done' ? (students.length - present - handled) + ' חסרים' : 'ממתין'}</div>`;
+        card.onclick = () => enterEmergencyClass(cls);
+        grid.appendChild(card);
+    });
+}
+
+function backToEmergencyTeacherLobby() {
+    activeClass = null;
+    renderEmergencyTeacherLobby();
+}
+
+// לובי מנהל - סטטיסטיקות ופירוט
 function renderEmergencyLobby() {
     showScreen('screen-emergency-lobby');
     
@@ -446,8 +537,21 @@ function toggleEmergencyPanel(cls, el) {
     else openPanels.delete(cls);
 }
 
-function enterEmergencyClass(cls) {
+async function enterEmergencyClass(cls) {
     activeClass = cls;
+    
+    // סימון אוטומטי של תלמידים שחסרו בנוכחות הבוקר
+    const classStudents = Object.entries(allStudents).filter(([,s]) => s.class === cls);
+    for (const [id] of classStudents) {
+        // אם התלמיד חסר בבוקר ועדיין לא מסומן בחירום
+        if (dailyAttendance[id] === 'absent' && !emergencyStatus[id]) {
+            try {
+                await api('emergency_drill', { method: 'POST', prefer: 'resolution=merge-duplicates', body: JSON.stringify({ student_id: id, status: 'absent_today' }) });
+                emergencyStatus[id] = 'absent_today';
+            } catch (e) { console.error(e); }
+        }
+    }
+    
     renderEmergencyClass();
 }
 
@@ -557,7 +661,8 @@ async function finishRollCall() {
 
 function backToEmergencyLobby() {
     activeClass = null;
-    renderEmergencyLobby();
+    if (emergencyRole === 'teacher') renderEmergencyTeacherLobby();
+    else renderEmergencyLobby();
 }
 
 // ========== פעולות אדמין ==========
