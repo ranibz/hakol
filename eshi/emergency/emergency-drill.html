@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>מערכת חירום - בית חינוך גליל מערבי</title>
-    <!-- VERSION 8 -->
+    <!-- VERSION 9 -->
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700;900&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -92,7 +92,7 @@
     <div class="header">
         <div class="header-titles">
             <h1>🚨 חירום - בית חינוך גליל מערבי</h1>
-            <span class="header-credit">פיתוח - רני בן זאב | v8</span>
+            <span class="header-credit">פיתוח - רני בן זאב | v9</span>
         </div>
         <div id="userInfo" style="display:none;">
             <span id="userName"></span>
@@ -393,26 +393,10 @@ function handleExcelUpload(event) {
             const data = new Uint8Array(e.target.result);
             const wb = XLSX.read(data, { type: 'array' });
             const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1 });
-            let headerRow = -1, cols = { id: -1, firstName: -1, lastName: -1, name: -1, shihva: -1, classNum: -1, phone: -1 };
-            for (let i = 0; i < Math.min(rows.length, 15); i++) { 
-                const row = rows[i]; if (!row) continue; 
-                // סרוק את כל העמודות בשורה
-                for (let j = 0; j < row.length; j++) { 
-                    const cell = String(row[j] || '').replace(/\s+/g, '').toLowerCase(); 
-                    if (cols.id === -1 && (cell === 'ת.ז' || cell === 'תז')) cols.id = j;
-                    if (cols.lastName === -1 && cell === 'שםמשפחה') cols.lastName = j;
-                    if (cols.firstName === -1 && cell === 'שםפרטי') cols.firstName = j; 
-                    if (cols.name === -1 && cell === 'שםהתלמיד') cols.name = j;
-                    if (cols.shihva === -1 && cell === 'שכבה') cols.shihva = j; 
-                    if (cols.classNum === -1 && (cell === 'מקבילה' || cell === 'כיתה')) cols.classNum = j; 
-                    if (cols.phone === -1 && (cell.includes('טלפון') || cell.includes('נייד') || cell.includes('סלולרי') || cell.includes('סלולארי'))) cols.phone = j; 
-                } 
-                // בדוק אם מצאנו מספיק עמודות
-                if (cols.id !== -1 && (cols.name !== -1 || (cols.firstName !== -1 && cols.lastName !== -1))) { headerRow = i; break; } 
-            }
+            let headerRow = 2; // שורת הכותרות היא שורה 3 (אינדקס 2)
+            let cols = { id: 1, firstName: 3, lastName: 2, name: -1, shihva: 4, classNum: 5, phone: 19 }; // עמודות קבועות
             console.log('Columns found:', cols);
             console.log('Header row:', headerRow);
-            if (headerRow === -1) { statusDiv.textContent = '❌ לא נמצאו עמודות'; return; }
             const students = [];
             for (let i = headerRow + 1; i < rows.length; i++) { const row = rows[i]; if (!row || !row[cols.id]) continue; let fullName = cols.lastName !== -1 && cols.firstName !== -1 ? (String(row[cols.lastName] || '') + ' ' + String(row[cols.firstName] || '')).trim() : String(row[cols.name] || '').trim(); if (!fullName) continue; const cls = ((cols.shihva !== -1 ? String(row[cols.shihva] || '') : '') + ' ' + (cols.classNum !== -1 ? String(row[cols.classNum] || '') : '')).trim() || 'ללא'; let phone = cols.phone !== -1 ? String(row[cols.phone] || '').replace(/[-\s()]/g, '') : ''; if (phone.startsWith('+972')) phone = '0' + phone.substring(4); students.push({ id: String(row[cols.id]).trim(), name: fullName, class: cls, phone: phone }); }
             const unique = {}; students.forEach(s => { unique[s.id] = s; }); const final = Object.values(unique);
