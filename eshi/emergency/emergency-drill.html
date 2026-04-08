@@ -393,7 +393,21 @@ function handleExcelUpload(event) {
             const wb = XLSX.read(data, { type: 'array' });
             const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1 });
             let headerRow = -1, cols = { id: -1, firstName: -1, lastName: -1, name: -1, shihva: -1, classNum: -1, phone: -1 };
-            for (let i = 0; i < Math.min(rows.length, 15); i++) { const row = rows[i]; if (!row) continue; for (let j = 0; j < row.length; j++) { const cell = String(row[j] || '').replace(/\s+/g, '').toLowerCase(); if (cols.id === -1 && (cell === 'ת.ז' || cell === 'תז')) cols.id = j; else if (cols.lastName === -1 && cell === 'שםמשפחה') cols.lastName = j; else if (cols.firstName === -1 && cell === 'שםפרטי') cols.firstName = j; else if (cols.name === -1 && cell === 'שםהתלמיד') cols.name = j; else if (cols.shihva === -1 && cell === 'שכבה') cols.shihva = j; else if (cols.classNum === -1 && (cell === 'מקבילה' || cell === 'כיתה')) cols.classNum = j; else if (cols.phone === -1 && (cell.includes('טלפון') || cell.includes('נייד') || cell.includes('סלולרי') || cell.includes('סלולארי'))) cols.phone = j; } if (cols.id !== -1 && (cols.name !== -1 || (cols.firstName !== -1 && cols.lastName !== -1))) { headerRow = i; break; } }
+            for (let i = 0; i < Math.min(rows.length, 15); i++) { 
+                const row = rows[i]; if (!row) continue; 
+                let foundId = false, foundName = false;
+                for (let j = 0; j < row.length; j++) { 
+                    const cell = String(row[j] || '').replace(/\s+/g, '').toLowerCase(); 
+                    if (cols.id === -1 && (cell === 'ת.ז' || cell === 'תז')) { cols.id = j; foundId = true; }
+                    else if (cols.lastName === -1 && cell === 'שםמשפחה') { cols.lastName = j; foundName = true; }
+                    else if (cols.firstName === -1 && cell === 'שםפרטי') cols.firstName = j; 
+                    else if (cols.name === -1 && cell === 'שםהתלמיד') { cols.name = j; foundName = true; }
+                    else if (cols.shihva === -1 && cell === 'שכבה') cols.shihva = j; 
+                    else if (cols.classNum === -1 && (cell === 'מקבילה' || cell === 'כיתה')) cols.classNum = j; 
+                    else if (cols.phone === -1 && (cell.includes('טלפון') || cell.includes('נייד') || cell.includes('סלולרי') || cell.includes('סלולארי'))) cols.phone = j; 
+                } 
+                if (foundId && (foundName || (cols.firstName !== -1 && cols.lastName !== -1))) { headerRow = i; break; } 
+            }
             if (headerRow === -1) { statusDiv.textContent = '❌ לא נמצאו עמודות'; return; }
             const students = [];
             for (let i = headerRow + 1; i < rows.length; i++) { const row = rows[i]; if (!row || !row[cols.id]) continue; let fullName = cols.lastName !== -1 && cols.firstName !== -1 ? (String(row[cols.lastName] || '') + ' ' + String(row[cols.firstName] || '')).trim() : String(row[cols.name] || '').trim(); if (!fullName) continue; const cls = ((cols.shihva !== -1 ? String(row[cols.shihva] || '') : '') + ' ' + (cols.classNum !== -1 ? String(row[cols.classNum] || '') : '')).trim() || 'ללא'; let phone = cols.phone !== -1 ? String(row[cols.phone] || '').replace(/[-\s()]/g, '') : ''; if (phone.startsWith('+972')) phone = '0' + phone.substring(4); students.push({ id: String(row[cols.id]).trim(), name: fullName, class: cls, phone: phone }); }
