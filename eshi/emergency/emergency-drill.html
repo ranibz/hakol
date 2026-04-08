@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>מערכת חירום - בית חינוך גליל מערבי</title>
-    <!-- VERSION 22 -->
+    <!-- VERSION 23 -->
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700;900&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -132,6 +132,7 @@
         .btn-reset { background: var(--danger); }
         .btn-demo { background: #e67e22; }
         .btn-export { background: var(--info); }
+        .btn-archive { background: #9b59b6; }
 
         /* העלאת אקסל */
         .settings-link { display: inline-block; margin-top: 30px; color: #7f8c8d; text-decoration: underline; cursor: pointer; font-size: 0.9rem; }
@@ -154,7 +155,7 @@
     <div class="header">
         <div style="text-align:center;">
             <h1>🚨 מערכת חירום - גליל מערבי</h1>
-            <span class="header-credit">פיתוח - רני בן זאב | v22</span>
+            <span class="header-credit">פיתוח - רני בן זאב | v23</span>
         </div>
         <div id="userInfo" style="display:none;">
             <button class="btn-logout" onclick="logout()">יציאה</button>
@@ -309,6 +310,7 @@
                 <button class="btn-reset" onclick="resetEmergency()"><span class="material-icons-round">restart_alt</span> איפוס</button>
                 <button class="btn-demo" onclick="generateDemo()"><span class="material-icons-round">shuffle</span> דמו</button>
                 <button class="btn-export" onclick="exportMissing()"><span class="material-icons-round">download</span> ייצוא</button>
+                <button class="btn-archive" onclick="archiveEvent()"><span class="material-icons-round">archive</span> סיום וארכיון</button>
             </div>
             <div class="stats-grid">
                 <div class="stat-box"><div class="stat-num" id="statTotal" style="color:var(--primary);">0</div><div>סה"כ</div></div>
@@ -858,6 +860,84 @@ function exportMissing() {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'נעדרים');
     XLSX.writeFile(wb, 'נעדרים.xlsx');
+}
+
+async function archiveEvent() {
+    if (prompt('סיסמה לסיום האירוע:') !== '1234') return;
+    if (!confirm('לשמור את הנתונים בארכיון ולאפס את המערכת?')) return;
+    
+    try {
+        toast('שומר בארכיון...', 'ok');
+        
+        // חישוב סטטיסטיקות
+        const total = Object.keys(allStudents).length;
+        let present = 0, absent = 0, missing = 0, found = 0, foundPhone = 0, absentToday = 0, leftSchool = 0;
+        
+        const details = { classes: {}, students: [] };
+        
+        Object.entries(allStudents).forEach(([id, s]) => {
+            const status = emergencyStatus[id] || 'missing';
+            
+            if (status === 'present') present++;
+            else if (status === 'found') found++;
+            else if (status === 'found_phone') foundPhone++;
+            else if (status === 'absent_today') absentToday++;
+            else if (status === 'left_school') leftSchool++;
+            else missing++;
+            
+            // שמירת פרטי תלמיד
+            details.students.push({
+                id: id,
+                name: s.name,
+                class: s.class,
+                status: status
+            });
+            
+            // סיכום לפי כיתה
+            if (!details.classes[s.class]) {
+                details.classes[s.class] = { total: 0, present: 0, found: 0, missing: 0 };
+            }
+            details.classes[s.class].total++;
+            if (status === 'present' || status === 'found' || status === 'found_phone') {
+                details.classes[s.class].present++;
+            } else if (status === 'absent_today' || status === 'left_school') {
+                details.classes[s.class].found++;
+            } else {
+                details.classes[s.class].missing++;
+            }
+        });
+        
+        // שמירה בטבלת היסטוריה
+        await api('event_history', {
+            method: 'POST',
+            body: JSON.stringify({
+                event_date: new Date().toISOString().split('T')[0],
+                event_type: 'emergency_drill',
+                total_students: total,
+                present_count: present + found + foundPhone,
+                absent_count: absentToday + leftSchool,
+                released_count: leftSchool,
+                missing_count: missing,
+                details: details
+            })
+        });
+        
+        // איפוס הטבלאות
+        await api('emergency_drill?student_id=neq.0', { method: 'DELETE' });
+        await api('class_status?class_name=neq.0', { method: 'DELETE' });
+        await api('daily_attendance?student_id=neq.0', { method: 'DELETE' });
+        
+        emergencyStatus = {};
+        classPhase = {};
+        dailyAttendance = {};
+        
+        toast('האירוע נשמר בארכיון!', 'ok');
+        backToEvents();
+        
+    } catch (e) {
+        console.error(e);
+        toast('שגיאה בשמירה', 'err');
+    }
 }
 
 // ========== העלאת אקסל ==========
