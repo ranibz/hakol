@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>מערכת חירום - בית חינוך גליל מערבי</title>
-    <!-- VERSION 10 -->
+    <!-- VERSION 11 -->
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700;900&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -51,6 +51,12 @@
         .student-row.handled { border-right-color: var(--warning); background: #fef9e7; }
         .student-name { font-weight: 700; font-size: 1.05rem; }
         .student-phone { font-size: 0.85rem; color: var(--info); margin-top: 3px; }
+        
+        /* כרטיסי לחיצה מהירים - שלב 1 */
+        .student-tap { background: #e74c3c; color: white; padding: 18px 20px; border-radius: 12px; margin-bottom: 8px; font-weight: 700; font-size: 1.15rem; cursor: pointer; text-align: center; transition: all 0.15s; user-select: none; -webkit-tap-highlight-color: transparent; }
+        .student-tap:active { transform: scale(0.98); }
+        .student-tap.tapped { background: #27ae60; }
+        
         .btn-mark { padding: 10px 18px; border: none; border-radius: 20px; font-weight: 700; cursor: pointer; font-size: 0.9rem; }
         .btn-mark.present { background: var(--success); color: white; }
         .btn-mark.absent { background: var(--danger); color: white; }
@@ -113,7 +119,7 @@
     <div class="header">
         <div style="text-align:center;">
             <h1>🚨 מערכת חירום - גליל מערבי</h1>
-            <span class="header-credit">פיתוח - רני בן זאב | v10</span>
+            <span class="header-credit">פיתוח - רני בן זאב | v11</span>
         </div>
         <div id="userInfo" style="display:none;">
             <button class="btn-logout" onclick="logout()">יציאה</button>
@@ -344,25 +350,22 @@ function renderAttendanceClass() {
         .forEach(([id, student]) => {
             const status = dailyAttendance[id];
             const row = document.createElement('div');
-            row.className = 'student-row' + (status === 'present' ? ' present' : status === 'absent' ? ' absent' : '');
-            row.innerHTML = `
-                <div><span class="student-name">${student.name}</span></div>
-                <div style="display:flex; gap:8px;">
-                    <button class="btn-mark ${status === 'present' ? 'present' : 'neutral'}" onclick="setDailyAttendance('${id}','present')">✓ הגיע</button>
-                    <button class="btn-mark ${status === 'absent' ? 'absent' : 'neutral'}" onclick="setDailyAttendance('${id}','absent')">✗ חסר</button>
-                </div>`;
+            row.className = 'student-tap' + (status === 'present' ? ' tapped' : '');
+            row.innerHTML = `<span>${student.name}</span>`;
+            row.onclick = () => toggleDailyAttendance(id);
             list.appendChild(row);
         });
 }
 
-async function setDailyAttendance(studentId, status) {
+async function toggleDailyAttendance(studentId) {
     try {
+        const newStatus = dailyAttendance[studentId] === 'present' ? 'absent' : 'present';
         await api('daily_attendance', { 
             method: 'POST', 
             prefer: 'resolution=merge-duplicates', 
-            body: JSON.stringify({ student_id: studentId, status: status }) 
+            body: JSON.stringify({ student_id: studentId, status: newStatus }) 
         });
-        dailyAttendance[studentId] = status;
+        dailyAttendance[studentId] = newStatus;
         renderAttendanceClass();
     } catch (e) { toast('שגיאה', 'err'); }
 }
@@ -505,10 +508,8 @@ function renderEmergencyClass() {
                 </div>`;
         } else {
             const isPresent = status === 'present';
-            row.className = 'student-row' + (isPresent ? ' present' : '');
-            row.innerHTML = `
-                <div class="student-name">${student.name}</div>
-                <button class="btn-mark ${isPresent ? 'present' : 'neutral'}">${isPresent ? '✓ נוכח' : 'סמן'}</button>`;
+            row.className = 'student-tap' + (isPresent ? ' tapped' : '');
+            row.innerHTML = `<span>${student.name}</span>`;
             row.onclick = () => toggleEmergencyPresent(id);
         }
         list.appendChild(row);
