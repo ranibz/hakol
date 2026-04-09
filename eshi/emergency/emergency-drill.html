@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>מערכת חירום - בית חינוך גליל מערבי</title>
-    <!-- VERSION 40 -->
+    <!-- VERSION 41 -->
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700;900&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -202,7 +202,7 @@
     <div class="header">
         <div style="text-align:center;">
             <h1>🚨 מערכת חירום - גליל מערבי</h1>
-            <span class="header-credit">פיתוח - רני בן זאב | v40</span>
+            <span class="header-credit">פיתוח - רני בן זאב | v41</span>
         </div>
         <div id="userInfo" style="display:none;">
             <button class="btn-logout" onclick="logout()">יציאה</button>
@@ -857,17 +857,47 @@ function renderEmergencyLobbyClassView() {
             <div class="panel-body ${isOpen ? 'active' : ''}"></div>`;
         
         const body = group.querySelector('.panel-body');
-        const missing = students.filter(([id]) => emergencyStatus[id] !== 'present');
-        if (missing.length === 0) {
-            body.innerHTML = '<p style="color:var(--success);text-align:center;padding:15px;">🎉 כולם נוכחים!</p>';
-        } else {
-            missing.forEach(([id, student]) => {
-                const st = emergencyStatus[id];
-                const txt = st === 'found' ? '✓ אותר' : st === 'absent_today' ? '🏠 לא הגיע' : st === 'left_school' ? '🚪 יצא' : st === 'found_phone' ? '📞 טלפונית' : '❓ לא אותר';
-                body.innerHTML += `<div class="student-row ${st && st !== 'missing' ? 'handled' : ''}" style="padding:10px 15px;"><span style="font-weight:600;">${student.name}</span><span style="font-size:0.85rem;">${txt}</span></div>`;
-            });
-        }
         
+        // הצגת כל התלמידים - נוכחים עם תג קבוצה, חסרים עם סטטוס
+        students.sort((a, b) => a[1].name.localeCompare(b[1].name, 'he')).forEach(([id, student]) => {
+            const st = emergencyStatus[id];
+            const groupName = studentGroupMap[id];
+            let statusTxt = '';
+            let bgColor = 'white';
+            
+            if (st === 'present') {
+                statusTxt = '✓ נוכח';
+                bgColor = '#e8f8f5';
+            } else if (st === 'found') {
+                statusTxt = '✓ אותר';
+                bgColor = '#e8f8f5';
+            } else if (st === 'absent_today') {
+                statusTxt = '🏠 לא הגיע';
+                bgColor = '#f5f5f5';
+            } else if (st === 'left_school') {
+                statusTxt = '🚪 יצא';
+                bgColor = '#fef9e7';
+            } else if (st === 'found_phone') {
+                statusTxt = '📞 טלפונית';
+                bgColor = '#ebf5fb';
+            } else {
+                statusTxt = '❓ לא אותר';
+                bgColor = '#fdedec';
+            }
+            
+            const groupTag = groupName ? `<span class="group-tag">${groupName.replace('קבוצה ', '').substring(0, 25)}</span>` : '';
+            
+            body.innerHTML += `
+                <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 15px;background:${bgColor};margin-bottom:2px;border-radius:5px;">
+                    <div style="display:flex;align-items:center;gap:8px;">
+                        <span style="font-weight:600;">${student.name}</span>
+                        ${groupTag}
+                    </div>
+                    <span style="font-size:0.85rem;">${statusTxt}</span>
+                </div>`;
+        });
+        
+        // כפתור כניסה לכיתה
         body.innerHTML += `<button style="width:100%;margin-top:10px;padding:12px;background:var(--info);color:white;border:none;border-radius:8px;font-weight:bold;cursor:pointer;" onclick="enterEmergencyClass('${cls}')">📋 כניסה לכיתה</button>`;
         
         list.appendChild(group);
