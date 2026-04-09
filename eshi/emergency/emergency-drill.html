@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>מערכת חירום - בית חינוך גליל מערבי</title>
-    <!-- VERSION 29 -->
+    <!-- VERSION 30 -->
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700;900&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -189,7 +189,7 @@
     <div class="header">
         <div style="text-align:center;">
             <h1>🚨 מערכת חירום - גליל מערבי</h1>
-            <span class="header-credit">פיתוח - רני בן זאב | v29</span>
+            <span class="header-credit">פיתוח - רני בן זאב | v30</span>
         </div>
         <div id="userInfo" style="display:none;">
             <button class="btn-logout" onclick="logout()">יציאה</button>
@@ -1338,34 +1338,47 @@ function showHistoryDetail(idx) {
         ${h.released_count > 0 ? `<span style="color:#e67e22;"><strong>שוחררו:</strong> ${h.released_count}</span>` : ''}
     </div>`;
     
-    // פירוט לפי כיתות
-    if (h.details.classes) {
-        content += `<h4 style="margin-bottom:10px;">📚 לפי כיתות:</h4>`;
-        content += `<div style="max-height:200px;overflow-y:auto;margin-bottom:15px;">`;
-        Object.entries(h.details.classes).sort((a,b) => a[0].localeCompare(b[0], 'he')).forEach(([cls, data]) => {
-            content += `<div style="display:flex;justify-content:space-between;padding:5px 10px;background:#f8f9fa;margin-bottom:3px;border-radius:5px;">
-                <span>${cls}</span>
-                <span>✓ ${data.present || 0} / ${data.total || 0}</span>
-            </div>`;
-        });
-        content += `</div>`;
-    }
-    
-    // רשימת חסרים
+    // פירוט לפי כיתות עם כל התלמידים
     if (h.details.students) {
-        const absent = h.details.students.filter(s => s.status !== 'present');
-        if (absent.length > 0 && absent.length < 100) {
-            content += `<h4 style="margin-bottom:10px;">❌ חסרים (${absent.length}):</h4>`;
-            content += `<div style="max-height:200px;overflow-y:auto;">`;
-            absent.forEach(s => {
-                const statusTxt = s.status === 'absent_today' ? '🏠 לא הגיע' : s.status === 'left_school' ? '🚪 יצא' : s.status === 'found' ? '✓ אותר' : s.status;
-                content += `<div style="display:flex;justify-content:space-between;padding:5px 10px;background:#fdedec;margin-bottom:3px;border-radius:5px;">
-                    <span>${s.name} (${s.class})</span>
+        // קיבוץ לפי כיתות
+        const byClass = {};
+        h.details.students.forEach(s => {
+            if (!byClass[s.class]) byClass[s.class] = [];
+            byClass[s.class].push(s);
+        });
+        
+        content += `<h4 style="margin-bottom:10px;">📚 פירוט מלא לפי כיתות:</h4>`;
+        content += `<div style="max-height:400px;overflow-y:auto;">`;
+        
+        Object.keys(byClass).sort((a,b) => a.localeCompare(b, 'he')).forEach(cls => {
+            const students = byClass[cls];
+            const present = students.filter(s => s.status === 'present').length;
+            
+            content += `<div style="margin-bottom:15px;background:#f8f9fa;border-radius:10px;padding:10px;">`;
+            content += `<div style="font-weight:bold;margin-bottom:8px;display:flex;justify-content:space-between;">
+                <span>${cls}</span>
+                <span style="color:#27ae60;">✓ ${present}/${students.length}</span>
+            </div>`;
+            
+            students.sort((a,b) => a.name.localeCompare(b.name, 'he')).forEach(s => {
+                let statusTxt, bgColor;
+                if (s.status === 'present') { statusTxt = '✓ נוכח'; bgColor = '#e8f8f5'; }
+                else if (s.status === 'absent_today') { statusTxt = '🏠 לא הגיע'; bgColor = '#f5f5f5'; }
+                else if (s.status === 'left_school' || s.released) { statusTxt = '🚪 יצא'; bgColor = '#fef9e7'; }
+                else if (s.status === 'found') { statusTxt = '✓ אותר'; bgColor = '#e8f8f5'; }
+                else if (s.status === 'found_phone') { statusTxt = '📞 טלפונית'; bgColor = '#ebf5fb'; }
+                else { statusTxt = '❌ חסר'; bgColor = '#fdedec'; }
+                
+                content += `<div style="display:flex;justify-content:space-between;padding:5px 10px;background:${bgColor};margin-bottom:2px;border-radius:5px;font-size:0.9rem;">
+                    <span>${s.name}</span>
                     <span>${statusTxt}</span>
                 </div>`;
             });
+            
             content += `</div>`;
-        }
+        });
+        
+        content += `</div>`;
     }
     
     // הצגה במודל
@@ -1434,32 +1447,46 @@ function showHistoryDetailInModal(idx) {
         ${h.released_count > 0 ? `<span style="color:#e67e22;"><strong>שוחררו:</strong> ${h.released_count}</span>` : ''}
     </div>`;
     
-    if (h.details.classes) {
-        content += `<h4 style="margin-bottom:10px;">📚 לפי כיתות:</h4>`;
-        content += `<div style="max-height:200px;overflow-y:auto;margin-bottom:15px;">`;
-        Object.entries(h.details.classes).sort((a,b) => a[0].localeCompare(b[0], 'he')).forEach(([cls, data]) => {
-            content += `<div style="display:flex;justify-content:space-between;padding:5px 10px;background:#f8f9fa;margin-bottom:3px;border-radius:5px;">
-                <span>${cls}</span>
-                <span>✓ ${data.present || 0} / ${data.total || 0}</span>
-            </div>`;
-        });
-        content += `</div>`;
-    }
-    
+    // פירוט לפי כיתות עם כל התלמידים
     if (h.details.students) {
-        const absent = h.details.students.filter(s => s.status !== 'present');
-        if (absent.length > 0 && absent.length < 100) {
-            content += `<h4 style="margin-bottom:10px;">❌ חסרים (${absent.length}):</h4>`;
-            content += `<div style="max-height:200px;overflow-y:auto;">`;
-            absent.forEach(s => {
-                const statusTxt = s.status === 'absent_today' ? '🏠 לא הגיע' : s.status === 'left_school' ? '🚪 יצא' : s.status === 'found' ? '✓ אותר' : s.status;
-                content += `<div style="display:flex;justify-content:space-between;padding:5px 10px;background:#fdedec;margin-bottom:3px;border-radius:5px;">
-                    <span>${s.name} (${s.class})</span>
+        const byClass = {};
+        h.details.students.forEach(s => {
+            if (!byClass[s.class]) byClass[s.class] = [];
+            byClass[s.class].push(s);
+        });
+        
+        content += `<h4 style="margin-bottom:10px;">📚 פירוט מלא לפי כיתות:</h4>`;
+        content += `<div style="max-height:400px;overflow-y:auto;">`;
+        
+        Object.keys(byClass).sort((a,b) => a.localeCompare(b, 'he')).forEach(cls => {
+            const students = byClass[cls];
+            const present = students.filter(s => s.status === 'present').length;
+            
+            content += `<div style="margin-bottom:15px;background:#f8f9fa;border-radius:10px;padding:10px;">`;
+            content += `<div style="font-weight:bold;margin-bottom:8px;display:flex;justify-content:space-between;">
+                <span>${cls}</span>
+                <span style="color:#27ae60;">✓ ${present}/${students.length}</span>
+            </div>`;
+            
+            students.sort((a,b) => a.name.localeCompare(b.name, 'he')).forEach(s => {
+                let statusTxt, bgColor;
+                if (s.status === 'present') { statusTxt = '✓ נוכח'; bgColor = '#e8f8f5'; }
+                else if (s.status === 'absent_today') { statusTxt = '🏠 לא הגיע'; bgColor = '#f5f5f5'; }
+                else if (s.status === 'left_school' || s.released) { statusTxt = '🚪 יצא'; bgColor = '#fef9e7'; }
+                else if (s.status === 'found') { statusTxt = '✓ אותר'; bgColor = '#e8f8f5'; }
+                else if (s.status === 'found_phone') { statusTxt = '📞 טלפונית'; bgColor = '#ebf5fb'; }
+                else { statusTxt = '❌ חסר'; bgColor = '#fdedec'; }
+                
+                content += `<div style="display:flex;justify-content:space-between;padding:5px 10px;background:${bgColor};margin-bottom:2px;border-radius:5px;font-size:0.9rem;">
+                    <span>${s.name}</span>
                     <span>${statusTxt}</span>
                 </div>`;
             });
+            
             content += `</div>`;
-        }
+        });
+        
+        content += `</div>`;
     }
     
     document.getElementById('historyModalContent').innerHTML = content;
