@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>מערכת חירום - בית חינוך גליל מערבי</title>
-    <!-- VERSION 39 -->
+    <!-- VERSION 40 -->
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700;900&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -202,7 +202,7 @@
     <div class="header">
         <div style="text-align:center;">
             <h1>🚨 מערכת חירום - גליל מערבי</h1>
-            <span class="header-credit">פיתוח - רני בן זאב | v39</span>
+            <span class="header-credit">פיתוח - רני בן זאב | v40</span>
         </div>
         <div id="userInfo" style="display:none;">
             <button class="btn-logout" onclick="logout()">יציאה</button>
@@ -543,7 +543,13 @@ async function loadData() {
         dailyAttendance = {};
         (daily || []).forEach(d => { dailyAttendance[d.student_id] = d.status; });
         emergencyStatus = {};
-        (emergency || []).forEach(e => { emergencyStatus[e.student_id] = e.status; });
+        studentGroupMap = {}; // איפוס מפת הקבוצות
+        (emergency || []).forEach(e => { 
+            emergencyStatus[e.student_id] = e.status;
+            if (e.counted_in_group) {
+                studentGroupMap[e.student_id] = e.counted_in_group;
+            }
+        });
         classPhase = {};
         (phases || []).forEach(p => { classPhase[p.class_name] = p.status; });
         
@@ -1955,18 +1961,22 @@ async function finishStudyGroupRollCall() {
     
     // שמירה בטבלת emergency_drill
     try {
+        const groupName = currentStudyGroup.name;
+        
         for (const [id, status] of Object.entries(studyGroupStatus)) {
             if (status === 'present') {
-                // שמירה בכל מקרה - גם אם התלמיד לא בטבלת students
+                // שמירה עם שם הקבוצה
                 await api('emergency_drill', { 
                     method: 'POST', 
                     prefer: 'resolution=merge-duplicates', 
-                    body: JSON.stringify({ student_id: id, status: 'present' }) 
+                    body: JSON.stringify({ 
+                        student_id: id, 
+                        status: 'present',
+                        counted_in_group: groupName
+                    }) 
                 });
                 emergencyStatus[id] = 'present';
-                
-                // שמירת מיפוי תלמיד -> קבוצה
-                studentGroupMap[id] = currentStudyGroup.name;
+                studentGroupMap[id] = groupName;
             }
         }
         
