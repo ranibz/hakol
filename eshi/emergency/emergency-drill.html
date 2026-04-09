@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>מערכת חירום - בית חינוך גליל מערבי</title>
-    <!-- VERSION 30 -->
+    <!-- VERSION 32 -->
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700;900&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -77,6 +77,10 @@
         .history-item .stats { display: flex; gap: 15px; margin-top: 8px; font-size: 0.9rem; }
         .history-item .history-expand { font-size: 0.8rem; color: #7f8c8d; margin-top: 8px; text-align: left; }
         .history-item:hover .history-expand { color: #9b59b6; }
+        
+        /* כרטיסי קבוצות לימוד */
+        .group-card { background: #f8f9fa; padding: 15px; border-radius: 10px; margin-bottom: 10px; cursor: pointer; border-right: 5px solid #e67e22; transition: all 0.2s; }
+        .group-card:hover { background: #fef9e7; transform: translateX(-5px); }
         
         /* מודל היסטוריה */
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); z-index: 1000; justify-content: center; align-items: center; }
@@ -189,7 +193,7 @@
     <div class="header">
         <div style="text-align:center;">
             <h1>🚨 מערכת חירום - גליל מערבי</h1>
-            <span class="header-credit">פיתוח - רני בן זאב | v30</span>
+            <span class="header-credit">פיתוח - רני בן זאב | v32</span>
         </div>
         <div id="userInfo" style="display:none;">
             <button class="btn-logout" onclick="logout()">יציאה</button>
@@ -220,14 +224,25 @@
                 </div>
             </div>
 
-            <div class="settings-link" onclick="document.getElementById('uploadZone').style.display='block'; this.style.display='none';">
+            <div class="settings-link" onclick="document.getElementById('uploadZone').style.display='block'; document.getElementById('groupsUploadZone').style.display='none'; this.style.display='none'; document.getElementById('groupsLink').style.display='inline-block';">
                 ⚙️ עדכון מצבת תלמידים (Excel)
             </div>
+            <div class="settings-link" id="groupsLink" onclick="document.getElementById('groupsUploadZone').style.display='block'; document.getElementById('uploadZone').style.display='none'; this.style.display='none'; document.querySelector('.settings-link').style.display='inline-block';" style="margin-right:20px; color:#e67e22;">
+                📚 העלאת קבוצות לימוד
+            </div>
+            
             <div class="upload-zone" id="uploadZone">
-                <p style="margin-bottom:10px; color:#777;">העלה קובץ Excel</p>
+                <p style="margin-bottom:10px; color:#777;">העלה קובץ Excel - מצבת תלמידים (כיתות אם)</p>
                 <input type="file" id="excelFile" accept=".xlsx,.xls" onchange="handleExcelUpload(event)">
                 <button class="btn-upload" onclick="document.getElementById('excelFile').click()">📁 בחר קובץ</button>
                 <div id="uploadStatus" style="margin-top:10px; font-weight:bold;"></div>
+            </div>
+            
+            <div class="upload-zone" id="groupsUploadZone">
+                <p style="margin-bottom:10px; color:#777;">העלה קובץ Excel - קבוצות לימוד (למורים מקצועיים)</p>
+                <input type="file" id="groupsFile" accept=".xlsx,.xls" onchange="handleGroupsUpload(event)">
+                <button class="btn-upload" style="background:#e67e22;" onclick="document.getElementById('groupsFile').click()">📁 בחר קובץ</button>
+                <div id="groupsUploadStatus" style="margin-top:10px; font-weight:bold;"></div>
             </div>
         </div>
 
@@ -336,11 +351,16 @@
             </div>
             
             <h2 style="text-align:center; margin: 30px 0 20px;">בחר את תפקידך:</h2>
-            <div class="event-cards">
+            <div class="event-cards" style="grid-template-columns: repeat(3, 1fr);">
                 <div class="event-card attendance" onclick="enterEmergencyAs('teacher')" style="border-right-color: #3498db;">
                     <span class="material-icons-round icon" style="color:#3498db;">school</span>
                     <h3>מחנך/ת</h3>
-                    <p>קריאת שמות בנקודת הכינוס</p>
+                    <p>קריאת שמות לפי כיתת אם</p>
+                </div>
+                <div class="event-card" onclick="enterEmergencyAs('subject_teacher')" style="border-right-color: #e67e22;">
+                    <span class="material-icons-round icon" style="color:#e67e22;">groups</span>
+                    <h3>מורה מקצועי/ת</h3>
+                    <p>קריאת שמות לפי קבוצת לימוד</p>
                 </div>
                 <div class="event-card emergency" onclick="enterEmergencyAs('admin')" style="border-right-color: #9b59b6;">
                     <span class="material-icons-round icon" style="color:#9b59b6;">admin_panel_settings</span>
@@ -348,6 +368,37 @@
                     <p>צפייה במצב כל הכיתות</p>
                 </div>
             </div>
+        </div>
+
+        <!-- מסך חירום - מורה מקצועי הזנת שם -->
+        <div id="screen-subject-teacher-login" class="screen">
+            <button class="btn-back" onclick="backToEmergencyRole()"><span class="material-icons-round">arrow_forward</span> חזור</button>
+            <div class="event-header">
+                <div class="event-title"><span class="material-icons-round">groups</span> מורה מקצועי</div>
+                <span class="event-badge badge-emergency">פעיל</span>
+            </div>
+            <div style="background:white; padding:25px; border-radius:15px; margin-top:20px;">
+                <h3 style="margin-bottom:15px;">הזן את שמך:</h3>
+                <input type="text" id="subjectTeacherName" placeholder="לדוגמה: לוזון חגי" style="width:100%; padding:15px; font-size:1.1rem; border:2px solid #bdc3c7; border-radius:10px; text-align:right;">
+                <button onclick="searchTeacherGroups()" style="width:100%; margin-top:15px; padding:15px; background:#e67e22; color:white; border:none; border-radius:10px; font-weight:bold; font-size:1.1rem; cursor:pointer;">
+                    <span class="material-icons-round" style="vertical-align:middle;">search</span> חפש קבוצות
+                </button>
+                <div id="teacherGroupsResult" style="margin-top:20px;"></div>
+            </div>
+        </div>
+
+        <!-- מסך חירום - קבוצת לימוד -->
+        <div id="screen-study-group" class="screen">
+            <button class="btn-back" onclick="backToSubjectTeacherLogin()"><span class="material-icons-round">arrow_forward</span> חזור</button>
+            <div class="class-header-box">
+                <h2 id="studyGroupTitle">קבוצה</h2>
+                <span class="phase-badge phase-1" id="studyGroupPhase">שלב 1: קריאת שמות</span>
+            </div>
+            <p style="color:#7f8c8d; margin-bottom:15px;">לחץ על כל תלמיד שנמצא בנקודת הכינוס</p>
+            <div id="studyGroupStudentList"></div>
+            <button class="btn-finish" id="btnFinishStudyGroup" onclick="finishStudyGroupRollCall()">
+                <span class="material-icons-round">check_circle</span> סיום קריאת שמות
+            </button>
         </div>
 
         <!-- מסך חירום - לובי מחנך -->
@@ -427,6 +478,9 @@ let classPhase = {}; // class_name -> 'phase1_done'
 let openPanels = new Set();
 let refreshInterval = null;
 let standaloneDrillMode = false; // תרגיל עצמאי ללא נוכחות בוקר
+let currentStudyGroup = null; // קבוצת לימוד נוכחית
+let studyGroupStudents = {}; // תלמידי קבוצת הלימוד הנוכחית
+let studyGroupStatus = {}; // סטטוס תלמידים בקבוצת לימוד
 
 async function api(path, opts = {}) {
     const r = await fetch(SURL + '/rest/v1/' + path, { 
@@ -530,24 +584,36 @@ function enterEmergencyAs(role) {
     if (role === 'teacher') {
         showScreen('screen-emergency-teacher-lobby');
         renderEmergencyTeacherLobby();
+        refreshInterval = setInterval(loadData, 5000);
+    } else if (role === 'subject_teacher') {
+        showScreen('screen-subject-teacher-login');
+        document.getElementById('subjectTeacherName').value = '';
+        document.getElementById('teacherGroupsResult').innerHTML = '';
     } else {
         showScreen('screen-emergency-lobby');
         renderEmergencyLobby();
+        refreshInterval = setInterval(loadData, 5000);
     }
-    refreshInterval = setInterval(loadData, 5000);
 }
 
 function backToEmergencyRole() {
     activeClass = null;
     emergencyRole = null;
+    currentStudyGroup = null;
     if (refreshInterval) clearInterval(refreshInterval);
     showScreen('screen-emergency-role');
+}
+
+function backToSubjectTeacherLogin() {
+    currentStudyGroup = null;
+    showScreen('screen-subject-teacher-login');
 }
 
 function backToEvents() {
     currentEvent = null;
     activeClass = null;
     emergencyRole = null;
+    currentStudyGroup = null;
     if (refreshInterval) clearInterval(refreshInterval);
     document.getElementById('userInfo').style.display = 'none';
     showScreen('screen-events');
@@ -1102,6 +1168,103 @@ function toast(msg, type) {
     setTimeout(() => t.className = 'toast', 3000);
 }
 
+// ========== העלאת קבוצות לימוד ==========
+function handleGroupsUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    const statusDiv = document.getElementById('groupsUploadStatus');
+    statusDiv.textContent = '⏳ טוען...';
+    
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+        try {
+            const data = new Uint8Array(e.target.result);
+            const wb = XLSX.read(data, { type: 'array' });
+            
+            // מחיקת נתונים קיימים
+            statusDiv.textContent = '⏳ מוחק נתונים ישנים...';
+            await api('study_groups?id=neq.00000000-0000-0000-0000-000000000000', { method: 'DELETE' });
+            
+            const allGroups = [];
+            let totalStudents = 0;
+            
+            // עיבוד כל הגליונות
+            for (const sheetName of wb.SheetNames) {
+                const sheet = wb.Sheets[sheetName];
+                const rows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+                
+                if (rows.length < 3) continue;
+                
+                // שורה ראשונה = שם הקבוצה המלא
+                const fullGroupName = String(rows[0][0] || sheetName || '').trim();
+                if (!fullGroupName || fullGroupName === 'מקצוע אנגלית') continue; // דילוג על גליון כללי
+                
+                // חילוץ שם מורה וקוד קבוצה
+                // פורמט: "קבוצה אזרחות יא1 לוזון חגי [15074]"
+                let teacherName = '';
+                let groupCode = '';
+                let subject = '';
+                let classLevel = '';
+                
+                const codeMatch = fullGroupName.match(/\[(\d+)\]/);
+                if (codeMatch) groupCode = codeMatch[1];
+                
+                const cleanName = fullGroupName.replace(/\[.*?\]/, '').replace(/\(.*?\)/, '').trim();
+                const parts = cleanName.replace('קבוצה ', '').split(' ').filter(p => p);
+                
+                if (parts.length >= 3) {
+                    subject = parts[0]; // מקצוע
+                    classLevel = parts[1]; // כיתה (יא1, יב2, וכו')
+                    teacherName = parts.slice(2).join(' '); // שם מורה
+                }
+                
+                // קריאת תלמידים (שורה 3 = headers, משורה 4 = נתונים)
+                for (let i = 3; i < rows.length; i++) {
+                    const row = rows[i];
+                    if (!row || !row[1]) continue; // עמודה 1 = ת.ז
+                    
+                    const studentId = String(row[1]).trim();
+                    const lastName = String(row[2] || '').trim();
+                    const firstName = String(row[3] || '').trim();
+                    const studentName = (lastName + ' ' + firstName).trim();
+                    
+                    if (!studentId || !studentName || studentId === 'ת.ז') continue;
+                    
+                    allGroups.push({
+                        group_name: fullGroupName.replace(/\[.*?\]/, '').replace(/\(.*?\)/, '').trim(),
+                        group_code: groupCode,
+                        teacher_name: teacherName,
+                        subject: subject,
+                        class_level: classLevel,
+                        student_id: studentId,
+                        student_name: studentName
+                    });
+                    totalStudents++;
+                }
+            }
+            
+            // שמירה ב-batches
+            statusDiv.textContent = `⏳ שומר ${totalStudents} רשומות...`;
+            
+            for (let i = 0; i < allGroups.length; i += 100) {
+                const batch = allGroups.slice(i, i + 100);
+                await api('study_groups', { method: 'POST', body: JSON.stringify(batch) });
+            }
+            
+            // ספירת קבוצות ייחודיות
+            const uniqueGroups = new Set(allGroups.map(g => g.group_name));
+            const uniqueTeachers = new Set(allGroups.map(g => g.teacher_name).filter(t => t));
+            
+            statusDiv.innerHTML = `✅ ${uniqueGroups.size} קבוצות<br>${uniqueTeachers.size} מורים<br>${totalStudents} רשומות`;
+            
+        } catch (err) {
+            console.error(err);
+            statusDiv.textContent = '❌ ' + err.message;
+        }
+    };
+    reader.readAsArrayBuffer(file);
+}
+
 // ========== סיכום בית ספרי ==========
 async function loadSummaryData() {
     try {
@@ -1495,6 +1658,212 @@ function showHistoryDetailInModal(idx) {
 function closeHistoryModal(event) {
     if (event && event.target !== event.currentTarget) return;
     document.getElementById('historyModal').classList.remove('active');
+}
+
+// ========== מורה מקצועי - קבוצות לימוד ==========
+
+async function searchTeacherGroups() {
+    const nameInput = document.getElementById('subjectTeacherName').value.trim();
+    const resultDiv = document.getElementById('teacherGroupsResult');
+    
+    if (!nameInput) {
+        resultDiv.innerHTML = '<p style="color:#e74c3c; text-align:center;">נא להזין שם</p>';
+        return;
+    }
+    
+    resultDiv.innerHTML = '<p style="text-align:center; color:#7f8c8d;">מחפש...</p>';
+    
+    try {
+        // חיפוש לפי שם מורה (חיפוש חלקי)
+        const groups = await api(`study_groups?teacher_name=ilike.*${nameInput}*&select=group_name,group_code,teacher_name,subject,class_level`);
+        
+        if (!groups || groups.length === 0) {
+            resultDiv.innerHTML = '<p style="color:#e74c3c; text-align:center;">לא נמצאו קבוצות. נסה שם אחר.</p>';
+            return;
+        }
+        
+        // קיבוץ לפי קבוצות ייחודיות
+        const uniqueGroups = {};
+        groups.forEach(g => {
+            const key = g.group_name + '_' + g.group_code;
+            if (!uniqueGroups[key]) {
+                uniqueGroups[key] = g;
+            }
+        });
+        
+        const groupList = Object.values(uniqueGroups);
+        
+        resultDiv.innerHTML = `
+            <h4 style="margin-bottom:10px;">נמצאו ${groupList.length} קבוצות:</h4>
+            ${groupList.map(g => `
+                <div class="group-card" onclick="enterStudyGroup('${g.group_name}', '${g.group_code || ''}')">
+                    <div style="font-weight:bold;">${g.group_name}</div>
+                    <div style="font-size:0.85rem; color:#7f8c8d;">${g.teacher_name}</div>
+                </div>
+            `).join('')}
+        `;
+        
+    } catch (e) {
+        console.error(e);
+        resultDiv.innerHTML = '<p style="color:#e74c3c; text-align:center;">שגיאה בחיפוש</p>';
+    }
+}
+
+async function enterStudyGroup(groupName, groupCode) {
+    currentStudyGroup = { name: groupName, code: groupCode };
+    
+    try {
+        // טעינת תלמידי הקבוצה
+        let query = `study_groups?group_name=eq.${encodeURIComponent(groupName)}`;
+        if (groupCode) query += `&group_code=eq.${groupCode}`;
+        
+        const students = await api(query);
+        
+        if (!students || students.length === 0) {
+            toast('לא נמצאו תלמידים בקבוצה', 'err');
+            return;
+        }
+        
+        studyGroupStudents = {};
+        studyGroupStatus = {};
+        students.forEach(s => {
+            studyGroupStudents[s.student_id] = {
+                name: s.student_name,
+                id: s.student_id
+            };
+            studyGroupStatus[s.student_id] = null; // לא סומן
+        });
+        
+        document.getElementById('studyGroupTitle').textContent = groupName;
+        showScreen('screen-study-group');
+        renderStudyGroup();
+        
+    } catch (e) {
+        console.error(e);
+        toast('שגיאה בטעינת הקבוצה', 'err');
+    }
+}
+
+function renderStudyGroup() {
+    const list = document.getElementById('studyGroupStudentList');
+    const students = Object.entries(studyGroupStudents).sort((a, b) => a[1].name.localeCompare(b[1].name, 'he'));
+    
+    list.innerHTML = students.map(([id, s]) => {
+        const status = studyGroupStatus[id];
+        let cls = 'student-tap not-marked';
+        let content = s.name;
+        
+        if (status === 'present') {
+            cls = 'student-tap tapped';
+            content = `✓ ${s.name}`;
+        }
+        
+        return `<div class="${cls}" onclick="toggleStudyGroupStudent('${id}')">${content}</div>`;
+    }).join('');
+    
+    // עדכון כפתור סיום
+    const total = students.length;
+    const marked = Object.values(studyGroupStatus).filter(s => s === 'present').length;
+    document.getElementById('btnFinishStudyGroup').innerHTML = `
+        <span class="material-icons-round">check_circle</span> סיום קריאת שמות (${marked}/${total})
+    `;
+}
+
+function toggleStudyGroupStudent(id) {
+    if (studyGroupStatus[id] === 'present') {
+        studyGroupStatus[id] = null;
+    } else {
+        studyGroupStatus[id] = 'present';
+    }
+    renderStudyGroup();
+}
+
+async function finishStudyGroupRollCall() {
+    const total = Object.keys(studyGroupStudents).length;
+    const present = Object.values(studyGroupStatus).filter(s => s === 'present').length;
+    const missing = total - present;
+    
+    if (!confirm(`סיום קריאת שמות?\n\nנוכחים: ${present}\nחסרים: ${missing}`)) return;
+    
+    // שמירה בטבלת emergency_drill (אם התלמיד קיים במערכת)
+    try {
+        for (const [id, status] of Object.entries(studyGroupStatus)) {
+            if (status === 'present' && allStudents[id]) {
+                await api('emergency_drill', { 
+                    method: 'POST', 
+                    prefer: 'resolution=merge-duplicates', 
+                    body: JSON.stringify({ student_id: id, status: 'present' }) 
+                });
+                emergencyStatus[id] = 'present';
+            }
+        }
+        
+        toast('קריאת שמות הושלמה!', 'ok');
+        
+        // מעבר לשלב 2 - הצגת חסרים
+        document.getElementById('studyGroupPhase').textContent = 'שלב 2: טיפול בחסרים';
+        document.getElementById('studyGroupPhase').className = 'phase-badge phase-2';
+        renderStudyGroupPhase2();
+        
+    } catch (e) {
+        console.error(e);
+        toast('שגיאה בשמירה', 'err');
+    }
+}
+
+function renderStudyGroupPhase2() {
+    const list = document.getElementById('studyGroupStudentList');
+    const missing = Object.entries(studyGroupStudents)
+        .filter(([id]) => studyGroupStatus[id] !== 'present')
+        .sort((a, b) => a[1].name.localeCompare(b[1].name, 'he'));
+    
+    if (missing.length === 0) {
+        list.innerHTML = '<div style="text-align:center; padding:40px; color:#27ae60;"><span class="material-icons-round" style="font-size:60px;">celebration</span><h3>כל התלמידים נוכחים!</h3></div>';
+        document.getElementById('btnFinishStudyGroup').style.display = 'none';
+        return;
+    }
+    
+    list.innerHTML = `<p style="color:#7f8c8d; margin-bottom:15px;">תלמידים שלא אותרו (${missing.length}):</p>` +
+        missing.map(([id, s]) => {
+            const st = studyGroupStatus[id];
+            return `
+                <div class="student-row ${st && st !== 'missing' ? 'handled' : ''}">
+                    <div>
+                        <div class="student-name">${s.name}</div>
+                    </div>
+                    <div class="missing-actions">
+                        <button class="missing-btn ${st === 'absent_today' ? 'active absent' : ''}" onclick="setStudyGroupStatus('${id}', 'absent_today')">🏠 לא הגיע</button>
+                        <button class="missing-btn ${st === 'left_school' ? 'active left' : ''}" onclick="setStudyGroupStatus('${id}', 'left_school')">🚪 יצא</button>
+                        <button class="missing-btn ${st === 'found' ? 'active found' : ''}" onclick="setStudyGroupStatus('${id}', 'found')">✓ אותר</button>
+                        <button class="missing-btn ${st === 'found_phone' ? 'active phone' : ''}" onclick="setStudyGroupStatus('${id}', 'found_phone')">📞 טלפונית</button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    
+    document.getElementById('btnFinishStudyGroup').innerHTML = '<span class="material-icons-round">done_all</span> סיום';
+    document.getElementById('btnFinishStudyGroup').onclick = () => {
+        toast('הקבוצה טופלה!', 'ok');
+        backToSubjectTeacherLogin();
+    };
+}
+
+async function setStudyGroupStatus(id, status) {
+    studyGroupStatus[id] = status;
+    
+    // שמירה בטבלת emergency_drill
+    if (allStudents[id]) {
+        try {
+            await api('emergency_drill', { 
+                method: 'POST', 
+                prefer: 'resolution=merge-duplicates', 
+                body: JSON.stringify({ student_id: id, status: status }) 
+            });
+            emergencyStatus[id] = status;
+        } catch (e) { console.error(e); }
+    }
+    
+    renderStudyGroupPhase2();
 }
 </script>
 </body>
