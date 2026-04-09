@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>מערכת חירום - בית חינוך גליל מערבי</title>
-    <!-- VERSION 47 -->
+    <!-- VERSION 48 -->
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700;900&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -202,7 +202,7 @@
     <div class="header">
         <div style="text-align:center;">
             <h1>🚨 מערכת חירום - גליל מערבי</h1>
-            <span class="header-credit">פיתוח - רני בן זאב | v47</span>
+            <span class="header-credit">פיתוח - רני בן זאב | v48</span>
         </div>
         <div id="userInfo" style="display:none;">
             <button class="btn-logout" onclick="logout()">יציאה</button>
@@ -1194,26 +1194,104 @@ async function showAttendanceHistory() {
             return;
         }
         
-        list.innerHTML = history.map(h => {
+        list.innerHTML = history.map((h, idx) => {
             const date = new Date(h.event_date).toLocaleDateString('he-IL');
             const pct = h.total_students > 0 ? Math.round(h.present_count / h.total_students * 100) : 0;
             return `
-                <div style="background:#f8f9fa;padding:15px;border-radius:10px;margin-bottom:10px;border-right:4px solid ${pct >= 80 ? '#27ae60' : '#e74c3c'};">
-                    <div style="display:flex;justify-content:space-between;align-items:center;">
-                        <span style="font-weight:bold;">${date}</span>
-                        <span style="color:${pct >= 80 ? '#27ae60' : '#e74c3c'};font-weight:bold;">${pct}%</span>
+                <div style="background:#f8f9fa;border-radius:10px;margin-bottom:10px;border-right:4px solid ${pct >= 80 ? '#27ae60' : '#e74c3c'};overflow:hidden;">
+                    <div onclick="toggleAttendanceHistoryDetail(${idx}, '${h.id}')" style="padding:15px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;">
+                        <div>
+                            <span style="font-weight:bold;font-size:1.1rem;">${date}</span>
+                            <div style="font-size:0.85rem;color:#7f8c8d;margin-top:3px;">
+                                נוכחים: ${h.present_count} | חסרים: ${h.absent_count} | סה"כ: ${h.total_students}
+                            </div>
+                        </div>
+                        <div style="display:flex;align-items:center;gap:10px;">
+                            <span style="color:${pct >= 80 ? '#27ae60' : '#e74c3c'};font-weight:bold;font-size:1.2rem;">${pct}%</span>
+                            <span class="material-icons-round" style="color:#7f8c8d;">expand_more</span>
+                        </div>
                     </div>
-                    <div style="font-size:0.9rem;color:#7f8c8d;margin-top:5px;">
-                        נוכחים: ${h.present_count} | חסרים: ${h.absent_count} | סה"כ: ${h.total_students}
-                    </div>
+                    <div id="attHistoryDetail_${idx}" style="display:none;padding:0 15px 15px;"></div>
                 </div>
             `;
         }).join('');
+        
+        // שמירת הנתונים לשימוש בפירוט
+        window.attendanceHistoryData = history;
         
     } catch (e) {
         console.error(e);
         list.innerHTML = '<p style="text-align:center;color:#e74c3c;">שגיאה בטעינה</p>';
     }
+}
+
+function toggleAttendanceHistoryDetail(idx, id) {
+    const detailDiv = document.getElementById('attHistoryDetail_' + idx);
+    
+    if (detailDiv.style.display === 'block') {
+        detailDiv.style.display = 'none';
+        return;
+    }
+    
+    const h = window.attendanceHistoryData[idx];
+    if (!h || !h.details || !h.details.classes) {
+        detailDiv.innerHTML = '<p style="color:#7f8c8d;text-align:center;">אין פירוט זמין</p>';
+        detailDiv.style.display = 'block';
+        return;
+    }
+    
+    const classes = h.details.classes;
+    const sortedClasses = Object.keys(classes).sort((a, b) => {
+        const order = { 'ז': 1, 'ח': 2, 'ט': 3, 'י': 4, 'יא': 5, 'יב': 6 };
+        const aK = a.startsWith('יא') || a.startsWith('יב') ? a.substring(0, 2) : a.charAt(0);
+        const bK = b.startsWith('יא') || b.startsWith('יב') ? b.substring(0, 2) : b.charAt(0);
+        return (order[aK] || 99) - (order[bK] || 99) || a.localeCompare(b, 'he');
+    });
+    
+    let html = '';
+    
+    sortedClasses.forEach(cls => {
+        const classData = classes[cls];
+        const classPct = (classData.present + classData.absent) > 0 ? 
+            Math.round(classData.present / (classData.present + classData.absent) * 100) : 0;
+        
+        html += `
+            <div style="margin-bottom:10px;">
+                <div onclick="toggleAttHistoryClass('${idx}_${cls}')" style="background:#ecf0f1;padding:10px 12px;border-radius:8px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;">
+                    <span style="font-weight:bold;">${cls}</span>
+                    <span style="color:${classPct >= 80 ? '#27ae60' : '#e74c3c'};">${classData.present}/${classData.present + classData.absent} (${classPct}%)</span>
+                </div>
+                <div id="attHistoryClass_${idx}_${cls}" style="display:none;padding:8px 0;">
+        `;
+        
+        if (classData.students && classData.students.length > 0) {
+            classData.students.sort((a, b) => a.name.localeCompare(b.name, 'he')).forEach(s => {
+                const isPresent = s.status === 'present';
+                const groupTag = s.group ? `<span class="group-tag">${s.group.replace('קבוצה ', '').substring(0, 20)}</span>` : '';
+                html += `
+                    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;background:${isPresent ? '#e8f8f5' : '#fdedec'};margin-bottom:2px;border-radius:6px;font-size:0.9rem;">
+                        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+                            <span>${s.name}</span>
+                            ${groupTag}
+                        </div>
+                        <span>${isPresent ? '✓' : '✗'}</span>
+                    </div>
+                `;
+            });
+        } else {
+            html += '<p style="color:#7f8c8d;font-size:0.85rem;padding:5px;">אין פירוט תלמידים</p>';
+        }
+        
+        html += '</div></div>';
+    });
+    
+    detailDiv.innerHTML = html;
+    detailDiv.style.display = 'block';
+}
+
+function toggleAttHistoryClass(key) {
+    const div = document.getElementById('attHistoryClass_' + key);
+    div.style.display = div.style.display === 'block' ? 'none' : 'block';
 }
 
 function enterEmergencyAs(role) {
