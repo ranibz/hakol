@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>מערכת חירום - בית חינוך גליל מערבי</title>
-    <!-- VERSION 42 -->
+    <!-- VERSION 43 -->
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700;900&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -202,7 +202,7 @@
     <div class="header">
         <div style="text-align:center;">
             <h1>🚨 מערכת חירום - גליל מערבי</h1>
-            <span class="header-credit">פיתוח - רני בן זאב | v42</span>
+            <span class="header-credit">פיתוח - רני בן זאב | v43</span>
         </div>
         <div id="userInfo" style="display:none;">
             <button class="btn-logout" onclick="logout()">יציאה</button>
@@ -886,44 +886,132 @@ function renderAttendanceSummary() {
     document.getElementById('attSummaryPresent').textContent = present;
     document.getElementById('attSummaryAbsent').textContent = absent;
     
-    // רשימת כיתות
+    // רשימת כיתות מסודרת לפי חטיבות
     const list = document.getElementById('attendanceSummaryList');
     list.innerHTML = '';
-    const classes = [...new Set(Object.values(allStudents).map(s => s.class).filter(Boolean))].sort();
     
-    classes.forEach(cls => {
-        const students = Object.entries(allStudents).filter(([,s]) => s.class === cls);
-        const presentCount = students.filter(([id]) => dailyAttendance[id] === 'present').length;
+    const classes = [...new Set(Object.values(allStudents).map(s => s.class).filter(Boolean))];
+    
+    // מיון לפי שכבה
+    const sortOrder = { 'ז': 1, 'ח': 2, 'ט': 3, 'י': 4, 'יא': 5, 'יב': 6 };
+    classes.sort((a, b) => {
+        const aK = a.startsWith('יא') || a.startsWith('יב') ? a.substring(0, 2) : a.charAt(0);
+        const bK = b.startsWith('יא') || b.startsWith('יב') ? b.substring(0, 2) : b.charAt(0);
+        return (sortOrder[aK] || 99) - (sortOrder[bK] || 99) || a.localeCompare(b, 'he');
+    });
+    
+    // חלוקה לחטיבות
+    const junior = classes.filter(c => c.startsWith('ז') || c.startsWith('ח') || c.startsWith('ט'));
+    const senior = classes.filter(c => c.startsWith('י') || c.startsWith('יא') || c.startsWith('יב'));
+    
+    // חטיבת ביניים
+    if (junior.length > 0) {
+        const juniorSection = document.createElement('div');
+        juniorSection.innerHTML = `<h3 style="margin:20px 0 10px;color:#3498db;">🏫 חטיבת ביניים (ז-ט)</h3>`;
         
-        const isOpen = openPanels.has('att_' + cls);
-        const group = document.createElement('div');
-        group.className = 'panel-group';
-        group.innerHTML = `
-            <div class="panel-header" style="border-right-color:${getColor(cls)};" onclick="toggleEmergencyPanel('att_${cls}', this)">
-                <div style="font-weight:900;">${cls} <span style="font-weight:400;color:#7f8c8d;">(${presentCount}/${students.length})</span></div>
-                <span class="panel-badge" style="background:${presentCount === students.length ? '#27ae60' : '#f0f3f4'};color:${presentCount === students.length ? 'white' : '#7f8c8d'};">${presentCount === students.length ? '✓ הושלם' : (students.length - presentCount) + ' חסרים'}</span>
-            </div>
-            <div class="panel-body ${isOpen ? 'active' : ''}"></div>`;
+        const grid = document.createElement('div');
+        grid.className = 'class-grid';
+        grid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-bottom:20px;';
         
-        const body = group.querySelector('.panel-body');
-        
-        students.sort((a, b) => a[1].name.localeCompare(b[1].name, 'he')).forEach(([id, student]) => {
-            const isPresent = dailyAttendance[id] === 'present';
-            const groupName = dailyGroupMap[id];
-            const groupTag = groupName ? `<span class="group-tag">${groupName.replace('קבוצה ', '').substring(0, 25)}</span>` : '';
+        junior.forEach(cls => {
+            const students = Object.entries(allStudents).filter(([,s]) => s.class === cls);
+            const presentCount = students.filter(([id]) => dailyAttendance[id] === 'present').length;
+            const pct = students.length > 0 ? Math.round(presentCount / students.length * 100) : 0;
             
-            body.innerHTML += `
-                <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 15px;background:${isPresent ? '#e8f8f5' : '#fdedec'};margin-bottom:2px;border-radius:5px;">
-                    <div style="display:flex;align-items:center;gap:8px;">
-                        <span style="font-weight:600;">${student.name}</span>
-                        ${groupTag}
-                    </div>
-                    <span style="font-size:0.85rem;">${isPresent ? '✓ נוכח' : '✗ חסר'}</span>
-                </div>`;
+            const card = document.createElement('div');
+            card.style.cssText = `background:white;border-radius:12px;padding:15px;text-align:center;border-right:4px solid ${getColor(cls)};box-shadow:0 2px 8px rgba(0,0,0,0.1);cursor:pointer;`;
+            card.innerHTML = `
+                <div style="font-weight:bold;font-size:1.1rem;margin-bottom:5px;">${cls}</div>
+                <div style="font-size:1.5rem;font-weight:bold;color:${pct === 100 ? '#27ae60' : pct >= 80 ? '#f39c12' : '#e74c3c'};">${pct}%</div>
+                <div style="font-size:0.8rem;color:#7f8c8d;">${presentCount}/${students.length}</div>
+            `;
+            card.onclick = () => toggleAttendanceSummaryClass(cls);
+            grid.appendChild(card);
         });
         
-        list.appendChild(group);
+        juniorSection.appendChild(grid);
+        list.appendChild(juniorSection);
+    }
+    
+    // חטיבה עליונה
+    if (senior.length > 0) {
+        const seniorSection = document.createElement('div');
+        seniorSection.innerHTML = `<h3 style="margin:20px 0 10px;color:#9b59b6;">🎓 חטיבה עליונה (י-יב)</h3>`;
+        
+        const grid = document.createElement('div');
+        grid.className = 'class-grid';
+        grid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-bottom:20px;';
+        
+        senior.forEach(cls => {
+            const students = Object.entries(allStudents).filter(([,s]) => s.class === cls);
+            const presentCount = students.filter(([id]) => dailyAttendance[id] === 'present').length;
+            const pct = students.length > 0 ? Math.round(presentCount / students.length * 100) : 0;
+            
+            const card = document.createElement('div');
+            card.style.cssText = `background:white;border-radius:12px;padding:15px;text-align:center;border-right:4px solid ${getColor(cls)};box-shadow:0 2px 8px rgba(0,0,0,0.1);cursor:pointer;`;
+            card.innerHTML = `
+                <div style="font-weight:bold;font-size:1.1rem;margin-bottom:5px;">${cls}</div>
+                <div style="font-size:1.5rem;font-weight:bold;color:${pct === 100 ? '#27ae60' : pct >= 80 ? '#f39c12' : '#e74c3c'};">${pct}%</div>
+                <div style="font-size:0.8rem;color:#7f8c8d;">${presentCount}/${students.length}</div>
+            `;
+            card.onclick = () => toggleAttendanceSummaryClass(cls);
+            grid.appendChild(card);
+        });
+        
+        seniorSection.appendChild(grid);
+        list.appendChild(seniorSection);
+    }
+    
+    // אזור פירוט כיתה
+    const detailDiv = document.createElement('div');
+    detailDiv.id = 'attendanceSummaryDetail';
+    list.appendChild(detailDiv);
+}
+
+function toggleAttendanceSummaryClass(cls) {
+    const detailDiv = document.getElementById('attendanceSummaryDetail');
+    
+    // אם כבר פתוח על אותה כיתה - סגור
+    if (detailDiv.dataset.openClass === cls) {
+        detailDiv.innerHTML = '';
+        detailDiv.dataset.openClass = '';
+        return;
+    }
+    
+    detailDiv.dataset.openClass = cls;
+    
+    const students = Object.entries(allStudents).filter(([,s]) => s.class === cls);
+    students.sort((a, b) => a[1].name.localeCompare(b[1].name, 'he'));
+    
+    let html = `
+        <div style="background:white;border-radius:12px;padding:15px;margin-top:15px;box-shadow:0 2px 8px rgba(0,0,0,0.1);">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;">
+                <h3 style="margin:0;">📋 ${cls}</h3>
+                <button onclick="document.getElementById('attendanceSummaryDetail').innerHTML='';document.getElementById('attendanceSummaryDetail').dataset.openClass='';" style="background:#e74c3c;color:white;border:none;padding:8px 15px;border-radius:8px;cursor:pointer;">✕ סגור</button>
+            </div>
+    `;
+    
+    students.forEach(([id, student]) => {
+        const isPresent = dailyAttendance[id] === 'present';
+        const groupName = dailyGroupMap[id];
+        const groupTag = groupName ? `<span class="group-tag">${groupName.replace('קבוצה ', '').substring(0, 20)}</span>` : '';
+        
+        html += `
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:${isPresent ? '#e8f8f5' : '#fdedec'};margin-bottom:4px;border-radius:8px;">
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                    <span style="font-weight:600;">${student.name}</span>
+                    ${groupTag}
+                </div>
+                <span style="font-size:0.85rem;white-space:nowrap;">${isPresent ? '✓ נוכח' : '✗ חסר'}</span>
+            </div>
+        `;
     });
+    
+    html += '</div>';
+    detailDiv.innerHTML = html;
+    
+    // גלילה לפירוט
+    detailDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 function enterEmergencyAs(role) {
