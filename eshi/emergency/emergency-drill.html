@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>מערכת חירום - בית חינוך גליל מערבי</title>
-    <!-- VERSION 46 -->
+    <!-- VERSION 47 -->
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700;900&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -202,7 +202,7 @@
     <div class="header">
         <div style="text-align:center;">
             <h1>🚨 מערכת חירום - גליל מערבי</h1>
-            <span class="header-credit">פיתוח - רני בן זאב | v46</span>
+            <span class="header-credit">פיתוח - רני בן זאב | v47</span>
         </div>
         <div id="userInfo" style="display:none;">
             <button class="btn-logout" onclick="logout()">יציאה</button>
@@ -337,8 +337,27 @@
                 <div class="stat-box"><div class="stat-num" id="attSummaryPresent" style="color:var(--success);">0</div><div>נוכחים</div></div>
                 <div class="stat-box"><div class="stat-num" id="attSummaryAbsent" style="color:var(--danger);">0</div><div>חסרים</div></div>
             </div>
+            
+            <!-- כפתורי פעולה -->
+            <div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;">
+                <button onclick="archiveAttendanceAndReset()" style="flex:1;min-width:200px;padding:15px;background:linear-gradient(135deg,#9b59b6,#8e44ad);color:white;border:none;border-radius:10px;font-weight:bold;font-size:1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;">
+                    <span class="material-icons-round">archive</span> סיום יום ושמירה בארכיון
+                </button>
+                <button onclick="showAttendanceHistory()" style="flex:1;min-width:200px;padding:15px;background:linear-gradient(135deg,#1abc9c,#16a085);color:white;border:none;border-radius:10px;font-weight:bold;font-size:1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;">
+                    <span class="material-icons-round">history</span> היסטוריה
+                </button>
+            </div>
+            
             <h3 style="margin-bottom:15px;">מצב כיתות:</h3>
             <div id="attendanceSummaryList"></div>
+            
+            <!-- היסטוריה -->
+            <div id="attendanceHistorySection" style="display:none;margin-top:20px;">
+                <div style="background:white;border-radius:12px;padding:20px;box-shadow:0 2px 10px rgba(0,0,0,0.1);">
+                    <h3 style="margin-bottom:15px;">📅 היסטוריית נוכחות</h3>
+                    <div id="attendanceHistoryList"></div>
+                </div>
+            </div>
         </div>
 
         <!-- מסך סיכום בית ספרי -->
@@ -1092,6 +1111,109 @@ function toggleAttendanceSummaryClass(cls) {
     
     // גלילה לפירוט
     detailDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+async function archiveAttendanceAndReset() {
+    const pwd = prompt('סיסמה לסיום היום:');
+    if (pwd === null) return;
+    if (pwd !== '1234') { toast('סיסמה שגויה', 'err'); return; }
+    if (!confirm('לשמור את נוכחות היום בארכיון ולאפס?')) return;
+    
+    try {
+        toast('שומר בארכיון...', 'ok');
+        
+        const today = new Date().toISOString().split('T')[0];
+        const total = Object.keys(allStudents).length;
+        const present = Object.values(dailyAttendance).filter(s => s === 'present').length;
+        const absent = total - present;
+        
+        // פירוט לפי כיתות
+        const classDetails = {};
+        Object.entries(allStudents).forEach(([id, student]) => {
+            const cls = student.class;
+            if (!classDetails[cls]) classDetails[cls] = { present: 0, absent: 0, students: [] };
+            const isPresent = dailyAttendance[id] === 'present';
+            if (isPresent) classDetails[cls].present++;
+            else classDetails[cls].absent++;
+            classDetails[cls].students.push({
+                id: id,
+                name: student.name,
+                status: isPresent ? 'present' : 'absent',
+                group: dailyGroupMap[id] || null
+            });
+        });
+        
+        // שמירה בהיסטוריה
+        await api('event_history', {
+            method: 'POST',
+            body: JSON.stringify({
+                event_date: today,
+                event_type: 'daily_attendance',
+                total_students: total,
+                present_count: present,
+                absent_count: absent,
+                released_count: 0,
+                missing_count: 0,
+                details: { classes: classDetails }
+            })
+        });
+        
+        // איפוס טבלת נוכחות
+        await api('daily_attendance?student_id=neq.0', { method: 'DELETE' });
+        
+        // איפוס משתנים
+        dailyAttendance = {};
+        dailyGroupMap = {};
+        
+        toast('נשמר בארכיון ואופס!', 'ok');
+        renderAttendanceSummary();
+        
+    } catch (e) {
+        console.error(e);
+        toast('שגיאה בשמירה', 'err');
+    }
+}
+
+async function showAttendanceHistory() {
+    const section = document.getElementById('attendanceHistorySection');
+    const list = document.getElementById('attendanceHistoryList');
+    
+    if (section.style.display === 'block') {
+        section.style.display = 'none';
+        return;
+    }
+    
+    list.innerHTML = '<p style="text-align:center;color:#7f8c8d;">טוען...</p>';
+    section.style.display = 'block';
+    
+    try {
+        const history = await api('event_history?event_type=eq.daily_attendance&order=event_date.desc&limit=30');
+        
+        if (!history || history.length === 0) {
+            list.innerHTML = '<p style="text-align:center;color:#7f8c8d;">אין היסטוריה</p>';
+            return;
+        }
+        
+        list.innerHTML = history.map(h => {
+            const date = new Date(h.event_date).toLocaleDateString('he-IL');
+            const pct = h.total_students > 0 ? Math.round(h.present_count / h.total_students * 100) : 0;
+            return `
+                <div style="background:#f8f9fa;padding:15px;border-radius:10px;margin-bottom:10px;border-right:4px solid ${pct >= 80 ? '#27ae60' : '#e74c3c'};">
+                    <div style="display:flex;justify-content:space-between;align-items:center;">
+                        <span style="font-weight:bold;">${date}</span>
+                        <span style="color:${pct >= 80 ? '#27ae60' : '#e74c3c'};font-weight:bold;">${pct}%</span>
+                    </div>
+                    <div style="font-size:0.9rem;color:#7f8c8d;margin-top:5px;">
+                        נוכחים: ${h.present_count} | חסרים: ${h.absent_count} | סה"כ: ${h.total_students}
+                    </div>
+                </div>
+            `;
+        }).join('');
+        
+    } catch (e) {
+        console.error(e);
+        list.innerHTML = '<p style="text-align:center;color:#e74c3c;">שגיאה בטעינה</p>';
+    }
 }
 
 function enterEmergencyAs(role) {
