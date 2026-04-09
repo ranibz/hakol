@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>מערכת חירום - בית חינוך גליל מערבי</title>
-    <!-- VERSION 26 -->
+    <!-- VERSION 28 -->
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700;900&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -155,6 +155,16 @@
         .btn-export { background: var(--info); }
         .btn-archive { background: #9b59b6; }
         .btn-history { background: #1abc9c; }
+        
+        /* Toggle תרגיל עצמאי */
+        .drill-mode-toggle { background: white; padding: 15px 20px; border-radius: 12px; margin-bottom: 10px; }
+        .toggle-label { display: flex; align-items: center; gap: 12px; cursor: pointer; }
+        .toggle-label input { display: none; }
+        .toggle-switch { width: 50px; height: 26px; background: #bdc3c7; border-radius: 13px; position: relative; transition: 0.3s; }
+        .toggle-switch::after { content: ''; position: absolute; width: 22px; height: 22px; background: white; border-radius: 50%; top: 2px; left: 2px; transition: 0.3s; }
+        .toggle-label input:checked + .toggle-switch { background: #e74c3c; }
+        .toggle-label input:checked + .toggle-switch::after { left: 26px; }
+        .toggle-text { font-weight: 600; color: #2c3e50; }
 
         /* העלאת אקסל */
         .settings-link { display: inline-block; margin-top: 30px; color: #7f8c8d; text-decoration: underline; cursor: pointer; font-size: 0.9rem; }
@@ -177,7 +187,7 @@
     <div class="header">
         <div style="text-align:center;">
             <h1>🚨 מערכת חירום - גליל מערבי</h1>
-            <span class="header-credit">פיתוח - רני בן זאב | v26</span>
+            <span class="header-credit">פיתוח - רני בן זאב | v28</span>
         </div>
         <div id="userInfo" style="display:none;">
             <button class="btn-logout" onclick="logout()">יציאה</button>
@@ -313,7 +323,17 @@
                 <div class="event-title"><span class="material-icons-round">warning</span> תרגיל חירום</div>
                 <span class="event-badge badge-emergency">פעיל</span>
             </div>
-            <h2 style="text-align:center; margin: 40px 0 20px;">בחר את תפקידך:</h2>
+            
+            <!-- מצב תרגיל -->
+            <div class="drill-mode-toggle">
+                <label class="toggle-label">
+                    <input type="checkbox" id="standaloneDrill" onchange="toggleDrillMode()">
+                    <span class="toggle-switch"></span>
+                    <span class="toggle-text">תרגיל עצמאי (ללא נוכחות בוקר)</span>
+                </label>
+            </div>
+            
+            <h2 style="text-align:center; margin: 30px 0 20px;">בחר את תפקידך:</h2>
             <div class="event-cards">
                 <div class="event-card attendance" onclick="enterEmergencyAs('teacher')" style="border-right-color: #3498db;">
                     <span class="material-icons-round icon" style="color:#3498db;">school</span>
@@ -404,6 +424,7 @@ let emergencyStatus = {}; // student_id -> status
 let classPhase = {}; // class_name -> 'phase1_done'
 let openPanels = new Set();
 let refreshInterval = null;
+let standaloneDrillMode = false; // תרגיל עצמאי ללא נוכחות בוקר
 
 async function api(path, opts = {}) {
     const r = await fetch(SURL + '/rest/v1/' + path, { 
@@ -466,6 +487,23 @@ function renderCurrentScreen() {
 // ========== אירועים ==========
 let emergencyRole = null; // 'teacher' | 'admin'
 
+function toggleDrillMode() {
+    standaloneDrillMode = document.getElementById('standaloneDrill').checked;
+    if (standaloneDrillMode) {
+        // במצב תרגיל עצמאי - איפוס הנתונים הקיימים
+        if (confirm('להפעיל תרגיל עצמאי?\nזה יאפס את כל נתוני התרגיל הנוכחי.')) {
+            api('emergency_drill?student_id=neq.0', { method: 'DELETE' });
+            api('class_status?class_name=neq.0', { method: 'DELETE' });
+            emergencyStatus = {};
+            classPhase = {};
+            toast('תרגיל עצמאי מופעל', 'ok');
+        } else {
+            document.getElementById('standaloneDrill').checked = false;
+            standaloneDrillMode = false;
+        }
+    }
+}
+
 function startEvent(type) {
     currentEvent = type;
     document.getElementById('userInfo').style.display = 'flex';
@@ -477,6 +515,9 @@ function startEvent(type) {
         showScreen('screen-summary');
         loadSummaryData();
     } else {
+        // איפוס מצב תרגיל עצמאי בכניסה
+        standaloneDrillMode = false;
+        document.getElementById('standaloneDrill').checked = false;
         showScreen('screen-emergency-role');
         loadData();
     }
@@ -698,23 +739,30 @@ async function enterEmergencyClass(cls) {
     const today = new Date().toISOString().split('T')[0];
     const classStudents = Object.entries(allStudents).filter(([,s]) => s.class === cls);
     
-    // טעינת שחרורים של היום
+    // טעינת שחרורים של היום (תמיד רלוונטי)
     let releasedToday = {};
-    try {
-        const releases = await api(`student_releases?status=eq.released&released_at=gte.${today}T00:00:00`);
-        (releases || []).forEach(r => { releasedToday[r.student_id] = true; });
-    } catch (e) { console.error(e); }
+    if (!standaloneDrillMode) {
+        try {
+            const releases = await api(`student_releases?status=eq.released&released_at=gte.${today}T00:00:00`);
+            (releases || []).forEach(r => { releasedToday[r.student_id] = true; });
+        } catch (e) { console.error(e); }
+    }
     
     for (const [id] of classStudents) {
         // אם התלמיד כבר מסומן בחירום - בדוק אם צריך לעדכן לשחרור
         if (emergencyStatus[id]) {
-            // אם התלמיד שוחרר אבל לא מסומן כ-left_school - עדכן
-            if (releasedToday[id] && emergencyStatus[id] !== 'left_school') {
+            // אם התלמיד שוחרר אבל לא מסומן כ-left_school - עדכן (רק במצב רגיל)
+            if (!standaloneDrillMode && releasedToday[id] && emergencyStatus[id] !== 'left_school') {
                 try {
                     await api('emergency_drill', { method: 'POST', prefer: 'resolution=merge-duplicates', body: JSON.stringify({ student_id: id, status: 'left_school' }) });
                     emergencyStatus[id] = 'left_school';
                 } catch (e) { console.error(e); }
             }
+            continue;
+        }
+        
+        // במצב תרגיל עצמאי - כל התלמידים נשארים לבנים
+        if (standaloneDrillMode) {
             continue;
         }
         
