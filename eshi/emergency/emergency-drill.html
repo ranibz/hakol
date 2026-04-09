@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>מערכת חירום - בית חינוך גליל מערבי</title>
-    <!-- VERSION 32 -->
+    <!-- VERSION 33 -->
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700;900&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -81,6 +81,15 @@
         /* כרטיסי קבוצות לימוד */
         .group-card { background: #f8f9fa; padding: 15px; border-radius: 10px; margin-bottom: 10px; cursor: pointer; border-right: 5px solid #e67e22; transition: all 0.2s; }
         .group-card:hover { background: #fef9e7; transform: translateX(-5px); }
+        
+        /* כפתורי תצוגה במנהל */
+        .view-toggle { display: flex; gap: 10px; margin-bottom: 15px; }
+        .view-btn { flex: 1; padding: 12px; border: 2px solid #bdc3c7; border-radius: 10px; background: white; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; color: #7f8c8d; transition: all 0.2s; }
+        .view-btn.active { border-color: #9b59b6; background: #9b59b6; color: white; }
+        .view-btn:hover:not(.active) { border-color: #9b59b6; color: #9b59b6; }
+        
+        /* תג קבוצת לימוד */
+        .group-tag { display: inline-block; background: #e67e22; color: white; padding: 2px 8px; border-radius: 10px; font-size: 0.7rem; margin-right: 5px; }
         
         /* מודל היסטוריה */
         .modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); z-index: 1000; justify-content: center; align-items: center; }
@@ -193,7 +202,7 @@
     <div class="header">
         <div style="text-align:center;">
             <h1>🚨 מערכת חירום - גליל מערבי</h1>
-            <span class="header-credit">פיתוח - רני בן זאב | v32</span>
+            <span class="header-credit">פיתוח - רני בן זאב | v33</span>
         </div>
         <div id="userInfo" style="display:none;">
             <button class="btn-logout" onclick="logout()">יציאה</button>
@@ -426,12 +435,23 @@
                 <button class="btn-archive" onclick="archiveEvent()"><span class="material-icons-round">archive</span> סיום וארכיון</button>
                 <button class="btn-history" onclick="showHistoryModal()"><span class="material-icons-round">history</span> היסטוריה</button>
             </div>
+            
+            <!-- בחירת תצוגה -->
+            <div class="view-toggle">
+                <button class="view-btn active" id="viewClassBtn" onclick="setAdminView('class')">
+                    <span class="material-icons-round">class</span> תצוגה כיתתית
+                </button>
+                <button class="view-btn" id="viewGroupsBtn" onclick="setAdminView('groups')">
+                    <span class="material-icons-round">groups</span> קבוצות לימוד
+                </button>
+            </div>
+            
             <div class="stats-grid">
                 <div class="stat-box"><div class="stat-num" id="statTotal" style="color:var(--primary);">0</div><div>סה"כ</div></div>
                 <div class="stat-box"><div class="stat-num" id="statPresent" style="color:var(--success);">0</div><div>אותרו</div></div>
                 <div class="stat-box"><div class="stat-num" id="statMissing" style="color:var(--danger);">0</div><div>חסרים</div></div>
             </div>
-            <h3 style="margin-bottom:15px;">מצב כיתות:</h3>
+            <h3 style="margin-bottom:15px;" id="adminViewTitle">מצב כיתות:</h3>
             <div id="emergencyClassList"></div>
         </div>
 
@@ -481,6 +501,8 @@ let standaloneDrillMode = false; // תרגיל עצמאי ללא נוכחות ב
 let currentStudyGroup = null; // קבוצת לימוד נוכחית
 let studyGroupStudents = {}; // תלמידי קבוצת הלימוד הנוכחית
 let studyGroupStatus = {}; // סטטוס תלמידים בקבוצת לימוד
+let adminViewMode = 'class'; // 'class' | 'groups'
+let studentGroupMap = {}; // מיפוי תלמיד -> קבוצה שבה נספר
 
 async function api(path, opts = {}) {
     const r = await fetch(SURL + '/rest/v1/' + path, { 
@@ -748,7 +770,36 @@ function renderEmergencyLobby() {
     document.getElementById('statPresent').textContent = present + handled;
     document.getElementById('statMissing').textContent = total - present - handled;
     
-    // רשימת כיתות
+    // רינדור לפי מצב התצוגה
+    if (adminViewMode === 'groups') {
+        loadAndRenderGroupsView();
+    } else {
+        renderEmergencyLobbyClassView();
+    }
+}
+
+function toggleEmergencyPanel(cls, el) {
+    const body = el.nextElementSibling;
+    body.classList.toggle('active');
+    if (body.classList.contains('active')) openPanels.add(cls);
+    else openPanels.delete(cls);
+}
+
+function setAdminView(mode) {
+    adminViewMode = mode;
+    document.getElementById('viewClassBtn').classList.toggle('active', mode === 'class');
+    document.getElementById('viewGroupsBtn').classList.toggle('active', mode === 'groups');
+    
+    if (mode === 'class') {
+        document.getElementById('adminViewTitle').textContent = 'מצב כיתות:';
+        renderEmergencyLobbyClassView();
+    } else {
+        document.getElementById('adminViewTitle').textContent = 'מצב כיתות (תצוגת קבוצות לימוד):';
+        loadAndRenderGroupsView();
+    }
+}
+
+function renderEmergencyLobbyClassView() {
     const list = document.getElementById('emergencyClassList');
     list.innerHTML = '';
     const classes = [...new Set(Object.values(allStudents).map(s => s.class).filter(Boolean))].sort();
@@ -787,18 +838,110 @@ function renderEmergencyLobby() {
             });
         }
         
-        // כפתור כניסה לכיתה
         body.innerHTML += `<button style="width:100%;margin-top:10px;padding:12px;background:var(--info);color:white;border:none;border-radius:8px;font-weight:bold;cursor:pointer;" onclick="enterEmergencyClass('${cls}')">📋 כניסה לכיתה</button>`;
         
         list.appendChild(group);
     });
 }
 
-function toggleEmergencyPanel(cls, el) {
-    const body = el.nextElementSibling;
-    body.classList.toggle('active');
-    if (body.classList.contains('active')) openPanels.add(cls);
-    else openPanels.delete(cls);
+async function loadAndRenderGroupsView() {
+    const list = document.getElementById('emergencyClassList');
+    list.innerHTML = '<p style="text-align:center;color:#7f8c8d;">טוען קבוצות לימוד...</p>';
+    
+    try {
+        // טעינת כל הקבוצות
+        const groups = await api('study_groups?select=student_id,student_name,group_name');
+        
+        // בניית מיפוי: תלמיד -> קבוצה (אם נספר)
+        studentGroupMap = {};
+        (groups || []).forEach(g => {
+            if (emergencyStatus[g.student_id] === 'present') {
+                // התלמיד נספר - בדוק אם זה היה דרך קבוצת לימוד
+                if (!studentGroupMap[g.student_id]) {
+                    studentGroupMap[g.student_id] = g.group_name;
+                }
+            }
+        });
+        
+        // רינדור לפי כיתות אם עם תגי קבוצות
+        renderEmergencyLobbyGroupsView();
+        
+    } catch (e) {
+        console.error(e);
+        list.innerHTML = '<p style="text-align:center;color:#e74c3c;">שגיאה בטעינת קבוצות</p>';
+    }
+}
+
+function renderEmergencyLobbyGroupsView() {
+    const list = document.getElementById('emergencyClassList');
+    list.innerHTML = '';
+    const classes = [...new Set(Object.values(allStudents).map(s => s.class).filter(Boolean))].sort();
+    
+    classes.forEach(cls => {
+        const students = Object.entries(allStudents).filter(([,s]) => s.class === cls);
+        const presentCount = students.filter(([id]) => emergencyStatus[id] === 'present').length;
+        const handledCount = students.filter(([id]) => { const s = emergencyStatus[id]; return s && s !== 'present' && s !== 'missing'; }).length;
+        const missingCount = students.length - presentCount - handledCount;
+        const phase = classPhase[cls];
+        
+        let badge = '';
+        if (phase === 'phase1_done' && missingCount === 0) badge = '<span class="panel-badge" style="background:#27ae60;color:white;">✓ הושלם</span>';
+        else if (phase === 'phase1_done') badge = `<span class="panel-badge" style="background:#e74c3c;color:white;">${missingCount} חסרים</span>`;
+        else badge = '<span class="panel-badge" style="background:#f0f3f4;color:#7f8c8d;">ממתין</span>';
+        
+        const isOpen = openPanels.has(cls);
+        const group = document.createElement('div');
+        group.className = 'panel-group';
+        group.innerHTML = `
+            <div class="panel-header" style="border-right-color:${getColor(cls)};" onclick="toggleEmergencyPanel('${cls}', this)">
+                <div style="font-weight:900;">${cls} <span style="font-weight:400;color:#7f8c8d;">(${presentCount + handledCount}/${students.length})</span></div>
+                ${badge}
+            </div>
+            <div class="panel-body ${isOpen ? 'active' : ''}"></div>`;
+        
+        const body = group.querySelector('.panel-body');
+        
+        // הצגת כל התלמידים עם תג קבוצה
+        students.sort((a, b) => a[1].name.localeCompare(b[1].name, 'he')).forEach(([id, student]) => {
+            const st = emergencyStatus[id];
+            const groupName = studentGroupMap[id];
+            let statusTxt = '';
+            let rowClass = '';
+            
+            if (st === 'present') {
+                statusTxt = '✓ נוכח';
+                rowClass = 'present';
+            } else if (st === 'found') {
+                statusTxt = '✓ אותר';
+                rowClass = 'handled';
+            } else if (st === 'absent_today') {
+                statusTxt = '🏠 לא הגיע';
+                rowClass = 'handled';
+            } else if (st === 'left_school') {
+                statusTxt = '🚪 יצא';
+                rowClass = 'handled';
+            } else if (st === 'found_phone') {
+                statusTxt = '📞 טלפונית';
+                rowClass = 'handled';
+            } else {
+                statusTxt = '❓ לא אותר';
+                rowClass = '';
+            }
+            
+            const groupTag = groupName ? `<span class="group-tag">${groupName.replace('קבוצה ', '').substring(0, 20)}</span>` : '';
+            
+            body.innerHTML += `
+                <div class="student-row ${rowClass}" style="padding:10px 15px;">
+                    <div>
+                        <span style="font-weight:600;">${student.name}</span>
+                        ${groupTag}
+                    </div>
+                    <span style="font-size:0.85rem;">${statusTxt}</span>
+                </div>`;
+        });
+        
+        list.appendChild(group);
+    });
 }
 
 async function enterEmergencyClass(cls) {
