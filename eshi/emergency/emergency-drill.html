@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>מערכת חירום - בית חינוך גליל מערבי</title>
-    <!-- VERSION 43 -->
+    <!-- VERSION 44 -->
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700;900&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -202,7 +202,7 @@
     <div class="header">
         <div style="text-align:center;">
             <h1>🚨 מערכת חירום - גליל מערבי</h1>
-            <span class="header-credit">פיתוח - רני בן זאב | v43</span>
+            <span class="header-credit">פיתוח - רני בן זאב | v44</span>
         </div>
         <div id="userInfo" style="display:none;">
             <button class="btn-logout" onclick="logout()">יציאה</button>
@@ -900,65 +900,145 @@ function renderAttendanceSummary() {
         return (sortOrder[aK] || 99) - (sortOrder[bK] || 99) || a.localeCompare(b, 'he');
     });
     
+    // קיבוץ לפי שכבה
+    const byGrade = {};
+    classes.forEach(cls => {
+        const grade = cls.startsWith('יא') || cls.startsWith('יב') ? cls.substring(0, 2) : cls.charAt(0);
+        if (!byGrade[grade]) byGrade[grade] = [];
+        byGrade[grade].push(cls);
+    });
+    
     // חלוקה לחטיבות
-    const junior = classes.filter(c => c.startsWith('ז') || c.startsWith('ח') || c.startsWith('ט'));
-    const senior = classes.filter(c => c.startsWith('י') || c.startsWith('יא') || c.startsWith('יב'));
+    const juniorGrades = ['ז', 'ח', 'ט'];
+    const seniorGrades = ['י', 'יא', 'יב'];
     
     // חטיבת ביניים
-    if (junior.length > 0) {
-        const juniorSection = document.createElement('div');
-        juniorSection.innerHTML = `<h3 style="margin:20px 0 10px;color:#3498db;">🏫 חטיבת ביניים (ז-ט)</h3>`;
-        
-        const grid = document.createElement('div');
-        grid.className = 'class-grid';
-        grid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-bottom:20px;';
-        
-        junior.forEach(cls => {
-            const students = Object.entries(allStudents).filter(([,s]) => s.class === cls);
-            const presentCount = students.filter(([id]) => dailyAttendance[id] === 'present').length;
-            const pct = students.length > 0 ? Math.round(presentCount / students.length * 100) : 0;
-            
-            const card = document.createElement('div');
-            card.style.cssText = `background:white;border-radius:12px;padding:15px;text-align:center;border-right:4px solid ${getColor(cls)};box-shadow:0 2px 8px rgba(0,0,0,0.1);cursor:pointer;`;
-            card.innerHTML = `
-                <div style="font-weight:bold;font-size:1.1rem;margin-bottom:5px;">${cls}</div>
-                <div style="font-size:1.5rem;font-weight:bold;color:${pct === 100 ? '#27ae60' : pct >= 80 ? '#f39c12' : '#e74c3c'};">${pct}%</div>
-                <div style="font-size:0.8rem;color:#7f8c8d;">${presentCount}/${students.length}</div>
-            `;
-            card.onclick = () => toggleAttendanceSummaryClass(cls);
-            grid.appendChild(card);
+    const juniorExists = juniorGrades.some(g => byGrade[g]);
+    if (juniorExists) {
+        let juniorTotal = 0, juniorPresent = 0;
+        juniorGrades.forEach(g => {
+            (byGrade[g] || []).forEach(cls => {
+                const students = Object.entries(allStudents).filter(([,s]) => s.class === cls);
+                juniorTotal += students.length;
+                juniorPresent += students.filter(([id]) => dailyAttendance[id] === 'present').length;
+            });
         });
         
-        juniorSection.appendChild(grid);
+        const juniorSection = document.createElement('div');
+        juniorSection.innerHTML = `
+            <div style="background:linear-gradient(135deg,#3498db,#2980b9);color:white;padding:15px;border-radius:12px;margin-bottom:15px;">
+                <h3 style="margin:0 0 5px 0;">🏫 חטיבת ביניים (ז-ט)</h3>
+                <div style="font-size:1.3rem;font-weight:bold;">${juniorPresent}/${juniorTotal} נוכחים (${juniorTotal > 0 ? Math.round(juniorPresent/juniorTotal*100) : 0}%)</div>
+            </div>
+        `;
+        
+        // לולאה על שכבות
+        juniorGrades.forEach(grade => {
+            if (!byGrade[grade]) return;
+            
+            let gradeTotal = 0, gradePresent = 0;
+            byGrade[grade].forEach(cls => {
+                const students = Object.entries(allStudents).filter(([,s]) => s.class === cls);
+                gradeTotal += students.length;
+                gradePresent += students.filter(([id]) => dailyAttendance[id] === 'present').length;
+            });
+            
+            const gradeDiv = document.createElement('div');
+            gradeDiv.style.cssText = 'margin-bottom:15px;';
+            gradeDiv.innerHTML = `
+                <div style="background:#ecf0f1;padding:10px 15px;border-radius:8px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
+                    <span style="font-weight:bold;font-size:1.1rem;">שכבה ${grade}'</span>
+                    <span style="color:${gradePresent === gradeTotal ? '#27ae60' : '#e74c3c'};font-weight:bold;">${gradePresent}/${gradeTotal} (${gradeTotal > 0 ? Math.round(gradePresent/gradeTotal*100) : 0}%)</span>
+                </div>
+            `;
+            
+            const grid = document.createElement('div');
+            grid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:8px;';
+            
+            byGrade[grade].forEach(cls => {
+                const students = Object.entries(allStudents).filter(([,s]) => s.class === cls);
+                const presentCount = students.filter(([id]) => dailyAttendance[id] === 'present').length;
+                const pct = students.length > 0 ? Math.round(presentCount / students.length * 100) : 0;
+                
+                const card = document.createElement('div');
+                card.style.cssText = `background:white;border-radius:10px;padding:12px 8px;text-align:center;border-right:3px solid ${getColor(cls)};box-shadow:0 2px 5px rgba(0,0,0,0.1);cursor:pointer;`;
+                card.innerHTML = `
+                    <div style="font-weight:bold;font-size:0.95rem;">${cls}</div>
+                    <div style="font-size:1.2rem;font-weight:bold;color:${pct === 100 ? '#27ae60' : pct >= 80 ? '#f39c12' : '#e74c3c'};">${presentCount}/${students.length}</div>
+                `;
+                card.onclick = () => toggleAttendanceSummaryClass(cls);
+                grid.appendChild(card);
+            });
+            
+            gradeDiv.appendChild(grid);
+            juniorSection.appendChild(gradeDiv);
+        });
+        
         list.appendChild(juniorSection);
     }
     
     // חטיבה עליונה
-    if (senior.length > 0) {
-        const seniorSection = document.createElement('div');
-        seniorSection.innerHTML = `<h3 style="margin:20px 0 10px;color:#9b59b6;">🎓 חטיבה עליונה (י-יב)</h3>`;
-        
-        const grid = document.createElement('div');
-        grid.className = 'class-grid';
-        grid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px;margin-bottom:20px;';
-        
-        senior.forEach(cls => {
-            const students = Object.entries(allStudents).filter(([,s]) => s.class === cls);
-            const presentCount = students.filter(([id]) => dailyAttendance[id] === 'present').length;
-            const pct = students.length > 0 ? Math.round(presentCount / students.length * 100) : 0;
-            
-            const card = document.createElement('div');
-            card.style.cssText = `background:white;border-radius:12px;padding:15px;text-align:center;border-right:4px solid ${getColor(cls)};box-shadow:0 2px 8px rgba(0,0,0,0.1);cursor:pointer;`;
-            card.innerHTML = `
-                <div style="font-weight:bold;font-size:1.1rem;margin-bottom:5px;">${cls}</div>
-                <div style="font-size:1.5rem;font-weight:bold;color:${pct === 100 ? '#27ae60' : pct >= 80 ? '#f39c12' : '#e74c3c'};">${pct}%</div>
-                <div style="font-size:0.8rem;color:#7f8c8d;">${presentCount}/${students.length}</div>
-            `;
-            card.onclick = () => toggleAttendanceSummaryClass(cls);
-            grid.appendChild(card);
+    const seniorExists = seniorGrades.some(g => byGrade[g]);
+    if (seniorExists) {
+        let seniorTotal = 0, seniorPresent = 0;
+        seniorGrades.forEach(g => {
+            (byGrade[g] || []).forEach(cls => {
+                const students = Object.entries(allStudents).filter(([,s]) => s.class === cls);
+                seniorTotal += students.length;
+                seniorPresent += students.filter(([id]) => dailyAttendance[id] === 'present').length;
+            });
         });
         
-        seniorSection.appendChild(grid);
+        const seniorSection = document.createElement('div');
+        seniorSection.innerHTML = `
+            <div style="background:linear-gradient(135deg,#9b59b6,#8e44ad);color:white;padding:15px;border-radius:12px;margin-bottom:15px;">
+                <h3 style="margin:0 0 5px 0;">🎓 חטיבה עליונה (י-יב)</h3>
+                <div style="font-size:1.3rem;font-weight:bold;">${seniorPresent}/${seniorTotal} נוכחים (${seniorTotal > 0 ? Math.round(seniorPresent/seniorTotal*100) : 0}%)</div>
+            </div>
+        `;
+        
+        // לולאה על שכבות
+        seniorGrades.forEach(grade => {
+            if (!byGrade[grade]) return;
+            
+            let gradeTotal = 0, gradePresent = 0;
+            byGrade[grade].forEach(cls => {
+                const students = Object.entries(allStudents).filter(([,s]) => s.class === cls);
+                gradeTotal += students.length;
+                gradePresent += students.filter(([id]) => dailyAttendance[id] === 'present').length;
+            });
+            
+            const gradeDiv = document.createElement('div');
+            gradeDiv.style.cssText = 'margin-bottom:15px;';
+            gradeDiv.innerHTML = `
+                <div style="background:#ecf0f1;padding:10px 15px;border-radius:8px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;">
+                    <span style="font-weight:bold;font-size:1.1rem;">שכבה ${grade}'</span>
+                    <span style="color:${gradePresent === gradeTotal ? '#27ae60' : '#e74c3c'};font-weight:bold;">${gradePresent}/${gradeTotal} (${gradeTotal > 0 ? Math.round(gradePresent/gradeTotal*100) : 0}%)</span>
+                </div>
+            `;
+            
+            const grid = document.createElement('div');
+            grid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:8px;';
+            
+            byGrade[grade].forEach(cls => {
+                const students = Object.entries(allStudents).filter(([,s]) => s.class === cls);
+                const presentCount = students.filter(([id]) => dailyAttendance[id] === 'present').length;
+                const pct = students.length > 0 ? Math.round(presentCount / students.length * 100) : 0;
+                
+                const card = document.createElement('div');
+                card.style.cssText = `background:white;border-radius:10px;padding:12px 8px;text-align:center;border-right:3px solid ${getColor(cls)};box-shadow:0 2px 5px rgba(0,0,0,0.1);cursor:pointer;`;
+                card.innerHTML = `
+                    <div style="font-weight:bold;font-size:0.95rem;">${cls}</div>
+                    <div style="font-size:1.2rem;font-weight:bold;color:${pct === 100 ? '#27ae60' : pct >= 80 ? '#f39c12' : '#e74c3c'};">${presentCount}/${students.length}</div>
+                `;
+                card.onclick = () => toggleAttendanceSummaryClass(cls);
+                grid.appendChild(card);
+            });
+            
+            gradeDiv.appendChild(grid);
+            seniorSection.appendChild(gradeDiv);
+        });
+        
         list.appendChild(seniorSection);
     }
     
