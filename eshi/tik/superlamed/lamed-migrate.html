@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>העברת נתונים ל-Supabase</title>
+    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        * { box-sizing: border-box; font-family: 'Rubik', sans-serif; }
+        body { background: #1a1a2e; color: white; padding: 40px; min-height: 100vh; }
+        .container { max-width: 800px; margin: 0 auto; }
+        h1 { text-align: center; margin-bottom: 30px; }
+        .card { background: #16213e; border-radius: 15px; padding: 25px; margin-bottom: 20px; }
+        .card h2 { margin-top: 0; color: #00d9ff; }
+        button { 
+            background: linear-gradient(135deg, #667eea, #764ba2); 
+            color: white; border: none; padding: 15px 30px; 
+            border-radius: 10px; font-size: 1.1rem; cursor: pointer;
+            margin: 5px; transition: transform 0.2s;
+        }
+        button:hover { transform: scale(1.05); }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+        .log { background: #0f0f23; border-radius: 10px; padding: 15px; 
+               max-height: 300px; overflow-y: auto; font-family: monospace; 
+               font-size: 0.9rem; white-space: pre-wrap; }
+        .success { color: #00ff88; }
+        .error { color: #ff6b6b; }
+        .info { color: #00d9ff; }
+        .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-top: 20px; }
+        .stat { background: #0f3460; padding: 20px; border-radius: 10px; text-align: center; }
+        .stat-num { font-size: 2rem; font-weight: bold; color: #00d9ff; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 העברת נתונים מ-Firebase ל-Supabase</h1>
+        
+        <div class="card">
+            <h2>📊 סטטיסטיקות</h2>
+            <div class="stats">
+                <div class="stat">
+                    <div class="stat-num" id="statAdmins">0</div>
+                    <div>מנהלים</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-num" id="statTeachers">0</div>
+                    <div>מורים</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-num" id="statStudents">0</div>
+                    <div>תלמידים</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <h2>⚙️ פעולות</h2>
+            <button onclick="migrateAll()">🔄 העבר הכל ל-Supabase</button>
+            <button onclick="testConnection()">🔌 בדוק חיבור</button>
+            <button onclick="clearLog()">🗑️ נקה לוג</button>
+        </div>
+        
+        <div class="card">
+            <h2>📝 לוג</h2>
+            <div class="log" id="log">מוכן להעברה...</div>
+        </div>
+    </div>
+
+<script>
+// Supabase Configuration
+const SUPABASE_URL = 'https://hykpagdgaeulhghyvcqw.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_o4Nff2ctoa1niZthDyMvLQ_e2hQwNuT';
+
+// Firebase Data (from export)
+const firebaseData = {
+    "admins": {
+        "admin": { "name": "מנהל מערכת", "pass": "14041963" }
+    },
+    "teachers_list": {
+        "058147000": { "classes": ["ט1"], "id": "058147000", "name": "רני בן זאב", "pass": "1234" }
+    },
+    "students_list": {
+        "12345678": { "cls": "ט1", "driveLink": "", "id": "12345678", "name": "ישראל ישראלי" },
+        "001": { "cls": "", "driveLink": "https://drive.google.com/drive/folders/1jsCTvt5RuuC1CFT23s8k6MpnwnuybEh_", "id": "001", "name": "תהל לוי" },
+        "002": { "cls": "", "driveLink": "https://drive.google.com/drive/folders/1TfOL4SGl2B8DcdcNagTC8IEaBOgaN0Ng", "id": "002", "name": "שנהב מוסרי" },
+        "003": { "cls": "", "driveLink": "https://drive.google.com/drive/folders/1iqKDtzFqRGIM4j3YHc2PLnSx9uaDBG5h", "id": "003", "name": "שירה פינטו" },
+        "004": { "cls": "", "driveLink": "https://drive.google.com/drive/folders/1-bnYo54m-rKJw763ZpwfVcp19tGrnIB9", "id": "004", "name": "רוני יקוטי" },
+        "005": { "cls": "", "driveLink": "https://drive.google.com/drive/folders/1fYIZDwIe8a2UH7AbJV-pQZ7L_Do5C_f9", "id": "005", "name": "סיון בורוכוביץ" },
+        "006": { "cls": "", "driveLink": "https://drive.google.com/drive/folders/1bgxStSVyiWX5vgPWF3dBs8LzNQycNu9h", "id": "006", "name": "נועה משולם" },
+        "007": { "cls": "", "driveLink": "https://drive.google.com/drive/folders/1aDGEOkrBjEH9jrqvqcTRPGIvlbqrq0th", "id": "007", "name": "נועה גולדשטיין" },
+        "008": { "cls": "", "driveLink": "https://drive.google.com/drive/folders/11hDb2LLqSXr6NCMqbLLe_e4ZGhsqAtBC", "id": "008", "name": "מליסה ציטרון" },
+        "009": { "cls": "", "driveLink": "https://drive.google.com/drive/folders/1nELbG8Ku2hGYcD1CGTXToBAtimttOlj9", "id": "009", "name": "ליהי ולצר" },
+        "010": { "cls": "", "driveLink": "https://drive.google.com/drive/folders/1C7gX99r7drIQJnzCKb5ASh6k9N3H9bYo", "id": "010", "name": "ליאם טובלי" },
+        "011": { "cls": "", "driveLink": "https://drive.google.com/drive/folders/1L5BVPyAp5mSDQzCN01z_jU-wyWUdd9Kh", "id": "011", "name": "ליאל דהן" },
+        "012": { "cls": "", "driveLink": "https://drive.google.com/drive/folders/11Yt4sM8aBTaU5udiyrQQVy82n3Or2LEM", "id": "012", "name": "ירין עמר" },
+        "013": { "cls": "", "driveLink": "https://drive.google.com/drive/folders/1b52kJVhG9zlEo9q-KqzsZxvy0q5Kybqo", "id": "013", "name": "ירדן נחום" },
+        "014": { "cls": "", "driveLink": "https://drive.google.com/drive/folders/1UJ6eE4vfveGm4qL9w5ZKVjXJG1p-frOf", "id": "014", "name": "יקיר דהן" },
+        "015": { "cls": "", "driveLink": "https://drive.google.com/drive/folders/1rar9wAwYSeCuW3uKRGlWjrgEW0AoCH6e", "id": "015", "name": "יהלי ראדה" },
+        "016": { "cls": "", "driveLink": "https://drive.google.com/drive/folders/1X3eGPqMqovG81pH6FroJE8EfLnfc2Z9W", "id": "016", "name": "יהלי טגנר" },
+        "017": { "cls": "", "driveLink": "https://drive.google.com/drive/folders/1RNnrv3Vuy_ohKQUpxzdXvj5uf3lQwNQf", "id": "017", "name": "טליה שרעבי" },
+        "018": { "cls": "", "driveLink": "https://drive.google.com/drive/folders/1DO-o3NrzrzYoo23OUsuxEGIirvCGm5kj", "id": "018", "name": "טליה מלכה" },
+        "019": { "cls": "", "driveLink": "https://drive.google.com/drive/folders/1DLJ22kwecxJnMjJUQqWmcHxaQxuMsXNV", "id": "019", "name": "הילה קרמר" },
+        "020": { "cls": "", "driveLink": "https://drive.google.com/drive/folders/1gfu_dSu7CJuSmsqZeUmbCuEyOYfGDgsc", "id": "020", "name": "גולן דטיאשווילי" },
+        "021": { "cls": "", "driveLink": "https://drive.google.com/drive/folders/1S2EqIefo72MWnUIj9JgSYavDPAAT2QkW", "id": "021", "name": "גאיה קנטור" },
+        "022": { "cls": "", "driveLink": "https://drive.google.com/drive/folders/1M80pM2bcy98FXj6Nr_ncSxx45bpoHUBn", "id": "022", "name": "גאיה טגנר" },
+        "023": { "cls": "", "driveLink": "https://drive.google.com/drive/folders/1wNe-wpidYSqdmJHdZnanZAyD_f0v_TNo", "id": "023", "name": "אנאל דרעי" },
+        "024": { "cls": "", "driveLink": "https://drive.google.com/drive/folders/16RhuLoZWci1ApaSCDtjgTUTYoGkw3TEs", "id": "024", "name": "אלמוג נפתלי" }
+    },
+    "student_data": {
+        "12345678": {
+            "_savedAt": "2026-02-25T21:23:32.059Z",
+            "input-student-id": "12345678",
+            "w1-question": "עוד לא סגור",
+            "w1-topic": "השפעת הספורט",
+            "w2-rationale": "עוד לא יודע מה לבחור"
+        }
+    }
+};
+
+// Update stats
+document.getElementById('statAdmins').textContent = Object.keys(firebaseData.admins || {}).length;
+document.getElementById('statTeachers').textContent = Object.keys(firebaseData.teachers_list || {}).length;
+document.getElementById('statStudents').textContent = Object.keys(firebaseData.students_list || {}).length;
+
+function log(msg, type = '') {
+    const logEl = document.getElementById('log');
+    const time = new Date().toLocaleTimeString('he-IL');
+    logEl.innerHTML += `<span class="${type}">[${time}] ${msg}</span>\n`;
+    logEl.scrollTop = logEl.scrollHeight;
+}
+
+function clearLog() {
+    document.getElementById('log').innerHTML = '';
+}
+
+async function api(path, opts = {}) {
+    const r = await fetch(SUPABASE_URL + '/rest/v1/' + path, {
+        ...opts,
+        headers: {
+            'apikey': SUPABASE_KEY,
+            'Authorization': 'Bearer ' + SUPABASE_KEY,
+            'Content-Type': 'application/json',
+            'Prefer': opts.prefer || 'return=minimal'
+        }
+    });
+    if (!r.ok) {
+        const err = await r.text();
+        throw new Error(err);
+    }
+    const text = await r.text();
+    return text ? JSON.parse(text) : null;
+}
+
+async function testConnection() {
+    log('🔌 בודק חיבור ל-Supabase...', 'info');
+    try {
+        await api('admins?limit=1');
+        log('✅ החיבור תקין!', 'success');
+    } catch (e) {
+        log('❌ שגיאה בחיבור: ' + e.message, 'error');
+    }
+}
+
+async function migrateAll() {
+    log('🚀 מתחיל העברת נתונים...', 'info');
+    
+    try {
+        // 1. Admins
+        log('📋 מעביר מנהלים...', 'info');
+        for (const [id, admin] of Object.entries(firebaseData.admins || {})) {
+            await api('admins', {
+                method: 'POST',
+                prefer: 'resolution=merge-duplicates',
+                body: JSON.stringify({ id, name: admin.name, pass: admin.pass })
+            });
+            log(`  ✓ ${admin.name}`, 'success');
+        }
+        
+        // 2. Teachers
+        log('👨‍🏫 מעביר מורים...', 'info');
+        for (const [id, teacher] of Object.entries(firebaseData.teachers_list || {})) {
+            await api('teachers', {
+                method: 'POST',
+                prefer: 'resolution=merge-duplicates',
+                body: JSON.stringify({
+                    id: teacher.id || id,
+                    name: teacher.name,
+                    pass: teacher.pass || '',
+                    classes: teacher.classes || []
+                })
+            });
+            log(`  ✓ ${teacher.name}`, 'success');
+        }
+        
+        // 3. Students
+        log('👨‍🎓 מעביר תלמידים...', 'info');
+        for (const [id, student] of Object.entries(firebaseData.students_list || {})) {
+            await api('gmar_students', {
+                method: 'POST',
+                prefer: 'resolution=merge-duplicates',
+                body: JSON.stringify({
+                    id: student.id || id,
+                    name: student.name,
+                    cls: student.cls || '',
+                    drive_link: student.driveLink || ''
+                })
+            });
+            log(`  ✓ ${student.name}`, 'success');
+        }
+        
+        // 4. Student Data
+        log('📝 מעביר נתוני עבודות...', 'info');
+        for (const [studentId, data] of Object.entries(firebaseData.student_data || {})) {
+            const cleanData = { ...data };
+            delete cleanData._savedAt;
+            delete cleanData['input-student-id'];
+            
+            await api('gmar_data', {
+                method: 'POST',
+                prefer: 'resolution=merge-duplicates',
+                body: JSON.stringify({
+                    student_id: studentId,
+                    data: cleanData,
+                    saved_at: data._savedAt || new Date().toISOString()
+                })
+            });
+            log(`  ✓ נתונים של ${studentId}`, 'success');
+        }
+        
+        log('🎉 ההעברה הושלמה בהצלחה!', 'success');
+        
+    } catch (e) {
+        log('❌ שגיאה: ' + e.message, 'error');
+        console.error(e);
+    }
+}
+</script>
+</body>
+</html>
