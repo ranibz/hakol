@@ -812,6 +812,33 @@
 
             <div class="card">
                 <div class="card-header">
+                    <h3><i class="fas fa-plus-circle"></i> הוספת תלמיד</h3>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>ת.ז.</label>
+                        <input type="text" id="newStudentId" placeholder="תעודת זהות" maxlength="9">
+                    </div>
+                    <div class="form-group">
+                        <label>שם מלא</label>
+                        <input type="text" id="newStudentName" placeholder="שם התלמיד">
+                    </div>
+                    <div class="form-group">
+                        <label>כיתה</label>
+                        <select id="newStudentClass">
+                            <option value="">-- בחר כיתה --</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="align-self: flex-end;">
+                        <button class="btn btn-primary" onclick="addStudentManual()">
+                            <i class="fas fa-plus"></i> הוסף
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
                     <h3><i class="fas fa-filter"></i> סינון</h3>
                 </div>
                 <div class="form-row">
@@ -1028,16 +1055,25 @@ document.getElementById('adminPassword')?.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') adminLogin();
 });
 
-async function supabaseRequest(endpoint, method = 'GET', data = null) {
+async function supabaseRequest(endpoint, method = 'GET', data = null, upsert = false) {
     const options = {
         method: method,
         headers: {
             'apikey': SUPABASE_KEY,
             'Authorization': `Bearer ${SUPABASE_KEY}`,
             'Content-Type': 'application/json',
-            'Prefer': method === 'POST' ? 'return=representation' : ''
+            'Prefer': ''
         }
     };
+    
+    if (method === 'POST' && upsert) {
+        options.headers['Prefer'] = 'resolution=merge-duplicates,return=representation';
+    } else if (method === 'POST') {
+        options.headers['Prefer'] = 'return=representation';
+    } else if (method === 'PATCH') {
+        options.headers['Prefer'] = 'return=representation';
+    }
+    
     if (data) options.body = JSON.stringify(data);
     const response = await fetch(`${SUPABASE_URL}/rest/v1/${endpoint}`, options);
     if (!response.ok && response.status !== 201) {
@@ -1164,8 +1200,14 @@ async function loadClassesDropdown() {
         const options = '<option value="">כל הכיתות</option>' + 
             (classes || []).map(c => `<option value="${c.class_name}">${c.class_name}</option>`).join('');
         
+        const classOptions = '<option value="">-- בחר כיתה --</option>' + 
+            (classes || []).map(c => `<option value="${c.class_name}">${c.class_name}</option>`).join('');
+        
         const filterSelect = document.getElementById('filterStudentClass');
         if (filterSelect) filterSelect.innerHTML = options;
+        
+        const newStudentClass = document.getElementById('newStudentClass');
+        if (newStudentClass) newStudentClass.innerHTML = classOptions;
         
         const importSelect = document.getElementById('importClass');
         if (importSelect) {
@@ -1174,6 +1216,37 @@ async function loadClassesDropdown() {
         }
     } catch (err) {
         console.error('Error loading classes dropdown:', err);
+    }
+}
+
+async function addStudentManual() {
+    const studentId = document.getElementById('newStudentId').value.trim();
+    const studentName = document.getElementById('newStudentName').value.trim();
+    const className = document.getElementById('newStudentClass').value;
+    
+    if (!studentId || !studentName || !className) {
+        alert('נא למלא ת.ז., שם וכיתה');
+        return;
+    }
+    
+    const normalizedId = studentId.replace(/\D/g, '').padStart(9, '0');
+    
+    try {
+        await supabaseRequest('exposure_students', 'POST', {
+            student_id: normalizedId,
+            student_name: studentName,
+            class_name: className
+        });
+        
+        document.getElementById('newStudentId').value = '';
+        document.getElementById('newStudentName').value = '';
+        
+        loadStudents();
+        loadClasses();
+        alert('התלמיד נוסף בהצלחה!');
+    } catch (err) {
+        console.error('Error adding student:', err);
+        alert('שגיאה בהוספה - אולי התלמיד כבר קיים?');
     }
 }
 
@@ -1421,35 +1494,26 @@ async function importStudents() {
     }));
     
     try {
-        let imported = 0;
-        let updated = 0;
+        let success = 0;
+        let errors = 0;
         
         for (const student of dataToImport) {
             try {
-                // נסה להוסיף
-                await supabaseRequest('exposure_students', 'POST', student);
-                imported++;
+                // UPSERT - אם קיים יעדכן, אם לא יוסיף
+                await supabaseRequest(
+                    'exposure_students?on_conflict=student_id', 
+                    'POST', 
+                    student,
+                    true // upsert mode
+                );
+                success++;
             } catch (err) {
-                // אם כבר קיים - עדכן את הכיתה
-                try {
-                    await supabaseRequest(
-                        `exposure_students?student_id=eq.${student.student_id}`, 
-                        'PATCH', 
-                        { class_name: selectedClass }
-                    );
-                    updated++;
-                } catch (e) {
-                    console.error('Error updating student:', e);
-                }
+                console.error('Error with student:', student.student_id, err);
+                errors++;
             }
         }
         
-        let msg = '';
-        if (imported > 0) msg += `נוספו ${imported} תלמידים חדשים\n`;
-        if (updated > 0) msg += `עודכנו ${updated} תלמידים קיימים\n`;
-        msg += `לכיתה "${selectedClass}"`;
-        
-        alert(msg);
+        alert(`${success} תלמידים נוספו/עודכנו בהצלחה לכיתה "${selectedClass}"!${errors > 0 ? `\n${errors} שגיאות` : ''}`);
         clearPreview();
         loadDashboard();
         loadClasses();
