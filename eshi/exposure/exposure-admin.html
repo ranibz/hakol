@@ -1019,6 +1019,37 @@
             </div>
         </div>
 
+        <!-- Modal צפייה בכיתה -->
+        <div class="modal-overlay" id="classViewModal" style="display:none;">
+            <div class="modal-content" style="max-width:700px;max-height:90vh;display:flex;flex-direction:column;">
+                <div class="modal-header">
+                    <h3><i class="fas fa-users"></i> <span id="classViewTitle">כיתה</span></h3>
+                    <button class="modal-close" onclick="closeClassView()">&times;</button>
+                </div>
+                <div class="modal-body" style="flex:1;overflow-y:auto;">
+                    <!-- הוספת תלמיד -->
+                    <div style="background:var(--surface2);padding:15px;border-radius:10px;margin-bottom:20px;">
+                        <h4 style="margin-bottom:10px;font-size:0.95rem;"><i class="fas fa-plus-circle" style="color:var(--primary);"></i> הוספת תלמיד</h4>
+                        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                            <input type="text" id="classViewStudentId" placeholder="ת.ז." maxlength="9" style="flex:1;min-width:100px;padding:10px;border-radius:8px;border:1px solid #333;background:var(--surface);color:var(--text);">
+                            <input type="text" id="classViewStudentName" placeholder="שם מלא" style="flex:2;min-width:150px;padding:10px;border-radius:8px;border:1px solid #333;background:var(--surface);color:var(--text);">
+                            <button class="btn btn-primary" onclick="addStudentToClass()" style="padding:10px 20px;">
+                                <i class="fas fa-plus"></i> הוסף
+                            </button>
+                        </div>
+                    </div>
+                    <!-- רשימת תלמידים -->
+                    <h4 style="margin-bottom:10px;"><i class="fas fa-list"></i> תלמידים בכיתה (<span id="classViewCount">0</span>)</h4>
+                    <div id="classViewStudents" style="max-height:300px;overflow-y:auto;">
+                        טוען...
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-outline" onclick="closeClassView()">סגור</button>
+                </div>
+            </div>
+        </div>
+
     </main>
 </div>
 
@@ -1143,6 +1174,9 @@ async function loadClasses() {
                 <td>${countByClass[c.class_name] || 0}</td>
                 <td>
                     <div class="action-btns">
+                        <button class="action-btn edit" onclick="openClassView('${c.class_name}')" title="פתח כיתה">
+                            <i class="fas fa-eye"></i>
+                        </button>
                         <button class="action-btn delete" onclick="deleteClass(${c.id}, '${c.class_name}')" title="מחק">
                             <i class="fas fa-trash"></i>
                         </button>
@@ -1189,6 +1223,109 @@ async function deleteClass(id, name) {
     } catch (err) {
         console.error('Error deleting class:', err);
         alert('שגיאה במחיקה');
+    }
+}
+
+// ===== CLASS VIEW MODAL =====
+let currentViewClass = null;
+
+async function openClassView(className) {
+    currentViewClass = className;
+    document.getElementById('classViewTitle').textContent = className;
+    document.getElementById('classViewModal').style.display = 'flex';
+    document.getElementById('classViewStudentId').value = '';
+    document.getElementById('classViewStudentName').value = '';
+    
+    await loadClassViewStudents();
+}
+
+function closeClassView() {
+    currentViewClass = null;
+    document.getElementById('classViewModal').style.display = 'none';
+}
+
+async function loadClassViewStudents() {
+    const container = document.getElementById('classViewStudents');
+    
+    try {
+        const students = await supabaseRequest(`exposure_students?class_name=eq.${encodeURIComponent(currentViewClass)}&order=student_name`);
+        
+        document.getElementById('classViewCount').textContent = students?.length || 0;
+        
+        if (!students || students.length === 0) {
+            container.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:20px;">אין תלמידים בכיתה</p>';
+            return;
+        }
+        
+        container.innerHTML = `
+            <table class="data-table" style="font-size:0.9rem;">
+                <thead>
+                    <tr>
+                        <th>ת.ז.</th>
+                        <th>שם</th>
+                        <th>פעולות</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${students.map(s => `
+                        <tr>
+                            <td>${s.student_id}</td>
+                            <td>${s.student_name}</td>
+                            <td>
+                                <button class="action-btn delete" onclick="removeStudentFromClass(${s.id})" title="הסר מכיתה">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+            </table>
+        `;
+    } catch (err) {
+        console.error('Error loading class students:', err);
+        container.innerHTML = '<p style="color:var(--danger);">שגיאה בטעינה</p>';
+    }
+}
+
+async function addStudentToClass() {
+    const studentId = document.getElementById('classViewStudentId').value.trim();
+    const studentName = document.getElementById('classViewStudentName').value.trim();
+    
+    if (!studentId || !studentName) {
+        alert('נא למלא ת.ז. ושם');
+        return;
+    }
+    
+    const normalizedId = studentId.replace(/\D/g, '').padStart(9, '0');
+    
+    try {
+        await supabaseRequest('exposure_students', 'POST', {
+            student_id: normalizedId,
+            student_name: studentName,
+            class_name: currentViewClass
+        });
+        
+        document.getElementById('classViewStudentId').value = '';
+        document.getElementById('classViewStudentName').value = '';
+        
+        await loadClassViewStudents();
+        loadClasses(); // עדכון מספר התלמידים בטבלה
+    } catch (err) {
+        console.error('Error adding student:', err);
+        alert('שגיאה בהוספה - אולי התלמיד כבר קיים?');
+    }
+}
+
+async function removeStudentFromClass(studentId) {
+    if (!confirm('להסיר תלמיד זה מהכיתה?')) return;
+    
+    try {
+        await supabaseRequest(`exposure_students?id=eq.${studentId}`, 'DELETE');
+        await loadClassViewStudents();
+        loadClasses();
+    } catch (err) {
+        console.error('Error removing student:', err);
+        alert('שגיאה בהסרה');
     }
 }
 
