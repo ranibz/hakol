@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>משולש החשיפה - ניהול מערכת v1.1</title>
+    <title>משולש החשיפה - ניהול מערכת v1.2</title>
     <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;600;700;900&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -412,6 +412,103 @@
             color: var(--primary);
         }
 
+        /* Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background: var(--surface);
+            border-radius: 16px;
+            width: 90%;
+            max-width: 500px;
+            max-height: 80vh;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .modal-header {
+            padding: 20px;
+            border-bottom: 1px solid #333;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h3 {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .modal-header h3 i {
+            color: var(--primary);
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+
+        .modal-body {
+            padding: 20px;
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .modal-footer {
+            padding: 20px;
+            border-top: 1px solid #333;
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+
+        .checkbox-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .checkbox-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 15px;
+            background: var(--surface2);
+            border-radius: 10px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .checkbox-item:hover {
+            background: #252535;
+        }
+
+        .checkbox-item input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            accent-color: var(--primary);
+        }
+
+        .checkbox-item label {
+            cursor: pointer;
+            flex: 1;
+        }
+
         /* Empty State */
         .empty-state {
             text-align: center;
@@ -728,7 +825,7 @@
         <div class="page" id="page-teachers">
             <div class="page-header">
                 <h2>ניהול מורים</h2>
-                <p>הוספת מורים למערכת</p>
+                <p>הוספת מורים ושיוך כיתות</p>
             </div>
 
             <div class="card">
@@ -768,13 +865,34 @@
                             <th>שם</th>
                             <th>ת.ז.</th>
                             <th>טלפון</th>
+                            <th>כיתות</th>
                             <th>פעולות</th>
                         </tr>
                     </thead>
                     <tbody id="teachersTableBody">
-                        <tr><td colspan="4" class="empty-state"><i class="fas fa-spinner fa-spin"></i></td></tr>
+                        <tr><td colspan="5" class="empty-state"><i class="fas fa-spinner fa-spin"></i></td></tr>
                     </tbody>
                 </table>
+            </div>
+        </div>
+
+        <!-- Modal לשיוך כיתות -->
+        <div class="modal-overlay" id="classesModal" style="display:none;">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h3><i class="fas fa-users-rectangle"></i> שיוך כיתות למורה</h3>
+                    <button class="modal-close" onclick="closeClassesModal()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <p id="modalTeacherName" style="margin-bottom:15px;color:var(--primary);font-weight:600;"></p>
+                    <div id="classesCheckboxes"></div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-primary" onclick="saveTeacherClasses()">
+                        <i class="fas fa-save"></i> שמור
+                    </button>
+                    <button class="btn btn-outline" onclick="closeClassesModal()">ביטול</button>
+                </div>
             </div>
         </div>
 
@@ -1195,27 +1313,87 @@ async function loadTeachers() {
         const teachers = await supabaseRequest('exposure_teachers?order=teacher_name');
         
         if (!teachers || teachers.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="4" class="empty-state"><i class="fas fa-chalkboard-teacher"></i><br>אין מורים</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5" class="empty-state"><i class="fas fa-chalkboard-teacher"></i><br>אין מורים</td></tr>';
             return;
         }
         
-        tbody.innerHTML = teachers.map(t => `
+        tbody.innerHTML = teachers.map(t => {
+            const classesArr = t.classes || [];
+            const classesDisplay = classesArr.length > 0 
+                ? classesArr.map(c => `<span class="badge class">${c}</span>`).join(' ')
+                : '<em style="color:#888">לא שויכו</em>';
+            
+            return `
             <tr>
                 <td><strong>${t.teacher_name}</strong></td>
                 <td>${t.teacher_id}</td>
                 <td>${t.phone || '-'}</td>
+                <td>${classesDisplay}</td>
                 <td>
                     <div class="action-btns">
+                        <button class="action-btn edit" onclick="openClassesModal(${t.id}, '${t.teacher_name}', ${JSON.stringify(classesArr).replace(/"/g, '&quot;')})" title="שיוך כיתות">
+                            <i class="fas fa-users-rectangle"></i>
+                        </button>
                         <button class="action-btn delete" onclick="deleteTeacher(${t.id})" title="מחק">
                             <i class="fas fa-trash"></i>
                         </button>
                     </div>
                 </td>
             </tr>
-        `).join('');
+        `}).join('');
     } catch (err) {
         console.error('Error loading teachers:', err);
-        tbody.innerHTML = '<tr><td colspan="4" class="empty-state">שגיאה בטעינה</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="5" class="empty-state">שגיאה בטעינה</td></tr>';
+    }
+}
+
+let currentTeacherId = null;
+
+async function openClassesModal(teacherId, teacherName, currentClasses) {
+    currentTeacherId = teacherId;
+    document.getElementById('modalTeacherName').textContent = teacherName;
+    
+    // טעינת כיתות קיימות
+    const classes = await supabaseRequest('exposure_classes?order=class_name');
+    
+    const checkboxes = document.getElementById('classesCheckboxes');
+    if (!classes || classes.length === 0) {
+        checkboxes.innerHTML = '<p style="color:var(--text-muted)">אין כיתות במערכת. הוסף כיתות קודם.</p>';
+    } else {
+        checkboxes.innerHTML = '<div class="checkbox-group">' + classes.map(c => `
+            <div class="checkbox-item">
+                <input type="checkbox" id="class-${c.class_name}" value="${c.class_name}" 
+                    ${currentClasses.includes(c.class_name) ? 'checked' : ''}>
+                <label for="class-${c.class_name}">${c.class_name}</label>
+            </div>
+        `).join('') + '</div>';
+    }
+    
+    document.getElementById('classesModal').style.display = 'flex';
+}
+
+function closeClassesModal() {
+    document.getElementById('classesModal').style.display = 'none';
+    currentTeacherId = null;
+}
+
+async function saveTeacherClasses() {
+    if (!currentTeacherId) return;
+    
+    const checkboxes = document.querySelectorAll('#classesCheckboxes input[type="checkbox"]:checked');
+    const selectedClasses = Array.from(checkboxes).map(cb => cb.value);
+    
+    try {
+        await supabaseRequest(`exposure_teachers?id=eq.${currentTeacherId}`, 'PATCH', {
+            classes: selectedClasses
+        });
+        
+        closeClassesModal();
+        loadTeachers();
+        alert('הכיתות עודכנו בהצלחה!');
+    } catch (err) {
+        console.error('Error saving classes:', err);
+        alert('שגיאה בשמירה');
     }
 }
 
