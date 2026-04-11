@@ -1019,85 +1019,104 @@ function processFile(file) {
         const data = new Uint8Array(e.target.result);
         const workbook = XLSX.read(data, { type: 'array' });
         const sheet = workbook.Sheets[workbook.SheetNames[0]];
-        const json = XLSX.utils.sheet_to_json(sheet);
         
-        // Find columns
-        if (json.length === 0) {
-            alert('הקובץ ריק');
+        // המרה ל-JSON עם כל השורות
+        const allRows = XLSX.utils.sheet_to_json(sheet, { header: 1 });
+        
+        // חיפוש שורת הכותרות (שורה עם ת.ז)
+        let headerRowIndex = -1;
+        for (let i = 0; i < Math.min(10, allRows.length); i++) {
+            const row = allRows[i];
+            if (row && row.some(cell => String(cell).includes('ת.ז'))) {
+                headerRowIndex = i;
+                break;
+            }
+        }
+        
+        if (headerRowIndex === -1) {
+            alert('לא נמצאה שורת כותרות עם ת.ז בקובץ');
             return;
         }
         
-        const firstRow = json[0];
-        const columns = Object.keys(firstRow);
-        
-        // מיפוי עמודות לפי מבנה משרד החינוך
+        // בניית מיפוי עמודות
+        const headers = allRows[headerRowIndex];
         const colMap = {};
-        columns.forEach(c => {
-            const cl = c.toLowerCase().trim();
-            if (cl.includes('ת.ז') || cl.includes('תז') || cl === 'tz') colMap.id = c;
-            if (cl.includes('שם התלמיד') || cl.includes('שם מלא')) colMap.name = c;
-            if (cl === 'מין') colMap.gender = c;
-            if (cl === 'שכבה') colMap.grade = c;
-            if (cl === 'מקבילה') colMap.classNum = c;
-            if (cl.includes('תאריך לידה')) colMap.birthDate = c;
-            if (cl === 'ישוב 1' || cl === 'ישוב') colMap.city = c;
-            if (cl === 'כתובת 1' || cl === 'כתובת') colMap.address = c;
-            if (cl.includes('טלפון בבית')) colMap.homePhone = c;
-            if (cl.includes('דואר אלקטרוני של התלמיד') || cl.includes('מייל תלמיד')) colMap.studentEmail = c;
-            if (cl.includes('סלולרי של התלמיד') || cl.includes('סלולארי תלמיד')) colMap.studentPhone = c;
-            if (cl.includes('שם הורה 1')) colMap.parent1Name = c;
-            if (cl.includes('סלולארי הורה 1') || cl.includes('סלולרי הורה 1')) colMap.parent1Phone = c;
-            if (cl.includes('דוא"ל הורה 1') || cl.includes('מייל הורה 1')) colMap.parent1Email = c;
-            if (cl.includes('שם הורה 2')) colMap.parent2Name = c;
-            if (cl.includes('סלולארי הורה 2') || cl.includes('סלולרי הורה 2')) colMap.parent2Phone = c;
-            if (cl.includes('דוא"ל הורה 2') || cl.includes('מייל הורה 2')) colMap.parent2Email = c;
-            if (cl.includes('קופת חולים')) colMap.healthFund = c;
+        
+        headers.forEach((header, idx) => {
+            if (!header) return;
+            const h = String(header).trim();
+            if (h.includes('ת.ז')) colMap.id = idx;
+            if (h.includes('שם התלמיד') || h === 'שם מלא' || h === 'שם') colMap.name = idx;
+            if (h === 'מין') colMap.gender = idx;
+            if (h === 'שכבה') colMap.grade = idx;
+            if (h === 'מקבילה') colMap.classNum = idx;
+            if (h.includes('תאריך לידה')) colMap.birthDate = idx;
+            if (h === 'ישוב 1' || h === 'ישוב') colMap.city = idx;
+            if (h === 'כתובת 1' || h === 'כתובת') colMap.address = idx;
+            if (h.includes('טלפון בבית')) colMap.homePhone = idx;
+            if (h.includes('דואר אלקטרוני של התלמיד')) colMap.studentEmail = idx;
+            if (h.includes('סלולרי של התלמיד')) colMap.studentPhone = idx;
+            if (h.includes('שם הורה 1')) colMap.parent1Name = idx;
+            if (h.includes('סלולארי הורה 1') || h.includes('סלולרי הורה 1')) colMap.parent1Phone = idx;
+            if (h.includes('דוא"ל הורה 1')) colMap.parent1Email = idx;
+            if (h.includes('שם הורה 2')) colMap.parent2Name = idx;
+            if (h.includes('סלולארי הורה 2') || h.includes('סלולרי הורה 2')) colMap.parent2Phone = idx;
+            if (h.includes('דוא"ל הורה 2')) colMap.parent2Email = idx;
+            if (h.includes('קופת חולים')) colMap.healthFund = idx;
         });
         
-        // Fallback לעמודות פשוטות
-        if (!colMap.id) colMap.id = columns.find(c => c.includes('ת.ז') || c.toLowerCase().includes('id'));
-        if (!colMap.name) colMap.name = columns.find(c => c.includes('שם'));
-        
-        if (!colMap.id || !colMap.name) {
+        if (colMap.id === undefined || colMap.name === undefined) {
             alert('לא נמצאו עמודות ת.ז. ושם בקובץ');
             return;
         }
         
-        // Process data
-        importData = json.map(row => {
-            const studentId = String(row[colMap.id] || '').replace(/\D/g, '').padStart(9, '0');
-            const studentName = String(row[colMap.name] || '').trim();
-            const grade = colMap.grade ? String(row[colMap.grade] || '').trim() : '';
-            const classNum = colMap.classNum ? String(row[colMap.classNum] || '').trim() : '';
+        // עיבוד שורות הנתונים (אחרי הכותרת)
+        importData = [];
+        for (let i = headerRowIndex + 1; i < allRows.length; i++) {
+            const row = allRows[i];
+            if (!row || !row[colMap.id] || !row[colMap.name]) continue;
+            
+            const studentId = String(row[colMap.id]).replace(/\D/g, '').padStart(9, '0');
+            const studentName = String(row[colMap.name]).trim();
+            
+            if (studentId.length < 5 || !studentName) continue;
+            
+            const grade = colMap.grade !== undefined ? String(row[colMap.grade] || '').trim() : '';
+            const classNum = colMap.classNum !== undefined ? String(row[colMap.classNum] || '').trim() : '';
             
             // בניית שם כיתה מלא
             let className = '';
             if (grade && classNum) {
-                className = grade + classNum; // יא + 2 = יא2
+                className = grade + classNum;
             }
             
-            return {
+            importData.push({
                 student_id: studentId,
                 student_name: studentName,
-                gender: colMap.gender ? String(row[colMap.gender] || '').trim() : null,
+                gender: colMap.gender !== undefined ? String(row[colMap.gender] || '').trim() : null,
                 grade: grade || null,
                 class_num: classNum || null,
                 class_name: className || null,
-                birth_date: colMap.birthDate ? String(row[colMap.birthDate] || '').trim() : null,
-                city: colMap.city ? String(row[colMap.city] || '').trim() : null,
-                address: colMap.address ? String(row[colMap.address] || '').trim() : null,
-                home_phone: colMap.homePhone ? String(row[colMap.homePhone] || '').trim() : null,
-                student_email: colMap.studentEmail ? String(row[colMap.studentEmail] || '').trim() : null,
-                student_phone: colMap.studentPhone ? String(row[colMap.studentPhone] || '').trim() : null,
-                parent1_name: colMap.parent1Name ? String(row[colMap.parent1Name] || '').trim() : null,
-                parent1_phone: colMap.parent1Phone ? String(row[colMap.parent1Phone] || '').trim() : null,
-                parent1_email: colMap.parent1Email ? String(row[colMap.parent1Email] || '').trim() : null,
-                parent2_name: colMap.parent2Name ? String(row[colMap.parent2Name] || '').trim() : null,
-                parent2_phone: colMap.parent2Phone ? String(row[colMap.parent2Phone] || '').trim() : null,
-                parent2_email: colMap.parent2Email ? String(row[colMap.parent2Email] || '').trim() : null,
-                health_fund: colMap.healthFund ? String(row[colMap.healthFund] || '').trim() : null
-            };
-        }).filter(s => s.student_id.length >= 5 && s.student_name);
+                birth_date: colMap.birthDate !== undefined ? String(row[colMap.birthDate] || '').trim() : null,
+                city: colMap.city !== undefined ? String(row[colMap.city] || '').trim() : null,
+                address: colMap.address !== undefined ? String(row[colMap.address] || '').trim() : null,
+                home_phone: colMap.homePhone !== undefined ? String(row[colMap.homePhone] || '').trim() : null,
+                student_email: colMap.studentEmail !== undefined ? String(row[colMap.studentEmail] || '').trim() : null,
+                student_phone: colMap.studentPhone !== undefined ? String(row[colMap.studentPhone] || '').trim() : null,
+                parent1_name: colMap.parent1Name !== undefined ? String(row[colMap.parent1Name] || '').trim() : null,
+                parent1_phone: colMap.parent1Phone !== undefined ? String(row[colMap.parent1Phone] || '').trim() : null,
+                parent1_email: colMap.parent1Email !== undefined ? String(row[colMap.parent1Email] || '').trim() : null,
+                parent2_name: colMap.parent2Name !== undefined ? String(row[colMap.parent2Name] || '').trim() : null,
+                parent2_phone: colMap.parent2Phone !== undefined ? String(row[colMap.parent2Phone] || '').trim() : null,
+                parent2_email: colMap.parent2Email !== undefined ? String(row[colMap.parent2Email] || '').trim() : null,
+                health_fund: colMap.healthFund !== undefined ? String(row[colMap.healthFund] || '').trim() : null
+            });
+        }
+        
+        if (importData.length === 0) {
+            alert('לא נמצאו תלמידים בקובץ');
+            return;
+        }
         
         // Show preview
         document.getElementById('previewSection').classList.add('show');
