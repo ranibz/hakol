@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>משולש החשיפה בצילום</title>
+    <title>משולש החשיפה בצילום v1.4</title>
     <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;600;700;900&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
@@ -215,6 +215,51 @@
             border: 1px solid #ff6b6b;
             border-radius: 12px;
             color: #ff6b6b;
+        }
+
+        /* Task Display */
+        .task-display {
+            display: flex;
+            align-items: flex-start;
+            gap: 15px;
+            padding: 20px;
+            background: rgba(255,230,109,0.1);
+            border: 2px solid var(--iso);
+            border-radius: 12px;
+            text-align: right;
+        }
+
+        .task-display .task-icon {
+            font-size: 2rem;
+            color: var(--iso);
+        }
+
+        .task-display .task-info {
+            flex: 1;
+        }
+
+        .task-display .task-label {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-bottom: 5px;
+        }
+
+        .task-display .task-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--iso);
+            margin-bottom: 5px;
+        }
+
+        .task-display .task-desc {
+            font-size: 0.9rem;
+            color: var(--text);
+            margin-bottom: 5px;
+        }
+
+        .task-display .task-due {
+            font-size: 0.85rem;
+            color: var(--text-muted);
         }
 
         /* Hero */
@@ -1666,6 +1711,18 @@
                 <i class="fas fa-exclamation-circle"></i>
                 <span>תלמיד לא נמצא במערכת</span>
             </div>
+            
+            <!-- Task Display -->
+            <div class="task-display" id="taskDisplay" style="display:none;">
+                <div class="task-icon"><i class="fas fa-clipboard-list"></i></div>
+                <div class="task-info">
+                    <div class="task-label">משימה מהמורה:</div>
+                    <div class="task-title" id="taskTitle"></div>
+                    <div class="task-desc" id="taskDesc"></div>
+                    <div class="task-due" id="taskDue"></div>
+                </div>
+            </div>
+            
             <button class="login-btn" id="loginBtn" onclick="startLesson()" disabled>
                 <i class="fas fa-play"></i> התחילו את השיעור
             </button>
@@ -2395,6 +2452,7 @@ async function lookupStudent(idNumber) {
     const preview = document.getElementById('studentPreview');
     const error = document.getElementById('studentError');
     const btn = document.getElementById('loginBtn');
+    const taskDisplay = document.getElementById('taskDisplay');
     
     // נרמול ת.ז. ל-9 ספרות
     const normalizedId = idNumber.padStart(9, '0');
@@ -2402,6 +2460,7 @@ async function lookupStudent(idNumber) {
     if (idNumber.length < 5) {
         preview.style.display = 'none';
         error.style.display = 'none';
+        taskDisplay.style.display = 'none';
         btn.disabled = true;
         return;
     }
@@ -2422,9 +2481,13 @@ async function lookupStudent(idNumber) {
             preview.style.display = 'flex';
             error.style.display = 'none';
             btn.disabled = false;
+            
+            // חיפוש משימה פעילה לכיתה
+            await loadStudentTask(student.class_name);
         } else {
             preview.style.display = 'none';
             error.style.display = 'flex';
+            taskDisplay.style.display = 'none';
             btn.disabled = true;
             studentInfo = { id: '', name: '', className: '' };
         }
@@ -2432,9 +2495,38 @@ async function lookupStudent(idNumber) {
         console.error('Error looking up student:', err);
         preview.style.display = 'none';
         error.style.display = 'flex';
+        taskDisplay.style.display = 'none';
         error.querySelector('span').textContent = 'שגיאה בחיבור למערכת';
         btn.disabled = true;
     }
+}
+
+async function loadStudentTask(className) {
+    const taskDisplay = document.getElementById('taskDisplay');
+    
+    try {
+        // מחפש משימות פעילות לכיתה
+        const tasks = await supabaseRequest(`exposure_tasks?class_name=eq.${className}&is_active=eq.true&order=created_at.desc&limit=1`);
+        
+        if (tasks && tasks.length > 0) {
+            const task = tasks[0];
+            document.getElementById('taskTitle').textContent = task.title;
+            document.getElementById('taskDesc').textContent = task.description || '';
+            document.getElementById('taskDue').textContent = task.due_date ? `הגשה עד: ${formatDateSimple(task.due_date)}` : '';
+            taskDisplay.style.display = 'flex';
+        } else {
+            taskDisplay.style.display = 'none';
+        }
+    } catch (err) {
+        console.error('Error loading task:', err);
+        taskDisplay.style.display = 'none';
+    }
+}
+
+function formatDateSimple(dateStr) {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    return d.toLocaleDateString('he-IL');
 }
 
 // האזנה לשינויים בשדה ת.ז.
