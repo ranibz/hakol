@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>משולש החשיפה - לוח מורה v1.4</title>
+    <title>משולש החשיפה - לוח מורה v1.5</title>
     <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;600;700;900&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
@@ -519,6 +519,11 @@
             font-size: 0.85rem;
         }
 
+        .task-btn.edit {
+            background: rgba(255,230,109,0.2);
+            color: var(--iso);
+        }
+
         .task-btn.toggle {
             background: rgba(78,205,196,0.2);
             color: var(--shutter);
@@ -527,6 +532,80 @@
         .task-btn.delete {
             background: rgba(255,107,53,0.2);
             color: var(--aperture);
+        }
+
+        /* Edit Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.8);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background: var(--surface);
+            border-radius: 16px;
+            width: 90%;
+            max-width: 500px;
+            padding: 30px;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+        }
+
+        .modal-header h3 {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1.2rem;
+        }
+
+        .modal-header h3 i {
+            color: var(--iso);
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            color: var(--text-muted);
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+
+        .modal-footer {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+            margin-top: 25px;
+        }
+
+        .modal-btn {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 8px;
+            font-family: 'Heebo', sans-serif;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        .modal-btn.primary {
+            background: var(--iso);
+            color: var(--bg);
+        }
+
+        .modal-btn.secondary {
+            background: var(--surface2);
+            color: var(--text);
         }
 
         @media (max-width: 768px) {
@@ -613,13 +692,19 @@
                         </select>
                     </div>
                     <div class="form-group">
-                        <label>כותרת המשימה</label>
-                        <input type="text" id="taskTitle" placeholder="למשל: השלימו את שיעור משולש החשיפה">
+                        <label>שיעור</label>
+                        <select id="taskLesson">
+                            <!-- יאוכלס דינמית -->
+                        </select>
                     </div>
                     <div class="form-group">
                         <label>תאריך הגשה</label>
                         <input type="date" id="taskDueDate">
                     </div>
+                </div>
+                <div class="form-group" style="margin-bottom:15px;">
+                    <label>כותרת המשימה</label>
+                    <input type="text" id="taskTitle" placeholder="למשל: השלימו את שיעור משולש החשיפה">
                 </div>
                 <div class="form-group" style="margin-bottom:15px;">
                     <label>תיאור (אופציונלי)</label>
@@ -690,6 +775,34 @@
     </div>
 </div>
 
+<!-- Edit Task Modal -->
+<div class="modal-overlay" id="editModal" style="display:none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3><i class="fas fa-edit"></i> עריכת משימה</h3>
+            <button class="modal-close" onclick="closeEditModal()">&times;</button>
+        </div>
+        <div class="form-group" style="margin-bottom:15px;">
+            <label>כותרת</label>
+            <input type="text" id="editTitle">
+        </div>
+        <div class="form-group" style="margin-bottom:15px;">
+            <label>תיאור</label>
+            <textarea id="editDesc"></textarea>
+        </div>
+        <div class="form-group" style="margin-bottom:15px;">
+            <label>תאריך הגשה</label>
+            <input type="date" id="editDueDate">
+        </div>
+        <div class="modal-footer">
+            <button class="modal-btn secondary" onclick="closeEditModal()">ביטול</button>
+            <button class="modal-btn primary" onclick="saveTaskEdit()">
+                <i class="fas fa-save"></i> שמור
+            </button>
+        </div>
+    </div>
+</div>
+
 <script>
 const SUPABASE_URL = 'https://hykpagdgaeulhghyvcqw.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_o4Nff2ctoa1niZthDyMvLQ_e2hQwNuT';
@@ -753,9 +866,10 @@ function showDashboard() {
     document.getElementById('dashboard').style.display = 'block';
     document.getElementById('userName').textContent = currentTeacher.teacher_name;
     
-    // בניית רשימת כיתות
+    // בניית רשימות
     buildClassFilter();
     buildTaskClassSelect();
+    loadLessonsSelect();
     loadTasks();
 }
 
@@ -908,14 +1022,34 @@ function buildTaskClassSelect() {
     select.innerHTML = classes.map(c => `<option value="${c}">${c}</option>`).join('');
 }
 
+async function loadLessonsSelect() {
+    const select = document.getElementById('taskLesson');
+    
+    try {
+        const lessons = await supabaseRequest('exposure_lessons?order=title');
+        
+        if (!lessons || lessons.length === 0) {
+            select.innerHTML = '<option value="">אין שיעורים זמינים</option>';
+            return;
+        }
+        
+        select.innerHTML = lessons.map(l => `<option value="${l.lesson_id}" data-url="${l.url}">${l.title}</option>`).join('');
+    } catch (err) {
+        console.error('Error loading lessons:', err);
+        select.innerHTML = '<option value="">שגיאה בטעינה</option>';
+    }
+}
+
 async function createTask() {
     const className = document.getElementById('taskClass').value;
+    const lessonSelect = document.getElementById('taskLesson');
+    const lessonId = lessonSelect.value;
     const title = document.getElementById('taskTitle').value.trim();
     const desc = document.getElementById('taskDesc').value.trim();
     const dueDate = document.getElementById('taskDueDate').value;
     
-    if (!className || !title) {
-        alert('נא לבחור כיתה ולהזין כותרת');
+    if (!className || !lessonId || !title) {
+        alert('נא לבחור כיתה, שיעור ולהזין כותרת');
         return;
     }
     
@@ -924,6 +1058,7 @@ async function createTask() {
             teacher_id: currentTeacher.teacher_id,
             teacher_name: currentTeacher.teacher_name,
             class_name: className,
+            lesson_id: lessonId,
             title: title,
             description: desc || null,
             due_date: dueDate || null,
@@ -970,10 +1105,13 @@ async function loadTasks() {
                 ${t.description ? `<div class="task-desc">${t.description}</div>` : ''}
                 <div class="task-footer">
                     <div class="task-date">
-                        ${t.due_date ? `הגשה עד: ${formatDate(t.due_date)}` : ''}
+                        ${t.due_date ? `הגשה עד: ${formatDate(t.due_date)}` : 'ללא תאריך הגשה'}
                         <span style="margin-right:15px;">נוצר: ${formatDate(t.created_at)}</span>
                     </div>
                     <div class="task-actions">
+                        <button class="task-btn edit" onclick="openEditModal(${t.id}, '${t.title.replace(/'/g, "\\'")}', '${(t.description || '').replace(/'/g, "\\'")}', '${t.due_date || ''}')">
+                            <i class="fas fa-edit"></i> ערוך
+                        </button>
                         <button class="task-btn toggle" onclick="toggleTask(${t.id}, ${!t.is_active})">
                             ${t.is_active ? '<i class="fas fa-pause"></i> השהה' : '<i class="fas fa-play"></i> הפעל'}
                         </button>
@@ -1011,6 +1149,50 @@ async function deleteTask(taskId) {
     } catch (err) {
         console.error('Error deleting task:', err);
         alert('שגיאה במחיקה');
+    }
+}
+
+// ===== EDIT TASK =====
+let editingTaskId = null;
+
+function openEditModal(taskId, title, desc, dueDate) {
+    editingTaskId = taskId;
+    document.getElementById('editTitle').value = title;
+    document.getElementById('editDesc').value = desc;
+    document.getElementById('editDueDate').value = dueDate;
+    document.getElementById('editModal').style.display = 'flex';
+}
+
+function closeEditModal() {
+    editingTaskId = null;
+    document.getElementById('editModal').style.display = 'none';
+}
+
+async function saveTaskEdit() {
+    if (!editingTaskId) return;
+    
+    const title = document.getElementById('editTitle').value.trim();
+    const desc = document.getElementById('editDesc').value.trim();
+    const dueDate = document.getElementById('editDueDate').value;
+    
+    if (!title) {
+        alert('נא להזין כותרת');
+        return;
+    }
+    
+    try {
+        await supabaseRequest(`exposure_tasks?id=eq.${editingTaskId}`, 'PATCH', {
+            title: title,
+            description: desc || null,
+            due_date: dueDate || null
+        });
+        
+        closeEditModal();
+        loadTasks();
+        alert('המשימה עודכנה בהצלחה!');
+    } catch (err) {
+        console.error('Error updating task:', err);
+        alert('שגיאה בעדכון');
     }
 }
 
