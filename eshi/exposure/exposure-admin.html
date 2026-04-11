@@ -860,8 +860,9 @@
                 <div class="alert info">
                     <i class="fas fa-lightbulb"></i>
                     <div>
-                        הקובץ צריך להכיל עמודות: <strong>ת.ז.</strong> (או תז / תעודת זהות), <strong>שם</strong> (או שם מלא / שם התלמיד), <strong>כיתה</strong><br>
-                        המערכת תזהה את העמודות אוטומטית.
+                        <strong>1.</strong> בחרו כיתה מהרשימה<br>
+                        <strong>2.</strong> העלו קובץ אקסל עם עמודות: <strong>ת.ז.</strong>, <strong>שם התלמיד</strong><br>
+                        <strong>3.</strong> התלמידים יתווספו לכיתה שבחרתם
                     </div>
                 </div>
             </div>
@@ -869,6 +870,15 @@
             <div class="card">
                 <div class="card-header">
                     <h3><i class="fas fa-upload"></i> העלאת קובץ</h3>
+                </div>
+                
+                <div class="form-group" style="margin-bottom: 20px;">
+                    <label style="font-weight: 600; margin-bottom: 10px; display: block;">
+                        <i class="fas fa-users-rectangle" style="color: var(--primary);"></i> בחרו כיתה לייבוא
+                    </label>
+                    <select id="importClass" style="width: 100%; max-width: 300px;">
+                        <option value="">-- בחרו כיתה --</option>
+                    </select>
                 </div>
                 
                 <div class="upload-area" id="uploadArea" onclick="document.getElementById('fileInput').click()">
@@ -882,14 +892,6 @@
                     <div class="preview-header">
                         <h4>תצוגה מקדימה</h4>
                         <span class="preview-count" id="previewCount">0 תלמידים</span>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>כיתה (אם לא קיימת בקובץ)</label>
-                            <select id="importClass">
-                                <option value="">--- קיים בקובץ ---</option>
-                            </select>
-                        </div>
                     </div>
                     <div class="preview-table-wrap">
                         <table class="data-table">
@@ -1167,7 +1169,7 @@ async function loadClassesDropdown() {
         
         const importSelect = document.getElementById('importClass');
         if (importSelect) {
-            importSelect.innerHTML = '<option value="">--- קיים בקובץ ---</option>' + 
+            importSelect.innerHTML = '<option value="">-- בחרו כיתה --</option>' + 
                 (classes || []).map(c => `<option value="${c.class_name}">${c.class_name}</option>`).join('');
         }
     } catch (err) {
@@ -1251,7 +1253,16 @@ uploadArea.addEventListener('drop', (e) => {
 
 function handleFile(event) {
     const file = event.target.files[0];
-    if (file) processFile(file);
+    if (!file) return;
+    
+    const selectedClass = document.getElementById('importClass').value;
+    if (!selectedClass) {
+        alert('נא לבחור כיתה לפני העלאת הקובץ');
+        event.target.value = '';
+        return;
+    }
+    
+    processFile(file);
 }
 
 function processFile(file) {
@@ -1363,15 +1374,17 @@ function processFile(file) {
         }
         
         // Show preview
+        const selectedClass = document.getElementById('importClass').value;
+        
         document.getElementById('previewSection').classList.add('show');
-        document.getElementById('previewCount').textContent = `${importData.length} תלמידים`;
+        document.getElementById('previewCount').textContent = `${importData.length} תלמידים → ${selectedClass}`;
         
         const tbody = document.getElementById('previewTableBody');
         tbody.innerHTML = importData.slice(0, 50).map(s => `
             <tr>
                 <td>${s.student_id}</td>
                 <td>${s.student_name}</td>
-                <td>${s.class_name || '<em style="color:#888">לא צוין</em>'}</td>
+                <td><strong style="color:var(--shutter)">${selectedClass}</strong></td>
             </tr>
         `).join('');
         
@@ -1394,18 +1407,18 @@ async function importStudents() {
         return;
     }
     
-    const defaultClass = document.getElementById('importClass').value;
+    const selectedClass = document.getElementById('importClass').value;
     
-    // Apply default class if needed
-    const dataToImport = importData.map(s => ({
-        ...s,
-        class_name: s.class_name || defaultClass
-    })).filter(s => s.class_name);
-    
-    if (dataToImport.length === 0) {
-        alert('נא לבחור כיתה עבור התלמידים');
+    if (!selectedClass) {
+        alert('נא לבחור כיתה');
         return;
     }
+    
+    // כל התלמידים מקבלים את הכיתה שנבחרה
+    const dataToImport = importData.map(s => ({
+        ...s,
+        class_name: selectedClass
+    }));
     
     try {
         let imported = 0;
@@ -1420,9 +1433,10 @@ async function importStudents() {
             }
         }
         
-        alert(`יובאו ${imported} תלמידים בהצלחה!${errors > 0 ? `\n${errors} שגיאות (כפילויות?)` : ''}`);
+        alert(`יובאו ${imported} תלמידים לכיתה "${selectedClass}"!${errors > 0 ? `\n${errors} שגיאות (כפילויות?)` : ''}`);
         clearPreview();
         loadDashboard();
+        loadClasses();
     } catch (err) {
         console.error('Error importing:', err);
         alert('שגיאה בייבוא');
