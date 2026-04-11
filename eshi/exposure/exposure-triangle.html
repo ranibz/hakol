@@ -1,0 +1,3688 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>משולש החשיפה בצילום</title>
+    <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0a0a0f;
+            --surface: #12121a;
+            --surface2: #1a1a25;
+            --text: #f0f0f0;
+            --text-muted: #888;
+            --aperture: #ff6b35;
+            --shutter: #4ecdc4;
+            --iso: #ffe66d;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Heebo', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.7;
+            overflow-x: hidden;
+            padding-top: 60px; /* מקום לסרגל הניקוד */
+        }
+
+        /* Score Bar - Fixed at top */
+        .score-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 60px;
+            background: var(--surface);
+            border-bottom: 2px solid #333;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+            z-index: 1000;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+
+        .score-bar-title {
+            font-weight: 700;
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .score-bar-title i {
+            color: var(--iso);
+        }
+
+        .score-display {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .score-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: var(--surface2);
+            border-radius: 20px;
+        }
+
+        .score-item i {
+            font-size: 1rem;
+        }
+
+        .score-item.correct i { color: var(--shutter); }
+        .score-item.total i { color: var(--iso); }
+
+        .score-item span {
+            font-weight: 700;
+        }
+
+        .score-item.correct span { color: var(--shutter); }
+        .score-item.total span { color: var(--iso); }
+
+        /* Student Login Screen */
+        .login-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: var(--bg);
+            z-index: 2000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .login-card {
+            background: var(--surface);
+            border-radius: 24px;
+            padding: 50px 40px;
+            max-width: 450px;
+            width: 100%;
+            text-align: center;
+            border: 2px solid #333;
+        }
+
+        .login-card .icon {
+            font-size: 4rem;
+            margin-bottom: 20px;
+        }
+
+        .login-card h2 {
+            font-size: 1.8rem;
+            margin-bottom: 10px;
+            background: linear-gradient(135deg, var(--aperture), var(--shutter), var(--iso));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .login-card p {
+            color: var(--text-muted);
+            margin-bottom: 30px;
+        }
+
+        .login-form {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .login-form input, .login-form select {
+            padding: 15px 20px;
+            border-radius: 12px;
+            border: 2px solid #333;
+            background: var(--surface2);
+            color: var(--text);
+            font-size: 1rem;
+            font-family: 'Heebo', sans-serif;
+            transition: border-color 0.3s;
+        }
+
+        .login-form input:focus, .login-form select:focus {
+            outline: none;
+            border-color: var(--shutter);
+        }
+
+        .login-form input::placeholder {
+            color: var(--text-muted);
+        }
+
+        .login-btn {
+            padding: 16px;
+            border: none;
+            border-radius: 12px;
+            background: linear-gradient(135deg, var(--aperture), var(--shutter));
+            color: white;
+            font-size: 1.1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-top: 10px;
+        }
+
+        .login-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(255,107,53,0.3);
+        }
+
+        .login-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .student-preview {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            padding: 15px;
+            background: rgba(78,205,196,0.15);
+            border: 1px solid var(--shutter);
+            border-radius: 12px;
+            color: var(--shutter);
+        }
+
+        .student-preview i {
+            font-size: 1.2rem;
+        }
+
+        .student-preview .preview-class {
+            background: var(--shutter);
+            color: var(--bg);
+            padding: 3px 10px;
+            border-radius: 10px;
+            font-size: 0.85rem;
+            font-weight: 700;
+        }
+
+        .student-error {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            padding: 15px;
+            background: rgba(255,107,107,0.15);
+            border: 1px solid #ff6b6b;
+            border-radius: 12px;
+            color: #ff6b6b;
+        }
+
+        /* Hero */
+        .hero {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 40px 20px;
+            background: 
+                radial-gradient(ellipse at 20% 50%, rgba(255,107,53,0.15) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 50%, rgba(78,205,196,0.15) 0%, transparent 50%),
+                radial-gradient(ellipse at 50% 80%, rgba(255,230,109,0.1) 0%, transparent 50%),
+                var(--bg);
+            position: relative;
+        }
+
+        .hero-badge {
+            background: var(--surface2);
+            padding: 8px 20px;
+            border-radius: 30px;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-bottom: 30px;
+            border: 1px solid #333;
+        }
+
+        .hero h1 {
+            font-size: clamp(2.5rem, 8vw, 5rem);
+            font-weight: 900;
+            margin-bottom: 20px;
+            background: linear-gradient(135deg, var(--aperture), var(--shutter), var(--iso));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .hero p {
+            font-size: 1.3rem;
+            color: var(--text-muted);
+            max-width: 600px;
+            margin-bottom: 40px;
+        }
+
+        .triangle-visual {
+            width: 250px;
+            height: 250px;
+            margin: 20px auto;
+        }
+
+        .triangle-svg {
+            width: 100%;
+            height: 100%;
+            animation: float 4s ease-in-out infinite;
+        }
+
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-15px); }
+        }
+
+        .scroll-hint {
+            position: absolute;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            animation: bounce 2s infinite;
+            color: var(--text-muted);
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateX(-50%) translateY(0); }
+            50% { transform: translateX(-50%) translateY(10px); }
+        }
+
+        /* Sections */
+        .section {
+            padding: 80px 20px;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        .section-header {
+            text-align: center;
+            margin-bottom: 50px;
+        }
+
+        .section-icon {
+            width: 70px;
+            height: 70px;
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.8rem;
+            margin: 0 auto 15px;
+        }
+
+        .section-aperture .section-icon { background: rgba(255,107,53,0.2); color: var(--aperture); }
+        .section-shutter .section-icon { background: rgba(78,205,196,0.2); color: var(--shutter); }
+        .section-iso .section-icon { background: rgba(255,230,109,0.2); color: var(--iso); }
+
+        .section h2 {
+            font-size: 2.2rem;
+            font-weight: 800;
+            margin-bottom: 10px;
+        }
+
+        .section-aperture h2 { color: var(--aperture); }
+        .section-shutter h2 { color: var(--shutter); }
+        .section-iso h2 { color: var(--iso); }
+
+        .section-subtitle {
+            color: var(--text-muted);
+            font-size: 1.1rem;
+        }
+
+        /* Content Cards */
+        .content-card {
+            background: var(--surface);
+            border-radius: 16px;
+            padding: 30px;
+            margin-bottom: 25px;
+            border: 1px solid #222;
+        }
+
+        .content-card h3 {
+            font-size: 1.3rem;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .content-card > p {
+            color: var(--text-muted);
+            font-size: 1rem;
+            margin-bottom: 20px;
+        }
+
+        /* === DEMO SCENES === */
+        .demo-scene {
+            background: var(--surface2);
+            border-radius: 12px;
+            padding: 20px;
+        }
+
+        .demo-title {
+            text-align: center;
+            margin-bottom: 20px;
+            font-weight: 600;
+            color: var(--text);
+        }
+
+        .demo-compare {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .demo-frame {
+            text-align: center;
+        }
+
+        .demo-frame .label {
+            font-weight: 700;
+            font-size: 1.1rem;
+            margin-bottom: 10px;
+            padding: 6px 14px;
+            border-radius: 20px;
+            display: inline-block;
+        }
+
+        .demo-frame.aperture .label { background: rgba(255,107,53,0.2); color: var(--aperture); }
+        .demo-frame.shutter .label { background: rgba(78,205,196,0.2); color: var(--shutter); }
+        .demo-frame.iso .label { background: rgba(255,230,109,0.2); color: var(--iso); }
+
+        .demo-canvas-wrap {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 4/3;
+            border-radius: 10px;
+            overflow: hidden;
+            background: #1a1a1a;
+        }
+
+        .demo-canvas-wrap canvas {
+            width: 100%;
+            height: 100%;
+        }
+
+        .demo-frame small {
+            display: block;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            margin-top: 10px;
+        }
+
+        /* Real Photos */
+        .real-photos {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-top: 15px;
+        }
+
+        .real-photo {
+            text-align: center;
+        }
+
+        .real-photo img {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+            border-radius: 12px;
+            border: 2px solid #333;
+            transition: transform 0.3s;
+        }
+
+        .real-photo:hover img {
+            transform: scale(1.02);
+        }
+
+        .real-label {
+            font-weight: 700;
+            font-size: 1.1rem;
+            margin: 12px 0 8px;
+            padding: 6px 16px;
+            border-radius: 20px;
+            display: inline-block;
+        }
+
+        .real-label.aperture {
+            background: rgba(255,107,53,0.2);
+            color: var(--aperture);
+        }
+
+        .real-label.shutter {
+            background: rgba(78,205,196,0.2);
+            color: var(--shutter);
+        }
+
+        .real-label.iso {
+            background: rgba(255,230,109,0.2);
+            color: var(--iso);
+        }
+
+        .real-photo small {
+            display: block;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+        }
+
+        @media (max-width: 600px) {
+            .real-photos { grid-template-columns: 1fr; }
+        }
+
+        /* Exposure Relationships */
+        .relationship-visual {
+            margin: 25px 0;
+        }
+
+        .rel-equation {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .rel-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 15px 20px;
+            border-radius: 12px;
+            min-width: 80px;
+        }
+
+        .rel-item i { font-size: 1.5rem; margin-bottom: 5px; }
+        .rel-item span { font-weight: 600; font-size: 0.9rem; }
+
+        .aperture-bg { background: rgba(255,107,53,0.2); color: var(--aperture); }
+        .shutter-bg { background: rgba(78,205,196,0.2); color: var(--shutter); }
+        .iso-bg { background: rgba(255,230,109,0.2); color: var(--iso); }
+        .result-bg { background: rgba(255,255,255,0.1); color: var(--text); }
+
+        .rel-operator {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text-muted);
+        }
+
+        /* Stops Table */
+        .stops-table {
+            margin-top: 20px;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid #333;
+        }
+
+        .stop-row {
+            display: grid;
+            grid-template-columns: 1fr 1.5fr 1.5fr;
+            gap: 1px;
+            background: #333;
+        }
+
+        .stop-row.header {
+            background: var(--surface2);
+        }
+
+        .stop-row.header .stop-cell {
+            background: var(--surface2);
+            font-weight: 700;
+            color: var(--text);
+        }
+
+        .stop-cell {
+            padding: 12px 15px;
+            background: var(--surface);
+            text-align: center;
+            font-size: 0.9rem;
+        }
+
+        .aperture-row .stop-cell:first-child { color: var(--aperture); }
+        .shutter-row .stop-cell:first-child { color: var(--shutter); }
+        .iso-row .stop-cell:first-child { color: var(--iso); }
+
+        /* Example Scenarios */
+        .example-scenarios {
+            display: grid;
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .scenario {
+            background: var(--surface2);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .scenario-title {
+            font-size: 1.1rem;
+            font-weight: 700;
+            margin-bottom: 15px;
+            color: var(--text);
+        }
+
+        .scenario-problem {
+            background: var(--surface);
+            padding: 10px 15px;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 0.95rem;
+        }
+
+        .scenario-arrow {
+            font-size: 1.2rem;
+            color: var(--text-muted);
+            margin: 8px 0;
+        }
+
+        .scenario-change {
+            color: var(--shutter);
+            font-weight: 600;
+        }
+
+        .scenario-solution {
+            color: var(--aperture);
+            font-weight: 600;
+        }
+
+        .change-note {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .scenario-result {
+            background: rgba(78,205,196,0.15);
+            padding: 10px 15px;
+            border-radius: 8px;
+            font-family: monospace;
+            color: var(--shutter);
+            margin-top: 10px;
+        }
+
+        /* Golden Rule */
+        .highlight-card {
+            border: 2px solid var(--iso);
+            background: linear-gradient(135deg, var(--surface) 0%, rgba(255,230,109,0.05) 100%);
+        }
+
+        .highlight-card h3 {
+            color: var(--iso);
+        }
+
+        .golden-rule {
+            text-align: center;
+        }
+
+        .golden-rule > p {
+            font-size: 1.2rem;
+            margin-bottom: 20px;
+            color: var(--text);
+        }
+
+        .rule-examples {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .rule-ex {
+            background: var(--surface2);
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            border-right: 3px solid var(--iso);
+        }
+
+        /* Challenge Section */
+        .challenge-section {
+            padding: 80px 20px;
+            background: linear-gradient(180deg, var(--bg) 0%, #0d0d15 100%);
+        }
+
+        .challenge-container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .challenge-container > h2 {
+            text-align: center;
+            font-size: 2rem;
+            margin-bottom: 10px;
+        }
+
+        .challenge-container > p {
+            text-align: center;
+            color: var(--text-muted);
+            margin-bottom: 30px;
+        }
+
+        .challenge-card {
+            background: var(--surface);
+            border-radius: 20px;
+            padding: 30px;
+            border: 2px solid #333;
+        }
+
+        .challenge-number {
+            text-align: center;
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            margin-bottom: 20px;
+        }
+
+        .challenge-scenario {
+            display: flex;
+            gap: 20px;
+            align-items: flex-start;
+            background: var(--surface2);
+            padding: 25px;
+            border-radius: 14px;
+            margin-bottom: 25px;
+        }
+
+        .scenario-icon {
+            font-size: 3rem;
+            flex-shrink: 0;
+        }
+
+        .scenario-text h3 {
+            font-size: 1.3rem;
+            margin-bottom: 8px;
+            color: var(--text);
+        }
+
+        .scenario-text p {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+            line-height: 1.6;
+        }
+
+        .challenge-requirements {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 25px;
+        }
+
+        .req-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 16px;
+            background: var(--surface2);
+            border-radius: 25px;
+            font-size: 0.9rem;
+        }
+
+        .req-item.required {
+            border: 1px solid var(--aperture);
+            color: var(--aperture);
+        }
+
+        .req-item.required i { color: var(--aperture); }
+
+        .challenge-answer {
+            margin-top: 25px;
+        }
+
+        .challenge-answer h4 {
+            margin-bottom: 15px;
+            font-size: 1rem;
+        }
+
+        .answer-inputs {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .answer-input {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .answer-input label {
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .answer-input.aperture label { color: var(--aperture); }
+        .answer-input.shutter label { color: var(--shutter); }
+        .answer-input.iso label { color: var(--iso); }
+
+        .answer-input select {
+            padding: 12px 15px;
+            border-radius: 10px;
+            border: 2px solid #333;
+            background: var(--surface2);
+            color: var(--text);
+            font-size: 1rem;
+            cursor: pointer;
+            transition: border-color 0.3s;
+        }
+
+        .answer-input select:focus {
+            outline: none;
+            border-color: #555;
+        }
+
+        .answer-input.aperture select:focus { border-color: var(--aperture); }
+        .answer-input.shutter select:focus { border-color: var(--shutter); }
+        .answer-input.iso select:focus { border-color: var(--iso); }
+
+        .check-answer-btn {
+            width: 100%;
+            padding: 15px;
+            border: none;
+            border-radius: 12px;
+            background: linear-gradient(135deg, var(--aperture), var(--shutter));
+            color: white;
+            font-size: 1.1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .check-answer-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(255,107,53,0.3);
+        }
+
+        .challenge-feedback {
+            margin-top: 20px;
+            padding: 20px;
+            border-radius: 12px;
+            display: none;
+        }
+
+        .challenge-feedback.show { display: block; }
+
+        .challenge-feedback.correct {
+            background: rgba(78,205,196,0.15);
+            border: 1px solid var(--shutter);
+        }
+
+        .challenge-feedback.wrong {
+            background: rgba(255,107,107,0.15);
+            border: 1px solid #ff6b6b;
+        }
+
+        .feedback-title {
+            font-weight: 700;
+            font-size: 1.1rem;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .challenge-feedback.correct .feedback-title { color: var(--shutter); }
+        .challenge-feedback.wrong .feedback-title { color: #ff6b6b; }
+
+        .feedback-explanation {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+            line-height: 1.6;
+        }
+
+        .correct-answer {
+            margin-top: 12px;
+            padding: 12px;
+            background: var(--surface2);
+            border-radius: 8px;
+            font-family: monospace;
+        }
+
+        .next-challenge-btn {
+            width: 100%;
+            margin-top: 20px;
+            padding: 15px;
+            border: 2px solid var(--shutter);
+            border-radius: 12px;
+            background: transparent;
+            color: var(--shutter);
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .next-challenge-btn:hover {
+            background: var(--shutter);
+            color: var(--bg);
+        }
+
+        .challenge-score {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 15px;
+            margin-top: 25px;
+            padding: 15px;
+            background: var(--surface);
+            border-radius: 12px;
+        }
+
+        .score-label {
+            color: var(--text-muted);
+        }
+
+        .score-value {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--iso);
+        }
+
+        .challenge-complete {
+            text-align: center;
+            padding: 40px;
+            background: var(--surface);
+            border-radius: 20px;
+            border: 2px solid var(--iso);
+        }
+
+        .complete-icon {
+            font-size: 4rem;
+            margin-bottom: 20px;
+        }
+
+        .challenge-complete h3 {
+            font-size: 1.8rem;
+            margin-bottom: 10px;
+            color: var(--iso);
+        }
+
+        .challenge-complete p {
+            color: var(--text-muted);
+            margin-bottom: 25px;
+        }
+
+        .restart-btn {
+            padding: 12px 30px;
+            border: none;
+            border-radius: 10px;
+            background: var(--iso);
+            color: var(--bg);
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .restart-btn:hover {
+            transform: scale(1.05);
+        }
+
+        @media (max-width: 600px) {
+            .answer-inputs { grid-template-columns: 1fr; }
+            .challenge-scenario { flex-direction: column; text-align: center; }
+        }
+
+        /* Challenge Image Section */
+        .challenge-image-section {
+            margin: 20px 0;
+        }
+
+        .problem-label, .preview-label, .goal-label {
+            font-weight: 600;
+            margin-bottom: 10px;
+            font-size: 1rem;
+        }
+
+        .challenge-canvas-wrap, .preview-canvas-wrap {
+            width: 100%;
+            aspect-ratio: 3/2;
+            border-radius: 12px;
+            overflow: hidden;
+            background: #111;
+            margin-bottom: 12px;
+        }
+
+        .challenge-canvas-wrap canvas, .preview-canvas-wrap canvas {
+            width: 100%;
+            height: 100%;
+        }
+
+        .current-settings {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 12px;
+        }
+
+        .current-settings .setting {
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .current-settings .setting.aperture {
+            background: rgba(255,107,53,0.2);
+            color: var(--aperture);
+        }
+
+        .current-settings .setting.shutter {
+            background: rgba(78,205,196,0.2);
+            color: var(--shutter);
+        }
+
+        .current-settings .setting.iso {
+            background: rgba(255,230,109,0.2);
+            color: var(--iso);
+        }
+
+        .problem-indicator {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            padding: 12px;
+            background: rgba(255,107,107,0.15);
+            border: 1px solid #ff6b6b;
+            border-radius: 10px;
+            color: #ff6b6b;
+            font-weight: 500;
+        }
+
+        .challenge-goal {
+            background: var(--surface2);
+            padding: 15px 20px;
+            border-radius: 12px;
+            margin: 20px 0;
+            border-right: 4px solid var(--shutter);
+        }
+
+        .goal-text {
+            color: var(--text);
+            font-size: 1rem;
+        }
+
+        .fix-preview {
+            margin: 20px 0;
+            padding: 20px;
+            background: var(--surface2);
+            border-radius: 12px;
+            border: 2px dashed #444;
+        }
+
+        .preview-meter {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .meter-label {
+            color: var(--text-muted);
+        }
+
+        .meter-status {
+            font-weight: 600;
+            padding: 5px 12px;
+            border-radius: 15px;
+        }
+
+        .meter-status.balanced {
+            background: rgba(78,205,196,0.2);
+            color: var(--shutter);
+        }
+
+        .meter-status.over {
+            background: rgba(255,230,109,0.2);
+            color: var(--iso);
+        }
+
+        .meter-status.under {
+            background: rgba(255,107,107,0.2);
+            color: #ff6b6b;
+        }
+
+        /* Challenge Intro */
+        .challenge-intro {
+            margin-bottom: 30px;
+        }
+
+        .intro-card, .example-card {
+            background: var(--surface);
+            border-radius: 16px;
+            padding: 25px;
+            margin-bottom: 20px;
+            border: 1px solid #333;
+        }
+
+        .intro-card h3, .example-card h3 {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+            font-size: 1.2rem;
+        }
+
+        .intro-card h3 { color: var(--shutter); }
+        .example-card h3 { color: var(--iso); }
+
+        .intro-card p, .example-card p {
+            color: var(--text-muted);
+            margin-bottom: 12px;
+            line-height: 1.7;
+        }
+
+        .intro-rule {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 15px 20px;
+            background: linear-gradient(135deg, rgba(255,107,53,0.1), rgba(78,205,196,0.1), rgba(255,230,109,0.1));
+            border-radius: 12px;
+            margin-top: 15px;
+            border-right: 4px solid var(--iso);
+        }
+
+        .intro-rule i {
+            font-size: 1.5rem;
+            color: var(--iso);
+        }
+
+        .example-scenario {
+            display: grid;
+            gap: 25px;
+        }
+
+        .example-problem, .example-solution {
+            padding: 20px;
+            border-radius: 12px;
+        }
+
+        .example-problem {
+            background: rgba(255,107,107,0.1);
+            border: 1px solid rgba(255,107,107,0.3);
+        }
+
+        .example-solution {
+            background: rgba(78,205,196,0.1);
+            border: 1px solid rgba(78,205,196,0.3);
+        }
+
+        .ex-label {
+            font-weight: 700;
+            font-size: 1rem;
+            margin-bottom: 10px;
+        }
+
+        .ex-settings {
+            display: flex;
+            gap: 12px;
+            margin: 15px 0;
+            flex-wrap: wrap;
+        }
+
+        .ex-settings .setting {
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+
+        .ex-settings .setting.changed {
+            border: 2px dashed;
+        }
+
+        .ex-settings .setting.aperture.changed { border-color: var(--aperture); }
+        .ex-settings .setting.shutter.changed { border-color: var(--shutter); }
+        .ex-settings .setting.iso.changed { border-color: var(--iso); }
+
+        .ex-result {
+            font-weight: 600;
+            padding: 10px 15px;
+            border-radius: 8px;
+            margin-top: 10px;
+        }
+
+        .ex-result.bad {
+            background: rgba(255,107,107,0.2);
+            color: #ff6b6b;
+        }
+
+        .ex-result.good {
+            background: rgba(78,205,196,0.2);
+            color: var(--shutter);
+        }
+
+        .ex-calculation {
+            background: var(--surface2);
+            padding: 15px;
+            border-radius: 10px;
+            margin: 15px 0;
+        }
+
+        .calc-step {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #333;
+        }
+
+        .calc-step:last-child {
+            border-bottom: none;
+            font-weight: 700;
+            color: var(--iso);
+        }
+
+        .calc-action { color: var(--text); }
+        .calc-stops { color: var(--text-muted); }
+
+        .start-challenge-btn {
+            width: 100%;
+            padding: 18px;
+            border: none;
+            border-radius: 14px;
+            background: linear-gradient(135deg, var(--aperture), var(--shutter));
+            color: white;
+            font-size: 1.2rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+        }
+
+        .start-challenge-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 10px 30px rgba(255,107,53,0.3);
+        }
+
+        /* Final Summary */
+        .final-summary-section {
+            padding: 80px 20px;
+            background: linear-gradient(180deg, var(--bg) 0%, #0d0d18 100%);
+            display: none;
+        }
+
+        .final-summary {
+            max-width: 700px;
+            margin: 0 auto;
+            text-align: center;
+        }
+
+        .final-summary .trophy {
+            font-size: 5rem;
+            margin-bottom: 20px;
+            animation: bounce 2s infinite;
+        }
+
+        .final-summary h2 {
+            font-size: 2.5rem;
+            margin-bottom: 15px;
+            background: linear-gradient(135deg, var(--aperture), var(--shutter), var(--iso));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .final-summary .subtitle {
+            color: var(--text-muted);
+            font-size: 1.2rem;
+            margin-bottom: 40px;
+        }
+
+        .final-score-card {
+            background: var(--surface);
+            border-radius: 20px;
+            padding: 40px;
+            margin-bottom: 30px;
+            border: 2px solid;
+        }
+
+        .final-score-card.excellent { border-color: var(--shutter); }
+        .final-score-card.good { border-color: var(--iso); }
+        .final-score-card.needs-work { border-color: var(--aperture); }
+
+        .final-score-number {
+            font-size: 4rem;
+            font-weight: 900;
+            margin-bottom: 10px;
+        }
+
+        .final-score-card.excellent .final-score-number { color: var(--shutter); }
+        .final-score-card.good .final-score-number { color: var(--iso); }
+        .final-score-card.needs-work .final-score-number { color: var(--aperture); }
+
+        .final-score-label {
+            color: var(--text-muted);
+            font-size: 1.1rem;
+            margin-bottom: 20px;
+        }
+
+        .final-grade {
+            display: inline-block;
+            padding: 10px 30px;
+            border-radius: 30px;
+            font-size: 1.3rem;
+            font-weight: 700;
+        }
+
+        .final-score-card.excellent .final-grade {
+            background: rgba(78,205,196,0.2);
+            color: var(--shutter);
+        }
+
+        .final-score-card.good .final-grade {
+            background: rgba(255,230,109,0.2);
+            color: var(--iso);
+        }
+
+        .final-score-card.needs-work .final-grade {
+            background: rgba(255,107,53,0.2);
+            color: var(--aperture);
+        }
+
+        .score-breakdown {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 30px;
+        }
+
+        .breakdown-item {
+            background: var(--surface2);
+            padding: 15px;
+            border-radius: 12px;
+            text-align: center;
+        }
+
+        .breakdown-item .label {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin-bottom: 5px;
+        }
+
+        .breakdown-item .value {
+            font-size: 1.3rem;
+            font-weight: 700;
+        }
+
+        .restart-lesson-btn {
+            padding: 15px 40px;
+            border: none;
+            border-radius: 12px;
+            background: linear-gradient(135deg, var(--aperture), var(--shutter));
+            color: white;
+            font-size: 1.1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .restart-lesson-btn:hover {
+            transform: scale(1.05);
+        }
+
+        .submit-btn {
+            background: linear-gradient(135deg, var(--shutter), #2ecc71);
+        }
+
+        .submit-note {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            margin-top: 15px;
+        }
+
+        .student-info-display {
+            background: var(--surface2);
+            padding: 10px 20px;
+            border-radius: 20px;
+            margin-bottom: 20px;
+            font-size: 1.1rem;
+            color: var(--text);
+        }
+
+        .main-content {
+            display: none;
+        }
+
+        .main-content.visible {
+            display: block;
+        }
+
+        /* Quiz */
+        .quiz-card {
+            background: linear-gradient(135deg, var(--surface) 0%, var(--surface2) 100%);
+            border-radius: 16px;
+            padding: 30px;
+            margin-top: 30px;
+            border: 2px solid #333;
+        }
+
+        .quiz-card h4 {
+            font-size: 1.1rem;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--iso);
+        }
+
+        .quiz-question {
+            font-size: 1.05rem;
+            margin-bottom: 15px;
+            padding: 12px;
+            background: var(--bg);
+            border-radius: 8px;
+        }
+
+        .quiz-options {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .quiz-option {
+            padding: 12px 16px;
+            background: var(--surface);
+            border: 2px solid #333;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .quiz-option:hover { border-color: #555; transform: translateX(-5px); }
+        .quiz-option.correct { border-color: var(--shutter); background: rgba(78,205,196,0.1); }
+        .quiz-option.wrong { border-color: #ff6b6b; background: rgba(255,107,107,0.1); }
+
+        .quiz-option .letter {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: #333;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 0.85rem;
+        }
+
+        .quiz-feedback {
+            margin-top: 15px;
+            padding: 12px;
+            border-radius: 8px;
+            display: none;
+        }
+
+        .quiz-feedback.show { display: block; }
+        .quiz-feedback.correct { background: rgba(78,205,196,0.15); color: var(--shutter); }
+        .quiz-feedback.wrong { background: rgba(255,107,107,0.15); color: #ff6b6b; }
+
+        .quiz-feedback .points, .feedback-title .points {
+            display: inline-block;
+            background: var(--shutter);
+            color: var(--bg);
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            margin-right: 10px;
+        }
+
+        /* Summary */
+        .summary-section {
+            background: linear-gradient(135deg, #1a1a25 0%, #0a0a0f 100%);
+            padding: 80px 20px;
+        }
+
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 20px;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        .summary-card {
+            background: var(--surface);
+            border-radius: 14px;
+            padding: 25px;
+            text-align: center;
+            border-top: 4px solid;
+        }
+
+        .summary-card.aperture { border-color: var(--aperture); }
+        .summary-card.shutter { border-color: var(--shutter); }
+        .summary-card.iso { border-color: var(--iso); }
+
+        .summary-card i {
+            font-size: 2rem;
+            margin-bottom: 12px;
+        }
+
+        .summary-card.aperture i { color: var(--aperture); }
+        .summary-card.shutter i { color: var(--shutter); }
+        .summary-card.iso i { color: var(--iso); }
+
+        .summary-card h3 { font-size: 1.2rem; margin-bottom: 8px; }
+        .summary-card p { color: var(--text-muted); font-size: 0.9rem; }
+
+        /* === SIMULATOR === */
+        .simulator-section {
+            padding: 80px 20px;
+            background: var(--bg);
+        }
+
+        .simulator {
+            max-width: 900px;
+            margin: 0 auto;
+            background: var(--surface);
+            border-radius: 20px;
+            padding: 35px;
+            border: 1px solid #333;
+        }
+
+        .simulator h2 {
+            text-align: center;
+            font-size: 1.8rem;
+            margin-bottom: 8px;
+        }
+
+        .simulator > p {
+            text-align: center;
+            color: var(--text-muted);
+            margin-bottom: 30px;
+        }
+
+        .sim-viewport {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 16/9;
+            border-radius: 14px;
+            overflow: hidden;
+            margin-bottom: 25px;
+            background: #111;
+        }
+
+        #simCanvas {
+            width: 100%;
+            height: 100%;
+        }
+
+        .sim-info {
+            position: absolute;
+            bottom: 12px;
+            right: 12px;
+            background: rgba(0,0,0,0.7);
+            padding: 8px 14px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        .sim-controls {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 20px;
+        }
+
+        .sim-control {
+            background: var(--surface2);
+            padding: 20px;
+            border-radius: 14px;
+        }
+
+        .sim-control label {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+
+        .sim-control.aperture label { color: var(--aperture); }
+        .sim-control.shutter label { color: var(--shutter); }
+        .sim-control.iso label { color: var(--iso); }
+
+        .sim-control input[type="range"] {
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            -webkit-appearance: none;
+            background: #333;
+            outline: none;
+        }
+
+        .sim-control input::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        .sim-control.aperture input::-webkit-slider-thumb { background: var(--aperture); }
+        .sim-control.shutter input::-webkit-slider-thumb { background: var(--shutter); }
+        .sim-control.iso input::-webkit-slider-thumb { background: var(--iso); }
+
+        .sim-value {
+            text-align: center;
+            font-size: 1.3rem;
+            font-weight: 700;
+            margin-top: 12px;
+        }
+
+        .sim-control.aperture .sim-value { color: var(--aperture); }
+        .sim-control.shutter .sim-value { color: var(--shutter); }
+        .sim-control.iso .sim-value { color: var(--iso); }
+
+        .exposure-meter {
+            margin-top: 25px;
+            text-align: center;
+        }
+
+        .exposure-meter label {
+            display: block;
+            margin-bottom: 8px;
+            color: var(--text-muted);
+        }
+
+        .meter-bar {
+            height: 16px;
+            background: linear-gradient(90deg, #222 0%, #222 40%, var(--shutter) 50%, #222 60%, #222 100%);
+            border-radius: 8px;
+            position: relative;
+            max-width: 350px;
+            margin: 0 auto;
+        }
+
+        .meter-indicator {
+            position: absolute;
+            top: -4px;
+            width: 24px;
+            height: 24px;
+            background: white;
+            border-radius: 50%;
+            transform: translateX(-50%);
+            transition: left 0.3s;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.5);
+        }
+
+        .exposure-status {
+            margin-top: 12px;
+            font-weight: 600;
+        }
+
+        /* Footer */
+        footer {
+            text-align: center;
+            padding: 30px 20px;
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            background: var(--surface);
+        }
+
+        /* Mobile */
+        @media (max-width: 600px) {
+            .section { padding: 50px 15px; }
+            .content-card { padding: 20px; }
+            .demo-compare { grid-template-columns: 1fr; }
+            .simulator { padding: 20px; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- Student Login Screen -->
+<div class="login-screen" id="loginScreen">
+    <div class="login-card">
+        <div class="icon">📸</div>
+        <h2>משולש החשיפה</h2>
+        <p>הזינו את תעודת הזהות שלכם כדי להתחיל</p>
+        
+        <div class="login-form">
+            <input type="text" id="studentId" placeholder="תעודת זהות (9 ספרות)" maxlength="9" inputmode="numeric" required>
+            <div class="student-preview" id="studentPreview" style="display:none;">
+                <i class="fas fa-user-check"></i>
+                <span id="studentPreviewName">-</span>
+                <span class="preview-class" id="studentPreviewClass">-</span>
+            </div>
+            <div class="student-error" id="studentError" style="display:none;">
+                <i class="fas fa-exclamation-circle"></i>
+                <span>תלמיד לא נמצא במערכת</span>
+            </div>
+            <button class="login-btn" id="loginBtn" onclick="startLesson()" disabled>
+                <i class="fas fa-play"></i> התחילו את השיעור
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Score Bar -->
+<div class="score-bar" id="scoreBar" style="display:none;">
+    <div class="score-bar-title">
+        <i class="fas fa-camera"></i>
+        <span>משולש החשיפה</span>
+    </div>
+    <div class="score-display">
+        <div class="score-item correct">
+            <i class="fas fa-check-circle"></i>
+            <span id="globalCorrect">0</span>
+        </div>
+        <div class="score-item total">
+            <i class="fas fa-star"></i>
+            <span id="globalTotal">0</span> / 8
+        </div>
+    </div>
+</div>
+
+<!-- Hero -->
+<section class="hero">
+    <div class="hero-badge">📸 שיעור אינטראקטיבי | כיתה י"א</div>
+    <h1>משולש החשיפה</h1>
+    <p>שלושת המרכיבים שקובעים כמה אור נכנס למצלמה - ואיך הם משפיעים על התמונה</p>
+    
+    <div class="triangle-visual">
+        <svg class="triangle-svg" viewBox="0 0 200 200">
+            <defs>
+                <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" style="stop-color:#ff6b35"/>
+                    <stop offset="50%" style="stop-color:#4ecdc4"/>
+                    <stop offset="100%" style="stop-color:#ffe66d"/>
+                </linearGradient>
+            </defs>
+            <polygon points="100,25 175,155 25,155" fill="none" stroke="url(#grad1)" stroke-width="3"/>
+            <circle cx="100" cy="25" r="10" fill="#ff6b35"/>
+            <circle cx="175" cy="155" r="10" fill="#4ecdc4"/>
+            <circle cx="25" cy="155" r="10" fill="#ffe66d"/>
+            <text x="100" y="12" text-anchor="middle" fill="#ff6b35" font-size="11" font-weight="bold">צמצם</text>
+            <text x="192" y="160" text-anchor="start" fill="#4ecdc4" font-size="11" font-weight="bold">תריס</text>
+            <text x="8" y="160" text-anchor="end" fill="#ffe66d" font-size="11" font-weight="bold">ISO</text>
+        </svg>
+    </div>
+    
+    <div class="scroll-hint"><i class="fas fa-chevron-down fa-2x"></i></div>
+</section>
+
+<!-- APERTURE Section -->
+<section class="section section-aperture">
+    <div class="section-header">
+        <div class="section-icon"><i class="fas fa-circle-dot"></i></div>
+        <h2>צמצם (Aperture)</h2>
+        <p class="section-subtitle">גודל הפתח בעדשה - f/1.8, f/8, f/16...</p>
+    </div>
+    
+    <div class="content-card">
+        <h3><i class="fas fa-lightbulb"></i> מה זה?</h3>
+        <p>הצמצם הוא פתח בתוך העדשה. מספר f קטן (כמו f/1.8) = פתח גדול = הרבה אור. מספר f גדול (כמו f/16) = פתח קטן = מעט אור.</p>
+    </div>
+    
+    <div class="content-card">
+        <h3><i class="fas fa-image"></i> איך זה משפיע? אותה סצנה - הגדרות שונות</h3>
+        <div class="demo-scene">
+            <div class="demo-title">🌸 פרח על רקע גינה</div>
+            <div class="demo-compare">
+                <div class="demo-frame aperture">
+                    <div class="label">f/1.8 - פתוח</div>
+                    <div class="demo-canvas-wrap">
+                        <canvas id="aperture1" width="400" height="300"></canvas>
+                    </div>
+                    <small>רקע מטושטש - הפרח בולט</small>
+                </div>
+                <div class="demo-frame aperture">
+                    <div class="label">f/16 - סגור</div>
+                    <div class="demo-canvas-wrap">
+                        <canvas id="aperture2" width="400" height="300"></canvas>
+                    </div>
+                    <small>הכל חד - רואים את כל הגינה</small>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="content-card">
+        <h3><i class="fas fa-camera"></i> דוגמה מהעולם האמיתי</h3>
+        <p>אותו אובייקט, אותה תאורה - רק הצמצם משתנה:</p>
+        <div class="real-photos">
+            <div class="real-photo">
+                <img src="https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=400&h=300&fit=crop&q=80" alt="פורטרט עם רקע מטושטש f/1.8">
+                <div class="real-label aperture">f/1.8</div>
+                <small>עומק שדה רדוד - רק הפנים בפוקוס</small>
+            </div>
+            <div class="real-photo">
+                <img src="https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=400&h=300&fit=crop&q=80" alt="נוף חד f/16">
+                <div class="real-label aperture">f/16</div>
+                <small>עומק שדה עמוק - הכל חד מקרוב לרחוק</small>
+            </div>
+        </div>
+    </div>
+    
+    <div class="quiz-card">
+        <h4><i class="fas fa-question-circle"></i> בדקו את עצמכם</h4>
+        <div class="quiz-question">רוצים לצלם פורטרט עם רקע מטושטש. מה תבחרו?</div>
+        <div class="quiz-options" id="quiz1">
+            <div class="quiz-option" onclick="checkAnswer(this, 'quiz1', true)">
+                <span class="letter">א</span><span>f/1.8 - צמצם פתוח</span>
+            </div>
+            <div class="quiz-option" onclick="checkAnswer(this, 'quiz1', false)">
+                <span class="letter">ב</span><span>f/16 - צמצם סגור</span>
+            </div>
+        </div>
+        <div class="quiz-feedback" id="feedback1"></div>
+    </div>
+</section>
+
+<!-- SHUTTER Section -->
+<section class="section section-shutter">
+    <div class="section-header">
+        <div class="section-icon"><i class="fas fa-clock"></i></div>
+        <h2>מהירות תריס (Shutter Speed)</h2>
+        <p class="section-subtitle">כמה זמן החיישן חשוף - 1/1000, 1/60, 1"...</p>
+    </div>
+    
+    <div class="content-card">
+        <h3><i class="fas fa-lightbulb"></i> מה זה?</h3>
+        <p>התריס נפתח ונסגר מול החיישן. תריס מהיר (1/1000) = פחות אור, קופא תנועה. תריס איטי (1") = הרבה אור, טשטוש תנועה.</p>
+    </div>
+    
+    <div class="content-card">
+        <h3><i class="fas fa-image"></i> איך זה משפיע? אותה סצנה - הגדרות שונות</h3>
+        <div class="demo-scene">
+            <div class="demo-title">🚗 מכונית חולפת על רקע עיר</div>
+            <div class="demo-compare">
+                <div class="demo-frame shutter">
+                    <div class="label">1/1000 - מהיר</div>
+                    <div class="demo-canvas-wrap">
+                        <canvas id="shutter1" width="400" height="300"></canvas>
+                    </div>
+                    <small>המכונית קפואה באוויר</small>
+                </div>
+                <div class="demo-frame shutter">
+                    <div class="label">1/30 - איטי</div>
+                    <div class="demo-canvas-wrap">
+                        <canvas id="shutter2" width="400" height="300"></canvas>
+                    </div>
+                    <small>המכונית מטושטשת בתנועה</small>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="content-card">
+        <h3><i class="fas fa-camera"></i> דוגמה מהעולם האמיתי</h3>
+        <p>אותה סצנה, אותה תאורה - רק מהירות התריס משתנה:</p>
+        <div class="real-photos">
+            <div class="real-photo">
+                <img src="https://images.unsplash.com/photo-1552674605-db6ffd4facb5?w=400&h=300&fit=crop&q=80" alt="ספורטאי קפוא בתנועה">
+                <div class="real-label shutter">1/1000</div>
+                <small>תנועה קפואה - רואים כל פרט</small>
+            </div>
+            <div class="real-photo">
+                <img src="https://images.unsplash.com/photo-1494522855154-9297ac14b55f?w=400&h=300&fit=crop&q=80" alt="שובלי אור בלילה">
+                <div class="real-label shutter">30 שניות</div>
+                <small>שובלי אור - התנועה נמשכת לאורך זמן</small>
+            </div>
+        </div>
+    </div>
+    
+    <div class="quiz-card">
+        <h4><i class="fas fa-question-circle"></i> בדקו את עצמכם</h4>
+        <div class="quiz-question">רוצים לצלם שובלי אור של מכוניות בלילה. מה תבחרו?</div>
+        <div class="quiz-options" id="quiz2">
+            <div class="quiz-option" onclick="checkAnswer(this, 'quiz2', false)">
+                <span class="letter">א</span><span>1/1000 - תריס מהיר</span>
+            </div>
+            <div class="quiz-option" onclick="checkAnswer(this, 'quiz2', true)">
+                <span class="letter">ב</span><span>10 שניות - תריס איטי</span>
+            </div>
+        </div>
+        <div class="quiz-feedback" id="feedback2"></div>
+    </div>
+</section>
+
+<!-- ISO Section -->
+<section class="section section-iso">
+    <div class="section-header">
+        <div class="section-icon"><i class="fas fa-sun"></i></div>
+        <h2>רגישות ISO</h2>
+        <p class="section-subtitle">רגישות החיישן לאור - ISO 100, 800, 6400...</p>
+    </div>
+    
+    <div class="content-card">
+        <h3><i class="fas fa-lightbulb"></i> מה זה?</h3>
+        <p>ה-ISO קובע כמה רגיש החיישן. ISO נמוך (100) = צריך הרבה אור, תמונה נקייה. ISO גבוה (6400) = טוב לחושך, אבל מוסיף רעש.</p>
+    </div>
+    
+    <div class="content-card">
+        <h3><i class="fas fa-image"></i> איך זה משפיע? אותה סצנה - הגדרות שונות</h3>
+        <div class="demo-scene">
+            <div class="demo-title">🌙 צילום לילה של בניין</div>
+            <div class="demo-compare">
+                <div class="demo-frame iso">
+                    <div class="label">ISO 100</div>
+                    <div class="demo-canvas-wrap">
+                        <canvas id="iso1" width="400" height="300"></canvas>
+                    </div>
+                    <small>תמונה נקייה וחדה</small>
+                </div>
+                <div class="demo-frame iso">
+                    <div class="label">ISO 6400</div>
+                    <div class="demo-canvas-wrap">
+                        <canvas id="iso2" width="400" height="300"></canvas>
+                    </div>
+                    <small>רעש וגרעיניות בתמונה</small>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="content-card">
+        <h3><i class="fas fa-camera"></i> דוגמה מהעולם האמיתי</h3>
+        <p>אותה סצנה, אותה תאורה - רק ה-ISO משתנה:</p>
+        <div class="real-photos">
+            <div class="real-photo">
+                <img src="https://images.unsplash.com/photo-1469474968028-56623f02e42e?w=400&h=300&fit=crop&q=80" alt="נוף ביום ISO נמוך">
+                <div class="real-label iso">ISO 100</div>
+                <small>תמונה נקייה - אידיאלי לתאורה טובה</small>
+            </div>
+            <div class="real-photo">
+                <img src="https://images.unsplash.com/photo-1519681393784-d120267933ba?w=400&h=300&fit=crop&q=80" alt="צילום לילה ISO גבוה">
+                <div class="real-label iso">ISO 6400</div>
+                <small>רעש נראה - הכרחי בתאורה חלשה</small>
+            </div>
+        </div>
+    </div>
+    
+    <div class="quiz-card">
+        <h4><i class="fas fa-question-circle"></i> בדקו את עצמכם</h4>
+        <div class="quiz-question">מצלמים בחוץ ביום שמשי. איזה ISO?</div>
+        <div class="quiz-options" id="quiz3">
+            <div class="quiz-option" onclick="checkAnswer(this, 'quiz3', true)">
+                <span class="letter">א</span><span>ISO 100</span>
+            </div>
+            <div class="quiz-option" onclick="checkAnswer(this, 'quiz3', false)">
+                <span class="letter">ב</span><span>ISO 6400</span>
+            </div>
+        </div>
+        <div class="quiz-feedback" id="feedback3"></div>
+    </div>
+</section>
+
+<!-- Summary -->
+<section class="summary-section">
+    <div class="section-header">
+        <h2 style="color:white;font-size:2.2rem;margin-bottom:35px;">📐 סיכום - שלושת המרכיבים</h2>
+    </div>
+    <div class="summary-grid">
+        <div class="summary-card aperture">
+            <i class="fas fa-circle-dot"></i>
+            <h3>צמצם</h3>
+            <p>כמות אור + עומק שדה</p>
+        </div>
+        <div class="summary-card shutter">
+            <i class="fas fa-clock"></i>
+            <h3>תריס</h3>
+            <p>כמות אור + הקפאת תנועה</p>
+        </div>
+        <div class="summary-card iso">
+            <i class="fas fa-sun"></i>
+            <h3>ISO</h3>
+            <p>רגישות לאור + רעש</p>
+        </div>
+    </div>
+</section>
+
+<!-- EXPOSURE RELATIONSHIPS -->
+<section class="section section-relationships">
+    <div class="section-header">
+        <div class="section-icon" style="background: linear-gradient(135deg, rgba(255,107,53,0.3), rgba(78,205,196,0.3), rgba(255,230,109,0.3));"><i class="fas fa-balance-scale"></i></div>
+        <h2 style="background: linear-gradient(135deg, var(--aperture), var(--shutter), var(--iso)); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">יחסי החשיפה - הכלל החשוב ביותר!</h2>
+        <p class="section-subtitle">כל שינוי בפרמטר אחד דורש תיקון בפרמטר אחר</p>
+    </div>
+    
+    <div class="content-card">
+        <h3><i class="fas fa-lightbulb"></i> העיקרון המרכזי</h3>
+        <p>כדי לשמור על אותה חשיפה (כמות אור זהה), כל פעם שמשנים פרמטר אחד - צריך לפצות בפרמטר אחר. זה עובד כמו מאזניים: מה שמוסיפים בצד אחד, צריך להוריד בצד השני.</p>
+        
+        <div class="relationship-visual">
+            <div class="rel-equation">
+                <div class="rel-item aperture-bg">
+                    <i class="fas fa-circle-dot"></i>
+                    <span>צמצם</span>
+                </div>
+                <span class="rel-operator">+</span>
+                <div class="rel-item shutter-bg">
+                    <i class="fas fa-clock"></i>
+                    <span>תריס</span>
+                </div>
+                <span class="rel-operator">+</span>
+                <div class="rel-item iso-bg">
+                    <i class="fas fa-sun"></i>
+                    <span>ISO</span>
+                </div>
+                <span class="rel-operator">=</span>
+                <div class="rel-item result-bg">
+                    <i class="fas fa-image"></i>
+                    <span>חשיפה</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="content-card">
+        <h3><i class="fas fa-arrows-alt-h"></i> מה זה "סטופ" (Stop)?</h3>
+        <p><strong>סטופ</strong> הוא יחידת מדידה לשינוי בכמות האור. סטופ אחד = הכפלה או חצייה של כמות האור.</p>
+        
+        <div class="stops-table">
+            <div class="stop-row header">
+                <div class="stop-cell">פרמטר</div>
+                <div class="stop-cell">+1 סטופ (יותר אור)</div>
+                <div class="stop-cell">-1 סטופ (פחות אור)</div>
+            </div>
+            <div class="stop-row aperture-row">
+                <div class="stop-cell"><i class="fas fa-circle-dot"></i> צמצם</div>
+                <div class="stop-cell">f/5.6 → f/4</div>
+                <div class="stop-cell">f/5.6 → f/8</div>
+            </div>
+            <div class="stop-row shutter-row">
+                <div class="stop-cell"><i class="fas fa-clock"></i> תריס</div>
+                <div class="stop-cell">1/125 → 1/60</div>
+                <div class="stop-cell">1/125 → 1/250</div>
+            </div>
+            <div class="stop-row iso-row">
+                <div class="stop-cell"><i class="fas fa-sun"></i> ISO</div>
+                <div class="stop-cell">ISO 400 → ISO 800</div>
+                <div class="stop-cell">ISO 400 → ISO 200</div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="content-card">
+        <h3><i class="fas fa-exchange-alt"></i> דוגמאות מעשיות</h3>
+        
+        <div class="example-scenarios">
+            <div class="scenario">
+                <div class="scenario-title">🏃 רוצים להקפיא תנועה</div>
+                <div class="scenario-problem">הגדרות נוכחיות: f/5.6 | 1/60 | ISO 400</div>
+                <div class="scenario-arrow">↓</div>
+                <div class="scenario-change">מאיצים את התריס ל-1/250 <span class="change-note">(-2 סטופים)</span></div>
+                <div class="scenario-arrow">↓</div>
+                <div class="scenario-solution">פיצוי: פותחים צמצם ל-f/2.8 <span class="change-note">(+2 סטופים)</span></div>
+                <div class="scenario-result">תוצאה: f/2.8 | 1/250 | ISO 400 - אותה חשיפה!</div>
+            </div>
+            
+            <div class="scenario">
+                <div class="scenario-title">🏔️ רוצים עומק שדה עמוק</div>
+                <div class="scenario-problem">הגדרות נוכחיות: f/2.8 | 1/500 | ISO 200</div>
+                <div class="scenario-arrow">↓</div>
+                <div class="scenario-change">סוגרים צמצם ל-f/11 <span class="change-note">(-4 סטופים)</span></div>
+                <div class="scenario-arrow">↓</div>
+                <div class="scenario-solution">פיצוי: מאטים תריס ל-1/30 <span class="change-note">(+4 סטופים)</span></div>
+                <div class="scenario-result">תוצאה: f/11 | 1/30 | ISO 200 - אותה חשיפה!</div>
+            </div>
+            
+            <div class="scenario">
+                <div class="scenario-title">🌙 צילום בתאורה חלשה</div>
+                <div class="scenario-problem">הגדרות נוכחיות: f/2.8 | 1/60 | ISO 400 - כהה מדי!</div>
+                <div class="scenario-arrow">↓</div>
+                <div class="scenario-change">לא יכולים לפתוח יותר או להאט תריס (יד רועדת)</div>
+                <div class="scenario-arrow">↓</div>
+                <div class="scenario-solution">פיצוי: מעלים ISO ל-1600 <span class="change-note">(+2 סטופים)</span></div>
+                <div class="scenario-result">תוצאה: f/2.8 | 1/60 | ISO 1600 - חשיפה נכונה!</div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="content-card highlight-card">
+        <h3><i class="fas fa-star"></i> הכלל הזהב</h3>
+        <div class="golden-rule">
+            <p>כל <strong>נקישה אחת</strong> (סטופ) בפרמטר אחד = צריך <strong>נקישה אחת</strong> בכיוון ההפוך בפרמטר אחר</p>
+            <div class="rule-examples">
+                <div class="rule-ex">פתחתי צמצם? → אאיץ תריס או אוריד ISO</div>
+                <div class="rule-ex">האטתי תריס? → אסגור צמצם או אוריד ISO</div>
+                <div class="rule-ex">העליתי ISO? → אסגור צמצם או אאיץ תריס</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- SIMULATOR -->
+<section class="simulator-section">
+    <div class="simulator">
+        <h2>🎮 סימולטור חשיפה</h2>
+        <p>שחקו עם ההגדרות וראו איך הן משפיעות על התמונה</p>
+        
+        <div class="sim-viewport">
+            <canvas id="simCanvas"></canvas>
+            <div class="sim-info" id="simInfo">עומק שדה: בינוני | תנועה: רגילה</div>
+        </div>
+        
+        <div class="sim-controls">
+            <div class="sim-control aperture">
+                <label><i class="fas fa-circle-dot"></i> צמצם</label>
+                <input type="range" id="apertureSlider" min="1" max="5" value="3" oninput="updateSim()">
+                <div class="sim-value" id="apertureVal">f/5.6</div>
+            </div>
+            <div class="sim-control shutter">
+                <label><i class="fas fa-clock"></i> תריס</label>
+                <input type="range" id="shutterSlider" min="1" max="5" value="3" oninput="updateSim()">
+                <div class="sim-value" id="shutterVal">1/125</div>
+            </div>
+            <div class="sim-control iso">
+                <label><i class="fas fa-sun"></i> ISO</label>
+                <input type="range" id="isoSlider" min="1" max="5" value="2" oninput="updateSim()">
+                <div class="sim-value" id="isoVal">ISO 400</div>
+            </div>
+        </div>
+        
+        <div class="exposure-meter">
+            <label>מד חשיפה</label>
+            <div class="meter-bar">
+                <div class="meter-indicator" id="meterInd" style="left:50%;"></div>
+            </div>
+            <div class="exposure-status" id="expStatus">✓ חשיפה מאוזנת</div>
+        </div>
+    </div>
+</section>
+
+<!-- INTERACTIVE CHALLENGE -->
+<section class="challenge-section">
+    <div class="challenge-container">
+        <h2>🎯 מבדק אינטראקטיבי - תקנו את התמונה!</h2>
+        <p>המצלמה צילמה במוד אוטומטי - החשיפה מאוזנת, אבל התוצאה לא מה שרציתם. תקנו!</p>
+        
+        <!-- הסבר ודוגמה -->
+        <div class="challenge-intro">
+            <div class="intro-card">
+                <h3><i class="fas fa-info-circle"></i> איך זה עובד?</h3>
+                <p>המצלמה במוד אוטומטי תמיד מאזנת את החשיפה, אבל לא תמיד בוחרת את ההגדרות הנכונות לאפקט שאתם רוצים.</p>
+                <p><strong>המשימה שלכם:</strong> לשנות את ההגדרות כדי לקבל את האפקט הרצוי, תוך שמירה על חשיפה מאוזנת.</p>
+                <div class="intro-rule">
+                    <i class="fas fa-balance-scale"></i>
+                    <span><strong>כלל הזהב:</strong> כל סטופ שמשנים בפרמטר אחד = צריך לפצות בסטופ הפוך בפרמטרים אחרים!</span>
+                </div>
+            </div>
+            
+            <div class="example-card">
+                <h3><i class="fas fa-lightbulb"></i> דוגמה מפורטת</h3>
+                <div class="example-scenario">
+                    <div class="example-problem">
+                        <div class="ex-label">😕 המצב:</div>
+                        <p>צילמתם ספורטאי במוד אוטומטי. המצלמה בחרה:</p>
+                        <div class="ex-settings">
+                            <span class="setting aperture">f/5.6</span>
+                            <span class="setting shutter">1/60</span>
+                            <span class="setting iso">ISO 400</span>
+                        </div>
+                        <p class="ex-result bad">התוצאה: הספורטאי מטושטש בתנועה! 😞</p>
+                    </div>
+                    
+                    <div class="example-solution">
+                        <div class="ex-label">🎯 הפתרון:</div>
+                        <p>צריך תריס מהיר יותר להקפאת תנועה. נשנה מ-1/60 ל-1/500.</p>
+                        
+                        <div class="ex-calculation">
+                            <div class="calc-step">
+                                <span class="calc-action">תריס: 1/60 → 1/500</span>
+                                <span class="calc-stops">= -3 סטופים (פחות אור)</span>
+                            </div>
+                            <div class="calc-step">
+                                <span class="calc-action">פיצוי נדרש:</span>
+                                <span class="calc-stops">+3 סטופים</span>
+                            </div>
+                        </div>
+                        
+                        <p><strong>אפשרות א':</strong> פיצוי רק בצמצם</p>
+                        <div class="ex-settings">
+                            <span class="setting aperture changed">f/5.6 → f/1.8 (+3)</span>
+                            <span class="setting shutter changed">1/500</span>
+                            <span class="setting iso">ISO 400</span>
+                        </div>
+                        
+                        <p><strong>אפשרות ב':</strong> פיצוי משולב</p>
+                        <div class="ex-settings">
+                            <span class="setting aperture changed">f/5.6 → f/2.8 (+2)</span>
+                            <span class="setting shutter changed">1/500</span>
+                            <span class="setting iso changed">ISO 400 → 800 (+1)</span>
+                        </div>
+                        
+                        <p class="ex-result good">התוצאה: ספורטאי קפוא + חשיפה מאוזנת! ✓</p>
+                    </div>
+                </div>
+            </div>
+            
+            <button class="start-challenge-btn" onclick="startChallenge()">
+                <i class="fas fa-play"></i> התחילו את המבדק
+            </button>
+        </div>
+        
+        <div class="challenge-card" id="challengeCard" style="display:none;">
+            <div class="challenge-number">משימה <span id="challengeNum">1</span> מתוך 5</div>
+            
+            <div class="challenge-scenario" id="challengeScenario">
+                <div class="scenario-icon">🏃</div>
+                <div class="scenario-text">
+                    <h3 id="challengeTitle">הקפאת ספורטאי בתנועה</h3>
+                    <p id="challengeDesc">רציתם להקפיא את השחקן, אבל הוא יצא מטושטש!</p>
+                </div>
+            </div>
+            
+            <!-- Problem Image -->
+            <div class="challenge-image-section">
+                <div class="problem-label">😕 התוצאה שקיבלתם:</div>
+                <div class="challenge-canvas-wrap">
+                    <canvas id="challengeCanvas" width="600" height="400"></canvas>
+                </div>
+                <div class="current-settings" id="currentSettings">
+                    <span class="setting aperture">f/5.6</span>
+                    <span class="setting shutter">1/30</span>
+                    <span class="setting iso">ISO 400</span>
+                </div>
+                <div class="problem-indicator" id="problemIndicator">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <span id="problemText">תנועה מטושטשת + חשיפה תקינה</span>
+                </div>
+            </div>
+            
+            <div class="challenge-goal" id="challengeGoal">
+                <div class="goal-label">🎯 המטרה:</div>
+                <div class="goal-text" id="goalText">להקפיא את התנועה תוך שמירה על חשיפה מאוזנת</div>
+            </div>
+            
+            <div class="challenge-answer">
+                <h4>תקנו את ההגדרות:</h4>
+                <div class="answer-inputs">
+                    <div class="answer-input aperture">
+                        <label>צמצם</label>
+                        <select id="ansAperture" onchange="previewFix()">
+                            <option value="">בחרו...</option>
+                            <option value="f/1.8">f/1.8</option>
+                            <option value="f/2.8">f/2.8</option>
+                            <option value="f/5.6">f/5.6</option>
+                            <option value="f/11">f/11</option>
+                            <option value="f/16">f/16</option>
+                        </select>
+                    </div>
+                    <div class="answer-input shutter">
+                        <label>תריס</label>
+                        <select id="ansShutter" onchange="previewFix()">
+                            <option value="">בחרו...</option>
+                            <option value="1/1000">1/1000</option>
+                            <option value="1/250">1/250</option>
+                            <option value="1/125">1/125</option>
+                            <option value="1/30">1/30</option>
+                            <option value="1s">1 שנייה</option>
+                        </select>
+                    </div>
+                    <div class="answer-input iso">
+                        <label>ISO</label>
+                        <select id="ansISO" onchange="previewFix()">
+                            <option value="">בחרו...</option>
+                            <option value="ISO 100">ISO 100</option>
+                            <option value="ISO 400">ISO 400</option>
+                            <option value="ISO 800">ISO 800</option>
+                            <option value="ISO 3200">ISO 3200</option>
+                            <option value="ISO 6400">ISO 6400</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <!-- Preview of fix -->
+                <div class="fix-preview" id="fixPreview" style="display:none;">
+                    <div class="preview-label">👁️ תצוגה מקדימה:</div>
+                    <div class="preview-canvas-wrap">
+                        <canvas id="previewCanvas" width="600" height="400"></canvas>
+                    </div>
+                    <div class="preview-meter" id="previewMeter">
+                        <span class="meter-label">חשיפה:</span>
+                        <span class="meter-status" id="previewStatus">מאוזנת ✓</span>
+                    </div>
+                </div>
+                
+                <button class="check-answer-btn" onclick="checkChallengeAnswer()">
+                    <i class="fas fa-check"></i> בדוק תיקון
+                </button>
+            </div>
+            
+            <div class="challenge-feedback" id="challengeFeedback"></div>
+            
+            <button class="next-challenge-btn" id="nextChallengeBtn" onclick="nextChallenge()" style="display:none;">
+                משימה הבאה <i class="fas fa-arrow-left"></i>
+            </button>
+        </div>
+        
+        <div class="challenge-score" id="challengeScore" style="display:none;">
+            <div class="score-label">ניקוד</div>
+            <div class="score-value"><span id="scoreVal">0</span> / 5</div>
+        </div>
+        
+        <div class="challenge-complete" id="challengeComplete" style="display:none;">
+            <div class="complete-icon">🏆</div>
+            <h3>כל הכבוד!</h3>
+            <p>סיימתם את המבדק עם <span id="finalScore">0</span> תשובות נכונות מתוך 5</p>
+            <button class="restart-btn" onclick="restartChallenge()">
+                <i class="fas fa-redo"></i> התחל מחדש
+            </button>
+        </div>
+    </div>
+</section>
+
+<!-- FINAL SUMMARY -->
+<section class="final-summary-section" id="finalSummarySection">
+    <div class="final-summary">
+        <div class="trophy">✅</div>
+        <h2>סיימתם את השיעור!</h2>
+        <p class="subtitle">בדקו את הציון שלכם ושלחו את המטלה</p>
+        
+        <div class="final-score-card" id="finalScoreCard">
+            <div class="final-score-number" id="finalScoreNumber">0/8</div>
+            <div class="final-score-label">תשובות נכונות</div>
+            <div class="final-grade" id="finalGrade">-</div>
+        </div>
+        
+        <div class="score-breakdown">
+            <div class="breakdown-item">
+                <div class="label">שאלות צמצם</div>
+                <div class="value" id="apertureScore">0/1</div>
+            </div>
+            <div class="breakdown-item">
+                <div class="label">שאלות תריס</div>
+                <div class="value" id="shutterScore">0/1</div>
+            </div>
+            <div class="breakdown-item">
+                <div class="label">שאלות ISO</div>
+                <div class="value" id="isoScore">0/1</div>
+            </div>
+            <div class="breakdown-item">
+                <div class="label">מבדק מעשי</div>
+                <div class="value" id="challengeScoreFinal">0/5</div>
+            </div>
+        </div>
+        
+        <button class="restart-lesson-btn submit-btn" id="submitBtn" onclick="submitScore()">
+            <i class="fas fa-paper-plane"></i> שליחת המטלה
+        </button>
+        <p class="submit-note">* לאחר השליחה לא ניתן לשנות את התשובות</p>
+    </div>
+</section>
+
+<!-- FINAL SUMMARY - After Submit -->
+<section class="final-summary-section" id="finalResultSection" style="display:none;">
+    <div class="final-summary">
+        <div class="trophy">🏆</div>
+        <h2>המטלה נשלחה בהצלחה!</h2>
+        <p class="subtitle">הציון שלך נשמר במערכת</p>
+        
+        <div class="final-score-card" id="finalScoreCardResult">
+            <div class="student-info-display">
+                <span id="displayStudentName">-</span> | <span id="displayClassName">-</span>
+            </div>
+            <div class="final-score-number" id="finalScoreNumberResult">0/8</div>
+            <div class="final-score-label">תשובות נכונות</div>
+            <div class="final-grade" id="finalGradeResult">מתחיל</div>
+        </div>
+        
+        <div class="score-breakdown">
+            <div class="breakdown-item">
+                <div class="label">שאלות צמצם</div>
+                <div class="value" id="apertureScoreResult">0/1</div>
+            </div>
+            <div class="breakdown-item">
+                <div class="label">שאלות תריס</div>
+                <div class="value" id="shutterScoreResult">0/1</div>
+            </div>
+            <div class="breakdown-item">
+                <div class="label">שאלות ISO</div>
+                <div class="value" id="isoScoreResult">0/1</div>
+            </div>
+            <div class="breakdown-item">
+                <div class="label">מבדק מעשי</div>
+                <div class="value" id="challengeScoreResult">0/5</div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<footer>
+    <p>שיעור משולש החשיפה | מגמת תקשורת | בית חינוך גליל מערבי</p>
+</footer>
+
+<script>
+// ========== SUPABASE CONFIG ==========
+const SUPABASE_URL = 'https://hykpagdgaeulhghyvcqw.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_o4Nff2ctoa1niZthDyMvLQ_e2hQwNuT';
+
+async function supabaseRequest(endpoint, method = 'GET', data = null) {
+    const options = {
+        method: method,
+        headers: {
+            'apikey': SUPABASE_KEY,
+            'Authorization': `Bearer ${SUPABASE_KEY}`,
+            'Content-Type': 'application/json',
+            'Prefer': method === 'POST' ? 'return=representation' : ''
+        }
+    };
+    if (data) options.body = JSON.stringify(data);
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/${endpoint}`, options);
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    return response.json();
+}
+
+// ========== STUDENT INFO ==========
+let studentInfo = {
+    id: '',
+    name: '',
+    className: ''
+};
+
+// חיפוש תלמיד לפי ת.ז.
+async function lookupStudent(idNumber) {
+    const preview = document.getElementById('studentPreview');
+    const error = document.getElementById('studentError');
+    const btn = document.getElementById('loginBtn');
+    
+    // נרמול ת.ז. ל-9 ספרות
+    const normalizedId = idNumber.padStart(9, '0');
+    
+    if (idNumber.length < 5) {
+        preview.style.display = 'none';
+        error.style.display = 'none';
+        btn.disabled = true;
+        return;
+    }
+    
+    try {
+        // חיפוש בטבלת תלמידים
+        const students = await supabaseRequest(`exposure_students?student_id=eq.${normalizedId}`);
+        
+        if (students && students.length > 0) {
+            const student = students[0];
+            studentInfo.id = normalizedId;
+            studentInfo.name = student.student_name;
+            studentInfo.className = student.class_name;
+            
+            document.getElementById('studentPreviewName').textContent = student.student_name;
+            document.getElementById('studentPreviewClass').textContent = student.class_name;
+            
+            preview.style.display = 'flex';
+            error.style.display = 'none';
+            btn.disabled = false;
+        } else {
+            preview.style.display = 'none';
+            error.style.display = 'flex';
+            btn.disabled = true;
+            studentInfo = { id: '', name: '', className: '' };
+        }
+    } catch (err) {
+        console.error('Error looking up student:', err);
+        preview.style.display = 'none';
+        error.style.display = 'flex';
+        error.querySelector('span').textContent = 'שגיאה בחיבור למערכת';
+        btn.disabled = true;
+    }
+}
+
+// האזנה לשינויים בשדה ת.ז.
+document.addEventListener('DOMContentLoaded', () => {
+    const idInput = document.getElementById('studentId');
+    if (idInput) {
+        let timeout;
+        idInput.addEventListener('input', (e) => {
+            // רק מספרים
+            e.target.value = e.target.value.replace(/\D/g, '');
+            
+            clearTimeout(timeout);
+            timeout = setTimeout(() => {
+                lookupStudent(e.target.value);
+            }, 500);
+        });
+    }
+});
+
+function startLesson() {
+    if (!studentInfo.id || !studentInfo.name) {
+        alert('נא להזין תעודת זהות תקינה');
+        return;
+    }
+    
+    // הסתרת מסך כניסה והצגת התוכן
+    document.getElementById('loginScreen').style.display = 'none';
+    document.getElementById('scoreBar').style.display = 'flex';
+}
+
+// ========== GLOBAL SCORING SYSTEM ==========
+const lessonScores = {
+    aperture: { correct: 0, total: 1 },
+    shutter: { correct: 0, total: 1 },
+    iso: { correct: 0, total: 1 },
+    challenge: { correct: 0, total: 5 }
+};
+
+let submittedAlready = false;
+
+function updateGlobalScore() {
+    const totalCorrect = lessonScores.aperture.correct + lessonScores.shutter.correct + 
+                         lessonScores.iso.correct + lessonScores.challenge.correct;
+    const totalQuestions = 8;
+    
+    document.getElementById('globalCorrect').textContent = totalCorrect;
+    document.getElementById('globalTotal').textContent = totalCorrect;
+}
+
+function addQuizScore(category, isCorrect) {
+    if (isCorrect) {
+        lessonScores[category].correct = 1;
+    }
+    updateGlobalScore();
+    
+    // בדיקה אם סיימו את כל השיעור
+    checkLessonComplete();
+}
+
+function addChallengeScore(isCorrect) {
+    if (isCorrect) {
+        lessonScores.challenge.correct++;
+    }
+    updateGlobalScore();
+}
+
+function checkLessonComplete() {
+    // בודק אם כל הקוויזים נענו והמבדק הסתיים
+    const quizzesDone = document.querySelectorAll('.quiz-feedback.show').length;
+    const challengeDone = document.getElementById('challengeComplete').style.display === 'block';
+    
+    if (quizzesDone >= 3 && challengeDone && !submittedAlready) {
+        showFinalSummary();
+    }
+}
+
+function showFinalSummary() {
+    const totalCorrect = lessonScores.aperture.correct + lessonScores.shutter.correct + 
+                         lessonScores.iso.correct + lessonScores.challenge.correct;
+    
+    // הצג את הסיכום
+    document.getElementById('finalSummarySection').style.display = 'block';
+    document.getElementById('finalScoreNumber').textContent = `${totalCorrect}/8`;
+    
+    // ציונים לפי קטגוריה
+    document.getElementById('apertureScore').textContent = `${lessonScores.aperture.correct}/1`;
+    document.getElementById('shutterScore').textContent = `${lessonScores.shutter.correct}/1`;
+    document.getElementById('isoScore').textContent = `${lessonScores.iso.correct}/1`;
+    document.getElementById('challengeScoreFinal').textContent = `${lessonScores.challenge.correct}/5`;
+    
+    // ציון והערכה
+    const card = document.getElementById('finalScoreCard');
+    const grade = document.getElementById('finalGrade');
+    
+    if (totalCorrect >= 7) {
+        card.className = 'final-score-card excellent';
+        grade.textContent = '🌟 מצוין!';
+    } else if (totalCorrect >= 5) {
+        card.className = 'final-score-card good';
+        grade.textContent = '👍 טוב מאוד';
+    } else {
+        card.className = 'final-score-card needs-work';
+        grade.textContent = '📚 כדאי לחזור על החומר';
+    }
+    
+    // גלילה לסיכום
+    document.getElementById('finalSummarySection').scrollIntoView({ behavior: 'smooth' });
+}
+
+async function submitScore() {
+    if (submittedAlready) {
+        alert('המטלה כבר נשלחה!');
+        return;
+    }
+    
+    const btn = document.getElementById('submitBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> שולח...';
+    
+    const totalCorrect = lessonScores.aperture.correct + lessonScores.shutter.correct + 
+                         lessonScores.iso.correct + lessonScores.challenge.correct;
+    
+    const scoreData = {
+        student_id: studentInfo.id,
+        student_name: studentInfo.name,
+        class_name: studentInfo.className,
+        score: totalCorrect,
+        aperture_score: lessonScores.aperture.correct,
+        shutter_score: lessonScores.shutter.correct,
+        iso_score: lessonScores.iso.correct,
+        challenge_score: lessonScores.challenge.correct
+    };
+    
+    try {
+        await supabaseRequest('exposure_scores', 'POST', scoreData);
+        submittedAlready = true;
+        
+        // הצג מסך אישור
+        document.getElementById('finalSummarySection').style.display = 'none';
+        document.getElementById('finalResultSection').style.display = 'block';
+        
+        // מילוי פרטים
+        document.getElementById('displayStudentName').textContent = studentInfo.name;
+        document.getElementById('displayClassName').textContent = studentInfo.className;
+        document.getElementById('finalScoreNumberResult').textContent = `${totalCorrect}/8`;
+        document.getElementById('apertureScoreResult').textContent = `${lessonScores.aperture.correct}/1`;
+        document.getElementById('shutterScoreResult').textContent = `${lessonScores.shutter.correct}/1`;
+        document.getElementById('isoScoreResult').textContent = `${lessonScores.iso.correct}/1`;
+        document.getElementById('challengeScoreResult').textContent = `${lessonScores.challenge.correct}/5`;
+        
+        // ציון
+        const card = document.getElementById('finalScoreCardResult');
+        const grade = document.getElementById('finalGradeResult');
+        
+        if (totalCorrect >= 7) {
+            card.className = 'final-score-card excellent';
+            grade.textContent = '🌟 מצוין!';
+        } else if (totalCorrect >= 5) {
+            card.className = 'final-score-card good';
+            grade.textContent = '👍 טוב מאוד';
+        } else {
+            card.className = 'final-score-card needs-work';
+            grade.textContent = '📚 כדאי לחזור על החומר';
+        }
+        
+        document.getElementById('finalResultSection').scrollIntoView({ behavior: 'smooth' });
+        
+    } catch (error) {
+        console.error('Error submitting score:', error);
+        alert('שגיאה בשליחה. נסו שוב.');
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-paper-plane"></i> שליחת המטלה';
+    }
+}
+
+function restartLesson() {
+    // לא מאפשר אם כבר נשלח
+    if (submittedAlready) {
+        alert('המטלה כבר נשלחה, לא ניתן להתחיל מחדש.');
+        return;
+    }
+    
+    // איפוס ציונים
+    lessonScores.aperture.correct = 0;
+    lessonScores.shutter.correct = 0;
+    lessonScores.iso.correct = 0;
+    lessonScores.challenge.correct = 0;
+    
+    // איפוס קוויזים
+    document.querySelectorAll('.quiz-feedback').forEach(fb => {
+        fb.className = 'quiz-feedback';
+        fb.innerHTML = '';
+    });
+    document.querySelectorAll('.quiz-option').forEach(opt => {
+        opt.classList.remove('correct', 'wrong');
+        opt.style.pointerEvents = 'auto';
+    });
+    
+    // איפוס מבדק
+    currentChallenge = 0;
+    score = 0;
+    document.getElementById('scoreVal').textContent = 0;
+    document.querySelector('.challenge-intro').style.display = 'block';
+    document.getElementById('challengeCard').style.display = 'none';
+    document.getElementById('challengeComplete').style.display = 'none';
+    document.getElementById('challengeScore').style.display = 'none';
+    
+    // הסתרת סיכום
+    document.getElementById('finalSummarySection').style.display = 'none';
+    
+    // עדכון תצוגה
+    updateGlobalScore();
+    
+    // גלילה למעלה
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ========== DEMO SCENES ==========
+}
+
+function addQuizScore(category, isCorrect) {
+    if (isCorrect) {
+        lessonScores[category].correct = 1;
+    }
+    updateGlobalScore();
+    
+    // בדיקה אם סיימו את כל השיעור
+    checkLessonComplete();
+}
+
+function addChallengeScore(isCorrect) {
+    if (isCorrect) {
+        lessonScores.challenge.correct++;
+    }
+    updateGlobalScore();
+}
+
+function checkLessonComplete() {
+    // בודק אם כל הקוויזים נענו והמבדק הסתיים
+    const quizzesDone = document.querySelectorAll('.quiz-feedback.show').length;
+    const challengeDone = document.getElementById('challengeComplete').style.display === 'block';
+    
+    if (quizzesDone >= 3 && challengeDone) {
+        showFinalSummary();
+    }
+}
+
+function showFinalSummary() {
+    const totalCorrect = lessonScores.aperture.correct + lessonScores.shutter.correct + 
+                         lessonScores.iso.correct + lessonScores.challenge.correct;
+    
+    // הצג את הסיכום
+    document.getElementById('finalSummarySection').style.display = 'block';
+    document.getElementById('finalScoreNumber').textContent = `${totalCorrect}/8`;
+    
+    // ציונים לפי קטגוריה
+    document.getElementById('apertureScore').textContent = `${lessonScores.aperture.correct}/1`;
+    document.getElementById('shutterScore').textContent = `${lessonScores.shutter.correct}/1`;
+    document.getElementById('isoScore').textContent = `${lessonScores.iso.correct}/1`;
+    document.getElementById('challengeScoreFinal').textContent = `${lessonScores.challenge.correct}/5`;
+    
+    // ציון והערכה
+    const card = document.getElementById('finalScoreCard');
+    const grade = document.getElementById('finalGrade');
+    
+    if (totalCorrect >= 7) {
+        card.className = 'final-score-card excellent';
+        grade.textContent = '🌟 מצוין!';
+    } else if (totalCorrect >= 5) {
+        card.className = 'final-score-card good';
+        grade.textContent = '👍 טוב מאוד';
+    } else {
+        card.className = 'final-score-card needs-work';
+        grade.textContent = '📚 כדאי לחזור על החומר';
+    }
+    
+    // גלילה לסיכום
+    document.getElementById('finalSummarySection').scrollIntoView({ behavior: 'smooth' });
+}
+
+function restartLesson() {
+    // איפוס ציונים
+    lessonScores.aperture.correct = 0;
+    lessonScores.shutter.correct = 0;
+    lessonScores.iso.correct = 0;
+    lessonScores.challenge.correct = 0;
+    
+    // איפוס קוויזים
+    document.querySelectorAll('.quiz-feedback').forEach(fb => {
+        fb.className = 'quiz-feedback';
+        fb.innerHTML = '';
+    });
+    document.querySelectorAll('.quiz-option').forEach(opt => {
+        opt.classList.remove('correct', 'wrong');
+        opt.style.pointerEvents = 'auto';
+    });
+    
+    // איפוס מבדק
+    currentChallenge = 0;
+    score = 0;
+    document.getElementById('scoreVal').textContent = 0;
+    document.querySelector('.challenge-intro').style.display = 'block';
+    document.getElementById('challengeCard').style.display = 'none';
+    document.getElementById('challengeComplete').style.display = 'none';
+    document.getElementById('challengeScore').style.display = 'none';
+    
+    // הסתרת סיכום
+    document.getElementById('finalSummarySection').style.display = 'none';
+    
+    // עדכון תצוגה
+    updateGlobalScore();
+    
+    // גלילה למעלה
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+// ========== DEMO SCENES ==========
+
+function drawFlowerScene(canvas, blurBackground) {
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width, h = canvas.height;
+    
+    // Sky
+    const sky = ctx.createLinearGradient(0, 0, 0, h);
+    sky.addColorStop(0, '#87CEEB');
+    sky.addColorStop(1, '#E0F6FF');
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, w, h);
+    
+    // Ground
+    ctx.fillStyle = '#228B22';
+    ctx.fillRect(0, h * 0.6, w, h * 0.4);
+    
+    // Background elements
+    if (blurBackground) ctx.filter = 'blur(8px)';
+    
+    ctx.fillStyle = '#2E7D32';
+    ctx.beginPath(); ctx.arc(50, h * 0.5, 40, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(350, h * 0.45, 50, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(300, h * 0.55, 35, 0, Math.PI * 2); ctx.fill();
+    
+    const bgColors = ['#FF69B4', '#FFD700', '#FF6347', '#9370DB'];
+    for (let i = 0; i < 15; i++) {
+        ctx.fillStyle = bgColors[i % bgColors.length];
+        ctx.beginPath();
+        ctx.arc(30 + i * 25, h * 0.7 + Math.sin(i) * 20, 8, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    
+    ctx.filter = 'none';
+    
+    // Main flower
+    const fx = w / 2, fy = h * 0.55;
+    
+    ctx.strokeStyle = '#228B22';
+    ctx.lineWidth = 6;
+    ctx.beginPath();
+    ctx.moveTo(fx, fy + 30);
+    ctx.lineTo(fx, h);
+    ctx.stroke();
+    
+    ctx.fillStyle = '#FF6B6B';
+    for (let i = 0; i < 8; i++) {
+        ctx.beginPath();
+        const angle = (i / 8) * Math.PI * 2;
+        const px = fx + Math.cos(angle) * 35;
+        const py = fy + Math.sin(angle) * 35;
+        ctx.ellipse(px, py, 25, 15, angle, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    
+    ctx.fillStyle = '#FFD700';
+    ctx.beginPath();
+    ctx.arc(fx, fy, 20, 0, Math.PI * 2);
+    ctx.fill();
+}
+
+function drawCarScene(canvas, motionBlur) {
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width, h = canvas.height;
+    
+    ctx.fillStyle = '#4A90A4';
+    ctx.fillRect(0, 0, w, h * 0.5);
+    
+    ctx.fillStyle = '#2C3E50';
+    ctx.fillRect(20, h * 0.2, 60, h * 0.3);
+    ctx.fillRect(100, h * 0.15, 80, h * 0.35);
+    ctx.fillRect(200, h * 0.25, 50, h * 0.25);
+    ctx.fillRect(280, h * 0.1, 100, h * 0.4);
+    
+    ctx.fillStyle = '#F4D03F';
+    for (let b = 0; b < 4; b++) {
+        const bx = [35, 120, 215, 310][b];
+        for (let wy = 0; wy < 4; wy++) {
+            for (let wx = 0; wx < 2; wx++) {
+                ctx.fillRect(bx + wx * 20, h * 0.2 + wy * 25, 10, 15);
+            }
+        }
+    }
+    
+    ctx.fillStyle = '#333';
+    ctx.fillRect(0, h * 0.5, w, h * 0.5);
+    
+    ctx.strokeStyle = '#FFF';
+    ctx.lineWidth = 3;
+    ctx.setLineDash([30, 20]);
+    ctx.beginPath();
+    ctx.moveTo(0, h * 0.75);
+    ctx.lineTo(w, h * 0.75);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    
+    const carX = w * 0.5, carY = h * 0.68;
+    
+    if (motionBlur) {
+        for (let i = 5; i > 0; i--) {
+            ctx.globalAlpha = 0.15;
+            drawCar(ctx, carX - i * 25, carY);
+        }
+        ctx.globalAlpha = 0.7;
+        drawCar(ctx, carX, carY);
+        ctx.globalAlpha = 1;
+    } else {
+        drawCar(ctx, carX, carY);
+    }
+}
+
+function drawCar(ctx, x, y) {
+    ctx.fillStyle = '#E74C3C';
+    ctx.beginPath();
+    ctx.roundRect(x - 50, y - 15, 100, 35, 5);
+    ctx.fill();
+    
+    ctx.fillStyle = '#C0392B';
+    ctx.beginPath();
+    ctx.roundRect(x - 25, y - 35, 55, 25, 5);
+    ctx.fill();
+    
+    ctx.fillStyle = '#85C1E9';
+    ctx.fillRect(x - 20, y - 30, 20, 15);
+    ctx.fillRect(x + 5, y - 30, 20, 15);
+    
+    ctx.fillStyle = '#1C1C1C';
+    ctx.beginPath(); ctx.arc(x - 30, y + 20, 12, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(x + 30, y + 20, 12, 0, Math.PI * 2); ctx.fill();
+}
+
+function drawNightScene(canvas, highNoise) {
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width, h = canvas.height;
+    
+    ctx.fillStyle = '#0a1628';
+    ctx.fillRect(0, 0, w, h);
+    
+    ctx.fillStyle = '#FFF';
+    for (let i = 0; i < 30; i++) {
+        ctx.beginPath();
+        ctx.arc(Math.random() * w, Math.random() * h * 0.4, Math.random() * 2, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    
+    ctx.fillStyle = '#F5F5DC';
+    ctx.beginPath();
+    ctx.arc(w * 0.8, h * 0.15, 25, 0, Math.PI * 2);
+    ctx.fill();
+    
+    ctx.fillStyle = '#1a1a2e';
+    ctx.fillRect(w * 0.2, h * 0.3, w * 0.6, h * 0.7);
+    
+    ctx.fillStyle = '#FFA500';
+    for (let row = 0; row < 5; row++) {
+        for (let col = 0; col < 4; col++) {
+            if (Math.random() > 0.3) {
+                ctx.fillRect(w * 0.25 + col * 50, h * 0.38 + row * 40, 25, 20);
+            }
+        }
+    }
+    
+    ctx.fillStyle = '#0d1520';
+    ctx.fillRect(0, h * 0.9, w, h * 0.1);
+    
+    if (highNoise) {
+        const imageData = ctx.getImageData(0, 0, w, h);
+        const data = imageData.data;
+        for (let i = 0; i < data.length; i += 4) {
+            const noise = (Math.random() - 0.5) * 80;
+            data[i] = Math.min(255, Math.max(0, data[i] + noise));
+            data[i + 1] = Math.min(255, Math.max(0, data[i + 1] + noise));
+            data[i + 2] = Math.min(255, Math.max(0, data[i + 2] + noise));
+        }
+        ctx.putImageData(imageData, 0, 0);
+    }
+}
+
+function initDemos() {
+    drawFlowerScene(document.getElementById('aperture1'), true);
+    drawFlowerScene(document.getElementById('aperture2'), false);
+    drawCarScene(document.getElementById('shutter1'), false);
+    drawCarScene(document.getElementById('shutter2'), true);
+    drawNightScene(document.getElementById('iso1'), false);
+    drawNightScene(document.getElementById('iso2'), true);
+}
+
+// ========== SIMULATOR ==========
+const apertureVals = ['f/1.8', 'f/2.8', 'f/5.6', 'f/11', 'f/16'];
+const shutterVals = ['1/1000', '1/250', '1/125', '1/30', '1"'];
+const isoVals = ['ISO 100', 'ISO 400', 'ISO 800', 'ISO 3200', 'ISO 6400'];
+
+let simCanvas, simCtx, carPosX = 0;
+
+function initSim() {
+    simCanvas = document.getElementById('simCanvas');
+    simCanvas.width = simCanvas.offsetWidth * 2;
+    simCanvas.height = simCanvas.offsetHeight * 2;
+    simCtx = simCanvas.getContext('2d');
+    updateSim();
+    animateSim();
+}
+
+function animateSim() {
+    carPosX += 4;
+    if (carPosX > simCanvas.width + 150) carPosX = -150;
+    drawSim();
+    requestAnimationFrame(animateSim);
+}
+
+function drawSim() {
+    const w = simCanvas.width, h = simCanvas.height;
+    const aperture = parseInt(document.getElementById('apertureSlider').value);
+    const shutter = parseInt(document.getElementById('shutterSlider').value);
+    const iso = parseInt(document.getElementById('isoSlider').value);
+    
+    const light = (6 - aperture) + shutter + iso;
+    const brightness = Math.min(1.3, Math.max(0.2, light / 9));
+    
+    simCtx.save();
+    
+    // Sky
+    const skyGrad = simCtx.createLinearGradient(0, 0, 0, h * 0.5);
+    skyGrad.addColorStop(0, `rgba(100, 150, 200, ${brightness})`);
+    skyGrad.addColorStop(1, `rgba(180, 210, 230, ${brightness})`);
+    simCtx.fillStyle = skyGrad;
+    simCtx.fillRect(0, 0, w, h * 0.5);
+    
+    // Mountains - blur based on aperture
+    const bgBlur = aperture <= 2 ? 12 : (aperture <= 3 ? 6 : 0);
+    if (bgBlur > 0) simCtx.filter = `blur(${bgBlur}px)`;
+    
+    simCtx.fillStyle = `rgba(80, 120, 80, ${brightness})`;
+    simCtx.beginPath();
+    simCtx.moveTo(0, h * 0.5);
+    simCtx.lineTo(w * 0.2, h * 0.25);
+    simCtx.lineTo(w * 0.4, h * 0.4);
+    simCtx.lineTo(w * 0.6, h * 0.2);
+    simCtx.lineTo(w * 0.8, h * 0.35);
+    simCtx.lineTo(w, h * 0.3);
+    simCtx.lineTo(w, h * 0.5);
+    simCtx.fill();
+    
+    simCtx.fillStyle = `rgba(40, 90, 40, ${brightness})`;
+    for (let i = 0; i < 8; i++) {
+        simCtx.beginPath();
+        simCtx.arc(i * w / 7, h * 0.48, 30 + Math.random() * 20, 0, Math.PI * 2);
+        simCtx.fill();
+    }
+    
+    simCtx.filter = 'none';
+    
+    // Road
+    simCtx.fillStyle = `rgba(60, 60, 60, ${brightness})`;
+    simCtx.fillRect(0, h * 0.5, w, h * 0.5);
+    
+    simCtx.strokeStyle = `rgba(255, 255, 255, ${brightness * 0.8})`;
+    simCtx.lineWidth = 4;
+    simCtx.setLineDash([40, 30]);
+    simCtx.beginPath();
+    simCtx.moveTo(0, h * 0.7);
+    simCtx.lineTo(w, h * 0.7);
+    simCtx.stroke();
+    simCtx.setLineDash([]);
+    
+    // Car with motion blur
+    const motionBlurAmount = shutter >= 4 ? 6 : (shutter >= 3 ? 3 : 0);
+    
+    if (motionBlurAmount > 0) {
+        for (let i = motionBlurAmount; i > 0; i--) {
+            simCtx.globalAlpha = 0.15 / i;
+            drawSimCar(simCtx, carPosX - i * 25, h * 0.62, brightness);
+        }
+        simCtx.globalAlpha = 0.7;
+    }
+    
+    drawSimCar(simCtx, carPosX, h * 0.62, brightness);
+    simCtx.globalAlpha = 1;
+    
+    // ISO noise
+    if (iso >= 4) {
+        const imageData = simCtx.getImageData(0, 0, w, h);
+        const data = imageData.data;
+        const noiseAmount = iso === 5 ? 50 : 25;
+        for (let i = 0; i < data.length; i += 4) {
+            const noise = (Math.random() - 0.5) * noiseAmount;
+            data[i] = Math.min(255, Math.max(0, data[i] + noise));
+            data[i + 1] = Math.min(255, Math.max(0, data[i + 1] + noise));
+            data[i + 2] = Math.min(255, Math.max(0, data[i + 2] + noise));
+        }
+        simCtx.putImageData(imageData, 0, 0);
+    }
+    
+    // Under/over exposure
+    if (brightness < 0.6) {
+        simCtx.fillStyle = `rgba(0, 0, 0, ${0.7 - brightness})`;
+        simCtx.fillRect(0, 0, w, h);
+    }
+    if (brightness > 1) {
+        simCtx.fillStyle = `rgba(255, 255, 255, ${(brightness - 1) * 0.8})`;
+        simCtx.fillRect(0, 0, w, h);
+    }
+    
+    simCtx.restore();
+}
+
+function drawSimCar(ctx, x, y, brightness) {
+    ctx.fillStyle = `rgba(230, 80, 80, ${brightness})`;
+    ctx.beginPath();
+    ctx.roundRect(x - 60, y - 20, 120, 45, 8);
+    ctx.fill();
+    
+    ctx.fillStyle = `rgba(200, 60, 60, ${brightness})`;
+    ctx.beginPath();
+    ctx.roundRect(x - 30, y - 50, 70, 35, 8);
+    ctx.fill();
+    
+    ctx.fillStyle = `rgba(150, 200, 255, ${brightness})`;
+    ctx.fillRect(x - 22, y - 42, 25, 20);
+    ctx.fillRect(x + 8, y - 42, 25, 20);
+    
+    ctx.fillStyle = `rgba(30, 30, 30, ${brightness})`;
+    ctx.beginPath(); ctx.arc(x - 35, y + 25, 18, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(x + 35, y + 25, 18, 0, Math.PI * 2); ctx.fill();
+    
+    ctx.fillStyle = `rgba(180, 180, 180, ${brightness})`;
+    ctx.beginPath(); ctx.arc(x - 35, y + 25, 8, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(x + 35, y + 25, 8, 0, Math.PI * 2); ctx.fill();
+}
+
+function updateSim() {
+    const aperture = parseInt(document.getElementById('apertureSlider').value);
+    const shutter = parseInt(document.getElementById('shutterSlider').value);
+    const iso = parseInt(document.getElementById('isoSlider').value);
+    
+    document.getElementById('apertureVal').textContent = apertureVals[aperture - 1];
+    document.getElementById('shutterVal').textContent = shutterVals[shutter - 1];
+    document.getElementById('isoVal').textContent = isoVals[iso - 1];
+    
+    const light = (6 - aperture) + shutter + iso;
+    const diff = light - 9;
+    
+    const meterPos = 50 + diff * 10;
+    document.getElementById('meterInd').style.left = Math.max(5, Math.min(95, meterPos)) + '%';
+    
+    const status = document.getElementById('expStatus');
+    if (Math.abs(diff) <= 1) {
+        status.textContent = '✓ חשיפה מאוזנת';
+        status.style.color = '#4ecdc4';
+    } else if (diff > 1) {
+        status.textContent = '⚠️ חשיפת יתר (בהיר מדי)';
+        status.style.color = '#ffe66d';
+    } else {
+        status.textContent = '⚠️ חשיפת חסר (כהה מדי)';
+        status.style.color = '#ff6b6b';
+    }
+    
+    const dofText = aperture <= 2 ? 'רדוד (רקע מטושטש)' : (aperture >= 4 ? 'עמוק (הכל חד)' : 'בינוני');
+    const motionText = shutter >= 4 ? 'מטושטשת' : (shutter <= 2 ? 'קפואה' : 'רגילה');
+    document.getElementById('simInfo').textContent = `עומק שדה: ${dofText} | תנועה: ${motionText}`;
+}
+
+// ========== QUIZ ==========
+function checkAnswer(el, quizId, correct) {
+    const quiz = document.getElementById(quizId);
+    const opts = quiz.querySelectorAll('.quiz-option');
+    const fb = document.getElementById(quizId.replace('quiz', 'feedback'));
+    
+    opts.forEach(o => o.style.pointerEvents = 'none');
+    
+    // מיפוי קוויז לקטגוריה
+    const categoryMap = {
+        'quiz1': 'aperture',
+        'quiz2': 'shutter', 
+        'quiz3': 'iso'
+    };
+    
+    if (correct) {
+        el.classList.add('correct');
+        fb.className = 'quiz-feedback show correct';
+        fb.innerHTML = '<i class="fas fa-check-circle"></i> נכון! 🎉 <span class="points">+1 נקודה</span>';
+    } else {
+        el.classList.add('wrong');
+        opts.forEach(o => {
+            if (o.onclick.toString().includes('true')) o.classList.add('correct');
+        });
+        fb.className = 'quiz-feedback show wrong';
+        fb.innerHTML = '<i class="fas fa-times-circle"></i> לא נכון - ראו את התשובה הנכונה';
+    }
+    
+    // עדכון ציון גלובלי
+    addQuizScore(categoryMap[quizId], correct);
+}
+
+// ========== CHALLENGE SYSTEM ==========
+const challenges = [
+    {
+        icon: '🏃',
+        title: 'הקפאת ספורטאי בתנועה',
+        desc: 'המצלמה במוד אוטומטי בחרה תריס איטי - הספורטאי יצא מטושטש!',
+        goal: 'להקפיא את התנועה תוך שמירה על חשיפה מאוזנת',
+        // הגדרות מאוזנות אבל לא נכונות לסיטואציה
+        wrongSettings: { aperture: 'f/5.6', shutter: '1/30', iso: 'ISO 100' },
+        problem: 'תנועה מטושטשת (תריס איטי מדי)',
+        mustHave: { shutter: ['1/1000', '1/250'] },
+        explanation: 'התריס היה איטי מדי (1/30). האצנו ל-1/250 או 1/1000 (-2 עד -3 סטופים), ופיצינו בפתיחת צמצם ו/או העלאת ISO.',
+        sceneType: 'sport'
+    },
+    {
+        icon: '🏔️',
+        title: 'נוף עם עומק שדה מקסימלי',
+        desc: 'המצלמה במוד אוטומטי בחרה צמצם פתוח - הרקע יצא מטושטש!',
+        goal: 'לקבל עומק שדה עמוק - הכל חד מקרוב לרחוק',
+        wrongSettings: { aperture: 'f/2.8', shutter: '1/1000', iso: 'ISO 100' },
+        problem: 'רקע מטושטש (צמצם פתוח מדי)',
+        mustHave: { aperture: ['f/11', 'f/16'] },
+        explanation: 'הצמצם היה פתוח מדי (f/2.8). סגרנו ל-f/11 או f/16 (-3 עד -4 סטופים), ופיצינו בהאטת תריס ו/או העלאת ISO.',
+        sceneType: 'landscape'
+    },
+    {
+        icon: '🌊',
+        title: 'מים זורמים כמשי',
+        desc: 'המצלמה במוד אוטומטי בחרה תריס מהיר - המים יצאו קפואים!',
+        goal: 'לקבל טשטוש תנועה יפה במים הזורמים',
+        wrongSettings: { aperture: 'f/5.6', shutter: '1/250', iso: 'ISO 400' },
+        problem: 'המים קפואים (תריס מהיר מדי)',
+        mustHave: { shutter: ['1/30', '1s'] },
+        explanation: 'התריס היה מהיר מדי (1/250). האטנו ל-1/30 או יותר (+3 עד +4 סטופים), ופיצינו בסגירת צמצם והורדת ISO.',
+        sceneType: 'waterfall'
+    },
+    {
+        icon: '🎸',
+        title: 'הופעה בתאורה חלשה',
+        desc: 'המצלמה במוד אוטומטי האטה את התריס - הזמר יצא מטושטש!',
+        goal: 'להקפיא את הזמר בתנועה, בלי טשטוש',
+        wrongSettings: { aperture: 'f/5.6', shutter: '1/30', iso: 'ISO 800' },
+        problem: 'תנועה מטושטשת + צריך יותר אור',
+        mustHave: { shutter: ['1/250', '1/125', '1/1000'], aperture: ['f/1.8', 'f/2.8'] },
+        explanation: 'בתאורה חלשה צריך להאיץ תריס בלי לאבד אור. פתחנו צמצם לגמרי + העלנו ISO גבוה כדי לפצות על התריס המהיר.',
+        sceneType: 'concert'
+    },
+    {
+        icon: '👤',
+        title: 'פורטרט עם רקע מטושטש',
+        desc: 'המצלמה במוד אוטומטי בחרה צמצם סגור - הרקע יצא חד מדי!',
+        goal: 'לקבל עומק שדה רדוד - הפנים חדות והרקע מטושטש',
+        wrongSettings: { aperture: 'f/11', shutter: '1/125', iso: 'ISO 400' },
+        problem: 'הרקע חד מדי (אין בוקה)',
+        mustHave: { aperture: ['f/1.8', 'f/2.8'] },
+        explanation: 'הצמצם היה סגור מדי (f/11). פתחנו ל-f/1.8 או f/2.8 (+3 עד +4 סטופים), ופיצינו בהאצת תריס והורדת ISO.',
+        sceneType: 'portrait'
+    }
+];
+
+let currentChallenge = 0;
+let score = 0;
+
+// ציור סצנות למבדק
+function drawChallengeScene(canvas, settings, sceneType) {
+    const ctx = canvas.getContext('2d');
+    const w = canvas.width, h = canvas.height;
+    
+    // חישוב אפקטים מההגדרות
+    const apertureNum = { 'f/1.8': 1, 'f/2.8': 2, 'f/5.6': 3, 'f/11': 4, 'f/16': 5 };
+    const shutterNum = { '1/1000': 1, '1/250': 2, '1/125': 3, '1/30': 4, '1s': 5 };
+    const isoNum = { 'ISO 100': 1, 'ISO 400': 2, 'ISO 800': 3, 'ISO 3200': 4, 'ISO 6400': 5 };
+    
+    const apt = apertureNum[settings.aperture] || 3;
+    const sht = shutterNum[settings.shutter] || 3;
+    const iso = isoNum[settings.iso] || 2;
+    
+    // חישוב חשיפה
+    const light = (6 - apt) + sht + iso;
+    const brightness = Math.min(1.3, Math.max(0.3, light / 9));
+    
+    // טשטוש רקע (צמצם פתוח = טשטוש)
+    const bgBlur = apt <= 2 ? 10 : (apt <= 3 ? 5 : 0);
+    
+    // טשטוש תנועה (תריס איטי = טשטוש)
+    const motionBlur = sht >= 4 ? 6 : (sht >= 3 ? 3 : 0);
+    
+    // רעש (ISO גבוה = רעש)
+    const noise = iso >= 4 ? (iso === 5 ? 50 : 25) : 0;
+    
+    ctx.save();
+    
+    if (sceneType === 'sport') {
+        drawSportScene(ctx, w, h, brightness, bgBlur, motionBlur);
+    } else if (sceneType === 'landscape') {
+        drawLandscapeScene(ctx, w, h, brightness, bgBlur);
+    } else if (sceneType === 'waterfall') {
+        drawWaterfallScene(ctx, w, h, brightness, motionBlur);
+    } else if (sceneType === 'concert') {
+        drawConcertScene(ctx, w, h, brightness, noise);
+    } else if (sceneType === 'portrait') {
+        drawPortraitScene(ctx, w, h, brightness, bgBlur);
+    }
+    
+    // הוספת רעש
+    if (noise > 0) {
+        const imageData = ctx.getImageData(0, 0, w, h);
+        const data = imageData.data;
+        for (let i = 0; i < data.length; i += 4) {
+            const n = (Math.random() - 0.5) * noise;
+            data[i] = Math.min(255, Math.max(0, data[i] + n));
+            data[i + 1] = Math.min(255, Math.max(0, data[i + 1] + n));
+            data[i + 2] = Math.min(255, Math.max(0, data[i + 2] + n));
+        }
+        ctx.putImageData(imageData, 0, 0);
+    }
+    
+    // חשיפת חסר
+    if (brightness < 0.6) {
+        ctx.fillStyle = `rgba(0, 0, 0, ${0.7 - brightness})`;
+        ctx.fillRect(0, 0, w, h);
+    }
+    // חשיפת יתר
+    if (brightness > 1.1) {
+        ctx.fillStyle = `rgba(255, 255, 255, ${(brightness - 1) * 0.7})`;
+        ctx.fillRect(0, 0, w, h);
+    }
+    
+    ctx.restore();
+}
+
+function drawSportScene(ctx, w, h, brightness, bgBlur, motionBlur) {
+    // רקע - אולם ספורט
+    ctx.fillStyle = `rgba(60, 50, 70, ${brightness})`;
+    ctx.fillRect(0, 0, w, h);
+    
+    // יציעים ברקע
+    if (bgBlur > 0) ctx.filter = `blur(${bgBlur}px)`;
+    ctx.fillStyle = `rgba(80, 70, 90, ${brightness})`;
+    ctx.fillRect(0, 0, w, h * 0.4);
+    for (let i = 0; i < 20; i++) {
+        ctx.fillStyle = `rgba(${150 + Math.random()*50}, ${100 + Math.random()*50}, ${100 + Math.random()*50}, ${brightness * 0.8})`;
+        ctx.beginPath();
+        ctx.arc(Math.random() * w, Math.random() * h * 0.35, 8, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    ctx.filter = 'none';
+    
+    // מגרש
+    ctx.fillStyle = `rgba(180, 140, 100, ${brightness})`;
+    ctx.fillRect(0, h * 0.5, w, h * 0.5);
+    
+    // שחקן
+    const playerX = w * 0.5, playerY = h * 0.55;
+    
+    if (motionBlur > 0) {
+        for (let i = motionBlur; i > 0; i--) {
+            ctx.globalAlpha = 0.15;
+            drawPlayer(ctx, playerX - i * 15, playerY, brightness);
+        }
+        ctx.globalAlpha = 0.7;
+    }
+    drawPlayer(ctx, playerX, playerY, brightness);
+    ctx.globalAlpha = 1;
+}
+
+function drawPlayer(ctx, x, y, brightness) {
+    // גוף
+    ctx.fillStyle = `rgba(200, 50, 50, ${brightness})`;
+    ctx.fillRect(x - 15, y - 40, 30, 50);
+    // ראש
+    ctx.fillStyle = `rgba(220, 180, 150, ${brightness})`;
+    ctx.beginPath();
+    ctx.arc(x, y - 55, 15, 0, Math.PI * 2);
+    ctx.fill();
+    // רגליים
+    ctx.fillStyle = `rgba(50, 50, 150, ${brightness})`;
+    ctx.fillRect(x - 12, y + 10, 10, 35);
+    ctx.fillRect(x + 2, y + 10, 10, 35);
+}
+
+function drawLandscapeScene(ctx, w, h, brightness, bgBlur) {
+    // שמיים
+    const sky = ctx.createLinearGradient(0, 0, 0, h * 0.6);
+    sky.addColorStop(0, `rgba(100, 150, 220, ${brightness})`);
+    sky.addColorStop(1, `rgba(180, 210, 240, ${brightness})`);
+    ctx.fillStyle = sky;
+    ctx.fillRect(0, 0, w, h * 0.6);
+    
+    // הרים ברקע
+    if (bgBlur > 0) ctx.filter = `blur(${bgBlur}px)`;
+    ctx.fillStyle = `rgba(100, 130, 100, ${brightness})`;
+    ctx.beginPath();
+    ctx.moveTo(0, h * 0.6);
+    ctx.lineTo(w * 0.3, h * 0.25);
+    ctx.lineTo(w * 0.5, h * 0.4);
+    ctx.lineTo(w * 0.7, h * 0.2);
+    ctx.lineTo(w, h * 0.35);
+    ctx.lineTo(w, h * 0.6);
+    ctx.fill();
+    ctx.filter = 'none';
+    
+    // קדמת הסצנה - סלעים
+    ctx.fillStyle = `rgba(120, 100, 80, ${brightness})`;
+    ctx.beginPath();
+    ctx.ellipse(w * 0.2, h * 0.85, 60, 30, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(w * 0.7, h * 0.9, 80, 35, 0.2, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // דשא
+    ctx.fillStyle = `rgba(80, 140, 60, ${brightness})`;
+    ctx.fillRect(0, h * 0.7, w, h * 0.3);
+}
+
+function drawWaterfallScene(ctx, w, h, brightness, motionBlur) {
+    // רקע ירוק
+    ctx.fillStyle = `rgba(40, 80, 40, ${brightness})`;
+    ctx.fillRect(0, 0, w, h);
+    
+    // סלעים
+    ctx.fillStyle = `rgba(80, 70, 60, ${brightness})`;
+    ctx.fillRect(0, 0, w * 0.35, h);
+    ctx.fillRect(w * 0.65, 0, w * 0.35, h);
+    
+    // מים
+    ctx.fillStyle = `rgba(150, 200, 255, ${brightness * 0.8})`;
+    if (motionBlur > 0) {
+        // מים משיים - קווים אנכיים
+        ctx.filter = `blur(${motionBlur}px)`;
+        for (let i = 0; i < 15; i++) {
+            const x = w * 0.35 + i * (w * 0.3 / 15);
+            ctx.fillRect(x, 0, 8, h);
+        }
+    } else {
+        // טיפות קפואות
+        for (let i = 0; i < 50; i++) {
+            ctx.beginPath();
+            ctx.arc(w * 0.35 + Math.random() * w * 0.3, Math.random() * h, 5, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+    ctx.filter = 'none';
+    
+    // בריכה למטה
+    ctx.fillStyle = `rgba(100, 160, 200, ${brightness})`;
+    ctx.beginPath();
+    ctx.ellipse(w * 0.5, h * 0.9, w * 0.4, h * 0.15, 0, 0, Math.PI * 2);
+    ctx.fill();
+}
+
+function drawConcertScene(ctx, w, h, brightness, noise) {
+    // רקע כהה
+    ctx.fillStyle = `rgba(20, 15, 30, ${brightness})`;
+    ctx.fillRect(0, 0, w, h);
+    
+    // אורות צבעוניים
+    ctx.fillStyle = `rgba(255, 50, 100, ${brightness * 0.3})`;
+    ctx.beginPath();
+    ctx.arc(w * 0.3, h * 0.1, 100, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = `rgba(50, 100, 255, ${brightness * 0.3})`;
+    ctx.beginPath();
+    ctx.arc(w * 0.7, h * 0.1, 100, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // במה
+    ctx.fillStyle = `rgba(50, 40, 60, ${brightness})`;
+    ctx.fillRect(0, h * 0.6, w, h * 0.4);
+    
+    // זמר
+    ctx.fillStyle = `rgba(30, 30, 30, ${brightness})`;
+    ctx.fillRect(w * 0.45, h * 0.35, 60, 120);
+    ctx.fillStyle = `rgba(220, 180, 150, ${brightness})`;
+    ctx.beginPath();
+    ctx.arc(w * 0.5, h * 0.28, 25, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // גיטרה
+    ctx.fillStyle = `rgba(150, 80, 50, ${brightness})`;
+    ctx.fillRect(w * 0.38, h * 0.4, 15, 80);
+}
+
+function drawPortraitScene(ctx, w, h, brightness, bgBlur) {
+    // רקע - גינה
+    if (bgBlur > 0) ctx.filter = `blur(${bgBlur}px)`;
+    const bg = ctx.createLinearGradient(0, 0, 0, h);
+    bg.addColorStop(0, `rgba(100, 180, 100, ${brightness})`);
+    bg.addColorStop(1, `rgba(60, 120, 60, ${brightness})`);
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, w, h);
+    
+    // פרחים ברקע
+    const colors = ['#ff6b6b', '#ffd93d', '#6bcb77', '#4d96ff'];
+    for (let i = 0; i < 25; i++) {
+        ctx.fillStyle = colors[i % colors.length];
+        ctx.globalAlpha = brightness * 0.7;
+        ctx.beginPath();
+        ctx.arc(Math.random() * w, Math.random() * h, 15 + Math.random() * 15, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+    ctx.filter = 'none';
+    
+    // פנים (תמיד חדות)
+    // גוף
+    ctx.fillStyle = `rgba(100, 150, 200, ${brightness})`;
+    ctx.beginPath();
+    ctx.ellipse(w * 0.5, h * 0.85, 100, 80, 0, Math.PI, 0);
+    ctx.fill();
+    
+    // פנים
+    ctx.fillStyle = `rgba(230, 190, 160, ${brightness})`;
+    ctx.beginPath();
+    ctx.ellipse(w * 0.5, h * 0.4, 70, 90, 0, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // שיער
+    ctx.fillStyle = `rgba(60, 40, 30, ${brightness})`;
+    ctx.beginPath();
+    ctx.ellipse(w * 0.5, h * 0.28, 75, 50, 0, Math.PI, 0);
+    ctx.fill();
+    
+    // עיניים
+    ctx.fillStyle = `rgba(50, 50, 50, ${brightness})`;
+    ctx.beginPath();
+    ctx.arc(w * 0.43, h * 0.38, 8, 0, Math.PI * 2);
+    ctx.arc(w * 0.57, h * 0.38, 8, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // חיוך
+    ctx.strokeStyle = `rgba(180, 100, 100, ${brightness})`;
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.arc(w * 0.5, h * 0.45, 25, 0.2, Math.PI - 0.2);
+    ctx.stroke();
+}
+
+function loadChallenge(index) {
+    const challenge = challenges[index];
+    document.getElementById('challengeNum').textContent = index + 1;
+    document.getElementById('challengeTitle').textContent = challenge.title;
+    document.getElementById('challengeDesc').textContent = challenge.desc;
+    document.querySelector('.scenario-icon').textContent = challenge.icon;
+    document.getElementById('goalText').textContent = challenge.goal;
+    document.getElementById('problemText').textContent = challenge.problem;
+    
+    // הצג הגדרות שגויות
+    const settings = challenge.wrongSettings;
+    document.getElementById('currentSettings').innerHTML = `
+        <span class="setting aperture">${settings.aperture}</span>
+        <span class="setting shutter">${settings.shutter}</span>
+        <span class="setting iso">${settings.iso}</span>
+    `;
+    
+    // צייר תמונה שגויה
+    const canvas = document.getElementById('challengeCanvas');
+    drawChallengeScene(canvas, settings, challenge.sceneType);
+    
+    // Reset inputs
+    document.getElementById('ansAperture').value = '';
+    document.getElementById('ansShutter').value = '';
+    document.getElementById('ansISO').value = '';
+    
+    // Hide preview
+    document.getElementById('fixPreview').style.display = 'none';
+    
+    // Reset feedback
+    document.getElementById('challengeFeedback').className = 'challenge-feedback';
+    document.getElementById('challengeFeedback').innerHTML = '';
+    document.getElementById('nextChallengeBtn').style.display = 'none';
+    
+    // Show card, hide complete
+    document.getElementById('challengeCard').style.display = 'block';
+    document.getElementById('challengeComplete').style.display = 'none';
+}
+
+function previewFix() {
+    const aperture = document.getElementById('ansAperture').value;
+    const shutter = document.getElementById('ansShutter').value;
+    const iso = document.getElementById('ansISO').value;
+    
+    if (!aperture || !shutter || !iso) {
+        document.getElementById('fixPreview').style.display = 'none';
+        return;
+    }
+    
+    document.getElementById('fixPreview').style.display = 'block';
+    
+    const challenge = challenges[currentChallenge];
+    const canvas = document.getElementById('previewCanvas');
+    drawChallengeScene(canvas, { aperture, shutter, iso }, challenge.sceneType);
+    
+    // חישוב חשיפה - ערכי סטופים (יותר גבוה = יותר אור)
+    // צמצם: f/1.8 הכי פתוח (הרבה אור), f/16 הכי סגור (מעט אור)
+    const apertureStops = { 'f/1.8': 5, 'f/2.8': 4, 'f/5.6': 3, 'f/11': 2, 'f/16': 1 };
+    // תריס: 1s הכי איטי (הרבה אור), 1/1000 הכי מהיר (מעט אור)
+    const shutterStops = { '1/1000': 1, '1/250': 2, '1/125': 3, '1/30': 4, '1s': 5 };
+    // ISO: 6400 הכי רגיש (הרבה אור), 100 הכי נמוך (מעט אור)
+    const isoStops = { 'ISO 100': 1, 'ISO 400': 2, 'ISO 800': 3, 'ISO 3200': 4, 'ISO 6400': 5 };
+    
+    // חישוב סה"כ אור של ההגדרות החדשות
+    const newLight = apertureStops[aperture] + shutterStops[shutter] + isoStops[iso];
+    
+    // חישוב סה"כ אור של ההגדרות המקוריות (שהיו מאוזנות)
+    const origSettings = challenge.wrongSettings;
+    const origLight = apertureStops[origSettings.aperture] + shutterStops[origSettings.shutter] + isoStops[origSettings.iso];
+    
+    // ההפרש קובע אם החשיפה מאוזנת
+    const diff = newLight - origLight;
+    
+    const status = document.getElementById('previewStatus');
+    
+    if (diff >= -1 && diff <= 1) {
+        status.textContent = 'מאוזנת ✓';
+        status.className = 'meter-status balanced';
+    } else if (diff > 1) {
+        status.textContent = 'בהיר מדי ⚠️';
+        status.className = 'meter-status over';
+    } else {
+        status.textContent = 'כהה מדי ⚠️';
+        status.className = 'meter-status under';
+    }
+}
+
+function checkChallengeAnswer() {
+    const aperture = document.getElementById('ansAperture').value;
+    const shutter = document.getElementById('ansShutter').value;
+    const iso = document.getElementById('ansISO').value;
+    
+    if (!aperture || !shutter || !iso) {
+        alert('נא לבחור את כל שלושת הפרמטרים');
+        return;
+    }
+    
+    const challenge = challenges[currentChallenge];
+    const feedback = document.getElementById('challengeFeedback');
+    
+    // Check if mustHave requirements are met
+    let meetsRequirements = true;
+    for (const param in challenge.mustHave) {
+        const userValue = param === 'aperture' ? aperture : (param === 'shutter' ? shutter : iso);
+        if (!challenge.mustHave[param].includes(userValue)) {
+            meetsRequirements = false;
+            break;
+        }
+    }
+    
+    // Check exposure balance - השוואה להגדרות המקוריות
+    const apertureStops = { 'f/1.8': 5, 'f/2.8': 4, 'f/5.6': 3, 'f/11': 2, 'f/16': 1 };
+    const shutterStops = { '1/1000': 1, '1/250': 2, '1/125': 3, '1/30': 4, '1s': 5 };
+    const isoStops = { 'ISO 100': 1, 'ISO 400': 2, 'ISO 800': 3, 'ISO 3200': 4, 'ISO 6400': 5 };
+    
+    const newLight = apertureStops[aperture] + shutterStops[shutter] + isoStops[iso];
+    const origSettings = challenge.wrongSettings;
+    const origLight = apertureStops[origSettings.aperture] + shutterStops[origSettings.shutter] + isoStops[origSettings.iso];
+    const diff = newLight - origLight;
+    const isBalanced = diff >= -1 && diff <= 1;
+    
+    const isCorrect = meetsRequirements && isBalanced;
+    
+    // עדכון ציון גלובלי
+    addChallengeScore(isCorrect);
+    
+    if (isCorrect) {
+        score++;
+        document.getElementById('scoreVal').textContent = score;
+        feedback.className = 'challenge-feedback show correct';
+        feedback.innerHTML = `
+            <div class="feedback-title"><i class="fas fa-check-circle"></i> מעולה! תיקנתם את התמונה! <span class="points">+1 נקודה</span></div>
+            <div class="feedback-explanation">${challenge.explanation}</div>
+            <div class="correct-answer">התיקון שלכם: ${aperture} | ${shutter} | ${iso}</div>
+        `;
+    } else {
+        feedback.className = 'challenge-feedback show wrong';
+        let errorMsg = '';
+        if (!meetsRequirements) {
+            errorMsg = 'התיקון לא פתר את הבעיה. ';
+        }
+        if (!isBalanced) {
+            errorMsg += diff < -1 ? 'גם החשיפה כהה מדי. ' : 'גם החשיפה בהירה מדי. ';
+        }
+        
+        feedback.innerHTML = `
+            <div class="feedback-title"><i class="fas fa-times-circle"></i> לא בדיוק...</div>
+            <div class="feedback-explanation">${errorMsg}${challenge.explanation}</div>
+        `;
+    }
+    
+    document.getElementById('nextChallengeBtn').style.display = 'flex';
+}
+
+function nextChallenge() {
+    currentChallenge++;
+    if (currentChallenge >= challenges.length) {
+        // Show complete screen
+        document.getElementById('challengeCard').style.display = 'none';
+        document.getElementById('challengeComplete').style.display = 'block';
+        document.getElementById('finalScore').textContent = score;
+        
+        // בדיקה אם לסיים את השיעור
+        checkLessonComplete();
+    } else {
+        loadChallenge(currentChallenge);
+    }
+}
+
+function restartChallenge() {
+    currentChallenge = 0;
+    score = 0;
+    document.getElementById('scoreVal').textContent = 0;
+    document.querySelector('.challenge-intro').style.display = 'none';
+    document.getElementById('challengeCard').style.display = 'block';
+    loadChallenge(0);
+}
+
+function startChallenge() {
+    document.querySelector('.challenge-intro').style.display = 'none';
+    document.getElementById('challengeCard').style.display = 'block';
+    document.getElementById('challengeScore').style.display = 'flex';
+    loadChallenge(0);
+}
+
+// ========== INIT ==========
+window.addEventListener('load', () => {
+    initDemos();
+    initSim();
+    loadChallenge(0);
+});
+
+window.addEventListener('resize', () => {
+    if (simCanvas) {
+        simCanvas.width = simCanvas.offsetWidth * 2;
+        simCanvas.height = simCanvas.offsetHeight * 2;
+    }
+});
+</script>
+
+</body>
+</html>
