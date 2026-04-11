@@ -697,6 +697,10 @@
                 <i class="fas fa-chalkboard-teacher"></i>
                 <span>מורים</span>
             </li>
+            <li class="nav-item" onclick="showPage('lessons')">
+                <i class="fas fa-book-open"></i>
+                <span>שיעורים</span>
+            </li>
             <li class="nav-item" onclick="window.location.href='exposure-teacher.html'">
                 <i class="fas fa-chart-bar"></i>
                 <span>ציונים</span>
@@ -999,6 +1003,64 @@
             </div>
         </div>
 
+        <!-- Lessons Page -->
+        <div class="page" id="page-lessons">
+            <div class="page-header">
+                <h2>ניהול שיעורים</h2>
+                <p>הוספה וניהול שיעורים במערכת</p>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h3><i class="fas fa-plus-circle"></i> הוספת שיעור חדש</h3>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>מזהה שיעור (באנגלית)</label>
+                        <input type="text" id="newLessonId" placeholder="לדוגמה: exposure-triangle">
+                    </div>
+                    <div class="form-group">
+                        <label>שם השיעור</label>
+                        <input type="text" id="newLessonTitle" placeholder="לדוגמה: משולש החשיפה">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group" style="flex:2;">
+                        <label>תיאור</label>
+                        <input type="text" id="newLessonDesc" placeholder="תיאור קצר של השיעור">
+                    </div>
+                    <div class="form-group">
+                        <label>קובץ HTML</label>
+                        <input type="text" id="newLessonUrl" placeholder="לדוגמה: exposure-triangle.html">
+                    </div>
+                </div>
+                <div style="margin-top:15px;">
+                    <button class="btn btn-primary" onclick="addLesson()">
+                        <i class="fas fa-plus"></i> הוסף שיעור
+                    </button>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h3><i class="fas fa-book-open"></i> שיעורים קיימים</h3>
+                </div>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>שם השיעור</th>
+                            <th>מזהה</th>
+                            <th>קובץ</th>
+                            <th>פעולות</th>
+                        </tr>
+                    </thead>
+                    <tbody id="lessonsTableBody">
+                        <tr><td colspan="4" class="empty-state"><i class="fas fa-spinner fa-spin"></i></td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
         <!-- Modal לשיוך כיתות -->
         <div class="modal-overlay" id="classesModal" style="display:none;">
             <div class="modal-content">
@@ -1128,6 +1190,7 @@ function showPage(pageName) {
     if (pageName === 'students') { loadClassesDropdown(); loadStudents(); }
     if (pageName === 'teachers') loadTeachers();
     if (pageName === 'import') loadClassesDropdown();
+    if (pageName === 'lessons') loadLessons();
 }
 
 // ===== DASHBOARD =====
@@ -1791,6 +1854,82 @@ async function deleteTeacher(id) {
         loadTeachers();
     } catch (err) {
         console.error('Error deleting teacher:', err);
+        alert('שגיאה במחיקה');
+    }
+}
+
+// ===== LESSONS =====
+async function loadLessons() {
+    const tbody = document.getElementById('lessonsTableBody');
+    
+    try {
+        const lessons = await supabaseRequest('exposure_lessons?order=title');
+        
+        if (!lessons || lessons.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" class="empty-state"><i class="fas fa-book"></i><br>אין שיעורים</td></tr>';
+            return;
+        }
+        
+        tbody.innerHTML = lessons.map(l => `
+            <tr>
+                <td><strong>${l.title}</strong><br><small style="color:var(--text-muted)">${l.description || ''}</small></td>
+                <td><code style="background:#333;padding:3px 8px;border-radius:4px;">${l.lesson_id}</code></td>
+                <td><a href="${l.url}" target="_blank" style="color:var(--shutter)">${l.url}</a></td>
+                <td>
+                    <div class="action-btns">
+                        <button class="action-btn delete" onclick="deleteLesson(${l.id})" title="מחק">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        `).join('');
+    } catch (err) {
+        console.error('Error loading lessons:', err);
+        tbody.innerHTML = '<tr><td colspan="4" class="empty-state">שגיאה בטעינה</td></tr>';
+    }
+}
+
+async function addLesson() {
+    const lessonId = document.getElementById('newLessonId').value.trim();
+    const title = document.getElementById('newLessonTitle').value.trim();
+    const description = document.getElementById('newLessonDesc').value.trim();
+    const url = document.getElementById('newLessonUrl').value.trim();
+    
+    if (!lessonId || !title || !url) {
+        alert('נא למלא מזהה, שם וקובץ');
+        return;
+    }
+    
+    try {
+        await supabaseRequest('exposure_lessons', 'POST', {
+            lesson_id: lessonId,
+            title: title,
+            description: description,
+            url: url
+        });
+        
+        document.getElementById('newLessonId').value = '';
+        document.getElementById('newLessonTitle').value = '';
+        document.getElementById('newLessonDesc').value = '';
+        document.getElementById('newLessonUrl').value = '';
+        
+        loadLessons();
+        alert('השיעור נוסף בהצלחה!');
+    } catch (err) {
+        console.error('Error adding lesson:', err);
+        alert('שגיאה בהוספה - אולי המזהה כבר קיים?');
+    }
+}
+
+async function deleteLesson(id) {
+    if (!confirm('למחוק שיעור זה?')) return;
+    
+    try {
+        await supabaseRequest(`exposure_lessons?id=eq.${id}`, 'DELETE');
+        loadLessons();
+    } catch (err) {
+        console.error('Error deleting lesson:', err);
         alert('שגיאה במחיקה');
     }
 }
