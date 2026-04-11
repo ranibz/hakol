@@ -1422,18 +1422,34 @@ async function importStudents() {
     
     try {
         let imported = 0;
-        let errors = 0;
+        let updated = 0;
         
         for (const student of dataToImport) {
             try {
+                // נסה להוסיף
                 await supabaseRequest('exposure_students', 'POST', student);
                 imported++;
             } catch (err) {
-                errors++;
+                // אם כבר קיים - עדכן את הכיתה
+                try {
+                    await supabaseRequest(
+                        `exposure_students?student_id=eq.${student.student_id}`, 
+                        'PATCH', 
+                        { class_name: selectedClass }
+                    );
+                    updated++;
+                } catch (e) {
+                    console.error('Error updating student:', e);
+                }
             }
         }
         
-        alert(`יובאו ${imported} תלמידים לכיתה "${selectedClass}"!${errors > 0 ? `\n${errors} שגיאות (כפילויות?)` : ''}`);
+        let msg = '';
+        if (imported > 0) msg += `נוספו ${imported} תלמידים חדשים\n`;
+        if (updated > 0) msg += `עודכנו ${updated} תלמידים קיימים\n`;
+        msg += `לכיתה "${selectedClass}"`;
+        
+        alert(msg);
         clearPreview();
         loadDashboard();
         loadClasses();
