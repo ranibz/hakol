@@ -1730,6 +1730,11 @@
     </div>
 </div>
 
+<script>
+// משתנה גלובלי לשמירת URL השיעור
+let currentLessonUrl = null;
+</script>
+
 <!-- Score Bar -->
 <div class="score-bar" id="scoreBar" style="display:none;">
     <div class="score-bar-title">
@@ -2514,12 +2519,23 @@ async function loadStudentTask(className) {
             document.getElementById('taskDesc').textContent = task.description || '';
             document.getElementById('taskDue').textContent = task.due_date ? `הגשה עד: ${formatDateSimple(task.due_date)}` : '';
             taskDisplay.style.display = 'flex';
+            
+            // שמירת lesson_id למעבר לשיעור
+            if (task.lesson_id) {
+                // מביא את ה-URL של השיעור
+                const lessons = await supabaseRequest(`exposure_lessons?lesson_id=eq.${task.lesson_id}`);
+                if (lessons && lessons.length > 0) {
+                    currentLessonUrl = lessons[0].url;
+                }
+            }
         } else {
             taskDisplay.style.display = 'none';
+            currentLessonUrl = null;
         }
     } catch (err) {
         console.error('Error loading task:', err);
         taskDisplay.style.display = 'none';
+        currentLessonUrl = null;
     }
 }
 
@@ -2531,6 +2547,27 @@ function formatDateSimple(dateStr) {
 
 // האזנה לשינויים בשדה ת.ז.
 document.addEventListener('DOMContentLoaded', () => {
+    // בדיקה אם התלמיד כבר מחובר (הגיע מדף התלמיד)
+    const saved = localStorage.getItem('exposure_student');
+    if (saved) {
+        try {
+            const student = JSON.parse(saved);
+            if (student.id && student.name && student.className) {
+                studentInfo.id = student.id;
+                studentInfo.name = student.name;
+                studentInfo.className = student.className;
+                
+                // דילוג על מסך הכניסה - ישר לשיעור
+                document.getElementById('loginScreen').style.display = 'none';
+                document.getElementById('scoreBar').style.display = 'flex';
+                return;
+            }
+        } catch (e) {
+            localStorage.removeItem('exposure_student');
+        }
+    }
+    
+    // אם לא מחובר - הצג את מסך הכניסה הרגיל
     const idInput = document.getElementById('studentId');
     if (idInput) {
         let timeout;
@@ -2551,6 +2588,13 @@ function startLesson() {
         alert('נא להזין תעודת זהות תקינה');
         return;
     }
+    
+    // שמירה ב-localStorage
+    localStorage.setItem('exposure_student', JSON.stringify({
+        id: studentInfo.id,
+        name: studentInfo.name,
+        className: studentInfo.className
+    }));
     
     // הסתרת מסך כניסה והצגת התוכן
     document.getElementById('loginScreen').style.display = 'none';
