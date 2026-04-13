@@ -6,7 +6,7 @@
 <title>מערכת מטלות</title>
 <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@300;400;500;700;900&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
-<!-- Supabase Version 3.0 - 14/04/2026 -->
+<!-- Supabase Version 3.1 - 14/04/2026 -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
 :root{--primary:#5c6bc0;--primary-dark:#3949ab;--success:#00b894;--danger:#e74c3c;--warn:#f39c12;--bg:#f0f2ff;--card:#fff;--text:#2d3436;--muted:#888;}
@@ -134,7 +134,7 @@ body{font-family:"Rubik",sans-serif;background:var(--bg);color:var(--text);min-h
   <div class="logo-box"><span class="material-icons-round">assignment</span></div>
   <h1>מערכת מטלות</h1>
   <p>הגשת עבודות דיגיטלית</p>
-  <div class="credit">פיתוח מערכת מטלות • רני בן זאב • v2.9</div>
+  <div class="credit">פיתוח מערכת מטלות • רני בן זאב • v3.1</div>
 </div>
 <div class="role-cards">
   <button class="role-card rc-student active" onclick="switchRole('student')"><span class="rc-emoji">🎓</span><span class="rc-label">תלמיד</span></button>
@@ -405,8 +405,66 @@ async function loadStudentAssignments(){
   list.sort(function(a,b){return(a.dueDate||'').localeCompare(b.dueDate||'');});
   var total=list.length,submitted=0,pending=0,graded=0,htmlOpen='',htmlClosed='';
   if(!list.length){document.getElementById('studentAssignmentsList').innerHTML='<div class="empty-state">אין מטלות</div>';document.getElementById('sTotalAsgn').textContent=0;document.getElementById('sSubmitted').textContent=0;document.getElementById('sPending').textContent=0;document.getElementById('sGraded').textContent=0;return;}
-  list.forEach(function(a){var subKey=sanKey(curUser.id)+'_'+a.id;var mySub=subs[subKey]||null;var late=isHardBlocked(a.dueDate);var lateSubmit=isLateSubmission(a.dueDate,a.dueTime);if(mySub)submitted++;else if(!lateSubmit)pending++;if(mySub&&mySub.grade!==undefined)graded++;var borderColor=mySub?'#00b894':late?'#e74c3c':'#5c6bc0';var statusLabel=mySub?(late?'הוגש באיחור ✔':'הוגש ✔'):(late?'פג תוקף':'ממתין');var statusClass=mySub?(late?'badge-late':'badge-submitted'):'badge-pending';var isInteractive=a.submissionType==='interactive';var contentSection='';if(isInteractive&&a.htmlCode){var tabHtml=patchHtmlForNewTab(a.htmlCode,curUser.id,curUser.name,curUser.class,a.id,subKey);var blobUrl=createBlobUrl(tabHtml,'text/html');contentSection='<div class="iframe-section"><div class="iframe-toolbar" style="border-radius:12px;justify-content:center;padding:18px;flex-direction:column;gap:10px;text-align:center;"><a href="'+blobUrl+'" target="_blank" class="btn-open-new" style="font-size:1rem;padding:12px 32px;">🔗 פתח מטלה</a></div></div>';}var submitSection='';if(mySub){var fieldsHtml='';if(mySub.fields&&Object.keys(mySub.fields).length){fieldsHtml='<div class="sv-fields-grid">';Object.entries(mySub.fields).forEach(function(p){if(p[1]){var val=String(p[1]);if(val.indexOf("data:image")===0){fieldsHtml+='<div class="sv-field"><div class="sv-field-label">'+escHtml(p[0])+'</div><div class="sv-field-value"><img src="'+val+'" style="max-width:100%;max-height:200px;border-radius:8px;"></div></div>';}else{fieldsHtml+='<div class="sv-field"><div class="sv-field-label">'+escHtml(p[0])+'</div><div class="sv-field-value">'+escHtml(val)+'</div></div>';}}});fieldsHtml+='</div>';}submitSection='<div class="submitted-view"><div class="sv-label">הגשתך</div>'+(mySub.text?'<div>'+escHtml(mySub.text)+'</div>':'')+fieldsHtml+'</div>';if(mySub.grade!==undefined||mySub.feedback)submitSection+='<div class="feedback-box"><div class="fb-label">💬 פידבק</div>'+(mySub.grade!==undefined?'<div class="fb-grade">'+mySub.grade+'</div>':'')+(mySub.feedback?'<div class="fb-text">'+escHtml(mySub.feedback)+'</div>':'')+'</div>';if(!late)submitSection+='<button class="btn-edit-sub" onclick="editSubmission(\''+a.id+'\',\''+subKey+'\',\''+a.submissionType+'\')">✏️ ערוך</button>';}else if(!late){submitSection=countdownHtml(a.dueDate,a.dueTime,subKey)+buildSubmitSection(a,subKey,isInteractive);}var cardHtml='<div class="assignment-card" style="border-right-color:'+borderColor+';" id="ac_'+subKey+'"><div class="asgn-header"><div><div class="asgn-title">'+escHtml(a.title)+'</div></div><span class="status-badge '+statusClass+'">'+statusLabel+'</span></div>'+(a.description?'<div class="asgn-desc">'+escHtml(a.description)+'</div>':'')+'<div class="asgn-meta"><span class="meta-chip chip-blue">'+fmtDate(a.dueDate,a.dueTime)+'</span>'+(isInteractive?'<span class="meta-chip chip-purple">אינטראקטיבי</span>':'')+'</div>'+contentSection+submitSection+'</div>';if(!late&&!mySub)htmlOpen+=cardHtml;else htmlClosed+=cardHtml;});
-  var finalHtml=htmlOpen;if(htmlClosed){var cnt=(htmlClosed.match(/assignment-card/g)||[]).length;finalHtml+='<div class="acc-closed-wrap"><div class="acc-closed-header" id="accHdr" onclick="toggleAccordion()"><span>📁 מטלות נוספות ('+cnt+')</span><span class="acc-arrow">▼</span></div><div class="acc-closed-body" id="accBody">'+htmlClosed+'</div></div>';}
+  list.forEach(function(a){
+    var subKey=sanKey(curUser.id)+'_'+a.id;
+    var mySub=subs[subKey]||null;
+    // בדיקת הארכה אישית
+    var extensions=a.extensions||{};
+    var myExtension=extensions[curUser.id];
+    var effectiveDueDate=myExtension?myExtension.dueDate:a.dueDate;
+    var effectiveDueTime=myExtension?myExtension.dueTime:a.dueTime;
+    var late=isHardBlocked(effectiveDueDate);
+    var lateSubmit=isLateSubmission(effectiveDueDate,effectiveDueTime);
+    if(mySub)submitted++;else if(!lateSubmit)pending++;
+    if(mySub&&mySub.grade!==undefined)graded++;
+    var borderColor=mySub?'#00b894':late?'#e74c3c':'#5c6bc0';
+    var statusLabel=mySub?(mySub.is_late?'הוגש באיחור ✔':'הוגש ✔'):(late?'פג תוקף':'ממתין');
+    var statusClass=mySub?(mySub.is_late?'badge-late':'badge-submitted'):'badge-pending';
+    var isInteractive=a.submissionType==='interactive';
+    var contentSection='';
+    if(isInteractive&&a.htmlCode){
+      var tabHtml=patchHtmlForNewTab(a.htmlCode,curUser.id,curUser.name,curUser.class,a.id,subKey);
+      var blobUrl=createBlobUrl(tabHtml,'text/html');
+      contentSection='<div class="iframe-section"><div class="iframe-toolbar" style="border-radius:12px;justify-content:center;padding:18px;flex-direction:column;gap:10px;text-align:center;"><a href="'+blobUrl+'" target="_blank" class="btn-open-new" style="font-size:1rem;padding:12px 32px;">🔗 פתח מטלה</a></div></div>';
+    }
+    var submitSection='';
+    // הצגת הגשה קיימת - גם אם פג תוקף
+    if(mySub){
+      var fieldsHtml='';
+      if(mySub.fields&&Object.keys(mySub.fields).length){
+        fieldsHtml='<div class="sv-fields-grid">';
+        Object.entries(mySub.fields).forEach(function(p){
+          if(p[1]){
+            var val=String(p[1]);
+            if(val.indexOf("data:image")===0){
+              fieldsHtml+='<div class="sv-field"><div class="sv-field-label">'+escHtml(p[0])+'</div><div class="sv-field-value"><img src="'+val+'" style="max-width:100%;max-height:200px;border-radius:8px;"></div></div>';
+            }else{
+              fieldsHtml+='<div class="sv-field"><div class="sv-field-label">'+escHtml(p[0])+'</div><div class="sv-field-value">'+escHtml(val)+'</div></div>';
+            }
+          }
+        });
+        fieldsHtml+='</div>';
+      }
+      submitSection='<div class="submitted-view"><div class="sv-label">הגשתך</div>'+(mySub.text?'<div>'+escHtml(mySub.text)+'</div>':'')+fieldsHtml+'</div>';
+      if(mySub.grade!==undefined||mySub.feedback){
+        submitSection+='<div class="feedback-box"><div class="fb-label">💬 פידבק</div>'+(mySub.grade!==undefined?'<div class="fb-grade">'+mySub.grade+'</div>':'')+(mySub.feedback?'<div class="fb-text">'+escHtml(mySub.feedback)+'</div>':'')+'</div>';
+      }
+      if(!late)submitSection+='<button class="btn-edit-sub" onclick="editSubmission(\''+a.id+'\',\''+subKey+'\',\''+a.submissionType+'\')">✏️ ערוך</button>';
+    }else if(!late){
+      submitSection=countdownHtml(effectiveDueDate,effectiveDueTime,subKey)+buildSubmitSection(a,subKey,isInteractive);
+    }else{
+      // פג תוקף ולא הגיש - הצג הודעה
+      submitSection='<div style="padding:15px;background:#fef2f2;border-radius:10px;text-align:center;color:#991b1b;font-weight:600;">⏰ פג תוקף ההגשה</div>';
+    }
+    var extensionBadge=myExtension?'<span class="meta-chip" style="background:#fef3c7;color:#92400e;">🕐 הארכה עד '+fmtDate(myExtension.dueDate,myExtension.dueTime)+'</span>':'';
+    var cardHtml='<div class="assignment-card" style="border-right-color:'+borderColor+';" id="ac_'+subKey+'"><div class="asgn-header"><div><div class="asgn-title">'+escHtml(a.title)+'</div></div><span class="status-badge '+statusClass+'">'+statusLabel+'</span></div>'+(a.description?'<div class="asgn-desc">'+escHtml(a.description)+'</div>':'')+'<div class="asgn-meta"><span class="meta-chip chip-blue">'+fmtDate(a.dueDate,a.dueTime)+'</span>'+extensionBadge+(isInteractive?'<span class="meta-chip chip-purple">אינטראקטיבי</span>':'')+'</div>'+contentSection+submitSection+'</div>';
+    if(!late&&!mySub)htmlOpen+=cardHtml;else htmlClosed+=cardHtml;
+  });
+  var finalHtml=htmlOpen;
+  if(htmlClosed){
+    var cnt=(htmlClosed.match(/assignment-card/g)||[]).length;
+    finalHtml+='<div class="acc-closed-wrap"><div class="acc-closed-header" id="accHdr" onclick="toggleAccordion()"><span>📁 מטלות נוספות ('+cnt+')</span><span class="acc-arrow">▼</span></div><div class="acc-closed-body" id="accBody">'+htmlClosed+'</div></div>';
+  }
   document.getElementById('studentAssignmentsList').innerHTML=finalHtml;
   setTimeout(function(){list.forEach(function(a){var sk=sanKey(curUser.id)+'_'+a.id;if(!subs[sk]&&!isHardBlocked(a.dueDate)){startCountdown(a.dueDate,a.dueTime,sk);}});},500);
   document.getElementById('sTotalAsgn').textContent=total;document.getElementById('sSubmitted').textContent=submitted;document.getElementById('sPending').textContent=pending;document.getElementById('sGraded').textContent=graded;
@@ -477,7 +535,77 @@ function editAssignment(aid){db.ref("assignments/"+aid).once("value").then(funct
 function cancelEditAssignment(){editingAssignmentId=null;["nTitle","nDesc","nClasses","nHtmlCode"].forEach(function(id){var el=document.getElementById(id);if(el)el.value="";});nQuestions=[];renderQuestionsList();document.getElementById("nDue").value="";document.getElementById("nDueTime").value="23:59";document.getElementById("nType").value="text";toggleHtmlSection();document.getElementById("btnCreateAssignment").textContent="✅ פרסם מטלה";document.getElementById("btnCancelEdit").style.display="none";toast("❌ העריכה בוטלה");}
 function createAssignment(){var title=document.getElementById("nTitle").value.trim(),desc=document.getElementById("nDesc").value.trim(),classes=document.getElementById("nClasses").value.trim(),due=document.getElementById("nDue").value,dueTime=document.getElementById("nDueTime").value||"23:59",type=document.getElementById("nType").value;if(!title||!classes||!due){toast("⚠️ מלא כותרת, כיתות ותאריך");return;}var htmlCode=type==="interactive"?document.getElementById("nHtmlCode").value.trim():"";if(type==="interactive"&&!htmlCode){toast("⚠️ הדבק קוד HTML");return;}var questions=null;if(type==="questions"){questions=getQuestionsData();if(!questions.length){toast("⚠️ הוסף לפחות שאלה אחת");return;}}var key=editingAssignmentId||db.ref("assignments").push().key;var data={id:key,title:title,description:desc,classes:classes,dueDate:due,dueTime:dueTime,submissionType:type,htmlCode:htmlCode||null,teacherId:curUser.key,teacherName:curUser.name};if(!editingAssignmentId)data.createdAt=Date.now();if(questions)data.questions=questions;db.ref("assignments/"+key).update(data).then(function(){toast(editingAssignmentId?"✅ המטלה עודכנה!":"✅ המטלה פורסמה!");editingAssignmentId=null;["nTitle","nDesc","nClasses","nHtmlCode"].forEach(function(id){var el=document.getElementById(id);if(el)el.value="";});nQuestions=[];renderQuestionsList();document.getElementById("nDue").value="";document.getElementById("nDueTime").value="23:59";document.getElementById("nType").value="text";toggleHtmlSection();document.getElementById("btnCreateAssignment").textContent="✅ פרסם מטלה";document.getElementById("btnCancelEdit").style.display="none";switchTTab("assignments",document.querySelector(".t-tab"));renderTeacherAssignments();loadTeacherFilterClasses();});}
 function deleteAssignment(id){if(!confirm("למחוק?"))return;sbDelete("assignments","id=eq."+id).then(function(){toast("🗑 נמחק");renderTeacherAssignments();});}
-async function openSubmissionsModal(aid){var asgns=await sbFetch("assignments","?id=eq."+aid);if(!asgns.length)return;var a=asgns[0];var targetClasses=(a.classes||"").split(",").map(function(x){return x.trim();});var allStudents=await sbFetch("students");var students=allStudents.filter(function(s){return targetClasses.some(function(cl){return normalizeClass(cl)===normalizeClass(s.class);});});var allSubs=await sbFetch("submissions","?assignment_id=eq."+aid);var subs={};allSubs.forEach(function(s){subs[s.id]=s;});document.getElementById("modalTitle").textContent="הגשות: "+a.title;var submitted=0,html="";allSubs.sort(function(a,b){return(a.submitted_at||0)-(b.submitted_at||0);});allSubs.forEach(function(sub){submitted++;var displayName=escHtml(sub.student_name||sub.student_id||sub.id);var displayClass=escHtml(sub.student_class||"");var subContent="";if(sub.fields&&Object.keys(sub.fields).length){subContent='<div class="sub-fields-grid">';Object.entries(sub.fields).forEach(function(pair){if(pair[1]){var val=String(pair[1]);if(val.indexOf("data:image")===0){subContent+='<div class="sub-field"><div class="sub-field-label">'+escHtml(pair[0])+'</div><div class="sub-image"><img src="'+val+'" onclick="openImgModal(this.src)" style="max-width:100%;max-height:200px;border-radius:8px;cursor:pointer;"></div></div>';}else if(val.indexOf("http")===0){subContent+='<div class="sub-field"><div class="sub-field-label">'+escHtml(pair[0])+'</div><div class="sub-field-value"><a href="'+escHtml(val)+'" target="_blank" style="color:var(--primary);word-break:break-all;">'+escHtml(val)+'</a></div></div>';}else{subContent+='<div class="sub-field"><div class="sub-field-label">'+escHtml(pair[0])+'</div><div class="sub-field-value">'+escHtml(val)+'</div></div>';}}});subContent+='</div>';}else{if(sub.text)subContent+='<div class="sub-text">'+escHtml(sub.text)+'</div>';if(sub.link)subContent+='<div class="sub-link"><a href="'+sub.link+'" target="_blank">'+sub.link+'</a></div>';}if(sub.image_url)subContent+='<div class="sub-image"><img src="'+sub.image_url+'" onclick="openImgModal(this.src)" title="לחץ להגדלה"></div>';html+='<div class="submission-row sub-yes"><div class="sub-student-name">👤 '+displayName+(displayClass?' | '+displayClass:'')+'</div>'+subContent+'<div class="feedback-form"><input type="number" id="fg_'+sub.id+'" placeholder="ציון" value="'+(sub.grade!==undefined?sub.grade:"")+'" ><input type="text" id="ff_'+sub.id+'" placeholder="פידבק..." value="'+escHtml(sub.feedback||"")+'" ><button class="btn-feedback" onclick="saveFeedback(\''+sub.id+'\')">💾 שמור</button></div></div>';});students.forEach(function(s){var subKey=sanKey(s.id)+"_"+aid;if(!subs[subKey])html+='<div class="submission-row sub-no"><div class="sub-student-name">👤 '+escHtml(s.name)+' | '+escHtml(s.class)+'</div><span class="not-sub-chip">לא הגיש</span></div>';});var notSub=students.length-students.filter(function(s){return subs[sanKey(s.id)+"_"+aid];}).length;document.getElementById("modalStats").innerHTML='<div class="prog-box"><div class="prog-num" style="color:#00b894;">'+submitted+'</div><div class="prog-lbl">הגישו</div></div><div class="prog-box"><div class="prog-num" style="color:#e74c3c;">'+notSub+'</div><div class="prog-lbl">לא הגישו</div></div><div class="prog-box"><div class="prog-num" style="color:#5c6bc0;">'+students.length+'</div><div class="prog-lbl">סה"כ רשומים</div></div>';document.getElementById("modalBody").innerHTML=html||"<p>אין הגשות</p>";document.getElementById("subsModal").style.display="block";}
+async function openSubmissionsModal(aid){
+  var asgns=await sbFetch("assignments","?id=eq."+aid);
+  if(!asgns.length)return;
+  var a=asgns[0];
+  var extensions=a.extensions||{};
+  var targetClasses=(a.classes||"").split(",").map(function(x){return x.trim();});
+  var allStudents=await sbFetch("students");
+  var students=allStudents.filter(function(s){return targetClasses.some(function(cl){return normalizeClass(cl)===normalizeClass(s.class);});});
+  var allSubs=await sbFetch("submissions","?assignment_id=eq."+aid);
+  var subs={};allSubs.forEach(function(s){subs[s.id]=s;});
+  document.getElementById("modalTitle").textContent="הגשות: "+a.title;
+  var submitted=0,html="";
+  allSubs.sort(function(a,b){return(a.submitted_at||0)-(b.submitted_at||0);});
+  allSubs.forEach(function(sub){
+    submitted++;
+    var displayName=escHtml(sub.student_name||sub.student_id||sub.id);
+    var displayClass=escHtml(sub.student_class||"");
+    var subContent="";
+    if(sub.fields&&Object.keys(sub.fields).length){
+      subContent='<div class="sub-fields-grid">';
+      Object.entries(sub.fields).forEach(function(pair){
+        if(pair[1]){
+          var val=String(pair[1]);
+          if(val.indexOf("data:image")===0){
+            subContent+='<div class="sub-field"><div class="sub-field-label">'+escHtml(pair[0])+'</div><div class="sub-image"><img src="'+val+'" onclick="openImgModal(this.src)" style="max-width:100%;max-height:200px;border-radius:8px;cursor:pointer;"></div></div>';
+          }else if(val.indexOf("http")===0){
+            subContent+='<div class="sub-field"><div class="sub-field-label">'+escHtml(pair[0])+'</div><div class="sub-field-value"><a href="'+escHtml(val)+'" target="_blank" style="color:var(--primary);word-break:break-all;">'+escHtml(val)+'</a></div></div>';
+          }else{
+            subContent+='<div class="sub-field"><div class="sub-field-label">'+escHtml(pair[0])+'</div><div class="sub-field-value">'+escHtml(val)+'</div></div>';
+          }
+        }
+      });
+      subContent+='</div>';
+    }else{
+      if(sub.text)subContent+='<div class="sub-text">'+escHtml(sub.text)+'</div>';
+      if(sub.link)subContent+='<div class="sub-link"><a href="'+sub.link+'" target="_blank">'+sub.link+'</a></div>';
+    }
+    if(sub.image_url)subContent+='<div class="sub-image"><img src="'+sub.image_url+'" onclick="openImgModal(this.src)" title="לחץ להגדלה"></div>';
+    html+='<div class="submission-row sub-yes"><div class="sub-student-name">👤 '+displayName+(displayClass?' | '+displayClass:'')+'</div>'+subContent+'<div class="feedback-form"><input type="number" id="fg_'+sub.id+'" placeholder="ציון" value="'+(sub.grade!==undefined?sub.grade:"")+'" ><input type="text" id="ff_'+sub.id+'" placeholder="פידבק..." value="'+escHtml(sub.feedback||"")+'" ><button class="btn-feedback" onclick="saveFeedback(\''+sub.id+'\')">💾 שמור</button></div></div>';
+  });
+  students.forEach(function(s){
+    var subKey=sanKey(s.id)+"_"+aid;
+    if(!subs[subKey]){
+      var ext=extensions[s.id];
+      var extInfo=ext?'<span style="background:#fef3c7;color:#92400e;padding:3px 8px;border-radius:6px;font-size:.75rem;margin-right:8px;">הארכה: '+fmtDate(ext.dueDate,ext.dueTime)+'</span>':'';
+      html+='<div class="submission-row sub-no"><div class="sub-student-name">👤 '+escHtml(s.name)+' | '+escHtml(s.class)+extInfo+'</div><span class="not-sub-chip">לא הגיש</span><button class="btn-sm" style="background:#fef3c7;color:#92400e;margin-right:8px;" onclick="giveExtension(\''+aid+'\',\''+s.id+'\',\''+escHtml(s.name)+'\')">🕐 הארכה</button></div>';
+    }
+  });
+  var notSub=students.length-students.filter(function(s){return subs[sanKey(s.id)+"_"+aid];}).length;
+  document.getElementById("modalStats").innerHTML='<div class="prog-box"><div class="prog-num" style="color:#00b894;">'+submitted+'</div><div class="prog-lbl">הגישו</div></div><div class="prog-box"><div class="prog-num" style="color:#e74c3c;">'+notSub+'</div><div class="prog-lbl">לא הגישו</div></div><div class="prog-box"><div class="prog-num" style="color:#5c6bc0;">'+students.length+'</div><div class="prog-lbl">סה"כ רשומים</div></div>';
+  document.getElementById("modalBody").innerHTML=html||"<p>אין הגשות</p>";
+  document.getElementById("subsModal").style.display="block";
+}
+
+// פונקציה לתת הארכה לתלמיד
+async function giveExtension(assignmentId,studentId,studentName){
+  var newDate=prompt("תאריך הארכה (YYYY-MM-DD):",new Date(Date.now()+7*24*60*60*1000).toISOString().slice(0,10));
+  if(!newDate)return;
+  var newTime=prompt("שעת הארכה (HH:MM):","23:59");
+  if(!newTime)newTime="23:59";
+  
+  var asgns=await sbFetch("assignments","?id=eq."+assignmentId);
+  if(!asgns.length)return;
+  var a=asgns[0];
+  var extensions=a.extensions||{};
+  extensions[studentId]={dueDate:newDate,dueTime:newTime};
+  
+  await sbUpdate("assignments","id=eq."+assignmentId,{extensions:extensions});
+  toast("✅ ניתנה הארכה ל-"+studentName+" עד "+newDate+" "+newTime);
+  openSubmissionsModal(assignmentId);
+}
 function renderTeacherOverview(){db.ref("assignments").once("value").then(function(aSnap){var myA=[];aSnap.forEach(function(c){var a={id:c.key};var v=c.val();for(var k in v)a[k]=v[k];if(a.teacherId===curUser.key&&assignmentMatchesTeacherClasses(a.classes))myA.push(a);});if(!myA.length){document.getElementById("teacherOverviewContent").innerHTML='<div class="empty-state">אין נתונים</div>';return;}db.ref("submissions").once("value").then(function(sSnap){var subs=sSnap.val()||{};db.ref("students").once("value").then(function(stSnap){var html="";myA.forEach(function(a){var tCls=(a.classes||"").split(",").map(function(x){return x.trim();});var sts=[];stSnap.forEach(function(c){var s={id:c.key};var sv=c.val();s.name=sv.name;s.class=sv.class;if(tCls.some(function(cl){return normalizeClass(cl)===normalizeClass(s.class);}))sts.push(s);});var subCount=sts.filter(function(s){return subs[sanKey(s.id)+"_"+a.id];}).length;var pct=sts.length?Math.round(subCount/sts.length*100):0;html+='<div style="background:white;border-radius:16px;padding:18px;margin-bottom:14px;"><div style="font-weight:800;">'+escHtml(a.title)+'</div><div style="background:#f0f0f0;height:10px;border-radius:10px;margin:8px 0;overflow:hidden;"><div style="width:'+pct+'%;height:100%;background:linear-gradient(90deg,#5c6bc0,#9c27b0);border-radius:10px;"></div></div><div style="font-size:.8rem;color:var(--muted);">'+subCount+' מתוך '+sts.length+' ('+pct+'%)</div></div>';});document.getElementById("teacherOverviewContent").innerHTML=html;});});});}
 async function loadAdminData(){var students=await sbFetch("students");document.getElementById("adTotalStudents").textContent=students.length;loadAdminStudentsWithFilter();var teachers=await sbFetch("teachers");document.getElementById("adTotalTeachers").textContent=teachers.length;var h2="";teachers.forEach(function(t){h2+='<tr><td>'+escHtml(t.username)+'</td><td>'+escHtml(t.name)+'</td><td>'+escHtml(t.classes||"כל הכיתות")+'</td><td><button class="btn-sm" onclick="editTeacher(\''+t.username+'\',\''+escHtml(t.name)+'\',\''+escHtml(t.classes||'')+'\')">✏️</button> <button class="btn-sm btn-del" onclick="delTeacher(\''+t.username+"')\">🗑</button></td></tr>";});document.getElementById("adTeachersBody").innerHTML=h2;var assignments=await sbFetch("assignments");document.getElementById("adTotalAsgn").textContent=assignments.length;var submissions=await sbFetch("submissions");document.getElementById("adTotalSubs").textContent=submissions.length;}
 async function addStudent(){var id=document.getElementById("adSId").value.trim(),name=document.getElementById("adSName").value.trim(),cls=document.getElementById("adSClass").value.trim();if(!id||!name||!cls){toast("⚠️ מלא הכל");return;}try{await sbInsert("students",{id:id,name:name,class:cls});toast("✅ נוסף!");loadAdminData();loadExistingClasses();document.getElementById("adSId").value="";document.getElementById("adSName").value="";document.getElementById("adSClass").value="";}catch(e){toast("❌ שגיאה - אולי התלמיד כבר קיים");}}
