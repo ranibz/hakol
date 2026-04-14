@@ -575,12 +575,13 @@ async function openSubmissionsModal(aid){
     if(sub.image_url)subContent+='<div class="sub-image"><img src="'+sub.image_url+'" onclick="openImgModal(this.src)" title="לחץ להגדלה"></div>';
     html+='<div class="submission-row sub-yes"><div class="sub-student-name">👤 '+displayName+(displayClass?' | '+displayClass:'')+'</div>'+subContent+'<div class="feedback-form"><input type="number" id="fg_'+sub.id+'" placeholder="ציון" value="'+(sub.grade!==undefined?sub.grade:"")+'" ><input type="text" id="ff_'+sub.id+'" placeholder="פידבק..." value="'+escHtml(sub.feedback||"")+'" ><button class="btn-feedback" onclick="saveFeedback(\''+sub.id+'\')">💾 שמור</button></div></div>';
   });
+  // תלמידים שלא הגישו - עם אפשרות לתת ציון והערה
   students.forEach(function(s){
     var subKey=sanKey(s.id)+"_"+aid;
     if(!subs[subKey]){
       var ext=extensions[s.id];
       var extInfo=ext?'<span style="background:#fef3c7;color:#92400e;padding:3px 8px;border-radius:6px;font-size:.75rem;margin-right:8px;">הארכה: '+fmtDate(ext.dueDate,ext.dueTime)+'</span>':'';
-      html+='<div class="submission-row sub-no"><div class="sub-student-name">👤 '+escHtml(s.name)+' | '+escHtml(s.class)+extInfo+'</div><span class="not-sub-chip">לא הגיש</span><button class="btn-sm" style="background:#fef3c7;color:#92400e;margin-right:8px;" onclick="giveExtension(\''+aid+'\',\''+s.id+'\',\''+escHtml(s.name)+'\')">🕐 הארכה</button></div>';
+      html+='<div class="submission-row sub-no"><div class="sub-student-name">👤 '+escHtml(s.name)+' | '+escHtml(s.class)+extInfo+'</div><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;"><span class="not-sub-chip">לא הגיש</span><button class="btn-sm" style="background:#fef3c7;color:#92400e;" onclick="giveExtension(\''+aid+'\',\''+s.id+'\',\''+escHtml(s.name)+'\')">🕐 הארכה</button></div><div class="feedback-form" style="margin-top:10px;border-top:1px dashed #eee;padding-top:10px;"><input type="number" id="fg_nosub_'+s.id+'_'+aid+'" placeholder="ציון" style="width:70px;"><input type="text" id="ff_nosub_'+s.id+'_'+aid+'" placeholder="הערה..." style="flex:1;"><button class="btn-feedback" onclick="saveNoSubmitGrade(\''+s.id+'\',\''+aid+'\',\''+escHtml(s.name)+'\',\''+escHtml(s.class)+'\')">💾 שמור</button></div></div>';
     }
   });
   var notSub=students.length-students.filter(function(s){return subs[sanKey(s.id)+"_"+aid];}).length;
@@ -752,6 +753,51 @@ document.getElementById("tPass").addEventListener("keypress",function(e){if(e.ke
 document.getElementById("aPass").addEventListener("keypress",function(e){if(e.key==="Enter")loginAdmin();});
 document.getElementById("subsModal").addEventListener("click",function(e){if(e.target===document.getElementById("subsModal"))closeModal();});
 
+// פונקציה לשמירת ציון לתלמיד שלא הגיש
+async function saveNoSubmitGrade(studentId, assignmentId, studentName, studentClass){
+  var gradeEl = document.getElementById('fg_nosub_'+studentId+'_'+assignmentId);
+  var feedbackEl = document.getElementById('ff_nosub_'+studentId+'_'+assignmentId);
+  var grade = gradeEl ? gradeEl.value : '';
+  var feedback = feedbackEl ? feedbackEl.value : '';
+  
+  if(!grade && !feedback){
+    toast('⚠️ הכנס ציון או הערה');
+    return;
+  }
+  
+  var subKey = sanKey(studentId)+'_'+assignmentId;
+  var data = {
+    id: subKey,
+    student_id: studentId,
+    student_name: studentName,
+    student_class: studentClass,
+    assignment_id: assignmentId,
+    text: '[לא הוגש]',
+    submitted_at: Date.now(),
+    is_late: true
+  };
+  if(grade) data.grade = parseFloat(grade);
+  if(feedback) data.feedback = feedback;
+  
+  try {
+    await sbInsert('submissions', data);
+    toast('✅ נשמר!');
+    openSubmissionsModal(assignmentId); // רענן את המודל
+  } catch(e) {
+    // אם כבר קיים, עדכן
+    try {
+      var updateData = {};
+      if(grade) updateData.grade = parseFloat(grade);
+      if(feedback) updateData.feedback = feedback;
+      await sbUpdate('submissions', 'id=eq.'+subKey, updateData);
+      toast('✅ עודכן!');
+      openSubmissionsModal(assignmentId);
+    } catch(e2) {
+      toast('❌ שגיאה');
+    }
+  }
+}
+
 // ========== מעקב ציונים ==========
 var gradesData = {assignments:[], submissions:[], students:[]};
 
@@ -781,10 +827,14 @@ async function loadGradesView(){
     return;
   }
   
-  // טעינת נתונים
+  // הצג טעינה
+  document.getElementById('gradesContent').innerHTML = '<div style="text-align:center;padding:60px;"><div style="font-size:2rem;margin-bottom:10px;">⏳</div><div style="color:#888;">טוען נתונים...</div></div>';
+  document.getElementById('gradesStats').innerHTML = '';
+  
+  // טעינת מטלות ותלמידים
   var assignments = await sbFetch('assignments','?teacher_id=eq.'+curUser.key);
-  var allStudents = await sbFetch('students');
-  var students = allStudents.filter(function(s){return normalizeClass(s.class) === normalizeClass(selectedClass);});
+  var allStudents = await sbFetch('students','?class=eq.'+encodeURIComponent(selectedClass));
+  var students = allStudents;
   
   // סינון מטלות לכיתה זו
   var classAssignments = assignments.filter(function(a){
@@ -794,14 +844,19 @@ async function loadGradesView(){
   
   if(!classAssignments.length){
     document.getElementById('gradesContent').innerHTML = '<div style="text-align:center;padding:40px;color:#888;">אין מטלות לכיתה זו</div>';
-    document.getElementById('gradesStats').innerHTML = '';
     return;
   }
   
-  // טעינת כל ההגשות
-  var allSubs = await sbFetch('submissions');
+  // טעינת הגשות רק למטלות הרלוונטיות - במקביל
   var subsMap = {};
-  allSubs.forEach(function(s){subsMap[s.id] = s;});
+  var assignmentIds = classAssignments.map(function(a){return a.id;});
+  var subsPromises = assignmentIds.map(function(aid){
+    return sbFetch('submissions','?assignment_id=eq.'+aid);
+  });
+  var subsResults = await Promise.all(subsPromises);
+  subsResults.forEach(function(subs){
+    subs.forEach(function(s){subsMap[s.id] = s;});
+  });
   
   gradesData = {assignments: classAssignments, submissions: subsMap, students: students};
   
@@ -860,7 +915,7 @@ async function loadGradesView(){
         cellContent = '<span style="color:#1976d2;">✓</span>';
         cellStyle = 'background:#e3f2fd;';
       }
-      html += '<td style="text-align:center;'+cellStyle+'" onclick="openGradeModal(\''+st.id+'\',\''+a.id+'\',\''+escHtml(st.name)+'\',\''+escHtml(a.title)+'\')">'+cellContent+'</td>';
+      html += '<td style="text-align:center;'+cellStyle+'">'+cellContent+'</td>';
     });
     var studentAvg = studentCount > 0 ? (studentSum / studentCount).toFixed(1) : '-';
     var avgColor = studentAvg !== '-' ? (parseFloat(studentAvg) >= 80 ? '#2e7d32' : parseFloat(studentAvg) >= 60 ? '#f57c00' : '#c62828') : '#888';
@@ -869,36 +924,6 @@ async function loadGradesView(){
   });
   
   html += '</tbody></table></div>';
-  
-  // פירוט לפי תלמיד (אקורדיון)
-  html += '<div style="margin-top:30px;"><h3 style="font-size:1rem;font-weight:700;margin-bottom:15px;">📋 פירוט לפי תלמיד</h3>';
-  students.forEach(function(st){
-    var studentSubs = [];
-    classAssignments.forEach(function(a){
-      var subKey = sanKey(st.id)+'_'+a.id;
-      var sub = subsMap[subKey];
-      studentSubs.push({assignment: a, submission: sub});
-    });
-    var submitted = studentSubs.filter(function(x){return x.submission;}).length;
-    var graded = studentSubs.filter(function(x){return x.submission && x.submission.grade !== undefined;}).length;
-    
-    html += '<details style="background:white;border:1px solid #eee;border-radius:10px;margin-bottom:8px;">';
-    html += '<summary style="padding:12px 16px;cursor:pointer;font-weight:600;display:flex;justify-content:space-between;align-items:center;">'+escHtml(st.name)+' <span style="font-size:.8rem;color:#888;font-weight:400;">'+submitted+'/'+classAssignments.length+' הגישו | '+graded+' הוערכו</span></summary>';
-    html += '<div style="padding:12px 16px;border-top:1px solid #eee;">';
-    studentSubs.forEach(function(x){
-      var a = x.assignment, sub = x.submission;
-      var statusIcon = !sub ? '⏳' : (sub.grade !== undefined ? '✅' : '📝');
-      var gradeText = sub && sub.grade !== undefined ? '<span style="font-weight:700;color:#2e7d32;">'+sub.grade+'</span>' : '<span style="color:#888;">טרם הוערך</span>';
-      var feedbackText = sub && sub.feedback ? '<div style="font-size:.8rem;color:#666;margin-top:4px;">💬 '+escHtml(sub.feedback)+'</div>' : '';
-      html += '<div style="padding:8px 0;border-bottom:1px solid #f5f5f5;display:flex;justify-content:space-between;align-items:flex-start;">';
-      html += '<div><span style="margin-left:8px;">'+statusIcon+'</span>'+escHtml(a.title)+feedbackText+'</div>';
-      html += '<div>'+gradeText+'</div>';
-      html += '</div>';
-    });
-    html += '</div></details>';
-  });
-  html += '</div>';
-  
   document.getElementById('gradesContent').innerHTML = html;
 }
 
