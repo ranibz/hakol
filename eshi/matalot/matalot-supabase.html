@@ -6,7 +6,7 @@
 <title>מערכת מטלות</title>
 <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@300;400;500;700;900&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
-<!-- Supabase Version 3.5 - 17/04/2026 -->
+<!-- Supabase Version 3.6 - 17/04/2026 -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
 :root{--primary:#5c6bc0;--primary-dark:#3949ab;--success:#00b894;--danger:#e74c3c;--warn:#f39c12;--bg:#f0f2ff;--card:#fff;--text:#2d3436;--muted:#888;}
@@ -134,7 +134,7 @@ body{font-family:"Rubik",sans-serif;background:var(--bg);color:var(--text);min-h
   <div class="logo-box"><span class="material-icons-round">assignment</span></div>
   <h1>מערכת מטלות</h1>
   <p>הגשת עבודות דיגיטלית</p>
-  <div class="credit">פיתוח מערכת מטלות • רני בן זאב • v3.5</div>
+  <div class="credit">פיתוח מערכת מטלות • רני בן זאב • v3.6</div>
 </div>
 <div class="role-cards">
   <button class="role-card rc-student active" onclick="switchRole('student')"><span class="rc-emoji">🎓</span><span class="rc-label">תלמיד</span></button>
@@ -744,15 +744,28 @@ async function openSubmissionsModal(aid){
   if(!asgns.length)return;
   var a=asgns[0];
   var extensions=a.extensions||{};
+  var specificStudents=a.specific_students||null;
   var targetClasses=(a.classes||"").split(",").map(function(x){return x.trim();});
   var allStudents=await sbFetch("students");
-  var students=allStudents.filter(function(s){return targetClasses.some(function(cl){return normalizeClass(cl)===normalizeClass(s.class);});});
+  var students=allStudents.filter(function(s){
+    var classMatch=targetClasses.some(function(cl){return normalizeClass(cl)===normalizeClass(s.class);});
+    if(!classMatch) return false;
+    // אם יש תלמידים ספציפיים, סנן רק אותם
+    if(specificStudents && specificStudents.length > 0){
+      return specificStudents.includes(s.id);
+    }
+    return true;
+  });
   var allSubs=await sbFetch("submissions","?assignment_id=eq."+aid);
   var subs={};allSubs.forEach(function(s){subs[s.id]=s;});
   document.getElementById("modalTitle").textContent="הגשות: "+a.title;
+  var specificBadge = specificStudents && specificStudents.length > 0 ? ' <span style="background:#fef3c7;color:#92400e;padding:3px 8px;border-radius:6px;font-size:.75rem;">👤 '+specificStudents.length+' תלמידים ספציפיים</span>' : '';
+  document.getElementById("modalTitle").innerHTML="הגשות: "+escHtml(a.title)+specificBadge;
   var submitted=0,html="";
   allSubs.sort(function(a,b){return(a.submitted_at||0)-(b.submitted_at||0);});
   allSubs.forEach(function(sub){
+    // אם יש תלמידים ספציפיים, הצג רק הגשות שלהם
+    if(specificStudents && specificStudents.length > 0 && !specificStudents.includes(sub.student_id)) return;
     submitted++;
     var displayName=escHtml(sub.student_name||sub.student_id||sub.id);
     var displayClass=escHtml(sub.student_class||"");
