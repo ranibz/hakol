@@ -284,8 +284,8 @@
     <div id="toast" class="toast"></div>
 
 <script>
-const SURL = 'https://xskbltxewgnxvckdtovd.supabase.co';
-const SKEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhza2JsdHhld2dueHZja2R0b3ZkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzYwODU4ODYsImV4cCI6MjA1MTY2MTg4Nn0.LpH1H0yDWGMnrLPKuLNYwxVX3fCsSuRBbVjlYHNpb9M';
+const SURL = 'https://skfriefqnoxfzmamcokd.supabase.co';
+const SKEY = 'sb_publishable_Qx7EDPbdyYE9iv7uMQBKhQ_Aeojd_Q0';
 
 let allStudents = {};
 
@@ -492,11 +492,49 @@ function toast(msg, type) {
     setTimeout(() => t.className = 'toast', 3000);
 }
 
-// רענון אוטומטי כל 30 שניות
-setInterval(loadData, 30000);
+// Realtime subscription לעדכונים מיידיים
+function setupRealtime() {
+    // שחרורים
+    const releasesChannel = new WebSocket(`wss://skfriefqnoxfzmamcokd.supabase.co/realtime/v1/websocket?apikey=${SKEY}&vsn=1.0.0`);
+    
+    releasesChannel.onopen = () => {
+        releasesChannel.send(JSON.stringify({
+            topic: 'realtime:public:student_releases',
+            event: 'phx_join',
+            payload: { config: { broadcast: { self: true }, presence: { key: '' } } },
+            ref: '1'
+        }));
+        
+        releasesChannel.send(JSON.stringify({
+            topic: 'realtime:public:guests',
+            event: 'phx_join',
+            payload: { config: { broadcast: { self: true }, presence: { key: '' } } },
+            ref: '2'
+        }));
+    };
+    
+    releasesChannel.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        if (data.event === 'INSERT' || data.event === 'UPDATE' || data.event === 'DELETE' ||
+            data.event === 'postgres_changes') {
+            console.log('Realtime update:', data);
+            loadData();
+        }
+    };
+    
+    releasesChannel.onerror = (e) => console.error('Realtime error:', e);
+    releasesChannel.onclose = () => {
+        console.log('Realtime closed, reconnecting...');
+        setTimeout(setupRealtime, 3000);
+    };
+}
+
+// רענון אוטומטי כל 10 שניות (גיבוי)
+setInterval(loadData, 10000);
 
 // טעינה ראשונית
 loadData();
+// setupRealtime(); // בינתיים polling עובד יותר אמין
 </script>
 </body>
 </html>
