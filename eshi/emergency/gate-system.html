@@ -626,9 +626,9 @@
                     <div class="num" id="statTodayReleases" style="color:var(--primary);">0</div>
                     <div class="label">שחרורים היום</div>
                 </div>
-                <div class="stat-box">
+                <div class="stat-box" style="cursor:pointer;" onclick="openGuestsModal()">
                     <div class="num" id="statTodayGuests" style="color:var(--warning);">0</div>
-                    <div class="label">אורחים היום</div>
+                    <div class="label">אורחים היום 👆</div>
                 </div>
             </div>
             
@@ -646,6 +646,17 @@
             
             <h3 style="margin: 30px 0 15px; opacity:0.7;">⏳ בקשות ממתינות לשחרור:</h3>
             <div id="activityLog"></div>
+        </div>
+        
+        <!-- מודל אורחים -->
+        <div id="guestsModal" class="modal">
+            <div class="modal-content" style="max-width:600px;max-height:80vh;">
+                <div class="modal-header">
+                    <h3>🛂 אורחים היום</h3>
+                    <button class="modal-close" onclick="closeGuestsModal()">✕</button>
+                </div>
+                <div style="padding:15px;overflow-y:auto;max-height:60vh;" id="guestsModalList"></div>
+            </div>
         </div>
         
         <!-- מודל היסטוריה -->
@@ -937,11 +948,12 @@ async function loadGateScreen() {
         } else {
             guestList.innerHTML = guestsPending.map(g => {
                 const expectedTime = g.expected_time || '';
+                const guestName = g.guest_name || g.name || 'לא ידוע';
                 return `
                     <div class="release-item" style="margin-bottom:10px;">
                         <div class="top">
                             <div>
-                                <h4>${g.guest_name} ${g.is_armed ? '🔫' : ''}</h4>
+                                <h4>${guestName} ${g.is_armed ? '🔫' : ''}</h4>
                                 <div class="class">${g.purpose || ''} ${expectedTime ? '| ' + expectedTime : ''}</div>
                             </div>
                         </div>
@@ -949,7 +961,7 @@ async function loadGateScreen() {
                             <strong>מארח:</strong> ${g.host_name || '-'}
                             ${g.is_armed ? '<br><strong>רשיון נשק:</strong> ' + (g.weapon_license || '-') : ''}
                         </div>
-                        <button class="btn-action approve" onclick="approveGuestEntry('${g.id}', '${g.guest_name}')" style="width:100%;margin-top:8px;">✓ נכנס לביה"ס</button>
+                        <button class="btn-action approve" onclick="approveGuestEntry('${g.id}', '${guestName.replace(/'/g, "\\'")}')" style="width:100%;margin-top:8px;">✓ נכנס לביה"ס</button>
                     </div>
                 `;
             }).join('');
@@ -1554,6 +1566,93 @@ async function loadHistoryByDate() {
     } catch (e) {
         console.error(e);
         resultsDiv.innerHTML = '<p style="text-align:center;color:var(--danger);">שגיאה בטעינה</p>';
+    }
+}
+
+// ========== מודל אורחים ==========
+function openGuestsModal() {
+    document.getElementById('guestsModal').classList.add('active');
+    loadGuestsModal();
+}
+
+function closeGuestsModal() {
+    document.getElementById('guestsModal').classList.remove('active');
+}
+
+async function loadGuestsModal() {
+    const listDiv = document.getElementById('guestsModalList');
+    listDiv.innerHTML = '<p style="text-align:center;opacity:0.5;">טוען...</p>';
+    
+    try {
+        const today = new Date().toISOString().split('T')[0];
+        const guests = await api(`guests?order=id.desc`);
+        
+        const pending = (guests || []).filter(g => g.status === 'pending');
+        const inside = (guests || []).filter(g => g.status === 'inside');
+        const exited = (guests || []).filter(g => g.status === 'exited' && g.entered_at && g.entered_at.startsWith(today));
+        
+        let html = '';
+        
+        // ממתינים
+        if (pending.length > 0) {
+            html += `<h4 style="margin:0 0 12px;color:var(--warning);">⏳ ממתינים (${pending.length})</h4>`;
+            pending.forEach(g => {
+                const guestName = g.guest_name || g.name || 'לא ידוע';
+                html += `
+                    <div style="background:var(--bg);border-radius:10px;padding:12px;margin-bottom:10px;border-right:4px solid var(--warning);">
+                        <div style="font-weight:700;margin-bottom:5px;">${guestName} ${g.is_armed ? '🔫' : ''}</div>
+                        <div style="font-size:0.85rem;opacity:0.7;">
+                            🎯 ${g.purpose || '-'} | 👤 מארח: ${g.host_name || '-'}
+                        </div>
+                    </div>
+                `;
+            });
+        }
+        
+        // בפנים
+        if (inside.length > 0) {
+            html += `<h4 style="margin:20px 0 12px;color:var(--cyan);">🏢 בפנים (${inside.length})</h4>`;
+            inside.forEach(g => {
+                const guestName = g.guest_name || g.name || 'לא ידוע';
+                const enterTime = new Date(g.entered_at).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+                html += `
+                    <div style="background:var(--bg);border-radius:10px;padding:12px;margin-bottom:10px;border-right:4px solid var(--cyan);">
+                        <div style="font-weight:700;margin-bottom:5px;">${guestName} ${g.is_armed ? '🔫' : ''}</div>
+                        <div style="font-size:0.85rem;opacity:0.7;">
+                            ⏰ נכנס ${enterTime} | 🎯 ${g.purpose || '-'} | 👤 ${g.host_name || '-'}
+                        </div>
+                    </div>
+                `;
+            });
+        }
+        
+        // יצאו היום
+        if (exited.length > 0) {
+            html += `<h4 style="margin:20px 0 12px;color:var(--success);">✅ יצאו היום (${exited.length})</h4>`;
+            exited.forEach(g => {
+                const guestName = g.guest_name || g.name || 'לא ידוע';
+                const enterTime = new Date(g.entered_at).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+                const exitTime = g.exited_at ? new Date(g.exited_at).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' }) : '-';
+                html += `
+                    <div style="background:var(--bg);border-radius:10px;padding:12px;margin-bottom:10px;border-right:4px solid var(--success);opacity:0.7;">
+                        <div style="font-weight:700;margin-bottom:5px;">${guestName}</div>
+                        <div style="font-size:0.85rem;opacity:0.7;">
+                            ⏰ ${enterTime} - ${exitTime} | 🎯 ${g.purpose || '-'}
+                        </div>
+                    </div>
+                `;
+            });
+        }
+        
+        if (!html) {
+            html = '<div style="text-align:center;padding:30px;opacity:0.5;"><div style="font-size:40px;margin-bottom:10px;">🛂</div><p>אין אורחים היום</p></div>';
+        }
+        
+        listDiv.innerHTML = html;
+        
+    } catch (e) {
+        console.error(e);
+        listDiv.innerHTML = '<p style="text-align:center;color:var(--danger);">שגיאה בטעינה</p>';
     }
 }
 
