@@ -234,11 +234,105 @@
         
         @keyframes spin { to { transform: rotate(360deg); } }
         .refresh-btn.loading .material-icons-round { animation: spin 1s linear infinite; }
+        
+        /* מסך מפוצל */
+        .split-view {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 20px;
+        }
+        @media (max-width: 768px) {
+            .split-view { grid-template-columns: 1fr; }
+        }
+        .split-panel {
+            background: var(--card);
+            border-radius: 16px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+        }
+        .panel-header {
+            padding: 14px 18px;
+            font-weight: 700;
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .panel-header .badge {
+            background: rgba(255,255,255,0.25);
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+        }
+        .panel-body {
+            padding: 15px;
+            max-height: 60vh;
+            overflow-y: auto;
+        }
+        
+        /* שם אורח בודד */
+        .guest-name-item {
+            background: var(--bg);
+            border-radius: 10px;
+            padding: 12px 15px;
+            margin-bottom: 8px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: 0.2s;
+        }
+        .guest-name-item:hover { background: #334155; }
+        .guest-name-item.pending { border-right: 4px solid var(--warning); }
+        .guest-name-item.inside { border-right: 4px solid var(--cyan); }
+        .guest-name-item h4 { font-size: 1rem; margin: 0; }
+        .guest-name-item .status { font-size: 0.75rem; opacity: 0.7; }
+        .guest-name-item .arrow { transition: 0.2s; }
+        .guest-name-item.open .arrow { transform: rotate(180deg); }
+        
+        /* פרטי אורח מורחבים */
+        .guest-details-expanded {
+            background: var(--bg);
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: -3px;
+            margin-bottom: 10px;
+            border: 1px solid var(--border);
+            display: none;
+        }
+        .guest-details-expanded.show { display: block; }
+        .guest-detail-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 6px 0;
+            font-size: 0.85rem;
+            opacity: 0.8;
+        }
+        .guest-actions-row {
+            display: flex;
+            gap: 10px;
+            margin-top: 12px;
+        }
+        .guest-actions-row button {
+            flex: 1;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+        .btn-enter { background: var(--success); color: white; }
+        .btn-exit { background: var(--danger); color: white; }
     </style>
 </head>
 <body>
     <div class="header">
-        <span class="version">v7</span>
+        <span class="version">v8</span>
         <h1>🛡️ מסך שומר</h1>
         <p>בית חינוך גליל מערבי</p>
     </div>
@@ -259,21 +353,23 @@
             </div>
         </div>
         
-        <div class="tabs">
-            <button class="tab-btn active" onclick="switchTab('releases')">
-                🚶 שחרורים <span class="badge" id="badgeReleases">0</span>
-            </button>
-            <button class="tab-btn" onclick="switchTab('guests')">
-                🛂 אורחים <span class="badge" id="badgeGuests">0</span>
-            </button>
-        </div>
-        
-        <div id="tab-releases" class="tab-content active">
-            <div id="releasesList"></div>
-        </div>
-        
-        <div id="tab-guests" class="tab-content">
-            <div id="guestsList"></div>
+        <!-- מסך מפוצל -->
+        <div class="split-view">
+            <!-- צד ימין - שחרורים -->
+            <div class="split-panel">
+                <div class="panel-header" style="background:var(--success);">
+                    🚶 שחרורים <span class="badge" id="badgeReleases">0</span>
+                </div>
+                <div class="panel-body" id="releasesList"></div>
+            </div>
+            
+            <!-- צד שמאל - אורחים -->
+            <div class="split-panel">
+                <div class="panel-header" style="background:var(--warning);">
+                    🛂 אורחים <span class="badge" id="badgeGuests">0</span>
+                </div>
+                <div class="panel-body" id="guestsList"></div>
+            </div>
         </div>
     </div>
     
@@ -390,27 +486,29 @@ function renderGuests(pending, inside) {
     const list = document.getElementById('guestsList');
     
     if (pending.length === 0 && inside.length === 0) {
-        list.innerHTML = '<div class="empty-state"><div class="icon">🛂</div><p>אין אורחים</p></div>';
+        list.innerHTML = '<div class="empty-state" style="padding:30px;"><div class="icon" style="font-size:40px;">🛂</div><p style="font-size:0.9rem;">אין אורחים</p></div>';
         return;
     }
     
     let html = '';
     
     // אורחים ממתינים
-    pending.forEach(g => {
+    pending.forEach((g, i) => {
         html += `
-            <div class="guest-card pending">
-                <div class="guest-top">
-                    <h3>⏳ ${g.guest_name}</h3>
-                    <div class="guest-details">
-                        <div class="guest-detail">📞 ${g.phone || '-'}</div>
-                        <div class="guest-detail">🎯 ${g.purpose || '-'}</div>
-                        <div class="guest-detail">👤 מארח: ${g.host_name || '-'}</div>
-                        <div class="guest-detail">${g.is_armed ? '🔫 חמוש' : ''}</div>
-                    </div>
+            <div class="guest-name-item pending" onclick="toggleGuest('pending-${i}')">
+                <div>
+                    <h4>⏳ ${g.guest_name}</h4>
+                    <span class="status">ממתין לכניסה</span>
                 </div>
-                <div class="guest-actions">
-                    <button class="btn-guest btn-enter" onclick="guestEnter('${g.id}', '${g.guest_name}')">
+                <span class="material-icons-round arrow">expand_more</span>
+            </div>
+            <div class="guest-details-expanded" id="pending-${i}">
+                <div class="guest-detail-row"><span>📞 טלפון:</span><span>${g.phone || '-'}</span></div>
+                <div class="guest-detail-row"><span>🎯 מטרה:</span><span>${g.purpose || '-'}</span></div>
+                <div class="guest-detail-row"><span>👤 מארח:</span><span>${g.host_name || '-'}</span></div>
+                ${g.is_armed ? `<div class="guest-detail-row"><span>🔫 נשק:</span><span>רשיון ${g.weapon_license || '-'}</span></div>` : ''}
+                <div class="guest-actions-row">
+                    <button class="btn-enter" onclick="guestEnter('${g.id}', '${g.guest_name}')">
                         <span class="material-icons-round">login</span> כניסה
                     </button>
                 </div>
@@ -419,21 +517,23 @@ function renderGuests(pending, inside) {
     });
     
     // אורחים בפנים
-    inside.forEach(g => {
+    inside.forEach((g, i) => {
         const enterTime = new Date(g.entered_at).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
         html += `
-            <div class="guest-card inside">
-                <div class="guest-top">
-                    <h3>🏢 ${g.guest_name}</h3>
-                    <div class="guest-details">
-                        <div class="guest-detail">⏰ נכנס ב-${enterTime}</div>
-                        <div class="guest-detail">🎯 ${g.purpose || '-'}</div>
-                        <div class="guest-detail">👤 מארח: ${g.host_name || '-'}</div>
-                        <div class="guest-detail">${g.is_armed ? '🔫 חמוש' : ''}</div>
-                    </div>
+            <div class="guest-name-item inside" onclick="toggleGuest('inside-${i}')">
+                <div>
+                    <h4>🏢 ${g.guest_name}</h4>
+                    <span class="status">בפנים מ-${enterTime}</span>
                 </div>
-                <div class="guest-actions">
-                    <button class="btn-guest btn-exit" onclick="guestExit('${g.id}', '${g.guest_name}')">
+                <span class="material-icons-round arrow">expand_more</span>
+            </div>
+            <div class="guest-details-expanded" id="inside-${i}">
+                <div class="guest-detail-row"><span>⏰ נכנס:</span><span>${enterTime}</span></div>
+                <div class="guest-detail-row"><span>🎯 מטרה:</span><span>${g.purpose || '-'}</span></div>
+                <div class="guest-detail-row"><span>👤 מארח:</span><span>${g.host_name || '-'}</span></div>
+                ${g.is_armed ? `<div class="guest-detail-row"><span>🔫 נשק:</span><span>רשיון ${g.weapon_license || '-'}</span></div>` : ''}
+                <div class="guest-actions-row">
+                    <button class="btn-exit" onclick="guestExit('${g.id}', '${g.guest_name}')">
                         <span class="material-icons-round">logout</span> יציאה
                     </button>
                 </div>
@@ -442,6 +542,13 @@ function renderGuests(pending, inside) {
     });
     
     list.innerHTML = html;
+}
+
+function toggleGuest(id) {
+    const details = document.getElementById(id);
+    const item = details.previousElementSibling;
+    details.classList.toggle('show');
+    item.classList.toggle('open');
 }
 
 async function completeRelease(id, name) {
@@ -529,8 +636,8 @@ function setupRealtime() {
     };
 }
 
-// רענון אוטומטי כל 10 שניות (גיבוי)
-setInterval(loadData, 10000);
+// רענון אוטומטי כל 5 שניות
+setInterval(loadData, 5000);
 
 // טעינה ראשונית
 loadData();
