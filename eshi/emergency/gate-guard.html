@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>מסך שומר - בית חינוך גליל מערבי</title>
+    <!-- VERSION 7 - GUARD ONLY -->
+    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0f172a;
+            --card: #1e293b;
+            --border: #334155;
+            --primary: #3b82f6;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            --purple: #8b5cf6;
+            --cyan: #06b6d4;
+        }
+        * { box-sizing: border-box; font-family: 'Rubik', sans-serif; margin: 0; padding: 0; }
+        body { background: var(--bg); color: #f1f5f9; min-height: 100vh; }
+        
+        .header {
+            background: linear-gradient(135deg, var(--success) 0%, #059669 100%);
+            padding: 20px;
+            text-align: center;
+            border-bottom: 3px solid #047857;
+        }
+        .header h1 { font-size: 1.5rem; font-weight: 900; margin-bottom: 3px; }
+        .header p { opacity: 0.85; font-size: 0.9rem; }
+        .version { position: absolute; top: 15px; left: 15px; font-size: 0.75rem; opacity: 0.4; }
+        
+        .container { padding: 20px 15px; max-width: 800px; margin: 0 auto; }
+        
+        /* סטטיסטיקות */
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-bottom: 25px;
+        }
+        .stat-box {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 18px 12px;
+            text-align: center;
+        }
+        .stat-box .num { font-size: 2rem; font-weight: 900; }
+        .stat-box .label { font-size: 0.75rem; opacity: 0.6; margin-top: 5px; }
+        
+        /* טאבים */
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .tab-btn {
+            flex: 1;
+            padding: 14px;
+            background: var(--card);
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            color: #f1f5f9;
+            font-weight: 700;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        .tab-btn.active { border-color: var(--success); background: rgba(16, 185, 129, 0.15); }
+        .tab-btn .badge {
+            background: var(--danger);
+            color: white;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 0.8rem;
+        }
+        
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        
+        /* כרטיס שחרור */
+        .release-card {
+            background: var(--card);
+            border: 2px solid var(--border);
+            border-radius: 16px;
+            margin-bottom: 15px;
+            overflow: hidden;
+            transition: 0.2s;
+        }
+        .release-card.urgent { border-color: var(--warning); }
+        
+        .release-top {
+            padding: 18px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+        .release-info h3 { font-size: 1.2rem; margin-bottom: 6px; }
+        .release-info .class { 
+            display: inline-block;
+            background: rgba(255,255,255,0.1);
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            margin-bottom: 8px;
+        }
+        .release-info .reason {
+            font-size: 0.9rem;
+            opacity: 0.7;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .release-time {
+            text-align: left;
+            font-size: 0.85rem;
+            opacity: 0.6;
+        }
+        .release-time .time { font-size: 1.1rem; font-weight: 700; opacity: 1; }
+        
+        .release-action {
+            padding: 0 18px 18px;
+        }
+        .btn-release {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(135deg, var(--success) 0%, #059669 100%);
+            border: none;
+            border-radius: 12px;
+            color: white;
+            font-size: 1.1rem;
+            font-weight: 700;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            transition: 0.2s;
+        }
+        .btn-release:hover { transform: scale(1.02); }
+        .btn-release:active { transform: scale(0.98); }
+        
+        /* כרטיס אורח */
+        .guest-card {
+            background: var(--card);
+            border: 2px solid var(--border);
+            border-radius: 16px;
+            margin-bottom: 15px;
+            overflow: hidden;
+        }
+        .guest-card.pending { border-color: var(--warning); }
+        .guest-card.inside { border-color: var(--cyan); }
+        
+        .guest-top {
+            padding: 18px;
+        }
+        .guest-info h3 { font-size: 1.1rem; margin-bottom: 8px; }
+        .guest-details {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            font-size: 0.85rem;
+            opacity: 0.7;
+        }
+        .guest-detail { display: flex; align-items: center; gap: 6px; }
+        
+        .guest-actions {
+            padding: 0 18px 18px;
+            display: flex;
+            gap: 10px;
+        }
+        .btn-guest {
+            flex: 1;
+            padding: 14px;
+            border: none;
+            border-radius: 10px;
+            font-weight: 700;
+            font-size: 0.95rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        .btn-enter { background: var(--success); color: white; }
+        .btn-exit { background: var(--danger); color: white; }
+        
+        /* ריק */
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            opacity: 0.5;
+        }
+        .empty-state .icon { font-size: 70px; margin-bottom: 15px; }
+        .empty-state p { font-size: 1.1rem; }
+        
+        /* טוסט */
+        .toast {
+            position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+            padding: 14px 28px; border-radius: 12px;
+            color: white; font-weight: 700;
+            z-index: 999; opacity: 0; transition: 0.3s;
+        }
+        .toast.show { opacity: 1; }
+        .toast.success { background: var(--success); }
+        .toast.error { background: var(--danger); }
+        
+        /* רענון */
+        .refresh-btn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 56px;
+            height: 56px;
+            background: var(--primary);
+            border: none;
+            border-radius: 50%;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .refresh-btn:active { transform: scale(0.95); }
+        
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .refresh-btn.loading .material-icons-round { animation: spin 1s linear infinite; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <span class="version">v7</span>
+        <h1>🛡️ מסך שומר</h1>
+        <p>בית חינוך גליל מערבי</p>
+    </div>
+
+    <div class="container">
+        <div class="stats-row">
+            <div class="stat-box">
+                <div class="num" id="statPending" style="color:var(--warning);">0</div>
+                <div class="label">ממתינים</div>
+            </div>
+            <div class="stat-box">
+                <div class="num" id="statReleased" style="color:var(--success);">0</div>
+                <div class="label">שוחררו</div>
+            </div>
+            <div class="stat-box">
+                <div class="num" id="statGuests" style="color:var(--cyan);">0</div>
+                <div class="label">אורחים בפנים</div>
+            </div>
+        </div>
+        
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('releases')">
+                🚶 שחרורים <span class="badge" id="badgeReleases">0</span>
+            </button>
+            <button class="tab-btn" onclick="switchTab('guests')">
+                🛂 אורחים <span class="badge" id="badgeGuests">0</span>
+            </button>
+        </div>
+        
+        <div id="tab-releases" class="tab-content active">
+            <div id="releasesList"></div>
+        </div>
+        
+        <div id="tab-guests" class="tab-content">
+            <div id="guestsList"></div>
+        </div>
+    </div>
+    
+    <button class="refresh-btn" onclick="refresh()">
+        <span class="material-icons-round">refresh</span>
+    </button>
+    
+    <div id="toast" class="toast"></div>
+
+<script>
+const SURL = 'https://xskbltxewgnxvckdtovd.supabase.co';
+const SKEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhza2JsdHhld2dueHZja2R0b3ZkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzYwODU4ODYsImV4cCI6MjA1MTY2MTg4Nn0.LpH1H0yDWGMnrLPKuLNYwxVX3fCsSuRBbVjlYHNpb9M';
+
+let allStudents = {};
+
+async function api(path, opts = {}) {
+    const r = await fetch(`${SURL}/rest/v1/${path}`, {
+        method: opts.method || 'GET',
+        body: opts.body,
+        headers: { 
+            'apikey': SKEY, 
+            'Authorization': 'Bearer ' + SKEY, 
+            'Content-Type': 'application/json',
+            'Prefer': opts.prefer || ''
+        }
+    });
+    if (!r.ok) throw new Error(await r.text());
+    const t = await r.text();
+    return t ? JSON.parse(t) : null;
+}
+
+function switchTab(tab) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    document.querySelector(`[onclick="switchTab('${tab}')"]`).classList.add('active');
+    document.getElementById('tab-' + tab).classList.add('active');
+}
+
+async function loadData() {
+    try {
+        // טעינת תלמידים
+        if (Object.keys(allStudents).length === 0) {
+            const students = await api('students?order=name');
+            (students || []).forEach(s => { allStudents[s.id] = s; });
+        }
+        
+        const today = new Date().toISOString().split('T')[0];
+        
+        // שחרורים
+        const releases = await api(`student_releases?released_at=gte.${today}T00:00:00&order=released_at.desc`);
+        const pending = (releases || []).filter(r => r.status === 'pending');
+        const released = (releases || []).filter(r => r.status === 'released');
+        
+        document.getElementById('statPending').textContent = pending.length;
+        document.getElementById('statReleased').textContent = released.length;
+        document.getElementById('badgeReleases').textContent = pending.length;
+        
+        renderReleases(pending);
+        
+        // אורחים
+        const guests = await api(`guests?order=id.desc`);
+        const guestsPending = (guests || []).filter(g => g.status === 'pending');
+        const guestsInside = (guests || []).filter(g => g.status === 'inside');
+        
+        document.getElementById('statGuests').textContent = guestsInside.length;
+        document.getElementById('badgeGuests').textContent = guestsPending.length + guestsInside.length;
+        
+        renderGuests(guestsPending, guestsInside);
+        
+    } catch (e) { 
+        console.error(e);
+        toast('שגיאה בטעינה', 'error');
+    }
+}
+
+function renderReleases(pending) {
+    const list = document.getElementById('releasesList');
+    
+    if (pending.length === 0) {
+        list.innerHTML = '<div class="empty-state"><div class="icon">✅</div><p>אין בקשות שחרור ממתינות</p></div>';
+        return;
+    }
+    
+    list.innerHTML = pending.map(r => {
+        const student = allStudents[r.student_id] || { name: 'לא ידוע', class: '' };
+        const time = new Date(r.released_at).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+        const reasonIcon = r.release_reason === 'רפואי' ? '🏥' : r.release_reason === 'אישי' ? '👤' : '👨‍👩‍👧';
+        
+        return `
+            <div class="release-card">
+                <div class="release-top">
+                    <div class="release-info">
+                        <h3>${student.name}</h3>
+                        <span class="class">${student.class || ''}</span>
+                        <div class="reason">${reasonIcon} ${r.release_reason}</div>
+                    </div>
+                    <div class="release-time">
+                        <div class="time">${time}</div>
+                        <div>בקשה נשלחה</div>
+                    </div>
+                </div>
+                <div class="release-action">
+                    <button class="btn-release" onclick="completeRelease('${r.id}', '${student.name}')">
+                        <span class="material-icons-round">check_circle</span>
+                        אשר יציאה
+                    </button>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+function renderGuests(pending, inside) {
+    const list = document.getElementById('guestsList');
+    
+    if (pending.length === 0 && inside.length === 0) {
+        list.innerHTML = '<div class="empty-state"><div class="icon">🛂</div><p>אין אורחים</p></div>';
+        return;
+    }
+    
+    let html = '';
+    
+    // אורחים ממתינים
+    pending.forEach(g => {
+        html += `
+            <div class="guest-card pending">
+                <div class="guest-top">
+                    <h3>⏳ ${g.guest_name}</h3>
+                    <div class="guest-details">
+                        <div class="guest-detail">📞 ${g.phone || '-'}</div>
+                        <div class="guest-detail">🎯 ${g.purpose || '-'}</div>
+                        <div class="guest-detail">👤 מארח: ${g.host_name || '-'}</div>
+                        <div class="guest-detail">${g.is_armed ? '🔫 חמוש' : ''}</div>
+                    </div>
+                </div>
+                <div class="guest-actions">
+                    <button class="btn-guest btn-enter" onclick="guestEnter('${g.id}', '${g.guest_name}')">
+                        <span class="material-icons-round">login</span> כניסה
+                    </button>
+                </div>
+            </div>
+        `;
+    });
+    
+    // אורחים בפנים
+    inside.forEach(g => {
+        const enterTime = new Date(g.entered_at).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+        html += `
+            <div class="guest-card inside">
+                <div class="guest-top">
+                    <h3>🏢 ${g.guest_name}</h3>
+                    <div class="guest-details">
+                        <div class="guest-detail">⏰ נכנס ב-${enterTime}</div>
+                        <div class="guest-detail">🎯 ${g.purpose || '-'}</div>
+                        <div class="guest-detail">👤 מארח: ${g.host_name || '-'}</div>
+                        <div class="guest-detail">${g.is_armed ? '🔫 חמוש' : ''}</div>
+                    </div>
+                </div>
+                <div class="guest-actions">
+                    <button class="btn-guest btn-exit" onclick="guestExit('${g.id}', '${g.guest_name}')">
+                        <span class="material-icons-round">logout</span> יציאה
+                    </button>
+                </div>
+            </div>
+        `;
+    });
+    
+    list.innerHTML = html;
+}
+
+async function completeRelease(id, name) {
+    try {
+        await api(`student_releases?id=eq.${id}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ status: 'released' })
+        });
+        toast(`${name} שוחרר/ה!`, 'success');
+        loadData();
+    } catch (e) { toast('שגיאה', 'error'); }
+}
+
+async function guestEnter(id, name) {
+    try {
+        await api(`guests?id=eq.${id}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ status: 'inside', entered_at: new Date().toISOString() })
+        });
+        toast(`${name} נכנס/ה!`, 'success');
+        loadData();
+    } catch (e) { toast('שגיאה', 'error'); }
+}
+
+async function guestExit(id, name) {
+    try {
+        await api(`guests?id=eq.${id}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ status: 'exited', exited_at: new Date().toISOString() })
+        });
+        toast(`${name} יצא/ה!`, 'success');
+        loadData();
+    } catch (e) { toast('שגיאה', 'error'); }
+}
+
+function refresh() {
+    const btn = document.querySelector('.refresh-btn');
+    btn.classList.add('loading');
+    loadData().finally(() => {
+        setTimeout(() => btn.classList.remove('loading'), 500);
+    });
+}
+
+function toast(msg, type) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = 'toast show ' + (type || '');
+    setTimeout(() => t.className = 'toast', 3000);
+}
+
+// רענון אוטומטי כל 30 שניות
+setInterval(loadData, 30000);
+
+// טעינה ראשונית
+loadData();
+</script>
+</body>
+</html>
