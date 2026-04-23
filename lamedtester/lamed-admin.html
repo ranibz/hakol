@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>מחוון למ"ד - ניהול</title>
+    <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        :root {
+            --bg-dark: #0f0f1a;
+            --bg-card: #1a1a2e;
+            --bg-input: #252540;
+            --border: #3a3a5c;
+            --text: #e8e8f0;
+            --text-dim: #8888a0;
+            --accent: #fd79a8;
+            --accent-light: #fab1c4;
+            --success: #00b894;
+            --warning: #fdcb6e;
+            --danger: #e17055;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+        body {
+            font-family: 'Heebo', sans-serif;
+            background: var(--bg-dark);
+            color: var(--text);
+            min-height: 100vh;
+            line-height: 1.6;
+        }
+
+        .header {
+            background: linear-gradient(135deg, var(--accent) 0%, #e84393 100%);
+            padding: 25px 20px;
+            text-align: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 4px 20px rgba(253, 121, 168, 0.4);
+        }
+
+        .header h1 { font-size: 1.8rem; font-weight: 900; margin-bottom: 5px; }
+        .header p { opacity: 0.9; font-size: 0.95rem; }
+
+        .header-user {
+            margin-top: 10px;
+            font-size: 0.9rem;
+            opacity: 0.85;
+        }
+
+        .btn-logout {
+            background: rgba(255,255,255,0.2);
+            border: none;
+            padding: 6px 16px;
+            border-radius: 20px;
+            color: white;
+            font-family: inherit;
+            font-size: 0.85rem;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+
+        .container { max-width: 800px; margin: 0 auto; padding: 20px; }
+
+        .screen { display: none; }
+        .screen.active { display: block; animation: fadeIn 0.3s ease; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .login-box {
+            background: var(--bg-card);
+            border-radius: 24px;
+            padding: 40px 30px;
+            max-width: 400px;
+            margin: 60px auto;
+            border: 1px solid var(--border);
+            text-align: center;
+        }
+
+        .login-box h2 { font-size: 1.5rem; margin-bottom: 30px; color: var(--accent-light); }
+        .login-box .icon { font-size: 4rem; margin-bottom: 20px; }
+
+        .form-group { margin-bottom: 20px; text-align: right; }
+        .form-group label { display: block; font-size: 0.9rem; color: var(--text-dim); margin-bottom: 8px; }
+
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%;
+            background: var(--bg-input);
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            padding: 14px 16px;
+            color: var(--text);
+            font-size: 1rem;
+            font-family: inherit;
+            transition: all 0.2s;
+        }
+
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 4px rgba(253, 121, 168, 0.2);
+        }
+
+        .btn {
+            padding: 16px 32px;
+            border: none;
+            border-radius: 14px;
+            font-family: inherit;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            transition: all 0.2s;
+            width: 100%;
+        }
+
+        .btn-primary { background: var(--accent); color: white; }
+        .btn-success { background: var(--success); color: white; }
+        .btn-secondary { background: var(--bg-input); color: var(--text); border: 2px solid var(--border); }
+
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.3); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+        .card {
+            background: var(--bg-card);
+            border-radius: 20px;
+            padding: 25px;
+            margin-bottom: 20px;
+            border: 1px solid var(--border);
+        }
+
+        .card h2 {
+            font-size: 1.2rem;
+            color: var(--accent-light);
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .upload-area {
+            border: 3px dashed var(--border);
+            border-radius: 16px;
+            padding: 40px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .upload-area:hover {
+            border-color: var(--accent);
+            background: rgba(253, 121, 168, 0.1);
+        }
+
+        .upload-area .icon { font-size: 3rem; color: var(--accent); margin-bottom: 15px; }
+        .upload-area input { display: none; }
+
+        .examiner-item {
+            background: var(--bg-input);
+            border-radius: 14px;
+            padding: 18px;
+            margin-bottom: 12px;
+            border: 2px solid var(--border);
+        }
+
+        .examiner-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .examiner-info h3 { font-size: 1.1rem; margin-bottom: 4px; }
+        .examiner-info p { font-size: 0.85rem; color: var(--text-dim); }
+
+        .examiner-stats {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+
+        .stat { text-align: center; }
+        .stat .num { font-size: 1.3rem; font-weight: 900; }
+        .stat .label { font-size: 0.75rem; color: var(--text-dim); }
+
+        .link-box {
+            background: var(--bg-dark);
+            border: 2px solid var(--success);
+            border-radius: 12px;
+            padding: 12px;
+            margin-top: 12px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .link-box input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: var(--text);
+            font-size: 0.85rem;
+            padding: 0;
+        }
+
+        .link-box input:focus { outline: none; box-shadow: none; }
+
+        .link-box button {
+            background: var(--success);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-family: inherit;
+            font-weight: 700;
+            cursor: pointer;
+            font-size: 0.85rem;
+        }
+
+        .toast {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: var(--success);
+            color: white;
+            padding: 16px 30px;
+            border-radius: 14px;
+            font-weight: 700;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+            z-index: 1000;
+            opacity: 0;
+            transition: all 0.3s;
+        }
+
+        .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+        .toast.error { background: var(--danger); }
+
+        .students-preview {
+            background: var(--bg-input);
+            border-radius: 12px;
+            padding: 15px;
+            margin-top: 15px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .students-preview .student-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid var(--border);
+            font-size: 0.9rem;
+        }
+
+        .students-preview .student-row:last-child { border-bottom: none; }
+
+        .delete-btn {
+            background: var(--danger);
+            color: white;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+
+        @media (max-width: 600px) {
+            .header h1 { font-size: 1.5rem; }
+            .examiner-header { flex-direction: column; gap: 10px; text-align: center; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <h1>👨‍💼 מחוון למ"ד - ניהול</h1>
+    <p>יצירת בוחנים וניהול הערכות</p>
+    <div class="header-user" id="headerUser" style="display:none;">
+        <button class="btn-logout" onclick="logout()">התנתק</button>
+        <span>מנהל מערכת</span>
+    </div>
+</div>
+
+<div class="container">
+
+    <!-- מסך התחברות -->
+    <div class="screen active" id="screen-login">
+        <div class="login-box">
+            <div class="icon">🔐</div>
+            <h2>כניסת מנהל</h2>
+            <div class="form-group">
+                <label>סיסמת מנהל</label>
+                <input type="password" id="adminPassword" placeholder="הזן סיסמה">
+            </div>
+            <button class="btn btn-primary" onclick="login()">
+                <span class="material-icons-round">login</span>
+                כניסה
+            </button>
+        </div>
+    </div>
+
+    <!-- מסך ניהול -->
+    <div class="screen" id="screen-admin">
+        <!-- יצירת בוחן חדש -->
+        <div class="card">
+            <h2><span class="material-icons-round">person_add</span> יצירת בוחן חדש</h2>
+            <div class="form-group">
+                <label>שם הבוחן</label>
+                <input type="text" id="newExaminerName" placeholder="שם מלא">
+            </div>
+            <div class="form-group">
+                <label>בית ספר</label>
+                <input type="text" id="newExaminerSchool" placeholder="שם בית הספר בו הוא בוחן">
+            </div>
+            <div class="form-group">
+                <label>העלאת רשימת תלמידים (אקסל)</label>
+                <div class="upload-area" onclick="document.getElementById('fileInput').click()">
+                    <div class="icon">📄</div>
+                    <p><strong>לחץ להעלאת קובץ</strong></p>
+                    <p style="font-size:0.85rem;color:var(--text-dim);">
+                        עמודות: שם התלמיד, ת.ז., נושא, קישור
+                    </p>
+                    <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" onchange="handleFileUpload(event)">
+                </div>
+            </div>
+            
+            <div id="studentsPreview" style="display:none;">
+                <p style="color:var(--success);font-weight:700;margin-bottom:10px;">
+                    <span class="material-icons-round" style="vertical-align:middle;">check_circle</span>
+                    נטענו <span id="uploadedCount">0</span> תלמידים
+                </p>
+                <div class="students-preview" id="studentsList"></div>
+            </div>
+            
+            <button class="btn btn-primary" onclick="createExaminer()" style="margin-top:20px;">
+                <span class="material-icons-round">send</span>
+                צור בוחן וקבל קישור
+            </button>
+        </div>
+
+        <!-- רשימת בוחנים -->
+        <div class="card">
+            <h2><span class="material-icons-round">people</span> בוחנים קיימים</h2>
+            <div id="examinersList"></div>
+        </div>
+    </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ========== Config ==========
+const SUPABASE_URL = 'https://htstxtqkliwrsgwtpdbp.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_t5jY7g3tLRyM3bNII4dNUA_-E6g41WH';
+const ADMIN_PASSWORD = 'Galil2025!';
+const EXAMINER_PAGE = 'lamed-examiner.html'; // שם קובץ הבוחן
+
+// ========== Supabase ==========
+async function supabase(path, options = {}) {
+    const url = `${SUPABASE_URL}/rest/v1/${path}`;
+    const response = await fetch(url, {
+        ...options,
+        headers: {
+            'apikey': SUPABASE_KEY,
+            'Authorization': `Bearer ${SUPABASE_KEY}`,
+            'Content-Type': 'application/json',
+            'Prefer': options.prefer || 'return=representation',
+            ...options.headers
+        }
+    });
+    if (!response.ok) throw new Error(await response.text());
+    const text = await response.text();
+    return text ? JSON.parse(text) : null;
+}
+
+// ========== State ==========
+let pendingStudents = [];
+
+// ========== Utils ==========
+function showScreen(id) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById(`screen-${id}`).classList.add('active');
+}
+
+function toast(msg, type = 'success') {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = 'toast show ' + type;
+    setTimeout(() => t.className = 'toast', 3000);
+}
+
+// ========== Login ==========
+function login() {
+    const pass = document.getElementById('adminPassword').value;
+    if (pass !== ADMIN_PASSWORD) {
+        toast('סיסמה שגויה', 'error');
+        return;
+    }
+    document.getElementById('headerUser').style.display = 'block';
+    showScreen('admin');
+    loadExaminersList();
+}
+
+function logout() {
+    document.getElementById('headerUser').style.display = 'none';
+    document.getElementById('adminPassword').value = '';
+    showScreen('login');
+}
+
+// ========== File Upload ==========
+function handleFileUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        try {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+            const jsonData = XLSX.utils.sheet_to_json(firstSheet);
+            
+            // Find link column
+            const headers = XLSX.utils.sheet_to_json(firstSheet, { header: 1 })[0] || [];
+            let linkColIndex = -1;
+            headers.forEach((h, i) => {
+                const header = String(h).trim();
+                if (header.includes('קישור') || header.includes('לינק') || header.includes('תיק')) {
+                    linkColIndex = i;
+                }
+            });
+            
+            // Extract hyperlinks
+            const hyperlinks = {};
+            Object.keys(firstSheet).forEach(cellRef => {
+                if (cellRef[0] !== '!') {
+                    const cell = firstSheet[cellRef];
+                    if (cell && cell.l && cell.l.Target) {
+                        hyperlinks[cellRef] = cell.l.Target;
+                    }
+                }
+            });
+
+            pendingStudents = jsonData.map((row, index) => {
+                const rowNum = index + 2;
+                const name = row['שם התלמיד'] || row['שם התלמיד/ה'] || row['שם'] || '';
+                const id = row['תז'] || row['ת.ז.'] || row['תעודת זהות'] || '';
+                const topic = row['נושא הפרויקט'] || row['נושא'] || '';
+                let link = row['קישור לעבודה'] || row['קישור'] || row['קישור לתיק הדיגיטלי'] || '';
+                
+                if (linkColIndex >= 0) {
+                    const colLetter = String.fromCharCode(65 + linkColIndex);
+                    const cellRef = colLetter + rowNum;
+                    if (hyperlinks[cellRef]) link = hyperlinks[cellRef];
+                }
+                
+                if (link && !link.startsWith('http')) link = '';
+
+                return {
+                    name: String(name).trim(),
+                    id_number: String(id).replace(/\.0$/, '').trim(),
+                    topic: String(topic).trim(),
+                    link: String(link).trim()
+                };
+            }).filter(s => s.name);
+
+            // Show preview
+            document.getElementById('studentsPreview').style.display = 'block';
+            document.getElementById('uploadedCount').textContent = pendingStudents.length;
+            
+            document.getElementById('studentsList').innerHTML = pendingStudents.map(s => `
+                <div class="student-row">
+                    <span>${s.name}</span>
+                    <span style="color:var(--text-dim);">${s.topic || 'ללא נושא'}</span>
+                </div>
+            `).join('');
+            
+            toast(`נטענו ${pendingStudents.length} תלמידים`);
+        } catch (err) {
+            console.error(err);
+            toast('שגיאה בקריאת הקובץ', 'error');
+        }
+    };
+    reader.readAsArrayBuffer(file);
+}
+
+// ========== Create Examiner ==========
+async function createExaminer() {
+    const name = document.getElementById('newExaminerName').value.trim();
+    const school = document.getElementById('newExaminerSchool').value.trim();
+    
+    if (!name || !school) {
+        toast('נא למלא שם ובית ספר', 'error');
+        return;
+    }
+    
+    if (pendingStudents.length === 0) {
+        toast('נא להעלות קובץ תלמידים', 'error');
+        return;
+    }
+    
+    try {
+        // Create examiner
+        const newExaminers = await supabase('examiners', {
+            method: 'POST',
+            body: JSON.stringify({ name, school, password: '1234', password_changed: false })
+        });
+        const examiner = newExaminers[0];
+        
+        // Create students
+        const studentsToInsert = pendingStudents.map(s => ({
+            examiner_id: examiner.id,
+            ...s,
+            scores: {},
+            notes: {},
+            general_notes: '',
+            total_score: 0,
+            completed: false
+        }));
+        
+        await supabase('students', {
+            method: 'POST',
+            body: JSON.stringify(studentsToInsert)
+        });
+        
+        // Reset form
+        document.getElementById('newExaminerName').value = '';
+        document.getElementById('newExaminerSchool').value = '';
+        document.getElementById('studentsPreview').style.display = 'none';
+        document.getElementById('fileInput').value = '';
+        pendingStudents = [];
+        
+        toast('הבוחן נוצר בהצלחה!');
+        loadExaminersList();
+    } catch (err) {
+        console.error(err);
+        toast('שגיאה ביצירת הבוחן', 'error');
+    }
+}
+
+// ========== Load Examiners ==========
+async function loadExaminersList() {
+    try {
+        const examiners = await supabase('examiners?order=created_at.desc');
+        const list = document.getElementById('examinersList');
+        
+        if (!examiners || examiners.length === 0) {
+            list.innerHTML = '<p style="color:var(--text-dim);">אין בוחנים עדיין</p>';
+            return;
+        }
+        
+        // Get student counts
+        let html = '';
+        for (const ex of examiners) {
+            const students = await supabase(`students?examiner_id=eq.${ex.id}&select=id,completed`);
+            const total = students ? students.length : 0;
+            const completed = students ? students.filter(s => s.completed).length : 0;
+            
+            const link = `${window.location.href.replace('lamed-admin.html', EXAMINER_PAGE)}?examiner=${ex.id}`;
+            
+            html += `
+                <div class="examiner-item">
+                    <div class="examiner-header">
+                        <div class="examiner-info">
+                            <h3>${ex.name}</h3>
+                            <p>${ex.school}</p>
+                        </div>
+                        <div class="examiner-stats">
+                            <div class="stat">
+                                <div class="num" style="color:var(--accent-light);">${total}</div>
+                                <div class="label">תלמידים</div>
+                            </div>
+                            <div class="stat">
+                                <div class="num" style="color:var(--success);">${completed}</div>
+                                <div class="label">הושלמו</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="link-box">
+                        <input type="text" value="${link}" readonly id="link-${ex.id}">
+                        <button onclick="copyLink('${ex.id}')">העתק</button>
+                    </div>
+                </div>
+            `;
+        }
+        
+        list.innerHTML = html;
+    } catch (err) {
+        console.error(err);
+        toast('שגיאה בטעינת בוחנים', 'error');
+    }
+}
+
+function copyLink(id) {
+    const input = document.getElementById(`link-${id}`);
+    input.select();
+    document.execCommand('copy');
+    toast('הקישור הועתק!');
+}
+</script>
+
+</body>
+</html>
