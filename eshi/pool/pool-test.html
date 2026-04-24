@@ -1,0 +1,1140 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>בדיקת מי בריכה</title>
+    <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+    <style>
+        :root {
+            --bg-dark: #0a1628;
+            --bg-card: #1a2744;
+            --bg-input: #243352;
+            --border: #3a4a6c;
+            --text: #e8eef8;
+            --text-dim: #8899b0;
+            --accent: #00b4d8;
+            --accent-light: #90e0ef;
+            --success: #00b894;
+            --warning: #fdcb6e;
+            --danger: #e17055;
+            --info: #74b9ff;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+        body {
+            font-family: 'Heebo', sans-serif;
+            background: var(--bg-dark);
+            color: var(--text);
+            min-height: 100vh;
+            line-height: 1.6;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #0077b6 0%, #00b4d8 100%);
+            padding: 25px 20px;
+            text-align: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: 0 4px 20px rgba(0, 180, 216, 0.4);
+        }
+
+        .header h1 { font-size: 1.6rem; font-weight: 900; margin-bottom: 5px; }
+        .header p { opacity: 0.9; font-size: 0.9rem; }
+
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+
+        .screen { display: none; }
+        .screen.active { display: block; animation: fadeIn 0.3s ease; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .card {
+            background: var(--bg-card);
+            border-radius: 20px;
+            padding: 25px;
+            margin-bottom: 20px;
+            border: 1px solid var(--border);
+        }
+
+        .card h2 {
+            font-size: 1.2rem;
+            color: var(--accent-light);
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .card h2 .step {
+            background: var(--accent);
+            color: white;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+            font-weight: 900;
+        }
+
+        .btn {
+            padding: 16px 32px;
+            border: none;
+            border-radius: 14px;
+            font-family: inherit;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+            transition: all 0.2s;
+            width: 100%;
+        }
+
+        .btn-primary { background: var(--accent); color: white; }
+        .btn-success { background: var(--success); color: white; }
+        .btn-secondary { background: var(--bg-input); color: var(--text); border: 2px solid var(--border); }
+
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.3); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+
+        /* Camera Area */
+        .camera-area {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 4/3;
+            background: #000;
+            border-radius: 16px;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+
+        .camera-area video, .camera-area img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .camera-area canvas {
+            display: none;
+        }
+
+        .capture-btn {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            background: white;
+            border: 4px solid var(--accent);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.4);
+        }
+
+        .capture-btn .material-icons-round {
+            font-size: 32px;
+            color: var(--accent);
+        }
+
+        /* Reference Image */
+        .reference-preview {
+            width: 100%;
+            border-radius: 12px;
+            margin-bottom: 15px;
+        }
+
+        .reference-status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 15px;
+            background: rgba(0, 184, 148, 0.15);
+            border: 2px solid var(--success);
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+
+        .reference-status .material-icons-round {
+            color: var(--success);
+            font-size: 28px;
+        }
+
+        /* Results */
+        .result-item {
+            background: var(--bg-input);
+            border-radius: 14px;
+            padding: 18px;
+            margin-bottom: 12px;
+            border: 2px solid var(--border);
+        }
+
+        .result-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .result-name {
+            font-size: 1.1rem;
+            font-weight: 700;
+        }
+
+        .result-value {
+            font-size: 1.3rem;
+            font-weight: 900;
+            padding: 5px 15px;
+            border-radius: 20px;
+        }
+
+        .result-value.good { background: var(--success); color: white; }
+        .result-value.warning { background: var(--warning); color: #1a1a2e; }
+        .result-value.danger { background: var(--danger); color: white; }
+
+        .result-bar {
+            height: 8px;
+            background: var(--border);
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 8px;
+        }
+
+        .result-bar-fill {
+            height: 100%;
+            border-radius: 10px;
+            transition: width 0.5s ease;
+        }
+
+        .result-range {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.8rem;
+            color: var(--text-dim);
+        }
+
+        .result-status {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+        }
+
+        .result-status.good { background: rgba(0, 184, 148, 0.15); color: var(--success); }
+        .result-status.warning { background: rgba(253, 203, 110, 0.15); color: var(--warning); }
+        .result-status.danger { background: rgba(225, 112, 85, 0.15); color: var(--danger); }
+
+        /* Summary */
+        .summary-box {
+            padding: 25px;
+            border-radius: 16px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .summary-box.good {
+            background: linear-gradient(135deg, rgba(0, 184, 148, 0.2) 0%, rgba(0, 184, 148, 0.1) 100%);
+            border: 2px solid var(--success);
+        }
+
+        .summary-box.warning {
+            background: linear-gradient(135deg, rgba(253, 203, 110, 0.2) 0%, rgba(253, 203, 110, 0.1) 100%);
+            border: 2px solid var(--warning);
+        }
+
+        .summary-box.danger {
+            background: linear-gradient(135deg, rgba(225, 112, 85, 0.2) 0%, rgba(225, 112, 85, 0.1) 100%);
+            border: 2px solid var(--danger);
+        }
+
+        .summary-icon {
+            font-size: 4rem;
+            margin-bottom: 10px;
+        }
+
+        .summary-title {
+            font-size: 1.5rem;
+            font-weight: 900;
+            margin-bottom: 5px;
+        }
+
+        .summary-box.good .summary-title { color: var(--success); }
+        .summary-box.warning .summary-title { color: var(--warning); }
+        .summary-box.danger .summary-title { color: var(--danger); }
+
+        /* Recommendations */
+        .recommendation {
+            background: var(--bg-input);
+            border-radius: 14px;
+            padding: 18px;
+            margin-bottom: 12px;
+            border-right: 4px solid var(--accent);
+        }
+
+        .recommendation h4 {
+            font-size: 1rem;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .recommendation p {
+            font-size: 0.9rem;
+            color: var(--text-dim);
+            line-height: 1.6;
+        }
+
+        /* Loading */
+        .loading {
+            text-align: center;
+            padding: 40px;
+        }
+
+        .loading-spinner {
+            width: 60px;
+            height: 60px;
+            border: 4px solid var(--border);
+            border-top-color: var(--accent);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        /* Toast */
+        .toast {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%) translateY(100px);
+            background: var(--success);
+            color: white;
+            padding: 16px 30px;
+            border-radius: 14px;
+            font-weight: 700;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+            z-index: 1000;
+            opacity: 0;
+            transition: all 0.3s;
+        }
+
+        .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+        .toast.error { background: var(--danger); }
+
+        /* History */
+        .history-item {
+            background: var(--bg-input);
+            border-radius: 12px;
+            padding: 15px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+        }
+
+        .history-item:hover {
+            background: var(--bg-card);
+        }
+
+        .history-date {
+            font-size: 0.9rem;
+            color: var(--text-dim);
+        }
+
+        .history-status {
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 700;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .upload-options {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .upload-btn {
+            padding: 15px;
+            border: 2px dashed var(--border);
+            border-radius: 12px;
+            background: transparent;
+            color: var(--text);
+            font-family: inherit;
+            font-size: 0.9rem;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.2s;
+        }
+
+        .upload-btn:hover {
+            border-color: var(--accent);
+            background: rgba(0, 180, 216, 0.1);
+        }
+
+        .upload-btn .material-icons-round {
+            font-size: 2rem;
+            color: var(--accent);
+        }
+
+        @media (max-width: 400px) {
+            .header h1 { font-size: 1.4rem; }
+            .upload-options { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <h1>🏊 בדיקת מי בריכה</h1>
+    <p>ניתוח חכם של סטיקי בדיקה</p>
+</div>
+
+<div class="container">
+
+    <!-- מסך ראשי -->
+    <div class="screen active" id="screen-home">
+        <div class="card">
+            <h2><span class="step">1</span> סריקת טבלת הייחוס</h2>
+            <p style="color:var(--text-dim);margin-bottom:15px;">
+                צלם את הקופסה/טבלת הצבעים שעל אריזת הסטיקים
+            </p>
+            
+            <div id="referenceStatus" style="display:none;" class="reference-status">
+                <span class="material-icons-round">check_circle</span>
+                <div>
+                    <strong>טבלת ייחוס נסרקה</strong>
+                    <p style="font-size:0.85rem;color:var(--text-dim);margin:0;">מוכן לסריקת סטיקים</p>
+                </div>
+            </div>
+
+            <div class="upload-options">
+                <button class="upload-btn" onclick="document.getElementById('refCameraInput').click()">
+                    <span class="material-icons-round">photo_camera</span>
+                    צלם עכשיו
+                </button>
+                <button class="upload-btn" onclick="document.getElementById('refFileInput').click()">
+                    <span class="material-icons-round">photo_library</span>
+                    בחר מגלריה
+                </button>
+            </div>
+            <input type="file" id="refCameraInput" class="file-input" accept="image/*" capture="environment" onchange="handleFileSelect(event, 'reference')">
+            <input type="file" id="refFileInput" class="file-input" accept="image/*" onchange="handleFileSelect(event, 'reference')">
+        </div>
+
+        <div class="card">
+            <h2><span class="step">2</span> סריקת סטיק הבדיקה</h2>
+            <p style="color:var(--text-dim);margin-bottom:15px;">
+                טבול את הסטיק במים, המתן 15 שניות וצלם
+            </p>
+            
+            <div class="upload-options">
+                <button class="upload-btn" onclick="document.getElementById('stickCameraInput').click()" id="btnScanStick">
+                    <span class="material-icons-round">photo_camera</span>
+                    צלם סטיק
+                </button>
+                <button class="upload-btn" onclick="document.getElementById('stickFileInput').click()">
+                    <span class="material-icons-round">photo_library</span>
+                    בחר מגלריה
+                </button>
+            </div>
+            <input type="file" id="stickCameraInput" class="file-input" accept="image/*" capture="environment" onchange="handleFileSelect(event, 'stick')">
+            <input type="file" id="stickFileInput" class="file-input" accept="image/*" onchange="handleFileSelect(event, 'stick')">
+        </div>
+
+        <div class="card" id="historyCard" style="display:none;">
+            <h2><span class="material-icons-round">history</span> בדיקות אחרונות</h2>
+            <div id="historyList"></div>
+        </div>
+    </div>
+
+    <!-- מסך מצלמה -->
+    <div class="screen" id="screen-camera">
+        <div class="card">
+            <h2 id="cameraTitle">צילום</h2>
+            <div class="camera-area">
+                <video id="cameraVideo" autoplay playsinline></video>
+                <canvas id="cameraCanvas"></canvas>
+                <button class="capture-btn" onclick="capturePhoto()">
+                    <span class="material-icons-round">camera</span>
+                </button>
+            </div>
+            <button class="btn btn-secondary" onclick="stopCamera()">
+                <span class="material-icons-round">close</span>
+                ביטול
+            </button>
+        </div>
+    </div>
+
+    <!-- מסך טעינה -->
+    <div class="screen" id="screen-loading">
+        <div class="card">
+            <div class="loading">
+                <div class="loading-spinner"></div>
+                <h3>מנתח את התמונה...</h3>
+                <p style="color:var(--text-dim);">זיהוי צבעים והשוואה לטבלת הייחוס</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- מסך תוצאות -->
+    <div class="screen" id="screen-results">
+        <div id="summaryBox" class="summary-box good">
+            <div class="summary-icon">✅</div>
+            <div class="summary-title">המים תקינים</div>
+            <p style="color:var(--text-dim);">ניתן לשחות בבטחה</p>
+        </div>
+
+        <div class="card">
+            <h2><span class="material-icons-round">science</span> תוצאות מפורטות</h2>
+            <div id="resultsContainer"></div>
+        </div>
+
+        <div class="card" id="recommendationsCard" style="display:none;">
+            <h2><span class="material-icons-round">lightbulb</span> המלצות לטיפול</h2>
+            <div id="recommendationsContainer"></div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:15px;margin-top:20px;">
+            <button class="btn btn-secondary" onclick="showScreen('home')">
+                <span class="material-icons-round">arrow_forward</span>
+                בדיקה חדשה
+            </button>
+            <button class="btn btn-primary" onclick="shareResults()">
+                <span class="material-icons-round">share</span>
+                שתף תוצאות
+            </button>
+        </div>
+    </div>
+
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ========== State ==========
+let referenceImage = null;
+let stickImage = null;
+let currentCameraMode = null;
+let cameraStream = null;
+let testHistory = JSON.parse(localStorage.getItem('poolTestHistory') || '[]');
+
+// ========== Parameters Definition ==========
+const PARAMETERS = [
+    {
+        id: 'chlorine',
+        name: 'כלור חופשי',
+        unit: 'ppm',
+        min: 0,
+        max: 10,
+        idealMin: 1,
+        idealMax: 3,
+        dangerLow: 0.5,
+        dangerHigh: 5,
+        colors: [
+            { value: 0, color: [255, 255, 220] },      // צהוב בהיר
+            { value: 0.5, color: [255, 255, 180] },    // צהוב
+            { value: 1, color: [255, 240, 150] },      // צהוב-ירוק
+            { value: 2, color: [200, 255, 150] },      // ירוק בהיר
+            { value: 3, color: [150, 220, 100] },      // ירוק
+            { value: 5, color: [100, 180, 80] },       // ירוק כהה
+            { value: 10, color: [80, 150, 60] }        // ירוק כהה מאוד
+        ]
+    },
+    {
+        id: 'ph',
+        name: 'pH (חומציות)',
+        unit: '',
+        min: 6.2,
+        max: 8.4,
+        idealMin: 7.2,
+        idealMax: 7.6,
+        dangerLow: 6.8,
+        dangerHigh: 7.8,
+        colors: [
+            { value: 6.2, color: [255, 200, 50] },     // כתום
+            { value: 6.8, color: [255, 220, 100] },    // צהוב-כתום
+            { value: 7.2, color: [200, 220, 100] },    // צהוב-ירוק
+            { value: 7.4, color: [150, 200, 80] },     // ירוק
+            { value: 7.6, color: [100, 180, 100] },    // ירוק
+            { value: 7.8, color: [150, 100, 150] },    // סגול בהיר
+            { value: 8.4, color: [120, 80, 140] }      // סגול
+        ]
+    },
+    {
+        id: 'alkalinity',
+        name: 'אלקליניות',
+        unit: 'ppm',
+        min: 0,
+        max: 240,
+        idealMin: 80,
+        idealMax: 120,
+        dangerLow: 40,
+        dangerHigh: 180,
+        colors: [
+            { value: 0, color: [255, 255, 200] },
+            { value: 40, color: [200, 255, 180] },
+            { value: 80, color: [150, 220, 150] },
+            { value: 120, color: [100, 200, 120] },
+            { value: 180, color: [80, 180, 100] },
+            { value: 240, color: [60, 150, 80] }
+        ]
+    },
+    {
+        id: 'hardness',
+        name: 'קשיות מים',
+        unit: 'ppm',
+        min: 0,
+        max: 500,
+        idealMin: 200,
+        idealMax: 400,
+        dangerLow: 100,
+        dangerHigh: 450,
+        colors: [
+            { value: 0, color: [200, 220, 255] },
+            { value: 100, color: [180, 200, 240] },
+            { value: 200, color: [160, 180, 220] },
+            { value: 300, color: [140, 160, 200] },
+            { value: 400, color: [120, 140, 180] },
+            { value: 500, color: [100, 120, 160] }
+        ]
+    }
+];
+
+// ========== Utils ==========
+function showScreen(id) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById(`screen-${id}`).classList.add('active');
+}
+
+function toast(msg, type = 'success') {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = 'toast show ' + type;
+    setTimeout(() => t.className = 'toast', 3000);
+}
+
+// ========== Camera ==========
+async function startCamera(mode) {
+    currentCameraMode = mode;
+    
+    const title = mode === 'reference' ? 'צלם את טבלת הייחוס' : 'צלם את הסטיק';
+    document.getElementById('cameraTitle').textContent = title;
+    
+    showScreen('camera');
+    
+    try {
+        cameraStream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
+        });
+        document.getElementById('cameraVideo').srcObject = cameraStream;
+    } catch (err) {
+        console.error('Camera error:', err);
+        toast('לא ניתן לגשת למצלמה', 'error');
+        showScreen('home');
+    }
+}
+
+function stopCamera() {
+    if (cameraStream) {
+        cameraStream.getTracks().forEach(track => track.stop());
+        cameraStream = null;
+    }
+    showScreen('home');
+}
+
+function capturePhoto() {
+    const video = document.getElementById('cameraVideo');
+    const canvas = document.getElementById('cameraCanvas');
+    
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0);
+    
+    const imageData = canvas.toDataURL('image/jpeg', 0.9);
+    
+    stopCamera();
+    processImage(imageData, currentCameraMode);
+}
+
+function handleFileSelect(event, mode) {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        processImage(e.target.result, mode);
+    };
+    reader.readAsDataURL(file);
+}
+
+// ========== Image Processing ==========
+function processImage(imageData, mode) {
+    if (mode === 'reference') {
+        referenceImage = imageData;
+        document.getElementById('referenceStatus').style.display = 'flex';
+        toast('טבלת ייחוס נשמרה');
+        localStorage.setItem('poolReferenceImage', imageData);
+    } else {
+        stickImage = imageData;
+        analyzeStick();
+    }
+}
+
+async function analyzeStick() {
+    showScreen('loading');
+    
+    try {
+        // Use Claude AI to analyze the stick image
+        const results = await analyzeWithAI(stickImage, referenceImage);
+        
+        // Save to history
+        saveToHistory(results);
+        
+        // Display results
+        displayResults(results);
+    } catch (err) {
+        console.error('Analysis error:', err);
+        toast('שגיאה בניתוח התמונה', 'error');
+        showScreen('home');
+    }
+}
+
+async function analyzeWithAI(stickImageData, refImageData) {
+    const systemPrompt = `אתה מומחה לניתוח סטיקים לבדיקת מי בריכה.
+    
+המשתמש שולח לך תמונה של סטיק בדיקה לאחר שנטבל במים.
+
+עליך לזהות את הצבעים על הסטיק ולתת ערכים מספריים לפי הפרמטרים הבאים:
+
+1. **כלור חופשי (Free Chlorine)** - מודד את כמות הכלור הפעיל שמחטא את המים
+   - צהוב בהיר/חיוור = 0-0.5 ppm (נמוך מדי)
+   - צהוב = 0.5-1 ppm
+   - צהוב-ירקרק = 1-2 ppm (תקין)
+   - ירוק בהיר = 2-3 ppm (תקין)
+   - ירוק כהה = 3-5 ppm (גבוה)
+   - ירוק כהה מאוד = 5+ ppm (גבוה מדי!)
+   - טווח אידיאלי: 1-3 ppm
+
+2. **pH (חומציות)** - מודד כמה המים חומציים או בסיסיים
+   - כתום/צהוב כהה = 6.2-6.8 (חומצי מדי)
+   - צהוב = 6.8-7.0
+   - צהוב-ירוק = 7.0-7.2
+   - ירוק/צהוב-ירוק בהיר = 7.2-7.6 (תקין!)
+   - ירוק-כחלחל = 7.6-7.8
+   - סגול/ורוד = 7.8-8.4 (בסיסי מדי)
+   - טווח אידיאלי: 7.2-7.6
+
+3. **אלקליניות כוללת (Total Alkalinity)** - מייצב את ה-pH
+   - צהוב בהיר = 0-40 ppm
+   - ירוק בהיר = 40-80 ppm
+   - ירוק = 80-120 ppm (תקין)
+   - ירוק כהה = 120-180 ppm
+   - ירוק כהה מאוד = 180+ ppm
+   - טווח אידיאלי: 80-120 ppm
+
+4. **קשיות מים (Hardness)** - מודד סידן ומגנזיום
+   - כחול בהיר/סגול = 0-100 ppm (רך מדי)
+   - סגול = 100-200 ppm
+   - סגול-אדום = 200-400 ppm (תקין)
+   - אדום = 400+ ppm (קשה מדי)
+   - טווח אידיאלי: 200-400 ppm
+
+החזר תשובה אך ורק בפורמט JSON הבא (בלי שום טקסט נוסף):
+{
+  "chlorine": { "value": NUMBER, "color_detected": "תיאור הצבע שזיהית" },
+  "ph": { "value": NUMBER, "color_detected": "תיאור הצבע שזיהית" },
+  "alkalinity": { "value": NUMBER, "color_detected": "תיאור הצבע שזיהית" },
+  "hardness": { "value": NUMBER, "color_detected": "תיאור הצבע שזיהית" }
+}
+
+אם אתה לא יכול לזהות פרמטר מסוים, תן ערך null.
+התבסס על הצבעים שאתה רואה בתמונה בפועל!`;
+
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            model: 'claude-sonnet-4-20250514',
+            max_tokens: 1000,
+            messages: [
+                {
+                    role: 'user',
+                    content: [
+                        {
+                            type: 'image',
+                            source: {
+                                type: 'base64',
+                                media_type: 'image/jpeg',
+                                data: stickImageData.replace(/^data:image\/\w+;base64,/, '')
+                            }
+                        },
+                        {
+                            type: 'text',
+                            text: systemPrompt
+                        }
+                    ]
+                }
+            ]
+        })
+    });
+
+    if (!response.ok) {
+        throw new Error('AI API error');
+    }
+
+    const data = await response.json();
+    const aiResponse = data.content[0].text;
+    
+    // Parse JSON from response
+    let parsed;
+    try {
+        // Extract JSON from response (in case there's extra text)
+        const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+            parsed = JSON.parse(jsonMatch[0]);
+        } else {
+            throw new Error('No JSON found');
+        }
+    } catch (e) {
+        console.error('Parse error:', e, aiResponse);
+        throw new Error('Could not parse AI response');
+    }
+
+    // Convert to our results format
+    const results = [];
+    
+    if (parsed.chlorine && parsed.chlorine.value !== null) {
+        const param = PARAMETERS.find(p => p.id === 'chlorine');
+        results.push({
+            param: param,
+            value: parsed.chlorine.value,
+            colorDetected: parsed.chlorine.color_detected,
+            status: getValueStatus(param, parsed.chlorine.value)
+        });
+    }
+    
+    if (parsed.ph && parsed.ph.value !== null) {
+        const param = PARAMETERS.find(p => p.id === 'ph');
+        results.push({
+            param: param,
+            value: parsed.ph.value,
+            colorDetected: parsed.ph.color_detected,
+            status: getValueStatus(param, parsed.ph.value)
+        });
+    }
+    
+    if (parsed.alkalinity && parsed.alkalinity.value !== null) {
+        const param = PARAMETERS.find(p => p.id === 'alkalinity');
+        results.push({
+            param: param,
+            value: parsed.alkalinity.value,
+            colorDetected: parsed.alkalinity.color_detected,
+            status: getValueStatus(param, parsed.alkalinity.value)
+        });
+    }
+    
+    if (parsed.hardness && parsed.hardness.value !== null) {
+        const param = PARAMETERS.find(p => p.id === 'hardness');
+        results.push({
+            param: param,
+            value: parsed.hardness.value,
+            colorDetected: parsed.hardness.color_detected,
+            status: getValueStatus(param, parsed.hardness.value)
+        });
+    }
+
+    return results;
+}
+
+function getValueStatus(param, value) {
+    if (value >= param.idealMin && value <= param.idealMax) {
+        return 'good';
+    } else if (value < param.dangerLow || value > param.dangerHigh) {
+        return 'danger';
+    } else {
+        return 'warning';
+    }
+}
+
+// ========== Display Results ==========
+function displayResults(results) {
+    const container = document.getElementById('resultsContainer');
+    container.innerHTML = '';
+    
+    let overallStatus = 'good';
+    const recommendations = [];
+    
+    results.forEach(result => {
+        const param = result.param;
+        const value = result.value;
+        const status = result.status;
+        const colorDetected = result.colorDetected || '';
+        
+        if (status === 'danger') overallStatus = 'danger';
+        else if (status === 'warning' && overallStatus !== 'danger') overallStatus = 'warning';
+        
+        // Generate recommendations
+        if (status !== 'good') {
+            recommendations.push(getRecommendation(param, value, status));
+        }
+        
+        // Calculate bar position
+        const range = param.max - param.min;
+        const position = ((value - param.min) / range) * 100;
+        const idealStart = ((param.idealMin - param.min) / range) * 100;
+        const idealEnd = ((param.idealMax - param.min) / range) * 100;
+        
+        const barColor = status === 'good' ? 'var(--success)' : 
+                        status === 'warning' ? 'var(--warning)' : 'var(--danger)';
+        
+        const statusText = status === 'good' ? '✓ תקין' :
+                          status === 'warning' ? '⚠️ דורש תשומת לב' : '❌ דורש טיפול מיידי';
+        
+        container.innerHTML += `
+            <div class="result-item">
+                <div class="result-header">
+                    <span class="result-name">${param.name}</span>
+                    <span class="result-value ${status}">${value} ${param.unit}</span>
+                </div>
+                ${colorDetected ? `<p style="font-size:0.85rem;color:var(--accent-light);margin-bottom:10px;">🎨 צבע שזוהה: ${colorDetected}</p>` : ''}
+                <div class="result-bar">
+                    <div class="result-bar-fill" style="width:${position}%;background:${barColor};"></div>
+                </div>
+                <div class="result-range">
+                    <span>${param.min} ${param.unit}</span>
+                    <span style="color:var(--success);">טווח אידיאלי: ${param.idealMin}-${param.idealMax}</span>
+                    <span>${param.max} ${param.unit}</span>
+                </div>
+                <div class="result-status ${status}">${statusText}</div>
+            </div>
+        `;
+    });
+    
+    // Update summary
+    const summaryBox = document.getElementById('summaryBox');
+    summaryBox.className = `summary-box ${overallStatus}`;
+    
+    if (overallStatus === 'good') {
+        summaryBox.innerHTML = `
+            <div class="summary-icon">✅</div>
+            <div class="summary-title">המים תקינים!</div>
+            <p style="color:var(--text-dim);">כל הפרמטרים בטווח האידיאלי</p>
+        `;
+    } else if (overallStatus === 'warning') {
+        summaryBox.innerHTML = `
+            <div class="summary-icon">⚠️</div>
+            <div class="summary-title">דרוש תיקון קל</div>
+            <p style="color:var(--text-dim);">חלק מהפרמטרים דורשים איזון</p>
+        `;
+    } else {
+        summaryBox.innerHTML = `
+            <div class="summary-icon">🚫</div>
+            <div class="summary-title">אין לשחות!</div>
+            <p style="color:var(--text-dim);">נדרש טיפול לפני השימוש בבריכה</p>
+        `;
+    }
+    
+    // Display recommendations
+    const recContainer = document.getElementById('recommendationsContainer');
+    const recCard = document.getElementById('recommendationsCard');
+    
+    if (recommendations.length > 0) {
+        recCard.style.display = 'block';
+        recContainer.innerHTML = recommendations.map(rec => `
+            <div class="recommendation">
+                <h4><span class="material-icons-round" style="color:var(--accent);">${rec.icon}</span> ${rec.title}</h4>
+                <p>${rec.text}</p>
+            </div>
+        `).join('');
+    } else {
+        recCard.style.display = 'none';
+    }
+    
+    showScreen('results');
+}
+
+function getRecommendation(param, value, status) {
+    const isLow = value < param.idealMin;
+    
+    switch(param.id) {
+        case 'chlorine':
+            if (isLow) {
+                return {
+                    icon: 'add_circle',
+                    title: 'הוסף כלור',
+                    text: `רמת הכלור נמוכה (${value} ppm). הוסף טבליית כלור או כלור נוזלי. המתן שעה ובדוק שוב. טווח אידיאלי: 1-3 ppm.`
+                };
+            } else {
+                return {
+                    icon: 'remove_circle',
+                    title: 'כלור גבוה מדי',
+                    text: `רמת הכלור גבוהה (${value} ppm). אל תיכנס לבריכה! השאר את הכיסוי פתוח לאוורור, הפעל את המשאבה והמתן. מעל 5 ppm מסוכן.`
+                };
+            }
+        
+        case 'ph':
+            if (isLow) {
+                return {
+                    icon: 'arrow_upward',
+                    title: 'העלה את ה-pH',
+                    text: `המים חומציים מדי (pH ${value}). הוסף סודה לשתייה או pH Plus. מים חומציים גורמים לגירוי בעיניים ונזק לציוד.`
+                };
+            } else {
+                return {
+                    icon: 'arrow_downward',
+                    title: 'הורד את ה-pH',
+                    text: `המים בסיסיים מדי (pH ${value}). הוסף חומצת מלח (pH Minus). pH גבוה פוגע ביעילות הכלור.`
+                };
+            }
+        
+        case 'alkalinity':
+            if (isLow) {
+                return {
+                    icon: 'trending_up',
+                    title: 'העלה אלקליניות',
+                    text: `אלקליניות נמוכה (${value} ppm). הוסף סודיום ביקרבונט. אלקליניות נמוכה גורמת לתנודות ב-pH.`
+                };
+            } else {
+                return {
+                    icon: 'trending_down',
+                    title: 'הורד אלקליניות',
+                    text: `אלקליניות גבוהה (${value} ppm). הוסף חומצה בהדרגה. אלקליניות גבוהה גורמת למים עכורים.`
+                };
+            }
+        
+        case 'hardness':
+            if (isLow) {
+                return {
+                    icon: 'water_drop',
+                    title: 'מים רכים מדי',
+                    text: `קשיות נמוכה (${value} ppm). הוסף סידן כלוריד. מים רכים מדי עלולים לשחוק את משטחי הבריכה.`
+                };
+            } else {
+                return {
+                    icon: 'warning',
+                    title: 'מים קשים מדי',
+                    text: `קשיות גבוהה (${value} ppm). שקול להוסיף מי גשם או מים מרוככים. מים קשים גורמים לאבנית.`
+                };
+            }
+        
+        default:
+            return {
+                icon: 'info',
+                title: 'נדרש איזון',
+                text: `הערך ${value} ${param.unit} לא בטווח האידיאלי (${param.idealMin}-${param.idealMax}).`
+            };
+    }
+}
+
+// ========== History ==========
+function saveToHistory(results) {
+    const entry = {
+        date: new Date().toISOString(),
+        results: results.map(r => ({
+            param: r.param.id,
+            value: r.value,
+            status: r.status
+        }))
+    };
+    
+    testHistory.unshift(entry);
+    if (testHistory.length > 30) testHistory = testHistory.slice(0, 30);
+    
+    localStorage.setItem('poolTestHistory', JSON.stringify(testHistory));
+    updateHistoryDisplay();
+}
+
+function updateHistoryDisplay() {
+    const card = document.getElementById('historyCard');
+    const list = document.getElementById('historyList');
+    
+    if (testHistory.length === 0) {
+        card.style.display = 'none';
+        return;
+    }
+    
+    card.style.display = 'block';
+    
+    list.innerHTML = testHistory.slice(0, 5).map(entry => {
+        const date = new Date(entry.date);
+        const dateStr = date.toLocaleDateString('he-IL') + ' ' + date.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+        
+        const worstStatus = entry.results.reduce((worst, r) => {
+            if (r.status === 'danger') return 'danger';
+            if (r.status === 'warning' && worst !== 'danger') return 'warning';
+            return worst;
+        }, 'good');
+        
+        const statusText = worstStatus === 'good' ? '✓ תקין' :
+                          worstStatus === 'warning' ? '⚠️' : '❌';
+        const statusClass = worstStatus;
+        
+        return `
+            <div class="history-item">
+                <span class="history-date">${dateStr}</span>
+                <span class="history-status" style="background:var(--${statusClass === 'good' ? 'success' : statusClass === 'warning' ? 'warning' : 'danger'});color:${worstStatus === 'warning' ? '#1a1a2e' : 'white'};">${statusText}</span>
+            </div>
+        `;
+    }).join('');
+}
+
+function shareResults() {
+    const text = `בדיקת מי בריכה - ${new Date().toLocaleDateString('he-IL')}\n\n` +
+                 `📊 תוצאות:\n` +
+                 document.getElementById('resultsContainer').innerText;
+    
+    if (navigator.share) {
+        navigator.share({ title: 'תוצאות בדיקת מי בריכה', text: text });
+    } else {
+        navigator.clipboard.writeText(text);
+        toast('הועתק ללוח');
+    }
+}
+
+// ========== Init ==========
+(function init() {
+    // Load reference image if exists
+    const savedRef = localStorage.getItem('poolReferenceImage');
+    if (savedRef) {
+        referenceImage = savedRef;
+        document.getElementById('referenceStatus').style.display = 'flex';
+    }
+    
+    updateHistoryDisplay();
+})();
+</script>
+
+</body>
+</html>
