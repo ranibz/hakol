@@ -714,8 +714,12 @@ async function analyzeStick() {
     showScreen('loading');
     
     try {
-        // Use Claude AI to analyze the stick image
-        const results = await analyzeWithAI(stickImage, referenceImage);
+        // Use Cloudflare Worker to analyze the stick image
+        const results = await analyzeWithAI(stickImage);
+        
+        if (results.length === 0) {
+            throw new Error('No results');
+        }
         
         // Save to history
         saveToHistory(results);
@@ -724,112 +728,33 @@ async function analyzeStick() {
         displayResults(results);
     } catch (err) {
         console.error('Analysis error:', err);
-        toast('שגיאה בניתוח התמונה', 'error');
+        toast('שגיאה בניתוח התמונה: ' + err.message, 'error');
         showScreen('home');
     }
 }
 
-async function analyzeWithAI(stickImageData, refImageData) {
-    const systemPrompt = `אתה מומחה לניתוח סטיקים לבדיקת מי בריכה.
+async function analyzeWithAI(stickImageData) {
+    const WORKER_URL = 'https://pool-test-ai.ranbenzeev.workers.dev';
     
-המשתמש שולח לך תמונה של סטיק בדיקה לאחר שנטבל במים.
-
-עליך לזהות את הצבעים על הסטיק ולתת ערכים מספריים לפי הפרמטרים הבאים:
-
-1. **כלור חופשי (Free Chlorine)** - מודד את כמות הכלור הפעיל שמחטא את המים
-   - צהוב בהיר/חיוור = 0-0.5 ppm (נמוך מדי)
-   - צהוב = 0.5-1 ppm
-   - צהוב-ירקרק = 1-2 ppm (תקין)
-   - ירוק בהיר = 2-3 ppm (תקין)
-   - ירוק כהה = 3-5 ppm (גבוה)
-   - ירוק כהה מאוד = 5+ ppm (גבוה מדי!)
-   - טווח אידיאלי: 1-3 ppm
-
-2. **pH (חומציות)** - מודד כמה המים חומציים או בסיסיים
-   - כתום/צהוב כהה = 6.2-6.8 (חומצי מדי)
-   - צהוב = 6.8-7.0
-   - צהוב-ירוק = 7.0-7.2
-   - ירוק/צהוב-ירוק בהיר = 7.2-7.6 (תקין!)
-   - ירוק-כחלחל = 7.6-7.8
-   - סגול/ורוד = 7.8-8.4 (בסיסי מדי)
-   - טווח אידיאלי: 7.2-7.6
-
-3. **אלקליניות כוללת (Total Alkalinity)** - מייצב את ה-pH
-   - צהוב בהיר = 0-40 ppm
-   - ירוק בהיר = 40-80 ppm
-   - ירוק = 80-120 ppm (תקין)
-   - ירוק כהה = 120-180 ppm
-   - ירוק כהה מאוד = 180+ ppm
-   - טווח אידיאלי: 80-120 ppm
-
-4. **קשיות מים (Hardness)** - מודד סידן ומגנזיום
-   - כחול בהיר/סגול = 0-100 ppm (רך מדי)
-   - סגול = 100-200 ppm
-   - סגול-אדום = 200-400 ppm (תקין)
-   - אדום = 400+ ppm (קשה מדי)
-   - טווח אידיאלי: 200-400 ppm
-
-החזר תשובה אך ורק בפורמט JSON הבא (בלי שום טקסט נוסף):
-{
-  "chlorine": { "value": NUMBER, "color_detected": "תיאור הצבע שזיהית" },
-  "ph": { "value": NUMBER, "color_detected": "תיאור הצבע שזיהית" },
-  "alkalinity": { "value": NUMBER, "color_detected": "תיאור הצבע שזיהית" },
-  "hardness": { "value": NUMBER, "color_detected": "תיאור הצבע שזיהית" }
-}
-
-אם אתה לא יכול לזהות פרמטר מסוים, תן ערך null.
-התבסס על הצבעים שאתה רואה בתמונה בפועל!`;
-
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    const response = await fetch(WORKER_URL, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-            model: 'claude-sonnet-4-20250514',
-            max_tokens: 1000,
-            messages: [
-                {
-                    role: 'user',
-                    content: [
-                        {
-                            type: 'image',
-                            source: {
-                                type: 'base64',
-                                media_type: 'image/jpeg',
-                                data: stickImageData.replace(/^data:image\/\w+;base64,/, '')
-                            }
-                        },
-                        {
-                            type: 'text',
-                            text: systemPrompt
-                        }
-                    ]
-                }
-            ]
+            image: stickImageData
         })
     });
 
     if (!response.ok) {
-        throw new Error('AI API error');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'API error');
     }
 
-    const data = await response.json();
-    const aiResponse = data.content[0].text;
+    const parsed = await response.json();
     
-    // Parse JSON from response
-    let parsed;
-    try {
-        // Extract JSON from response (in case there's extra text)
-        const jsonMatch = aiResponse.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-            parsed = JSON.parse(jsonMatch[0]);
-        } else {
-            throw new Error('No JSON found');
-        }
-    } catch (e) {
-        console.error('Parse error:', e, aiResponse);
-        throw new Error('Could not parse AI response');
+    if (parsed.error) {
+        throw new Error(parsed.error);
     }
 
     // Convert to our results format
