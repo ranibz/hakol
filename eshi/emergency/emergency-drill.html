@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- גרסה: v49 | תאריך: 2026-04-27 | שינוי: הצגת תלמידים ששוחררו במסכי נוכחות יומית -->
 <html lang="he" dir="rtl">
 <head>
     <meta charset="UTF-8">
@@ -202,7 +203,7 @@
     <div class="header">
         <div style="text-align:center;">
             <h1>🚨 מערכת חירום - גליל מערבי</h1>
-            <span class="header-credit">פיתוח - רני בן זאב | v48</span>
+            <span class="header-credit">פיתוח - רני בן זאב | v49</span>
         </div>
         <div id="userInfo" style="display:none;">
             <button class="btn-logout" onclick="logout()">יציאה</button>
@@ -336,6 +337,7 @@
                 <div class="stat-box"><div class="stat-num" id="attSummaryTotal" style="color:var(--primary);">0</div><div>סה"כ</div></div>
                 <div class="stat-box"><div class="stat-num" id="attSummaryPresent" style="color:var(--success);">0</div><div>נוכחים</div></div>
                 <div class="stat-box"><div class="stat-num" id="attSummaryAbsent" style="color:var(--danger);">0</div><div>חסרים</div></div>
+                <div class="stat-box" style="background:#fef9e7;"><div class="stat-num" id="attSummaryReleased" style="color:#e67e22;">0</div><div>שוחררו</div></div>
             </div>
             
             <!-- כפתורי פעולה -->
@@ -722,6 +724,7 @@ let attendanceRole = null; // 'teacher' | 'subject_teacher' | 'summary'
 let attendanceStudyGroup = null;
 let attendanceStudyGroupStudents = {};
 let attendanceStudyGroupStatus = {};
+let attendanceStudyGroupReleased = {}; // student_id -> שעת שחרור (HH:MM)
 let dailyGroupMap = {}; // מיפוי תלמיד -> קבוצה בנוכחות יומית
 
 function enterAttendanceAs(role) {
@@ -812,11 +815,26 @@ async function enterAttendanceStudyGroup(groupName, groupCode) {
         
         attendanceStudyGroupStudents = {};
         attendanceStudyGroupStatus = {};
+        attendanceStudyGroupReleased = {};
         students.forEach(s => {
             attendanceStudyGroupStudents[s.student_id] = { name: s.student_name, id: s.student_id };
             // בדיקה אם התלמיד כבר סומן היום
             attendanceStudyGroupStatus[s.student_id] = dailyAttendance[s.student_id] === 'present' ? 'present' : null;
         });
+        
+        // טעינת שחרורים של היום
+        try {
+            const today = new Date().toISOString().split('T')[0];
+            const releases = await api(`student_releases?status=eq.released&released_at=gte.${today}T00:00:00&order=released_at.desc`);
+            (releases || []).forEach(r => {
+                if (attendanceStudyGroupStudents[r.student_id] && !attendanceStudyGroupReleased[r.student_id]) {
+                    const time = new Date(r.released_at);
+                    const hh = String(time.getHours()).padStart(2, '0');
+                    const mm = String(time.getMinutes()).padStart(2, '0');
+                    attendanceStudyGroupReleased[r.student_id] = `${hh}:${mm}`;
+                }
+            });
+        } catch (e) { console.error('שגיאה בטעינת שחרורים:', e); }
         
         document.getElementById('attendanceStudyGroupTitle').textContent = groupName;
         showScreen('screen-attendance-study-group');
@@ -833,6 +851,13 @@ function renderAttendanceStudyGroup() {
     const students = Object.entries(attendanceStudyGroupStudents).sort((a, b) => a[1].name.localeCompare(b[1].name, 'he'));
     
     list.innerHTML = students.map(([id, s]) => {
+        const releaseTime = attendanceStudyGroupReleased[id];
+        
+        // תלמיד ששוחרר - תצוגה מיוחדת ונעולה
+        if (releaseTime) {
+            return `<div class="student-tap left-school"><span>${s.name}</span><span style="font-size:0.85rem;font-weight:600;">🚪 שוחרר ב-${releaseTime}</span></div>`;
+        }
+        
         const status = attendanceStudyGroupStatus[id];
         let cls = 'student-tap not-marked';
         let content = s.name;
@@ -846,9 +871,10 @@ function renderAttendanceStudyGroup() {
     }).join('');
     
     const total = students.length;
+    const released = Object.keys(attendanceStudyGroupReleased).length;
     const marked = Object.values(attendanceStudyGroupStatus).filter(s => s === 'present').length;
     document.getElementById('btnFinishAttendanceStudyGroup').innerHTML = `
-        <span class="material-icons-round">check_circle</span> סיום נוכחות (${marked}/${total})
+        <span class="material-icons-round">check_circle</span> סיום נוכחות (${marked}/${total - released})
     `;
 }
 
@@ -895,15 +921,25 @@ async function finishAttendanceStudyGroup() {
     }
 }
 
-function renderAttendanceSummary() {
+async function renderAttendanceSummary() {
+    // טעינת שחרורים של היום
+    const today = new Date().toISOString().split('T')[0];
+    let releasedToday = new Set();
+    try {
+        const releases = await api(`student_releases?status=eq.released&released_at=gte.${today}T00:00:00`);
+        (releases || []).forEach(r => releasedToday.add(r.student_id));
+    } catch (e) { console.error('שגיאה בטעינת שחרורים:', e); }
+    
     // סטטיסטיקות
     const total = Object.keys(allStudents).length;
     const present = Object.values(dailyAttendance).filter(s => s === 'present').length;
-    const absent = total - present;
+    const released = releasedToday.size;
+    const absent = total - present - released;
     
     document.getElementById('attSummaryTotal').textContent = total;
     document.getElementById('attSummaryPresent').textContent = present;
-    document.getElementById('attSummaryAbsent').textContent = absent;
+    document.getElementById('attSummaryAbsent').textContent = Math.max(0, absent);
+    document.getElementById('attSummaryReleased').textContent = released;
     
     // רשימת כיתות מסודרת לפי חטיבות
     const list = document.getElementById('attendanceSummaryList');
@@ -1362,21 +1398,45 @@ function renderAttendanceLobby() {
     });
 }
 
-function renderAttendanceClass() {
+async function renderAttendanceClass() {
     showScreen('screen-attendance-class');
     document.getElementById('attendanceClassTitle').textContent = 'כיתה ' + activeClass;
     const list = document.getElementById('attendanceStudentList');
     list.innerHTML = '';
     
+    // טעינת שחרורים של היום
+    const today = new Date().toISOString().split('T')[0];
+    let releasedToday = {}; // student_id -> שעת שחרור (HH:MM)
+    try {
+        const releases = await api(`student_releases?status=eq.released&released_at=gte.${today}T00:00:00&order=released_at.desc`);
+        (releases || []).forEach(r => {
+            if (!releasedToday[r.student_id]) {
+                const time = new Date(r.released_at);
+                const hh = String(time.getHours()).padStart(2, '0');
+                const mm = String(time.getMinutes()).padStart(2, '0');
+                releasedToday[r.student_id] = `${hh}:${mm}`;
+            }
+        });
+    } catch (e) { console.error('שגיאה בטעינת שחרורים:', e); }
+    
     Object.entries(allStudents)
         .filter(([,s]) => s.class === activeClass)
         .sort((a,b) => a[1].name.localeCompare(b[1].name))
         .forEach(([id, student]) => {
+            const releaseTime = releasedToday[id];
             const isPresent = dailyAttendance[id] === 'present';
             const row = document.createElement('div');
-            row.className = 'student-tap' + (isPresent ? ' tapped' : ' not-marked');
-            row.innerHTML = `<span>${student.name}</span>`;
-            row.onclick = () => toggleDailyAttendance(id);
+            
+            if (releaseTime) {
+                // תלמיד ששוחרר - תצוגה מיוחדת ונעולה
+                row.className = 'student-tap left-school';
+                row.innerHTML = `<span>${student.name}</span><span style="font-size:0.85rem;font-weight:600;">🚪 שוחרר ב-${releaseTime}</span>`;
+                // אין onclick - התלמיד נעול
+            } else {
+                row.className = 'student-tap' + (isPresent ? ' tapped' : ' not-marked');
+                row.innerHTML = `<span>${student.name}</span>`;
+                row.onclick = () => toggleDailyAttendance(id);
+            }
             list.appendChild(row);
         });
 }
