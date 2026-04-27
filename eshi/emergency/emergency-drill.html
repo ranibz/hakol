@@ -426,42 +426,17 @@
                 <span class="event-badge" style="background:#9b59b6;">היום</span>
             </div>
             
-            <!-- שורה עליונה - סטטיסטיקות + חטיבות -->
-            <div class="summary-top-row">
-                <!-- סטטיסטיקות כלליות -->
-                <div class="summary-section compact">
-                    <h3>📊 סיכום כללי</h3>
-                    <div class="summary-stats mini">
-                        <div class="summary-stat"><div class="stat-num" id="summaryTotal">0</div><div>סה"כ</div></div>
-                        <div class="summary-stat present"><div class="stat-num" id="summaryPresent">0</div><div>נוכחים</div></div>
-                        <div class="summary-stat absent"><div class="stat-num" id="summaryAbsent">0</div><div>חסרים</div></div>
-                        <div class="summary-stat released"><div class="stat-num" id="summaryReleased">0</div><div>שוחררו</div></div>
-                    </div>
-                </div>
-                
-                <!-- לפי חטיבות -->
-                <div class="summary-section compact">
-                    <h3>🏫 לפי חטיבות</h3>
-                    <div id="summaryByLevel"></div>
+            <!-- Hero - סטטיסטיקה בולטת -->
+            <div class="summary-hero">
+                <div class="summary-hero-grid">
+                    <div class="hero-stat"><div class="num" id="summaryTotal">0</div><div class="label">סה"כ בבית ספר</div></div>
+                    <div class="hero-stat present"><div class="num" id="summaryPresent">0</div><div class="label">נוכחים</div></div>
+                    <div class="hero-stat absent"><div class="num" id="summaryAbsent">0</div><div class="label">חסרים</div></div>
+                    <div class="hero-stat released"><div class="num" id="summaryReleased">0</div><div class="label">שוחררו</div></div>
                 </div>
             </div>
             
-            <!-- שורה תחתונה - כיתות + ישובים -->
-            <div class="summary-bottom-row">
-                <!-- לפי כיתות -->
-                <div class="summary-section">
-                    <h3>📚 לפי כיתות</h3>
-                    <div id="summaryByClass" class="summary-grid"></div>
-                </div>
-                
-                <!-- לפי ישובים -->
-                <div class="summary-section">
-                    <h3>🏘️ לפי ישובים</h3>
-                    <div id="summaryByCity" class="summary-grid"></div>
-                </div>
-            </div>
-            
-            <!-- כפתורי פעולה -->
+            <!-- כפתורי פעולה למעלה -->
             <div class="summary-actions">
                 <button class="btn-action-big archive" onclick="archiveDailyAttendance()">
                     <span class="material-icons-round">event_available</span> סיום יום ושמירה בארכיון
@@ -471,10 +446,29 @@
                 </button>
             </div>
             
+            <h3 style="margin-bottom:15px;">מצב כיתות:</h3>
+            <div id="schoolSummaryList"></div>
+            
+            <!-- כפתור "לפי ישובים" - פותח modal -->
+            <div style="margin-top:20px;text-align:center;">
+                <button onclick="openCitiesModal()" style="padding:14px 28px;background:linear-gradient(135deg,#16a085,#1abc9c);color:white;border:none;border-radius:12px;font-weight:bold;font-size:1rem;cursor:pointer;display:inline-flex;align-items:center;gap:8px;box-shadow:0 4px 10px rgba(22,160,133,0.3);">
+                    <span class="material-icons-round">location_city</span> 🏘️ לפי ישובים
+                </button>
+            </div>
+            
+            <!-- Modal "לפי ישובים" -->
+            <div id="citiesModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9000;overflow-y:auto;padding:20px;" onclick="if(event.target===this)closeCitiesModal()">
+                <div style="background:white;border-radius:20px;max-width:700px;margin:0 auto;padding:24px;position:relative;">
+                    <button onclick="closeCitiesModal()" style="position:absolute;top:14px;left:14px;background:#fee2e2;color:#ef4444;border:none;width:30px;height:30px;border-radius:50%;font-size:16px;cursor:pointer;font-weight:900;">✕</button>
+                    <h2 style="font-size:1.3rem;color:#16a085;margin-bottom:16px;">🏘️ נוכחות לפי ישובים</h2>
+                    <div id="summaryByCity" class="summary-grid"></div>
+                </div>
+            </div>
+            
             <!-- היסטוריה -->
             <div id="historySection" style="display:none;">
-                <div class="summary-section" style="margin-top:15px;">
-                    <h3>📅 היסטוריית אירועים</h3>
+                <div style="background:white;border-radius:12px;padding:20px;box-shadow:0 2px 10px rgba(0,0,0,0.1);margin-top:20px;">
+                    <h3 style="margin-bottom:15px;">📅 היסטוריית אירועים</h3>
                     <div id="historyList"></div>
                 </div>
             </div>
@@ -2372,90 +2366,53 @@ function handleGroupsUpload(event) {
 // ========== סיכום בית ספרי ==========
 async function loadSummaryData() {
     try {
-        // טעינת נתונים
-        const students = await api('students');
-        const today = new Date().toISOString().split('T')[0];
-        const attendance = await api(`daily_attendance?order=student_id`);
-        const releases = await api(`student_releases?status=eq.released&released_at=gte.${today}T00:00:00`);
+        // קריאה לפונקציה המאוחדת (v50)
+        await renderUnifiedSummary({
+            mode: 'attendance',
+            targetListId: 'schoolSummaryList',
+            heroIds: {
+                total: 'summaryTotal',
+                present: 'summaryPresent',
+                absent: 'summaryAbsent',
+                released: 'summaryReleased'
+            }
+        });
+    } catch (e) {
+        console.error(e);
+        toast('שגיאה בטעינת נתונים', 'err');
+    }
+}
+
+// פתיחת modal "לפי ישובים"
+async function openCitiesModal() {
+    try {
+        // טעינת תלמידים אם לא קיימים
+        let studentsData = Object.values(allStudents);
+        if (studentsData.length === 0) {
+            const fromApi = await api('students');
+            studentsData = fromApi || [];
+            (fromApi || []).forEach(s => { allStudents[s.id] = { name: s.name, class: s.class, phone: s.phone, city: s.city }; });
+        } else {
+            // ייתכן שצריך לטעון את city בנפרד
+            const fromApi = await api('students');
+            (fromApi || []).forEach(s => { 
+                if (allStudents[s.id]) allStudents[s.id].city = s.city;
+            });
+            studentsData = Object.entries(allStudents).map(([id, s]) => ({ id, ...s }));
+        }
         
-        // מיפוי נתונים
-        const attendanceMap = {};
-        (attendance || []).forEach(a => { attendanceMap[a.student_id] = a.status; });
-        
-        const releasedSet = new Set();
-        (releases || []).forEach(r => { releasedSet.add(r.student_id); });
-        
-        // חישוב סטטיסטיקות
-        const total = students.length;
-        let present = 0, absent = 0, released = releasedSet.size;
-        
-        const byLevel = { 'חט"ב (ז-ט)': { total: 0, present: 0, absent: 0, released: 0 }, 'חט"ע (י-יב)': { total: 0, present: 0, absent: 0, released: 0 } };
-        const byClass = {};
+        // בנייה לפי ישובים
         const byCity = {};
-        
-        students.forEach(s => {
-            const isPresent = attendanceMap[s.id] === 'present';
-            const isReleased = releasedSet.has(s.id);
-            const cls = s.class || 'ללא';
+        studentsData.forEach(s => {
             const city = s.city || 'לא ידוע';
-            const level = cls.startsWith('ז') || cls.startsWith('ח') || cls.startsWith('ט') ? 'חט"ב (ז-ט)' : 'חט"ע (י-יב)';
-            
-            if (isPresent) present++;
-            else absent++;
-            
-            // לפי חטיבה
-            byLevel[level].total++;
-            if (isPresent) byLevel[level].present++;
-            else byLevel[level].absent++;
-            if (isReleased) byLevel[level].released++;
-            
-            // לפי כיתה
-            if (!byClass[cls]) byClass[cls] = { total: 0, present: 0, absent: 0, released: 0 };
-            byClass[cls].total++;
-            if (isPresent) byClass[cls].present++;
-            else byClass[cls].absent++;
-            if (isReleased) byClass[cls].released++;
-            
-            // לפי ישוב
             if (!byCity[city]) byCity[city] = { total: 0, present: 0 };
             byCity[city].total++;
-            if (isPresent) byCity[city].present++;
+            if (dailyAttendance[s.id] === 'present') byCity[city].present++;
         });
         
-        // עדכון תצוגה - סיכום כללי
-        document.getElementById('summaryTotal').textContent = total;
-        document.getElementById('summaryPresent').textContent = present;
-        document.getElementById('summaryAbsent').textContent = absent;
-        document.getElementById('summaryReleased').textContent = released;
-        
-        // לפי חטיבות
-        document.getElementById('summaryByLevel').innerHTML = Object.entries(byLevel).map(([name, data]) => `
-            <div class="summary-row">
-                <span class="label">${name}</span>
-                <div class="numbers">
-                    <span>סה"כ: ${data.total}</span>
-                    <span class="num-present">✓ ${data.present}</span>
-                    <span class="num-absent">✗ ${data.absent}</span>
-                    <span class="num-released">🚪 ${data.released}</span>
-                </div>
-            </div>
-        `).join('');
-        
-        // לפי כיתות - מיון
-        const sortedClasses = Object.entries(byClass).sort((a, b) => a[0].localeCompare(b[0], 'he'));
-        document.getElementById('summaryByClass').innerHTML = sortedClasses.map(([name, data]) => `
-            <div class="summary-row">
-                <span class="label">${name}</span>
-                <div class="numbers">
-                    <span class="num-present">✓ ${data.present}/${data.total}</span>
-                    <span class="num-absent">✗ ${data.absent}</span>
-                    ${data.released > 0 ? `<span class="num-released">🚪 ${data.released}</span>` : ''}
-                </div>
-            </div>
-        `).join('');
-        
-        // לפי ישובים - מיון לפי כמות נוכחים
+        // מיון לפי כמות נוכחים
         const sortedCities = Object.entries(byCity).sort((a, b) => b[1].present - a[1].present);
+        
         document.getElementById('summaryByCity').innerHTML = sortedCities.map(([name, data]) => `
             <div class="summary-row">
                 <span class="label">${name}</span>
@@ -2466,10 +2423,15 @@ async function loadSummaryData() {
             </div>
         `).join('');
         
+        document.getElementById('citiesModal').style.display = 'block';
     } catch (e) {
         console.error(e);
-        toast('שגיאה בטעינת נתונים', 'err');
+        toast('שגיאה בטעינת ישובים', 'err');
     }
+}
+
+function closeCitiesModal() {
+    document.getElementById('citiesModal').style.display = 'none';
 }
 
 async function archiveDailyAttendance() {
