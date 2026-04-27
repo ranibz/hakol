@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- גרסה: v50 | תאריך: 2026-04-27 | שינוי: סיכום בית ספרי מאוחד עם חטיבות, שכבות וכיתות accordion -->
+<!-- גרסה: v51 | תאריך: 2026-04-27 | שינוי: תיקון דיליי וקפיצה בלחיצה על תלמיד + תיקון accordion במסך סיכום -->
 <html lang="he" dir="rtl">
 <head>
     <meta charset="UTF-8">
@@ -256,7 +256,7 @@
     <div class="header">
         <div style="text-align:center;">
             <h1>🚨 מערכת חירום - גליל מערבי</h1>
-            <span class="header-credit">פיתוח - רני בן זאב | v50</span>
+            <span class="header-credit">פיתוח - רני בן זאב | v51</span>
         </div>
         <div id="userInfo" style="display:none;">
             <button class="btn-logout" onclick="logout()">יציאה</button>
@@ -930,7 +930,35 @@ function toggleAttendanceStudyGroupStudent(id) {
     } else {
         attendanceStudyGroupStatus[id] = 'present';
     }
-    renderAttendanceStudyGroup();
+    
+    // עדכון נקודתי במקום רינדור מחדש
+    const list = document.getElementById('attendanceStudyGroupStudentList');
+    if (!list) return;
+    
+    const studentName = attendanceStudyGroupStudents[id]?.name;
+    if (!studentName) return;
+    
+    const rows = list.querySelectorAll('.student-tap');
+    rows.forEach(row => {
+        if (row.classList.contains('left-school')) return; // תלמיד ששוחרר - לא לגעת
+        
+        const text = row.textContent.replace('✓ ', '').trim();
+        if (text === studentName) {
+            const isPresent = attendanceStudyGroupStatus[id] === 'present';
+            row.className = 'student-tap' + (isPresent ? ' tapped' : ' not-marked');
+            row.innerHTML = isPresent ? `✓ ${studentName}` : studentName;
+            row.onclick = () => toggleAttendanceStudyGroupStudent(id);
+        }
+    });
+    
+    // עדכון מונה הסיום
+    const total = Object.keys(attendanceStudyGroupStudents).length;
+    const released = Object.keys(attendanceStudyGroupReleased).length;
+    const marked = Object.values(attendanceStudyGroupStatus).filter(s => s === 'present').length;
+    const btn = document.getElementById('btnFinishAttendanceStudyGroup');
+    if (btn) {
+        btn.innerHTML = `<span class="material-icons-round">check_circle</span> סיום נוכחות (${marked}/${total - released})`;
+    }
 }
 
 async function finishAttendanceStudyGroup() {
@@ -1247,9 +1275,28 @@ function toggleUnifiedClassAccordion(cls, grade, mode) {
     } else {
         unifiedSummaryOpenClass = cls;
     }
-    // רינדור מחדש - הפונקציה מודעת לכיתה הפתוחה
+    // רינדור מחדש - לפי המסך שנמצא פעיל
+    const activeScreen = document.querySelector('.screen.active');
+    const activeId = activeScreen ? activeScreen.id : '';
+    
     if (mode === 'emergency') {
         renderEmergencyLobby();
+    } else if (activeId === 'screen-summary') {
+        loadSummaryData();
+    } else {
+        renderAttendanceSummary();
+    }
+}
+
+function unifiedCloseAccordion(mode) {
+    unifiedSummaryOpenClass = null;
+    const activeScreen = document.querySelector('.screen.active');
+    const activeId = activeScreen ? activeScreen.id : '';
+    
+    if (mode === 'emergency') {
+        renderEmergencyLobby();
+    } else if (activeId === 'screen-summary') {
+        loadSummaryData();
     } else {
         renderAttendanceSummary();
     }
@@ -1266,7 +1313,7 @@ function renderUnifiedClassAccordion(cls, grade, mode) {
     let html = `<div class="class-accordion">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
             <strong style="font-size:1rem;">📋 ${cls}</strong>
-            <button onclick="unifiedSummaryOpenClass=null;${mode === 'emergency' ? 'renderEmergencyLobby()' : 'renderAttendanceSummary()'}" style="background:#e74c3c;color:white;border:none;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:0.85rem;">✕ סגור</button>
+            <button onclick="unifiedCloseAccordion('${mode}')" style="background:#e74c3c;color:white;border:none;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:0.85rem;">✕ סגור</button>
         </div>`;
     
     students.forEach(([id, student]) => {
@@ -1594,16 +1641,50 @@ async function renderAttendanceClass() {
 }
 
 async function toggleDailyAttendance(studentId) {
+    // עדכון אופטימיסטי - מיד על המסך
+    const wasPresent = dailyAttendance[studentId] === 'present';
+    const newStatus = wasPresent ? 'absent' : 'present';
+    dailyAttendance[studentId] = newStatus;
+    
+    // עדכון נקודתי של האלמנט
+    updateAttendanceStudentTile(studentId);
+    
+    // שליחה ל-DB ברקע
     try {
-        const newStatus = dailyAttendance[studentId] === 'present' ? 'absent' : 'present';
         await api('daily_attendance', { 
             method: 'POST', 
             prefer: 'resolution=merge-duplicates', 
             body: JSON.stringify({ student_id: studentId, status: newStatus }) 
         });
-        dailyAttendance[studentId] = newStatus;
-        renderAttendanceClass();
-    } catch (e) { toast('שגיאה', 'err'); }
+    } catch (e) {
+        // החזרה למצב קודם במקרה של שגיאה
+        dailyAttendance[studentId] = wasPresent ? 'present' : 'absent';
+        updateAttendanceStudentTile(studentId);
+        toast('שגיאה בשמירה', 'err');
+    }
+}
+
+// עדכון נקודתי של תלמיד במסך נוכחות יומית (במקום רינדור מחדש)
+function updateAttendanceStudentTile(id) {
+    const list = document.getElementById('attendanceStudentList');
+    if (!list) return;
+    
+    const studentName = allStudents[id]?.name;
+    if (!studentName) return;
+    
+    const rows = list.querySelectorAll('.student-tap');
+    rows.forEach(row => {
+        const nameSpan = row.querySelector('span');
+        if (nameSpan && nameSpan.textContent.trim().startsWith(studentName)) {
+            // אם תלמיד שוחרר - לא לגעת
+            if (row.classList.contains('left-school')) return;
+            
+            const isPresent = dailyAttendance[id] === 'present';
+            row.className = 'student-tap' + (isPresent ? ' tapped' : ' not-marked');
+            row.innerHTML = `<span>${studentName}</span>`;
+            row.onclick = () => toggleDailyAttendance(id);
+        }
+    });
 }
 
 async function finishAttendance() {
@@ -2038,16 +2119,53 @@ function renderEmergencyClass() {
 }
 
 async function toggleEmergencyPresent(id) {
+    // עדכון אופטימיסטי - מיד על המסך
+    const wasPresent = emergencyStatus[id] === 'present';
+    if (wasPresent) {
+        delete emergencyStatus[id];
+    } else {
+        emergencyStatus[id] = 'present';
+    }
+    
+    // עדכון נקודתי של האלמנט במקום רינדור מחדש של כל הרשימה
+    updateEmergencyStudentTile(id);
+    
+    // שליחה ל-DB ברקע
     try {
-        if (emergencyStatus[id] === 'present') {
+        if (wasPresent) {
             await api(`emergency_drill?student_id=eq.${id}`, { method: 'DELETE' });
-            delete emergencyStatus[id];
         } else {
             await api('emergency_drill', { method: 'POST', prefer: 'resolution=merge-duplicates', body: JSON.stringify({ student_id: id, status: 'present' }) });
-            emergencyStatus[id] = 'present';
         }
-        renderEmergencyClass();
-    } catch (e) { toast('שגיאה', 'err'); }
+    } catch (e) {
+        // במקרה של שגיאה - להחזיר את המצב הקודם
+        if (wasPresent) emergencyStatus[id] = 'present';
+        else delete emergencyStatus[id];
+        updateEmergencyStudentTile(id);
+        toast('שגיאה בשמירה', 'err');
+    }
+}
+
+// עדכון נקודתי של תלמיד במסך החירום (במקום רינדור מחדש)
+function updateEmergencyStudentTile(id) {
+    const list = document.getElementById('emergencyStudentList');
+    if (!list) return;
+    
+    const rows = list.querySelectorAll('.student-tap');
+    rows.forEach(row => {
+        const studentName = allStudents[id]?.name;
+        if (!studentName) return;
+        
+        // איתור השורה לפי שם התלמיד
+        const nameSpan = row.querySelector('span');
+        if (nameSpan && (nameSpan.textContent.trim().startsWith(studentName) || nameSpan.textContent.includes(studentName))) {
+            const isPresent = emergencyStatus[id] === 'present';
+            row.className = 'student-tap' + (isPresent ? ' tapped' : ' not-marked');
+            const groupTag = (isPresent && studentGroupMap[id]) ? `<span class="group-tag">${studentGroupMap[id].replace('קבוצה ', '').substring(0, 20)}</span>` : '';
+            row.innerHTML = `<span>${studentName} ${groupTag}</span>`;
+            row.onclick = () => toggleEmergencyPresent(id);
+        }
+    });
 }
 
 async function setEmergencyStatus(id, status) {
