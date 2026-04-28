@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- גרסה: 1.1.0 | תאריך: 2026-04-28 | שינוי: הצגת סיסמאות בוחנים וסטטוס שינוי -->
 <html lang="he" dir="rtl">
 <head>
     <meta charset="UTF-8">
@@ -226,6 +227,70 @@
             font-size: 0.85rem;
         }
 
+        /* === תיבת סיסמה === */
+        .password-box {
+            background: rgba(255, 159, 67, 0.1);
+            border: 1px solid rgba(255, 159, 67, 0.3);
+            border-radius: 10px;
+            padding: 12px 14px;
+            margin-top: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .password-box .label {
+            font-size: 0.85rem;
+            color: var(--text-dim);
+            font-weight: 700;
+        }
+        .password-box .password-text {
+            background: white;
+            color: #d35400;
+            font-family: monospace;
+            font-weight: 900;
+            padding: 5px 14px;
+            border-radius: 6px;
+            font-size: 1rem;
+            letter-spacing: 1px;
+            user-select: all;
+            cursor: pointer;
+            border: 2px dashed #ff9f43;
+        }
+        .password-box .password-text:hover {
+            background: #fff8e1;
+        }
+        .password-box .badge-changed {
+            background: var(--success);
+            color: white;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 700;
+        }
+        .password-box .badge-default {
+            background: #e74c3c;
+            color: white;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            font-weight: 700;
+        }
+        .password-box .btn-reset {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 6px 14px;
+            border-radius: 6px;
+            font-family: inherit;
+            font-weight: 700;
+            cursor: pointer;
+            font-size: 0.8rem;
+        }
+        .password-box .btn-reset:hover {
+            background: var(--accent-light);
+        }
+
         .toast {
             position: fixed;
             bottom: 30px;
@@ -284,7 +349,7 @@
 <body>
 
 <div class="header">
-    <h1>👨‍💼 מחוון למ"ד - ניהול</h1>
+    <h1>👨‍💼 מחוון למ"ד - ניהול <span style="font-size:11px;background:rgba(255,255,255,0.2);padding:3px 9px;border-radius:8px;font-weight:700;font-family:monospace;margin-right:8px;opacity:0.85;vertical-align:middle;">v1.1.0</span></h1>
     <p>יצירת בוחנים וניהול הערכות</p>
     <div class="header-user" id="headerUser" style="display:none;">
         <button class="btn-logout" onclick="logout()">התנתק</button>
@@ -592,6 +657,14 @@ async function loadExaminersList() {
                         <input type="text" value="${link}" readonly id="link-${ex.id}">
                         <button onclick="copyLink('${ex.id}')">העתק</button>
                     </div>
+                    <div class="password-box">
+                        <span class="label">🔑 סיסמה נוכחית:</span>
+                        <span class="password-text" onclick="copyPassword('${ex.id}', '${(ex.password || '').replace(/'/g, "\\'")}')" title="לחץ להעתקה">${ex.password || '—'}</span>
+                        ${ex.password_changed 
+                            ? '<span class="badge-changed">✓ שונתה</span>' 
+                            : '<span class="badge-default">⚠ ברירת מחדל</span>'}
+                        <button class="btn-reset" onclick="resetPassword('${ex.id}', '${ex.name.replace(/'/g, "\\'")}')">🔄 איפוס סיסמה</button>
+                    </div>
                 </div>
             `;
         }
@@ -608,6 +681,52 @@ function copyLink(id) {
     input.select();
     document.execCommand('copy');
     toast('הקישור הועתק!');
+}
+
+// העתקת סיסמה ללוח
+function copyPassword(id, password) {
+    if (!password || password === '—') {
+        toast('אין סיסמה להעתקה', 'error');
+        return;
+    }
+    if (navigator.clipboard) {
+        navigator.clipboard.writeText(password).then(() => {
+            toast(`הסיסמה (${password}) הועתקה!`);
+        }).catch(() => fallbackCopyPwd(password));
+    } else {
+        fallbackCopyPwd(password);
+    }
+}
+
+function fallbackCopyPwd(password) {
+    const tempInput = document.createElement('input');
+    tempInput.value = password;
+    document.body.appendChild(tempInput);
+    tempInput.select();
+    try {
+        document.execCommand('copy');
+        toast(`הסיסמה (${password}) הועתקה!`);
+    } catch (e) {
+        toast('לא הצליח להעתיק', 'error');
+    }
+    document.body.removeChild(tempInput);
+}
+
+// איפוס סיסמה לבוחן (לסיסמת ברירת מחדל)
+async function resetPassword(id, name) {
+    if (!confirm(`לאפס את הסיסמה של "${name}" ל-1234?\n\nהבוחן יתבקש לשנות סיסמה בכניסה הבאה.`)) return;
+    
+    try {
+        await supabase(`examiners?id=eq.${id}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ password: '1234', password_changed: false })
+        });
+        toast('הסיסמה אופסה ל-1234');
+        await loadExaminers();
+    } catch (err) {
+        console.error(err);
+        toast('שגיאה באיפוס סיסמה', 'error');
+    }
 }
 </script>
 
