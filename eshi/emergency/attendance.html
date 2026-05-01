@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- גרסה: v1.0.0 | תאריך: 2026-04-27 | תיאור: מערכת נוכחות יומית למורים - גליל מערבי -->
+<!-- גרסה: v1.1.0 | תאריך: 2026-05-01 | שינוי: תיקון מורה מקצועי - חיפוש לפי שם, שאילתות נכונות לטבלת study_groups, שמירת counted_in_group -->
 <html lang="he" dir="rtl">
 <head>
     <meta charset="UTF-8">
@@ -66,6 +66,20 @@
         .class-card-name { font-size: 1.2rem; font-weight: 900; color: var(--dark); }
         .class-card-stats { font-size: 0.85rem; color: #7f8c8d; margin-top: 4px; }
         
+        /* Group cards (subject teacher) */
+        .group-card { background: white; padding: 16px 18px; border-radius: 12px; margin-bottom: 10px; cursor: pointer; border-right: 5px solid var(--primary); transition: all 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        .group-card:hover { background: #e0f7f4; transform: translateX(-5px); }
+        .group-card-name { font-weight: 700; font-size: 1.05rem; margin-bottom: 4px; }
+        .group-card-meta { font-size: 0.85rem; color: #7f8c8d; }
+        
+        /* Search box */
+        .search-box { background: white; padding: 24px; border-radius: 16px; margin-bottom: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+        .search-box h3 { margin-bottom: 14px; color: var(--dark); }
+        .search-box input { width: 100%; padding: 14px 16px; font-size: 1.05rem; border: 2px solid #e0e0e0; border-radius: 10px; text-align: right; font-family: 'Heebo', sans-serif; }
+        .search-box input:focus { outline: none; border-color: var(--primary); }
+        .btn-search { width: 100%; margin-top: 12px; padding: 14px; background: linear-gradient(135deg, #00b894 0%, #00cec9 100%); color: white; border: none; border-radius: 10px; font-weight: 700; font-size: 1.05rem; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .btn-search:hover { transform: translateY(-1px); box-shadow: 0 4px 10px rgba(0, 184, 148, 0.3); }
+        
         /* Student tap */
         .student-tap { background: white; padding: 14px 18px; border-radius: 12px; margin-bottom: 8px; cursor: pointer; transition: all 0.15s; display: flex; justify-content: space-between; align-items: center; user-select: none; box-shadow: 0 1px 3px rgba(0,0,0,0.05); border: 2px solid transparent; font-size: 1.05rem; }
         .student-tap.not-marked { background: #f8f9fa; color: var(--dark); }
@@ -87,6 +101,8 @@
         .spinner { display: inline-block; width: 30px; height: 30px; border: 3px solid #e0e0e0; border-top-color: var(--primary); border-radius: 50%; animation: spin 1s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
         
+        .empty-msg { text-align: center; padding: 30px; color: var(--danger); background: white; border-radius: 12px; }
+        
         /* Mobile */
         @media (max-width: 600px) {
             .top-header h1 { font-size: 1.1rem; }
@@ -101,7 +117,7 @@
         <div class="top-header-content">
             <div>
                 <h1>📋 נוכחות יומית - גליל מערבי</h1>
-                <span class="header-credit">פיתוח - רני בן זאב | v1.0.0</span>
+                <span class="header-credit">פיתוח - רני בן זאב | v1.1.0</span>
             </div>
             <button class="btn-exit" onclick="goHome()">
                 <span class="material-icons-round" style="vertical-align:middle;">home</span> דף ראשי
@@ -155,19 +171,26 @@
             </button>
         </div>
         
-        <!-- מסך 4: לובי מורה מקצועי - בחירת קבוצה -->
-        <div id="screen-subject-lobby" class="screen">
+        <!-- מסך 4: מורה מקצועי - הזנת שם וחיפוש קבוצות -->
+        <div id="screen-subject-search" class="screen">
             <button class="btn-back" onclick="backToRole()"><span class="material-icons-round">arrow_forward</span> חזור</button>
             <div class="welcome-section">
-                <h2>📚 בחר קבוצת לימוד</h2>
-                <p>בחר את קבוצת הלימוד שאתה מלמד</p>
+                <h2>📚 מורה מקצועי</h2>
+                <p>הזן את שמך כדי למצוא את קבוצות הלימוד שלך</p>
             </div>
-            <div id="subjectGroupList" class="class-grid"></div>
+            <div class="search-box">
+                <h3>הזן את שמך:</h3>
+                <input type="text" id="subjectTeacherName" placeholder="לדוגמה: לוזון חגי" onkeydown="if(event.key==='Enter')searchTeacherGroups()">
+                <button class="btn-search" onclick="searchTeacherGroups()">
+                    <span class="material-icons-round">search</span> חפש קבוצות
+                </button>
+            </div>
+            <div id="teacherGroupsResult"></div>
         </div>
         
         <!-- מסך 5: רשימת תלמידים בקבוצת לימוד -->
         <div id="screen-subject-group" class="screen">
-            <button class="btn-back" onclick="backToSubjectLobby()"><span class="material-icons-round">arrow_forward</span> חזור</button>
+            <button class="btn-back" onclick="backToSubjectSearch()"><span class="material-icons-round">arrow_forward</span> חזור</button>
             <div class="class-header-box">
                 <h2 id="subjectGroupTitle">קבוצה</h2>
                 <span class="phase-badge">נוכחות בשיעור</span>
@@ -194,10 +217,10 @@
     let dailyAttendance = {};  // {id: 'present' | 'absent'}
     let releasedToday = {};    // {id: 'HH:MM'}
     let activeClass = null;
-    let activeSubjectGroup = null;
-    let subjectGroupStudents = {};  // {id: {name}}
-    let subjectGroupStatus = {};    // {id: 'present' | null}
-    let subjectGroupReleased = {};  // {id: 'HH:MM'}
+    let activeSubjectGroup = null;       // {name, code}
+    let subjectGroupStudents = {};       // {id: {name}}
+    let subjectGroupStatus = {};         // {id: 'present' | null}
+    let subjectGroupReleased = {};       // {id: 'HH:MM'}
     
     // =========== API ===========
     async function api(path, options = {}) {
@@ -245,9 +268,9 @@
         loadTeacherLobby();
     }
     
-    function backToSubjectLobby() {
+    function backToSubjectSearch() {
         activeSubjectGroup = null;
-        showScreen('screen-subject-lobby');
+        showScreen('screen-subject-search');
     }
     
     // =========== Toast ===========
@@ -305,8 +328,10 @@
             showScreen('screen-teacher-lobby');
             loadTeacherLobby();
         } else if (role === 'subject_teacher') {
-            showScreen('screen-subject-lobby');
-            await loadSubjectLobby();
+            showScreen('screen-subject-search');
+            document.getElementById('subjectTeacherName').value = '';
+            document.getElementById('teacherGroupsResult').innerHTML = '';
+            setTimeout(() => document.getElementById('subjectTeacherName').focus(), 100);
         }
     }
     
@@ -437,66 +462,98 @@
         }, 1500);
     }
     
-    // =========== מורה מקצועי ===========
-    async function loadSubjectLobby() {
-        const list = document.getElementById('subjectGroupList');
-        list.innerHTML = '<div class="loading"><div class="spinner"></div><p style="margin-top:10px;">טוען קבוצות...</p></div>';
+    // =========== מורה מקצועי - חיפוש קבוצות ===========
+    async function searchTeacherGroups() {
+        const nameInput = document.getElementById('subjectTeacherName').value.trim();
+        const resultDiv = document.getElementById('teacherGroupsResult');
+        
+        if (!nameInput) {
+            resultDiv.innerHTML = '<div class="empty-msg">נא להזין שם</div>';
+            return;
+        }
+        
+        resultDiv.innerHTML = '<div class="loading"><div class="spinner"></div><p style="margin-top:10px;">מחפש קבוצות...</p></div>';
         
         try {
-            const groups = await api('study_groups?order=name');
-            list.innerHTML = '';
+            const groups = await api(`study_groups?teacher_name=ilike.*${encodeURIComponent(nameInput)}*&select=group_name,group_code,teacher_name,subject,class_level`);
             
             if (!groups || groups.length === 0) {
-                list.innerHTML = '<div class="welcome-section"><p>אין קבוצות לימוד מוגדרות במערכת</p></div>';
+                resultDiv.innerHTML = '<div class="empty-msg">לא נמצאו קבוצות. נסה שם אחר.</div>';
                 return;
             }
             
+            // קיבוץ לפי קבוצות ייחודיות
+            const uniqueGroups = {};
             groups.forEach(g => {
-                const card = document.createElement('div');
-                card.className = 'class-card';
-                card.style.minHeight = '90px';
-                card.innerHTML = `
-                    <div class="class-card-name" style="font-size:1rem;">${g.name}</div>
-                    <div class="class-card-stats">${g.subject || ''}</div>
-                `;
-                card.onclick = () => {
-                    activeSubjectGroup = g;
-                    loadSubjectGroup(g);
-                };
-                list.appendChild(card);
+                const key = g.group_name + '_' + (g.group_code || '');
+                if (!uniqueGroups[key]) uniqueGroups[key] = g;
             });
+            
+            const groupList = Object.values(uniqueGroups);
+            
+            resultDiv.innerHTML = `
+                <h3 style="margin-bottom:12px; padding:0 4px;">נמצאו ${groupList.length} קבוצות:</h3>
+                ${groupList.map(g => `
+                    <div class="group-card" onclick="enterSubjectGroup('${escapeAttr(g.group_name)}', '${escapeAttr(g.group_code || '')}')">
+                        <div class="group-card-name">${escapeHtml(g.group_name)}</div>
+                        <div class="group-card-meta">
+                            ${g.teacher_name ? '👨‍🏫 ' + escapeHtml(g.teacher_name) : ''}
+                            ${g.class_level ? ' · ' + escapeHtml(g.class_level) : ''}
+                        </div>
+                    </div>
+                `).join('')}
+            `;
         } catch (e) {
             console.error(e);
-            list.innerHTML = '<div class="welcome-section"><p>שגיאה בטעינת קבוצות</p></div>';
+            resultDiv.innerHTML = '<div class="empty-msg">שגיאה בחיפוש</div>';
         }
     }
     
-    async function loadSubjectGroup(group) {
+    function escapeHtml(s) {
+        return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+    function escapeAttr(s) {
+        return String(s).replace(/'/g, "\\'").replace(/"/g, '&quot;');
+    }
+    
+    async function enterSubjectGroup(groupName, groupCode) {
+        activeSubjectGroup = { name: groupName, code: groupCode };
+        
         showScreen('screen-subject-group');
-        document.getElementById('subjectGroupTitle').textContent = group.name;
+        document.getElementById('subjectGroupTitle').textContent = groupName;
         
         const list = document.getElementById('subjectStudentList');
         list.innerHTML = '<div class="loading"><div class="spinner"></div><p style="margin-top:10px;">טוען תלמידים...</p></div>';
         
         try {
-            const members = await api(`study_group_members?group_id=eq.${group.id}&order=student_name`);
+            let query = `study_groups?group_name=eq.${encodeURIComponent(groupName)}`;
+            if (groupCode) query += `&group_code=eq.${encodeURIComponent(groupCode)}`;
+            
+            const students = await api(query);
+            
+            if (!students || students.length === 0) {
+                list.innerHTML = '<div class="empty-msg">לא נמצאו תלמידים בקבוצה</div>';
+                return;
+            }
             
             subjectGroupStudents = {};
             subjectGroupStatus = {};
             subjectGroupReleased = {};
             
-            (members || []).forEach(m => {
-                subjectGroupStudents[m.student_id] = { name: m.student_name };
-                subjectGroupStatus[m.student_id] = dailyAttendance[m.student_id] === 'present' ? 'present' : null;
-                if (releasedToday[m.student_id]) {
-                    subjectGroupReleased[m.student_id] = releasedToday[m.student_id];
+            students.forEach(s => {
+                if (!s.student_id) return;
+                subjectGroupStudents[s.student_id] = { name: s.student_name };
+                // אם התלמיד כבר סומן כנוכח היום - שמור על הסימון
+                subjectGroupStatus[s.student_id] = dailyAttendance[s.student_id] === 'present' ? 'present' : null;
+                if (releasedToday[s.student_id]) {
+                    subjectGroupReleased[s.student_id] = releasedToday[s.student_id];
                 }
             });
             
             renderSubjectStudentList();
         } catch (e) {
             console.error(e);
-            list.innerHTML = '<div class="welcome-section"><p>שגיאה בטעינת תלמידים</p></div>';
+            list.innerHTML = '<div class="empty-msg">שגיאה בטעינת תלמידים</div>';
         }
     }
     
@@ -508,12 +565,12 @@
             const releaseTime = subjectGroupReleased[id];
             
             if (releaseTime) {
-                return `<div class="student-tap left-school"><span>${s.name}</span><span style="font-size:0.85rem;font-weight:600;">🚪 שוחרר ב-${releaseTime}</span></div>`;
+                return `<div class="student-tap left-school"><span>${escapeHtml(s.name)}</span><span style="font-size:0.85rem;font-weight:600;">🚪 שוחרר ב-${releaseTime}</span></div>`;
             }
             
             const isPresent = subjectGroupStatus[id] === 'present';
             const cls = isPresent ? 'student-tap tapped' : 'student-tap not-marked';
-            const content = isPresent ? `✓ ${s.name}` : s.name;
+            const content = isPresent ? `✓ ${escapeHtml(s.name)}` : escapeHtml(s.name);
             return `<div class="${cls}" onclick="toggleSubjectStudent('${id}')">${content}</div>`;
         }).join('');
         
@@ -538,7 +595,7 @@
             if (text === studentName) {
                 const isPresent = subjectGroupStatus[id] === 'present';
                 row.className = 'student-tap' + (isPresent ? ' tapped' : ' not-marked');
-                row.innerHTML = isPresent ? `✓ ${studentName}` : studentName;
+                row.innerHTML = isPresent ? `✓ ${escapeHtml(studentName)}` : escapeHtml(studentName);
                 row.onclick = () => toggleSubjectStudent(id);
             }
         });
@@ -559,26 +616,44 @@
     async function finishSubjectAttendance() {
         if (!activeSubjectGroup) return;
         
+        const total = Object.keys(subjectGroupStudents).length;
+        const released = Object.keys(subjectGroupReleased).length;
+        const present = Object.values(subjectGroupStatus).filter(s => s === 'present').length;
+        const missing = total - released - present;
+        
+        if (!confirm(`סיום נוכחות?\n\nנוכחים: ${present}\nחסרים: ${missing}`)) return;
+        
         toast('שומר...', '');
         
-        // שמירת כל מי שסומן
-        for (const [id, status] of Object.entries(subjectGroupStatus)) {
-            if (status === 'present' && dailyAttendance[id] !== 'present') {
-                try {
-                    await api('daily_attendance', {
-                        method: 'POST',
-                        prefer: 'resolution=merge-duplicates',
-                        body: JSON.stringify({ student_id: id, status: 'present' })
-                    });
-                    dailyAttendance[id] = 'present';
-                } catch (e) { console.error(e); }
+        try {
+            const groupName = activeSubjectGroup.name;
+            
+            // שמירת כל מי שסומן כנוכח (עם counted_in_group כדי לעקוב באיזו קבוצה נספר)
+            for (const [id, status] of Object.entries(subjectGroupStatus)) {
+                if (status === 'present') {
+                    try {
+                        await api('daily_attendance', {
+                            method: 'POST',
+                            prefer: 'resolution=merge-duplicates',
+                            body: JSON.stringify({
+                                student_id: id,
+                                status: 'present',
+                                counted_in_group: groupName
+                            })
+                        });
+                        dailyAttendance[id] = 'present';
+                    } catch (e) { console.error('שגיאה בשמירת תלמיד', id, e); }
+                }
             }
+            
+            toast('נוכחות נשמרה בהצלחה!', 'ok');
+            setTimeout(() => {
+                backToSubjectSearch();
+            }, 1500);
+        } catch (e) {
+            console.error(e);
+            toast('שגיאה בשמירה', 'err');
         }
-        
-        toast('נוכחות נשמרה בהצלחה!', 'ok');
-        setTimeout(() => {
-            backToSubjectLobby();
-        }, 1500);
     }
     
     </script>
