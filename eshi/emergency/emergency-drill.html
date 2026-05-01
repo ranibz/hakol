@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- גרסה: v52 | תאריך: 2026-04-28 | שינוי: רענון אוטומטי במסכי סיכום (סנכרון בזמן אמת בין מורה למנהלת) -->
+<!-- גרסה: v53 | תאריך: 2026-05-01 | שינוי: הצגת תג קבוצת לימוד אצל המנהלת (אקורדיון + מונה בכרטיס כיתה) -->
 <html lang="he" dir="rtl">
 <head>
     <meta charset="UTF-8">
@@ -256,7 +256,7 @@
     <div class="header">
         <div style="text-align:center;">
             <h1>🚨 מערכת חירום - גליל מערבי</h1>
-            <span class="header-credit">פיתוח - רני בן זאב | v52</span>
+            <span class="header-credit">פיתוח - רני בן זאב | v53</span>
         </div>
         <div id="userInfo" style="display:none;">
             <button class="btn-logout" onclick="logout()">יציאה</button>
@@ -1240,11 +1240,23 @@ async function renderUnifiedSummary(opts) {
                 }
             }
             
+            // ספירת תלמידים שנספרו דרך קבוצות לימוד (מורה מקצועי)
+            let groupCountedCount = 0;
+            if (mode === 'emergency') {
+                groupCountedCount = students.filter(([id]) => 
+                    emergencyStatus[id] === 'present' && studentGroupMap[id]
+                ).length;
+            } else {
+                groupCountedCount = students.filter(([id]) => 
+                    dailyAttendance[id] === 'present' && dailyGroupMap[id]
+                ).length;
+            }
+            
             const tile = document.createElement('div');
             tile.className = `class-tile ${classStatus}`;
             tile.innerHTML = `
                 <div class="class-tile-name">${cls}</div>
-                <div class="class-tile-stats">${presentCount}/${total - releasedCount}${releasedCount > 0 ? ` · 🚪${releasedCount}` : ''}</div>
+                <div class="class-tile-stats">${presentCount}/${total - releasedCount}${releasedCount > 0 ? ` · 🚪${releasedCount}` : ''}${groupCountedCount > 0 ? ` · 📚${groupCountedCount}` : ''}</div>
                 <div class="class-tile-status">${statusLabel}</div>
             `;
             tile.onclick = () => toggleUnifiedClassAccordion(cls, grade, mode);
@@ -1330,6 +1342,9 @@ function renderUnifiedClassAccordion(cls, grade, mode) {
         const releaseTime = unifiedSummaryReleasedMap[id];
         let cls2, statusTxt;
         
+        // קבלת שם הקבוצה (אם נספר דרך מורה מקצועי)
+        const groupName = (mode === 'emergency') ? studentGroupMap[id] : dailyGroupMap[id];
+        
         if (releaseTime) {
             cls2 = 'released';
             statusTxt = `🚪 שוחרר ב-${releaseTime}`;
@@ -1348,8 +1363,13 @@ function renderUnifiedClassAccordion(cls, grade, mode) {
             else { cls2 = ''; statusTxt = '⚪ לא סומן'; }
         }
         
+        // תג של קבוצת הלימוד (אם נספר דרך מורה מקצועי)
+        const groupTag = groupName 
+            ? `<span class="group-tag" style="margin-right:6px;">📚 ${groupName.replace('קבוצה ', '').substring(0, 30)}</span>` 
+            : '';
+        
         html += `<div class="class-accordion-student ${cls2}">
-            <span><strong>${student.name}</strong></span>
+            <span><strong>${student.name}</strong>${groupTag}</span>
             <span style="font-size:0.85rem;">${statusTxt}</span>
         </div>`;
     });
