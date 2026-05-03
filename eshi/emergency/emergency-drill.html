@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>מערכת חירום - בית חינוך גליל מערבי</title>
-    <!-- VERSION 48 -->
+    <!-- VERSION 49 - 02/05/2026 - סנכרון עם מערכת טיולים: כרטיס "תלמידים בטיול" במסך מנהל -->
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700;900&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -143,6 +143,60 @@
         .hero-stat.released .num { color: #ffb84d; }
         .hero-stat.present .num { color: #2ecc71; }
         .hero-stat.absent .num { color: #ff7675; }
+
+        /* === כרטיס תלמידים בטיול v49 === */
+        .trip-status-card {
+            background: linear-gradient(135deg, #1565c0, #1976d2);
+            color: white;
+            border-radius: 16px;
+            padding: 18px 22px;
+            margin-bottom: 18px;
+            box-shadow: 0 4px 14px rgba(21, 101, 192, 0.25);
+            cursor: pointer;
+            transition: transform 0.15s, box-shadow 0.2s;
+        }
+        .trip-status-card:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(21, 101, 192, 0.35); }
+        .trip-status-card.empty {
+            background: linear-gradient(135deg, #455a64, #546e7a);
+            cursor: default;
+            opacity: 0.85;
+        }
+        .trip-status-card.empty:hover { transform: none; box-shadow: 0 4px 14px rgba(0,0,0,0.1); }
+        .trip-status-header { display: flex; align-items: center; gap: 14px; }
+        .trip-status-icon { font-size: 36px; }
+        .trip-status-text { flex: 1; }
+        .trip-status-title { font-size: 1.05rem; font-weight: 900; margin-bottom: 3px; }
+        .trip-status-sub { font-size: 0.88rem; opacity: 0.9; }
+        .trip-status-arrow { font-size: 28px; opacity: 0.7; transition: transform 0.2s; }
+        .trip-status-card.expanded .trip-status-arrow { transform: rotate(180deg); }
+        .trip-status-details { 
+            margin-top: 15px; 
+            padding-top: 15px; 
+            border-top: 1px solid rgba(255,255,255,0.2); 
+            display: none; 
+        }
+        .trip-status-card.expanded .trip-status-details { display: block; }
+        .trip-detail-row {
+            background: rgba(255,255,255,0.1);
+            border-radius: 10px;
+            padding: 12px 14px;
+            margin-bottom: 8px;
+        }
+        .trip-detail-row:last-child { margin-bottom: 0; }
+        .trip-detail-name { font-weight: 700; font-size: 0.98rem; margin-bottom: 4px; }
+        .trip-detail-meta { font-size: 0.85rem; opacity: 0.92; line-height: 1.5; }
+        .trip-detail-meta a { color: #ffd54f; text-decoration: none; font-weight: 700; }
+        .trip-detail-meta a:hover { text-decoration: underline; }
+        .trip-students-list {
+            margin-top: 10px;
+            padding: 8px 12px;
+            background: rgba(0,0,0,0.15);
+            border-radius: 8px;
+            font-size: 0.82rem;
+            line-height: 1.7;
+            max-height: 150px;
+            overflow-y: auto;
+        }
         
         .division-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 15px; margin-bottom: 20px; }
         .division-card { background: white; border-radius: 14px; padding: 18px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); border-right: 6px solid #3498db; }
@@ -584,6 +638,9 @@
             
             <!-- בחירת תצוגה - הוסר ב-v50 (תצוגה כיתתית בלבד) -->
             
+            <!-- כרטיס תלמידים בטיול v49 -->
+            <div id="tripStatusCard" style="display:none;"></div>
+            
             <!-- Hero - סטטיסטיקה בולטת -->
             <div class="summary-hero" id="emergencyHero">
                 <div class="summary-hero-grid">
@@ -630,6 +687,24 @@
 <script>
 const SURL = 'https://skfriefqnoxfzmamcokd.supabase.co';
 const SKEY = 'sb_publishable_Qx7EDPbdyYE9iv7uMQBKhQ_Aeojd_Q0';
+
+// === סנכרון עם מערכת הטיולים (v49) ===
+const TRIPS_SURL = 'https://ohxnrjtdenylcwnszzfq.supabase.co';
+const TRIPS_SKEY = 'sb_publishable_maSeTa8gQ-Jx8DCGhryltw_bZzQYfl5';
+
+async function tripsApi(path) {
+    try {
+        const r = await fetch(TRIPS_SURL + '/rest/v1/' + path, {
+            headers: { 'apikey': TRIPS_SKEY, 'Authorization': 'Bearer ' + TRIPS_SKEY, 'Content-Type': 'application/json' }
+        });
+        if (!r.ok) return null;
+        const t = await r.text();
+        return t ? JSON.parse(t) : null;
+    } catch(e) {
+        console.warn('[trips] fetch failed:', e.message);
+        return null;
+    }
+}
 
 let currentEvent = null; // 'attendance' | 'emergency'
 let activeClass = null;
@@ -1807,19 +1882,90 @@ async function renderEmergencyLobby() {
     
     showScreen('screen-emergency-lobby');
     
-    // קריאה לפונקציה המאוחדת החדשה (v50)
-    await renderUnifiedSummary({
-        mode: 'emergency',
-        targetListId: 'emergencyClassList',
-        heroIds: {
-            total: 'statTotal',
-            present: 'statPresent',
-            absent: 'statMissing',
-            released: 'statReleased'
-        }
-    });
+    // טעינה במקביל של סיכום אירוע + כרטיס טיולים (v49)
+    await Promise.all([
+        renderUnifiedSummary({
+            mode: 'emergency',
+            targetListId: 'emergencyClassList',
+            heroIds: {
+                total: 'statTotal',
+                present: 'statPresent',
+                absent: 'statMissing',
+                released: 'statReleased'
+            }
+        }),
+        renderTripStatusCard()
+    ]);
     
     setTimeout(() => window.scrollTo(0, adminScrollTop), 10);
+}
+
+// === כרטיס תלמידים בטיול v49 ===
+async function renderTripStatusCard() {
+    const card = document.getElementById('tripStatusCard');
+    if (!card) return;
+    
+    // טעינת תלמידים פעילים בטיול
+    const records = await tripsApi('trip_attendance_status?is_active=eq.true&select=student_id,student_name,trip_id,trip_name,coordinator_name,coordinator_phone,left_school_at&order=left_school_at.desc');
+    
+    if (!records || records.length === 0) {
+        card.style.display = 'none';
+        return;
+    }
+    
+    // קיבוץ לפי טיול
+    const byTrip = {};
+    records.forEach(r => {
+        if (!byTrip[r.trip_id]) {
+            byTrip[r.trip_id] = {
+                name: r.trip_name || 'טיול',
+                coordinator: r.coordinator_name || '',
+                phone: r.coordinator_phone || '',
+                students: []
+            };
+        }
+        byTrip[r.trip_id].students.push(r.student_name || '—');
+    });
+    
+    const tripCount = Object.keys(byTrip).length;
+    const totalStudents = records.length;
+    
+    let detailsHtml = '';
+    Object.entries(byTrip).forEach(([tripId, t]) => {
+        const studentsListHtml = t.students.length > 0 
+            ? `<div class="trip-students-list">${t.students.map(n => '• ' + escapeHtml(n)).join('<br>')}</div>` 
+            : '';
+        const phoneLink = t.phone ? `<a href="tel:${t.phone}">📞 ${t.phone}</a>` : '';
+        const coordPart = t.coordinator ? `רכז: ${escapeHtml(t.coordinator)}` : '';
+        const metaParts = [coordPart, phoneLink].filter(Boolean).join(' · ');
+        detailsHtml += `
+            <div class="trip-detail-row">
+                <div class="trip-detail-name">🚌 ${escapeHtml(t.name)} <span style="font-weight:400;opacity:0.85;">(${t.students.length} תלמידים)</span></div>
+                ${metaParts ? `<div class="trip-detail-meta">${metaParts}</div>` : ''}
+                ${studentsListHtml}
+            </div>`;
+    });
+    
+    card.style.display = 'block';
+    card.innerHTML = `
+        <div class="trip-status-card" onclick="this.classList.toggle('expanded')">
+            <div class="trip-status-header">
+                <div class="trip-status-icon">🚌</div>
+                <div class="trip-status-text">
+                    <div class="trip-status-title">${tripCount} ${tripCount === 1 ? 'טיול פעיל' : 'טיולים פעילים'} כעת</div>
+                    <div class="trip-status-sub">${totalStudents} תלמידים מחוץ לבית הספר · לחץ לפרטים</div>
+                </div>
+                <div class="trip-status-arrow">▼</div>
+            </div>
+            <div class="trip-status-details">
+                ${detailsHtml}
+            </div>
+        </div>`;
+}
+
+function escapeHtml(s) {
+    if (!s) return '';
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
 function toggleEmergencyPanel(cls, el) {
