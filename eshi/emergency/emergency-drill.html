@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>מערכת חירום - בית חינוך גליל מערבי</title>
-    <!-- VERSION 49.1 - 03/05/2026 - כרטיס תלמידים בטיול גם במסך סיכום בית ספרי -->
+    <!-- VERSION 49.2 - 03/05/2026 - תיקון: שמירת מצב פתוח של כרטיס טיולים בין רענונים אוטומטיים -->
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700;900&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -1904,10 +1904,17 @@ async function renderEmergencyLobby() {
 }
 
 // === כרטיס תלמידים בטיול v49 ===
+// משתנה גלובלי שזוכר אילו כרטיסים פתוחים בין רענונים
+let _expandedTripCards = new Set();
+
 async function renderTripStatusCard(containerId) {
     containerId = containerId || 'tripStatusCard';
     const card = document.getElementById(containerId);
     if (!card) return;
+    
+    // שמירת המצב הנוכחי לפני רנדור מחדש
+    const wasExpanded = card.querySelector('.trip-status-card')?.classList.contains('expanded');
+    if (wasExpanded) _expandedTripCards.add(containerId);
     
     // טעינת תלמידים פעילים בטיול
     const records = await tripsApi('trip_attendance_status?is_active=eq.true&select=student_id,student_name,trip_id,trip_name,coordinator_name,coordinator_phone,left_school_at&order=left_school_at.desc');
@@ -1951,8 +1958,9 @@ async function renderTripStatusCard(containerId) {
     });
     
     card.style.display = 'block';
+    const startExpanded = _expandedTripCards.has(containerId) ? ' expanded' : '';
     card.innerHTML = `
-        <div class="trip-status-card" onclick="this.classList.toggle('expanded')">
+        <div class="trip-status-card${startExpanded}" onclick="toggleTripStatusCard(this, '${containerId}')">
             <div class="trip-status-header">
                 <div class="trip-status-icon">🚌</div>
                 <div class="trip-status-text">
@@ -1965,6 +1973,16 @@ async function renderTripStatusCard(containerId) {
                 ${detailsHtml}
             </div>
         </div>`;
+}
+
+// פונקציה לטוגול שמירה+החזרה של מצב הכרטיס v49.2
+function toggleTripStatusCard(el, containerId) {
+    el.classList.toggle('expanded');
+    if (el.classList.contains('expanded')) {
+        _expandedTripCards.add(containerId);
+    } else {
+        _expandedTripCards.delete(containerId);
+    }
 }
 
 function escapeHtml(s) {
