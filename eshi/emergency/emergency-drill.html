@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>מערכת חירום - בית חינוך גליל מערבי</title>
-    <!-- VERSION 49.2 - 03/05/2026 - תיקון: שמירת מצב פתוח של כרטיס טיולים בין רענונים אוטומטיים -->
+    <!-- VERSION 49.3 - 03/05/2026 - תלמידים בטיול לא נספרים כחסרים + עמודה "בטיול" ב-Hero ובחטיבות -->
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700;900&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -143,6 +143,8 @@
         .hero-stat.released .num { color: #ffb84d; }
         .hero-stat.present .num { color: #2ecc71; }
         .hero-stat.absent .num { color: #ff7675; }
+        .hero-stat.ontrip { background: rgba(33, 150, 243, 0.3); }
+        .hero-stat.ontrip .num { color: #64b5f6; }
 
         /* === כרטיס תלמידים בטיול v49 === */
         .trip-status-card {
@@ -209,6 +211,7 @@
         .div-stat.released .n { color: #e67e22; }
         .div-stat.present .n { color: #27ae60; }
         .div-stat.absent .n { color: #e74c3c; }
+        .div-stat.ontrip .n { color: #1976d2; }
         
         .grade-section { background: white; border-radius: 14px; padding: 16px; margin-bottom: 12px; box-shadow: 0 2px 6px rgba(0,0,0,0.06); }
         .grade-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding-bottom: 10px; border-bottom: 2px solid #ecf0f1; }
@@ -218,6 +221,7 @@
         .grade-mini-stats .p { color: #27ae60; }
         .grade-mini-stats .a { color: #e74c3c; }
         .grade-mini-stats .r { color: #e67e22; }
+        .grade-mini-stats .tr { color: #1976d2; }
         
         .class-grid-summary { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 10px; }
         .class-tile { padding: 12px 10px; border-radius: 10px; text-align: center; cursor: pointer; transition: all 0.2s; border: 2px solid transparent; user-select: none; }
@@ -490,6 +494,7 @@
                     <div class="hero-stat present"><div class="num" id="summaryPresent">0</div><div class="label">נוכחים</div></div>
                     <div class="hero-stat absent"><div class="num" id="summaryAbsent">0</div><div class="label">חסרים</div></div>
                     <div class="hero-stat released"><div class="num" id="summaryReleased">0</div><div class="label">שוחררו</div></div>
+                    <div class="hero-stat ontrip"><div class="num" id="summaryOnTrip">0</div><div class="label">🚌 בטיול</div></div>
                 </div>
             </div>
             
@@ -651,6 +656,7 @@
                     <div class="hero-stat present"><div class="num" id="statPresent">0</div><div class="label">אותרו</div></div>
                     <div class="hero-stat absent"><div class="num" id="statMissing">0</div><div class="label">חסרים</div></div>
                     <div class="hero-stat released"><div class="num" id="statReleased">0</div><div class="label">שוחררו</div></div>
+                    <div class="hero-stat ontrip"><div class="num" id="statOnTrip">0</div><div class="label">🚌 בטיול</div></div>
                 </div>
             </div>
             <h3 style="margin-bottom:15px;" id="adminViewTitle">מצב כיתות:</h3>
@@ -1099,6 +1105,7 @@ async function renderAttendanceSummary() {
 // ========== הסיכום המאוחד החדש (v50) ==========
 // משמש את שני המסכים: סיכום נוכחות יומית ומסך מנהל בחירום
 let unifiedSummaryReleasedMap = {}; // student_id -> שעת שחרור (HH:MM)
+let unifiedSummaryOnTripSet = new Set(); // v49.3 - student_id -> מי בטיול
 let unifiedSummaryReleasedList = []; // [{name, class, time, reason}]
 let unifiedSummaryOpenClass = null; // איזו כיתה פתוחה עכשיו ב-accordion
 
@@ -1133,19 +1140,30 @@ async function renderUnifiedSummary(opts) {
         });
     } catch (e) { console.error('שגיאה בטעינת שחרורים:', e); }
     
+    // 1.5 טעינת תלמידים בטיול v49.3 (מתבצע במקביל לשחרורים)
+    unifiedSummaryOnTripSet = new Set();
+    try {
+        const tripRecs = await tripsApi('trip_attendance_status?is_active=eq.true&select=student_id');
+        (tripRecs || []).forEach(r => {
+            if (r.student_id) unifiedSummaryOnTripSet.add(String(r.student_id));
+        });
+    } catch (e) { console.error('שגיאה בטעינת תלמידים בטיול:', e); }
+    
     // 2. חישוב סטטיסטיקות
     const total = Object.keys(allStudents).length;
     const released = Object.keys(unifiedSummaryReleasedMap).length;
+    const onTrip = unifiedSummaryOnTripSet.size;
     
     let present, absent;
     if (mode === 'emergency') {
         const presentCount = Object.values(emergencyStatus).filter(s => s === 'present').length;
         const handledCount = Object.values(emergencyStatus).filter(s => s && s !== 'present' && s !== 'missing').length;
         present = presentCount + handledCount;
-        absent = Math.max(0, total - present);
+        absent = Math.max(0, total - present - onTrip);
     } else {
         present = Object.values(dailyAttendance).filter(s => s === 'present').length;
-        absent = Math.max(0, total - present - released);
+        // v49.3 - חיסור תלמידים בטיול מהחסרים (כדי לא לספור פעמיים)
+        absent = Math.max(0, total - present - released - onTrip);
     }
     
     // 3. עדכון Hero
@@ -1153,6 +1171,11 @@ async function renderUnifiedSummary(opts) {
     document.getElementById(heroIds.present).textContent = present;
     document.getElementById(heroIds.absent).textContent = absent;
     document.getElementById(heroIds.released).textContent = released;
+    // v49.3 - עדכון מלבן "בטיול" אם קיים
+    if (heroIds.onTrip) {
+        const el = document.getElementById(heroIds.onTrip);
+        if (el) el.textContent = onTrip;
+    }
     
     // 4. בניית התצוגה
     const list = document.getElementById(targetListId);
@@ -1180,7 +1203,7 @@ async function renderUnifiedSummary(opts) {
     
     // 5. בניית חטיבות
     const calcDivisionStats = (grades) => {
-        let t = 0, p = 0, r = 0;
+        let t = 0, p = 0, r = 0, tr = 0;
         grades.forEach(g => {
             (byGrade[g] || []).forEach(cls => {
                 const students = Object.entries(allStudents).filter(([,s]) => s.class === cls);
@@ -1194,9 +1217,12 @@ async function renderUnifiedSummary(opts) {
                     p += students.filter(([id]) => dailyAttendance[id] === 'present').length;
                 }
                 r += students.filter(([id]) => unifiedSummaryReleasedMap[id]).length;
+                // v49.3 - ספירת תלמידים בטיול בחטיבה
+                tr += students.filter(([id]) => unifiedSummaryOnTripSet.has(String(id))).length;
             });
         });
-        return { t, p, r, a: Math.max(0, t - p - r) };
+        // v49.3 - חיסור תלמידים בטיול מהחסרים
+        return { t, p, r, tr, a: Math.max(0, t - p - r - tr) };
     };
     
     const divisionsContainer = document.createElement('div');
@@ -1213,6 +1239,7 @@ async function renderUnifiedSummary(opts) {
                 <div class="div-stat present"><div class="n">${s.p}</div><div class="l">${mode === 'emergency' ? 'אותרו' : 'נוכחים'}</div></div>
                 <div class="div-stat absent"><div class="n">${s.a}</div><div class="l">חסרים</div></div>
                 <div class="div-stat released"><div class="n">${s.r}</div><div class="l">שוחררו</div></div>
+                ${s.tr > 0 ? `<div class="div-stat ontrip"><div class="n">${s.tr}</div><div class="l">🚌 בטיול</div></div>` : ''}
             </div>`;
         divisionsContainer.appendChild(card);
     }
@@ -1228,6 +1255,7 @@ async function renderUnifiedSummary(opts) {
                 <div class="div-stat present"><div class="n">${s.p}</div><div class="l">${mode === 'emergency' ? 'אותרו' : 'נוכחים'}</div></div>
                 <div class="div-stat absent"><div class="n">${s.a}</div><div class="l">חסרים</div></div>
                 <div class="div-stat released"><div class="n">${s.r}</div><div class="l">שוחררו</div></div>
+                ${s.tr > 0 ? `<div class="div-stat ontrip"><div class="n">${s.tr}</div><div class="l">🚌 בטיול</div></div>` : ''}
             </div>`;
         divisionsContainer.appendChild(card);
     }
@@ -1239,7 +1267,7 @@ async function renderUnifiedSummary(opts) {
         if (!byGrade[grade]) return;
         
         // סטטיסטיקה של השכבה
-        let gT = 0, gP = 0, gR = 0;
+        let gT = 0, gP = 0, gR = 0, gTrip = 0;
         byGrade[grade].forEach(cls => {
             const students = Object.entries(allStudents).filter(([,s]) => s.class === cls);
             gT += students.length;
@@ -1252,8 +1280,10 @@ async function renderUnifiedSummary(opts) {
                 gP += students.filter(([id]) => dailyAttendance[id] === 'present').length;
             }
             gR += students.filter(([id]) => unifiedSummaryReleasedMap[id]).length;
+            // v49.3 - ספירת תלמידים בטיול בשכבה
+            gTrip += students.filter(([id]) => unifiedSummaryOnTripSet.has(String(id))).length;
         });
-        const gA = Math.max(0, gT - gP - gR);
+        const gA = Math.max(0, gT - gP - gR - gTrip);
         
         const section = document.createElement('div');
         section.className = 'grade-section';
@@ -1265,6 +1295,7 @@ async function renderUnifiedSummary(opts) {
                     <span class="p">✓ ${gP}</span>
                     <span class="a">✗ ${gA}</span>
                     <span class="r">🚪 ${gR}</span>
+                    ${gTrip > 0 ? `<span class="tr">🚌 ${gTrip}</span>` : ''}
                 </div>
             </div>
             <div class="class-grid-summary" id="grid-${grade}"></div>
@@ -1330,11 +1361,14 @@ async function renderUnifiedSummary(opts) {
                 ).length;
             }
             
+            // v49.3 - ספירת תלמידים בטיול בכיתה
+            const onTripCount = students.filter(([id]) => unifiedSummaryOnTripSet.has(String(id))).length;
+            
             const tile = document.createElement('div');
             tile.className = `class-tile ${classStatus}`;
             tile.innerHTML = `
                 <div class="class-tile-name">${cls}</div>
-                <div class="class-tile-stats">${presentCount}/${total - releasedCount}${releasedCount > 0 ? ` · 🚪${releasedCount}` : ''}${groupCountedCount > 0 ? ` · 📚${groupCountedCount}` : ''}</div>
+                <div class="class-tile-stats">${presentCount}/${total - releasedCount - onTripCount}${releasedCount > 0 ? ` · 🚪${releasedCount}` : ''}${onTripCount > 0 ? ` · 🚌${onTripCount}` : ''}${groupCountedCount > 0 ? ` · 📚${groupCountedCount}` : ''}</div>
                 <div class="class-tile-status">${statusLabel}</div>
             `;
             tile.onclick = () => toggleUnifiedClassAccordion(cls, grade, mode);
@@ -1894,7 +1928,8 @@ async function renderEmergencyLobby() {
                 total: 'statTotal',
                 present: 'statPresent',
                 absent: 'statMissing',
-                released: 'statReleased'
+                released: 'statReleased',
+                onTrip: 'statOnTrip'
             }
         }),
         renderTripStatusCard()
@@ -2691,7 +2726,8 @@ async function loadSummaryData() {
                     total: 'summaryTotal',
                     present: 'summaryPresent',
                     absent: 'summaryAbsent',
-                    released: 'summaryReleased'
+                    released: 'summaryReleased',
+                    onTrip: 'summaryOnTrip'
                 }
             }),
             renderTripStatusCard('summaryTripStatusCard')
