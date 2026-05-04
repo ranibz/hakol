@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- גרסה: 1.1.0 | תאריך: 2026-04-28 | שינוי: הצגת סיסמאות בוחנים וסטטוס שינוי -->
+<!-- גרסה: 1.1.1 | תאריך: 2026-05-04 | שינוי: תיקון העלאת אקסל - זיהוי עמודות גמיש (תומך בשמות עמודות מגוונים, רווחים מיותרים, וגרסאות שונות), הודעת שגיאה אבחנתית כשלא נמצאו תלמידים, מניעת event bubbling בכפתור העלאה -->
 <html lang="he" dir="rtl">
 <head>
     <meta charset="UTF-8">
@@ -349,7 +349,7 @@
 <body>
 
 <div class="header">
-    <h1>👨‍💼 מחוון למ"ד - ניהול <span style="font-size:11px;background:rgba(255,255,255,0.2);padding:3px 9px;border-radius:8px;font-weight:700;font-family:monospace;margin-right:8px;opacity:0.85;vertical-align:middle;">v1.1.0</span></h1>
+    <h1>👨‍💼 מחוון למ"ד - ניהול <span style="font-size:11px;background:rgba(255,255,255,0.2);padding:3px 9px;border-radius:8px;font-weight:700;font-family:monospace;margin-right:8px;opacity:0.85;vertical-align:middle;">v1.1.1</span></h1>
     <p>יצירת בוחנים וניהול הערכות</p>
     <div class="header-user" id="headerUser" style="display:none;">
         <button class="btn-logout" onclick="logout()">התנתק</button>
@@ -396,7 +396,7 @@
                     <p style="font-size:0.85rem;color:var(--text-dim);">
                         עמודות: שם התלמיד, ת.ז., נושא, קישור
                     </p>
-                    <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" onchange="handleFileUpload(event)">
+                    <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" onchange="handleFileUpload(event)" onclick="event.stopPropagation()">
                 </div>
             </div>
             
@@ -520,18 +520,30 @@ function handleFileUpload(event) {
 
             pendingStudents = jsonData.map((row, index) => {
                 const rowNum = index + 2;
-                const name = row['שם התלמיד'] || row['שם התלמיד/ה'] || row['שם'] || '';
-                const id = row['תז'] || row['ת.ז.'] || row['תעודת זהות'] || '';
-                const topic = row['נושא הפרויקט'] || row['נושא'] || '';
-                let link = row['קישור לעבודה'] || row['קישור'] || row['קישור לתיק הדיגיטלי'] || '';
-                
+
+                // זיהוי גמיש של עמודות - מתעלם מרווחים ומחפש מילות מפתח
+                const findCol = (keywords) => {
+                    for (const key of Object.keys(row)) {
+                        const cleanKey = String(key).trim().toLowerCase();
+                        if (keywords.some(kw => cleanKey.includes(kw.toLowerCase()))) {
+                            return row[key];
+                        }
+                    }
+                    return '';
+                };
+
+                const name = findCol(['שם התלמיד', 'שם התלמיד/ה', 'שם מלא', 'שם תלמיד', 'תלמיד', 'שם']);
+                const id = findCol(['תז', 'ת.ז', 'תעודת זהות', 'מספר זהות']);
+                const topic = findCol(['נושא הפרויקט', 'נושא', 'פרויקט']);
+                let link = findCol(['קישור לעבודה', 'קישור לתיק', 'קישור', 'לינק', 'תיק דיגיטלי']);
+
                 if (linkColIndex >= 0) {
                     const colLetter = String.fromCharCode(65 + linkColIndex);
                     const cellRef = colLetter + rowNum;
                     if (hyperlinks[cellRef]) link = hyperlinks[cellRef];
                 }
                 
-                if (link && !link.startsWith('http')) link = '';
+                if (link && !String(link).startsWith('http')) link = '';
 
                 return {
                     name: String(name).trim(),
@@ -540,6 +552,14 @@ function handleFileUpload(event) {
                     link: String(link).trim()
                 };
             }).filter(s => s.name);
+
+            // אם לא נמצאו תלמידים - הצגת אבחון מפורט
+            if (pendingStudents.length === 0) {
+                const foundCols = headers.filter(h => h).map(h => String(h).trim()).join(' | ');
+                console.error('לא נמצאו תלמידים. עמודות בקובץ:', foundCols);
+                toast(`לא זוהתה עמודת "שם". העמודות שנמצאו: ${foundCols || 'אף אחת'}`, 'error');
+                return;
+            }
 
             // Show preview
             document.getElementById('studentsPreview').style.display = 'block';
