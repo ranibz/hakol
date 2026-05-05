@@ -134,7 +134,7 @@ body{font-family:"Rubik",sans-serif;background:var(--bg);color:var(--text);min-h
   <div class="logo-box"><span class="material-icons-round">assignment</span></div>
   <h1>מערכת מטלות</h1>
   <p>הגשת עבודות דיגיטלית</p>
-  <div class="credit">פיתוח מערכת מטלות • רני בן זאב • v3.9</div>
+  <div class="credit">פיתוח מערכת מטלות • רני בן זאב • v4.0</div>
 </div>
 <div class="role-cards">
   <button class="role-card rc-student active" onclick="switchRole('student')"><span class="rc-emoji">🎓</span><span class="rc-label">תלמיד</span></button>
@@ -1739,9 +1739,9 @@ function escapeHtmlMv(s) {
     return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
-// === AI - יצירת מבחן ובדיקת תשובות (v3.8) ===
-// משתמש ב-API של lamed-ai-checker
-var AI_CHECKER_URL = 'https://lamed-ai-checker.netlify.app/.netlify/functions/analyze';
+// === AI - יצירת מבחן ובדיקת תשובות (v4.0) ===
+// משתמש בפונקציה החדשה של מערכת המטלות
+var MAVCHAN_AI_URL = '/.netlify/functions/mavchan-ai';
 
 function openNewMavchanAI() {
     var form = document.getElementById('mavchanForm');
@@ -1790,80 +1790,33 @@ async function generateMavchanWithAI() {
     if (btn) btn.disabled = true;
     
     try {
-        var prompt = 'אתה עוזר למורה לבנות מבחן בדיקת הבנה לתלמידי תיכון.\n\n' +
-            'נושא/טקסט: """\n' + source + '\n"""\n\n' +
-            'בנה מבחן בדיוק לפי הספירה הבאה:\n' +
-            '- ' + numChoice + ' שאלות אמריקאיות (4 אפשרויות כל אחת, עם תשובה נכונה אחת)\n' +
-            '- ' + numOpen + ' שאלות פתוחות (דורשות הסבר במילים של התלמיד)\n\n' +
-            'דרישות:\n' +
-            '1. השאלות חייבות לבדוק הבנה אמיתית, לא שינון\n' +
-            '2. השאלות הפתוחות צריכות להיות כאלה שמראות אם התלמיד באמת הבין\n' +
-            '3. כתוב הכל בעברית\n' +
-            '4. בחירה מרובה - הסחות הדעת חייבות להיות סבירות\n\n' +
-            'החזר JSON בלבד בפורמט הזה (ללא טקסט נוסף):\n' +
-            '{\n' +
-            '  "questions": [\n' +
-            '    {"type": "choice", "text": "...", "options": ["אופציה 1", "אופציה 2", "אופציה 3", "אופציה 4"], "correct_answer": "אופציה X", "points": 5},\n' +
-            '    {"type": "text", "text": "...", "points": 10, "expected_answer": "תיאור קצר של מה תשובה טובה אמורה לכלול"}\n' +
-            '  ]\n' +
-            '}';
-        
-        var res = await fetch(AI_CHECKER_URL, {
+        var res = await fetch(MAVCHAN_AI_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                text: prompt,
-                criterion: {
-                    chapter: 'יצירת מבחן',
-                    name: 'בניית מבחן בקרה',
-                    description: 'יצירת ' + numChoice + ' שאלות אמריקאיות ו-' + numOpen + ' שאלות פתוחות. החזר JSON בלבד עם המפתח questions.',
-                    max_points: 100
-                }
+                action: 'generate_test',
+                topic: source,
+                num_choice: numChoice,
+                num_open: numOpen
             })
         });
         
         var data = await res.json();
         
-        // ה-checker מחזיר ai_indicators / human_indicators / questions_for_student
-        // נחפש את השאלות שהוא יצר במקומות שונים
-        var generatedQuestions = null;
-        
-        // ניסיון 1: חפש בtעוצאה שלמה JSON
-        var fullText = JSON.stringify(data);
-        var jsonMatch = fullText.match(/\{[^{}]*"questions"[^{}]*\[[\s\S]*?\][\s\S]*?\}/);
-        if (jsonMatch) {
-            try {
-                var parsed = JSON.parse(jsonMatch[0]);
-                if (parsed.questions) generatedQuestions = parsed.questions;
-            } catch(e) {}
+        if (data.error) {
+            statusEl.innerHTML = '<div style="background:#fee2e2;padding:14px;border-radius:10px;color:#991b1b;">❌ ' + data.error + '</div>';
+            if (btn) btn.disabled = false;
+            return;
         }
         
-        // ניסיון 2: השתמש ב-questions_for_student של ה-checker
-        if (!generatedQuestions && data.questions_for_student) {
-            // המר אותן לפורמט שלנו - כולן יהיו פתוחות
-            generatedQuestions = data.questions_for_student.slice(0, numOpen + numChoice).map(function(q, i) {
-                if (i < numChoice) {
-                    return {
-                        type: 'text',
-                        text: q,
-                        points: 5
-                    };
-                }
-                return {
-                    type: 'text',
-                    text: q,
-                    points: 10
-                };
-            });
-        }
-        
+        var generatedQuestions = data.questions;
         if (!generatedQuestions || !generatedQuestions.length) {
             statusEl.innerHTML = '<div style="background:#fee2e2;padding:14px;border-radius:10px;color:#991b1b;">❌ ה-AI לא הצליח ליצור שאלות. נסה שוב או הוסף יותר פרטים בנושא.</div>';
             if (btn) btn.disabled = false;
             return;
         }
         
-        // הצג את השאלות שנוצרו - המורה יכול לערוך
+        // המרה לפורמט שלנו (הוספת _qid)
         mavchanimQuestions = generatedQuestions.map(function(q) {
             var nq = Object.assign({}, q, { _qid: 'q' + Math.random().toString(36).substr(2, 6) });
             if (!nq.points) nq.points = nq.type === 'choice' ? 5 : 10;
@@ -1872,9 +1825,8 @@ async function generateMavchanWithAI() {
         
         statusEl.innerHTML = '<div style="background:#d1fae5;padding:14px;border-radius:10px;color:#065f46;font-weight:700;">✅ נוצרו ' + mavchanimQuestions.length + ' שאלות! תוכל לערוך/למחוק/להוסיף לפני שמירה</div>';
         
-        // עכשיו נחליף את הטופס לטופס עריכה רגיל - אבל עם הנתונים שנוצרו
+        // מעבר לטופס הרגיל עם הערכים שכבר הוזנו
         setTimeout(function() {
-            // מעבר לטופס הרגיל עם הערכים שכבר הוזנו
             mavchanimEditing = null;
             renderMavchanForm({
                 title: title,
@@ -1900,49 +1852,32 @@ async function gradeOpenAnswerWithAI(question, studentAnswer, maxPoints) {
     }
     
     try {
-        var prompt = 'אתה מורה הבודק תשובה של תלמיד תיכון.\n\n' +
-            'השאלה: ' + question.text + '\n' +
-            (question.expected_answer ? 'מה אמור להיות בתשובה: ' + question.expected_answer + '\n' : '') +
-            'תשובת התלמיד: """\n' + studentAnswer + '\n"""\n\n' +
-            'תן ציון מ-0 עד ' + maxPoints + ' לפי איכות התשובה והבנת החומר.\n' +
-            'תן הערכה מילולית קצרה (1-2 משפטים) שמסבירה את הציון.\n\n' +
-            'החזר JSON בלבד:\n' +
-            '{"score": <מספר>, "feedback": "<הערכה>"}';
-        
-        var res = await fetch(AI_CHECKER_URL, {
+        var res = await fetch(MAVCHAN_AI_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                text: prompt,
-                criterion: {
-                    chapter: 'בדיקת תשובה',
-                    name: 'הערכת תשובה פתוחה',
-                    description: 'תן ציון מ-0 עד ' + maxPoints + ' והערכה קצרה. החזר JSON עם score ו-feedback.',
-                    max_points: maxPoints
-                }
+                action: 'grade_answer',
+                question: question.text,
+                expected_answer: question.expected_answer || '',
+                student_answer: studentAnswer,
+                max_points: maxPoints
             })
         });
         
         var data = await res.json();
         
-        // חיפוש score ו-feedback בתוצאה
-        var fullText = JSON.stringify(data);
-        var jsonMatch = fullText.match(/\{[^{}]*"score"[^{}]*"feedback"[^{}]*\}/);
-        if (jsonMatch) {
-            try {
-                var parsed = JSON.parse(jsonMatch[0]);
-                return {
-                    score: Math.max(0, Math.min(maxPoints, parseInt(parsed.score) || 0)),
-                    feedback: parsed.feedback || 'אין הערכה'
-                };
-            } catch(e) {}
+        if (data.error) {
+            return { score: null, feedback: 'שגיאה: ' + data.error };
         }
         
-        // fallback - נסה להוציא ציון מהסיכום
-        var summary = data.summary || '';
-        var match = summary.match(/(\d+)/);
-        var score = match ? Math.min(maxPoints, parseInt(match[1])) : Math.floor(maxPoints / 2);
-        return { score: score, feedback: summary || 'הוערך אוטומטית' };
+        var score = parseInt(data.score);
+        if (isNaN(score)) score = 0;
+        score = Math.max(0, Math.min(maxPoints, score));
+        
+        return {
+            score: score,
+            feedback: data.feedback || 'אין הערכה'
+        };
         
     } catch (err) {
         console.error('AI grading error:', err);
