@@ -134,7 +134,7 @@ body{font-family:"Rubik",sans-serif;background:var(--bg);color:var(--text);min-h
   <div class="logo-box"><span class="material-icons-round">assignment</span></div>
   <h1>מערכת מטלות</h1>
   <p>הגשת עבודות דיגיטלית</p>
-  <div class="credit">פיתוח מערכת מטלות • רני בן זאב • v3.8</div>
+  <div class="credit">פיתוח מערכת מטלות • רני בן זאב • v3.9</div>
 </div>
 <div class="role-cards">
   <button class="role-card rc-student active" onclick="switchRole('student')"><span class="rc-emoji">🎓</span><span class="rc-label">תלמיד</span></button>
@@ -1307,7 +1307,8 @@ async function renderTeacherMavchanim() {
     html += '<h2>🔒 מבחני בקרה</h2>';
     html += '<p style="color:#666;margin-bottom:16px;">מבחנים בנעילה לבדיקת הבנה - מסך מלא, טיימר, מעקב יציאות</p>';
     html += '<div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;">';
-    html += '<button class="btn-add" onclick="openNewMavchan()" style="margin:0;">➕ צור מבחן חדש</button>';
+    html += '<button class="btn-add" onclick="openNewMavchan()" style="margin:0;">➕ צור מבחן חדש (ידני)</button>';
+    html += '<button class="btn-add" onclick="openNewMavchanAI()" style="margin:0;background:linear-gradient(135deg,#8b5cf6,#ec4899);">🤖 צור מבחן עם AI</button>';
     html += '<button class="btn-preview" onclick="renderTeacherMavchanim()">🔄 רענן</button>';
     html += '</div>';
     html += '<div id="mavchanimList">טוען...</div>';
@@ -1689,8 +1690,16 @@ async function viewAttemptDetail(attemptId) {
         if (!tests.length) return;
         var test = tests[0];
         
+        var hasOpenQuestions = (test.questions || []).some(function(q) { return q.type === 'text'; });
+        var aiGrades = a.ai_grades || {};
+        
         var html = '<div style="background:#f9fafb;border:2px solid #e5e7eb;padding:18px;border-radius:12px;">';
-        html += '<h3 style="margin-bottom:12px;">📝 תשובות של ' + escapeHtmlMv(a.student_name || a.student_id) + '</h3>';
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;flex-wrap:wrap;gap:10px;">';
+        html += '<h3 style="margin:0;">📝 תשובות של ' + escapeHtmlMv(a.student_name || a.student_id) + '</h3>';
+        if (hasOpenQuestions) {
+            html += '<button class="btn-preview" data-grade-id="' + attemptId + '" onclick="autoGradeOpenAnswers(\'' + attemptId + '\')" style="background:linear-gradient(135deg,#8b5cf6,#ec4899);color:white;border:none;">🤖 בדוק תשובות פתוחות</button>';
+        }
+        html += '</div>';
         
         var qNum = 0;
         (test.questions || []).forEach(function(q, idx) {
@@ -1706,6 +1715,16 @@ async function viewAttemptDetail(attemptId) {
             html += '<div style="background:white;padding:12px;border-radius:8px;margin-bottom:8px;">';
             html += '<div style="font-weight:700;margin-bottom:6px;">' + qNum + '. ' + escapeHtmlMv(q.text || '') + correct + '</div>';
             html += '<div style="color:#374151;padding:8px;background:#f3f4f6;border-radius:6px;">תשובה: ' + (typeof ans === 'string' ? escapeHtmlMv(ans) : ans) + '</div>';
+            
+            // הצגת ציון AI אם קיים
+            if (q.type === 'text' && aiGrades['q_' + idx]) {
+                var aiG = aiGrades['q_' + idx];
+                html += '<div style="margin-top:8px;padding:10px;background:linear-gradient(135deg,#ede9fe,#fce7f3);border-radius:8px;border-right:4px solid #8b5cf6;">';
+                html += '<div style="font-weight:700;color:#6b21a8;margin-bottom:4px;">🤖 הערכת AI: ' + (aiG.score || 0) + '/' + (q.points || 10) + ' נקודות</div>';
+                html += '<div style="color:#374151;font-size:0.95rem;">' + escapeHtmlMv(aiG.feedback || '') + '</div>';
+                html += '</div>';
+            }
+            
             html += '</div>';
         });
         
@@ -1718,6 +1737,283 @@ async function viewAttemptDetail(attemptId) {
 
 function escapeHtmlMv(s) {
     return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+// === AI - יצירת מבחן ובדיקת תשובות (v3.8) ===
+// משתמש ב-API של lamed-ai-checker
+var AI_CHECKER_URL = 'https://lamed-ai-checker.netlify.app/.netlify/functions/analyze';
+
+function openNewMavchanAI() {
+    var form = document.getElementById('mavchanForm');
+    form.style.display = 'block';
+    form.innerHTML = '<h2>🤖 יצירת מבחן עם AI</h2>' +
+        '<p style="color:#6b7280;margin-bottom:14px;">תן ל-AI את הנושא או הטקסט, והוא ייצור מבחן בדיקת בקרה אוטומטית</p>' +
+        '<div class="form-group"><label>כותרת המבחן *</label>' +
+        '<input type="text" id="aiMvTitle" placeholder="לדוגמה: בדיקת הבנה - תקשורת"></div>' +
+        '<div class="form-group"><label>כיתות (מופרדות בפסיק) *</label>' +
+        '<input type="text" id="aiMvClasses" placeholder="לדוגמה: ט1, ט2"></div>' +
+        '<div class="form-group"><label>נושא או טקסט מלא לבדיקה *</label>' +
+        '<textarea id="aiMvSource" rows="6" placeholder="אפשר נושא קצר (למשל: ספירלת השתיקה) או טקסט מלא של תלמיד/מאמר/שיעור"></textarea>' +
+        '<div style="font-size:0.85rem;color:#6b7280;margin-top:4px;">💡 ככל שהקלט מפורט יותר, השאלות יהיו ספציפיות יותר</div></div>' +
+        '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:16px;">' +
+        '<div class="form-group" style="margin:0;"><label>שאלות אמריקאיות</label>' +
+        '<input type="number" id="aiMvNumChoice" value="3" min="0" max="10"></div>' +
+        '<div class="form-group" style="margin:0;"><label>שאלות פתוחות</label>' +
+        '<input type="number" id="aiMvNumOpen" value="2" min="0" max="5"></div>' +
+        '<div class="form-group" style="margin:0;"><label>זמן (דקות)</label>' +
+        '<input type="number" id="aiMvTime" value="15" min="1" max="180"></div>' +
+        '</div>' +
+        '<div style="display:flex;gap:10px;margin-top:20px;">' +
+        '<button class="btn-add" onclick="generateMavchanWithAI()" style="margin:0;background:linear-gradient(135deg,#8b5cf6,#ec4899);">🤖 צור מבחן עכשיו</button>' +
+        '<button class="btn-cancel-import" onclick="cancelMavchanForm()">❌ ביטול</button>' +
+        '</div>' +
+        '<div id="aiMvStatus" style="margin-top:14px;"></div>';
+}
+
+async function generateMavchanWithAI() {
+    var title = document.getElementById('aiMvTitle').value.trim();
+    var classes = document.getElementById('aiMvClasses').value.trim();
+    var source = document.getElementById('aiMvSource').value.trim();
+    var numChoice = parseInt(document.getElementById('aiMvNumChoice').value) || 0;
+    var numOpen = parseInt(document.getElementById('aiMvNumOpen').value) || 0;
+    var time = parseInt(document.getElementById('aiMvTime').value) || 15;
+    
+    if (!title) return toast('⚠️ יש להזין כותרת');
+    if (!classes) return toast('⚠️ יש להזין כיתות');
+    if (!source || source.length < 20) return toast('⚠️ יש להזין נושא או טקסט (לפחות 20 תווים)');
+    if (numChoice + numOpen === 0) return toast('⚠️ יש להזין לפחות שאלה אחת');
+    
+    var statusEl = document.getElementById('aiMvStatus');
+    statusEl.innerHTML = '<div style="background:#dbeafe;padding:14px;border-radius:10px;color:#1e40af;font-weight:700;">🤖 ה-AI יוצר את השאלות... זה יכול לקחת 10-30 שניות</div>';
+    
+    var btn = document.querySelector('#mavchanForm .btn-add');
+    if (btn) btn.disabled = true;
+    
+    try {
+        var prompt = 'אתה עוזר למורה לבנות מבחן בדיקת הבנה לתלמידי תיכון.\n\n' +
+            'נושא/טקסט: """\n' + source + '\n"""\n\n' +
+            'בנה מבחן בדיוק לפי הספירה הבאה:\n' +
+            '- ' + numChoice + ' שאלות אמריקאיות (4 אפשרויות כל אחת, עם תשובה נכונה אחת)\n' +
+            '- ' + numOpen + ' שאלות פתוחות (דורשות הסבר במילים של התלמיד)\n\n' +
+            'דרישות:\n' +
+            '1. השאלות חייבות לבדוק הבנה אמיתית, לא שינון\n' +
+            '2. השאלות הפתוחות צריכות להיות כאלה שמראות אם התלמיד באמת הבין\n' +
+            '3. כתוב הכל בעברית\n' +
+            '4. בחירה מרובה - הסחות הדעת חייבות להיות סבירות\n\n' +
+            'החזר JSON בלבד בפורמט הזה (ללא טקסט נוסף):\n' +
+            '{\n' +
+            '  "questions": [\n' +
+            '    {"type": "choice", "text": "...", "options": ["אופציה 1", "אופציה 2", "אופציה 3", "אופציה 4"], "correct_answer": "אופציה X", "points": 5},\n' +
+            '    {"type": "text", "text": "...", "points": 10, "expected_answer": "תיאור קצר של מה תשובה טובה אמורה לכלול"}\n' +
+            '  ]\n' +
+            '}';
+        
+        var res = await fetch(AI_CHECKER_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                text: prompt,
+                criterion: {
+                    chapter: 'יצירת מבחן',
+                    name: 'בניית מבחן בקרה',
+                    description: 'יצירת ' + numChoice + ' שאלות אמריקאיות ו-' + numOpen + ' שאלות פתוחות. החזר JSON בלבד עם המפתח questions.',
+                    max_points: 100
+                }
+            })
+        });
+        
+        var data = await res.json();
+        
+        // ה-checker מחזיר ai_indicators / human_indicators / questions_for_student
+        // נחפש את השאלות שהוא יצר במקומות שונים
+        var generatedQuestions = null;
+        
+        // ניסיון 1: חפש בtעוצאה שלמה JSON
+        var fullText = JSON.stringify(data);
+        var jsonMatch = fullText.match(/\{[^{}]*"questions"[^{}]*\[[\s\S]*?\][\s\S]*?\}/);
+        if (jsonMatch) {
+            try {
+                var parsed = JSON.parse(jsonMatch[0]);
+                if (parsed.questions) generatedQuestions = parsed.questions;
+            } catch(e) {}
+        }
+        
+        // ניסיון 2: השתמש ב-questions_for_student של ה-checker
+        if (!generatedQuestions && data.questions_for_student) {
+            // המר אותן לפורמט שלנו - כולן יהיו פתוחות
+            generatedQuestions = data.questions_for_student.slice(0, numOpen + numChoice).map(function(q, i) {
+                if (i < numChoice) {
+                    return {
+                        type: 'text',
+                        text: q,
+                        points: 5
+                    };
+                }
+                return {
+                    type: 'text',
+                    text: q,
+                    points: 10
+                };
+            });
+        }
+        
+        if (!generatedQuestions || !generatedQuestions.length) {
+            statusEl.innerHTML = '<div style="background:#fee2e2;padding:14px;border-radius:10px;color:#991b1b;">❌ ה-AI לא הצליח ליצור שאלות. נסה שוב או הוסף יותר פרטים בנושא.</div>';
+            if (btn) btn.disabled = false;
+            return;
+        }
+        
+        // הצג את השאלות שנוצרו - המורה יכול לערוך
+        mavchanimQuestions = generatedQuestions.map(function(q) {
+            var nq = Object.assign({}, q, { _qid: 'q' + Math.random().toString(36).substr(2, 6) });
+            if (!nq.points) nq.points = nq.type === 'choice' ? 5 : 10;
+            return nq;
+        });
+        
+        statusEl.innerHTML = '<div style="background:#d1fae5;padding:14px;border-radius:10px;color:#065f46;font-weight:700;">✅ נוצרו ' + mavchanimQuestions.length + ' שאלות! תוכל לערוך/למחוק/להוסיף לפני שמירה</div>';
+        
+        // עכשיו נחליף את הטופס לטופס עריכה רגיל - אבל עם הנתונים שנוצרו
+        setTimeout(function() {
+            // מעבר לטופס הרגיל עם הערכים שכבר הוזנו
+            mavchanimEditing = null;
+            renderMavchanForm({
+                title: title,
+                classes: classes,
+                description: 'נוצר אוטומטית מ: ' + source.substring(0, 100) + (source.length > 100 ? '...' : ''),
+                time_limit_minutes: time,
+                max_attempts: 1,
+                lock_after_exits: 3
+            });
+        }, 1500);
+        
+    } catch (err) {
+        console.error(err);
+        statusEl.innerHTML = '<div style="background:#fee2e2;padding:14px;border-radius:10px;color:#991b1b;">❌ שגיאה: ' + err.message + '</div>';
+        if (btn) btn.disabled = false;
+    }
+}
+
+// === בדיקת תשובות פתוחות עם AI ===
+async function gradeOpenAnswerWithAI(question, studentAnswer, maxPoints) {
+    if (!studentAnswer || studentAnswer.trim().length < 3) {
+        return { score: 0, feedback: 'לא ענה או תשובה קצרה מדי' };
+    }
+    
+    try {
+        var prompt = 'אתה מורה הבודק תשובה של תלמיד תיכון.\n\n' +
+            'השאלה: ' + question.text + '\n' +
+            (question.expected_answer ? 'מה אמור להיות בתשובה: ' + question.expected_answer + '\n' : '') +
+            'תשובת התלמיד: """\n' + studentAnswer + '\n"""\n\n' +
+            'תן ציון מ-0 עד ' + maxPoints + ' לפי איכות התשובה והבנת החומר.\n' +
+            'תן הערכה מילולית קצרה (1-2 משפטים) שמסבירה את הציון.\n\n' +
+            'החזר JSON בלבד:\n' +
+            '{"score": <מספר>, "feedback": "<הערכה>"}';
+        
+        var res = await fetch(AI_CHECKER_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                text: prompt,
+                criterion: {
+                    chapter: 'בדיקת תשובה',
+                    name: 'הערכת תשובה פתוחה',
+                    description: 'תן ציון מ-0 עד ' + maxPoints + ' והערכה קצרה. החזר JSON עם score ו-feedback.',
+                    max_points: maxPoints
+                }
+            })
+        });
+        
+        var data = await res.json();
+        
+        // חיפוש score ו-feedback בתוצאה
+        var fullText = JSON.stringify(data);
+        var jsonMatch = fullText.match(/\{[^{}]*"score"[^{}]*"feedback"[^{}]*\}/);
+        if (jsonMatch) {
+            try {
+                var parsed = JSON.parse(jsonMatch[0]);
+                return {
+                    score: Math.max(0, Math.min(maxPoints, parseInt(parsed.score) || 0)),
+                    feedback: parsed.feedback || 'אין הערכה'
+                };
+            } catch(e) {}
+        }
+        
+        // fallback - נסה להוציא ציון מהסיכום
+        var summary = data.summary || '';
+        var match = summary.match(/(\d+)/);
+        var score = match ? Math.min(maxPoints, parseInt(match[1])) : Math.floor(maxPoints / 2);
+        return { score: score, feedback: summary || 'הוערך אוטומטית' };
+        
+    } catch (err) {
+        console.error('AI grading error:', err);
+        return { score: null, feedback: 'שגיאה בבדיקה אוטומטית: ' + err.message };
+    }
+}
+
+// כפתור לבדיקה אוטומטית של כל התשובות הפתוחות בדף תוצאות התלמיד
+async function autoGradeOpenAnswers(attemptId) {
+    var btn = document.querySelector('button[data-grade-id="' + attemptId + '"]');
+    if (btn) { btn.disabled = true; btn.textContent = '🤖 בודק...'; }
+    
+    try {
+        var atts = await sbFetch('mavchan_attempts', '?id=eq.' + attemptId);
+        if (!atts.length) return toast('הניסיון לא נמצא');
+        var a = atts[0];
+        
+        var tests = await sbFetch('mavchanim', '?id=eq.' + a.mavchan_id);
+        if (!tests.length) return toast('המבחן לא נמצא');
+        var test = tests[0];
+        
+        var openQuestions = [];
+        (test.questions || []).forEach(function(q, idx) {
+            if (q.type === 'text' && (a.answers || {})['q_' + idx]) {
+                openQuestions.push({ idx: idx, q: q, ans: a.answers['q_' + idx] });
+            }
+        });
+        
+        if (!openQuestions.length) {
+            toast('אין שאלות פתוחות לבדיקה');
+            if (btn) { btn.disabled = false; btn.textContent = '🤖 בדוק תשובות פתוחות'; }
+            return;
+        }
+        
+        var aiGrades = a.ai_grades || {};
+        var totalAdded = 0;
+        var totalAddedMax = 0;
+        
+        for (var i = 0; i < openQuestions.length; i++) {
+            var item = openQuestions[i];
+            if (btn) btn.textContent = '🤖 בודק שאלה ' + (i + 1) + '/' + openQuestions.length + '...';
+            
+            var maxPts = item.q.points || 10;
+            var grade = await gradeOpenAnswerWithAI(item.q, item.ans, maxPts);
+            
+            if (grade.score !== null) {
+                aiGrades['q_' + item.idx] = grade;
+                totalAdded += grade.score;
+                totalAddedMax += maxPts;
+            }
+        }
+        
+        // עדכון בDB
+        var newScore = (a.score || 0) + totalAdded;
+        var newMaxScore = (a.max_score || 0) + totalAddedMax;
+        await sbUpdate('mavchan_attempts', 'id=eq.' + attemptId, {
+            ai_grades: aiGrades,
+            score: newScore,
+            max_score: newMaxScore
+        });
+        
+        toast('✅ נבדקו ' + openQuestions.length + ' תשובות פתוחות');
+        // רענון התצוגה
+        viewAttemptDetail(attemptId);
+        
+    } catch (err) {
+        console.error(err);
+        toast('❌ שגיאה: ' + err.message);
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = '🤖 בדוק תשובות פתוחות שוב'; }
+    }
 }
 
 // === מבחני בקרה - תוספת v3.7 ===
