@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>מערכת חירום - בית חינוך גליל מערבי</title>
+    <!-- VERSION 50.0 - 07/05/2026 - אינטגרציה עם מערכת הגיחות: trip_attendance_status מסונן לפי source_type ('trip'/'gicha'), unifiedSummaryOnGichaSet מקביל ל-OnTripSet, hero stat נפרד "🚶 בגיחה" (כתום), תווית בודדת "🚶 בגיחה" באקורדיון, ספירות נפרדות בכיתה/שכבה/חטיבה, וכרטיס גיחה נפרד (renderGichaStatusCard) עם עיצוב כתום. דורש ALTER TABLE על trip_attendance_status: ADD source_type/gicha_id, DROP NOT NULL trip_id. -->
     <!-- VERSION 49.5 - 03/05/2026 - הצגת סטטוס "🚌 בטיול" באקורדיון של תלמידי הכיתה -->
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700;900&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
@@ -145,6 +146,9 @@
         .hero-stat.absent .num { color: #ff7675; }
         .hero-stat.ontrip { background: rgba(33, 150, 243, 0.3); }
         .hero-stat.ontrip .num { color: #64b5f6; }
+        /* v50.0 - תלמידים בגיחה (כתום) */
+        .hero-stat.ongicha { background: rgba(255, 152, 0, 0.3); }
+        .hero-stat.ongicha .num { color: #ffb74d; }
 
         /* === כרטיס תלמידים בטיול v49 === */
         .trip-status-card {
@@ -240,6 +244,12 @@
         .class-accordion-student.absent { background: #fdedec; border-right: 3px solid #e74c3c; }
         .class-accordion-student.ontrip { background: #e3f2fd; border-right: 3px solid #1976d2; font-weight: 700; }
         .class-accordion-student.ontrip strong { color: #0d47a1; }
+        /* v50.0 - תלמיד בגיחה: רקע כתום */
+        .class-accordion-student.ongicha { background: #fff3e0; border-right: 3px solid #ff9800; font-weight: 700; }
+        .class-accordion-student.ongicha strong { color: #e65100; }
+        /* v50.0 - כרטיס גיחה (כתום במקום כחול) */
+        .gicha-status-card { background: linear-gradient(135deg, #e65100, #f57c00) !important; box-shadow: 0 4px 14px rgba(230,81,0,.25) !important; }
+        .gicha-status-card:hover { box-shadow: 0 6px 18px rgba(230,81,0,.35) !important; }
         
         .released-list-section { background: white; border-radius: 14px; padding: 16px; margin-top: 16px; box-shadow: 0 2px 6px rgba(0,0,0,0.06); }
         .released-list-section h3 { color: #e67e22; margin-bottom: 12px; }
@@ -488,6 +498,8 @@
             
             <!-- כרטיס תלמידים בטיול v49 -->
             <div id="summaryTripStatusCard" style="display:none;"></div>
+            <!-- v50.0 - כרטיס תלמידים בגיחה -->
+            <div id="summaryGichaStatusCard" style="display:none;"></div>
             
             <!-- Hero - סטטיסטיקה בולטת -->
             <div class="summary-hero">
@@ -497,6 +509,7 @@
                     <div class="hero-stat absent"><div class="num" id="summaryAbsent">0</div><div class="label">חסרים</div></div>
                     <div class="hero-stat released"><div class="num" id="summaryReleased">0</div><div class="label">שוחררו</div></div>
                     <div class="hero-stat ontrip"><div class="num" id="summaryOnTrip">0</div><div class="label">🚌 בטיול</div></div>
+                    <div class="hero-stat ongicha" id="summaryOnGichaWrap" style="display:none"><div class="num" id="summaryOnGicha">0</div><div class="label">🚶 בגיחה</div></div>
                 </div>
             </div>
             
@@ -650,6 +663,8 @@
             
             <!-- כרטיס תלמידים בטיול v49 -->
             <div id="tripStatusCard" style="display:none;"></div>
+            <!-- v50.0 - כרטיס תלמידים בגיחה -->
+            <div id="emergencyGichaStatusCard" style="display:none;"></div>
             
             <!-- Hero - סטטיסטיקה בולטת -->
             <div class="summary-hero" id="emergencyHero">
@@ -659,6 +674,7 @@
                     <div class="hero-stat absent"><div class="num" id="statMissing">0</div><div class="label">חסרים</div></div>
                     <div class="hero-stat released"><div class="num" id="statReleased">0</div><div class="label">שוחררו</div></div>
                     <div class="hero-stat ontrip"><div class="num" id="statOnTrip">0</div><div class="label">🚌 בטיול</div></div>
+                    <div class="hero-stat ongicha" id="statOnGichaWrap" style="display:none"><div class="num" id="statOnGicha">0</div><div class="label">🚶 בגיחה</div></div>
                 </div>
             </div>
             <h3 style="margin-bottom:15px;" id="adminViewTitle">מצב כיתות:</h3>
@@ -1108,6 +1124,7 @@ async function renderAttendanceSummary() {
 // משמש את שני המסכים: סיכום נוכחות יומית ומסך מנהל בחירום
 let unifiedSummaryReleasedMap = {}; // student_id -> שעת שחרור (HH:MM)
 let unifiedSummaryOnTripSet = new Set(); // v49.3 - student_id -> מי בטיול
+let unifiedSummaryOnGichaSet = new Set(); // v50.0 - student_id -> מי בגיחה
 let unifiedSummaryReleasedList = []; // [{name, class, time, reason}]
 let unifiedSummaryOpenClass = null; // איזו כיתה פתוחה עכשיו ב-accordion
 
@@ -1144,39 +1161,50 @@ async function renderUnifiedSummary(opts) {
     
     // 1.5 טעינת תלמידים בטיול v49.3 (מתבצע במקביל לשחרורים)
     // v49.4 - סינון רק טיולים שתאריך ההתחלה ≤ היום
+    // v50.0 - הפרדה: trip לעומת gicha (ב-set נפרד)
     unifiedSummaryOnTripSet = new Set();
+    unifiedSummaryOnGichaSet = new Set();
     try {
         const todayStr = new Date().toISOString().split('T')[0];
-        // קריאה משולבת: תלמידים בטיול + פרטי הטיולים שמתחילים היום או קודם
+        // קריאה משולבת: תלמידים בטיול/גיחה + פרטי הטיולים שמתחילים היום או קודם
         const [tripRecs, activeTrips] = await Promise.all([
-            tripsApi('trip_attendance_status?is_active=eq.true&select=student_id,trip_id'),
+            tripsApi('trip_attendance_status?is_active=eq.true&select=student_id,trip_id,source_type'),
             tripsApi(`trips?is_active=eq.true&start_date=lte.${todayStr}&select=id`)
         ]);
         // סט של מזהי טיולים שכבר התחילו
         const startedTripIds = new Set((activeTrips || []).map(t => String(t.id)));
         (tripRecs || []).forEach(r => {
-            // רק תלמידים מטיולים שכבר התחילו
-            if (r.student_id && startedTripIds.has(String(r.trip_id))) {
-                unifiedSummaryOnTripSet.add(String(r.student_id));
+            if (!r.student_id) return;
+            const sid = String(r.student_id);
+            if (r.source_type === 'gicha') {
+                // גיחה - תמיד פעילה (לא מסננים לפי start_date כי גיחה היא חד-יומית)
+                unifiedSummaryOnGichaSet.add(sid);
+            } else {
+                // טיול - רק אם הטיול כבר התחיל
+                if (startedTripIds.has(String(r.trip_id))) {
+                    unifiedSummaryOnTripSet.add(sid);
+                }
             }
         });
-    } catch (e) { console.error('שגיאה בטעינת תלמידים בטיול:', e); }
+    } catch (e) { console.error('שגיאה בטעינת תלמידים בטיול/גיחה:', e); }
     
     // 2. חישוב סטטיסטיקות
     const total = Object.keys(allStudents).length;
     const released = Object.keys(unifiedSummaryReleasedMap).length;
     const onTrip = unifiedSummaryOnTripSet.size;
+    const onGicha = unifiedSummaryOnGichaSet.size;
+    const offCampus = onTrip + onGicha; // סה"כ תלמידים מחוץ לבי"ס לחישוב נוכחות
     
     let present, absent;
     if (mode === 'emergency') {
         const presentCount = Object.values(emergencyStatus).filter(s => s === 'present').length;
         const handledCount = Object.values(emergencyStatus).filter(s => s && s !== 'present' && s !== 'missing').length;
         present = presentCount + handledCount;
-        absent = Math.max(0, total - present - onTrip);
+        absent = Math.max(0, total - present - offCampus);
     } else {
         present = Object.values(dailyAttendance).filter(s => s === 'present').length;
-        // v49.3 - חיסור תלמידים בטיול מהחסרים (כדי לא לספור פעמיים)
-        absent = Math.max(0, total - present - released - onTrip);
+        // v49.3 - חיסור תלמידים בטיול ובגיחה מהחסרים (כדי לא לספור פעמיים)
+        absent = Math.max(0, total - present - released - offCampus);
     }
     
     // 3. עדכון Hero
@@ -1188,6 +1216,13 @@ async function renderUnifiedSummary(opts) {
     if (heroIds.onTrip) {
         const el = document.getElementById(heroIds.onTrip);
         if (el) el.textContent = onTrip;
+    }
+    // v50.0 - עדכון מלבן "בגיחה" אם קיים (מוצג רק אם יש תלמידים בגיחה)
+    if (heroIds.onGicha) {
+        const el = document.getElementById(heroIds.onGicha);
+        const wrap = heroIds.onGichaWrap ? document.getElementById(heroIds.onGichaWrap) : null;
+        if (el) el.textContent = onGicha;
+        if (wrap) wrap.style.display = onGicha > 0 ? '' : 'none';
     }
     
     // 4. בניית התצוגה
@@ -1216,7 +1251,7 @@ async function renderUnifiedSummary(opts) {
     
     // 5. בניית חטיבות
     const calcDivisionStats = (grades) => {
-        let t = 0, p = 0, r = 0, tr = 0;
+        let t = 0, p = 0, r = 0, tr = 0, gi = 0;
         grades.forEach(g => {
             (byGrade[g] || []).forEach(cls => {
                 const students = Object.entries(allStudents).filter(([,s]) => s.class === cls);
@@ -1232,10 +1267,12 @@ async function renderUnifiedSummary(opts) {
                 r += students.filter(([id]) => unifiedSummaryReleasedMap[id]).length;
                 // v49.3 - ספירת תלמידים בטיול בחטיבה
                 tr += students.filter(([id]) => unifiedSummaryOnTripSet.has(String(id))).length;
+                // v50.0 - ספירת תלמידים בגיחה בחטיבה
+                gi += students.filter(([id]) => unifiedSummaryOnGichaSet.has(String(id))).length;
             });
         });
-        // v49.3 - חיסור תלמידים בטיול מהחסרים
-        return { t, p, r, tr, a: Math.max(0, t - p - r - tr) };
+        // v50.0 - חיסור תלמידים בטיול ובגיחה מהחסרים
+        return { t, p, r, tr, gi, a: Math.max(0, t - p - r - tr - gi) };
     };
     
     const divisionsContainer = document.createElement('div');
@@ -1253,6 +1290,7 @@ async function renderUnifiedSummary(opts) {
                 <div class="div-stat absent"><div class="n">${s.a}</div><div class="l">חסרים</div></div>
                 <div class="div-stat released"><div class="n">${s.r}</div><div class="l">שוחררו</div></div>
                 ${s.tr > 0 ? `<div class="div-stat ontrip"><div class="n">${s.tr}</div><div class="l">🚌 בטיול</div></div>` : ''}
+                ${s.gi > 0 ? `<div class="div-stat ontrip" style="background:rgba(255,152,0,.18);border-color:rgba(255,152,0,.4)"><div class="n" style="color:#ff9800">${s.gi}</div><div class="l">🚶 בגיחה</div></div>` : ''}
             </div>`;
         divisionsContainer.appendChild(card);
     }
@@ -1269,6 +1307,7 @@ async function renderUnifiedSummary(opts) {
                 <div class="div-stat absent"><div class="n">${s.a}</div><div class="l">חסרים</div></div>
                 <div class="div-stat released"><div class="n">${s.r}</div><div class="l">שוחררו</div></div>
                 ${s.tr > 0 ? `<div class="div-stat ontrip"><div class="n">${s.tr}</div><div class="l">🚌 בטיול</div></div>` : ''}
+                ${s.gi > 0 ? `<div class="div-stat ontrip" style="background:rgba(255,152,0,.18);border-color:rgba(255,152,0,.4)"><div class="n" style="color:#ff9800">${s.gi}</div><div class="l">🚶 בגיחה</div></div>` : ''}
             </div>`;
         divisionsContainer.appendChild(card);
     }
@@ -1280,7 +1319,7 @@ async function renderUnifiedSummary(opts) {
         if (!byGrade[grade]) return;
         
         // סטטיסטיקה של השכבה
-        let gT = 0, gP = 0, gR = 0, gTrip = 0;
+        let gT = 0, gP = 0, gR = 0, gTrip = 0, gGicha = 0;
         byGrade[grade].forEach(cls => {
             const students = Object.entries(allStudents).filter(([,s]) => s.class === cls);
             gT += students.length;
@@ -1295,8 +1334,10 @@ async function renderUnifiedSummary(opts) {
             gR += students.filter(([id]) => unifiedSummaryReleasedMap[id]).length;
             // v49.3 - ספירת תלמידים בטיול בשכבה
             gTrip += students.filter(([id]) => unifiedSummaryOnTripSet.has(String(id))).length;
+            // v50.0 - ספירת תלמידים בגיחה בשכבה
+            gGicha += students.filter(([id]) => unifiedSummaryOnGichaSet.has(String(id))).length;
         });
-        const gA = Math.max(0, gT - gP - gR - gTrip);
+        const gA = Math.max(0, gT - gP - gR - gTrip - gGicha);
         
         const section = document.createElement('div');
         section.className = 'grade-section';
@@ -1309,6 +1350,7 @@ async function renderUnifiedSummary(opts) {
                     <span class="a">✗ ${gA}</span>
                     <span class="r">🚪 ${gR}</span>
                     ${gTrip > 0 ? `<span class="tr">🚌 ${gTrip}</span>` : ''}
+                    ${gGicha > 0 ? `<span class="tr" style="color:#ff9800">🚶 ${gGicha}</span>` : ''}
                 </div>
             </div>
             <div class="class-grid-summary" id="grid-${grade}"></div>
@@ -1348,7 +1390,11 @@ async function renderUnifiedSummary(opts) {
                 presentCount = students.filter(([id]) => dailyAttendance[id] === 'present').length;
                 absentCount = students.filter(([id]) => dailyAttendance[id] === 'absent').length;
                 const markedCount = presentCount + absentCount;
-                const expectedToMark = total - releasedCount;
+                // v50.0 - תלמידים שיצאו לטיול/גיחה לא צפויים להיספר ע"י מחנכת
+                const offCampusInClass = students.filter(([id]) => 
+                    unifiedSummaryOnTripSet.has(String(id)) || unifiedSummaryOnGichaSet.has(String(id))
+                ).length;
+                const expectedToMark = total - releasedCount - offCampusInClass;
                 
                 if (markedCount === 0) {
                     classStatus = 'status-not-started';
@@ -1376,12 +1422,14 @@ async function renderUnifiedSummary(opts) {
             
             // v49.3 - ספירת תלמידים בטיול בכיתה
             const onTripCount = students.filter(([id]) => unifiedSummaryOnTripSet.has(String(id))).length;
+            // v50.0 - ספירת תלמידים בגיחה בכיתה
+            const onGichaCount = students.filter(([id]) => unifiedSummaryOnGichaSet.has(String(id))).length;
             
             const tile = document.createElement('div');
             tile.className = `class-tile ${classStatus}`;
             tile.innerHTML = `
                 <div class="class-tile-name">${cls}</div>
-                <div class="class-tile-stats">${presentCount}/${total - releasedCount - onTripCount}${releasedCount > 0 ? ` · 🚪${releasedCount}` : ''}${onTripCount > 0 ? ` · 🚌${onTripCount}` : ''}${groupCountedCount > 0 ? ` · 📚${groupCountedCount}` : ''}</div>
+                <div class="class-tile-stats">${presentCount}/${total - releasedCount - onTripCount - onGichaCount}${releasedCount > 0 ? ` · 🚪${releasedCount}` : ''}${onTripCount > 0 ? ` · 🚌${onTripCount}` : ''}${onGichaCount > 0 ? ` · 🚶${onGichaCount}` : ''}${groupCountedCount > 0 ? ` · 📚${groupCountedCount}` : ''}</div>
                 <div class="class-tile-status">${statusLabel}</div>
             `;
             tile.onclick = () => toggleUnifiedClassAccordion(cls, grade, mode);
@@ -1467,13 +1515,18 @@ function renderUnifiedClassAccordion(cls, grade, mode) {
         const releaseTime = unifiedSummaryReleasedMap[id];
         // v49.5 - בדיקה אם התלמיד בטיול
         const onTrip = unifiedSummaryOnTripSet.has(String(id));
+        // v50.0 - בדיקה אם התלמיד בגיחה
+        const onGicha = unifiedSummaryOnGichaSet.has(String(id));
         let cls2, statusTxt;
         
         // קבלת שם הקבוצה (אם נספר דרך מורה מקצועי)
         const groupName = (mode === 'emergency') ? studentGroupMap[id] : dailyGroupMap[id];
         
-        // v49.5 - בטיול גובר על שאר הסטטוסים
-        if (onTrip) {
+        // v50.0 - גיחה ובטיול גוברים על שאר הסטטוסים
+        if (onGicha) {
+            cls2 = 'ongicha';
+            statusTxt = '🚶 בגיחה';
+        } else if (onTrip) {
             cls2 = 'ontrip';
             statusTxt = '🚌 בטיול';
         } else if (releaseTime) {
@@ -1948,10 +2001,13 @@ async function renderEmergencyLobby() {
                 present: 'statPresent',
                 absent: 'statMissing',
                 released: 'statReleased',
-                onTrip: 'statOnTrip'
+                onTrip: 'statOnTrip',
+                onGicha: 'statOnGicha',
+                onGichaWrap: 'statOnGichaWrap'
             }
         }),
-        renderTripStatusCard()
+        renderTripStatusCard(),
+        renderGichaStatusCard('emergencyGichaStatusCard')
     ]);
     
     setTimeout(() => window.scrollTo(0, adminScrollTop), 10);
@@ -1971,9 +2027,10 @@ async function renderTripStatusCard(containerId) {
     if (wasExpanded) _expandedTripCards.add(containerId);
     
     // טעינת תלמידים פעילים בטיול + טיולים שכבר התחילו (v49.4)
+    // v50.0 - סינון מפורש לטיולים בלבד (לא גיחות)
     const todayStr = new Date().toISOString().split('T')[0];
     const [records, activeTrips] = await Promise.all([
-        tripsApi('trip_attendance_status?is_active=eq.true&select=student_id,student_name,trip_id,trip_name,coordinator_name,coordinator_phone,left_school_at&order=left_school_at.desc'),
+        tripsApi('trip_attendance_status?source_type=eq.trip&is_active=eq.true&select=student_id,student_name,trip_id,trip_name,coordinator_name,coordinator_phone,left_school_at&order=left_school_at.desc'),
         tripsApi(`trips?is_active=eq.true&start_date=lte.${todayStr}&select=id`)
     ]);
     
@@ -2030,6 +2087,74 @@ async function renderTripStatusCard(containerId) {
                 <div class="trip-status-text">
                     <div class="trip-status-title">${tripCount} ${tripCount === 1 ? 'טיול פעיל' : 'טיולים פעילים'} כעת</div>
                     <div class="trip-status-sub">${totalStudents} תלמידים מחוץ לבית הספר · לחץ לפרטים</div>
+                </div>
+                <div class="trip-status-arrow">▼</div>
+            </div>
+            <div class="trip-status-details">
+                ${detailsHtml}
+            </div>
+        </div>`;
+}
+
+// v50.0 - כרטיס תלמידים בגיחה (מקביל ל-renderTripStatusCard, עם עיצוב כתום)
+async function renderGichaStatusCard(containerId) {
+    containerId = containerId || 'summaryGichaStatusCard';
+    const card = document.getElementById(containerId);
+    if (!card) return;
+
+    const wasExpanded = card.querySelector('.trip-status-card')?.classList.contains('expanded');
+    if (wasExpanded) _expandedTripCards.add(containerId);
+
+    // טעינת תלמידים פעילים בגיחה (source_type='gicha', is_active=true)
+    const records = await tripsApi("trip_attendance_status?source_type=eq.gicha&is_active=eq.true&select=student_id,student_name,gicha_id,trip_name,coordinator_name,coordinator_phone,left_school_at&order=left_school_at.desc");
+
+    if (!records || records.length === 0) {
+        card.style.display = 'none';
+        return;
+    }
+
+    // קיבוץ לפי גיחה
+    const byGicha = {};
+    records.forEach(r => {
+        if (!byGicha[r.gicha_id]) {
+            byGicha[r.gicha_id] = {
+                name: r.trip_name || 'גיחה',
+                coordinator: r.coordinator_name || '',
+                phone: r.coordinator_phone || '',
+                students: []
+            };
+        }
+        byGicha[r.gicha_id].students.push(r.student_name || '—');
+    });
+
+    const gichaCount = Object.keys(byGicha).length;
+    const totalStudents = records.length;
+
+    let detailsHtml = '';
+    Object.entries(byGicha).forEach(([gid, t]) => {
+        const studentsListHtml = t.students.length > 0
+            ? `<div class="trip-students-list">${t.students.map(n => '• ' + escapeHtml(n)).join('<br>')}</div>`
+            : '';
+        const phoneLink = t.phone ? `<a href="tel:${t.phone}">📞 ${t.phone}</a>` : '';
+        const coordPart = t.coordinator ? `מורה: ${escapeHtml(t.coordinator)}` : '';
+        const metaParts = [coordPart, phoneLink].filter(Boolean).join(' · ');
+        detailsHtml += `
+            <div class="trip-detail-row">
+                <div class="trip-detail-name">${escapeHtml(t.name)} <span style="font-weight:400;opacity:0.85;">(${t.students.length} תלמידים)</span></div>
+                ${metaParts ? `<div class="trip-detail-meta">${metaParts}</div>` : ''}
+                ${studentsListHtml}
+            </div>`;
+    });
+
+    card.style.display = 'block';
+    const startExpanded = _expandedTripCards.has(containerId) ? ' expanded' : '';
+    card.innerHTML = `
+        <div class="trip-status-card gicha-status-card${startExpanded}" onclick="toggleTripStatusCard(this, '${containerId}')">
+            <div class="trip-status-header">
+                <div class="trip-status-icon">🚶</div>
+                <div class="trip-status-text">
+                    <div class="trip-status-title">${gichaCount} ${gichaCount === 1 ? 'גיחה פעילה' : 'גיחות פעילות'} כעת</div>
+                    <div class="trip-status-sub">${totalStudents} תלמידים יצאו עם מורה · לחץ לפרטים</div>
                 </div>
                 <div class="trip-status-arrow">▼</div>
             </div>
@@ -2756,10 +2881,13 @@ async function loadSummaryData() {
                     present: 'summaryPresent',
                     absent: 'summaryAbsent',
                     released: 'summaryReleased',
-                    onTrip: 'summaryOnTrip'
+                    onTrip: 'summaryOnTrip',
+                    onGicha: 'summaryOnGicha',
+                    onGichaWrap: 'summaryOnGichaWrap'
                 }
             }),
-            renderTripStatusCard('summaryTripStatusCard')
+            renderTripStatusCard('summaryTripStatusCard'),
+            renderGichaStatusCard('summaryGichaStatusCard')
         ]);
     } catch (e) {
         console.error(e);
