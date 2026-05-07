@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>מערכת חירום - בית חינוך גליל מערבי</title>
+    <!-- VERSION 50.1 - 07/05/2026 - "גיחה גוברת על נוכחות": תלמיד שמסומן ע"י מחנכת כ"נוכח" אבל מסומן ע"י מורה גיחה כ"יצא" — לא נספר יותר כנוכח אלא רק כ"🚶 בגיחה". מנגנון הסינון מוחל בכל ארבע רמות הספירה: סיכום בית-ספרי, חטיבה, שכבה, וכיתה (במצב יומי בלבד; חירום ללא שינוי). טיול שנתי ללא שינוי בהתנהגות. -->
     <!-- VERSION 50.0 - 07/05/2026 - אינטגרציה עם מערכת הגיחות: trip_attendance_status מסונן לפי source_type ('trip'/'gicha'), unifiedSummaryOnGichaSet מקביל ל-OnTripSet, hero stat נפרד "🚶 בגיחה" (כתום), תווית בודדת "🚶 בגיחה" באקורדיון, ספירות נפרדות בכיתה/שכבה/חטיבה, וכרטיס גיחה נפרד (renderGichaStatusCard) עם עיצוב כתום. דורש ALTER TABLE על trip_attendance_status: ADD source_type/gicha_id, DROP NOT NULL trip_id. -->
     <!-- VERSION 49.5 - 03/05/2026 - הצגת סטטוס "🚌 בטיול" באקורדיון של תלמידי הכיתה -->
     <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700;900&display=swap" rel="stylesheet">
@@ -1202,7 +1203,11 @@ async function renderUnifiedSummary(opts) {
         present = presentCount + handledCount;
         absent = Math.max(0, total - present - offCampus);
     } else {
-        present = Object.values(dailyAttendance).filter(s => s === 'present').length;
+        // v50.1 - גיחה גוברת על נוכחות: תלמיד בגיחה לא נספר כ"נוכח"
+        // (חישוב בלי תלמידים שהם ב-unifiedSummaryOnGichaSet)
+        present = Object.entries(allStudents).filter(([id]) => 
+            dailyAttendance[id] === 'present' && !unifiedSummaryOnGichaSet.has(String(id))
+        ).length;
         // v49.3 - חיסור תלמידים בטיול ובגיחה מהחסרים (כדי לא לספור פעמיים)
         absent = Math.max(0, total - present - released - offCampus);
     }
@@ -1262,7 +1267,10 @@ async function renderUnifiedSummary(opts) {
                         return st && st !== 'missing';
                     }).length;
                 } else {
-                    p += students.filter(([id]) => dailyAttendance[id] === 'present').length;
+                    // v50.1 - גיחה גוברת: תלמיד בגיחה לא נספר כ"נוכח"
+                    p += students.filter(([id]) => 
+                        dailyAttendance[id] === 'present' && !unifiedSummaryOnGichaSet.has(String(id))
+                    ).length;
                 }
                 r += students.filter(([id]) => unifiedSummaryReleasedMap[id]).length;
                 // v49.3 - ספירת תלמידים בטיול בחטיבה
@@ -1329,7 +1337,10 @@ async function renderUnifiedSummary(opts) {
                     return st && st !== 'missing';
                 }).length;
             } else {
-                gP += students.filter(([id]) => dailyAttendance[id] === 'present').length;
+                // v50.1 - גיחה גוברת: תלמיד בגיחה לא נספר כ"נוכח"
+                gP += students.filter(([id]) => 
+                    dailyAttendance[id] === 'present' && !unifiedSummaryOnGichaSet.has(String(id))
+                ).length;
             }
             gR += students.filter(([id]) => unifiedSummaryReleasedMap[id]).length;
             // v49.3 - ספירת תלמידים בטיול בשכבה
@@ -1387,7 +1398,10 @@ async function renderUnifiedSummary(opts) {
                     statusLabel = '⚪ לא התחיל';
                 }
             } else {
-                presentCount = students.filter(([id]) => dailyAttendance[id] === 'present').length;
+                // v50.1 - גיחה גוברת: תלמיד בגיחה לא נספר כ"נוכח" בכיתה
+                presentCount = students.filter(([id]) => 
+                    dailyAttendance[id] === 'present' && !unifiedSummaryOnGichaSet.has(String(id))
+                ).length;
                 absentCount = students.filter(([id]) => dailyAttendance[id] === 'absent').length;
                 const markedCount = presentCount + absentCount;
                 // v50.0 - תלמידים שיצאו לטיול/גיחה לא צפויים להיספר ע"י מחנכת
