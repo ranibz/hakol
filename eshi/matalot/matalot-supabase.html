@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- VERSION 1.1.0 - 07/05/2026 - שכפול מטלה: כפתור "📋 שכפל" ליד "✏️ עריכה" יוצר עותק מלא ב-DB עם כותרת + " (עותק)" ופותח אותו לעריכה. מאפשר למורה ליצור מטלה חוזרת לתלמיד ספציפי בלי לפגוע במקור. תיקון: editAssignment() הומר מ-Firebase ל-Supabase (היה תקין רק במקור) — כולל טעינת specific_students אם קיימים. | פיתוח: רני בן זאב -->
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
@@ -733,12 +734,92 @@ async function renderTeacherStudents(){
 }
 function teacherAllowedClasses(){if(!curUser.classes)return null;var cls=String(curUser.classes).split(",").map(function(x){return x.trim();}).filter(function(x){return x;});return cls.length?new Set(cls):null;}
 function assignmentMatchesTeacherClasses(ac){var a=teacherAllowedClasses();if(!a)return true;return(ac||"").split(",").map(function(x){return x.trim();}).some(function(c){return a.has(c);});}
-async function renderTeacherAssignments(){var f=document.getElementById("tFilterClass").value;var data=await sbFetch("assignments","?teacher_id=eq."+curUser.key);var list=data.map(function(a){a.dueDate=a.due_date;a.dueTime=a.due_time;a.submissionType=a.submission_type;a.htmlCode=a.html_code;a.teacherId=a.teacher_id;a.teacherName=a.teacher_name;a.createdAt=a.created_at?new Date(a.created_at).getTime():0;return a;}).filter(function(a){return assignmentMatchesTeacherClasses(a.classes);});list.sort(function(a,b){return(b.createdAt||0)-(a.createdAt||0);});var fl=f?list.filter(function(a){return(a.classes||"").split(",").map(function(x){return x.trim();}).indexOf(f)>=0;}):list;if(!fl.length){document.getElementById("teacherAssignmentsList").innerHTML='<div class="empty-state">לא פרסמת מטלות עדיין</div>';return;}var html="";fl.forEach(function(a){var specificBadge='';if(a.specific_students&&a.specific_students.length>0){specificBadge='<span style="background:#fef3c7;color:#92400e;padding:3px 8px;border-radius:6px;font-size:.75rem;margin-right:8px;">👤 '+a.specific_students.length+' תלמידים ספציפיים</span>';}html+='<div class="asgn-mgmt-card"><div class="asgn-mgmt-header"><div><div class="asgn-mgmt-title">'+escHtml(a.title)+'</div><div style="color:var(--muted);font-size:.8rem;">כיתות: '+escHtml(a.classes)+' | עד '+fmtDate(a.dueDate,a.dueTime)+specificBadge+'</div></div><div class="asgn-mgmt-actions"><button class="btn-sm btn-view" onclick="openSubmissionsModal(\''+a.id+"')\">>👁 הגשות</button><button class=\"btn-sm\" style=\"background:#ede9fe;color:#6d28d9;\" onclick=\"editAssignment('"+a.id+"')\">✏️ עריכה</button><button class=\"btn-sm btn-del\" onclick=\"deleteAssignment('"+a.id+"')\">🗑</button></div></div></div>";});document.getElementById("teacherAssignmentsList").innerHTML=html;}
+async function renderTeacherAssignments(){var f=document.getElementById("tFilterClass").value;var data=await sbFetch("assignments","?teacher_id=eq."+curUser.key);var list=data.map(function(a){a.dueDate=a.due_date;a.dueTime=a.due_time;a.submissionType=a.submission_type;a.htmlCode=a.html_code;a.teacherId=a.teacher_id;a.teacherName=a.teacher_name;a.createdAt=a.created_at?new Date(a.created_at).getTime():0;return a;}).filter(function(a){return assignmentMatchesTeacherClasses(a.classes);});list.sort(function(a,b){return(b.createdAt||0)-(a.createdAt||0);});var fl=f?list.filter(function(a){return(a.classes||"").split(",").map(function(x){return x.trim();}).indexOf(f)>=0;}):list;if(!fl.length){document.getElementById("teacherAssignmentsList").innerHTML='<div class="empty-state">לא פרסמת מטלות עדיין</div>';return;}var html="";fl.forEach(function(a){var specificBadge='';if(a.specific_students&&a.specific_students.length>0){specificBadge='<span style="background:#fef3c7;color:#92400e;padding:3px 8px;border-radius:6px;font-size:.75rem;margin-right:8px;">👤 '+a.specific_students.length+' תלמידים ספציפיים</span>';}html+='<div class="asgn-mgmt-card"><div class="asgn-mgmt-header"><div><div class="asgn-mgmt-title">'+escHtml(a.title)+'</div><div style="color:var(--muted);font-size:.8rem;">כיתות: '+escHtml(a.classes)+' | עד '+fmtDate(a.dueDate,a.dueTime)+specificBadge+'</div></div><div class="asgn-mgmt-actions"><button class="btn-sm btn-view" onclick="openSubmissionsModal(\''+a.id+"')\">>👁 הגשות</button><button class=\"btn-sm\" style=\"background:#ede9fe;color:#6d28d9;\" onclick=\"editAssignment('"+a.id+"')\">✏️ עריכה</button><button class=\"btn-sm\" style=\"background:#fef3c7;color:#92400e;\" onclick=\"duplicateAssignment(\'"+a.id+"\')\">📋 שכפל</button><button class=\"btn-sm btn-del\" onclick=\"deleteAssignment('"+a.id+"')\">🗑</button></div></div></div>";});document.getElementById("teacherAssignmentsList").innerHTML=html;}
 var editingAssignmentId=null;
-function editAssignment(aid){db.ref("assignments/"+aid).once("value").then(function(snap){if(!snap.exists())return;var a=snap.val();editingAssignmentId=aid;switchTTab("new",document.querySelectorAll(".t-tab")[1]);document.getElementById("nTitle").value=a.title||"";document.getElementById("nDesc").value=a.description||"";document.getElementById("nClasses").value=a.classes||"";document.getElementById("nDue").value=a.dueDate||"";document.getElementById("nDueTime").value=a.dueTime||"23:59";document.getElementById("nType").value=a.submissionType||"text";toggleHtmlSection();if(a.submissionType==="interactive"&&a.htmlCode){document.getElementById("nHtmlCode").value=a.htmlCode;}if(a.submissionType==="questions"&&a.questions){nQuestions=a.questions.map(function(q){var nq={id:q.id||("q"+Date.now()+Math.random()),type:q.type,text:q.text||"",options:q.options||[],required:true};if(q.youtubeUrl)nq.youtubeUrl=q.youtubeUrl;return nq;});renderQuestionsList();}document.getElementById("btnCreateAssignment").textContent="✅ עדכן מטלה";document.getElementById("btnCancelEdit").style.display="inline-block";toast("✏️ עורך מטלה: "+a.title,2000);});}
+async function editAssignment(aid){
+  try{
+    var rows=await sbFetch("assignments","?id=eq."+aid);
+    if(!rows||!rows.length){toast("⚠️ המטלה לא נמצאה");return;}
+    var a=rows[0];
+    editingAssignmentId=aid;
+    switchTTab("new",document.querySelectorAll(".t-tab")[1]);
+    document.getElementById("nTitle").value=a.title||"";
+    document.getElementById("nDesc").value=a.description||"";
+    document.getElementById("nClasses").value=a.classes||"";
+    document.getElementById("nDue").value=a.due_date||"";
+    document.getElementById("nDueTime").value=a.due_time||"23:59";
+    document.getElementById("nType").value=a.submission_type||"text";
+    toggleHtmlSection();
+    if(a.submission_type==="interactive"&&a.html_code){
+      document.getElementById("nHtmlCode").value=a.html_code;
+    }
+    if(a.submission_type==="questions"&&a.questions){
+      nQuestions=a.questions.map(function(q){
+        var nq={id:q.id||("q"+Date.now()+Math.random()),type:q.type,text:q.text||"",options:q.options||[],required:true};
+        if(q.youtubeUrl)nq.youtubeUrl=q.youtubeUrl;
+        return nq;
+      });
+      renderQuestionsList();
+    }
+    // טעינת תלמידים ספציפיים אם קיימים
+    if(a.specific_students&&a.specific_students.length>0){
+      document.getElementById("nSpecificStudents").checked=true;
+      toggleSpecificStudents();
+      // המתנה קצרה כדי שהרשימה תיטען לפי הכיתות, אז סימון התלמידים
+      setTimeout(function(){
+        loadSpecificStudentsOptions();
+        setTimeout(function(){
+          a.specific_students.forEach(function(sid){
+            var cb=document.querySelector('#specificStudentsList input[type="checkbox"][value="'+sid+'"]');
+            if(cb)cb.checked=true;
+          });
+          if(typeof updateSpecificStudentsCount==="function")updateSpecificStudentsCount();
+        },300);
+      },100);
+    }
+    document.getElementById("btnCreateAssignment").textContent="✅ עדכן מטלה";
+    document.getElementById("btnCancelEdit").style.display="inline-block";
+    toast("✏️ עורך מטלה: "+a.title,2000);
+  }catch(e){
+    console.error("editAssignment error:",e);
+    toast("❌ שגיאה בטעינת המטלה");
+  }
+}
 function cancelEditAssignment(){editingAssignmentId=null;["nTitle","nDesc","nClasses","nHtmlCode"].forEach(function(id){var el=document.getElementById(id);if(el)el.value="";});nQuestions=[];renderQuestionsList();document.getElementById("nDue").value="";document.getElementById("nDueTime").value="23:59";document.getElementById("nType").value="text";toggleHtmlSection();document.getElementById("btnCreateAssignment").textContent="✅ פרסם מטלה";document.getElementById("btnCancelEdit").style.display="none";toast("❌ העריכה בוטלה");}
 function createAssignment(){var title=document.getElementById("nTitle").value.trim(),desc=document.getElementById("nDesc").value.trim(),classes=document.getElementById("nClasses").value.trim(),due=document.getElementById("nDue").value,dueTime=document.getElementById("nDueTime").value||"23:59",type=document.getElementById("nType").value;if(!title||!classes||!due){toast("⚠️ מלא כותרת, כיתות ותאריך");return;}var htmlCode=type==="interactive"?document.getElementById("nHtmlCode").value.trim():"";if(type==="interactive"&&!htmlCode){toast("⚠️ הדבק קוד HTML");return;}var questions=null;if(type==="questions"){questions=getQuestionsData();if(!questions.length){toast("⚠️ הוסף לפחות שאלה אחת");return;}}var specificStudents=null;if(document.getElementById("nSpecificStudents").checked){specificStudents=getSelectedSpecificStudents();if(!specificStudents.length){toast("⚠️ בחר לפחות תלמיד אחד");return;}}var key=editingAssignmentId||("-"+Math.random().toString(36).substr(2,16));var data={id:key,title:title,description:desc,classes:classes,due_date:due,due_time:dueTime,submission_type:type,html_code:htmlCode||null,teacher_id:curUser.key,teacher_name:curUser.name,specific_students:specificStudents};if(!editingAssignmentId)data.created_at=new Date().toISOString();if(questions)data.questions=questions;var promise=editingAssignmentId?sbUpdate("assignments","id=eq."+key,data):sbInsert("assignments",data);promise.then(function(){toast(editingAssignmentId?"✅ המטלה עודכנה!":"✅ המטלה פורסמה!");editingAssignmentId=null;["nTitle","nDesc","nClasses","nHtmlCode"].forEach(function(id){var el=document.getElementById(id);if(el)el.value="";});nQuestions=[];renderQuestionsList();document.getElementById("nDue").value="";document.getElementById("nDueTime").value="23:59";document.getElementById("nType").value="text";document.getElementById("nSpecificStudents").checked=false;document.getElementById("specificStudentsSection").style.display="none";document.getElementById("specificStudentsList").innerHTML="";toggleHtmlSection();document.getElementById("btnCreateAssignment").textContent="✅ פרסם מטלה";document.getElementById("btnCancelEdit").style.display="none";switchTTab("assignments",document.querySelector(".t-tab"));renderTeacherAssignments();loadTeacherFilterClasses();}).catch(function(e){console.error(e);toast("❌ שגיאה בשמירה");});}
 function deleteAssignment(id){if(!confirm("למחוק?"))return;sbDelete("assignments","id=eq."+id).then(function(){toast("🗑 נמחק");renderTeacherAssignments();});}
+// שכפול מטלה - יוצר עותק מלא של המטלה ב-DB ופותח אותו לעריכה
+async function duplicateAssignment(aid){
+  try{
+    var rows=await sbFetch("assignments","?id=eq."+aid);
+    if(!rows||!rows.length){toast("⚠️ המטלה לא נמצאה");return;}
+    var src=rows[0];
+    // יוצרים עותק עם id חדש, כותרת + (עותק), בלי הגשות קודמות
+    var newId="-"+Math.random().toString(36).substr(2,16);
+    var copy={
+      id:newId,
+      title:(src.title||"")+" (עותק)",
+      description:src.description||"",
+      classes:src.classes||"",
+      due_date:src.due_date,
+      due_time:src.due_time||"23:59",
+      submission_type:src.submission_type||"text",
+      html_code:src.html_code||null,
+      questions:src.questions||null,
+      specific_students:src.specific_students||null,
+      teacher_id:curUser.key,
+      teacher_name:curUser.name,
+      created_at:new Date().toISOString()
+    };
+    await sbInsert("assignments",copy);
+    toast("📋 שוכפל בהצלחה — עורך עכשיו");
+    // פתיחה לעריכה
+    setTimeout(function(){editAssignment(newId);},400);
+  }catch(e){
+    console.error("duplicateAssignment error:",e);
+    toast("❌ שגיאה בשכפול");
+  }
+}
 async function openSubmissionsModal(aid){
   var asgns=await sbFetch("assignments","?id=eq."+aid);
   if(!asgns.length)return;
