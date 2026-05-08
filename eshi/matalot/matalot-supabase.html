@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- VERSION 1.1.0 - 07/05/2026 - שכפול מטלה: כפתור "📋 שכפל" ליד "✏️ עריכה" יוצר עותק מלא ב-DB עם כותרת + " (עותק)" ופותח אותו לעריכה. מאפשר למורה ליצור מטלה חוזרת לתלמיד ספציפי בלי לפגוע במקור. תיקון: editAssignment() הומר מ-Firebase ל-Supabase (היה תקין רק במקור) — כולל טעינת specific_students אם קיימים. | פיתוח: רני בן זאב -->
+<!-- VERSION 1.2.0 - 08/05/2026 - מבחני בקרה בלייב: תיבת סימון "מבחן לייב" בטופס יצירה (ידני + AI). למורה כפתור "▶️ התחל לייב" + דשבורד בזמן אמת (polling 3 שניות) שמציג מי נכנס/ענה/סיים/יצא מהמסך. לתלמיד הטיימר מסתנכרן עם השרת (מאחר = פחות זמן). דורש טבלה חדשה live_sessions ב-Supabase + 4 עמודות חדשות ל-mavchanim (is_live, live_duration_minutes, live_started_at, live_ended_at). דורש גם עדכון ב-mavchan.html. --><!-- VERSION 1.1.0 - 07/05/2026 - שכפול מטלה: כפתור "📋 שכפל" ליד "✏️ עריכה" יוצר עותק מלא ב-DB עם כותרת + " (עותק)" ופותח אותו לעריכה. מאפשר למורה ליצור מטלה חוזרת לתלמיד ספציפי בלי לפגוע במקור. תיקון: editAssignment() הומר מ-Firebase ל-Supabase (היה תקין רק במקור) — כולל טעינת specific_students אם קיימים. | פיתוח: רני בן זאב -->
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
@@ -16,6 +16,7 @@ body{font-family:"Rubik",sans-serif;background:var(--bg);color:var(--text);min-h
 #loginScreen{background:linear-gradient(135deg,#0a192f,#112240,#0d1b33);min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:20px;position:relative;overflow:hidden;}
 #loginScreen::before{content:"";position:absolute;top:-50%;left:-50%;width:200%;height:200%;background:radial-gradient(circle at 30% 40%,rgba(100,255,218,.07) 0%,transparent 50%),radial-gradient(circle at 70% 60%,rgba(92,107,192,.1) 0%,transparent 40%);animation:floatBg 20s ease-in-out infinite;pointer-events:none;z-index:0;}
 @keyframes floatBg{0%,100%{transform:translate(0,0)}50%{transform:translate(20px,-15px)}}
+@keyframes pulse{0%,100%{box-shadow:0 0 0 0 rgba(220,38,38,0.4)}50%{box-shadow:0 0 0 12px rgba(220,38,38,0)}}
 .login-header{text-align:center;margin-bottom:32px;position:relative;z-index:2;animation:cardSlideUp .5s cubic-bezier(.16,1,.3,1);}
 .login-header .logo-box{width:80px;height:80px;background:linear-gradient(135deg,#5c6bc0,#9c27b0);border-radius:22px;display:flex;align-items:center;justify-content:center;margin:0 auto 18px;box-shadow:0 12px 32px rgba(92,107,192,.4);}.login-header .logo-box .material-icons-round{font-size:40px;color:white;}
 .login-header h1{font-size:1.7rem;font-weight:900;color:white;margin-bottom:4px;}
@@ -1432,23 +1433,42 @@ async function loadMavchanimList() {
             var completed = ats.filter(function(a) { return a.submitted_at; });
             var qCount = (t.questions || []).filter(function(q) { return q.type !== 'label'; }).length;
             
-            html += '<div style="background:white;border:2px solid #e5e7eb;border-radius:14px;padding:16px;margin-bottom:12px;box-shadow:0 2px 8px rgba(0,0,0,0.04);">';
+            html += '<div style="background:white;border:2px solid ' + (t.is_live ? '#f59e0b' : '#e5e7eb') + ';border-radius:14px;padding:16px;margin-bottom:12px;box-shadow:0 2px 8px rgba(0,0,0,0.04);">';
             html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;">';
             html += '<div style="flex:1;min-width:240px;">';
             html += '<div style="font-weight:900;color:#1f2937;font-size:1.1rem;margin-bottom:4px;">';
             html += '🔒 ' + escapeHtmlMv(t.title);
             if (!t.is_active) html += ' <span style="color:#dc2626;font-size:0.8rem;">(לא פעיל)</span>';
+            // === LIVE BADGE - v1.2.0 ===
+            if (t.is_live) {
+                var liveActive = t.live_started_at && !t.live_ended_at;
+                if (liveActive) {
+                    html += ' <span style="background:#dc2626;color:white;font-size:0.75rem;padding:2px 8px;border-radius:8px;margin-right:6px;animation:pulse 1.5s infinite;">🔴 LIVE עכשיו</span>';
+                } else {
+                    html += ' <span style="background:#fbbf24;color:#78350f;font-size:0.75rem;padding:2px 8px;border-radius:8px;margin-right:6px;">⚡ מצב לייב</span>';
+                }
+            }
             html += '</div>';
             if (t.description) html += '<div style="color:#6b7280;font-size:0.9rem;margin-bottom:6px;">' + escapeHtmlMv(t.description) + '</div>';
             html += '<div style="display:flex;gap:14px;font-size:0.85rem;color:#6b7280;flex-wrap:wrap;">';
             html += '<span>👥 ' + escapeHtmlMv(t.classes || '') + '</span>';
-            html += '<span>⏱️ ' + (t.time_limit_minutes || 15) + ' דק\'</span>';
+            html += '<span>⏱️ ' + (t.is_live ? (t.live_duration_minutes || t.time_limit_minutes || 15) : (t.time_limit_minutes || 15)) + ' דק\'</span>';
             html += '<span>❓ ' + qCount + ' שאלות</span>';
-            html += '<span>🔄 עד ' + (t.max_attempts || 1) + ' ניסיונות</span>';
+            if (!t.is_live) html += '<span>🔄 עד ' + (t.max_attempts || 1) + ' ניסיונות</span>';
             html += '<span>📊 ' + completed.length + ' הגשות</span>';
             html += '</div></div>';
             
             html += '<div style="display:flex;flex-direction:column;gap:6px;">';
+            // === LIVE CONTROLS - v1.2.0 ===
+            if (t.is_live) {
+                var liveActive = t.live_started_at && !t.live_ended_at;
+                if (liveActive) {
+                    html += '<button class="btn-preview" onclick="openLiveDashboard(\'' + t.id + '\')" style="background:linear-gradient(135deg,#dc2626,#ef4444);color:white;border:none;font-weight:800;">📊 דשבורד לייב</button>';
+                    html += '<button class="btn-preview" onclick="endLiveMavchan(\'' + t.id + '\')" style="background:#78350f;color:white;border:none;">⏹️ סיים לייב</button>';
+                } else {
+                    html += '<button class="btn-preview" onclick="startLiveMavchan(\'' + t.id + '\')" style="background:linear-gradient(135deg,#dc2626,#ef4444);color:white;border:none;font-weight:800;">▶️ התחל לייב</button>';
+                }
+            }
             html += '<button class="btn-preview" onclick="viewMavchanResults(\'' + t.id + '\')" style="background:#3b82f6;color:white;border:none;">📊 תוצאות</button>';
             html += '<button class="btn-preview" onclick="editMavchan(\'' + t.id + '\')">✏️ ערוך</button>';
             html += '<button class="btn-preview" onclick="toggleMavchanActive(\'' + t.id + '\',' + (!t.is_active) + ')" style="background:' + (t.is_active ? '#f59e0b' : '#10b981') + ';color:white;border:none;">' + (t.is_active ? '⏸️ השבת' : '▶️ הפעל') + '</button>';
@@ -1506,6 +1526,19 @@ function renderMavchanForm(existing) {
     html += '<div class="form-group" style="margin:0;"><label>נעילה אחרי X יציאות</label>';
     html += '<input type="number" id="mvLockExits" value="' + (existing ? existing.lock_after_exits : 3) + '" min="1" max="20"></div>';
     html += '</div>';
+    
+    // === LIVE MODE - v1.2.0 ===
+    var isLive = existing && existing.is_live;
+    var liveDuration = (existing && existing.live_duration_minutes) || (existing ? existing.time_limit_minutes : 15) || 15;
+    html += '<div class="form-group" style="background:linear-gradient(135deg,#fef3c7,#fde68a);border:2px solid #f59e0b;border-radius:12px;padding:14px;">';
+    html += '<label style="display:flex;align-items:center;gap:10px;cursor:pointer;margin-bottom:6px;">';
+    html += '<input type="checkbox" id="mvIsLive" ' + (isLive ? 'checked' : '') + ' onchange="toggleMvLiveSection()" style="width:20px;height:20px;cursor:pointer;">';
+    html += '<span style="font-weight:800;color:#b45309;">🔴 מבחן לייב — כל הכיתה עושה במקביל</span></label>';
+    html += '<div style="font-size:0.85rem;color:#92400e;margin-bottom:8px;">המבחן מתחיל ברגע שאתה לוחץ "התחל לייב". טיימר אחיד לכולם. תלמיד שמאחר נכנס עם זמן מקוצר.</div>';
+    html += '<div id="mvLiveDurationBox" style="' + (isLive ? '' : 'display:none;') + '">';
+    html += '<label style="font-size:0.9rem;font-weight:700;color:#78350f;">משך הלייב (דקות):</label>';
+    html += '<input type="number" id="mvLiveDuration" value="' + liveDuration + '" min="1" max="180" style="margin-top:4px;">';
+    html += '</div></div>';
     
     html += '<div class="form-group"><label>📝 שאלות</label>';
     html += '<div id="mvQuestionsList" style="margin-bottom:10px;"></div>';
@@ -1646,6 +1679,16 @@ async function saveMavchan() {
         teacher_username: curUser ? curUser.username : null,
         is_active: true
     };
+    
+    // === LIVE MODE - v1.2.0 ===
+    var isLiveEl = document.getElementById('mvIsLive');
+    var liveDurEl = document.getElementById('mvLiveDuration');
+    if (isLiveEl) {
+        data.is_live = isLiveEl.checked;
+        if (isLiveEl.checked && liveDurEl) {
+            data.live_duration_minutes = parseInt(liveDurEl.value) || time;
+        }
+    }
     
     try {
         if (mavchanimEditing) {
@@ -1844,6 +1887,13 @@ function openNewMavchanAI() {
         '<div class="form-group" style="margin:0;"><label>זמן (דקות)</label>' +
         '<input type="number" id="aiMvTime" value="15" min="1" max="180"></div>' +
         '</div>' +
+        // === LIVE MODE - v1.2.0 ===
+        '<div class="form-group" style="background:linear-gradient(135deg,#fef3c7,#fde68a);border:2px solid #f59e0b;border-radius:12px;padding:14px;">' +
+        '<label style="display:flex;align-items:center;gap:10px;cursor:pointer;margin-bottom:6px;">' +
+        '<input type="checkbox" id="aiMvIsLive" style="width:20px;height:20px;cursor:pointer;">' +
+        '<span style="font-weight:800;color:#b45309;">🔴 מבחן לייב — כל הכיתה עושה במקביל</span></label>' +
+        '<div style="font-size:0.85rem;color:#92400e;">תוכל להתחיל את הלייב אחרי שהמבחן ייווצר ותעבור לטופס העריכה.</div>' +
+        '</div>' +
         '<div style="display:flex;gap:10px;margin-top:20px;">' +
         '<button class="btn-add" onclick="generateMavchanWithAI()" style="margin:0;background:linear-gradient(135deg,#8b5cf6,#ec4899);">🤖 צור מבחן עכשיו</button>' +
         '<button class="btn-cancel-import" onclick="cancelMavchanForm()">❌ ביטול</button>' +
@@ -1909,13 +1959,17 @@ async function generateMavchanWithAI() {
         // מעבר לטופס הרגיל עם הערכים שכבר הוזנו
         setTimeout(function() {
             mavchanimEditing = null;
+            var aiIsLive = document.getElementById('aiMvIsLive');
+            var isLiveChecked = aiIsLive && aiIsLive.checked;
             renderMavchanForm({
                 title: title,
                 classes: classes,
                 description: 'נוצר אוטומטית מ: ' + source.substring(0, 100) + (source.length > 100 ? '...' : ''),
                 time_limit_minutes: time,
                 max_attempts: 1,
-                lock_after_exits: 3
+                lock_after_exits: 3,
+                is_live: isLiveChecked,
+                live_duration_minutes: isLiveChecked ? time : null
             });
         }, 1500);
         
@@ -2077,6 +2131,50 @@ async function loadStudentMavchanim() {
             var remaining = maxAttempts - completed.length;
             var qCount = (t.questions || []).filter(function(q) { return q.type !== 'label'; }).length;
             
+            // === LIVE MODE - v1.2.0 ===
+            // אם זה מבחן לייב — סינון מיוחד: מציגים רק אם הלייב פעיל
+            if (t.is_live) {
+                var liveActive = t.live_started_at && !t.live_ended_at;
+                if (!liveActive) return; // לא מציגים מבחן לייב לתלמיד עד שהמורה התחיל
+                
+                // חישוב זמן שנשאר משותף לכולם
+                var startMs = new Date(t.live_started_at).getTime();
+                var durMin = t.live_duration_minutes || t.time_limit_minutes || 15;
+                var endMs = startMs + (durMin * 60 * 1000);
+                var nowMs = Date.now();
+                var remainingSec = Math.max(0, Math.floor((endMs - nowMs) / 1000));
+                
+                if (remainingSec === 0) return; // הזמן נגמר — לא מציגים יותר
+                if (completed.length > 0) {
+                    // כבר הגיש את הניסיון הזה — מציג סטטוס
+                    html += '<div style="background:white;border-radius:12px;padding:14px 16px;margin-bottom:8px;box-shadow:0 2px 6px rgba(0,0,0,0.05);">';
+                    html += '<div style="font-weight:900;">' + escapeHtml(t.title) + ' <span style="background:#10b981;color:white;font-size:0.7rem;padding:2px 8px;border-radius:8px;">✅ הוגש</span></div>';
+                    html += '</div>';
+                    return;
+                }
+                
+                var remMin = Math.floor(remainingSec / 60);
+                var remSecOnly = remainingSec % 60;
+                var url = './mavchan.html?id=' + encodeURIComponent(t.id) + '&student=' + encodeURIComponent(curUser.id) + '&live=1';
+                
+                html += '<div style="background:white;border:3px solid #dc2626;border-radius:12px;padding:14px 16px;margin-bottom:8px;box-shadow:0 4px 14px rgba(220,38,38,0.2);animation:pulse 2s infinite;">';
+                html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;">';
+                html += '<div style="flex:1;min-width:200px;">';
+                html += '<div style="font-weight:900;color:#dc2626;font-size:1.05rem;margin-bottom:4px;">🔴 ' + escapeHtml(t.title) + ' <span style="background:#dc2626;color:white;font-size:0.7rem;padding:2px 8px;border-radius:8px;">LIVE עכשיו</span></div>';
+                if (t.description) html += '<div style="color:#6b7280;font-size:0.9rem;margin-bottom:6px;">' + escapeHtml(t.description) + '</div>';
+                html += '<div style="display:flex;gap:14px;font-size:0.95rem;color:#dc2626;font-weight:800;flex-wrap:wrap;">';
+                html += '<span>⏱️ זמן שנותר: ' + remMin + ':' + (remSecOnly < 10 ? '0' : '') + remSecOnly + '</span>';
+                html += '<span>❓ ' + qCount + ' שאלות</span>';
+                html += '</div></div>';
+                html += '<div>';
+                html += '<a href="' + url + '" target="_blank" style="display:inline-block;background:linear-gradient(135deg,#dc2626,#ef4444);color:white;padding:12px 22px;border-radius:10px;text-decoration:none;font-weight:800;font-size:0.95rem;">🔴 הצטרף עכשיו!</a>';
+                html += '</div>';
+                html += '</div></div>';
+                return;
+            }
+            
+            // === מבחן רגיל (לא לייב) - לוגיקה קיימת ===
+            
             html += '<div style="background:white;border-radius:12px;padding:14px 16px;margin-bottom:8px;box-shadow:0 2px 6px rgba(0,0,0,0.05);">';
             html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:10px;">';
             html += '<div style="flex:1;min-width:200px;">';
@@ -2132,6 +2230,260 @@ loadStudentAssignments = async function() {
     await _origLoadStudentAssignments.apply(this, arguments);
     await loadStudentMavchanim();
 };
+
+// ========================================================================
+// === LIVE MODE FUNCTIONS - v1.2.0 ======================================
+// ========================================================================
+
+// --- toggle בטופס יצירה ---
+function toggleMvLiveSection() {
+    var cb = document.getElementById('mvIsLive');
+    var box = document.getElementById('mvLiveDurationBox');
+    if (!cb || !box) return;
+    box.style.display = cb.checked ? '' : 'none';
+    if (cb.checked) {
+        var liveDur = document.getElementById('mvLiveDuration');
+        var time = document.getElementById('mvTime');
+        if (liveDur && time && (!liveDur.value || liveDur.value == '15')) {
+            liveDur.value = time.value;
+        }
+    }
+}
+
+// --- מורה לוחץ "התחל לייב" ---
+async function startLiveMavchan(testId) {
+    if (!confirm('להתחיל את המבחן בלייב עכשיו? הטיימר יתחיל לרוץ לכל הכיתה ברגע זה.')) return;
+    
+    try {
+        await sbUpdate('mavchanim', 'id=eq.' + testId, {
+            live_started_at: new Date().toISOString(),
+            live_ended_at: null
+        });
+        toast('🔴 הלייב התחיל! התלמידים רואים עכשיו את כפתור הכניסה');
+        await loadMavchanimList();
+        // פותח דשבורד אוטומטית
+        setTimeout(function() { openLiveDashboard(testId); }, 600);
+    } catch (err) {
+        console.error(err);
+        toast('❌ שגיאה: ' + err.message);
+    }
+}
+
+// --- מורה לוחץ "סיים לייב" ---
+async function endLiveMavchan(testId) {
+    if (!confirm('לסיים את הלייב לכולם? תלמידים שעדיין נמצאים במבחן ייחתכו.')) return;
+    
+    try {
+        await sbUpdate('mavchanim', 'id=eq.' + testId, {
+            live_ended_at: new Date().toISOString()
+        });
+        toast('⏹️ הלייב הסתיים');
+        stopLiveDashboardPolling();
+        await loadMavchanimList();
+        var dash = document.getElementById('liveDashboard');
+        if (dash) dash.style.display = 'none';
+    } catch (err) {
+        console.error(err);
+        toast('❌ שגיאה: ' + err.message);
+    }
+}
+
+// --- דשבורד לייב למורה ---
+var _liveDashboardInterval = null;
+var _liveDashboardTestId = null;
+
+async function openLiveDashboard(testId) {
+    _liveDashboardTestId = testId;
+    
+    var content = document.getElementById('mavchanimContent');
+    var dash = document.getElementById('liveDashboard');
+    if (!dash) {
+        dash = document.createElement('div');
+        dash.id = 'liveDashboard';
+        dash.style.marginTop = '20px';
+        content.appendChild(dash);
+    }
+    dash.style.display = 'block';
+    dash.innerHTML = '<div class="panel-card">טוען דשבורד לייב...</div>';
+    dash.scrollIntoView({ behavior: 'smooth' });
+    
+    await refreshLiveDashboard();
+    
+    // התחלת polling כל 3 שניות
+    stopLiveDashboardPolling();
+    _liveDashboardInterval = setInterval(refreshLiveDashboard, 3000);
+}
+
+function stopLiveDashboardPolling() {
+    if (_liveDashboardInterval) {
+        clearInterval(_liveDashboardInterval);
+        _liveDashboardInterval = null;
+    }
+}
+
+async function refreshLiveDashboard() {
+    if (!_liveDashboardTestId) return;
+    var dash = document.getElementById('liveDashboard');
+    if (!dash || dash.style.display === 'none') {
+        stopLiveDashboardPolling();
+        return;
+    }
+    
+    try {
+        var tests = await sbFetch('mavchanim', '?id=eq.' + _liveDashboardTestId);
+        if (!tests.length) return;
+        var test = tests[0];
+        
+        var sessions = await sbFetch('live_sessions', '?mavchan_id=eq.' + _liveDashboardTestId + '&order=joined_at.asc');
+        sessions = sessions || [];
+        
+        // חישוב זמן שנותר
+        var startMs = test.live_started_at ? new Date(test.live_started_at).getTime() : 0;
+        var durMin = test.live_duration_minutes || test.time_limit_minutes || 15;
+        var endMs = startMs + (durMin * 60 * 1000);
+        var nowMs = Date.now();
+        var remainingSec = Math.max(0, Math.floor((endMs - nowMs) / 1000));
+        var remMin = Math.floor(remainingSec / 60);
+        var remSecOnly = remainingSec % 60;
+        var liveActive = test.live_started_at && !test.live_ended_at && remainingSec > 0;
+        
+        // ספירות
+        var totalQuestions = (test.questions || []).filter(function(q) { return q.type !== 'label'; }).length;
+        var joined = sessions.length;
+        var submitted = sessions.filter(function(s) { return s.is_submitted; }).length;
+        var inProgress = sessions.filter(function(s) { return !s.is_submitted; }).length;
+        var withTabSwitches = sessions.filter(function(s) { return (s.tab_switches || 0) > 0; }).length;
+        
+        var html = '<div class="panel-card" style="border:3px solid ' + (liveActive ? '#dc2626' : '#9ca3af') + ';">';
+        
+        // כותרת + טיימר
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:14px;">';
+        html += '<div><h2 style="margin:0;color:' + (liveActive ? '#dc2626' : '#6b7280') + ';">' + (liveActive ? '🔴 דשבורד לייב פעיל' : '⏹️ הלייב הסתיים') + '</h2>';
+        html += '<div style="color:#6b7280;font-size:0.95rem;margin-top:2px;">' + escapeHtmlMv(test.title) + '</div></div>';
+        if (liveActive) {
+            html += '<div style="background:linear-gradient(135deg,#dc2626,#ef4444);color:white;padding:14px 22px;border-radius:14px;font-size:1.6rem;font-weight:900;font-family:monospace;letter-spacing:1px;">⏱️ ' + remMin + ':' + (remSecOnly < 10 ? '0' : '') + remSecOnly + '</div>';
+        }
+        html += '</div>';
+        
+        // סטטיסטיקות
+        html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:18px;">';
+        html += '<div style="background:#dbeafe;padding:14px;border-radius:12px;text-align:center;"><div style="font-size:1.8rem;font-weight:900;color:#1e40af;">' + joined + '</div><div style="font-size:0.85rem;color:#1e40af;">נכנסו</div></div>';
+        html += '<div style="background:#fef3c7;padding:14px;border-radius:12px;text-align:center;"><div style="font-size:1.8rem;font-weight:900;color:#92400e;">' + inProgress + '</div><div style="font-size:0.85rem;color:#92400e;">בעיצומו</div></div>';
+        html += '<div style="background:#d1fae5;padding:14px;border-radius:12px;text-align:center;"><div style="font-size:1.8rem;font-weight:900;color:#065f46;">' + submitted + '</div><div style="font-size:0.85rem;color:#065f46;">סיימו</div></div>';
+        html += '<div style="background:' + (withTabSwitches ? '#fee2e2' : '#f3f4f6') + ';padding:14px;border-radius:12px;text-align:center;"><div style="font-size:1.8rem;font-weight:900;color:' + (withTabSwitches ? '#991b1b' : '#6b7280') + ';">' + withTabSwitches + '</div><div style="font-size:0.85rem;color:' + (withTabSwitches ? '#991b1b' : '#6b7280') + ';">⚠️ יצאו מהמסך</div></div>';
+        html += '</div>';
+        
+        // טבלת תלמידים
+        if (!sessions.length) {
+            html += '<div style="background:#f9fafb;padding:30px;border-radius:12px;text-align:center;color:#6b7280;">עדיין לא נכנס אף תלמיד...</div>';
+        } else {
+            html += '<table class="admin-table" style="width:100%;font-size:0.9rem;">';
+            html += '<thead><tr><th>#</th><th>שם</th><th>כיתה</th><th>סטטוס</th><th>התקדמות</th><th>יציאות</th><th>פעיל לפני</th></tr></thead><tbody>';
+            sessions.forEach(function(s, i) {
+                var isSubmitted = s.is_submitted;
+                var lastSeenMs = s.last_seen ? new Date(s.last_seen).getTime() : 0;
+                var secAgo = Math.floor((nowMs - lastSeenMs) / 1000);
+                var isOnline = secAgo < 15;
+                var pct = totalQuestions > 0 ? Math.round((s.answered_count || 0) / totalQuestions * 100) : 0;
+                var tabs = s.tab_switches || 0;
+                
+                var rowBg = '';
+                if (tabs > 0) rowBg = 'background:#fee2e2;';
+                else if (isSubmitted) rowBg = 'background:#d1fae5;';
+                
+                html += '<tr style="' + rowBg + '">';
+                html += '<td>' + (i + 1) + '</td>';
+                html += '<td><strong>' + escapeHtmlMv(s.student_name || '?') + '</strong></td>';
+                html += '<td>' + escapeHtmlMv(s.student_class || '') + '</td>';
+                
+                if (isSubmitted) {
+                    html += '<td><span style="background:#10b981;color:white;padding:3px 10px;border-radius:8px;font-weight:700;">✅ סיים</span></td>';
+                } else if (!isOnline) {
+                    html += '<td><span style="background:#9ca3af;color:white;padding:3px 10px;border-radius:8px;font-weight:700;">⚫ לא פעיל</span></td>';
+                } else {
+                    html += '<td><span style="background:#3b82f6;color:white;padding:3px 10px;border-radius:8px;font-weight:700;">✏️ עונה</span></td>';
+                }
+                
+                html += '<td><div style="display:flex;align-items:center;gap:8px;">';
+                html += '<div style="background:#e5e7eb;height:8px;border-radius:8px;overflow:hidden;flex:1;min-width:60px;"><div style="width:' + pct + '%;height:100%;background:linear-gradient(90deg,#5c6bc0,#9c27b0);"></div></div>';
+                html += '<span style="font-size:0.8rem;color:#6b7280;white-space:nowrap;">' + (s.answered_count || 0) + '/' + totalQuestions + '</span>';
+                html += '</div></td>';
+                
+                if (tabs > 0) {
+                    html += '<td><span style="background:#dc2626;color:white;padding:3px 8px;border-radius:8px;font-weight:800;">⚠️ ' + tabs + '</span></td>';
+                } else {
+                    html += '<td style="color:#9ca3af;">—</td>';
+                }
+                
+                if (isSubmitted) {
+                    html += '<td style="color:#065f46;">הוגש</td>';
+                } else if (secAgo < 5) {
+                    html += '<td style="color:#10b981;font-weight:700;">פעיל עכשיו</td>';
+                } else if (secAgo < 60) {
+                    html += '<td style="color:#6b7280;">' + secAgo + ' שנ׳ לפני</td>';
+                } else {
+                    html += '<td style="color:#dc2626;">' + Math.floor(secAgo / 60) + ' דק׳ לפני</td>';
+                }
+                
+                html += '</tr>';
+            });
+            html += '</tbody></table>';
+        }
+        
+        // כפתורי בקרה
+        html += '<div style="margin-top:18px;display:flex;gap:10px;flex-wrap:wrap;">';
+        if (liveActive) {
+            html += '<button class="btn-preview" onclick="endLiveMavchan(\'' + _liveDashboardTestId + '\')" style="background:#78350f;color:white;border:none;font-weight:800;">⏹️ סיים לייב לכולם</button>';
+        }
+        html += '<button class="btn-preview" onclick="closeLiveDashboard()">✖️ סגור דשבורד</button>';
+        html += '<span style="margin-right:auto;color:#6b7280;font-size:0.85rem;align-self:center;">🔄 מתעדכן כל 3 שניות</span>';
+        html += '</div>';
+        
+        // אם הזמן נגמר אוטומטית — סגור את הלייב
+        if (liveActive && remainingSec === 0) {
+            await sbUpdate('mavchanim', 'id=eq.' + _liveDashboardTestId, { live_ended_at: new Date().toISOString() });
+            toast('⏰ הזמן נגמר — הלייב הסתיים אוטומטית');
+            await loadMavchanimList();
+        }
+        
+        html += '</div>';
+        dash.innerHTML = html;
+    } catch (err) {
+        console.error('Live dashboard error:', err);
+        dash.innerHTML = '<div class="panel-card" style="color:#dc2626;">שגיאה בטעינת הדשבורד: ' + err.message + '</div>';
+    }
+}
+
+function closeLiveDashboard() {
+    stopLiveDashboardPolling();
+    var dash = document.getElementById('liveDashboard');
+    if (dash) dash.style.display = 'none';
+    _liveDashboardTestId = null;
+}
+
+// --- רענון אוטומטי לרשימת התלמיד (ל-show כפתור הצטרפות בלייב) ---
+var _studentLivePollingInterval = null;
+function startStudentLivePolling() {
+    if (_studentLivePollingInterval) return;
+    _studentLivePollingInterval = setInterval(function() {
+        var listEl = document.getElementById('studentMavchanimList');
+        if (listEl && curUser && curUser.id) {
+            loadStudentMavchanim();
+        } else {
+            clearInterval(_studentLivePollingInterval);
+            _studentLivePollingInterval = null;
+        }
+    }, 5000); // כל 5 שניות
+}
+
+// הפעלת polling ברגע שתלמיד מחובר
+var _origLoadStudentMavchanim = (typeof loadStudentMavchanim !== 'undefined') ? loadStudentMavchanim : null;
+if (_origLoadStudentMavchanim) {
+    loadStudentMavchanim = async function() {
+        await _origLoadStudentMavchanim.apply(this, arguments);
+        if (curUser && curUser.id) startStudentLivePolling();
+    };
+}
 
 // Supabase ready
 </script>

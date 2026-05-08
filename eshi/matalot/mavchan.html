@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- גרסה: 1.2.0 | תאריך: 2026-05-08 | תמיכה במבחני בקרה בלייב: זיהוי ?live=1, סנכרון טיימר עם השרת (live_started_at + live_duration_minutes), יצירת רשומה ב-live_sessions, heartbeat (last_seen) כל 5 שניות, עדכון tab_switches ב-visibilitychange, עדכון answered_count בכל תשובה, סימון is_submitted בהגשה. תאימות לאחור מלאה למבחנים רגילים. -->
 <!-- גרסה: 1.1.0 | תאריך: 2026-05-04 | אין מסך כניסה - פרטי תלמיד מגיעים מ-URL ?id=XXX&student=YYY דרך מערכת המטלות -->
 <html lang="he" dir="rtl">
 <head>
@@ -451,6 +452,13 @@ var examStarted = false;
 var examSubmitted = false;
 var answers = {};
 
+// === LIVE MODE - v1.2.0 ===
+var isLiveMode = false;          // האם זה מבחן בלייב
+var liveSessionId = null;        // id של רשומה ב-live_sessions
+var liveEndMs = 0;               // timestamp שבו הזמן נגמר (לסינכרון טיימר)
+var heartbeatInterval = null;    // interval של עדכון last_seen
+var tabSwitchCount = 0;          // ספירה מקומית של יציאות מהמסך
+
 // ========== Supabase helpers ==========
 async function sbGet(table, params) {
     var r = await fetch(SUPABASE_URL + '/rest/v1/' + table + (params || ''), {
@@ -480,6 +488,7 @@ async function loadTest() {
     var params = new URLSearchParams(window.location.search);
     var testId = params.get('id');
     var studentId = params.get('student');
+    isLiveMode = params.get('live') === '1';
     
     if (!testId || !studentId) {
         showLoginError('קישור לא תקין. חזור למערכת המטלות והיכנס שוב.');
@@ -494,6 +503,31 @@ async function loadTest() {
             return;
         }
         currentTest = tests[0];
+        
+        // === LIVE MODE VALIDATION - v1.2.0 ===
+        if (isLiveMode) {
+            if (!currentTest.is_live) {
+                showLoginError('המבחן הזה אינו מוגדר כמבחן לייב');
+                return;
+            }
+            if (!currentTest.live_started_at) {
+                showLoginError('הלייב עוד לא התחיל. המתן שהמורה יתחיל אותו.');
+                return;
+            }
+            if (currentTest.live_ended_at) {
+                showLoginError('הלייב הסתיים');
+                return;
+            }
+            // חישוב זמן שנותר משותף לכולם
+            var startMs = new Date(currentTest.live_started_at).getTime();
+            var durMin = currentTest.live_duration_minutes || currentTest.time_limit_minutes || 15;
+            liveEndMs = startMs + (durMin * 60 * 1000);
+            var remainingMs = liveEndMs - Date.now();
+            if (remainingMs <= 0) {
+                showLoginError('הזמן נגמר — לא ניתן להצטרף עכשיו');
+                return;
+            }
+        }
         
         // טעינת פרטי התלמיד
         var students = await sbGet('students', '?id=eq.' + studentId);
@@ -521,22 +555,47 @@ async function loadTest() {
             }
         }
 
-        // בדיקת מספר ניסיונות שכבר נעשו
+        // בדיקת מספר ניסיונות שכבר נעשו (במצב לייב — חוסמים אם כבר הגיש בלייב הזה)
         var existingAttempts = await sbGet('mavchan_attempts', '?mavchan_id=eq.' + testId + '&student_id=eq.' + studentId + '&order=started_at.desc');
         var completedAttempts = (existingAttempts || []).filter(function(a) { return a.submitted_at; }).length;
-        var maxAttempts = currentTest.max_attempts || 1;
+        var maxAttempts = isLiveMode ? 1 : (currentTest.max_attempts || 1);
         
-        if (completedAttempts >= maxAttempts) {
-            showLoginError('כבר השלמת את מספר הניסיונות המותר (' + maxAttempts + ')');
-            return;
+        if (isLiveMode) {
+            // בלייב: בודקים אם כבר יש סשן לייב פעיל לתלמיד הזה
+            var liveSessions = await sbGet('live_sessions', '?mavchan_id=eq.' + testId + '&student_tz=eq.' + studentId);
+            if (liveSessions && liveSessions.length) {
+                var existingSession = liveSessions[0];
+                if (existingSession.is_submitted) {
+                    showLoginError('כבר הגשת את המבחן הזה');
+                    return;
+                }
+                // יש סשן פעיל — נמשיך אותו (resume)
+                liveSessionId = existingSession.id;
+                if (existingSession.attempt_id) {
+                    attemptId = existingSession.attempt_id;
+                }
+            }
+        } else {
+            if (completedAttempts >= maxAttempts) {
+                showLoginError('כבר השלמת את מספר הניסיונות המותר (' + maxAttempts + ')');
+                return;
+            }
         }
         
         var currentAttemptNum = completedAttempts + 1;
 
         // עדכון מסך ההוראות והצגתו
         document.getElementById('welcomeText').textContent = 'שלום, ' + currentStudent.name;
-        document.getElementById('metaTitle2').textContent = currentTest.title;
-        document.getElementById('metaTime2').textContent = currentTest.time_limit_minutes + ' דקות';
+        document.getElementById('metaTitle2').textContent = currentTest.title + (isLiveMode ? ' 🔴 LIVE' : '');
+        
+        // בלייב — מציגים את הזמן שנותר ולא את משך המבחן
+        if (isLiveMode) {
+            var remSec = Math.max(0, Math.floor((liveEndMs - Date.now()) / 1000));
+            var remMin = Math.floor(remSec / 60);
+            document.getElementById('metaTime2').textContent = remMin + ' דקות נותרו (לייב)';
+        } else {
+            document.getElementById('metaTime2').textContent = currentTest.time_limit_minutes + ' דקות';
+        }
         var qCount = (currentTest.questions || []).filter(function(q) { return q.type !== 'label'; }).length;
         document.getElementById('metaQuestions2').textContent = qCount;
         document.getElementById('metaAttempts').textContent = maxAttempts;
@@ -565,20 +624,55 @@ function showInfoError(msg) {
 // ========== התחלת המבחן ==========
 async function startExam() {
     try {
-        // יצירת רשומת ניסיון
-        attemptId = 'a_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
-        var attempt = {
-            id: attemptId,
-            mavchan_id: currentTest.id,
-            student_id: currentStudent.id,
-            student_name: currentStudent.name,
-            student_class: currentStudent.class,
-            started_at: Date.now(),
-            exit_attempts: 0,
-            answers: {}
-        };
-        await sbInsert('mavchan_attempts', attempt);
-        currentAttempt = attempt;
+        // יצירת רשומת ניסיון (אם לא נטענה מ-resume)
+        if (!attemptId) {
+            attemptId = 'a_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5);
+            var attempt = {
+                id: attemptId,
+                mavchan_id: currentTest.id,
+                student_id: currentStudent.id,
+                student_name: currentStudent.name,
+                student_class: currentStudent.class,
+                started_at: Date.now(),
+                exit_attempts: 0,
+                answers: {}
+            };
+            await sbInsert('mavchan_attempts', attempt);
+            currentAttempt = attempt;
+        }
+        
+        // === LIVE MODE - יצירת/עדכון סשן ===
+        if (isLiveMode) {
+            var totalQuestions = (currentTest.questions || []).filter(function(q) { return q.type !== 'label'; }).length;
+            if (!liveSessionId) {
+                // יצירת סשן חדש
+                var sessionData = {
+                    mavchan_id: currentTest.id,
+                    student_tz: currentStudent.id,
+                    student_name: currentStudent.name,
+                    student_class: currentStudent.class,
+                    joined_at: new Date().toISOString(),
+                    last_seen: new Date().toISOString(),
+                    answered_count: 0,
+                    total_questions: totalQuestions,
+                    tab_switches: 0,
+                    is_submitted: false,
+                    attempt_id: attemptId
+                };
+                var inserted = await sbInsert('live_sessions', sessionData);
+                if (inserted && inserted.length) {
+                    liveSessionId = inserted[0].id;
+                }
+            } else {
+                // עדכון סשן קיים
+                await sbUpdate('live_sessions', 'id=eq.' + liveSessionId, {
+                    last_seen: new Date().toISOString(),
+                    attempt_id: attemptId
+                });
+            }
+            // התחלת heartbeat
+            startLiveHeartbeat();
+        }
 
         // נסיון להיכנס למסך מלא
         try {
@@ -594,11 +688,16 @@ async function startExam() {
         document.getElementById('infoScreen').style.display = 'none';
         document.getElementById('examScreen').style.display = 'block';
         
-        document.getElementById('examTitle').textContent = currentTest.title;
+        document.getElementById('examTitle').textContent = currentTest.title + (isLiveMode ? ' 🔴 LIVE' : '');
         renderQuestions();
         
         startTime = Date.now();
-        timeLeftSeconds = (currentTest.time_limit_minutes || 15) * 60;
+        // === LIVE MODE - חישוב זמן מסונכרן ===
+        if (isLiveMode) {
+            timeLeftSeconds = Math.max(0, Math.floor((liveEndMs - Date.now()) / 1000));
+        } else {
+            timeLeftSeconds = (currentTest.time_limit_minutes || 15) * 60;
+        }
         examStarted = true;
         startTimer();
         setupExitDetection();
@@ -606,6 +705,29 @@ async function startExam() {
     } catch (err) {
         showInfoError('שגיאה בהתחלת המבחן: ' + err.message);
     }
+}
+
+// === LIVE MODE - heartbeat לעדכון last_seen ===
+function startLiveHeartbeat() {
+    if (heartbeatInterval) clearInterval(heartbeatInterval);
+    heartbeatInterval = setInterval(async function() {
+        if (!liveSessionId || examSubmitted) {
+            if (heartbeatInterval) { clearInterval(heartbeatInterval); heartbeatInterval = null; }
+            return;
+        }
+        try {
+            await sbUpdate('live_sessions', 'id=eq.' + liveSessionId, {
+                last_seen: new Date().toISOString()
+            });
+        } catch (e) {
+            console.warn('heartbeat failed:', e);
+        }
+    }, 5000); // כל 5 שניות
+}
+
+// === LIVE MODE - סנכרון טיימר מהשרת (במקרה שתלמיד עובר טאבים בדף) ===
+function getLiveTimeLeftSeconds() {
+    return Math.max(0, Math.floor((liveEndMs - Date.now()) / 1000));
 }
 
 function renderQuestions() {
@@ -697,6 +819,14 @@ function saveAnswerToDb() {
         if (attemptId) {
             sbUpdate('mavchan_attempts', 'id=eq.' + attemptId, { answers: answers });
         }
+        // === LIVE MODE - עדכון answered_count ===
+        if (isLiveMode && liveSessionId) {
+            var answeredCount = Object.keys(answers).filter(function(k) { return answers[k]; }).length;
+            sbUpdate('live_sessions', 'id=eq.' + liveSessionId, {
+                answered_count: answeredCount,
+                last_seen: new Date().toISOString()
+            });
+        }
     }, 1500);
 }
 
@@ -710,7 +840,12 @@ function updateProgress() {
 function startTimer() {
     updateTimerDisplay();
     timerInterval = setInterval(function() {
-        timeLeftSeconds--;
+        // === LIVE MODE - סנכרון מהשרת תמיד ===
+        if (isLiveMode) {
+            timeLeftSeconds = getLiveTimeLeftSeconds();
+        } else {
+            timeLeftSeconds--;
+        }
         updateTimerDisplay();
         if (timeLeftSeconds <= 0) {
             clearInterval(timerInterval);
@@ -782,6 +917,15 @@ function recordExit() {
     if (attemptId) {
         sbUpdate('mavchan_attempts', 'id=eq.' + attemptId, { exit_attempts: exitCount });
     }
+    
+    // === LIVE MODE - עדכון tab_switches בסשן ===
+    if (isLiveMode && liveSessionId) {
+        tabSwitchCount++;
+        sbUpdate('live_sessions', 'id=eq.' + liveSessionId, {
+            tab_switches: tabSwitchCount,
+            last_seen: new Date().toISOString()
+        });
+    }
 
     // האם להציג התראה
     var maxExits = currentTest.lock_after_exits || 3;
@@ -847,6 +991,25 @@ async function submitExam(autoLocked) {
     };
     
     await sbUpdate('mavchan_attempts', 'id=eq.' + attemptId, update);
+    
+    // === LIVE MODE - סימון סשן כהוגש + הפסקת heartbeat ===
+    if (isLiveMode && liveSessionId) {
+        try {
+            await sbUpdate('live_sessions', 'id=eq.' + liveSessionId, {
+                is_submitted: true,
+                submitted_at: new Date().toISOString(),
+                answered_count: Object.keys(answers).filter(function(k) { return answers[k]; }).length,
+                tab_switches: tabSwitchCount,
+                last_seen: new Date().toISOString()
+            });
+        } catch (e) {
+            console.warn('failed to update live_session on submit:', e);
+        }
+        if (heartbeatInterval) {
+            clearInterval(heartbeatInterval);
+            heartbeatInterval = null;
+        }
+    }
     
     // הצגת מסך תוצאה
     document.getElementById('examScreen').style.display = 'none';
