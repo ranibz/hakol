@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- גרסה: v54 | תאריך: 2026-05-10 | קישורים ישירים למורים בתרגיל חירום: ?role=teacher (מחנך), ?role=subject (מורה מקצועי), ?role=teachers (מסך בחירה למורים בלבד - מסתיר כפתור מנהל). מדלג על מסך בחירת התפקיד הראשי. -->
+<!-- גרסה: v54 | תאריך: 2026-05-10 | (1) קישורים ישירים למורים בתרגיל חירום: ?role=teacher (מחנך), ?role=subject (מורה מקצועי), ?role=teachers (מסך בחירה למורים בלבד). (2) במסך קליטת שמות - תלמיד שסומן "🏠 לא הגיע היום" ניתן ללחיצה. אם הגיע באיחור - לחיצה+אישור הופכים אותו לנוכח. -->
 <!-- גרסה: v53 | תאריך: 2026-05-01 | שינוי: הצגת תג קבוצת לימוד אצל המנהלת (אקורדיון + מונה בכרטיס כיתה) -->
 <html lang="he" dir="rtl">
 <head>
@@ -128,7 +128,9 @@
         .student-tap.not-marked { background: white; color: #333; border: 2px solid #bdc3c7; }
         .student-tap.tapped { background: #27ae60; color: white; border: none; }
         .student-tap.absent { background: #e74c3c; color: white; border: none; }
-        .student-tap.absent-today { background: #95a5a6; cursor: default; display: flex; justify-content: space-between; align-items: center; }
+        .student-tap.absent-today { background: #95a5a6; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: 0.15s; }
+        .student-tap.absent-today:hover { background: #7f8c8d; }
+        .student-tap.absent-today .late-hint { font-size: 0.7rem; opacity: 0.85; font-weight: 400; }
         .student-tap.left-school { background: #e67e22; cursor: default; display: flex; justify-content: space-between; align-items: center; }
         
         .btn-mark { padding: 10px 18px; border: none; border-radius: 20px; font-weight: 700; cursor: pointer; font-size: 0.9rem; }
@@ -2501,9 +2503,10 @@ function renderEmergencyClass() {
             const isLeftSchool = status === 'left_school';
             
             if (isAbsentToday) {
-                // תלמיד שלא הגיע בבוקר - מופיע באפור
+                // תלמיד שלא הגיע בבוקר - מופיע באפור, אבל ניתן ללחיצה אם הגיע באיחור
                 row.className = 'student-tap absent-today';
-                row.innerHTML = `<span>${student.name}</span><span style="font-size:0.8rem;">🏠 לא הגיע היום</span>`;
+                row.innerHTML = `<span>${student.name} <span class="late-hint">(לחץ אם הגיע באיחור)</span></span><span style="font-size:0.8rem;">🏠 לא הגיע היום</span>`;
+                row.onclick = () => markLateArrival(id);
             } else if (isLeftSchool) {
                 // תלמיד שיצא מביה"ס - מופיע בכתום
                 row.className = 'student-tap left-school';
@@ -2518,6 +2521,31 @@ function renderEmergencyClass() {
         }
         list.appendChild(row);
     });
+}
+
+// v54: סימון תלמיד שלא הגיע בבוקר אבל הגיע באיחור כנוכח
+async function markLateArrival(id) {
+    const studentName = (students.find(s => String(s.id) === String(id)) || {}).name || 'התלמיד';
+    if (!confirm(`${studentName} הגיע באיחור?\nסימון יעדכן את הסטטוס ל"נוכח".`)) return;
+    
+    // עדכון אופטימיסטי
+    emergencyStatus[id] = 'present';
+    renderEmergencyClass();
+    
+    // עדכון ב-DB
+    try {
+        await api('emergency_drill', { 
+            method: 'POST', 
+            prefer: 'resolution=merge-duplicates', 
+            body: JSON.stringify({ student_id: id, status: 'present' }) 
+        });
+    } catch (err) {
+        console.error('markLateArrival failed:', err);
+        // החזרה למצב קודם במקרה של כישלון
+        emergencyStatus[id] = 'absent_today';
+        renderEmergencyClass();
+        alert('שגיאה בעדכון. נסה שוב.');
+    }
 }
 
 async function toggleEmergencyPresent(id) {
