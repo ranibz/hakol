@@ -1,5 +1,6 @@
 <!DOCTYPE html>
-<!-- גרסה: 1.2.0 | תאריך: 2026-05-08 | תמיכה במבחני בקרה בלייב: זיהוי ?live=1, סנכרון טיימר עם השרת (live_started_at + live_duration_minutes), יצירת רשומה ב-live_sessions, heartbeat (last_seen) כל 5 שניות, עדכון tab_switches ב-visibilitychange, עדכון answered_count בכל תשובה, סימון is_submitted בהגשה. תאימות לאחור מלאה למבחנים רגילים. -->
+<!-- גרסה: 1.3.0 | תאריך: 2026-05-13 | בדיקה אוטומטית מלאה אחרי הגשה: אם המבחן עם auto_grade_open=true, אחרי הגשה ה-AI בודק את התשובות הפתוחות ברקע (לא חוסם). התלמיד רואה הודעת המתנה ("ה-AI בודק..."), ואז ציון סופי מלא + פירוט תשובות לכל שאלה (אמריקאיות: ✅/❌ עם תשובה נכונה; פתוחות: ניקוד + הערכת AI מילולית). דורש: עמודה auto_grade_open ב-mavchanim, ושדה expected_answer בשאלות text. -->
+<!-- גרסה: 1.2.0 | תאריך: 2026-05-08 | תמיכה במבחני בקרה בלייב: זיהוי ?live=1, סנכרון טיימר עם השרת (live_started_at + live_duration_minutes), יצירת רשומה ב-live_sessions, heartbeat (last_seen) כל 5 שניות, עדכון tab_switches ב-visibilitychange, עדכון answered_count ב-visibilitychange, עדכון answered_count בכל תשובה, סימון is_submitted בהגשה. תאימות לאחור מלאה למבחנים רגילים. -->
 <!-- גרסה: 1.1.0 | תאריך: 2026-05-04 | אין מסך כניסה - פרטי תלמיד מגיעים מ-URL ?id=XXX&student=YYY דרך מערכת המטלות -->
 <html lang="he" dir="rtl">
 <head>
@@ -413,13 +414,13 @@ input:focus, textarea:focus { outline: none; border-color: var(--primary); }
 
 <!-- מסך סיום -->
 <div class="info-screen" id="resultScreen" style="display:none;">
-    <div class="result-card">
+    <div class="result-card" style="max-width:760px;width:100%;">
         <div class="icon" id="resultIcon">✅</div>
         <h2 id="resultTitle">המבחן הוגש בהצלחה</h2>
         
         <div class="score-box" id="scoreBox">
             <div class="num"><span id="scoreNum">0</span> / <span id="scoreMax">0</span></div>
-            <div class="label">נקודות מהשאלות האמריקאיות</div>
+            <div class="label" id="scoreLabel">נקודות מהשאלות האמריקאיות</div>
         </div>
         
         <div style="background:var(--bg);padding:14px;border-radius:10px;margin:14px 0;">
@@ -428,13 +429,48 @@ input:focus, textarea:focus { outline: none; border-color: var(--primary); }
             <div class="meta-row" id="resultLockedRow" style="display:none;"><span>סטטוס:</span><strong style="color:var(--danger);">ננעל אוטומטית</strong></div>
         </div>
 
-        <p style="color:var(--text-dim);font-size:0.95rem;margin:12px 0;">
+        <!-- אזור הודעת המתנה / סיכום AI -->
+        <div id="aiPendingBox" style="display:none;background:linear-gradient(135deg,#ede9fe,#fce7f3);border:2px solid #8b5cf6;border-radius:12px;padding:18px;margin:14px 0;text-align:center;">
+            <div style="font-size:2rem;margin-bottom:8px;">🤖</div>
+            <div style="font-weight:800;color:#6b21a8;margin-bottom:6px;" id="aiPendingTitle">המורה הגדיר בדיקה אוטומטית</div>
+            <div style="font-size:0.9rem;color:#7c3aed;" id="aiPendingText">ה-AI בודק כעת גם את התשובות הפתוחות שלך. תוך כדקה הציון הסופי והפירוט יופיעו כאן.</div>
+            <div id="aiPendingSpinner" style="margin-top:10px;">
+                <div style="display:inline-block;width:24px;height:24px;border:3px solid #ddd;border-top-color:#8b5cf6;border-radius:50%;animation:spin 1s linear infinite;"></div>
+            </div>
+            <button id="aiPendingRefresh" onclick="checkAiGradingStatus()" style="margin-top:10px;background:#8b5cf6;color:white;border:none;padding:8px 18px;border-radius:8px;font-weight:700;cursor:pointer;display:none;">🔄 רענן עכשיו</button>
+        </div>
+
+        <!-- אזור פירוט תשובות -->
+        <div id="answersDetailBox" style="display:none;margin:14px 0;text-align:right;"></div>
+
+        <p id="resultManualText" style="color:var(--text-dim);font-size:0.95rem;margin:12px 0;">
             התשובות הפתוחות יבדקו על ידי המורה
         </p>
 
         <button class="btn" onclick="window.close(); window.location.href='/';">סיום</button>
     </div>
 </div>
+
+<style>
+@keyframes spin { to { transform: rotate(360deg); } }
+.answer-q-card {
+    background: white;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 14px;
+    margin-bottom: 10px;
+    text-align: right;
+}
+.answer-q-card.correct { border-color: #10b981; background: #f0fdf4; }
+.answer-q-card.wrong { border-color: #ef4444; background: #fef2f2; }
+.answer-q-card.partial { border-color: #f59e0b; background: #fffbeb; }
+.answer-q-title { font-weight: 800; color: #1e293b; margin-bottom: 6px; font-size: 0.95rem; }
+.answer-given { background: #f3f4f6; padding: 8px 10px; border-radius: 6px; margin: 6px 0; font-size: 0.9rem; color: #374151; }
+.answer-correct-tag { background: #d1fae5; color: #065f46; padding: 3px 8px; border-radius: 6px; font-size: 0.8rem; font-weight: 700; margin-right: 6px; }
+.answer-wrong-tag { background: #fee2e2; color: #991b1b; padding: 3px 8px; border-radius: 6px; font-size: 0.8rem; font-weight: 700; margin-right: 6px; }
+.answer-ai-feedback { background: linear-gradient(135deg,#ede9fe,#fce7f3); border-right: 3px solid #8b5cf6; padding: 10px; border-radius: 6px; margin-top: 6px; font-size: 0.9rem; color: #374151; }
+.answer-points-badge { float: left; background: #1e293b; color: white; padding: 4px 10px; border-radius: 6px; font-weight: 800; font-size: 0.85rem; }
+</style>
 
 <script>
 var SUPABASE_URL = 'https://eubgzfkkovxgijhrmnif.supabase.co';
@@ -1032,6 +1068,206 @@ async function submitExam(autoLocked) {
     var seconds = duration % 60;
     document.getElementById('resultDuration').textContent = minutes + ' דק\' ' + seconds + ' שנ\'';
     document.getElementById('resultExits').textContent = exitCount;
+
+    // === AUTO GRADE - v1.3.0 ===
+    // אם המבחן מסומן בבדיקה אוטומטית, נריץ AI ברקע ונציג סטטוס המתנה
+    var hasOpenQuestions = (currentTest.questions || []).some(function(q) {
+        return q.type === 'text' && answers['q_' + (currentTest.questions.indexOf(q))];
+    });
+    if (currentTest.auto_grade_open && hasOpenQuestions) {
+        // הסתרת ההודעה הישנה
+        var manualText = document.getElementById('resultManualText');
+        if (manualText) manualText.style.display = 'none';
+        
+        // הצגת תיבת המתנה
+        document.getElementById('aiPendingBox').style.display = 'block';
+        document.getElementById('scoreLabel').textContent = 'ציון חלקי (אמריקאיות בלבד) — ה-AI עדיין בודק את הפתוחות';
+        
+        // הפעלת הבדיקה ברקע (לא חוסם)
+        startBackgroundAiGrading();
+    } else if (currentTest.auto_grade_open && !hasOpenQuestions) {
+        // המבחן עם auto_grade אבל אין שאלות פתוחות שנענו - הצג פירוט מיד
+        document.getElementById('resultManualText').style.display = 'none';
+        renderAnswersDetail(false);
+    }
+}
+
+// === AUTO GRADE - v1.3.0 ===
+// קורא ל-Netlify Function לבדיקת AI - רץ ברקע אחרי הגשה
+var MAVCHAN_AI_URL = '/.netlify/functions/mavchan-ai';
+var aiPollingInterval = null;
+
+async function startBackgroundAiGrading() {
+    try {
+        var openQuestions = [];
+        (currentTest.questions || []).forEach(function(q, idx) {
+            if (q.type === 'text' && answers['q_' + idx]) {
+                openQuestions.push({ idx: idx, q: q, ans: answers['q_' + idx] });
+            }
+        });
+        
+        if (!openQuestions.length) return;
+        
+        var aiGrades = {};
+        var totalAdded = 0;
+        var totalAddedMax = 0;
+        
+        // בודקים שאלה אחר שאלה (במקביל יהיה מהיר יותר אבל פחות יציב מול rate limits)
+        for (var i = 0; i < openQuestions.length; i++) {
+            var item = openQuestions[i];
+            // עדכון progress
+            document.getElementById('aiPendingTitle').textContent = '🤖 בודק שאלה ' + (i + 1) + ' מתוך ' + openQuestions.length;
+            
+            var maxPts = item.q.points || 10;
+            var grade = await gradeOpenAnswerWithAI(item.q, item.ans, maxPts);
+            
+            if (grade.score !== null) {
+                aiGrades['q_' + item.idx] = grade;
+                totalAdded += grade.score;
+                totalAddedMax += maxPts;
+            }
+        }
+        
+        // עדכון ב-DB
+        var atts = await sbGet('mavchan_attempts', '?id=eq.' + attemptId);
+        if (atts && atts.length) {
+            var current = atts[0];
+            var newScore = (current.score || 0) + totalAdded;
+            var newMaxScore = (current.max_score || 0) + totalAddedMax;
+            await sbUpdate('mavchan_attempts', 'id=eq.' + attemptId, {
+                ai_grades: aiGrades,
+                score: newScore,
+                max_score: newMaxScore
+            });
+        }
+        
+        // הצגת תוצאות לתלמיד
+        document.getElementById('aiPendingBox').style.display = 'none';
+        document.getElementById('scoreLabel').textContent = 'ציון סופי';
+        renderAnswersDetail(true, aiGrades, totalAdded, totalAddedMax);
+        
+    } catch (err) {
+        console.error('AI grading background error:', err);
+        document.getElementById('aiPendingTitle').textContent = '⚠️ בדיקה אוטומטית נכשלה';
+        document.getElementById('aiPendingText').textContent = 'שגיאה: ' + err.message + '. המורה יבדוק ידנית.';
+        document.getElementById('aiPendingSpinner').style.display = 'none';
+    }
+}
+
+async function gradeOpenAnswerWithAI(question, studentAnswer, maxPoints) {
+    if (!studentAnswer || String(studentAnswer).trim().length < 3) {
+        return { score: 0, feedback: 'לא ענה או תשובה קצרה מדי' };
+    }
+    try {
+        var res = await fetch(MAVCHAN_AI_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                action: 'grade_answer',
+                question: question.text,
+                expected_answer: question.expected_answer || '',
+                student_answer: studentAnswer,
+                max_points: maxPoints
+            })
+        });
+        var data = await res.json();
+        if (data.error) return { score: null, feedback: 'שגיאה: ' + data.error };
+        var score = parseInt(data.score);
+        if (isNaN(score)) score = 0;
+        score = Math.max(0, Math.min(maxPoints, score));
+        return { score: score, feedback: data.feedback || 'אין הערכה' };
+    } catch (err) {
+        console.error('AI grading error:', err);
+        return { score: null, feedback: 'שגיאה בבדיקה: ' + err.message };
+    }
+}
+
+// כפתור רענון ידני (אם הבדיקה לקחה זמן או הופסקה)
+async function checkAiGradingStatus() {
+    try {
+        var atts = await sbGet('mavchan_attempts', '?id=eq.' + attemptId);
+        if (atts && atts.length && atts[0].ai_grades && Object.keys(atts[0].ai_grades).length > 0) {
+            // יש כבר תוצאות AI - הצג אותן
+            var a = atts[0];
+            document.getElementById('aiPendingBox').style.display = 'none';
+            document.getElementById('scoreLabel').textContent = 'ציון סופי';
+            document.getElementById('scoreNum').textContent = a.score || 0;
+            document.getElementById('scoreMax').textContent = a.max_score || 0;
+            renderAnswersDetail(true, a.ai_grades);
+        }
+    } catch (e) {
+        console.warn('checkAiGradingStatus error:', e);
+    }
+}
+
+// רינדור הפירוט המלא של התשובות
+function renderAnswersDetail(includeAi, aiGrades) {
+    aiGrades = aiGrades || {};
+    var box = document.getElementById('answersDetailBox');
+    if (!box) return;
+    
+    var html = '<h3 style="font-size:1.05rem;color:#1e293b;margin:14px 0 10px;text-align:center;">📋 פירוט תשובות</h3>';
+    
+    var qNum = 0;
+    (currentTest.questions || []).forEach(function(q, idx) {
+        if (q.type === 'label') return;
+        qNum++;
+        var ans = answers['q_' + idx];
+        var ansDisplay = ans ? escapeHtml(String(ans)) : '<i style="color:#9ca3af;">לא ענית</i>';
+        
+        var cardClass = 'answer-q-card';
+        var pointsBadge = '';
+        var tagHtml = '';
+        var aiFeedbackHtml = '';
+        
+        var pts = q.points || 1;
+        
+        if (q.type === 'choice' || q.type === 'yesno') {
+            if (q.correct_answer) {
+                if (ans === q.correct_answer) {
+                    cardClass += ' correct';
+                    tagHtml = '<span class="answer-correct-tag">✅ נכון</span>';
+                    pointsBadge = '<span class="answer-points-badge">' + pts + '/' + pts + '</span>';
+                } else {
+                    cardClass += ' wrong';
+                    tagHtml = '<span class="answer-wrong-tag">❌ שגוי</span>';
+                    pointsBadge = '<span class="answer-points-badge" style="background:#dc2626;">0/' + pts + '</span>';
+                }
+            }
+        } else if (q.type === 'text' && aiGrades['q_' + idx]) {
+            var aiG = aiGrades['q_' + idx];
+            var score = aiG.score || 0;
+            var pct = pts > 0 ? (score / pts) : 0;
+            if (pct >= 0.8) {
+                cardClass += ' correct';
+            } else if (pct >= 0.4) {
+                cardClass += ' partial';
+            } else {
+                cardClass += ' wrong';
+            }
+            var badgeColor = pct >= 0.8 ? '#059669' : pct >= 0.4 ? '#d97706' : '#dc2626';
+            pointsBadge = '<span class="answer-points-badge" style="background:' + badgeColor + ';">' + score + '/' + pts + '</span>';
+            aiFeedbackHtml = '<div class="answer-ai-feedback"><strong style="color:#6b21a8;">🤖 הערכת AI:</strong> ' + escapeHtml(aiG.feedback || '') + '</div>';
+        }
+        
+        html += '<div class="' + cardClass + '">';
+        html += pointsBadge;
+        html += '<div class="answer-q-title">' + qNum + '. ' + escapeHtml(q.text || '') + '</div>';
+        html += '<div class="answer-given">תשובתך: ' + ansDisplay + '</div>';
+        if (tagHtml) {
+            html += '<div style="margin-top:4px;">' + tagHtml;
+            // תשובה נכונה אם טעה
+            if (q.correct_answer && ans && ans !== q.correct_answer) {
+                html += '<span style="font-size:0.85rem;color:#6b7280;">תשובה נכונה: <strong style="color:#065f46;">' + escapeHtml(q.correct_answer) + '</strong></span>';
+            }
+            html += '</div>';
+        }
+        html += aiFeedbackHtml;
+        html += '</div>';
+    });
+    
+    box.innerHTML = html;
+    box.style.display = 'block';
 }
 
 function calculateScore() {
