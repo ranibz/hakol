@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- VERSION 1.4.0 - 15/05/2026 - שיעור לייב: סוג מטלה חדש "שיעור לייב" (שיעור סינכרוני בכתב, לא בזום). בטופס יצירת מטלה: 3 קופסאות בחירה (מטלה רגילה / מבחן בקרה לייב / שיעור לייב). כשבוחרים שיעור לייב מופיע שדה משך זמן + כפתור יצירת תוכן AI. המורה רואה תוכן שתלמיד כותב בזמן אמת, צ'אט פרטי וכיתתי. דורש 4 עמודות ב-assignments (is_live_lesson, live_lesson_duration_minutes, live_lesson_started_at, live_lesson_ended_at) + 2 טבלאות חדשות (live_lesson_sessions, live_lesson_chats). | פיתוח: רני בן זאב -->
 <!-- VERSION 1.3.2 - 14/05/2026 - מבחני בקרה אצל התלמיד: (1) תיקון באג: מבחן לייב שהסתיים והתלמיד הגיש - היה נעלם מהמסך, עכשיו ממשיך להופיע בטאב "המטלות שלי" עם תווית "✅ הוגש" + ציון מ-100. (2) טאב "📊 הציונים שלי" - מבחני בקרה מופיעים בסעיף נפרד עם ציון מ-100, ולחיצה על כל מבחן פותחת חלון פירוט מלא של כל שאלה, התשובה שניתנה, אם נכון/שגוי, התשובה הנכונה, והערכת ה-AI עם הסבר מילולי. הממוצע משלב גם מטלות וגם מבחנים. | פיתוח: רני בן זאב -->
 <!-- VERSION 1.3.1 - 13/05/2026 - הוספת מצב "🤖 בדיקה אוטומטית מלאה" למבחני בקרה: תיבת סימון בשני טפסי היצירה (ידני + AI) שכאשר היא מסומנת, האקדמיה מבצעת בדיקה מלאה אחרי הגשה כולל שאלות פתוחות, התלמיד רואה ציון מלא + פירוט תשובות עם הערכות AI. דורש עמודה חדשה auto_grade_open ב-mavchanim. ביצירה ידנית - הוסף שדה "תשובה צפויה" לשאלות text כדי שה-AI ידע מה לחפש. | פיתוח: רני בן זאב -->
 <!-- VERSION 1.3.0 - 13/05/2026 - מבחני בקרה: שיפור מקיף בתצוגת ציונים. (1) טבלת ניסיונות: עמודת ציון מציגה ציון מ-100 כראשי (מעל ה-NN/NN הגולמי), עם תווית "⏳ X לא נבדקו" אם יש שאלות פתוחות שעדיין לא בדק AI. (2) ציון ממוצע למעלה - מ-100 במקום נקודות גולמיות. (3) בכרטיס תשובות (viewAttemptDetail) הוסף בלוק "סיכום מבחן" בסוף: ציון סופי גדול מ-100 + סטטיסטיקה (תשובות נכונות/שגויות/לא ענה באמריקאיות, נבדקו/ממתינות בפתוחות) + פירוט נקודות. (4) תיקון באג: לחיצה חוזרת על "בדוק תשובות פתוחות" היתה מצטברת לציון - עכשיו הציון מחושב נכון בכל פעם (מחסר את הניקוד הקודם של ה-AI לפני שמוסיף את החדש). | פיתוח: רני בן זאב -->
@@ -164,8 +165,63 @@ body{font-family:"Rubik",sans-serif;background:var(--bg);color:var(--text);min-h
   <div class="login-err" id="loginErr">❌ פרטי כניסה שגויים</div>
 </div>
 </div>
-<!-- STUDENT --><div id="studentScreen"><div class="topbar"><div class="topbar-left"><h2>מערכת מטלות <span style="background:#10b981;color:white;font-size:0.65rem;padding:3px 8px;border-radius:8px;margin-right:8px;font-weight:700;vertical-align:middle;">v1.3.2</span></h2><p id="sTpName"></p></div><button class="btn-logout" onclick="logout()">יציאה</button></div><div class="screen-body"><div class="student-welcome"><h3 id="sWelcomeName">שלום!</h3><p id="sWelcomeClass"></p></div><div class="stats-row"><div class="stat-box"><div class="num" id="sTotalAsgn" style="color:#5c6bc0;">0</div><div class="lbl">מטלות פעילות</div></div><div class="stat-box"><div class="num" id="sSubmitted" style="color:#00b894;">0</div><div class="lbl">הגשות</div></div><div class="stat-box"><div class="num" id="sPending" style="color:#f39c12;">0</div><div class="lbl">ממתינות</div></div><div class="stat-box"><div class="num" id="sGraded" style="color:#9c27b0;">0</div><div class="lbl">קיבלו ציון</div></div></div><div class="student-tabs" style="display:flex;gap:10px;margin-bottom:20px;"><button class="s-tab active" onclick="switchSTab('assignments',this)" style="flex:1;padding:12px;border:none;border-radius:12px;font-family:inherit;font-size:.95rem;font-weight:700;cursor:pointer;background:linear-gradient(135deg,#667eea,#764ba2);color:white;">📋 המטלות שלי</button><button class="s-tab" onclick="switchSTab('grades',this)" style="flex:1;padding:12px;border:2px solid #eee;border-radius:12px;font-family:inherit;font-size:.95rem;font-weight:700;cursor:pointer;background:white;color:#666;">📊 הציונים שלי</button></div><div id="sAssignments" class="s-panel"><div class="section-title"><span class="material-icons-round" style="color:#5c6bc0;">assignment</span> המטלות שלי</div><div id="studentMavchanimList"></div><div id="studentAssignmentsList"></div></div><div id="sGrades" class="s-panel" style="display:none;"><div class="section-title"><span style="color:#9c27b0;">📊</span> הציונים שלי</div><div id="studentGradesList"></div></div></div></div>
-<!-- TEACHER --><div id="teacherScreen"><div class="topbar"><div class="topbar-left"><h2>מערכת מטלות – מורה <span style="background:#10b981;color:white;font-size:0.65rem;padding:3px 8px;border-radius:8px;margin-right:8px;font-weight:700;vertical-align:middle;">v1.3.2</span></h2><p id="tTpName"></p></div><button class="btn-logout" onclick="logout()">יציאה</button></div><div class="screen-body"><div class="teacher-tabs"><button class="t-tab active" onclick="switchTTab('assignments',this)">📋 המטלות שלי</button><button class="t-tab" onclick="switchTTab('new',this)">➕ מטלה חדשה</button><button class="t-tab" onclick="switchTTab('mavchanim',this)">🔒 מבחני בקרה</button><button class="t-tab" onclick="switchTTab('students',this)">👥 התלמידים שלי</button><button class="t-tab" onclick="switchTTab('grades',this)">📊 מעקב ציונים</button><button class="t-tab" onclick="switchTTab('overview',this)">📈 סקירה</button></div><div id="tAssignments" class="t-panel active"><div class="filter-bar"><select id="tFilterClass" onchange="renderTeacherAssignments()"><option value="">כל הכיתות</option></select></div><div id="teacherAssignmentsList"></div></div><div id="tStudents" class="t-panel"><div class="panel-card"><h2>👥 התלמידים שלי</h2><div class="filter-bar" style="margin-bottom:15px;"><select id="tStudentsClassFilter" onchange="renderTeacherStudents()" style="padding:10px 15px;border:2px solid #eee;border-radius:10px;font-family:inherit;font-size:.95rem;min-width:200px;"><option value="">-- בחר כיתה --</option></select></div><div id="tStudentsStats" style="display:flex;gap:15px;margin-bottom:15px;flex-wrap:wrap;"></div><table class="admin-table" id="tStudentsTable" style="display:none;"><thead><tr><th>#</th><th>ת.ז</th><th>שם</th><th>כיתה</th></tr></thead><tbody id="tStudentsBody"></tbody></table><div id="tStudentsEmpty" style="text-align:center;padding:40px;color:#888;">בחר כיתה לצפייה בתלמידים</div></div></div><div id="tGrades" class="t-panel"><div class="panel-card"><h2>📊 מעקב ציונים והערכות</h2><div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;"><select id="tGradesClassFilter" onchange="loadGradesView()" style="padding:10px 15px;border:2px solid #eee;border-radius:10px;font-family:inherit;font-size:.95rem;min-width:200px;"><option value="">-- בחר כיתה --</option></select><button class="btn-preview" onclick="exportGradesToExcel()" style="margin-right:auto;">📥 ייצוא לאקסל</button></div><div id="gradesStats" style="display:flex;gap:15px;margin-bottom:20px;flex-wrap:wrap;"></div><div id="gradesContent"><div style="text-align:center;padding:40px;color:#888;">בחר כיתה לצפייה בציונים</div></div></div></div><div id="tNew" class="t-panel"><div class="panel-card"><h2>➕ יצירת מטלה חדשה</h2><div class="form-group"><label>כותרת המטלה *</label><input type="text" id="nTitle"></div><div class="form-group"><label>תיאור והנחיות</label><textarea id="nDesc" rows="3"></textarea></div><div class="form-group"><label>כיתות (מופרדות בפסיק) *</label><input type="text" id="nClasses" onchange="loadSpecificStudentsOptions()"><div id="nClassesHint" style="font-size:.75rem;color:var(--primary);margin-top:4px;display:none;"></div></div><div class="form-group"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="checkbox" id="nSpecificStudents" onchange="toggleSpecificStudents()" style="width:18px;height:18px;"> הגדר לתלמידים ספציפיים בלבד</label></div><div id="specificStudentsSection" style="display:none;"><div class="form-group"><div style="background:#f0f9ff;border:2px solid #bae6fd;border-radius:12px;padding:15px;"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;"><label style="margin:0;font-weight:700;color:#0369a1;">👥 בחר תלמידים:</label><div><button type="button" class="btn-preview" onclick="selectAllSpecificStudents()" style="font-size:.8rem;padding:5px 10px;">סמן הכל</button><button type="button" class="btn-preview" onclick="clearAllSpecificStudents()" style="font-size:.8rem;padding:5px 10px;margin-right:5px;">נקה הכל</button></div></div><div id="specificStudentsList" style="max-height:200px;overflow-y:auto;display:flex;flex-wrap:wrap;gap:8px;"></div><div id="specificStudentsCount" style="margin-top:10px;font-size:.85rem;color:#666;"></div></div></div></div><div class="form-group"><label>תאריך ושעת הגשה אחרונים *</label><div style="display:flex;gap:10px;"><input type="date" id="nDue" style="flex:1;"><input type="time" id="nDueTime" value="23:59" style="width:110px;padding:11px 13px;border:2px solid #eee;border-radius:10px;font-family:inherit;font-size:.95rem;background:#fafafa;"></div></div><div class="form-group"><label>סוג מטלה</label><select id="nType" onchange="toggleHtmlSection()"><option value="text">טקסט חופשי</option><option value="link">קישור בלבד</option><option value="both">טקסט + קישור</option><option value="image">🖼 טקסט + תמונה</option><option value="questions">📝 שאלון (שאלות מותאמות)</option><option value="interactive">🎯 דף אינטראקטיבי (HTML)</option></select></div><div id="questionsSection" style="display:none;"><div class="form-group"><label>📝 שאלות</label><div id="questionsList"></div><div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;"><button type="button" class="btn-preview" onclick="addQuestion('text')">+ טקסט פתוח</button><button type="button" class="btn-preview" onclick="addQuestion('choice')">+ בחירה מרובה</button><button type="button" class="btn-preview" onclick="addQuestion('number')">+ מספר</button><button type="button" class="btn-preview" onclick="addQuestion('yesno')">+ כן/לא</button><button type="button" class="btn-preview" onclick="addQuestion('image')">+ 🖼 תמונה</button><button type="button" class="btn-preview" onclick="addQuestion('link')">+ 🔗 קישור</button><button type="button" class="btn-preview" onclick="addQuestion('youtube')">+ ▶️ סרטון יוטיוב</button><button type="button" class="btn-preview" onclick="addQuestion('label')">+ 📄 תיאור/הנחיה</button></div></div></div><div id="htmlSection" style="display:none;"><div class="form-group"><label>📋 קוד HTML</label><textarea class="html-code-area" id="nHtmlCode" rows="10"></textarea><button class="btn-preview" onclick="previewHtml()">👁 תצוגה מקדימה</button><div id="htmlPreviewBox" style="display:none;" class="html-preview-box"><iframe id="htmlPreviewIframe" class="html-preview-iframe" sandbox="allow-scripts allow-forms allow-popups"></iframe></div></div></div><button class="btn-add" id="btnCreateAssignment" onclick="createAssignment()">✅ פרסם מטלה</button><button class="btn-cancel-import" id="btnCancelEdit" style="display:none;margin-right:10px;" onclick="cancelEditAssignment()">❌ בטל עריכה</button></div></div><div id="tOverview" class="t-panel"><div id="teacherOverviewContent"></div></div><div id="tMavchanim" class="t-panel"><div id="mavchanimContent"></div></div></div></div>
+<!-- STUDENT --><div id="studentScreen"><div class="topbar"><div class="topbar-left"><h2>מערכת מטלות <span style="background:#10b981;color:white;font-size:0.65rem;padding:3px 8px;border-radius:8px;margin-right:8px;font-weight:700;vertical-align:middle;">v1.4.0</span></h2><p id="sTpName"></p></div><button class="btn-logout" onclick="logout()">יציאה</button></div><div class="screen-body"><div class="student-welcome"><h3 id="sWelcomeName">שלום!</h3><p id="sWelcomeClass"></p></div><div class="stats-row"><div class="stat-box"><div class="num" id="sTotalAsgn" style="color:#5c6bc0;">0</div><div class="lbl">מטלות פעילות</div></div><div class="stat-box"><div class="num" id="sSubmitted" style="color:#00b894;">0</div><div class="lbl">הגשות</div></div><div class="stat-box"><div class="num" id="sPending" style="color:#f39c12;">0</div><div class="lbl">ממתינות</div></div><div class="stat-box"><div class="num" id="sGraded" style="color:#9c27b0;">0</div><div class="lbl">קיבלו ציון</div></div></div><div class="student-tabs" style="display:flex;gap:10px;margin-bottom:20px;"><button class="s-tab active" onclick="switchSTab('assignments',this)" style="flex:1;padding:12px;border:none;border-radius:12px;font-family:inherit;font-size:.95rem;font-weight:700;cursor:pointer;background:linear-gradient(135deg,#667eea,#764ba2);color:white;">📋 המטלות שלי</button><button class="s-tab" onclick="switchSTab('grades',this)" style="flex:1;padding:12px;border:2px solid #eee;border-radius:12px;font-family:inherit;font-size:.95rem;font-weight:700;cursor:pointer;background:white;color:#666;">📊 הציונים שלי</button></div><div id="sAssignments" class="s-panel"><div class="section-title"><span class="material-icons-round" style="color:#5c6bc0;">assignment</span> המטלות שלי</div><div id="studentMavchanimList"></div><div id="studentAssignmentsList"></div></div><div id="sGrades" class="s-panel" style="display:none;"><div class="section-title"><span style="color:#9c27b0;">📊</span> הציונים שלי</div><div id="studentGradesList"></div></div></div></div>
+<!-- TEACHER --><div id="teacherScreen"><div class="topbar"><div class="topbar-left"><h2>מערכת מטלות – מורה <span style="background:#10b981;color:white;font-size:0.65rem;padding:3px 8px;border-radius:8px;margin-right:8px;font-weight:700;vertical-align:middle;">v1.4.0</span></h2><p id="tTpName"></p></div><button class="btn-logout" onclick="logout()">יציאה</button></div><div class="screen-body"><div class="teacher-tabs"><button class="t-tab active" onclick="switchTTab('assignments',this)">📋 המטלות שלי</button><button class="t-tab" onclick="switchTTab('new',this)">➕ מטלה חדשה</button><button class="t-tab" onclick="switchTTab('mavchanim',this)">🔒 מבחני בקרה</button><button class="t-tab" onclick="switchTTab('students',this)">👥 התלמידים שלי</button><button class="t-tab" onclick="switchTTab('grades',this)">📊 מעקב ציונים</button><button class="t-tab" onclick="switchTTab('overview',this)">📈 סקירה</button></div><div id="tAssignments" class="t-panel active"><div class="filter-bar"><select id="tFilterClass" onchange="renderTeacherAssignments()"><option value="">כל הכיתות</option></select></div><div id="teacherAssignmentsList"></div></div><div id="tStudents" class="t-panel"><div class="panel-card"><h2>👥 התלמידים שלי</h2><div class="filter-bar" style="margin-bottom:15px;"><select id="tStudentsClassFilter" onchange="renderTeacherStudents()" style="padding:10px 15px;border:2px solid #eee;border-radius:10px;font-family:inherit;font-size:.95rem;min-width:200px;"><option value="">-- בחר כיתה --</option></select></div><div id="tStudentsStats" style="display:flex;gap:15px;margin-bottom:15px;flex-wrap:wrap;"></div><table class="admin-table" id="tStudentsTable" style="display:none;"><thead><tr><th>#</th><th>ת.ז</th><th>שם</th><th>כיתה</th></tr></thead><tbody id="tStudentsBody"></tbody></table><div id="tStudentsEmpty" style="text-align:center;padding:40px;color:#888;">בחר כיתה לצפייה בתלמידים</div></div></div><div id="tGrades" class="t-panel"><div class="panel-card"><h2>📊 מעקב ציונים והערכות</h2><div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;"><select id="tGradesClassFilter" onchange="loadGradesView()" style="padding:10px 15px;border:2px solid #eee;border-radius:10px;font-family:inherit;font-size:.95rem;min-width:200px;"><option value="">-- בחר כיתה --</option></select><button class="btn-preview" onclick="exportGradesToExcel()" style="margin-right:auto;">📥 ייצוא לאקסל</button></div><div id="gradesStats" style="display:flex;gap:15px;margin-bottom:20px;flex-wrap:wrap;"></div><div id="gradesContent"><div style="text-align:center;padding:40px;color:#888;">בחר כיתה לצפייה בציונים</div></div></div></div><div id="tNew" class="t-panel"><div class="panel-card"><h2>➕ יצירת מטלה חדשה</h2>
+
+<!-- v1.4.0: 3 קופסאות בחירת סוג -->
+<div id="taskTypeSelector" style="background:#f8fafc;border-radius:14px;padding:16px;margin-bottom:20px;border:1px solid #e2e8f0;">
+<label style="display:block;font-weight:700;color:#475569;margin-bottom:12px;font-size:0.95rem;">סוג המטלה:</label>
+<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;">
+<div id="ttRegular" class="task-type-box selected" onclick="selectTaskType('regular')" style="background:white;border:3px solid #4f46e5;border-radius:14px;padding:16px 12px;cursor:pointer;text-align:center;transition:all 0.2s;box-shadow:0 4px 12px rgba(79,70,229,0.15);">
+<div style="font-size:2.2rem;margin-bottom:6px;">📝</div>
+<div style="font-weight:900;color:#1e293b;font-size:0.95rem;margin-bottom:3px;">מטלה רגילה</div>
+<div style="font-size:0.75rem;color:#64748b;line-height:1.4;">אסינכרונית · ללא טיימר · תלמיד עושה בקצב שלו</div>
+<div class="tt-badge" style="margin-top:8px;background:#4f46e5;color:white;padding:3px 10px;border-radius:6px;font-size:0.7rem;font-weight:800;display:inline-block;">✓ נבחר</div>
+</div>
+<div id="ttLiveExam" class="task-type-box" onclick="selectTaskType('liveExam')" style="background:white;border:3px solid #e2e8f0;border-radius:14px;padding:16px 12px;cursor:pointer;text-align:center;transition:all 0.2s;">
+<div style="font-size:2.2rem;margin-bottom:6px;">🔴</div>
+<div style="font-weight:900;color:#1e293b;font-size:0.95rem;margin-bottom:3px;">מבחן בקרה לייב</div>
+<div style="font-size:0.75rem;color:#64748b;line-height:1.4;">כל הכיתה במקביל · עם טיימר · יצירה בלשונית מבחני בקרה</div>
+<div class="tt-badge" style="margin-top:8px;display:none;"></div>
+</div>
+<div id="ttLiveLesson" class="task-type-box" onclick="selectTaskType('liveLesson')" style="background:white;border:3px solid #e2e8f0;border-radius:14px;padding:16px 12px;cursor:pointer;text-align:center;transition:all 0.2s;">
+<div style="font-size:2.2rem;margin-bottom:6px;">🟢</div>
+<div style="font-weight:900;color:#1e293b;font-size:0.95rem;margin-bottom:3px;">שיעור לייב</div>
+<div style="font-size:0.75rem;color:#64748b;line-height:1.4;">סינכרוני בכתב · מורה רואה בזמן אמת · צ'אט פרטי וכיתתי</div>
+<div class="tt-badge" style="margin-top:8px;display:none;"></div>
+</div>
+</div>
+</div>
+
+<!-- v1.4.0: הודעת הפניה למבחני בקרה -->
+<div id="liveExamRedirect" style="display:none;background:linear-gradient(135deg,#fef3c7,#fde68a);border:2px solid #f59e0b;border-radius:14px;padding:20px;text-align:center;margin-bottom:20px;">
+<div style="font-size:2.5rem;margin-bottom:8px;">🔴</div>
+<div style="font-weight:900;color:#92400e;font-size:1.05rem;margin-bottom:6px;">מבחן בקרה לייב נוצר בלשונית "מבחני בקרה"</div>
+<div style="font-size:0.88rem;color:#78350f;margin-bottom:14px;line-height:1.5;">מבחני בקרה (כולל לייב) מנוהלים בנפרד מהמטלות הרגילות.</div>
+<button class="btn-add" onclick="switchTTab('mavchanim',document.querySelector('.t-tab[onclick*=mavchanim]'));selectTaskType('regular')" style="background:linear-gradient(135deg,#f59e0b,#d97706);">🔒 עבור ללשונית מבחני בקרה</button>
+</div>
+
+<!-- v1.4.0: שדות שיעור לייב -->
+<div id="liveLessonFields" style="display:none;background:linear-gradient(135deg,#dcfce7,#bbf7d0);border:2px solid #10b981;border-radius:14px;padding:16px;margin-bottom:20px;">
+<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+<span style="font-size:1.5rem;">🟢</span>
+<div>
+<div style="font-weight:900;color:#065f46;font-size:1rem;">הגדרות שיעור לייב</div>
+<div style="font-size:0.78rem;color:#047857;">השיעור יתחיל ברגע שתלחץ "התחל שיעור" מהמטלות שלך</div>
+</div>
+</div>
+<div class="form-group" style="margin-bottom:10px;">
+<label style="color:#065f46;font-weight:700;">משך השיעור (דקות) *</label>
+<input type="number" id="nLiveLessonDuration" value="45" min="5" max="180" style="background:white;">
+</div>
+<div style="background:rgba(255,255,255,0.7);border-radius:10px;padding:12px;margin-top:10px;">
+<div style="font-weight:800;color:#065f46;font-size:0.85rem;margin-bottom:8px;">🤖 תוכן השיעור — ייווצר ע"י AI</div>
+<div style="font-size:0.78rem;color:#047857;line-height:1.5;">בשלב הבא ייפתח אזור שבו תזין נושא לימוד וה-AI יבנה שיעור אינטראקטיבי עם הסברים ומשימות. השיעור יוצג לתלמידים במסך משלהם, ואתה תראה את התקדמותם בזמן אמת.</div>
+<div style="margin-top:8px;padding:8px 10px;background:#fef3c7;border-radius:8px;font-size:0.75rem;color:#78350f;">⚠️ <strong>בפיתוח:</strong> בגרסה הנוכחית — שיעור לייב נשמר במערכת. צד התלמיד והדשבורד יושלמו בשלב הבא.</div>
+</div>
+</div>
+
+<div class="form-group"><label>כותרת המטלה *</label><input type="text" id="nTitle"></div><div class="form-group"><label>תיאור והנחיות</label><textarea id="nDesc" rows="3"></textarea></div><div class="form-group"><label>כיתות (מופרדות בפסיק) *</label><input type="text" id="nClasses" onchange="loadSpecificStudentsOptions()"><div id="nClassesHint" style="font-size:.75rem;color:var(--primary);margin-top:4px;display:none;"></div></div><div class="form-group"><label style="display:flex;align-items:center;gap:8px;cursor:pointer;"><input type="checkbox" id="nSpecificStudents" onchange="toggleSpecificStudents()" style="width:18px;height:18px;"> הגדר לתלמידים ספציפיים בלבד</label></div><div id="specificStudentsSection" style="display:none;"><div class="form-group"><div style="background:#f0f9ff;border:2px solid #bae6fd;border-radius:12px;padding:15px;"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;"><label style="margin:0;font-weight:700;color:#0369a1;">👥 בחר תלמידים:</label><div><button type="button" class="btn-preview" onclick="selectAllSpecificStudents()" style="font-size:.8rem;padding:5px 10px;">סמן הכל</button><button type="button" class="btn-preview" onclick="clearAllSpecificStudents()" style="font-size:.8rem;padding:5px 10px;margin-right:5px;">נקה הכל</button></div></div><div id="specificStudentsList" style="max-height:200px;overflow-y:auto;display:flex;flex-wrap:wrap;gap:8px;"></div><div id="specificStudentsCount" style="margin-top:10px;font-size:.85rem;color:#666;"></div></div></div></div><div class="form-group" id="nDueGroup"><label>תאריך ושעת הגשה אחרונים *</label><div style="display:flex;gap:10px;"><input type="date" id="nDue" style="flex:1;"><input type="time" id="nDueTime" value="23:59" style="width:110px;padding:11px 13px;border:2px solid #eee;border-radius:10px;font-family:inherit;font-size:.95rem;background:#fafafa;"></div></div><div class="form-group" id="nTypeGroup"><label>סוג מטלה</label><select id="nType" onchange="toggleHtmlSection()"><option value="text">טקסט חופשי</option><option value="link">קישור בלבד</option><option value="both">טקסט + קישור</option><option value="image">🖼 טקסט + תמונה</option><option value="questions">📝 שאלון (שאלות מותאמות)</option><option value="interactive">🎯 דף אינטראקטיבי (HTML)</option></select></div><div id="questionsSection" style="display:none;"><div class="form-group"><label>📝 שאלות</label><div id="questionsList"></div><div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;"><button type="button" class="btn-preview" onclick="addQuestion('text')">+ טקסט פתוח</button><button type="button" class="btn-preview" onclick="addQuestion('choice')">+ בחירה מרובה</button><button type="button" class="btn-preview" onclick="addQuestion('number')">+ מספר</button><button type="button" class="btn-preview" onclick="addQuestion('yesno')">+ כן/לא</button><button type="button" class="btn-preview" onclick="addQuestion('image')">+ 🖼 תמונה</button><button type="button" class="btn-preview" onclick="addQuestion('link')">+ 🔗 קישור</button><button type="button" class="btn-preview" onclick="addQuestion('youtube')">+ ▶️ סרטון יוטיוב</button><button type="button" class="btn-preview" onclick="addQuestion('label')">+ 📄 תיאור/הנחיה</button></div></div></div><div id="htmlSection" style="display:none;"><div class="form-group"><label>📋 קוד HTML</label><textarea class="html-code-area" id="nHtmlCode" rows="10"></textarea><button class="btn-preview" onclick="previewHtml()">👁 תצוגה מקדימה</button><div id="htmlPreviewBox" style="display:none;" class="html-preview-box"><iframe id="htmlPreviewIframe" class="html-preview-iframe" sandbox="allow-scripts allow-forms allow-popups"></iframe></div></div></div><button class="btn-add" id="btnCreateAssignment" onclick="createAssignment()">✅ פרסם מטלה</button><button class="btn-cancel-import" id="btnCancelEdit" style="display:none;margin-right:10px;" onclick="cancelEditAssignment()">❌ בטל עריכה</button></div></div><div id="tOverview" class="t-panel"><div id="teacherOverviewContent"></div></div><div id="tMavchanim" class="t-panel"><div id="mavchanimContent"></div></div></div></div>
 <!-- ADMIN --><div id="adminScreen"><div class="topbar"><div class="topbar-left"><h2>מערכת מטלות – ניהול</h2><p>ממשק מנהל</p></div><button class="btn-logout" onclick="logout()">יציאה</button></div><div class="screen-body"><div class="admin-stats"><div class="admin-stat"><div class="n" id="adTotalStudents">0</div><div class="l">תלמידים</div></div><div class="admin-stat"><div class="n" id="adTotalTeachers">0</div><div class="l">מורים</div></div><div class="admin-stat"><div class="n" id="adTotalAsgn">0</div><div class="l">מטלות</div></div><div class="admin-stat"><div class="n" id="adTotalSubs">0</div><div class="l">הגשות</div></div></div><div class="excel-import-card"><h2>ייבוא תלמידים מ-Excel / CSV</h2><div class="drop-zone" id="xlDropZone"><input type="file" id="xlFileInput" accept=".xlsx,.xls,.csv" onchange="xlHandleFile(event)"><span class="material-icons-round dz-icon">table_chart</span><div class="dz-title">גרור קובץ Excel לכאן</div></div><div id="xlImportPanel" style="display:none;"><div class="col-map-wrap"><div class="col-map-row"><label>תעודת זהות *</label><select id="xlColId" onchange="xlRefreshPreview()"></select></div><div class="col-map-row"><label>שם תלמיד *</label><select id="xlColName" onchange="xlRefreshPreview()"></select></div><div class="col-map-row"><label>כיתה *</label><select id="xlColClass" onchange="xlRefreshPreview()"></select></div></div><div class="preview-section"><div class="preview-header"><span>תצוגה מקדימה</span><span class="badge-count" id="xlBadgeNew">0 חדשים</span><span class="badge-count badge-dup" id="xlBadgeDup" style="display:none;">0 כפולים</span><span class="badge-count badge-err" id="xlBadgeErr" style="display:none;">0 שגויים</span></div><div class="preview-tbl-wrap"><table class="preview-tbl"><thead><tr><th>#</th><th>תעודת זהות</th><th>שם תלמיד</th><th>כיתה</th><th>סטטוס</th></tr></thead><tbody id="xlPreviewBody"></tbody></table></div></div><div id="xlProgressWrap" style="display:none;"><div id="xlProgressLabel">מייבא...</div><div class="progress-bar-wrap"><div class="progress-bar" id="xlProgressBar" style="width:0%"></div></div></div><div class="import-actions"><button class="btn-import" id="xlBtnImport" onclick="xlDoImport()">ייבא</button><button class="btn-cancel-import" onclick="xlReset()">ביטול</button></div><div class="import-result-box" id="xlResultBox"><div class="irs-row"><div class="irs"><div class="irn" id="xlResAdded">0</div><div class="irl">נוספו</div></div><div class="irs warn"><div class="irn" id="xlResSkipped">0</div><div class="irl">דולגו</div></div><div class="irs warn"><div class="irn" id="xlResErrors">0</div><div class="irl">שגיאות</div></div></div></div></div></div><div style="background:white;border-radius:18px;padding:24px;box-shadow:0 5px 18px rgba(0,0,0,.07);margin-bottom:20px;"><h2 style="font-size:1.05rem;font-weight:900;color:var(--primary);margin-bottom:16px;">🏫 ניהול כיתות</h2><div style="display:flex;gap:15px;flex-wrap:wrap;"><div style="flex:1;min-width:280px;"><h3 style="font-size:.9rem;font-weight:700;margin-bottom:10px;">יצירת כיתה חדשה + ייבוא תלמידים</h3><div style="display:flex;gap:10px;margin-bottom:10px;"><input type="text" id="newClassName" placeholder="שם כיתה (למשל: י1)" style="flex:1;padding:10px;border:2px solid #eee;border-radius:10px;font-family:inherit;"></div><div class="drop-zone" id="classXlDropZone" style="padding:20px;"><input type="file" id="classXlFileInput" accept=".xlsx,.xls,.csv" onchange="classXlHandleFile(event)"><span class="material-icons-round dz-icon" style="font-size:28px;">upload_file</span><div class="dz-title" style="font-size:.85rem;">העלה אקסל (שם + ת.ז)</div></div><div id="classXlPreview" style="display:none;margin-top:10px;max-height:150px;overflow-y:auto;font-size:.85rem;background:#f8f9fa;border-radius:10px;padding:10px;"></div><button class="btn-add" id="btnCreateClass" onclick="createClassWithStudents()" style="margin-top:10px;width:100%;">🏫 צור כיתה וייבא תלמידים</button></div><div style="flex:1;min-width:280px;"><h3 style="font-size:.9rem;font-weight:700;margin-bottom:10px;">שיוך תלמיד לכיתה</h3><div style="display:flex;gap:10px;margin-bottom:10px;"><select id="assignClassSelect" style="flex:1;padding:10px;border:2px solid #eee;border-radius:10px;font-family:inherit;"><option value="">בחר כיתה...</option></select></div><div style="display:flex;gap:10px;margin-bottom:10px;"><input type="text" id="assignStudentId" placeholder="תעודת זהות" style="flex:1;padding:10px;border:2px solid #eee;border-radius:10px;font-family:inherit;"><input type="text" id="assignStudentName" placeholder="שם תלמיד" style="flex:1;padding:10px;border:2px solid #eee;border-radius:10px;font-family:inherit;"></div><button class="btn-add" onclick="assignStudentToClass()" style="width:100%;">➕ הוסף לכיתה</button><div style="margin-top:15px;"><h4 style="font-size:.85rem;font-weight:600;margin-bottom:8px;">כיתות קיימות:</h4><div id="existingClassesList" style="display:flex;flex-wrap:wrap;gap:6px;"></div></div></div></div></div><div style="background:white;border-radius:18px;padding:24px;box-shadow:0 5px 18px rgba(0,0,0,.07);margin-bottom:20px;"><h2 style="font-size:1.05rem;font-weight:900;color:var(--primary);margin-bottom:16px;">➕ הוספת תלמיד</h2><div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:10px;align-items:end;"><div><input type="text" id="adSId" placeholder="תעודת זהות" style="width:100%;padding:10px;border:2px solid #eee;border-radius:10px;font-family:inherit;"></div><div><input type="text" id="adSName" placeholder="שם מלא" style="width:100%;padding:10px;border:2px solid #eee;border-radius:10px;font-family:inherit;"></div><div><input type="text" id="adSClass" placeholder="כיתה" style="width:100%;padding:10px;border:2px solid #eee;border-radius:10px;font-family:inherit;"></div><button class="btn-add" onclick="addStudent()">הוסף</button></div></div><div style="background:white;border-radius:18px;padding:24px;box-shadow:0 5px 18px rgba(0,0,0,.07);margin-bottom:20px;"><h2 style="font-size:1.05rem;font-weight:900;color:var(--primary);margin-bottom:16px;">➕ הוספת מורה</h2><div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr auto;gap:10px;align-items:end;"><div><input type="text" id="adTUser" placeholder="שם משתמש" style="width:100%;padding:10px;border:2px solid #eee;border-radius:10px;font-family:inherit;"></div><div><input type="text" id="adTPass" placeholder="סיסמה" style="width:100%;padding:10px;border:2px solid #eee;border-radius:10px;font-family:inherit;"></div><div><input type="text" id="adTName" placeholder="שם מלא" style="width:100%;padding:10px;border:2px solid #eee;border-radius:10px;font-family:inherit;"></div><div><input type="text" id="adTClasses" placeholder="י1, י2" style="width:100%;padding:10px;border:2px solid #eee;border-radius:10px;font-family:inherit;"></div><button class="btn-add" onclick="addTeacher()">הוסף</button></div></div><div style="background:white;border-radius:18px;padding:24px;box-shadow:0 5px 18px rgba(0,0,0,.07);margin-bottom:20px;"><h2 style="font-size:1.05rem;font-weight:900;color:var(--primary);margin-bottom:16px;">👥 תלמידים</h2><div style="display:flex;gap:10px;margin-bottom:15px;flex-wrap:wrap;align-items:center;"><select id="adClassFilter" onchange="filterAdminStudents()" style="padding:10px 15px;border:2px solid #eee;border-radius:10px;font-family:inherit;min-width:180px;"><option value="">כל הכיתות</option></select><span id="adStudentCount" style="color:#888;font-size:.85rem;"></span><button class="btn-sm btn-del" onclick="deleteSelectedStudents()" id="btnDeleteSelected" style="display:none;margin-right:auto;">🗑 מחק נבחרים</button></div><table class="admin-table"><thead><tr><th style="width:30px;"><input type="checkbox" id="adSelectAll" onchange="toggleSelectAllStudents()"></th><th>תז</th><th>שם</th><th>כיתה</th><th>פעולות</th></tr></thead><tbody id="adStudentsBody"></tbody></table></div><div style="background:white;border-radius:18px;padding:24px;box-shadow:0 5px 18px rgba(0,0,0,.07);margin-bottom:20px;"><h2 style="font-size:1.05rem;font-weight:900;color:var(--primary);margin-bottom:16px;">👩‍🏫 מורים</h2><table class="admin-table"><thead><tr><th>שם משתמש</th><th>שם מלא</th><th>כיתות</th><th>פעולות</th></tr></thead><tbody id="adTeachersBody"></tbody></table></div></div></div>
 <div class="modal-overlay" id="subsModal"><div class="modal-content"><div class="modal-header"><h3 id="modalTitle">הגשות</h3><button class="btn-close" onclick="closeModal()">✕</button></div><div class="modal-body"><div class="progress-overview" id="modalStats"></div><div id="modalBody"></div></div></div></div>
 <div class="modal-overlay" id="gradeModal" onclick="if(event.target===this)closeGradeModal()"><div class="modal-content" style="max-width:600px;max-height:90vh;display:flex;flex-direction:column;"><div class="modal-header" style="background:linear-gradient(135deg,#667eea,#764ba2);flex-shrink:0;"><h3 id="gradeModalTitle" style="color:white;">צפייה בהגשה</h3><button class="btn-close" onclick="closeGradeModal()" style="color:white;">✕</button></div><div class="modal-body" style="padding:20px;overflow-y:auto;flex:1;"><div id="gradeModalStudent" style="font-size:1.1rem;font-weight:700;margin-bottom:10px;"></div><div id="gradeModalAssignment" style="font-size:.9rem;color:#666;margin-bottom:15px;padding-bottom:10px;border-bottom:2px solid #eee;"></div><div id="gradeModalContent" style="background:#f8f9fa;border-radius:12px;padding:15px;margin-bottom:15px;max-height:180px;overflow-y:auto;"></div><div style="display:flex;gap:15px;margin-bottom:15px;"><div style="flex:1;"><label style="display:block;font-size:.8rem;font-weight:600;color:#666;margin-bottom:5px;">ציון</label><input type="number" id="gradeModalGrade" style="width:100%;padding:12px;border:2px solid #eee;border-radius:10px;font-size:1.1rem;font-weight:700;text-align:center;" placeholder="0-100"></div><div style="flex:2;"><label style="display:block;font-size:.8rem;font-weight:600;color:#666;margin-bottom:5px;">הערה</label><input type="text" id="gradeModalFeedback" style="width:100%;padding:12px;border:2px solid #eee;border-radius:10px;font-size:1rem;" placeholder="הערה לתלמיד..."></div></div><div style="display:flex;gap:10px;"><button onclick="saveGradeFromModal()" style="flex:1;padding:14px;background:linear-gradient(135deg,#667eea,#764ba2);color:white;border:none;border-radius:10px;font-size:1rem;font-weight:700;cursor:pointer;">💾 שמור שינויים</button><button onclick="closeGradeModal()" style="padding:14px 20px;background:#f5f5f5;color:#666;border:none;border-radius:10px;font-size:1rem;cursor:pointer;">ביטול</button></div></div></div></div>
@@ -373,6 +429,116 @@ function removeImage(subKey){delete pendingImages[subKey];var wrap=document.getE
 function uploadImageAsBase64(subKey){return new Promise(function(resolve,reject){var blob=pendingImages[subKey];if(!blob){resolve(null);return;}var reader=new FileReader();reader.onload=function(ev){delete pendingImages[subKey];resolve(ev.target.result);};reader.onerror=function(){reject(new Error("Failed to read"));};reader.readAsDataURL(blob);});}
 function openImgModal(url){document.getElementById("imgModalSrc").src=url;document.getElementById("imgModal").classList.add("active");}
 function toggleHtmlSection(){var t=document.getElementById("nType").value;document.getElementById("htmlSection").style.display=t==="interactive"?"block":"none";document.getElementById("questionsSection").style.display=t==="questions"?"block":"none";}
+
+// v1.4.0 — בחירת סוג מטלה (3 קופסאות)
+var currentTaskType = 'regular';
+function selectTaskType(type) {
+    currentTaskType = type;
+    var boxes = {regular: 'ttRegular', liveExam: 'ttLiveExam', liveLesson: 'ttLiveLesson'};
+    var colors = {regular: '#4f46e5', liveExam: '#dc2626', liveLesson: '#10b981'};
+    var shadows = {regular: 'rgba(79,70,229,0.15)', liveExam: 'rgba(220,38,38,0.15)', liveLesson: 'rgba(16,185,129,0.15)'};
+    
+    // איפוס כל הקופסאות
+    Object.keys(boxes).forEach(function(k){
+        var el = document.getElementById(boxes[k]);
+        if (!el) return;
+        el.style.border = '3px solid #e2e8f0';
+        el.style.boxShadow = 'none';
+        var badge = el.querySelector('.tt-badge');
+        if (badge) {
+            badge.style.display = 'none';
+            badge.innerHTML = '';
+        }
+    });
+    
+    // סימון הנבחר
+    var selectedEl = document.getElementById(boxes[type]);
+    if (selectedEl) {
+        selectedEl.style.border = '3px solid ' + colors[type];
+        selectedEl.style.boxShadow = '0 4px 12px ' + shadows[type];
+        var badge = selectedEl.querySelector('.tt-badge');
+        if (badge) {
+            badge.style.display = 'inline-block';
+            badge.style.background = colors[type];
+            badge.style.color = 'white';
+            badge.style.padding = '3px 10px';
+            badge.style.borderRadius = '6px';
+            badge.style.fontSize = '0.7rem';
+            badge.style.fontWeight = '800';
+            badge.innerHTML = '✓ נבחר';
+        }
+    }
+    
+    // הצגה/הסתרה של חלקים בטופס
+    var liveExamRedirect = document.getElementById('liveExamRedirect');
+    var liveLessonFields = document.getElementById('liveLessonFields');
+    var nDueGroup = document.getElementById('nDueGroup');
+    var nTypeGroup = document.getElementById('nTypeGroup');
+    var btnCreate = document.getElementById('btnCreateAssignment');
+    
+    if (type === 'liveExam') {
+        // מצב הפניה למבחני בקרה — מסתיר הכל
+        liveExamRedirect.style.display = 'block';
+        liveLessonFields.style.display = 'none';
+        if (nDueGroup) nDueGroup.style.display = 'none';
+        if (nTypeGroup) nTypeGroup.style.display = 'none';
+        if (btnCreate) btnCreate.style.display = 'none';
+    } else if (type === 'liveLesson') {
+        // שיעור לייב — מציג שדות שיעור לייב, מסתיר תאריך הגשה וסוג מטלה
+        liveExamRedirect.style.display = 'none';
+        liveLessonFields.style.display = 'block';
+        if (nDueGroup) nDueGroup.style.display = 'none';
+        if (nTypeGroup) nTypeGroup.style.display = 'none';
+        if (btnCreate) {
+            btnCreate.style.display = 'inline-block';
+            btnCreate.textContent = '🟢 צור שיעור לייב';
+            btnCreate.style.background = 'linear-gradient(135deg,#10b981,#059669)';
+        }
+        // איפוס תצוגות אחרות
+        document.getElementById('htmlSection').style.display = 'none';
+        document.getElementById('questionsSection').style.display = 'none';
+        
+        // v1.4.0: ניקוי שדה כיתות (שיעור לייב בד"כ לכיתה אחת)
+        var nClassesEl = document.getElementById('nClasses');
+        if (nClassesEl) nClassesEl.value = '';
+        
+        // עדכון הרמז מתחת לשדה
+        var hintEl = document.getElementById('nClassesHint');
+        if (hintEl) {
+            hintEl.innerHTML = '💡 <strong>שיעור לייב — בד"כ לכיתה אחת בלבד.</strong> הכיתות שלך: ' + (curUser && curUser.classes ? curUser.classes : '');
+            hintEl.style.display = 'block';
+            hintEl.style.color = '#065f46';
+            hintEl.style.background = '#dcfce7';
+            hintEl.style.padding = '6px 10px';
+            hintEl.style.borderRadius = '6px';
+            hintEl.style.fontSize = '0.78rem';
+        }
+    } else {
+        // מטלה רגילה
+        liveExamRedirect.style.display = 'none';
+        liveLessonFields.style.display = 'none';
+        if (nDueGroup) nDueGroup.style.display = 'block';
+        if (nTypeGroup) nTypeGroup.style.display = 'block';
+        if (btnCreate) {
+            btnCreate.style.display = 'inline-block';
+            btnCreate.textContent = '✅ פרסם מטלה';
+            btnCreate.style.background = '';
+        }
+        toggleHtmlSection();
+        
+        // v1.4.0: החזרת הרמז המקורי
+        var hintRegular = document.getElementById('nClassesHint');
+        if (hintRegular && curUser && curUser.classes) {
+            hintRegular.innerHTML = '💡 הכיתות שלך: ' + curUser.classes;
+            hintRegular.style.display = 'block';
+            hintRegular.style.color = 'var(--primary)';
+            hintRegular.style.background = '';
+            hintRegular.style.padding = '0';
+            hintRegular.style.borderRadius = '0';
+            hintRegular.style.fontSize = '0.75rem';
+        }
+    }
+}
 var nQuestions=[];
 function addQuestion(type){var q={id:"q"+Date.now(),type:type,text:"",options:type==="choice"?["",""]:[],required:true};if(type==="youtube")q.youtubeUrl="";nQuestions.push(q);renderQuestionsList();}
 function extractYoutubeId(url){if(!url)return null;var m=url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{11})/);return m?m[1]:null;}
@@ -418,6 +584,63 @@ async function loadStudentAssignments(){
   var total=list.length,submitted=0,pending=0,graded=0,htmlOpen='',htmlClosed='';
   if(!list.length){document.getElementById('studentAssignmentsList').innerHTML='<div class="empty-state">אין מטלות</div>';document.getElementById('sTotalAsgn').textContent=0;document.getElementById('sSubmitted').textContent=0;document.getElementById('sPending').textContent=0;document.getElementById('sGraded').textContent=0;return;}
   list.forEach(function(a){
+    // v1.4.0 — שיעור לייב: כרטיס נפרד, ללא הגשה רגילה
+    if (a.is_live_lesson) {
+      total++;
+      var llStarted = a.live_lesson_started_at && !a.live_lesson_ended_at;
+      var llEnded = a.live_lesson_ended_at;
+      var llCardHtml = '';
+      
+      if (llStarted) {
+        // שיעור פעיל — בולט בירוק עם פעימה
+        var startedMs = new Date(a.live_lesson_started_at).getTime();
+        var durMs = (a.live_lesson_duration_minutes || 45) * 60 * 1000;
+        var remMs = Math.max(0, (startedMs + durMs) - Date.now());
+        var remMin = Math.floor(remMs / 60000);
+        
+        llCardHtml = '<div class="assignment-card" style="border-right:6px solid #10b981;background:linear-gradient(135deg,#f0fdf4,#dcfce7);position:relative;animation:pulse 2.2s infinite;">';
+        llCardHtml += '<div class="asgn-header">';
+        llCardHtml += '<div><div class="asgn-title">' + escHtml(a.title) + '</div></div>';
+        llCardHtml += '<span style="background:#dc2626;color:white;padding:5px 12px;border-radius:8px;font-size:0.78rem;font-weight:900;">🔴 פעיל עכשיו</span>';
+        llCardHtml += '</div>';
+        if (a.description) llCardHtml += '<div class="asgn-desc">' + escHtml(a.description) + '</div>';
+        llCardHtml += '<div style="background:white;padding:14px;border-radius:12px;margin:14px 0;text-align:center;">';
+        llCardHtml += '<div style="font-size:0.85rem;color:#065f46;font-weight:700;margin-bottom:6px;">🟢 שיעור לייב עכשיו · ' + escHtml(a.teacher_name || 'מורה') + '</div>';
+        llCardHtml += '<div style="font-size:0.78rem;color:#047857;">נשארו כ-' + remMin + ' דקות לשיעור</div>';
+        llCardHtml += '</div>';
+        llCardHtml += '<button onclick="joinLiveLesson(\'' + a.id + '\')" style="width:100%;background:linear-gradient(135deg,#10b981,#059669);color:white;border:none;padding:14px;border-radius:12px;font-family:inherit;font-weight:900;font-size:1.05rem;cursor:pointer;box-shadow:0 4px 14px rgba(16,185,129,0.35);">▶️ הצטרף לשיעור</button>';
+        llCardHtml += '</div>';
+        pending++;
+      } else if (llEnded) {
+        // השיעור הסתיים
+        llCardHtml = '<div class="assignment-card" style="border-right-color:#9ca3af;opacity:0.85;">';
+        llCardHtml += '<div class="asgn-header">';
+        llCardHtml += '<div><div class="asgn-title">' + escHtml(a.title) + '</div></div>';
+        llCardHtml += '<span style="background:#6b7280;color:white;padding:4px 10px;border-radius:6px;font-size:0.78rem;font-weight:800;">⏹️ הסתיים</span>';
+        llCardHtml += '</div>';
+        if (a.description) llCardHtml += '<div class="asgn-desc">' + escHtml(a.description) + '</div>';
+        llCardHtml += '<div style="background:#f9fafb;padding:10px 14px;border-radius:8px;font-size:0.85rem;color:#6b7280;text-align:center;">השיעור הסתיים ב-' + new Date(a.live_lesson_ended_at).toLocaleString('he-IL') + '</div>';
+        llCardHtml += '</div>';
+      } else {
+        // השיעור עוד לא התחיל
+        llCardHtml = '<div class="assignment-card" style="border-right:5px solid #10b981;background:#f0fdf4;">';
+        llCardHtml += '<div class="asgn-header">';
+        llCardHtml += '<div><div class="asgn-title">' + escHtml(a.title) + '</div></div>';
+        llCardHtml += '<span style="background:#10b981;color:white;padding:4px 10px;border-radius:6px;font-size:0.78rem;font-weight:800;">🟢 שיעור לייב</span>';
+        llCardHtml += '</div>';
+        if (a.description) llCardHtml += '<div class="asgn-desc">' + escHtml(a.description) + '</div>';
+        llCardHtml += '<div style="background:white;padding:14px;border-radius:10px;margin-top:10px;text-align:center;">';
+        llCardHtml += '<div style="font-size:0.95rem;font-weight:800;color:#065f46;margin-bottom:4px;">⏳ ממתין להתחלת השיעור</div>';
+        llCardHtml += '<div style="font-size:0.78rem;color:#047857;">המורה יתחיל את השיעור בקרוב · משך מתוכנן: ' + (a.live_lesson_duration_minutes || 45) + ' דק\'</div>';
+        llCardHtml += '</div>';
+        llCardHtml += '</div>';
+        pending++;
+      }
+      
+      htmlOpen += llCardHtml;
+      return; // לא ממשיכים ללוגיקה הרגילה
+    }
+    
     var subKey=sanKey(curUser.id)+'_'+a.id;
     var mySub=subs[subKey]||null;
     // בדיקת הארכה אישית
@@ -892,7 +1115,824 @@ async function renderTeacherStudents(){
 }
 function teacherAllowedClasses(){if(!curUser.classes)return null;var cls=String(curUser.classes).split(",").map(function(x){return x.trim();}).filter(function(x){return x;});return cls.length?new Set(cls):null;}
 function assignmentMatchesTeacherClasses(ac){var a=teacherAllowedClasses();if(!a)return true;return(ac||"").split(",").map(function(x){return x.trim();}).some(function(c){return a.has(c);});}
-async function renderTeacherAssignments(){var f=document.getElementById("tFilterClass").value;var data=await sbFetch("assignments","?teacher_id=eq."+curUser.key);var list=data.map(function(a){a.dueDate=a.due_date;a.dueTime=a.due_time;a.submissionType=a.submission_type;a.htmlCode=a.html_code;a.teacherId=a.teacher_id;a.teacherName=a.teacher_name;a.createdAt=a.created_at?new Date(a.created_at).getTime():0;return a;}).filter(function(a){return assignmentMatchesTeacherClasses(a.classes);});list.sort(function(a,b){return(b.createdAt||0)-(a.createdAt||0);});var fl=f?list.filter(function(a){return(a.classes||"").split(",").map(function(x){return x.trim();}).indexOf(f)>=0;}):list;if(!fl.length){document.getElementById("teacherAssignmentsList").innerHTML='<div class="empty-state">לא פרסמת מטלות עדיין</div>';return;}var html="";fl.forEach(function(a){var specificBadge='';if(a.specific_students&&a.specific_students.length>0){specificBadge='<span style="background:#fef3c7;color:#92400e;padding:3px 8px;border-radius:6px;font-size:.75rem;margin-right:8px;">👤 '+a.specific_students.length+' תלמידים ספציפיים</span>';}html+='<div class="asgn-mgmt-card"><div class="asgn-mgmt-header"><div><div class="asgn-mgmt-title">'+escHtml(a.title)+'</div><div style="color:var(--muted);font-size:.8rem;">כיתות: '+escHtml(a.classes)+' | עד '+fmtDate(a.dueDate,a.dueTime)+specificBadge+'</div></div><div class="asgn-mgmt-actions"><button class="btn-sm btn-view" onclick="openSubmissionsModal(\''+a.id+"')\">>👁 הגשות</button><button class=\"btn-sm\" style=\"background:#ede9fe;color:#6d28d9;\" onclick=\"editAssignment('"+a.id+"')\">✏️ עריכה</button><button class=\"btn-sm\" style=\"background:#fef3c7;color:#92400e;\" onclick=\"duplicateAssignment(\'"+a.id+"\')\">📋 שכפל</button><button class=\"btn-sm btn-del\" onclick=\"deleteAssignment('"+a.id+"')\">🗑</button></div></div></div>";});document.getElementById("teacherAssignmentsList").innerHTML=html;}
+async function renderTeacherAssignments(){
+    var f = document.getElementById("tFilterClass").value;
+    var data = await sbFetch("assignments", "?teacher_id=eq." + curUser.key);
+    var list = data.map(function(a){
+        a.dueDate = a.due_date;
+        a.dueTime = a.due_time;
+        a.submissionType = a.submission_type;
+        a.htmlCode = a.html_code;
+        a.teacherId = a.teacher_id;
+        a.teacherName = a.teacher_name;
+        a.createdAt = a.created_at ? new Date(a.created_at).getTime() : 0;
+        return a;
+    }).filter(function(a){ return assignmentMatchesTeacherClasses(a.classes); });
+    list.sort(function(a, b){ return (b.createdAt || 0) - (a.createdAt || 0); });
+    var fl = f ? list.filter(function(a){ return (a.classes || "").split(",").map(function(x){return x.trim();}).indexOf(f) >= 0; }) : list;
+    if (!fl.length) {
+        document.getElementById("teacherAssignmentsList").innerHTML = '<div class="empty-state">לא פרסמת מטלות עדיין</div>';
+        return;
+    }
+    var html = "";
+    fl.forEach(function(a){
+        var specificBadge = '';
+        if (a.specific_students && a.specific_students.length > 0) {
+            specificBadge = '<span style="background:#fef3c7;color:#92400e;padding:3px 8px;border-radius:6px;font-size:.75rem;margin-right:8px;">👤 ' + a.specific_students.length + ' תלמידים ספציפיים</span>';
+        }
+        
+        // v1.4.0 — שיעור לייב: כרטיס שונה
+        if (a.is_live_lesson) {
+            var llStarted = a.live_lesson_started_at && !a.live_lesson_ended_at;
+            var llEnded = a.live_lesson_ended_at;
+            var llBadge, llBtnLabel, llBtnColor, llBtnAction;
+            
+            if (llStarted) {
+                llBadge = '<span style="background:#dc2626;color:white;padding:4px 10px;border-radius:6px;font-size:.75rem;font-weight:800;margin-right:8px;">🔴 שיעור לייב פעיל</span>';
+                llBtnLabel = '📊 דשבורד';
+                llBtnColor = 'background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;';
+                llBtnAction = "openLiveLessonDashboard(\'" + a.id + "\')";
+            } else if (llEnded) {
+                llBadge = '<span style="background:#6b7280;color:white;padding:4px 10px;border-radius:6px;font-size:.75rem;font-weight:800;margin-right:8px;">⏹️ שיעור לייב הסתיים</span>';
+                llBtnLabel = '📊 דשבורד';
+                llBtnColor = 'background:#e5e7eb;color:#374151;';
+                llBtnAction = "openLiveLessonDashboard(\'" + a.id + "\')";
+            } else {
+                llBadge = '<span style="background:#10b981;color:white;padding:4px 10px;border-radius:6px;font-size:.75rem;font-weight:800;margin-right:8px;">🟢 שיעור לייב</span>';
+                llBtnLabel = '▶️ התחל שיעור';
+                llBtnColor = 'background:linear-gradient(135deg,#10b981,#059669);color:white;';
+                llBtnAction = "startLiveLesson(\'" + a.id + "\')";
+            }
+            
+            html += '<div class="asgn-mgmt-card" style="border-right:5px solid #10b981;">';
+            html += '<div class="asgn-mgmt-header">';
+            html += '<div><div class="asgn-mgmt-title">' + escHtml(a.title) + llBadge + '</div>';
+            html += '<div style="color:var(--muted);font-size:.8rem;">כיתות: ' + escHtml(a.classes) + ' | משך: ' + (a.live_lesson_duration_minutes || 45) + ' דק\'' + specificBadge + '</div>';
+            html += '</div>';
+            html += '<div class="asgn-mgmt-actions">';
+            html += '<button class="btn-sm" style="' + llBtnColor + 'font-weight:800;" onclick="' + llBtnAction + '">' + llBtnLabel + '</button>';
+            html += '<button class="btn-sm" style="background:#ede9fe;color:#6d28d9;" onclick="editAssignment(\'' + a.id + '\')">✏️ עריכה</button>';
+            html += '<button class="btn-sm btn-del" onclick="deleteAssignment(\'' + a.id + '\')">🗑</button>';
+            html += '</div></div></div>';
+            return;
+        }
+        
+        // מטלה רגילה — הקוד המקורי
+        html += '<div class="asgn-mgmt-card"><div class="asgn-mgmt-header"><div><div class="asgn-mgmt-title">' + escHtml(a.title) + '</div><div style="color:var(--muted);font-size:.8rem;">כיתות: ' + escHtml(a.classes) + ' | עד ' + fmtDate(a.dueDate, a.dueTime) + specificBadge + '</div></div><div class="asgn-mgmt-actions"><button class="btn-sm btn-view" onclick="openSubmissionsModal(\'' + a.id + '\')">👁 הגשות</button><button class="btn-sm" style="background:#ede9fe;color:#6d28d9;" onclick="editAssignment(\'' + a.id + '\')">✏️ עריכה</button><button class="btn-sm" style="background:#fef3c7;color:#92400e;" onclick="duplicateAssignment(\'' + a.id + '\')">📋 שכפל</button><button class="btn-sm btn-del" onclick="deleteAssignment(\'' + a.id + '\')">🗑</button></div></div></div>';
+    });
+    document.getElementById("teacherAssignmentsList").innerHTML = html;
+}
+
+// v1.4.0 — פונקציות שיעור לייב (placeholder לשלב הבא)
+async function startLiveLesson(assignmentId) {
+    if (!confirm('להתחיל את השיעור לייב עכשיו? הטיימר יתחיל לרוץ.')) return;
+    try {
+        var nowIso = new Date().toISOString();
+        await sbUpdate("assignments", "id=eq." + assignmentId, { live_lesson_started_at: nowIso });
+        toast("🟢 השיעור התחיל! דשבורד מלא — בקרוב");
+        renderTeacherAssignments();
+    } catch(e) {
+        console.error(e);
+        toast("❌ שגיאה: " + (e.message || ''));
+    }
+}
+
+function openLiveLessonDashboard(assignmentId) {
+    _liveLessonDashId = assignmentId;
+    
+    // בנה את המודאל אם לא קיים
+    var modal = document.getElementById('liveLessonDashboardModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'liveLessonDashboardModal';
+        modal.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9999;backdrop-filter:blur(4px);overflow-y:auto;padding:20px;';
+        modal.innerHTML = '<div style="background:white;max-width:1000px;margin:20px auto;border-radius:18px;padding:0;box-shadow:0 30px 80px rgba(0,0,0,0.4);overflow:hidden;"><div id="liveLessonDashboardBody" style="padding:24px;">טוען דשבורד...</div></div>';
+        document.body.appendChild(modal);
+    }
+    modal.style.display = 'block';
+    
+    refreshLiveLessonDashboard();
+    stopLiveLessonDashboardPolling();
+    _liveLessonDashInterval = setInterval(refreshLiveLessonDashboard, 3000);
+}
+
+function closeLiveLessonDashboard() {
+    var modal = document.getElementById('liveLessonDashboardModal');
+    if (modal) modal.style.display = 'none';
+    _liveLessonDashId = null;
+    stopLiveLessonDashboardPolling();
+}
+
+function stopLiveLessonDashboardPolling() {
+    if (_liveLessonDashInterval) {
+        clearInterval(_liveLessonDashInterval);
+        _liveLessonDashInterval = null;
+    }
+}
+
+var _liveLessonDashId = null;
+var _liveLessonDashInterval = null;
+
+async function refreshLiveLessonDashboard() {
+    if (!_liveLessonDashId) return;
+    var modal = document.getElementById('liveLessonDashboardModal');
+    if (!modal || modal.style.display === 'none') {
+        stopLiveLessonDashboardPolling();
+        return;
+    }
+    
+    try {
+        var arr = await sbFetch('assignments', '?id=eq.' + _liveLessonDashId);
+        if (!arr.length) return;
+        var a = arr[0];
+        
+        var sessions = await sbFetch('live_lesson_sessions', '?assignment_id=eq.' + _liveLessonDashId + '&order=joined_at.asc');
+        sessions = sessions || [];
+        
+        // חישוב טיימר
+        var duration = (a.live_lesson_duration_minutes || 45) * 60 * 1000;
+        var startedAt = a.live_lesson_started_at ? new Date(a.live_lesson_started_at).getTime() : 0;
+        var endedAt = a.live_lesson_ended_at ? new Date(a.live_lesson_ended_at).getTime() : 0;
+        var nowMs = Date.now();
+        var active = startedAt && !endedAt;
+        var remainingMs = active ? Math.max(0, (startedAt + duration) - nowMs) : 0;
+        var remMin = Math.floor(remainingMs / 60000);
+        var remSec = Math.floor((remainingMs % 60000) / 1000);
+        var timerStr = (remMin < 10 ? '0' : '') + remMin + ':' + (remSec < 10 ? '0' : '') + remSec;
+        
+        // אם נגמר הזמן — סיים אוטומטית
+        if (active && remainingMs <= 0) {
+            await sbUpdate('assignments', 'id=eq.' + _liveLessonDashId, { live_lesson_ended_at: new Date().toISOString() });
+            active = false;
+        }
+        
+        // ספירות
+        var joined = sessions.length;
+        var nowMs2 = Date.now();
+        var activeStudents = sessions.filter(function(s){
+            var lastSeen = s.last_seen ? new Date(s.last_seen).getTime() : 0;
+            return (nowMs2 - lastSeen) < 30000; // פעיל אם ראינו אותו ב-30 שנ' אחרונות
+        }).length;
+        
+        var statusColor = active ? '#10b981' : '#6b7280';
+        var statusBg = active ? 'linear-gradient(135deg,#10b981,#059669)' : 'linear-gradient(135deg,#6b7280,#4b5563)';
+        var statusText = active ? '🟢 שיעור פעיל' : (endedAt ? '⏹️ השיעור הסתיים' : '⏸️ לא התחיל');
+        
+        var html = '';
+        // Header
+        html += '<div style="background:' + statusBg + ';color:white;padding:20px 24px;margin:-24px -24px 20px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:14px;">';
+        html += '<div><div style="font-size:0.78rem;opacity:0.9;font-weight:700;">' + statusText + '</div>';
+        html += '<h2 style="margin:4px 0 0;font-size:1.4rem;font-weight:900;">' + escHtml(a.title) + '</h2>';
+        html += '<div style="font-size:0.85rem;opacity:0.92;margin-top:3px;">' + escHtml(a.classes) + ' · משך: ' + (a.live_lesson_duration_minutes || 45) + ' דק\'</div></div>';
+        
+        if (active) {
+            html += '<div style="background:rgba(0,0,0,0.25);padding:12px 22px;border-radius:14px;text-align:center;">';
+            html += '<div style="font-family:monospace;font-size:2.2rem;font-weight:900;letter-spacing:2px;line-height:1;">⏱️ ' + timerStr + '</div>';
+            html += '<div style="font-size:0.7rem;opacity:0.85;margin-top:3px;">זמן שנותר</div>';
+            html += '</div>';
+        }
+        
+        html += '<button onclick="closeLiveLessonDashboard()" style="background:rgba(255,255,255,0.25);color:white;border:none;padding:10px 18px;border-radius:10px;font-family:inherit;font-weight:700;cursor:pointer;font-size:0.92rem;">✕ סגור</button>';
+        html += '</div>';
+        
+        // סטטיסטיקות
+        html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:18px;">';
+        html += '<div style="background:#dbeafe;padding:14px;border-radius:12px;text-align:center;"><div style="font-size:1.8rem;font-weight:900;color:#1e40af;">' + joined + '</div><div style="font-size:0.82rem;color:#1e40af;font-weight:700;">👥 נכנסו לשיעור</div></div>';
+        html += '<div style="background:#dcfce7;padding:14px;border-radius:12px;text-align:center;"><div style="font-size:1.8rem;font-weight:900;color:#065f46;">' + activeStudents + '</div><div style="font-size:0.82rem;color:#065f46;font-weight:700;">✏️ פעילים עכשיו</div></div>';
+        html += '<div style="background:#fef3c7;padding:14px;border-radius:12px;text-align:center;"><div style="font-size:1.8rem;font-weight:900;color:#92400e;">' + (a.live_lesson_duration_minutes || 45) + '</div><div style="font-size:0.82rem;color:#92400e;font-weight:700;">⏱️ דקות סה"כ</div></div>';
+        html += '</div>';
+        
+        // רשימת תלמידים
+        html += '<div style="background:#f9fafb;border-radius:12px;padding:16px;margin-bottom:16px;">';
+        html += '<div style="font-weight:800;color:#374151;font-size:0.95rem;margin-bottom:12px;">👥 תלמידים בשיעור</div>';
+        
+        if (!sessions.length) {
+            html += '<div style="background:white;padding:30px;border-radius:10px;text-align:center;color:#94a3b8;border:2px dashed #cbd5e1;">';
+            html += '<div style="font-size:2rem;margin-bottom:6px;">⏳</div>';
+            html += '<div style="font-weight:700;color:#64748b;">עדיין לא נכנס אף תלמיד</div>';
+            html += '<div style="font-size:0.82rem;margin-top:6px;">תלמידים יראו את השיעור כשצד התלמיד יוטמע (שלב 2.3)</div>';
+            html += '</div>';
+        } else {
+            html += '<table style="width:100%;border-collapse:collapse;font-size:0.9rem;">';
+            html += '<thead><tr style="background:#e5e7eb;"><th style="padding:8px;text-align:right;">שם</th><th style="padding:8px;text-align:right;">כיתה</th><th style="padding:8px;text-align:right;">סטטוס</th><th style="padding:8px;text-align:right;">התקדמות</th><th style="padding:8px;text-align:right;">פעיל לפני</th><th style="padding:8px;text-align:right;">פעולות</th></tr></thead><tbody>';
+            sessions.forEach(function(s){
+                var lastSeen = s.last_seen ? new Date(s.last_seen).getTime() : 0;
+                var secAgo = Math.floor((Date.now() - lastSeen) / 1000);
+                var isOnline = secAgo < 30;
+                var pct = s.progress_percent || 0;
+                
+                var statusBadge = isOnline 
+                    ? '<span style="background:#10b981;color:white;padding:3px 9px;border-radius:6px;font-weight:700;font-size:0.78rem;">🟢 פעיל</span>'
+                    : '<span style="background:#9ca3af;color:white;padding:3px 9px;border-radius:6px;font-weight:700;font-size:0.78rem;">⚫ לא פעיל</span>';
+                
+                var lastSeenStr = secAgo < 60 ? secAgo + ' שנ\'' : Math.floor(secAgo/60) + ' דק\'';
+                
+                // יש תוכן? סמן בעיגול ירוק
+                var hasContent = s.current_content && s.current_content.trim().length > 0;
+                var contentIndicator = hasContent ? '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#10b981;margin-right:4px;" title="כותב..."></span>' : '';
+                
+                var rowBg = isOnline ? 'background:#f0fdf4;' : 'background:white;';
+                html += '<tr style="border-bottom:1px solid #e5e7eb;' + rowBg + 'cursor:pointer;transition:background 0.2s;" onmouseover="this.style.background=\'#dbeafe\'" onmouseout="this.style.background=\'' + (isOnline ? '#f0fdf4' : 'white') + '\'" onclick="viewStudentContent(\'' + s.student_id + '\',\'' + escHtml(s.student_name || '?').replace(/\'/g, '') + '\')">';
+                html += '<td style="padding:10px 8px;">' + contentIndicator + '<strong>' + escHtml(s.student_name || '?') + '</strong></td>';
+                html += '<td style="padding:10px 8px;">' + escHtml(s.student_class || '') + '</td>';
+                html += '<td style="padding:10px 8px;">' + statusBadge + '</td>';
+                html += '<td style="padding:10px 8px;"><div style="display:flex;align-items:center;gap:8px;"><div style="background:#e5e7eb;height:8px;border-radius:8px;overflow:hidden;width:100px;"><div style="width:' + pct + '%;height:100%;background:linear-gradient(90deg,#10b981,#059669);"></div></div><span style="color:#6b7280;font-size:0.78rem;">' + pct + '%</span></div></td>';
+                html += '<td style="padding:10px 8px;color:#9ca3af;font-size:0.82rem;">' + lastSeenStr + '</td>';
+                html += '<td style="padding:10px 8px;"><button style="background:#3b82f6;color:white;border:none;padding:5px 11px;border-radius:6px;font-family:inherit;font-weight:700;cursor:pointer;font-size:0.78rem;">👁️ צפה</button></td>';
+                html += '</tr>';
+            });
+            html += '</tbody></table>';
+        }
+        html += '</div>';
+        
+        // פעולות
+        html += '<div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:space-between;align-items:center;">';
+        if (active) {
+            html += '<div style="font-size:0.82rem;color:#10b981;font-weight:700;">🔄 מתעדכן אוטומטית כל 3 שניות</div>';
+            html += '<div style="display:flex;gap:10px;">';
+            html += '<button onclick="sendClassWideMessage()" style="background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;border:none;padding:11px 22px;border-radius:10px;font-family:inherit;font-weight:800;cursor:pointer;font-size:0.95rem;">📢 הודעה לכיתה</button>';
+            html += '<button onclick="endLiveLesson(\'' + _liveLessonDashId + '\')" style="background:linear-gradient(135deg,#dc2626,#991b1b);color:white;border:none;padding:11px 22px;border-radius:10px;font-family:inherit;font-weight:800;cursor:pointer;font-size:0.95rem;">⏹️ סיים שיעור</button>';
+            html += '</div>';
+        } else if (endedAt) {
+            html += '<div style="font-size:0.85rem;color:#6b7280;">השיעור הסתיים ב-' + new Date(endedAt).toLocaleTimeString('he-IL') + '</div>';
+            html += '<button onclick="closeLiveLessonDashboard()" style="background:#e5e7eb;color:#374151;border:none;padding:11px 22px;border-radius:10px;font-family:inherit;font-weight:700;cursor:pointer;">סגור</button>';
+        }
+        html += '</div>';
+        
+        document.getElementById('liveLessonDashboardBody').innerHTML = html;
+    } catch(e) {
+        console.error(e);
+        document.getElementById('liveLessonDashboardBody').innerHTML = '<div style="background:#fee2e2;color:#991b1b;padding:14px;border-radius:10px;">❌ שגיאה בטעינת הדשבורד: ' + (e.message || '') + '</div>';
+    }
+}
+
+async function endLiveLesson(assignmentId) {
+    if (!confirm('לסיים את השיעור עכשיו? התלמידים יראו שהשיעור הסתיים.')) return;
+    try {
+        await sbUpdate('assignments', 'id=eq.' + assignmentId, { live_lesson_ended_at: new Date().toISOString() });
+        toast("✅ השיעור הסתיים");
+        await refreshLiveLessonDashboard();
+        renderTeacherAssignments();
+    } catch(e) {
+        console.error(e);
+        toast("❌ שגיאה: " + (e.message || ''));
+    }
+}
+
+// v1.4.0 — צפייה בתוכן תלמיד בזמן אמת
+var _viewingStudentId = null;
+var _viewingStudentName = null;
+var _viewStudentInterval = null;
+
+// v1.4.0 — צ'אט שיעור לייב
+async function sendTeacherPrivateMessage() {
+    if (!_viewingStudentId || !_liveLessonDashId) return;
+    var input = document.getElementById('teacherChatInput');
+    if (!input) return;
+    var text = input.value.trim();
+    if (!text) return;
+    
+    try {
+        await sbInsert('live_lesson_chats', {
+            assignment_id: _liveLessonDashId,
+            sender_type: 'teacher',
+            sender_name: curUser.name || 'מורה',
+            target_student_id: _viewingStudentId,
+            message: text
+        });
+        input.value = '';
+        await refreshStudentContentPanel();
+    } catch(e) {
+        console.error(e);
+        toast('❌ שגיאה בשליחה: ' + (e.message || ''));
+    }
+}
+
+async function sendClassWideMessage() {
+    if (!_liveLessonDashId) return;
+    var text = prompt('כתוב הודעה לכל הכיתה:');
+    if (!text || !text.trim()) return;
+    
+    try {
+        await sbInsert('live_lesson_chats', {
+            assignment_id: _liveLessonDashId,
+            sender_type: 'teacher',
+            sender_name: curUser.name || 'מורה',
+            target_student_id: null, // null = לכולם
+            message: text.trim()
+        });
+        toast('📢 הודעה נשלחה לכל הכיתה');
+        refreshLiveLessonDashboard();
+    } catch(e) {
+        console.error(e);
+        toast('❌ שגיאה בשליחה: ' + (e.message || ''));
+    }
+}
+
+function viewStudentContent(studentId, studentName) {
+    _viewingStudentId = studentId;
+    _viewingStudentName = studentName;
+    
+    var panel = document.getElementById('studentContentPanel');
+    if (!panel) {
+        panel = document.createElement('div');
+        panel.id = 'studentContentPanel';
+        panel.style.cssText = 'display:none;position:fixed;top:0;right:0;width:480px;max-width:90vw;height:100vh;background:white;box-shadow:-10px 0 40px rgba(0,0,0,0.3);z-index:10000;overflow-y:auto;transition:transform 0.3s ease;transform:translateX(100%);';
+        document.body.appendChild(panel);
+    }
+    panel.style.display = 'block';
+    setTimeout(function(){ panel.style.transform = 'translateX(0)'; }, 10);
+    
+    refreshStudentContentPanel();
+    
+    if (_viewStudentInterval) clearInterval(_viewStudentInterval);
+    _viewStudentInterval = setInterval(refreshStudentContentPanel, 3000);
+}
+
+function closeStudentContentPanel() {
+    var panel = document.getElementById('studentContentPanel');
+    if (panel) {
+        panel.style.transform = 'translateX(100%)';
+        setTimeout(function(){ panel.style.display = 'none'; }, 300);
+    }
+    _viewingStudentId = null;
+    _viewingStudentName = null;
+    if (_viewStudentInterval) { clearInterval(_viewStudentInterval); _viewStudentInterval = null; }
+}
+
+async function refreshStudentContentPanel() {
+    if (!_viewingStudentId || !_liveLessonDashId) return;
+    var panel = document.getElementById('studentContentPanel');
+    if (!panel || panel.style.display === 'none') {
+        if (_viewStudentInterval) { clearInterval(_viewStudentInterval); _viewStudentInterval = null; }
+        return;
+    }
+    
+    // v1.4.0 fix — שמור תוכן input לפני רענון
+    var preservedInput = '';
+    var hadFocus = false;
+    var selStart = 0, selEnd = 0;
+    var existingInput = document.getElementById('teacherChatInput');
+    if (existingInput) {
+        preservedInput = existingInput.value;
+        hadFocus = (document.activeElement === existingInput);
+        selStart = existingInput.selectionStart || 0;
+        selEnd = existingInput.selectionEnd || 0;
+    }
+    
+    try {
+        var sessions = await sbFetch('live_lesson_sessions', '?assignment_id=eq.' + _liveLessonDashId + '&student_id=eq.' + _viewingStudentId);
+        if (!sessions.length) {
+            panel.innerHTML = '<div style="padding:30px;text-align:center;color:#6b7280;">לא נמצא סשן לתלמיד הזה</div>';
+            return;
+        }
+        var s = sessions[0];
+        var content = s.current_content || '';
+        var lastSeen = s.last_seen ? new Date(s.last_seen).getTime() : 0;
+        var secAgo = Math.floor((Date.now() - lastSeen) / 1000);
+        var isOnline = secAgo < 30;
+        var wordCount = content.trim() ? content.trim().split(/\s+/).filter(function(w){return w.length>0;}).length : 0;
+        var charCount = content.length;
+        
+        var html = '';
+        // Header
+        var headerColor = isOnline ? 'linear-gradient(135deg,#10b981,#059669)' : 'linear-gradient(135deg,#6b7280,#4b5563)';
+        html += '<div style="background:' + headerColor + ';color:white;padding:20px 24px;display:flex;justify-content:space-between;align-items:flex-start;gap:14px;">';
+        html += '<div style="flex:1;">';
+        html += '<div style="font-size:0.78rem;opacity:0.9;font-weight:700;">' + (isOnline ? '🟢 כותב כעת' : '⚫ לא פעיל') + '</div>';
+        html += '<h2 style="margin:4px 0 0;font-size:1.3rem;font-weight:900;">' + escHtml(_viewingStudentName) + '</h2>';
+        html += '<div style="font-size:0.78rem;opacity:0.92;margin-top:3px;">כיתה: ' + escHtml(s.student_class || '') + ' · ' + (isOnline ? 'פעיל עכשיו' : 'נראה לאחרונה לפני ' + (secAgo < 60 ? secAgo + ' שנ\'' : Math.floor(secAgo/60) + ' דק\'')) + '</div>';
+        html += '</div>';
+        html += '<button onclick="closeStudentContentPanel()" style="background:rgba(255,255,255,0.25);color:white;border:none;padding:8px 14px;border-radius:8px;font-family:inherit;font-weight:700;cursor:pointer;">✕</button>';
+        html += '</div>';
+        
+        // Stats
+        html += '<div style="background:#f9fafb;padding:14px 20px;border-bottom:1px solid #e5e7eb;display:flex;gap:14px;justify-content:space-around;text-align:center;">';
+        html += '<div><div style="font-family:Rubik;font-size:1.4rem;font-weight:900;color:#1e40af;">' + wordCount + '</div><div style="font-size:0.7rem;color:#6b7280;font-weight:700;">מילים</div></div>';
+        html += '<div style="border-right:1px solid #e5e7eb;border-left:1px solid #e5e7eb;padding:0 14px;"><div style="font-family:Rubik;font-size:1.4rem;font-weight:900;color:#065f46;">' + charCount + '</div><div style="font-size:0.7rem;color:#6b7280;font-weight:700;">תווים</div></div>';
+        html += '<div><div style="font-family:Rubik;font-size:1.4rem;font-weight:900;color:#92400e;">' + (s.progress_percent || 0) + '%</div><div style="font-size:0.7rem;color:#6b7280;font-weight:700;">התקדמות</div></div>';
+        html += '</div>';
+        
+        // Content
+        html += '<div style="padding:20px 24px;">';
+        html += '<div style="font-weight:800;color:#1e293b;margin-bottom:10px;display:flex;align-items:center;gap:8px;">';
+        html += '<span>📝 מה התלמיד כותב</span>';
+        html += '<span style="background:#10b981;color:white;font-size:0.65rem;padding:2px 8px;border-radius:5px;font-weight:700;">LIVE</span>';
+        html += '<span style="font-size:0.72rem;color:#6b7280;font-weight:600;margin-right:auto;">מתעדכן כל 3 שנ\'</span>';
+        html += '</div>';
+        
+        if (!content.trim()) {
+            html += '<div style="background:#f9fafb;padding:30px;border-radius:12px;text-align:center;border:2px dashed #cbd5e1;">';
+            html += '<div style="font-size:2rem;margin-bottom:6px;">⏳</div>';
+            html += '<div style="color:#6b7280;font-weight:700;">התלמיד עדיין לא התחיל לכתוב</div>';
+            html += '</div>';
+        } else {
+            html += '<div style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);border:2px solid #86efac;border-radius:12px;padding:18px;font-size:0.95rem;line-height:1.7;color:#1e293b;white-space:pre-wrap;word-wrap:break-word;min-height:200px;max-height:60vh;overflow-y:auto;">';
+            html += escHtml(content);
+            html += '</div>';
+        }
+        html += '</div>';
+        
+        // Chat placeholder (יוטמע בשלב 2.5)
+        html += '<div style="padding:20px 24px;border-top:1px solid #e5e7eb;background:#fafafa;">';
+        html += '<div style="font-weight:800;color:#1e293b;margin-bottom:10px;display:flex;align-items:center;gap:8px;">';
+        html += '<span>💬 צ\'אט פרטי עם ' + escHtml(_viewingStudentName) + '</span>';
+        html += '</div>';
+        
+        // אזור הודעות
+        var privateChats = await sbFetch('live_lesson_chats', '?assignment_id=eq.' + _liveLessonDashId + '&target_student_id=eq.' + _viewingStudentId + '&order=created_at.asc');
+        var studentChats = await sbFetch('live_lesson_chats', '?assignment_id=eq.' + _liveLessonDashId + '&sender_type=eq.student&order=created_at.asc');
+        // סנן הודעות תלמיד רק לתלמיד הזה
+        studentChats = (studentChats || []).filter(function(c){ return String(c.sender_name) === String(_viewingStudentName) || String(c.target_student_id || '') === '' && true; });
+        // מזג והמיין
+        var allMsgs = (privateChats || []).concat(studentChats);
+        // הסר כפילויות לפי id
+        var seenIds = {};
+        allMsgs = allMsgs.filter(function(m){ if(seenIds[m.id]) return false; seenIds[m.id]=true; return true; });
+        allMsgs.sort(function(a,b){ return new Date(a.created_at).getTime() - new Date(b.created_at).getTime(); });
+        
+        html += '<div id="teacherPrivateChatBox" style="background:white;border:1px solid #e5e7eb;border-radius:10px;padding:12px;min-height:140px;max-height:300px;overflow-y:auto;margin-bottom:10px;">';
+        if (!allMsgs.length) {
+            html += '<div style="text-align:center;color:#94a3b8;padding:30px 10px;font-size:0.85rem;">אין הודעות עדיין. שלח הודעה לפתיחת השיחה.</div>';
+        } else {
+            allMsgs.forEach(function(m){
+                var isTeacher = m.sender_type === 'teacher';
+                var time = new Date(m.created_at).toLocaleTimeString('he-IL', {hour:'2-digit', minute:'2-digit'});
+                if (isTeacher) {
+                    html += '<div style="display:flex;justify-content:flex-end;margin-bottom:6px;"><div style="background:#3b82f6;color:white;padding:8px 12px;border-radius:12px 12px 4px 12px;max-width:80%;font-size:0.88rem;line-height:1.4;"><div>' + escHtml(m.message) + '</div><div style="font-size:0.65rem;opacity:0.85;margin-top:2px;text-align:left;">' + time + '</div></div></div>';
+                } else {
+                    html += '<div style="display:flex;justify-content:flex-start;margin-bottom:6px;"><div style="background:#f3f4f6;color:#1e293b;padding:8px 12px;border-radius:12px 12px 12px 4px;max-width:80%;font-size:0.88rem;line-height:1.4;"><div>' + escHtml(m.message) + '</div><div style="font-size:0.65rem;color:#9ca3af;margin-top:2px;">' + time + '</div></div></div>';
+                }
+            });
+        }
+        html += '</div>';
+        
+        // אזור כתיבה
+        html += '<div style="display:flex;gap:8px;">';
+        html += '<input type="text" id="teacherChatInput" placeholder="כתוב הודעה פרטית..." onkeypress="if(event.key===\'Enter\')sendTeacherPrivateMessage()" style="flex:1;padding:9px 12px;border:1px solid #e5e7eb;border-radius:8px;font-family:inherit;font-size:0.88rem;">';
+        html += '<button onclick="sendTeacherPrivateMessage()" style="background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;border:none;padding:9px 18px;border-radius:8px;font-family:inherit;font-weight:800;cursor:pointer;font-size:0.88rem;">שלח</button>';
+        html += '</div>';
+        
+        html += '</div>';
+        
+        panel.innerHTML = html;
+        
+        // v1.4.0 fix — שחזר תוכן input + פוקוס + מיקום הסמן
+        var restoredInput = document.getElementById('teacherChatInput');
+        if (restoredInput && preservedInput) {
+            restoredInput.value = preservedInput;
+        }
+        if (restoredInput && hadFocus) {
+            restoredInput.focus();
+            try { restoredInput.setSelectionRange(selStart, selEnd); } catch(e) {}
+        }
+        // גלול את הצ'אט לתחתית
+        var chatBox = document.getElementById('teacherPrivateChatBox');
+        if (chatBox) chatBox.scrollTop = chatBox.scrollHeight;
+    } catch(e) {
+        console.error(e);
+        panel.innerHTML = '<div style="padding:30px;color:#991b1b;">שגיאה: ' + (e.message || '') + '</div>';
+    }
+}
+
+// =====================================
+// v1.4.0 — צד התלמיד: שיעור לייב
+// =====================================
+var _studentLessonId = null;
+var _studentLessonHeartbeat = null;
+var _studentLessonPolling = null;
+var _studentLessonContent = '';
+
+async function joinLiveLesson(assignmentId) {
+    try {
+        // וודא שהשיעור עדיין פעיל
+        var arr = await sbFetch('assignments', '?id=eq.' + assignmentId);
+        if (!arr.length) { toast("⚠️ השיעור לא נמצא"); return; }
+        var a = arr[0];
+        if (!a.live_lesson_started_at) { toast("⚠️ השיעור עדיין לא התחיל"); return; }
+        if (a.live_lesson_ended_at) { toast("⚠️ השיעור כבר הסתיים"); return; }
+        
+        // רישום הסשן (upsert)
+        var sessionData = {
+            assignment_id: assignmentId,
+            student_id: curUser.id,
+            student_name: curUser.name,
+            student_class: curUser.class || '',
+            last_seen: new Date().toISOString()
+        };
+        // נסה לעדכן קיים — אם לא קיים, insert
+        var existing = await sbFetch('live_lesson_sessions', '?assignment_id=eq.' + assignmentId + '&student_id=eq.' + curUser.id);
+        if (existing && existing.length) {
+            await sbUpdate('live_lesson_sessions', 'id=eq.' + existing[0].id, { last_seen: new Date().toISOString() });
+            _studentLessonContent = existing[0].current_content || '';
+        } else {
+            sessionData.joined_at = new Date().toISOString();
+            sessionData.current_content = '';
+            await sbInsert('live_lesson_sessions', sessionData);
+            _studentLessonContent = '';
+        }
+        
+        _studentLessonId = assignmentId;
+        openStudentLessonScreen(a);
+    } catch(e) {
+        console.error(e);
+        toast("❌ שגיאה בהצטרפות: " + (e.message || ''));
+    }
+}
+
+function openStudentLessonScreen(assignment) {
+    var modal = document.getElementById('studentLessonModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'studentLessonModal';
+        modal.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:9999;overflow-y:auto;padding:0;';
+        document.body.appendChild(modal);
+    }
+    modal.style.display = 'block';
+    modal.innerHTML = ''; // נמלא ברענון
+    
+    renderStudentLesson(assignment);
+    
+    // התחל polling כל 3 שניות לקבלת עדכוני שיעור
+    if (_studentLessonPolling) clearInterval(_studentLessonPolling);
+    _studentLessonPolling = setInterval(function(){ pollStudentLesson(); }, 3000);
+    
+    // התחל heartbeat כל 10 שניות — עדכן last_seen + current_content
+    if (_studentLessonHeartbeat) clearInterval(_studentLessonHeartbeat);
+    _studentLessonHeartbeat = setInterval(function(){ studentLessonHeartbeat(); }, 10000);
+}
+
+function renderStudentLesson(a) {
+    var startedMs = new Date(a.live_lesson_started_at).getTime();
+    var durMs = (a.live_lesson_duration_minutes || 45) * 60 * 1000;
+    var remMs = Math.max(0, (startedMs + durMs) - Date.now());
+    var remMin = Math.floor(remMs / 60000);
+    var remSec = Math.floor((remMs % 60000) / 1000);
+    var timerStr = (remMin < 10 ? '0' : '') + remMin + ':' + (remSec < 10 ? '0' : '') + remSec;
+    var ended = a.live_lesson_ended_at;
+    
+    var html = '<div style="max-width:900px;margin:0 auto;background:white;min-height:100vh;display:flex;flex-direction:column;">';
+    
+    // Header
+    var headerColor = ended ? 'linear-gradient(135deg,#6b7280,#4b5563)' : 'linear-gradient(135deg,#10b981,#059669)';
+    html += '<div style="background:' + headerColor + ';color:white;padding:18px 24px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:14px;position:sticky;top:0;z-index:10;">';
+    html += '<div><div style="font-size:0.75rem;opacity:0.9;font-weight:700;">' + (ended ? '⏹️ השיעור הסתיים' : '🟢 שיעור לייב פעיל') + '</div>';
+    html += '<h2 style="margin:3px 0 0;font-size:1.3rem;font-weight:900;">' + escHtml(a.title) + '</h2>';
+    html += '<div style="font-size:0.8rem;opacity:0.92;margin-top:2px;">מורה: ' + escHtml(a.teacher_name || '') + '</div></div>';
+    
+    if (!ended) {
+        html += '<div style="background:rgba(0,0,0,0.25);padding:10px 18px;border-radius:12px;text-align:center;">';
+        html += '<div style="font-family:monospace;font-size:1.6rem;font-weight:900;letter-spacing:2px;">⏱️ ' + timerStr + '</div>';
+        html += '<div style="font-size:0.65rem;opacity:0.85;">זמן שנותר</div>';
+        html += '</div>';
+    }
+    
+    html += '<button onclick="leaveLiveLesson()" style="background:rgba(255,255,255,0.25);color:white;border:none;padding:9px 16px;border-radius:10px;font-family:inherit;font-weight:700;cursor:pointer;font-size:0.88rem;">✕ צא</button>';
+    html += '</div>';
+    
+    // Body
+    if (ended) {
+        html += '<div style="padding:60px 24px;text-align:center;">';
+        html += '<div style="font-size:4rem;margin-bottom:14px;">⏹️</div>';
+        html += '<h3 style="margin:0;font-size:1.3rem;color:#374151;">השיעור הסתיים</h3>';
+        html += '<p style="color:#6b7280;margin:8px 0;">המורה סיים את השיעור. תודה על השתתפותך!</p>';
+        html += '<button onclick="leaveLiveLesson()" style="margin-top:16px;background:#3b82f6;color:white;border:none;padding:12px 28px;border-radius:10px;font-family:inherit;font-weight:800;cursor:pointer;">חזרה למטלות</button>';
+        html += '</div>';
+    } else {
+        html += '<div style="flex:1;padding:24px;background:#f9fafb;">';
+        
+        // Description / Instructions
+        if (a.description) {
+            html += '<div style="background:white;padding:16px;border-radius:12px;margin-bottom:16px;border-right:4px solid #10b981;box-shadow:0 2px 6px rgba(0,0,0,0.04);">';
+            html += '<div style="font-weight:800;color:#065f46;margin-bottom:6px;">📋 הנחיות השיעור</div>';
+            html += '<div style="color:#374151;line-height:1.6;font-size:0.95rem;">' + escHtml(a.description) + '</div>';
+            html += '</div>';
+        }
+        
+        // Writing area
+        html += '<div style="background:white;border-radius:14px;padding:18px;box-shadow:0 4px 12px rgba(0,0,0,0.06);">';
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">';
+        html += '<label style="font-weight:800;color:#1e293b;font-size:1rem;">✍️ אזור הכתיבה שלך</label>';
+        html += '<span id="studentLessonSaveIndicator" style="font-size:0.78rem;color:#10b981;font-weight:700;">💾 נשמר אוטומטית</span>';
+        html += '</div>';
+        html += '<div style="background:#f0fdf4;border-right:3px solid #10b981;padding:10px 14px;border-radius:8px;margin-bottom:12px;font-size:0.82rem;color:#065f46;">המורה רואה את מה שאתה כותב בזמן אמת. כתוב הערות, מחשבות, תשובות לשאלות שיעלו במהלך השיעור.</div>';
+        html += '<textarea id="studentLessonTextarea" oninput="onStudentLessonType()" placeholder="כתוב כאן את הלמידה שלך..." style="width:100%;min-height:280px;padding:14px;border:2px solid #d1fae5;border-radius:10px;font-family:inherit;font-size:0.95rem;line-height:1.7;resize:vertical;background:white;"></textarea>';
+        html += '<div style="margin-top:8px;text-align:left;font-size:0.78rem;color:#6b7280;">';
+        html += '<span id="studentLessonWordCount">0</span> מילים';
+        html += '</div>';
+        html += '</div>';
+        
+        html += '<div id="studentChatPanel" style="margin-top:16px;background:white;border-radius:14px;padding:16px;box-shadow:0 4px 12px rgba(0,0,0,0.06);">';
+        html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">';
+        html += '<div style="font-weight:800;color:#1e293b;display:flex;align-items:center;gap:8px;">';
+        html += '<span>💬 צ\'אט עם המורה</span>';
+        html += '<span id="studentChatUnread" style="background:#dc2626;color:white;font-size:0.65rem;padding:2px 7px;border-radius:10px;font-weight:800;display:none;">0</span>';
+        html += '</div>';
+        html += '<div style="font-size:0.72rem;color:#94a3b8;">מתעדכן כל 3 שנ\'</div>';
+        html += '</div>';
+        html += '<div id="studentChatMessages" style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:12px;min-height:140px;max-height:280px;overflow-y:auto;margin-bottom:10px;"><div style="text-align:center;color:#94a3b8;padding:30px 10px;font-size:0.85rem;">טוען הודעות...</div></div>';
+        html += '<div style="display:flex;gap:8px;">';
+        html += '<input type="text" id="studentChatInput" placeholder="שאל את המורה..." onkeypress="if(event.key===\'Enter\')sendStudentMessage()" style="flex:1;padding:10px 12px;border:2px solid #d1fae5;border-radius:8px;font-family:inherit;font-size:0.9rem;background:white;">';
+        html += '<button onclick="sendStudentMessage()" style="background:linear-gradient(135deg,#10b981,#059669);color:white;border:none;padding:10px 22px;border-radius:8px;font-family:inherit;font-weight:800;cursor:pointer;font-size:0.9rem;">שלח</button>';
+        html += '</div>';
+        html += '</div>';
+        
+        html += '</div>';
+    }
+    
+    html += '</div>';
+    document.getElementById('studentLessonModal').innerHTML = html;
+    
+    // החזר תוכן קודם אם יש
+    var ta = document.getElementById('studentLessonTextarea');
+    if (ta && _studentLessonContent) {
+        ta.value = _studentLessonContent;
+        updateStudentLessonWordCount();
+    }
+    
+    // טען צ'אט ראשוני
+    if (typeof refreshStudentChat === 'function') refreshStudentChat();
+}
+
+function onStudentLessonType() {
+    updateStudentLessonWordCount();
+    var ta = document.getElementById('studentLessonTextarea');
+    if (ta) _studentLessonContent = ta.value;
+    
+    // הצג סימן שמירה
+    var ind = document.getElementById('studentLessonSaveIndicator');
+    if (ind) {
+        ind.textContent = '✏️ עורך...';
+        ind.style.color = '#f59e0b';
+    }
+}
+
+function updateStudentLessonWordCount() {
+    var ta = document.getElementById('studentLessonTextarea');
+    var wc = document.getElementById('studentLessonWordCount');
+    if (!ta || !wc) return;
+    var count = ta.value.trim().split(/\s+/).filter(function(w){return w.length>0;}).length;
+    wc.textContent = count;
+}
+
+async function studentLessonHeartbeat() {
+    if (!_studentLessonId) return;
+    try {
+        var existing = await sbFetch('live_lesson_sessions', '?assignment_id=eq.' + _studentLessonId + '&student_id=eq.' + curUser.id);
+        if (existing && existing.length) {
+            await sbUpdate('live_lesson_sessions', 'id=eq.' + existing[0].id, {
+                last_seen: new Date().toISOString(),
+                current_content: _studentLessonContent
+            });
+            // הראה שנשמר
+            var ind = document.getElementById('studentLessonSaveIndicator');
+            if (ind) {
+                ind.textContent = '✓ נשמר';
+                ind.style.color = '#10b981';
+            }
+        }
+    } catch(e) {
+        console.error('Heartbeat error:', e);
+    }
+}
+
+async function pollStudentLesson() {
+    if (!_studentLessonId) return;
+    try {
+        var arr = await sbFetch('assignments', '?id=eq.' + _studentLessonId);
+        if (!arr.length) return;
+        var a = arr[0];
+        
+        // עדכן טיימר
+        if (a.live_lesson_started_at && !a.live_lesson_ended_at) {
+            var startedMs = new Date(a.live_lesson_started_at).getTime();
+            var durMs = (a.live_lesson_duration_minutes || 45) * 60 * 1000;
+            var remMs = Math.max(0, (startedMs + durMs) - Date.now());
+            var remMin = Math.floor(remMs / 60000);
+            var remSec = Math.floor((remMs % 60000) / 1000);
+            var timerStr = (remMin < 10 ? '0' : '') + remMin + ':' + (remSec < 10 ? '0' : '') + remSec;
+            
+            // עדכן רק את הטיימר
+            var headerTimer = document.querySelector('#studentLessonModal [style*="monospace"]');
+            if (headerTimer) headerTimer.textContent = '⏱️ ' + timerStr;
+            
+            // רענון צ'אט
+            await refreshStudentChat();
+            
+            // אם הסתיים אוטומטית
+            if (remMs <= 0) {
+                renderStudentLesson(a);
+            }
+        } else if (a.live_lesson_ended_at) {
+            // המורה סיים את השיעור — שמור תוכן אחרון ועדכן מסך
+            await studentLessonHeartbeat();
+            renderStudentLesson(a);
+            if (_studentLessonHeartbeat) { clearInterval(_studentLessonHeartbeat); _studentLessonHeartbeat = null; }
+        }
+    } catch(e) {
+        console.error('Poll error:', e);
+    }
+}
+
+// v1.4.0 — צ'אט תלמיד
+async function refreshStudentChat() {
+    if (!_studentLessonId) return;
+    var msgBox = document.getElementById('studentChatMessages');
+    if (!msgBox) return;
+    
+    try {
+        // הודעות פרטיות (target_student_id = curUser.id) + הודעות כיתתיות (target_student_id is null) + הודעות שהתלמיד שלח
+        var allChats = await sbFetch('live_lesson_chats', '?assignment_id=eq.' + _studentLessonId + '&order=created_at.asc');
+        if (!allChats) allChats = [];
+        
+        // סינון: הודעות רלוונטיות לתלמיד הזה
+        var relevant = allChats.filter(function(c){
+            // הודעת תלמיד עצמו
+            if (c.sender_type === 'student' && String(c.sender_name) === String(curUser.name)) return true;
+            // הודעת מורה כיתתית (אין target_student_id)
+            if (c.sender_type === 'teacher' && (!c.target_student_id || c.target_student_id === '')) return true;
+            // הודעת מורה פרטית אל התלמיד הזה
+            if (c.sender_type === 'teacher' && String(c.target_student_id) === String(curUser.id)) return true;
+            return false;
+        });
+        
+        if (!relevant.length) {
+            msgBox.innerHTML = '<div style="text-align:center;color:#94a3b8;padding:30px 10px;font-size:0.85rem;">עוד אין הודעות. שלח שאלה אם יש לך משהו לא ברור.</div>';
+            return;
+        }
+        
+        var html = '';
+        relevant.forEach(function(m){
+            var time = new Date(m.created_at).toLocaleTimeString('he-IL', {hour:'2-digit', minute:'2-digit'});
+            var isMe = m.sender_type === 'student';
+            var isClassWide = m.sender_type === 'teacher' && !m.target_student_id;
+            
+            if (isMe) {
+                // הודעה שלי (תלמיד) - מצד שמאל בירוק
+                html += '<div style="display:flex;justify-content:flex-end;margin-bottom:8px;"><div style="background:linear-gradient(135deg,#10b981,#059669);color:white;padding:8px 12px;border-radius:14px 14px 4px 14px;max-width:80%;font-size:0.88rem;line-height:1.4;"><div>' + escHtml(m.message) + '</div><div style="font-size:0.65rem;opacity:0.85;margin-top:2px;text-align:left;">' + time + '</div></div></div>';
+            } else if (isClassWide) {
+                // הודעה כיתתית - באמצע עם רקע צהוב
+                html += '<div style="display:flex;justify-content:center;margin-bottom:8px;"><div style="background:#fef3c7;border:1px solid #fbbf24;color:#78350f;padding:8px 14px;border-radius:12px;max-width:90%;font-size:0.86rem;line-height:1.4;text-align:center;"><div style="font-weight:800;font-size:0.7rem;margin-bottom:2px;">📢 ' + escHtml(m.sender_name || 'מורה') + ' לכיתה</div><div>' + escHtml(m.message) + '</div><div style="font-size:0.65rem;opacity:0.75;margin-top:2px;">' + time + '</div></div></div>';
+            } else {
+                // הודעה פרטית מהמורה - מצד ימין בכחול
+                html += '<div style="display:flex;justify-content:flex-start;margin-bottom:8px;"><div style="background:#dbeafe;color:#1e3a8a;padding:8px 12px;border-radius:14px 14px 14px 4px;max-width:80%;font-size:0.88rem;line-height:1.4;border-right:3px solid #3b82f6;"><div style="font-weight:800;font-size:0.7rem;margin-bottom:2px;color:#1e40af;">' + escHtml(m.sender_name || 'מורה') + ' (אליך)</div><div>' + escHtml(m.message) + '</div><div style="font-size:0.65rem;opacity:0.75;margin-top:2px;">' + time + '</div></div></div>';
+            }
+        });
+        
+        // בדוק אם המשתמש בתחתית — אם כן, גלול אוטומטית
+        var wasAtBottom = msgBox.scrollTop + msgBox.clientHeight >= msgBox.scrollHeight - 20;
+        msgBox.innerHTML = html;
+        if (wasAtBottom) {
+            msgBox.scrollTop = msgBox.scrollHeight;
+        }
+    } catch(e) {
+        console.error('Chat refresh error:', e);
+    }
+}
+
+async function sendStudentMessage() {
+    if (!_studentLessonId) return;
+    var input = document.getElementById('studentChatInput');
+    if (!input) return;
+    var text = input.value.trim();
+    if (!text) return;
+    
+    try {
+        await sbInsert('live_lesson_chats', {
+            assignment_id: _studentLessonId,
+            sender_type: 'student',
+            sender_name: curUser.name,
+            target_student_id: curUser.id, // התלמיד עצמו — כדי שהמורה ידע לאיזה תלמיד זה שייך
+            message: text
+        });
+        input.value = '';
+        await refreshStudentChat();
+        // גלול לתחתית
+        var msgBox = document.getElementById('studentChatMessages');
+        if (msgBox) msgBox.scrollTop = msgBox.scrollHeight;
+    } catch(e) {
+        console.error(e);
+        alert('שגיאה בשליחה: ' + (e.message || ''));
+    }
+}
+
+async function leaveLiveLesson() {
+    // שמור תוכן אחרון
+    if (_studentLessonId) await studentLessonHeartbeat();
+    
+    // ניקוי
+    if (_studentLessonPolling) { clearInterval(_studentLessonPolling); _studentLessonPolling = null; }
+    if (_studentLessonHeartbeat) { clearInterval(_studentLessonHeartbeat); _studentLessonHeartbeat = null; }
+    _studentLessonId = null;
+    _studentLessonContent = '';
+    
+    var modal = document.getElementById('studentLessonModal');
+    if (modal) modal.style.display = 'none';
+    
+    // רענן רשימת מטלות
+    if (typeof loadStudentAssignments === 'function') loadStudentAssignments();
+}
+
 var editingAssignmentId=null;
 async function editAssignment(aid){
   try{
@@ -944,7 +1984,66 @@ async function editAssignment(aid){
   }
 }
 function cancelEditAssignment(){editingAssignmentId=null;["nTitle","nDesc","nClasses","nHtmlCode"].forEach(function(id){var el=document.getElementById(id);if(el)el.value="";});nQuestions=[];renderQuestionsList();document.getElementById("nDue").value="";document.getElementById("nDueTime").value="23:59";document.getElementById("nType").value="text";toggleHtmlSection();document.getElementById("btnCreateAssignment").textContent="✅ פרסם מטלה";document.getElementById("btnCancelEdit").style.display="none";toast("❌ העריכה בוטלה");}
-function createAssignment(){var title=document.getElementById("nTitle").value.trim(),desc=document.getElementById("nDesc").value.trim(),classes=document.getElementById("nClasses").value.trim(),due=document.getElementById("nDue").value,dueTime=document.getElementById("nDueTime").value||"23:59",type=document.getElementById("nType").value;if(!title||!classes||!due){toast("⚠️ מלא כותרת, כיתות ותאריך");return;}var htmlCode=type==="interactive"?document.getElementById("nHtmlCode").value.trim():"";if(type==="interactive"&&!htmlCode){toast("⚠️ הדבק קוד HTML");return;}var questions=null;if(type==="questions"){questions=getQuestionsData();if(!questions.length){toast("⚠️ הוסף לפחות שאלה אחת");return;}}var specificStudents=null;if(document.getElementById("nSpecificStudents").checked){specificStudents=getSelectedSpecificStudents();if(!specificStudents.length){toast("⚠️ בחר לפחות תלמיד אחד");return;}}var key=editingAssignmentId||("-"+Math.random().toString(36).substr(2,16));var data={id:key,title:title,description:desc,classes:classes,due_date:due,due_time:dueTime,submission_type:type,html_code:htmlCode||null,teacher_id:curUser.key,teacher_name:curUser.name,specific_students:specificStudents};if(!editingAssignmentId)data.created_at=new Date().toISOString();if(questions)data.questions=questions;var promise=editingAssignmentId?sbUpdate("assignments","id=eq."+key,data):sbInsert("assignments",data);promise.then(function(){toast(editingAssignmentId?"✅ המטלה עודכנה!":"✅ המטלה פורסמה!");editingAssignmentId=null;["nTitle","nDesc","nClasses","nHtmlCode"].forEach(function(id){var el=document.getElementById(id);if(el)el.value="";});nQuestions=[];renderQuestionsList();document.getElementById("nDue").value="";document.getElementById("nDueTime").value="23:59";document.getElementById("nType").value="text";document.getElementById("nSpecificStudents").checked=false;document.getElementById("specificStudentsSection").style.display="none";document.getElementById("specificStudentsList").innerHTML="";toggleHtmlSection();document.getElementById("btnCreateAssignment").textContent="✅ פרסם מטלה";document.getElementById("btnCancelEdit").style.display="none";switchTTab("assignments",document.querySelector(".t-tab"));renderTeacherAssignments();loadTeacherFilterClasses();}).catch(function(e){console.error(e);toast("❌ שגיאה בשמירה");});}
+function createAssignment(){
+    // v1.4.0 — תמיכה בשיעור לייב
+    if (currentTaskType === 'liveLesson') {
+        var title = document.getElementById("nTitle").value.trim();
+        var desc = document.getElementById("nDesc").value.trim();
+        var classes = document.getElementById("nClasses").value.trim();
+        var duration = parseInt(document.getElementById("nLiveLessonDuration").value) || 45;
+        if (!title || !classes) { toast("⚠️ מלא כותרת וכיתות"); return; }
+        if (duration < 5 || duration > 180) { toast("⚠️ משך השיעור: 5-180 דקות"); return; }
+        var specificStudentsLL = null;
+        if (document.getElementById("nSpecificStudents").checked) {
+            specificStudentsLL = getSelectedSpecificStudents();
+            if (!specificStudentsLL.length) { toast("⚠️ בחר לפחות תלמיד אחד"); return; }
+        }
+        // תאריך הגשה ברירת מחדל — היום (לא רלוונטי לשיעור לייב, אבל השדה דורש ערך)
+        var todayLL = new Date().toISOString().split('T')[0];
+        var keyLL = editingAssignmentId || ("-" + Math.random().toString(36).substr(2, 16));
+        var dataLL = {
+            id: keyLL,
+            title: title,
+            description: desc,
+            classes: classes,
+            due_date: todayLL,
+            due_time: "23:59",
+            submission_type: "text",
+            teacher_id: curUser.key,
+            teacher_name: curUser.name,
+            specific_students: specificStudentsLL,
+            is_live_lesson: true,
+            live_lesson_duration_minutes: duration
+        };
+        if (!editingAssignmentId) dataLL.created_at = new Date().toISOString();
+        var promiseLL = editingAssignmentId 
+            ? sbUpdate("assignments", "id=eq." + keyLL, dataLL)
+            : sbInsert("assignments", dataLL);
+        promiseLL.then(function(){
+            toast(editingAssignmentId ? "✅ שיעור לייב עודכן!" : "✅ שיעור לייב נוצר! (תוכן AI ייווסף בשלב הבא)");
+            editingAssignmentId = null;
+            ["nTitle","nDesc","nClasses","nHtmlCode"].forEach(function(id){
+                var el = document.getElementById(id);
+                if (el) el.value = "";
+            });
+            document.getElementById("nLiveLessonDuration").value = "45";
+            selectTaskType('regular');
+            document.getElementById("nSpecificStudents").checked = false;
+            document.getElementById("specificStudentsSection").style.display = "none";
+            document.getElementById("specificStudentsList").innerHTML = "";
+            switchTTab("assignments", document.querySelector(".t-tab"));
+            renderTeacherAssignments();
+            loadTeacherFilterClasses();
+        }).catch(function(e){
+            console.error(e);
+            toast("❌ שגיאה בשמירה: " + (e.message || ''));
+        });
+        return;
+    }
+    
+    // ===== הקוד הקיים: מטלה רגילה =====
+    var title=document.getElementById("nTitle").value.trim(),desc=document.getElementById("nDesc").value.trim(),classes=document.getElementById("nClasses").value.trim(),due=document.getElementById("nDue").value,dueTime=document.getElementById("nDueTime").value||"23:59",type=document.getElementById("nType").value;if(!title||!classes||!due){toast("⚠️ מלא כותרת, כיתות ותאריך");return;}var htmlCode=type==="interactive"?document.getElementById("nHtmlCode").value.trim():"";if(type==="interactive"&&!htmlCode){toast("⚠️ הדבק קוד HTML");return;}var questions=null;if(type==="questions"){questions=getQuestionsData();if(!questions.length){toast("⚠️ הוסף לפחות שאלה אחת");return;}}var specificStudents=null;if(document.getElementById("nSpecificStudents").checked){specificStudents=getSelectedSpecificStudents();if(!specificStudents.length){toast("⚠️ בחר לפחות תלמיד אחד");return;}}var key=editingAssignmentId||("-"+Math.random().toString(36).substr(2,16));var data={id:key,title:title,description:desc,classes:classes,due_date:due,due_time:dueTime,submission_type:type,html_code:htmlCode||null,teacher_id:curUser.key,teacher_name:curUser.name,specific_students:specificStudents};if(!editingAssignmentId)data.created_at=new Date().toISOString();if(questions)data.questions=questions;var promise=editingAssignmentId?sbUpdate("assignments","id=eq."+key,data):sbInsert("assignments",data);promise.then(function(){toast(editingAssignmentId?"✅ המטלה עודכנה!":"✅ המטלה פורסמה!");editingAssignmentId=null;["nTitle","nDesc","nClasses","nHtmlCode"].forEach(function(id){var el=document.getElementById(id);if(el)el.value="";});nQuestions=[];renderQuestionsList();document.getElementById("nDue").value="";document.getElementById("nDueTime").value="23:59";document.getElementById("nType").value="text";document.getElementById("nSpecificStudents").checked=false;document.getElementById("specificStudentsSection").style.display="none";document.getElementById("specificStudentsList").innerHTML="";toggleHtmlSection();document.getElementById("btnCreateAssignment").textContent="✅ פרסם מטלה";document.getElementById("btnCancelEdit").style.display="none";switchTTab("assignments",document.querySelector(".t-tab"));renderTeacherAssignments();loadTeacherFilterClasses();}).catch(function(e){console.error(e);toast("❌ שגיאה בשמירה");});
+}
 function deleteAssignment(id){if(!confirm("למחוק?"))return;sbDelete("assignments","id=eq."+id).then(function(){toast("🗑 נמחק");renderTeacherAssignments();});}
 // שכפול מטלה - יוצר עותק מלא של המטלה ב-DB ופותח אותו לעריכה
 async function duplicateAssignment(aid){
