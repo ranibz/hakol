@@ -1,4 +1,4 @@
-// netlify/functions/lesson-ai.js
+// netlify/functions/lesson-ai.js - v1.0.1
 // פונקציה ליצירת תוכן שיעור לייב אינטראקטיבי עם Gemini
 // גרסה: 1.0.0 | תאריך: 2026-05-15
 
