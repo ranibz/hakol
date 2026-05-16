@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- VERSION 1.5.0 - 16/05/2026 - חסימת מעבר ושאלות בדיקת הבנה: (1) המורה יכול לשלוח הערה חוסמת לתלמיד מהפאנל הצדדי - התלמיד רואה את ההערה ועונה בשדה ייעודי לפני שיכול להמשיך. המורה רואה את התגובה ולוחץ "אשר המשך". (2) אחרי כל בלוק concept/example - שאלה אמריקאית אוטומטית (AI) שבודקת הבנה - אם נכון: ממשיך. אם לא: עד 3 ניסיונות עם שאלות חדשות בכל פעם. אחרי 3 כשלונות - נעצר ומחכה לאישור המורה. הדשבורד מציג סטטוסים: "תקוע בשאלת בדיקה" (אדום), "חסום - ממתין לתגובה" (צהוב), "הגיב - ממתין לאישור" (כחול). דורש עמודות חדשות ב-live_lesson_sessions: blocked_by_teacher, teacher_block_message, student_block_response, block_set_at, student_responded_at, quiz_attempts, quiz_stuck, quiz_stuck_at_block, quiz_manual_override. דורש mavchan-ai.js v3.0.0 עם action generate_quiz_question. | פיתוח: רני בן זאב -->
 <!-- VERSION 1.4.3 - 16/05/2026 - שיפור דשבורד מורה: בלחיצה על תלמיד, פתיחת פאנל מימין שמראה (1) באיזה בלוק התלמיד נמצא עכשיו (עם שאלת המשימה), (2) מה הוא כותב כעת בלייב, (3) רשימת תשובות קודמות שכבר נשלחו במהלך השיעור (מ-task_answers). תיקון לבעיה ש-current_content התאפס בכל מעבר בלוק והמורה לא ראה היסטוריה. | פיתוח: רני בן זאב -->
 <!-- VERSION 1.4.2 - 16/05/2026 - תוכן AI לשיעורי לייב: הוספת כפתור "🤖 צור תוכן עם AI" בטופס יצירת שיעור לייב. ה-AI בונה תוכן בלוקים (concept/example/task) עם פתיחה וסיכום. תצוגה מקדימה לפני שמירה + כפתורי "צור שוב"/"אשר". התלמיד רואה את התוכן בלוק אחרי בלוק - בלוקי משימה חייבים תשובה לפני המעבר הבא. שמירה אוטומטית של תשובות וההתקדמות ב-task_answers (jsonb) ו-current_block_index. דורש: עמודה live_lesson_content (jsonb) ב-assignments + 2 עמודות חדשות ב-live_lesson_sessions: current_block_index (integer, default 0), task_answers (jsonb, default {}). | פיתוח: רני בן זאב -->
 <!-- VERSION 1.4.1 - 16/05/2026 - תיקון חיבור AI: הפניית כל קריאות ה-AI ל-site נפרד lamed-ai-functions.netlify.app במקום לכתובת היחסית. ב-lamedproject ה-netlify.toml בשורש מצביע על תיקיית רכבות (לא ניתן לגעת), אז הקובץ mavchan-ai.js שהיה ב-netlify/functions לא נטען. כעת יש site נפרד עם קובץ v2.0.0 (שכולל גם generate_lesson לשיעורי לייב). שינוי של שורה אחת בלבד (var MAVCHAN_AI_URL). | פיתוח: רני בן זאב -->
@@ -168,8 +169,8 @@ body{font-family:"Rubik",sans-serif;background:var(--bg);color:var(--text);min-h
   <div class="login-err" id="loginErr">❌ פרטי כניסה שגויים</div>
 </div>
 </div>
-<!-- STUDENT --><div id="studentScreen"><div class="topbar"><div class="topbar-left"><h2>מערכת מטלות <span style="background:#10b981;color:white;font-size:0.65rem;padding:3px 8px;border-radius:8px;margin-right:8px;font-weight:700;vertical-align:middle;">v1.4.3</span></h2><p id="sTpName"></p></div><button class="btn-logout" onclick="logout()">יציאה</button></div><div class="screen-body"><div class="student-welcome"><h3 id="sWelcomeName">שלום!</h3><p id="sWelcomeClass"></p></div><div class="stats-row"><div class="stat-box"><div class="num" id="sTotalAsgn" style="color:#5c6bc0;">0</div><div class="lbl">מטלות פעילות</div></div><div class="stat-box"><div class="num" id="sSubmitted" style="color:#00b894;">0</div><div class="lbl">הגשות</div></div><div class="stat-box"><div class="num" id="sPending" style="color:#f39c12;">0</div><div class="lbl">ממתינות</div></div><div class="stat-box"><div class="num" id="sGraded" style="color:#9c27b0;">0</div><div class="lbl">קיבלו ציון</div></div></div><div class="student-tabs" style="display:flex;gap:10px;margin-bottom:20px;"><button class="s-tab active" onclick="switchSTab('assignments',this)" style="flex:1;padding:12px;border:none;border-radius:12px;font-family:inherit;font-size:.95rem;font-weight:700;cursor:pointer;background:linear-gradient(135deg,#667eea,#764ba2);color:white;">📋 המטלות שלי</button><button class="s-tab" onclick="switchSTab('grades',this)" style="flex:1;padding:12px;border:2px solid #eee;border-radius:12px;font-family:inherit;font-size:.95rem;font-weight:700;cursor:pointer;background:white;color:#666;">📊 הציונים שלי</button></div><div id="sAssignments" class="s-panel"><div class="section-title"><span class="material-icons-round" style="color:#5c6bc0;">assignment</span> המטלות שלי</div><div id="studentMavchanimList"></div><div id="studentAssignmentsList"></div></div><div id="sGrades" class="s-panel" style="display:none;"><div class="section-title"><span style="color:#9c27b0;">📊</span> הציונים שלי</div><div id="studentGradesList"></div></div></div></div>
-<!-- TEACHER --><div id="teacherScreen"><div class="topbar"><div class="topbar-left"><h2>מערכת מטלות – מורה <span style="background:#10b981;color:white;font-size:0.65rem;padding:3px 8px;border-radius:8px;margin-right:8px;font-weight:700;vertical-align:middle;">v1.4.3</span></h2><p id="tTpName"></p></div><button class="btn-logout" onclick="logout()">יציאה</button></div><div class="screen-body"><div class="teacher-tabs"><button class="t-tab active" onclick="switchTTab('assignments',this)">📋 המטלות שלי</button><button class="t-tab" onclick="switchTTab('new',this)">➕ מטלה חדשה</button><button class="t-tab" onclick="switchTTab('mavchanim',this)">🔒 מבחני בקרה</button><button class="t-tab" onclick="switchTTab('students',this)">👥 התלמידים שלי</button><button class="t-tab" onclick="switchTTab('grades',this)">📊 מעקב ציונים</button><button class="t-tab" onclick="switchTTab('overview',this)">📈 סקירה</button></div><div id="tAssignments" class="t-panel active"><div class="filter-bar"><select id="tFilterClass" onchange="renderTeacherAssignments()"><option value="">כל הכיתות</option></select></div><div id="teacherAssignmentsList"></div></div><div id="tStudents" class="t-panel"><div class="panel-card"><h2>👥 התלמידים שלי</h2><div class="filter-bar" style="margin-bottom:15px;"><select id="tStudentsClassFilter" onchange="renderTeacherStudents()" style="padding:10px 15px;border:2px solid #eee;border-radius:10px;font-family:inherit;font-size:.95rem;min-width:200px;"><option value="">-- בחר כיתה --</option></select></div><div id="tStudentsStats" style="display:flex;gap:15px;margin-bottom:15px;flex-wrap:wrap;"></div><table class="admin-table" id="tStudentsTable" style="display:none;"><thead><tr><th>#</th><th>ת.ז</th><th>שם</th><th>כיתה</th></tr></thead><tbody id="tStudentsBody"></tbody></table><div id="tStudentsEmpty" style="text-align:center;padding:40px;color:#888;">בחר כיתה לצפייה בתלמידים</div></div></div><div id="tGrades" class="t-panel"><div class="panel-card"><h2>📊 מעקב ציונים והערכות</h2><div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;"><select id="tGradesClassFilter" onchange="loadGradesView()" style="padding:10px 15px;border:2px solid #eee;border-radius:10px;font-family:inherit;font-size:.95rem;min-width:200px;"><option value="">-- בחר כיתה --</option></select><button class="btn-preview" onclick="exportGradesToExcel()" style="margin-right:auto;">📥 ייצוא לאקסל</button></div><div id="gradesStats" style="display:flex;gap:15px;margin-bottom:20px;flex-wrap:wrap;"></div><div id="gradesContent"><div style="text-align:center;padding:40px;color:#888;">בחר כיתה לצפייה בציונים</div></div></div></div><div id="tNew" class="t-panel"><div class="panel-card"><h2>➕ יצירת מטלה חדשה</h2>
+<!-- STUDENT --><div id="studentScreen"><div class="topbar"><div class="topbar-left"><h2>מערכת מטלות <span style="background:#10b981;color:white;font-size:0.65rem;padding:3px 8px;border-radius:8px;margin-right:8px;font-weight:700;vertical-align:middle;">v1.5.0</span></h2><p id="sTpName"></p></div><button class="btn-logout" onclick="logout()">יציאה</button></div><div class="screen-body"><div class="student-welcome"><h3 id="sWelcomeName">שלום!</h3><p id="sWelcomeClass"></p></div><div class="stats-row"><div class="stat-box"><div class="num" id="sTotalAsgn" style="color:#5c6bc0;">0</div><div class="lbl">מטלות פעילות</div></div><div class="stat-box"><div class="num" id="sSubmitted" style="color:#00b894;">0</div><div class="lbl">הגשות</div></div><div class="stat-box"><div class="num" id="sPending" style="color:#f39c12;">0</div><div class="lbl">ממתינות</div></div><div class="stat-box"><div class="num" id="sGraded" style="color:#9c27b0;">0</div><div class="lbl">קיבלו ציון</div></div></div><div class="student-tabs" style="display:flex;gap:10px;margin-bottom:20px;"><button class="s-tab active" onclick="switchSTab('assignments',this)" style="flex:1;padding:12px;border:none;border-radius:12px;font-family:inherit;font-size:.95rem;font-weight:700;cursor:pointer;background:linear-gradient(135deg,#667eea,#764ba2);color:white;">📋 המטלות שלי</button><button class="s-tab" onclick="switchSTab('grades',this)" style="flex:1;padding:12px;border:2px solid #eee;border-radius:12px;font-family:inherit;font-size:.95rem;font-weight:700;cursor:pointer;background:white;color:#666;">📊 הציונים שלי</button></div><div id="sAssignments" class="s-panel"><div class="section-title"><span class="material-icons-round" style="color:#5c6bc0;">assignment</span> המטלות שלי</div><div id="studentMavchanimList"></div><div id="studentAssignmentsList"></div></div><div id="sGrades" class="s-panel" style="display:none;"><div class="section-title"><span style="color:#9c27b0;">📊</span> הציונים שלי</div><div id="studentGradesList"></div></div></div></div>
+<!-- TEACHER --><div id="teacherScreen"><div class="topbar"><div class="topbar-left"><h2>מערכת מטלות – מורה <span style="background:#10b981;color:white;font-size:0.65rem;padding:3px 8px;border-radius:8px;margin-right:8px;font-weight:700;vertical-align:middle;">v1.5.0</span></h2><p id="tTpName"></p></div><button class="btn-logout" onclick="logout()">יציאה</button></div><div class="screen-body"><div class="teacher-tabs"><button class="t-tab active" onclick="switchTTab('assignments',this)">📋 המטלות שלי</button><button class="t-tab" onclick="switchTTab('new',this)">➕ מטלה חדשה</button><button class="t-tab" onclick="switchTTab('mavchanim',this)">🔒 מבחני בקרה</button><button class="t-tab" onclick="switchTTab('students',this)">👥 התלמידים שלי</button><button class="t-tab" onclick="switchTTab('grades',this)">📊 מעקב ציונים</button><button class="t-tab" onclick="switchTTab('overview',this)">📈 סקירה</button></div><div id="tAssignments" class="t-panel active"><div class="filter-bar"><select id="tFilterClass" onchange="renderTeacherAssignments()"><option value="">כל הכיתות</option></select></div><div id="teacherAssignmentsList"></div></div><div id="tStudents" class="t-panel"><div class="panel-card"><h2>👥 התלמידים שלי</h2><div class="filter-bar" style="margin-bottom:15px;"><select id="tStudentsClassFilter" onchange="renderTeacherStudents()" style="padding:10px 15px;border:2px solid #eee;border-radius:10px;font-family:inherit;font-size:.95rem;min-width:200px;"><option value="">-- בחר כיתה --</option></select></div><div id="tStudentsStats" style="display:flex;gap:15px;margin-bottom:15px;flex-wrap:wrap;"></div><table class="admin-table" id="tStudentsTable" style="display:none;"><thead><tr><th>#</th><th>ת.ז</th><th>שם</th><th>כיתה</th></tr></thead><tbody id="tStudentsBody"></tbody></table><div id="tStudentsEmpty" style="text-align:center;padding:40px;color:#888;">בחר כיתה לצפייה בתלמידים</div></div></div><div id="tGrades" class="t-panel"><div class="panel-card"><h2>📊 מעקב ציונים והערכות</h2><div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;"><select id="tGradesClassFilter" onchange="loadGradesView()" style="padding:10px 15px;border:2px solid #eee;border-radius:10px;font-family:inherit;font-size:.95rem;min-width:200px;"><option value="">-- בחר כיתה --</option></select><button class="btn-preview" onclick="exportGradesToExcel()" style="margin-right:auto;">📥 ייצוא לאקסל</button></div><div id="gradesStats" style="display:flex;gap:15px;margin-bottom:20px;flex-wrap:wrap;"></div><div id="gradesContent"><div style="text-align:center;padding:40px;color:#888;">בחר כיתה לצפייה בציונים</div></div></div></div><div id="tNew" class="t-panel"><div class="panel-card"><h2>➕ יצירת מטלה חדשה</h2>
 
 <!-- v1.4.0: 3 קופסאות בחירת סוג -->
 <div id="taskTypeSelector" style="background:#f8fafc;border-radius:14px;padding:16px;margin-bottom:20px;border:1px solid #e2e8f0;">
@@ -1327,9 +1328,23 @@ async function refreshLiveLessonDashboard() {
                 var isOnline = secAgo < 30;
                 var pct = s.progress_percent || 0;
                 
-                var statusBadge = isOnline 
-                    ? '<span style="background:#10b981;color:white;padding:3px 9px;border-radius:6px;font-weight:700;font-size:0.78rem;">🟢 פעיל</span>'
-                    : '<span style="background:#9ca3af;color:white;padding:3px 9px;border-radius:6px;font-weight:700;font-size:0.78rem;">⚫ לא פעיל</span>';
+                // v1.5.0 - אינדיקציות מיוחדות
+                var isStuck = (s.quiz_stuck === true) && (s.quiz_manual_override !== true);
+                var isBlocked = (s.blocked_by_teacher === true) && (s.quiz_manual_override !== true);
+                var hasResponse = isBlocked && s.student_block_response && s.student_block_response.trim().length > 0;
+                
+                var statusBadge;
+                if (isStuck) {
+                    statusBadge = '<span style="background:#dc2626;color:white;padding:3px 9px;border-radius:6px;font-weight:700;font-size:0.78rem;">⏸️ תקוע בשאלת בדיקה</span>';
+                } else if (hasResponse) {
+                    statusBadge = '<span style="background:#3b82f6;color:white;padding:3px 9px;border-radius:6px;font-weight:700;font-size:0.78rem;">📨 הגיב — ממתין לאישור</span>';
+                } else if (isBlocked) {
+                    statusBadge = '<span style="background:#f59e0b;color:white;padding:3px 9px;border-radius:6px;font-weight:700;font-size:0.78rem;">⚠️ חסום — ממתין לתגובה</span>';
+                } else if (isOnline) {
+                    statusBadge = '<span style="background:#10b981;color:white;padding:3px 9px;border-radius:6px;font-weight:700;font-size:0.78rem;">🟢 פעיל</span>';
+                } else {
+                    statusBadge = '<span style="background:#9ca3af;color:white;padding:3px 9px;border-radius:6px;font-weight:700;font-size:0.78rem;">⚫ לא פעיל</span>';
+                }
                 
                 var lastSeenStr = secAgo < 60 ? secAgo + ' שנ\'' : Math.floor(secAgo/60) + ' דק\'';
                 
@@ -1337,8 +1352,19 @@ async function refreshLiveLessonDashboard() {
                 var hasContent = s.current_content && s.current_content.trim().length > 0;
                 var contentIndicator = hasContent ? '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#10b981;margin-right:4px;" title="כותב..."></span>' : '';
                 
-                var rowBg = isOnline ? 'background:#f0fdf4;' : 'background:white;';
-                html += '<tr style="border-bottom:1px solid #e5e7eb;' + rowBg + 'cursor:pointer;transition:background 0.2s;" onmouseover="this.style.background=\'#dbeafe\'" onmouseout="this.style.background=\'' + (isOnline ? '#f0fdf4' : 'white') + '\'" onclick="viewStudentContent(\'' + s.student_id + '\',\'' + escHtml(s.student_name || '?').replace(/\'/g, '') + '\')">';
+                // v1.5.0 - רקע מיוחד לתלמיד שדורש פעולה
+                var rowBg;
+                if (isStuck || hasResponse) {
+                    rowBg = 'background:#fef2f2;'; // אדום בהיר - דורש פעולה
+                } else if (isBlocked) {
+                    rowBg = 'background:#fefce8;'; // צהוב בהיר - בהמתנה
+                } else if (isOnline) {
+                    rowBg = 'background:#f0fdf4;';
+                } else {
+                    rowBg = 'background:white;';
+                }
+                
+                html += '<tr style="border-bottom:1px solid #e5e7eb;' + rowBg + 'cursor:pointer;transition:background 0.2s;" onclick="viewStudentContent(\'' + s.student_id + '\',\'' + escHtml(s.student_name || '?').replace(/\'/g, '') + '\')">';
                 html += '<td style="padding:10px 8px;">' + contentIndicator + '<strong>' + escHtml(s.student_name || '?') + '</strong></td>';
                 html += '<td style="padding:10px 8px;">' + escHtml(s.student_class || '') + '</td>';
                 html += '<td style="padding:10px 8px;">' + statusBadge + '</td>';
@@ -1688,6 +1714,51 @@ async function refreshStudentContentPanel() {
         
         html += '</div>';
         
+        // v1.5.0 - אזור חסימה ואישור
+        html += '<div style="padding:20px 24px;border-top:1px solid #e5e7eb;background:#fefce8;">';
+        
+        // אם התלמיד תקוע ב-quiz - התראה בולטת
+        if (s.quiz_stuck && !s.quiz_manual_override) {
+            html += '<div style="background:linear-gradient(135deg,#fee2e2,#fecaca);border:2px solid #ef4444;border-radius:12px;padding:14px;margin-bottom:14px;">';
+            html += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">';
+            html += '<span style="font-size:1.4rem;">⏸️</span>';
+            html += '<div style="font-weight:900;color:#991b1b;font-size:1rem;">תלמיד תקוע בשאלת בדיקה!</div>';
+            html += '</div>';
+            html += '<div style="font-size:0.85rem;color:#7f1d1d;margin-bottom:10px;">התלמיד לא הצליח לענות נכון ב-3 ניסיונות על בלוק ' + ((s.quiz_stuck_at_block || 0) + 1) + '. תוכל לאשר לו להמשיך ידנית.</div>';
+            html += '<button onclick="teacherApproveStudentContinue()" style="width:100%;padding:11px;background:linear-gradient(135deg,#10b981,#059669);color:white;border:none;border-radius:10px;font-family:inherit;font-weight:800;cursor:pointer;font-size:0.92rem;">✅ אשר לתלמיד להמשיך</button>';
+            html += '</div>';
+        }
+        
+        // אם המורה חסם והתלמיד טרם הגיב
+        if (s.blocked_by_teacher && !s.student_block_response && !s.quiz_manual_override) {
+            html += '<div style="background:#fef3c7;border:2px solid #f59e0b;border-radius:12px;padding:14px;margin-bottom:14px;">';
+            html += '<div style="font-weight:900;color:#92400e;margin-bottom:6px;font-size:0.95rem;">⏳ ממתין לתגובת התלמיד</div>';
+            html += '<div style="font-size:0.82rem;color:#78350f;margin-bottom:8px;">שלחת:</div>';
+            html += '<div style="background:white;padding:10px;border-radius:8px;font-size:0.88rem;color:#1f2937;border-right:3px solid #f59e0b;">' + escHtml(s.teacher_block_message || '') + '</div>';
+            html += '</div>';
+        }
+        
+        // אם התלמיד הגיב לחסימה
+        if (s.blocked_by_teacher && s.student_block_response && !s.quiz_manual_override) {
+            html += '<div style="background:linear-gradient(135deg,#dbeafe,#bfdbfe);border:2px solid #3b82f6;border-radius:12px;padding:14px;margin-bottom:14px;">';
+            html += '<div style="font-weight:900;color:#1e40af;margin-bottom:8px;font-size:0.95rem;">📨 התלמיד הגיב להערה:</div>';
+            html += '<div style="background:white;padding:12px;border-radius:8px;font-size:0.92rem;color:#1f2937;line-height:1.6;border-right:3px solid #3b82f6;white-space:pre-wrap;margin-bottom:10px;">' + escHtml(s.student_block_response) + '</div>';
+            html += '<button onclick="teacherApproveStudentContinue()" style="width:100%;padding:11px;background:linear-gradient(135deg,#10b981,#059669);color:white;border:none;border-radius:10px;font-family:inherit;font-weight:800;cursor:pointer;font-size:0.92rem;">✅ אשר לתלמיד להמשיך</button>';
+            html += '</div>';
+        }
+        
+        // טופס שליחת הערה חוסמת חדשה (רק אם לא קיימת)
+        if (!s.blocked_by_teacher) {
+            html += '<div style="background:white;border:2px dashed #cbd5e1;border-radius:12px;padding:14px;">';
+            html += '<div style="font-weight:800;color:#374151;margin-bottom:8px;font-size:0.9rem;">⚠️ שלח הערה חוסמת לתלמיד</div>';
+            html += '<div style="font-size:0.78rem;color:#6b7280;margin-bottom:8px;">התלמיד לא יוכל להמשיך עד שיגיב להערה ואתה תאשר לו.</div>';
+            html += '<textarea id="teacherBlockMessageInput" placeholder="כתוב הערה לתלמיד..." style="width:100%;min-height:70px;padding:10px;border:2px solid #fbbf24;border-radius:8px;font-family:inherit;font-size:0.9rem;line-height:1.5;resize:vertical;box-sizing:border-box;background:white;margin-bottom:8px;"></textarea>';
+            html += '<button onclick="teacherSendBlockMessage()" style="width:100%;padding:10px;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;border:none;border-radius:10px;font-family:inherit;font-weight:800;cursor:pointer;font-size:0.9rem;">📌 שלח הערה חוסמת</button>';
+            html += '</div>';
+        }
+        
+        html += '</div>';
+        
         panel.innerHTML = html;
         
         // v1.4.0 fix — שחזר תוכן input + פוקוס + מיקום הסמן
@@ -1954,6 +2025,30 @@ async function pollStudentLesson() {
         var arr = await sbFetch('assignments', '?id=eq.' + _studentLessonId);
         if (!arr.length) return;
         var a = arr[0];
+        
+        // v1.5.0 - בדיקת הודעת מורה / חסימה
+        if (_studentBlocksState.sessionId) {
+            try {
+                var ssArr = await sbFetch('live_lesson_sessions', '?id=eq.' + _studentBlocksState.sessionId);
+                if (ssArr && ssArr.length) {
+                    var ss = ssArr[0];
+                    var wasBlocked = _studentBlocksState.isBlocked;
+                    var nowBlocked = ss.blocked_by_teacher && !ss.quiz_manual_override;
+                    var manualOverride = ss.quiz_manual_override === true;
+                    _studentBlocksState.isBlocked = nowBlocked;
+                    _studentBlocksState.teacherMessage = ss.teacher_block_message || '';
+                    _studentBlocksState.quizStuck = ss.quiz_stuck === true;
+                    _studentBlocksState.manualOverride = manualOverride;
+                    
+                    // אם המצב השתנה - ריענון
+                    if (wasBlocked !== nowBlocked || _studentBlocksState.lastManualOverride !== manualOverride) {
+                        _studentBlocksState.lastManualOverride = manualOverride;
+                        renderStudentLesson(a);
+                        return;
+                    }
+                }
+            } catch(e) {}
+        }
         
         // עדכן טיימר
         if (a.live_lesson_started_at && !a.live_lesson_ended_at) {
@@ -3598,7 +3693,13 @@ function confirmLessonContent() {
 var _studentBlocksState = {
     currentBlockIndex: 0,
     taskAnswers: {},
-    sessionId: null
+    sessionId: null,
+    isBlocked: false,
+    teacherMessage: '',
+    blockResponseDraft: '',
+    quizStuck: false,
+    manualOverride: false,
+    lastManualOverride: false
 };
 
 async function loadStudentLessonBlocks(assignmentId, sessionRow) {
@@ -3620,6 +3721,40 @@ function renderLessonBlocksUI(content) {
     var total = blocks.length;
     
     var html = '';
+    
+    // v1.5.0 - בנר הודעת מורה (חסימה)
+    if (state.isBlocked && state.teacherMessage) {
+        html += '<div style="background:linear-gradient(135deg,#fef3c7,#fde68a);border:3px solid #f59e0b;border-radius:14px;padding:18px;margin-bottom:18px;">';
+        html += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">';
+        html += '<div style="background:#f59e0b;color:white;padding:6px 12px;border-radius:8px;font-weight:900;font-size:0.85rem;">⚠️ הערה מהמורה</div>';
+        html += '<div style="font-size:0.78rem;color:#92400e;">המורה ביקש שתענה לפני שתמשיך</div>';
+        html += '</div>';
+        html += '<div style="background:white;padding:14px;border-radius:10px;font-size:0.95rem;line-height:1.6;color:#1f2937;margin-bottom:12px;border-right:4px solid #f59e0b;">';
+        html += '<div style="font-weight:800;color:#92400e;margin-bottom:6px;">💬 ' + escHtml(curUser.name || '') + ', המורה כתב לך:</div>';
+        html += escHtml(state.teacherMessage);
+        html += '</div>';
+        html += '<label style="display:block;font-weight:700;color:#78350f;margin-bottom:6px;font-size:0.92rem;">✍️ התגובה שלך למורה:</label>';
+        html += '<textarea id="studentBlockResponseTextarea" placeholder="כתוב כאן את תגובתך למורה..." style="width:100%;min-height:100px;padding:12px;border:2px solid #fbbf24;border-radius:10px;font-family:inherit;font-size:0.95rem;line-height:1.6;resize:vertical;box-sizing:border-box;background:white;">' + escHtml(state.blockResponseDraft || '') + '</textarea>';
+        html += '<button onclick="sendBlockResponse()" style="width:100%;padding:12px;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;border:none;border-radius:10px;font-family:inherit;font-weight:800;cursor:pointer;font-size:0.95rem;margin-top:10px;">📨 שלח תגובה למורה</button>';
+        html += '<div style="font-size:0.78rem;color:#92400e;margin-top:8px;text-align:center;">המורה יראה את תגובתך ויאשר לך להמשיך</div>';
+        html += '</div>';
+    }
+    
+    // v1.5.0 - בנר אם תקוע ב-quiz
+    if (state.quizStuck && !state.isBlocked && !state.manualOverride) {
+        html += '<div style="background:linear-gradient(135deg,#fee2e2,#fecaca);border:3px solid #ef4444;border-radius:14px;padding:18px;margin-bottom:18px;text-align:center;">';
+        html += '<div style="font-size:2rem;margin-bottom:8px;">⏸️</div>';
+        html += '<div style="font-weight:900;color:#991b1b;font-size:1.05rem;margin-bottom:6px;">נעצרת בשאלת בדיקה</div>';
+        html += '<div style="font-size:0.88rem;color:#7f1d1d;line-height:1.5;">לא הצלחת לענות נכון ב-3 ניסיונות. קרא שוב את החומר. המורה ייתן לך אישור להמשיך כשתהיה מוכן.</div>';
+        html += '</div>';
+    }
+    
+    // v1.5.0 - בנר אם המורה אישר ידנית מעבר
+    if (state.manualOverride && !state.isBlocked) {
+        html += '<div style="background:linear-gradient(135deg,#dcfce7,#bbf7d0);border:2px solid #10b981;border-radius:12px;padding:14px;margin-bottom:18px;text-align:center;">';
+        html += '<div style="font-weight:900;color:#065f46;font-size:0.95rem;">✅ המורה אישר לך להמשיך! לחץ "הבא" כדי לעבור לבלוק הבא.</div>';
+        html += '</div>';
+    }
     
     // Progress bar
     var pct = total > 0 ? Math.round((idx / total) * 100) : 0;
@@ -3746,15 +3881,45 @@ async function nextStudentLessonBlock() {
     var idx = state.currentBlockIndex;
     var block = blocks[idx];
     
+    // v1.5.0 - בדיקה: האם המורה חסם את התלמיד?
+    if (state.sessionId) {
+        try {
+            var ssArr = await sbFetch('live_lesson_sessions', '?id=eq.' + state.sessionId);
+            if (ssArr && ssArr.length) {
+                var ss = ssArr[0];
+                if (ss.blocked_by_teacher && !ss.quiz_manual_override) {
+                    toast("⚠️ המורה ביקש שתענה על הערה לפני שתמשיך");
+                    renderStudentLesson(arr[0]);
+                    return;
+                }
+            }
+        } catch(e) {}
+    }
+    
+    // משימה - חייב תשובה
     if (block && block.type === 'task') {
         var ans = (state.taskAnswers['block_' + idx] || '').trim();
         if (!ans) {
             toast("⚠️ נדרשת תשובה לפני שתוכל להמשיך");
             return;
         }
+        // משימה - מעבר ישיר בלי quiz (כי כבר ענה במשימה)
+        return await proceedToNextBlock(arr[0], blocks);
     }
     
-    state.currentBlockIndex = idx + 1;
+    // v1.5.0 - בלוקי concept/example: צריך שאלת בדיקה
+    if (block && (block.type === 'concept' || block.type === 'example')) {
+        return await startQuizForBlock(arr[0], block, idx);
+    }
+    
+    // ברירת מחדל - מעבר ישיר
+    return await proceedToNextBlock(arr[0], blocks);
+}
+
+// v1.5.0 - מעבר ישיר לבלוק הבא (אחרי שעבר את הquiz או שזו משימה)
+async function proceedToNextBlock(assignment, blocks) {
+    var state = _studentBlocksState;
+    state.currentBlockIndex = state.currentBlockIndex + 1;
     var newPct = Math.round((state.currentBlockIndex / blocks.length) * 100);
     
     if (state.sessionId) {
@@ -3764,15 +3929,285 @@ async function nextStudentLessonBlock() {
                 task_answers: state.taskAnswers,
                 progress_percent: newPct,
                 last_seen: new Date().toISOString(),
-                current_content: ''
+                current_content: '',
+                quiz_stuck: false,
+                quiz_stuck_at_block: null,
+                quiz_manual_override: false
             });
         } catch(e) {
             console.error("save error:", e);
         }
     }
     
-    // ריענון מסך התלמיד
-    renderStudentLesson(arr[0]);
+    renderStudentLesson(assignment);
+}
+
+// v1.5.0 - הצגת שאלת בדיקה אמריקאית
+var _currentQuizState = {
+    blockIndex: -1,
+    questionData: null,
+    attemptsCount: 0,
+    previousQuestions: []
+};
+
+async function startQuizForBlock(assignment, block, blockIdx) {
+    _currentQuizState.blockIndex = blockIdx;
+    _currentQuizState.attemptsCount = 0;
+    _currentQuizState.previousQuestions = [];
+    
+    // טעינה מקודמת של quiz_attempts אם יש (אם התלמיד חזר)
+    if (_studentBlocksState.sessionId) {
+        try {
+            var ssArr = await sbFetch('live_lesson_sessions', '?id=eq.' + _studentBlocksState.sessionId);
+            if (ssArr && ssArr.length) {
+                var qa = ssArr[0].quiz_attempts || {};
+                var blockKey = 'block_' + blockIdx;
+                if (qa[blockKey]) {
+                    _currentQuizState.attemptsCount = qa[blockKey].attempts || 0;
+                    _currentQuizState.previousQuestions = qa[blockKey].questions || [];
+                }
+            }
+        } catch(e) {}
+    }
+    
+    await loadAndShowQuizQuestion(block, blockIdx);
+}
+
+async function loadAndShowQuizQuestion(block, blockIdx) {
+    var modal = ensureQuizModal();
+    modal.style.display = 'flex';
+    modal.innerHTML = '<div style="background:white;max-width:560px;width:90%;border-radius:18px;padding:40px 30px;text-align:center;">' +
+        '<div style="font-size:3rem;margin-bottom:14px;">🤔</div>' +
+        '<h3 style="margin:0 0 8px;color:#1f2937;">בודקים שהבנת...</h3>' +
+        '<p style="color:#6b7280;margin:0 0 20px;">ה-AI מכין שאלה קצרה בודקת הבנה</p>' +
+        '<div style="display:inline-block;width:40px;height:40px;border:4px solid #e5e7eb;border-top-color:#3b82f6;border-radius:50%;animation:spin 1s linear infinite;"></div>' +
+        '</div>';
+    
+    try {
+        var res = await fetch(MAVCHAN_AI_URL, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                action: 'generate_quiz_question',
+                block_content: block.content || '',
+                block_title: block.title || '',
+                block_type: block.type || 'concept',
+                previous_attempts: _currentQuizState.previousQuestions
+            })
+        });
+        var data = await res.json();
+        if (!res.ok || data.error) throw new Error(data.error || 'שגיאה ביצירת שאלה');
+        if (!data.question || !data.options) throw new Error('תגובה לא תקינה');
+        
+        _currentQuizState.questionData = data;
+        renderQuizQuestion(block, blockIdx);
+    } catch(e) {
+        console.error('quiz error:', e);
+        // אם נכשל - מאפשרים מעבר
+        modal.innerHTML = '<div style="background:white;max-width:480px;width:90%;border-radius:18px;padding:30px;text-align:center;">' +
+            '<div style="font-size:2.5rem;margin-bottom:12px;">⚠️</div>' +
+            '<h3 style="margin:0 0 10px;color:#dc2626;">שגיאה בטעינת שאלת בדיקה</h3>' +
+            '<p style="color:#6b7280;margin-bottom:20px;font-size:0.9rem;">' + (e.message || '') + '</p>' +
+            '<button onclick="skipQuizDueToError()" style="background:linear-gradient(135deg,#10b981,#059669);color:white;border:none;padding:12px 24px;border-radius:10px;font-family:inherit;font-weight:800;cursor:pointer;font-size:0.95rem;">המשך לבלוק הבא</button>' +
+            '</div>';
+    }
+}
+
+function ensureQuizModal() {
+    var modal = document.getElementById('studentQuizModal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'studentQuizModal';
+        modal.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:10001;align-items:center;justify-content:center;padding:20px;overflow-y:auto;';
+        document.body.appendChild(modal);
+    }
+    return modal;
+}
+
+async function skipQuizDueToError() {
+    var modal = document.getElementById('studentQuizModal');
+    if (modal) modal.style.display = 'none';
+    var arr = await sbFetch('assignments', '?id=eq.' + _studentLessonId);
+    if (arr.length) await proceedToNextBlock(arr[0], arr[0].live_lesson_content.blocks);
+}
+
+function renderQuizQuestion(block, blockIdx) {
+    var modal = ensureQuizModal();
+    var q = _currentQuizState.questionData;
+    var attemptNum = _currentQuizState.attemptsCount + 1;
+    var maxAttempts = 3;
+    
+    var html = '<div style="background:white;max-width:640px;width:100%;border-radius:18px;overflow:hidden;box-shadow:0 30px 80px rgba(0,0,0,0.5);">';
+    
+    // Header
+    html += '<div style="background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;padding:18px 24px;">';
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">';
+    html += '<div><div style="font-size:0.78rem;opacity:0.9;font-weight:700;">🤔 שאלת בדיקת הבנה</div>';
+    html += '<div style="font-size:1.05rem;font-weight:900;margin-top:2px;">ניסיון ' + attemptNum + ' מתוך ' + maxAttempts + '</div></div>';
+    if (block && block.title) {
+        html += '<div style="background:rgba(0,0,0,0.25);padding:6px 12px;border-radius:8px;font-size:0.85rem;">על: ' + escHtml(block.title) + '</div>';
+    }
+    html += '</div></div>';
+    
+    // השאלה
+    html += '<div style="padding:24px;">';
+    html += '<div style="background:#f9fafb;padding:18px;border-radius:12px;margin-bottom:18px;border-right:4px solid #3b82f6;">';
+    html += '<div style="font-weight:800;color:#1f2937;font-size:1.05rem;line-height:1.5;">' + escHtml(q.question) + '</div>';
+    html += '</div>';
+    
+    // האפשרויות
+    html += '<div id="quizOptionsContainer">';
+    q.options.forEach(function(opt, i){
+        var letters = ['א', 'ב', 'ג', 'ד'];
+        html += '<button class="quiz-option" data-option="' + escHtml(opt) + '" onclick="selectQuizOption(this)" style="display:block;width:100%;text-align:right;background:white;border:2px solid #e5e7eb;border-radius:10px;padding:14px 18px;margin-bottom:10px;font-family:inherit;font-size:0.95rem;cursor:pointer;transition:all 0.2s;line-height:1.5;">';
+        html += '<span style="background:#3b82f6;color:white;width:26px;height:26px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-weight:900;margin-left:10px;font-size:0.85rem;">' + letters[i] + '</span>';
+        html += '<span style="color:#1f2937;">' + escHtml(opt) + '</span>';
+        html += '</button>';
+    });
+    html += '</div>';
+    
+    // כפתור שליחה (יוצג אחרי בחירה)
+    html += '<div id="quizSubmitArea" style="display:none;margin-top:14px;">';
+    html += '<button onclick="submitQuizAnswer()" style="width:100%;padding:14px;background:linear-gradient(135deg,#10b981,#059669);color:white;border:none;border-radius:10px;font-family:inherit;font-weight:800;cursor:pointer;font-size:1rem;">✅ שלח תשובה</button>';
+    html += '</div>';
+    
+    html += '<div id="quizFeedback" style="margin-top:14px;"></div>';
+    
+    html += '</div></div>';
+    
+    modal.innerHTML = html;
+}
+
+var _selectedQuizOption = null;
+function selectQuizOption(btn) {
+    // אם כבר ניתנה תשובה - לא לאפשר שינוי
+    if (btn.closest('#studentQuizModal').querySelector('#quizFeedback').innerHTML.trim()) return;
+    
+    var container = btn.parentElement;
+    Array.prototype.forEach.call(container.querySelectorAll('.quiz-option'), function(b){
+        b.style.background = 'white';
+        b.style.borderColor = '#e5e7eb';
+    });
+    btn.style.background = '#dbeafe';
+    btn.style.borderColor = '#3b82f6';
+    _selectedQuizOption = btn.dataset.option;
+    document.getElementById('quizSubmitArea').style.display = 'block';
+}
+
+async function submitQuizAnswer() {
+    if (!_selectedQuizOption) return;
+    var q = _currentQuizState.questionData;
+    var isCorrect = (_selectedQuizOption === q.correct_answer);
+    var attemptNum = _currentQuizState.attemptsCount + 1;
+    var maxAttempts = 3;
+    
+    _currentQuizState.attemptsCount = attemptNum;
+    _currentQuizState.previousQuestions.push(q.question);
+    
+    // שמירה ב-DB של הניסיון
+    if (_studentBlocksState.sessionId) {
+        try {
+            var ssArr = await sbFetch('live_lesson_sessions', '?id=eq.' + _studentBlocksState.sessionId);
+            var existing = ssArr && ssArr.length ? (ssArr[0].quiz_attempts || {}) : {};
+            var blockKey = 'block_' + _currentQuizState.blockIndex;
+            existing[blockKey] = {
+                attempts: attemptNum,
+                questions: _currentQuizState.previousQuestions,
+                last_correct: isCorrect,
+                last_attempt_at: new Date().toISOString()
+            };
+            await sbUpdate('live_lesson_sessions', 'id=eq.' + _studentBlocksState.sessionId, {
+                quiz_attempts: existing,
+                last_seen: new Date().toISOString()
+            });
+        } catch(e) { console.warn(e); }
+    }
+    
+    // הצגת משוב
+    var fb = document.getElementById('quizFeedback');
+    var subArea = document.getElementById('quizSubmitArea');
+    if (subArea) subArea.style.display = 'none';
+    
+    // חיווי על האופציות
+    var container = document.getElementById('quizOptionsContainer');
+    if (container) {
+        Array.prototype.forEach.call(container.querySelectorAll('.quiz-option'), function(b){
+            b.style.cursor = 'default';
+            b.onclick = null;
+            if (b.dataset.option === q.correct_answer) {
+                b.style.background = '#dcfce7';
+                b.style.borderColor = '#10b981';
+                b.style.borderWidth = '3px';
+            } else if (b.dataset.option === _selectedQuizOption && !isCorrect) {
+                b.style.background = '#fee2e2';
+                b.style.borderColor = '#dc2626';
+            } else {
+                b.style.opacity = '0.5';
+            }
+        });
+    }
+    
+    if (isCorrect) {
+        fb.innerHTML = '<div style="background:linear-gradient(135deg,#dcfce7,#bbf7d0);border:2px solid #10b981;padding:16px;border-radius:12px;margin-bottom:14px;">' +
+            '<div style="font-weight:900;color:#065f46;font-size:1.05rem;margin-bottom:6px;">✅ נכון!</div>' +
+            (q.explanation ? '<div style="font-size:0.88rem;color:#047857;line-height:1.5;">' + escHtml(q.explanation) + '</div>' : '') +
+            '</div>' +
+            '<button onclick="continueAfterQuiz()" style="width:100%;padding:14px;background:linear-gradient(135deg,#10b981,#059669);color:white;border:none;border-radius:10px;font-family:inherit;font-weight:800;cursor:pointer;font-size:1rem;">→ המשך לבלוק הבא</button>';
+    } else if (attemptNum >= maxAttempts) {
+        // נתקע! 3 ניסיונות בלי הצלחה
+        fb.innerHTML = '<div style="background:linear-gradient(135deg,#fef3c7,#fde68a);border:2px solid #f59e0b;padding:16px;border-radius:12px;margin-bottom:14px;">' +
+            '<div style="font-weight:900;color:#92400e;font-size:1.05rem;margin-bottom:6px;">⏸️ נעצרת זמנית</div>' +
+            '<div style="font-size:0.88rem;color:#78350f;line-height:1.5;">לא הצלחת ב-' + maxAttempts + ' ניסיונות. המורה קיבל הודעה ויאשר לך להמשיך כשתהיה מוכן.</div>' +
+            '</div>' +
+            '<button onclick="markQuizStuckAndClose()" style="width:100%;padding:14px;background:#6b7280;color:white;border:none;border-radius:10px;font-family:inherit;font-weight:800;cursor:pointer;font-size:0.95rem;">חזור לבלוק וקרא שוב</button>';
+        
+        // סימון ב-DB כתקוע
+        if (_studentBlocksState.sessionId) {
+            sbUpdate('live_lesson_sessions', 'id=eq.' + _studentBlocksState.sessionId, {
+                quiz_stuck: true,
+                quiz_stuck_at_block: _currentQuizState.blockIndex
+            }).catch(function(){});
+        }
+    } else {
+        // ניסיון נוסף
+        fb.innerHTML = '<div style="background:linear-gradient(135deg,#fee2e2,#fecaca);border:2px solid #ef4444;padding:16px;border-radius:12px;margin-bottom:14px;">' +
+            '<div style="font-weight:900;color:#991b1b;font-size:1.05rem;margin-bottom:6px;">❌ לא נכון</div>' +
+            (q.explanation ? '<div style="font-size:0.88rem;color:#7f1d1d;line-height:1.5;margin-bottom:8px;">' + escHtml(q.explanation) + '</div>' : '') +
+            '<div style="font-size:0.85rem;color:#7f1d1d;">נשארו לך ' + (maxAttempts - attemptNum) + ' ניסיונות. קרא שוב את החומר וקבל שאלה חדשה.</div>' +
+            '</div>' +
+            '<div style="display:flex;gap:10px;">' +
+            '<button onclick="reReadBlock()" style="flex:1;padding:12px;background:#3b82f6;color:white;border:none;border-radius:10px;font-family:inherit;font-weight:800;cursor:pointer;font-size:0.92rem;">📖 קרא שוב</button>' +
+            '<button onclick="newQuizAttempt()" style="flex:1;padding:12px;background:linear-gradient(135deg,#f59e0b,#d97706);color:white;border:none;border-radius:10px;font-family:inherit;font-weight:800;cursor:pointer;font-size:0.92rem;">🔄 שאלה חדשה</button>' +
+            '</div>';
+    }
+    _selectedQuizOption = null;
+}
+
+async function continueAfterQuiz() {
+    var modal = document.getElementById('studentQuizModal');
+    if (modal) modal.style.display = 'none';
+    var arr = await sbFetch('assignments', '?id=eq.' + _studentLessonId);
+    if (arr.length) await proceedToNextBlock(arr[0], arr[0].live_lesson_content.blocks);
+}
+
+function reReadBlock() {
+    var modal = document.getElementById('studentQuizModal');
+    if (modal) modal.style.display = 'none';
+    // לא משנים currentBlockIndex - חוזר לאותו בלוק
+}
+
+async function newQuizAttempt() {
+    var arr = await sbFetch('assignments', '?id=eq.' + _studentLessonId);
+    if (!arr.length) return;
+    var blocks = arr[0].live_lesson_content.blocks;
+    var block = blocks[_currentQuizState.blockIndex];
+    if (!block) return;
+    await loadAndShowQuizQuestion(block, _currentQuizState.blockIndex);
+}
+
+function markQuizStuckAndClose() {
+    var modal = document.getElementById('studentQuizModal');
+    if (modal) modal.style.display = 'none';
 }
 
 async function prevStudentLessonBlock() {
@@ -3790,6 +4225,81 @@ async function prevStudentLessonBlock() {
     
     var arr = await sbFetch('assignments', '?id=eq.' + _studentLessonId);
     if (arr.length) renderStudentLesson(arr[0]);
+}
+
+// v1.5.0 - תלמיד שולח תגובה למורה כשנחסם
+async function sendBlockResponse() {
+    var ta = document.getElementById('studentBlockResponseTextarea');
+    if (!ta) return;
+    var response = ta.value.trim();
+    if (!response) {
+        toast("⚠️ נדרשת תגובה");
+        return;
+    }
+    if (!_studentBlocksState.sessionId) return;
+    
+    try {
+        await sbUpdate('live_lesson_sessions', 'id=eq.' + _studentBlocksState.sessionId, {
+            student_block_response: response,
+            student_responded_at: new Date().toISOString(),
+            last_seen: new Date().toISOString()
+        });
+        _studentBlocksState.blockResponseDraft = response;
+        toast("✅ התגובה נשלחה למורה. ממתין לאישורו...");
+    } catch(e) {
+        toast("❌ שגיאה בשליחה");
+    }
+}
+
+// v1.5.0 - מורה: שליחת הודעה חוסמת לתלמיד
+async function teacherSendBlockMessage() {
+    if (!_viewingStudentId || !_liveLessonDashId) return;
+    var input = document.getElementById('teacherBlockMessageInput');
+    if (!input) return;
+    var msg = input.value.trim();
+    if (!msg) { toast("⚠️ כתוב הודעה"); return; }
+    
+    try {
+        var ssArr = await sbFetch('live_lesson_sessions', '?assignment_id=eq.' + _liveLessonDashId + '&student_id=eq.' + _viewingStudentId);
+        if (!ssArr.length) { toast("⚠️ סשן לא נמצא"); return; }
+        var ss = ssArr[0];
+        
+        await sbUpdate('live_lesson_sessions', 'id=eq.' + ss.id, {
+            blocked_by_teacher: true,
+            teacher_block_message: msg,
+            block_set_at: new Date().toISOString(),
+            student_block_response: null,
+            student_responded_at: null,
+            quiz_manual_override: false
+        });
+        input.value = '';
+        toast("✅ הודעה חוסמת נשלחה לתלמיד");
+        refreshStudentContentPanel();
+    } catch(e) {
+        console.error(e);
+        toast("❌ שגיאה");
+    }
+}
+
+// v1.5.0 - מורה: אישור המשך לתלמיד (אחרי חסימה או quiz_stuck)
+async function teacherApproveStudentContinue() {
+    if (!_viewingStudentId || !_liveLessonDashId) return;
+    try {
+        var ssArr = await sbFetch('live_lesson_sessions', '?assignment_id=eq.' + _liveLessonDashId + '&student_id=eq.' + _viewingStudentId);
+        if (!ssArr.length) return;
+        var ss = ssArr[0];
+        
+        await sbUpdate('live_lesson_sessions', 'id=eq.' + ss.id, {
+            blocked_by_teacher: false,
+            quiz_manual_override: true,
+            quiz_stuck: false
+        });
+        toast("✅ אישרת לתלמיד להמשיך");
+        refreshStudentContentPanel();
+    } catch(e) {
+        console.error(e);
+        toast("❌ שגיאה");
+    }
 }
 
 
