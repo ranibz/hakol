@@ -1,6 +1,6 @@
 // netlify/functions/mavchan-ai.js
 // פונקציה לבניית ובדיקת מבחני בקרה + שיעורי לייב עם Gemini
-// גרסה: 3.2.1 | תאריך: 2026-05-16 — הסרת responseMimeType לשיפור מהירות, prompt קצר יותר
+// גרסה: 3.2.2 | תאריך: 2026-05-16 — החזרת responseMimeType לוודא JSON תקין
 
 exports.handler = async function(event, context) {
     const headers = {
@@ -58,7 +58,7 @@ ${topic}
 - ${num_open || 0} שאלות פתוחות
 
 החזר JSON תקין בלבד:
-{"questions":[{"type":"choice","text":"?","options":["א","ב","ג","ד"],"correct_answer":"א","points":5},{"type":"text","text":"?","points":10,"expected_answer":"תיאור"}]}`;
+{"questions":[{"type":"choice","text":"?","options":["א","ב","ג","ד"],"correct_answer":"א","points":5}]}`;
 
     } else if (action === 'grade_answer') {
         const { question, expected_answer, student_answer, max_points } = body;
@@ -73,7 +73,7 @@ ${expected_answer ? `תשובה אמורה לכלול: ${expected_answer}` : ''}
 תשובת התלמיד: ${student_answer}
 
 תן ציון 0-${max_points || 10} והערכה מילולית קצרה.
-החזר JSON בלבד: {"score":<מספר>,"feedback":"<טקסט>"}`;
+החזר JSON: {"score":<מספר>,"feedback":"<טקסט>"}`;
 
     } else if (action === 'generate_lesson') {
         const { title, description, duration_minutes } = body;
@@ -84,18 +84,20 @@ ${expected_answer ? `תשובה אמורה לכלול: ${expected_answer}` : ''}
         const numTasks = duration <= 30 ? 2 : 3;
         const numConcepts = duration <= 30 ? 2 : 3;
 
-        // v3.2.1 - prompt קצר יותר
         prompt = `בנה שיעור לייב בעברית לתלמידי תיכון.
 
 נושא: "${title}"
 ${description ? 'הנחיות: ' + description + '\n' : ''}משך: ${duration} דקות
 
-מבנה: ${numConcepts} בלוקי concept (מושג), 1-2 example (דוגמה), ${numTasks} בלוקי task (משימת כתיבה).
-סדר: concept → example → task → concept → task.
-כל content: 2-3 פסקאות עם דוגמאות מוחשיות.
+מבנה:
+- ${numConcepts} בלוקי concept
+- 1-2 בלוקי example
+- ${numTasks} בלוקי task
+- סדר: concept → example → task → concept → task
+- כל content: 2-3 פסקאות עם דוגמאות מוחשיות
 
-החזר JSON בלבד (התחל ישר ב-{):
-{"lesson_title":"כותרת","intro":"פתיחה קצרה","blocks":[{"type":"concept","title":"שם","content":"2-3 פסקאות"},{"type":"task","title":"משימה","question":"שאלה?","guidance":"הנחיה"}],"closing":"סיכום"}`;
+החזר JSON בפורמט:
+{"lesson_title":"כותרת","intro":"פתיחה","blocks":[{"type":"concept","title":"...","content":"..."},{"type":"task","title":"...","question":"?","guidance":"..."}],"closing":"סיכום"}`;
 
     } else if (action === 'generate_block_quiz') {
         const { block_content, block_title, block_type } = body;
@@ -103,7 +105,7 @@ ${description ? 'הנחיות: ' + description + '\n' : ''}משך: ${duration} �
             return { statusCode: 400, headers, body: JSON.stringify({ error: 'נדרש תוכן בלוק' }) };
         }
 
-        prompt = `בנה 3 שאלות אמריקאיות שונות לבדיקת הבנה של הבלוק.
+        prompt = `בנה 3 שאלות אמריקאיות שונות לבדיקת הבנה של הבלוק:
 
 ${block_title ? 'כותרת: ' + block_title : ''}
 תוכן:
@@ -111,8 +113,7 @@ ${block_title ? 'כותרת: ' + block_title : ''}
 ${block_content}
 """
 
-החזר JSON בלבד (התחל ישר ב-{):
-{"questions":[{"question":"שאלה1?","options":["א","ב","ג","ד"],"correct_answer":"ב","explanation":"הסבר"},{"question":"שאלה2?","options":["א","ב","ג","ד"],"correct_answer":"ג","explanation":"הסבר"},{"question":"שאלה3?","options":["א","ב","ג","ד"],"correct_answer":"א","explanation":"הסבר"}]}`;
+החזר JSON: {"questions":[{"question":"?","options":["א","ב","ג","ד"],"correct_answer":"ב","explanation":"..."}]}`;
 
     } else if (action === 'generate_quiz_question') {
         const { block_content, block_title, block_type, previous_attempts } = body;
@@ -121,10 +122,10 @@ ${block_content}
         }
 
         const attemptsNote = previous_attempts && previous_attempts.length 
-            ? '\nתלמיד טעה ב:\n' + previous_attempts.map(function(q, i){ return (i+1) + '. ' + q; }).join('\n') + '\nשאל שונה.\n'
+            ? '\nתלמיד טעה בשאלות, שאל שונה.\n'
             : '';
 
-        prompt = `בנה שאלה אמריקאית 1.
+        prompt = `בנה שאלה אמריקאית 1 לבדיקת הבנה:
 
 ${block_title ? 'כותרת: ' + block_title : ''}
 תוכן:
@@ -132,19 +133,18 @@ ${block_title ? 'כותרת: ' + block_title : ''}
 ${block_content}
 """
 ${attemptsNote}
-החזר JSON בלבד (התחל ישר ב-{):
-{"question":"?","options":["א","ב","ג","ד"],"correct_answer":"ב","explanation":"הסבר"}`;
+החזר JSON: {"question":"?","options":["א","ב","ג","ד"],"correct_answer":"ב","explanation":"..."}`;
 
     } else {
         return { statusCode: 400, headers, body: JSON.stringify({ error: 'Invalid action' }) };
     }
 
-    // קריאה ל-Gemini - v3.2.1 בלי responseMimeType
+    // קריאה ל-Gemini - v3.2.2 עם responseMimeType
     try {
         const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
         const temperature = action === 'generate_lesson' ? 0.8 : 0.65;
         let maxTokens;
-        if (action === 'generate_lesson') maxTokens = 4096;
+        if (action === 'generate_lesson') maxTokens = 6144;
         else if (action === 'generate_block_quiz') maxTokens = 2048;
         else if (action === 'generate_quiz_question') maxTokens = 1024;
         else maxTokens = 3072;
@@ -156,8 +156,8 @@ ${attemptsNote}
                 contents: [{ parts: [{ text: prompt }] }],
                 generationConfig: {
                     temperature: temperature,
-                    maxOutputTokens: maxTokens
-                    // v3.2.1 - הסרת responseMimeType, יותר מהיר
+                    maxOutputTokens: maxTokens,
+                    responseMimeType: 'application/json'
                 }
             })
         });
@@ -169,23 +169,16 @@ ${attemptsNote}
         }
 
         const data = await response.json();
-        let text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
         
         if (!text) {
             return { statusCode: 500, headers, body: JSON.stringify({ error: 'תגובה ריקה מ-Gemini' }) };
-        }
-
-        // ניקוי backticks אם Gemini הוסיף
-        text = text.trim();
-        if (text.indexOf('```') === 0) {
-            text = text.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/i, '').trim();
         }
 
         let parsed;
         try {
             parsed = JSON.parse(text);
         } catch (e) {
-            // חילוץ JSON
             const match = text.match(/\{[\s\S]*\}/);
             if (match) {
                 try { parsed = JSON.parse(match[0]); }
