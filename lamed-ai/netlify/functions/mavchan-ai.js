@@ -1,6 +1,6 @@
 // netlify/functions/mavchan-ai.js
 // פונקציה לבניית ובדיקת מבחני בקרה + שיעורי לייב עם Gemini
-// גרסה: 3.1.0 | תאריך: 2026-05-16 — generate_lesson כעת מחזיר גם 3 quiz_questions לכל בלוק concept/example
+// גרסה: 3.2.0 | תאריך: 2026-05-16 — הפרדה: generate_lesson (תוכן בלבד), generate_block_quiz (3 שאלות לבלוק יחיד)
 
 exports.handler = async function(event, context) {
     const headers = {
@@ -39,39 +39,26 @@ exports.handler = async function(event, context) {
     if (action === 'generate_test') {
         const { topic, num_choice, num_open, level } = body;
         if (!topic || topic.length < 10) {
-            return { statusCode: 400, headers, body: JSON.stringify({ error: 'נדרש נושא או טקסט (לפחות 10 תווים)' }) };
+            return { statusCode: 400, headers, body: JSON.stringify({ error: 'נדרש נושא או טקסט' }) };
         }
         const totalQ = (num_choice || 0) + (num_open || 0);
         if (totalQ === 0) {
             return { statusCode: 400, headers, body: JSON.stringify({ error: 'נדרשת לפחות שאלה אחת' }) };
         }
 
-        prompt = `אתה מורה בתיכון בישראל הבונה מבחן בדיקת הבנה לתלמידים.
+        prompt = `אתה מורה בתיכון בישראל הבונה מבחן בדיקת הבנה.
 
-נושא או טקסט המבחן:
+נושא:
 """
 ${topic}
 """
 
-המשימה: בנה מבחן בעברית עם בדיוק:
-- ${num_choice || 0} שאלות בחירה מרובה (4 אפשרויות, תשובה נכונה אחת)
-- ${num_open || 0} שאלות פתוחות (הסבר במילים שלך)
+בנה מבחן בעברית עם בדיוק:
+- ${num_choice || 0} שאלות בחירה מרובה (4 אפשרויות, תשובה אחת)
+- ${num_open || 0} שאלות פתוחות
 
-הנחיות חשובות:
-1. השאלות צריכות לבדוק הבנה אמיתית של הנושא, לא שינון
-2. השאלות צריכות להיות ספציפיות לנושא שהוצג
-3. השאלות הפתוחות צריכות לחייב את התלמיד להסביר ולנמק
-4. בבחירה מרובה - הסחות הדעת חייבות להיות סבירות אבל לא נכונות
-5. כתוב את הכל בעברית
-${level ? `6. רמת קושי: ${level}` : ''}
-
-החזר JSON תקין בלבד (ללא טקסט נוסף, ללא backticks, ללא הסברים) בדיוק בפורמט הזה:
-{
-  "questions": [
-    {"type":"choice","text":"השאלה כאן?","options":["א","ב","ג","ד"],"correct_answer":"א","points":5},
-    {"type":"text","text":"שאלה פתוחה?","points":10,"expected_answer":"תיאור קצר של תשובה טובה"}
-  ]
-}`;
+החזר JSON תקין בלבד:
+{"questions":[{"type":"choice","text":"?","options":["א","ב","ג","ד"],"correct_answer":"א","points":5},{"type":"text","text":"?","points":10,"expected_answer":"תיאור"}]}`;
 
     } else if (action === 'grade_answer') {
         const { question, expected_answer, student_answer, max_points } = body;
@@ -79,109 +66,93 @@ ${level ? `6. רמת קושי: ${level}` : ''}
             return { statusCode: 400, headers, body: JSON.stringify({ error: 'חסרים פרטים' }) };
         }
 
-        prompt = `אתה מורה בתיכון בישראל הבודק תשובה של תלמיד.
+        prompt = `אתה מורה בודק תשובה.
 
 השאלה: ${question}
-${expected_answer ? `מה התשובה אמורה לכלול: ${expected_answer}` : ''}
-תשובת התלמיד:
-"""
-${student_answer}
-"""
+${expected_answer ? `תשובה אמורה לכלול: ${expected_answer}` : ''}
+תשובת התלמיד: ${student_answer}
 
-המשימה: תן ציון מ-0 עד ${max_points || 10} לתשובת התלמיד והערכה מילולית קצרה.
-
-הנחיות:
-1. ציון 0 = לא ענה / תשובה לא קשורה / מוטעית לחלוטין
-2. ציון מלא = תשובה מלאה, מדויקת, מנומקת
-3. ציון אמצעי = תשובה חלקית - מבין משהו אבל חסר/לא מדויק
-4. ההערכה צריכה להיות 1-2 משפטים בעברית
-5. תהיה הוגן אבל קפדן - לא לתת ציון מלא לתשובה שטחית
-
-החזר JSON תקין בלבד (ללא טקסט נוסף, ללא backticks):
-{"score":<מספר>,"feedback":"<הערכה מילולית>"}`;
+תן ציון 0-${max_points || 10} והערכה מילולית קצרה.
+החזר JSON בלבד: {"score":<מספר>,"feedback":"<טקסט>"}`;
 
     } else if (action === 'generate_lesson') {
-        // v3.1.0 - כולל 3 שאלות בדיקה מובנות לכל בלוק concept/example
+        // גרסה קלה - בלי quiz_questions (יוצרים אחרי)
         const { title, description, duration_minutes } = body;
         if (!title || title.length < 2) {
-            return { statusCode: 400, headers, body: JSON.stringify({ error: 'נדרשת כותרת לשיעור' }) };
+            return { statusCode: 400, headers, body: JSON.stringify({ error: 'נדרשת כותרת' }) };
         }
         const duration = duration_minutes || 45;
         const numTasks = duration <= 20 ? 2 : duration <= 40 ? 3 : duration <= 60 ? 4 : 5;
         const numConcepts = duration <= 20 ? 2 : duration <= 40 ? 3 : 4;
 
-        prompt = `אתה מורה בכיר בתיכון בישראל המכין שיעור לייב אינטראקטיבי לתלמידי תיכון.
+        prompt = `אתה מורה בכיר בתיכון בישראל המכין שיעור לייב אינטראקטיבי.
 
-נושא השיעור: "${title}"
-${description ? `הנחיות / מושגים ללמד:\n${description}\n` : ''}
-משך השיעור: ${duration} דקות
+נושא: "${title}"
+${description ? `הנחיות: ${description}\n` : ''}
+משך: ${duration} דקות
 
-המשימה: בנה תוכן שיעור אינטראקטיבי + מאגר שאלות בדיקת הבנה לכל בלוק תוכן.
+בנה תוכן שיעור אינטראקטיבי:
+- ${numConcepts} בלוקי "concept" (הסבר מושג)
+- ${numTasks} בלוקי "task" (משימת כתיבה)
+- אפשר 1-2 בלוקי "example" (דוגמה)
+- סדר: concept → example → task → concept → task
+- כל "content" - 2-4 פסקאות אמיתיות עם דוגמאות מוחשיות
+- עברית מצוינת, בגובה העיניים של תלמיד תיכון
 
-מבנה השיעור:
-- ${numConcepts} בלוקי "concept" (הסבר מושג/רעיון)
-- ${numTasks} בלוקי "task" (משימת כתיבה לתלמיד)
-- אפשר לשלב 1-2 בלוקי "example" (דוגמה מפורטת)
-- סדר: concept ראשון → example → task → concept → task...
-- כל "content" צריך להיות 2-4 פסקאות אמיתיות
-- כתוב בעברית מצוינת, בגובה העיניים של תלמיד תיכון, עם דוגמאות מוחשיות
-
-חשוב מאוד - לכל בלוק מסוג concept ו-example, חייב להיות שדה "quiz_questions" - **מערך של 3 שאלות אמריקאיות שונות** שבודקות הבנה של הבלוק:
-- כל שאלה: 4 אפשרויות, רק 1 נכונה, הסבר קצר
-- 3 השאלות צריכות להיות מזוויות שונות / בודקות היבטים שונים של אותו בלוק
-- הסחות דעת צריכות להיות סבירות אבל ברורות כלא-נכונות
-- בלוקי task לא צריכים quiz_questions
-
-החזר JSON תקין בלבד (ללא backticks, ללא הסברים):
-
+החזר JSON תקין בלבד (ללא backticks):
 {
-  "lesson_title": "כותרת ראשית",
+  "lesson_title": "כותרת",
   "intro": "פסקת פתיחה",
   "blocks": [
-    {
-      "type": "concept",
-      "title": "כותרת מושג",
-      "content": "הסבר 2-3 פסקאות",
-      "quiz_questions": [
-        {"question":"שאלה 1?","options":["א","ב","ג","ד"],"correct_answer":"ב","explanation":"הסבר קצר"},
-        {"question":"שאלה 2?","options":["א","ב","ג","ד"],"correct_answer":"ג","explanation":"הסבר קצר"},
-        {"question":"שאלה 3?","options":["א","ב","ג","ד"],"correct_answer":"א","explanation":"הסבר קצר"}
-      ]
-    },
-    {
-      "type": "example",
-      "title": "דוגמה: שם",
-      "content": "תיאור הדוגמה",
-      "quiz_questions": [
-        {"question":"...","options":["א","ב","ג","ד"],"correct_answer":"א","explanation":"..."},
-        {"question":"...","options":["א","ב","ג","ד"],"correct_answer":"ב","explanation":"..."},
-        {"question":"...","options":["א","ב","ג","ד"],"correct_answer":"ג","explanation":"..."}
-      ]
-    },
-    {
-      "type": "task",
-      "title": "משימה",
-      "question": "השאלה",
-      "guidance": "הנחיה"
-    }
+    {"type":"concept","title":"כותרת","content":"הסבר 2-3 פסקאות"},
+    {"type":"example","title":"דוגמה","content":"תיאור"},
+    {"type":"task","title":"משימה","question":"שאלה?","guidance":"הנחיה"}
   ],
-  "closing": "פסקה מסכמת"
-}
+  "closing": "סיכום"
+}`;
 
-חשוב: לבלוקי concept ו-example - מערך quiz_questions חייב להכיל בדיוק 3 שאלות. לבלוקי task - לא צריך quiz_questions.`;
+    } else if (action === 'generate_block_quiz') {
+        // חדש v3.2.0 - יוצר 3 שאלות לבלוק יחיד
+        const { block_content, block_title, block_type } = body;
+        if (!block_content || block_content.length < 20) {
+            return { statusCode: 400, headers, body: JSON.stringify({ error: 'נדרש תוכן בלוק' }) };
+        }
+
+        prompt = `אתה מורה. בנה 3 שאלות אמריקאיות שונות לבדיקת הבנה של הבלוק הבא.
+
+${block_title ? 'כותרת: ' + block_title : ''}
+תוכן:
+"""
+${block_content}
+"""
+
+הנחיות:
+1. 3 שאלות שונות, מזוויות שונות
+2. כל שאלה: 4 אפשרויות, רק 1 נכונה
+3. בודקות הבנה אמיתית, לא שינון
+4. עברית פשוטה וברורה
+5. הוסף הסבר קצר לכל שאלה
+
+החזר JSON בלבד! ללא הסברים, ללא backticks. תתחיל ב-{
+
+{"questions":[
+  {"question":"שאלה 1?","options":["א","ב","ג","ד"],"correct_answer":"ב","explanation":"הסבר"},
+  {"question":"שאלה 2?","options":["א","ב","ג","ד"],"correct_answer":"ג","explanation":"הסבר"},
+  {"question":"שאלה 3?","options":["א","ב","ג","ד"],"correct_answer":"א","explanation":"הסבר"}
+]}`;
 
     } else if (action === 'generate_quiz_question') {
-        // נשאר למקרי חירום / שיעורים ישנים שלא יש להם quiz_questions מובנות
+        // נשאר fallback לתאימות אחורה - שאלה אחת
         const { block_content, block_title, block_type, previous_attempts } = body;
         if (!block_content || block_content.length < 20) {
-            return { statusCode: 400, headers, body: JSON.stringify({ error: 'נדרש תוכן בלוק (לפחות 20 תווים)' }) };
+            return { statusCode: 400, headers, body: JSON.stringify({ error: 'נדרש תוכן בלוק' }) };
         }
 
         const attemptsNote = previous_attempts && previous_attempts.length 
-            ? '\nתלמיד טעה ב-' + previous_attempts.length + ' שאלות קודמות, שאל אחרת:\n' + previous_attempts.map(function(q, i){ return (i+1) + '. ' + q; }).join('\n') + '\n'
+            ? '\nתלמיד טעה בשאלות:\n' + previous_attempts.map(function(q, i){ return (i+1) + '. ' + q; }).join('\n') + '\nשאל שאלה שונה.\n'
             : '';
 
-        prompt = `בנה שאלה אמריקאית 1 בלבד שבודקת הבנה של הבלוק.
+        prompt = `בנה שאלה אמריקאית 1 שבודקת הבנה.
 
 ${block_title ? 'כותרת: ' + block_title : ''}
 תוכן:
@@ -189,9 +160,9 @@ ${block_title ? 'כותרת: ' + block_title : ''}
 ${block_content}
 """
 ${attemptsNote}
-החזר JSON בלבד! ללא הסברים לפניו, ללא backticks. תתחיל ישר עם {
+החזר JSON בלבד! התחל ישר ב-{
 
-{"question":"השאלה?","options":["א","ב","ג","ד"],"correct_answer":"ב","explanation":"הסבר קצר"}`;
+{"question":"?","options":["א","ב","ג","ד"],"correct_answer":"ב","explanation":"הסבר"}`;
 
     } else {
         return { statusCode: 400, headers, body: JSON.stringify({ error: 'Invalid action' }) };
@@ -200,12 +171,12 @@ ${attemptsNote}
     // קריאה ל-Gemini
     try {
         const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
-        const temperature = action === 'generate_lesson' ? 0.8 : (action === 'generate_quiz_question' ? 0.6 : 0.7);
-        // v3.1.0 - generate_lesson עם quiz_questions צריך יותר tokens
+        const temperature = action === 'generate_lesson' ? 0.8 : 0.65;
         let maxTokens;
-        if (action === 'generate_lesson') maxTokens = 16384;
-        else if (action === 'generate_quiz_question') maxTokens = 2048;
-        else maxTokens = 8192;
+        if (action === 'generate_lesson') maxTokens = 8192;
+        else if (action === 'generate_block_quiz') maxTokens = 3072;
+        else if (action === 'generate_quiz_question') maxTokens = 1536;
+        else maxTokens = 4096;
         
         const response = await fetch(geminiUrl, {
             method: 'POST',
@@ -230,7 +201,6 @@ ${attemptsNote}
         const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
         
         if (!text) {
-            console.error('Empty response from Gemini.');
             return { statusCode: 500, headers, body: JSON.stringify({ error: 'תגובה ריקה מ-Gemini' }) };
         }
 
@@ -240,37 +210,41 @@ ${attemptsNote}
         } catch (e) {
             const match = text.match(/\{[\s\S]*\}/);
             if (match) {
-                try {
-                    parsed = JSON.parse(match[0]);
-                } catch (e2) {
-                    console.error('Cannot parse JSON. Raw:', text.substring(0, 1000));
-                    return { statusCode: 500, headers, body: JSON.stringify({ error: 'לא ניתן לפרסר את התגובה', raw: text.substring(0, 500) }) };
+                try { parsed = JSON.parse(match[0]); }
+                catch (e2) {
+                    console.error('Parse failed. Raw:', text.substring(0, 500));
+                    return { statusCode: 500, headers, body: JSON.stringify({ error: 'לא ניתן לפרסר', raw: text.substring(0, 300) }) };
                 }
             } else {
-                console.error('No JSON in response. Raw:', text.substring(0, 1000));
-                return { statusCode: 500, headers, body: JSON.stringify({ error: 'אין JSON בתגובה', raw: text.substring(0, 500) }) };
+                console.error('No JSON. Raw:', text.substring(0, 500));
+                return { statusCode: 500, headers, body: JSON.stringify({ error: 'אין JSON', raw: text.substring(0, 300) }) };
             }
         }
 
         // ולידציה
         if (action === 'generate_lesson') {
             if (!parsed.blocks || !Array.isArray(parsed.blocks) || parsed.blocks.length === 0) {
-                return { statusCode: 500, headers, body: JSON.stringify({ error: 'מבנה התוכן לא תקין', raw: text.substring(0, 500) }) };
+                return { statusCode: 500, headers, body: JSON.stringify({ error: 'מבנה התוכן לא תקין' }) };
             }
-            // v3.1.0 - אזהרה (לא שגיאה) אם quiz_questions חסרות לבלוקי concept/example
-            parsed.blocks.forEach(function(block, i){
-                if ((block.type === 'concept' || block.type === 'example') && (!block.quiz_questions || !Array.isArray(block.quiz_questions) || block.quiz_questions.length < 3)) {
-                    console.warn('Block ' + i + ' (' + block.type + ') missing quiz_questions or has fewer than 3');
-                }
+        }
+        if (action === 'generate_block_quiz') {
+            if (!parsed.questions || !Array.isArray(parsed.questions) || parsed.questions.length < 1) {
+                return { statusCode: 500, headers, body: JSON.stringify({ error: 'מבנה השאלות לא תקין' }) };
+            }
+            // פילטר ולידציה לכל שאלה
+            parsed.questions = parsed.questions.filter(function(q){
+                return q && q.question && q.options && Array.isArray(q.options) && q.options.length === 4 && q.correct_answer && q.options.indexOf(q.correct_answer) !== -1;
             });
+            if (parsed.questions.length === 0) {
+                return { statusCode: 500, headers, body: JSON.stringify({ error: 'אין שאלות תקינות' }) };
+            }
         }
         if (action === 'generate_quiz_question') {
             if (!parsed.question || !parsed.options || !Array.isArray(parsed.options) || parsed.options.length !== 4 || !parsed.correct_answer) {
-                console.error('Invalid quiz structure');
-                return { statusCode: 500, headers, body: JSON.stringify({ error: 'מבנה השאלה לא תקין', raw: text.substring(0, 500) }) };
+                return { statusCode: 500, headers, body: JSON.stringify({ error: 'מבנה השאלה לא תקין' }) };
             }
             if (parsed.options.indexOf(parsed.correct_answer) === -1) {
-                return { statusCode: 500, headers, body: JSON.stringify({ error: 'התשובה הנכונה לא נמצאת ברשימת האפשרויות' }) };
+                return { statusCode: 500, headers, body: JSON.stringify({ error: 'תשובה לא ברשימה' }) };
             }
         }
 
