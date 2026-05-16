@@ -1,6 +1,6 @@
 // netlify/functions/mavchan-ai.js
 // פונקציה לבניית ובדיקת מבחני בקרה + שיעורי לייב עם Gemini
-// גרסה: 3.0.0 | תאריך: 2026-05-16 — תוספת: generate_quiz_question לבדיקת הבנה בין בלוקים
+// גרסה: 3.0.1 | תאריך: 2026-05-16 — הגדלת maxTokens ל-quiz מ-1024 ל-2048 (בעיה שתשובות נחתכו)
 
 exports.handler = async function(event, context) {
     const headers = {
@@ -156,44 +156,36 @@ ${description ? `הנחיות / מושגים ללמד:\n${description}\n` : ''}
 }`;
 
     } else if (action === 'generate_quiz_question') {
-        // v3.0.0 - שאלת בדיקת הבנה אמריקאית על בלוק
+        // v3.0.1 - שאלת בדיקת הבנה אמריקאית על בלוק
         const { block_content, block_title, block_type, previous_attempts } = body;
         if (!block_content || block_content.length < 20) {
             return { statusCode: 400, headers, body: JSON.stringify({ error: 'נדרש תוכן בלוק (לפחות 20 תווים)' }) };
         }
 
         const attemptsNote = previous_attempts && previous_attempts.length 
-            ? '\nתלמיד זה כבר ענה על שאלות קודמות על אותו תוכן וטעה. שאל שאלה אחרת/בזווית אחרת מאלה:\n' + previous_attempts.map(function(q, i){ return (i+1) + '. ' + q; }).join('\n') + '\n'
+            ? '\nתלמיד זה כבר ענה על שאלות קודמות וטעה. שאל שאלה אחרת מאלה:\n' + previous_attempts.map(function(q, i){ return (i+1) + '. ' + q; }).join('\n') + '\n'
             : '';
 
-        prompt = `אתה מורה בתיכון בישראל הבודק שהתלמיד הבין את מה שזה עתה קרא, לפני שמאפשר לו להמשיך לחומר הבא.
+        prompt = `אתה מורה בתיכון. בנה שאלה אמריקאית קצרה (1 בלבד) שבודקת הבנה של הבלוק שהתלמיד קרא.
 
-הבלוק שהתלמיד קרא:
+הבלוק:
 ${block_title ? 'כותרת: ' + block_title : ''}
-סוג: ${block_type === 'concept' ? 'הסבר מושג' : block_type === 'example' ? 'דוגמה' : 'תוכן'}
-
 תוכן:
 """
 ${block_content}
 """
 ${attemptsNote}
-המשימה: בנה שאלה אמריקאית קצרה (1 שאלה בלבד, 4 אפשרויות, תשובה נכונה אחת) שבודקת אם התלמיד באמת הבין את הנקודה המרכזית של הבלוק.
+הנחיות:
+1. שאלה ספציפית לתוכן הבלוק
+2. בודקת הבנה אמיתית, לא שינון
+3. 4 אפשרויות סבירות, רק אחת נכונה
+4. כתוב בעברית פשוטה וברורה
+5. הוסף הסבר קצר (משפט) למה התשובה נכונה
 
-הנחיות חשובות:
-1. השאלה חייבת להיות ספציפית לתוכן הבלוק הזה - לא כללית, לא על נושאים אחרים
-2. השאלה צריכה לבדוק הבנה, לא שינון של מילים מדויקות
-3. 4 האפשרויות צריכות להיות סבירות - אבל רק אחת באמת נכונה לפי הבלוק
-4. הסחות הדעת (האפשרויות הלא-נכונות) צריכות להיות פיתויים נפוצים שתלמיד שלא הבין באמת היה בוחר
-5. כתוב בעברית פשוטה וברורה
-6. הוסף הסבר קצר (1-2 משפטים) למה התשובה הנכונה - נכונה.
+חשוב מאוד: החזר JSON בלבד! ללא הסברים לפניו, ללא backticks, ללא שום טקסט אחר. תתחיל ישר עם } { וסיים בסוף.
 
-החזר JSON תקין בלבד (ללא טקסט נוסף, ללא backticks):
-{
-  "question": "השאלה כאן?",
-  "options": ["אופציה א", "אופציה ב", "אופציה ג", "אופציה ד"],
-  "correct_answer": "אופציה ב",
-  "explanation": "הסבר קצר למה זו התשובה הנכונה"
-}`;
+פורמט:
+{"question": "השאלה?", "options": ["א", "ב", "ג", "ד"], "correct_answer": "ב", "explanation": "הסבר"}`;
 
     } else {
         return { statusCode: 400, headers, body: JSON.stringify({ error: 'Invalid action' }) };
@@ -203,7 +195,8 @@ ${attemptsNote}
     try {
         const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
         const temperature = action === 'generate_lesson' ? 0.8 : (action === 'generate_quiz_question' ? 0.6 : 0.7);
-        const maxTokens = action === 'generate_quiz_question' ? 1024 : 8192;
+        // v3.0.1 - הגדלת maxTokens לשאלת בדיקה מ-1024 ל-2048 (תשובות נחתכו)
+        const maxTokens = action === 'generate_quiz_question' ? 2048 : 8192;
         
         const response = await fetch(geminiUrl, {
             method: 'POST',
@@ -228,6 +221,7 @@ ${attemptsNote}
         const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
         
         if (!text) {
+            console.error('Empty response from Gemini. Full data:', JSON.stringify(data).substring(0, 500));
             return { statusCode: 500, headers, body: JSON.stringify({ error: 'תגובה ריקה מ-Gemini' }) };
         }
 
@@ -235,14 +229,17 @@ ${attemptsNote}
         try {
             parsed = JSON.parse(text);
         } catch (e) {
+            // נסיון לחלץ JSON מתוך טקסט
             const match = text.match(/\{[\s\S]*\}/);
             if (match) {
                 try {
                     parsed = JSON.parse(match[0]);
                 } catch (e2) {
+                    console.error('Cannot parse JSON. Raw text:', text.substring(0, 1000));
                     return { statusCode: 500, headers, body: JSON.stringify({ error: 'לא ניתן לפרסר את התגובה', raw: text.substring(0, 500) }) };
                 }
             } else {
+                console.error('No JSON in response. Raw:', text.substring(0, 1000));
                 return { statusCode: 500, headers, body: JSON.stringify({ error: 'אין JSON בתגובה', raw: text.substring(0, 500) }) };
             }
         }
@@ -255,9 +252,11 @@ ${attemptsNote}
         }
         if (action === 'generate_quiz_question') {
             if (!parsed.question || !parsed.options || !Array.isArray(parsed.options) || parsed.options.length !== 4 || !parsed.correct_answer) {
+                console.error('Invalid quiz structure:', JSON.stringify(parsed).substring(0, 500));
                 return { statusCode: 500, headers, body: JSON.stringify({ error: 'מבנה השאלה לא תקין', raw: text.substring(0, 500) }) };
             }
             if (parsed.options.indexOf(parsed.correct_answer) === -1) {
+                console.error('Correct answer not in options:', parsed.correct_answer, 'options:', parsed.options);
                 return { statusCode: 500, headers, body: JSON.stringify({ error: 'התשובה הנכונה לא נמצאת ברשימת האפשרויות' }) };
             }
         }
