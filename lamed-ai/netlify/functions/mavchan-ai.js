@@ -1,9 +1,8 @@
 // netlify/functions/mavchan-ai.js
 // פונקציה לבניית ובדיקת מבחני בקרה + שיעורי לייב עם Gemini
-// גרסה: 2.0.0 | תאריך: 2026-05-16 — תוספת: generate_lesson
+// גרסה: 3.0.0 | תאריך: 2026-05-16 — תוספת: generate_quiz_question לבדיקת הבנה בין בלוקים
 
 exports.handler = async function(event, context) {
-    // CORS headers
     const headers = {
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Headers': 'Content-Type',
@@ -14,7 +13,6 @@ exports.handler = async function(event, context) {
     if (event.httpMethod === 'OPTIONS') {
         return { statusCode: 200, headers, body: '' };
     }
-
     if (event.httpMethod !== 'POST') {
         return { statusCode: 405, headers, body: JSON.stringify({ error: 'Method not allowed' }) };
     }
@@ -39,12 +37,10 @@ exports.handler = async function(event, context) {
     let prompt = '';
 
     if (action === 'generate_test') {
-        // בניית מבחן
         const { topic, num_choice, num_open, level } = body;
         if (!topic || topic.length < 10) {
             return { statusCode: 400, headers, body: JSON.stringify({ error: 'נדרש נושא או טקסט (לפחות 10 תווים)' }) };
         }
-
         const totalQ = (num_choice || 0) + (num_open || 0);
         if (totalQ === 0) {
             return { statusCode: 400, headers, body: JSON.stringify({ error: 'נדרשת לפחות שאלה אחת' }) };
@@ -89,7 +85,6 @@ ${level ? `6. רמת קושי: ${level}` : ''}
 }`;
 
     } else if (action === 'grade_answer') {
-        // בדיקת תשובה פתוחה
         const { question, expected_answer, student_answer, max_points } = body;
         if (!question || !student_answer) {
             return { statusCode: 400, headers, body: JSON.stringify({ error: 'חסרים פרטים' }) };
@@ -120,12 +115,10 @@ ${student_answer}
 }`;
 
     } else if (action === 'generate_lesson') {
-        // v2.0.0 - יצירת תוכן שיעור לייב אינטראקטיבי
         const { title, description, duration_minutes } = body;
         if (!title || title.length < 2) {
             return { statusCode: 400, headers, body: JSON.stringify({ error: 'נדרשת כותרת לשיעור' }) };
         }
-
         const duration = duration_minutes || 45;
         const numTasks = duration <= 20 ? 2 : duration <= 40 ? 3 : duration <= 60 ? 4 : 5;
         const numConcepts = duration <= 20 ? 2 : duration <= 40 ? 3 : 4;
@@ -152,34 +145,55 @@ ${description ? `הנחיות / מושגים ללמד:\n${description}\n` : ''}
 מבנה התוכן שעליך להחזיר (JSON תקין בלבד, ללא backticks או הסברים):
 
 {
-  "lesson_title": "כותרת ראשית לשיעור (אפשר זהה לכותרת המקורית)",
-  "intro": "פסקת פתיחה של 2-3 משפטים שמציגה את חשיבות הנושא ומה התלמידים ילמדו",
+  "lesson_title": "כותרת ראשית לשיעור",
+  "intro": "פסקת פתיחה של 2-3 משפטים",
   "blocks": [
-    {
-      "type": "concept",
-      "title": "כותרת המושג",
-      "content": "הסבר מעמיק של 2-3 פסקאות. השתמש בשבירת שורות לפי הצורך."
-    },
-    {
-      "type": "example",
-      "title": "דוגמה: שם הדוגמה",
-      "content": "תיאור מפורט של דוגמה אמיתית מהחיים/מהתקשורת/מההיסטוריה"
-    },
-    {
-      "type": "task",
-      "title": "משימה: כותרת קצרה",
-      "question": "השאלה עצמה - מעוררת חשיבה, פתוחה, דורשת מהתלמיד להפעיל את מה שלמד",
-      "guidance": "הנחיה קצרה לתלמיד: על מה להתמקד בתשובה (1 משפט)"
-    }
+    {"type": "concept", "title": "כותרת המושג", "content": "הסבר מעמיק של 2-3 פסקאות"},
+    {"type": "example", "title": "דוגמה: שם", "content": "תיאור מפורט של דוגמה"},
+    {"type": "task", "title": "משימה: כותרת", "question": "השאלה", "guidance": "הנחיה קצרה"}
   ],
-  "closing": "פסקה מסכמת של 2-3 משפטים שמחברת את הכל ומשאירה את התלמיד עם מחשבה"
-}
+  "closing": "פסקה מסכמת"
+}`;
 
-חשוב מאוד:
-- הסדר של blocks חייב להיות הגיוני: ללמד מושג, אחר כך אולי דוגמה, ואז משימה ששואלת עליו
-- אל תחזור על הכותרת הראשית בתוכן הבלוקים
-- כתוב בסגנון חי וברור, לא יבש
-- שאלות במשימות לא צריכות תשובה אחת נכונה, אלא לעורר ניתוח אישי`;
+    } else if (action === 'generate_quiz_question') {
+        // v3.0.0 - שאלת בדיקת הבנה אמריקאית על בלוק
+        const { block_content, block_title, block_type, previous_attempts } = body;
+        if (!block_content || block_content.length < 20) {
+            return { statusCode: 400, headers, body: JSON.stringify({ error: 'נדרש תוכן בלוק (לפחות 20 תווים)' }) };
+        }
+
+        const attemptsNote = previous_attempts && previous_attempts.length 
+            ? '\nתלמיד זה כבר ענה על שאלות קודמות על אותו תוכן וטעה. שאל שאלה אחרת/בזווית אחרת מאלה:\n' + previous_attempts.map(function(q, i){ return (i+1) + '. ' + q; }).join('\n') + '\n'
+            : '';
+
+        prompt = `אתה מורה בתיכון בישראל הבודק שהתלמיד הבין את מה שזה עתה קרא, לפני שמאפשר לו להמשיך לחומר הבא.
+
+הבלוק שהתלמיד קרא:
+${block_title ? 'כותרת: ' + block_title : ''}
+סוג: ${block_type === 'concept' ? 'הסבר מושג' : block_type === 'example' ? 'דוגמה' : 'תוכן'}
+
+תוכן:
+"""
+${block_content}
+"""
+${attemptsNote}
+המשימה: בנה שאלה אמריקאית קצרה (1 שאלה בלבד, 4 אפשרויות, תשובה נכונה אחת) שבודקת אם התלמיד באמת הבין את הנקודה המרכזית של הבלוק.
+
+הנחיות חשובות:
+1. השאלה חייבת להיות ספציפית לתוכן הבלוק הזה - לא כללית, לא על נושאים אחרים
+2. השאלה צריכה לבדוק הבנה, לא שינון של מילים מדויקות
+3. 4 האפשרויות צריכות להיות סבירות - אבל רק אחת באמת נכונה לפי הבלוק
+4. הסחות הדעת (האפשרויות הלא-נכונות) צריכות להיות פיתויים נפוצים שתלמיד שלא הבין באמת היה בוחר
+5. כתוב בעברית פשוטה וברורה
+6. הוסף הסבר קצר (1-2 משפטים) למה התשובה הנכונה - נכונה.
+
+החזר JSON תקין בלבד (ללא טקסט נוסף, ללא backticks):
+{
+  "question": "השאלה כאן?",
+  "options": ["אופציה א", "אופציה ב", "אופציה ג", "אופציה ד"],
+  "correct_answer": "אופציה ב",
+  "explanation": "הסבר קצר למה זו התשובה הנכונה"
+}`;
 
     } else {
         return { statusCode: 400, headers, body: JSON.stringify({ error: 'Invalid action' }) };
@@ -188,20 +202,17 @@ ${description ? `הנחיות / מושגים ללמד:\n${description}\n` : ''}
     // קריאה ל-Gemini
     try {
         const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
-        
-        // טמפרטורה גבוהה יותר לשיעור (יצירתיות), נמוכה למבחן (דיוק)
-        const temperature = action === 'generate_lesson' ? 0.8 : 0.7;
+        const temperature = action === 'generate_lesson' ? 0.8 : (action === 'generate_quiz_question' ? 0.6 : 0.7);
+        const maxTokens = action === 'generate_quiz_question' ? 1024 : 8192;
         
         const response = await fetch(geminiUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                contents: [{
-                    parts: [{ text: prompt }]
-                }],
+                contents: [{ parts: [{ text: prompt }] }],
                 generationConfig: {
                     temperature: temperature,
-                    maxOutputTokens: 8192,
+                    maxOutputTokens: maxTokens,
                     responseMimeType: 'application/json'
                 }
             })
@@ -210,73 +221,51 @@ ${description ? `הנחיות / מושגים ללמד:\n${description}\n` : ''}
         if (!response.ok) {
             const errText = await response.text();
             console.error('Gemini error:', errText);
-            return { 
-                statusCode: 500, 
-                headers, 
-                body: JSON.stringify({ error: 'שגיאה בקריאה ל-Gemini', details: errText.substring(0, 500) }) 
-            };
+            return { statusCode: 500, headers, body: JSON.stringify({ error: 'שגיאה בקריאה ל-Gemini', details: errText.substring(0, 500) }) };
         }
 
         const data = await response.json();
         const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
         
         if (!text) {
-            return { 
-                statusCode: 500, 
-                headers, 
-                body: JSON.stringify({ error: 'תגובה ריקה מ-Gemini' }) 
-            };
+            return { statusCode: 500, headers, body: JSON.stringify({ error: 'תגובה ריקה מ-Gemini' }) };
         }
 
-        // ניסיון לפרסר את ה-JSON
         let parsed;
         try {
             parsed = JSON.parse(text);
         } catch (e) {
-            // נסיון לחלץ JSON מתוך טקסט
             const match = text.match(/\{[\s\S]*\}/);
             if (match) {
                 try {
                     parsed = JSON.parse(match[0]);
                 } catch (e2) {
-                    return { 
-                        statusCode: 500, 
-                        headers, 
-                        body: JSON.stringify({ error: 'לא ניתן לפרסר את התגובה', raw: text.substring(0, 500) }) 
-                    };
+                    return { statusCode: 500, headers, body: JSON.stringify({ error: 'לא ניתן לפרסר את התגובה', raw: text.substring(0, 500) }) };
                 }
             } else {
-                return { 
-                    statusCode: 500, 
-                    headers, 
-                    body: JSON.stringify({ error: 'אין JSON בתגובה', raw: text.substring(0, 500) }) 
-                };
+                return { statusCode: 500, headers, body: JSON.stringify({ error: 'אין JSON בתגובה', raw: text.substring(0, 500) }) };
             }
         }
 
-        // ולידציה לשיעור
+        // ולידציה
         if (action === 'generate_lesson') {
             if (!parsed.blocks || !Array.isArray(parsed.blocks) || parsed.blocks.length === 0) {
-                return {
-                    statusCode: 500,
-                    headers,
-                    body: JSON.stringify({ error: 'מבנה התוכן לא תקין', raw: text.substring(0, 500) })
-                };
+                return { statusCode: 500, headers, body: JSON.stringify({ error: 'מבנה התוכן לא תקין', raw: text.substring(0, 500) }) };
+            }
+        }
+        if (action === 'generate_quiz_question') {
+            if (!parsed.question || !parsed.options || !Array.isArray(parsed.options) || parsed.options.length !== 4 || !parsed.correct_answer) {
+                return { statusCode: 500, headers, body: JSON.stringify({ error: 'מבנה השאלה לא תקין', raw: text.substring(0, 500) }) };
+            }
+            if (parsed.options.indexOf(parsed.correct_answer) === -1) {
+                return { statusCode: 500, headers, body: JSON.stringify({ error: 'התשובה הנכונה לא נמצאת ברשימת האפשרויות' }) };
             }
         }
 
-        return {
-            statusCode: 200,
-            headers,
-            body: JSON.stringify(parsed)
-        };
+        return { statusCode: 200, headers, body: JSON.stringify(parsed) };
 
     } catch (err) {
         console.error('Error:', err);
-        return { 
-            statusCode: 500, 
-            headers, 
-            body: JSON.stringify({ error: 'שגיאה: ' + err.message }) 
-        };
+        return { statusCode: 500, headers, body: JSON.stringify({ error: 'שגיאה: ' + err.message }) };
     }
 };
