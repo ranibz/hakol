@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- VERSION 1.4.2 - 16/05/2026 - תוכן AI לשיעורי לייב: הוספת כפתור "🤖 צור תוכן עם AI" בטופס יצירת שיעור לייב. ה-AI בונה תוכן בלוקים (concept/example/task) עם פתיחה וסיכום. תצוגה מקדימה לפני שמירה + כפתורי "צור שוב"/"אשר". התלמיד רואה את התוכן בלוק אחרי בלוק - בלוקי משימה חייבים תשובה לפני המעבר הבא. שמירה אוטומטית של תשובות וההתקדמות ב-task_answers (jsonb) ו-current_block_index. דורש: עמודה live_lesson_content (jsonb) ב-assignments + 2 עמודות חדשות ב-live_lesson_sessions: current_block_index (integer, default 0), task_answers (jsonb, default {}). | פיתוח: רני בן זאב -->
 <!-- VERSION 1.4.1 - 16/05/2026 - תיקון חיבור AI: הפניית כל קריאות ה-AI ל-site נפרד lamed-ai-functions.netlify.app במקום לכתובת היחסית. ב-lamedproject ה-netlify.toml בשורש מצביע על תיקיית רכבות (לא ניתן לגעת), אז הקובץ mavchan-ai.js שהיה ב-netlify/functions לא נטען. כעת יש site נפרד עם קובץ v2.0.0 (שכולל גם generate_lesson לשיעורי לייב). שינוי של שורה אחת בלבד (var MAVCHAN_AI_URL). | פיתוח: רני בן זאב -->
 <!-- VERSION 1.4.0 - 15/05/2026 - שיעור לייב: סוג מטלה חדש "שיעור לייב" (שיעור סינכרוני בכתב, לא בזום). בטופס יצירת מטלה: 3 קופסאות בחירה (מטלה רגילה / מבחן בקרה לייב / שיעור לייב). כשבוחרים שיעור לייב מופיע שדה משך זמן + כפתור יצירת תוכן AI. המורה רואה תוכן שתלמיד כותב בזמן אמת, צ'אט פרטי וכיתתי. דורש 4 עמודות ב-assignments (is_live_lesson, live_lesson_duration_minutes, live_lesson_started_at, live_lesson_ended_at) + 2 טבלאות חדשות (live_lesson_sessions, live_lesson_chats). | פיתוח: רני בן זאב -->
 <!-- VERSION 1.3.2 - 14/05/2026 - מבחני בקרה אצל התלמיד: (1) תיקון באג: מבחן לייב שהסתיים והתלמיד הגיש - היה נעלם מהמסך, עכשיו ממשיך להופיע בטאב "המטלות שלי" עם תווית "✅ הוגש" + ציון מ-100. (2) טאב "📊 הציונים שלי" - מבחני בקרה מופיעים בסעיף נפרד עם ציון מ-100, ולחיצה על כל מבחן פותחת חלון פירוט מלא של כל שאלה, התשובה שניתנה, אם נכון/שגוי, התשובה הנכונה, והערכת ה-AI עם הסבר מילולי. הממוצע משלב גם מטלות וגם מבחנים. | פיתוח: רני בן זאב -->
@@ -166,8 +167,8 @@ body{font-family:"Rubik",sans-serif;background:var(--bg);color:var(--text);min-h
   <div class="login-err" id="loginErr">❌ פרטי כניסה שגויים</div>
 </div>
 </div>
-<!-- STUDENT --><div id="studentScreen"><div class="topbar"><div class="topbar-left"><h2>מערכת מטלות <span style="background:#10b981;color:white;font-size:0.65rem;padding:3px 8px;border-radius:8px;margin-right:8px;font-weight:700;vertical-align:middle;">v1.4.1</span></h2><p id="sTpName"></p></div><button class="btn-logout" onclick="logout()">יציאה</button></div><div class="screen-body"><div class="student-welcome"><h3 id="sWelcomeName">שלום!</h3><p id="sWelcomeClass"></p></div><div class="stats-row"><div class="stat-box"><div class="num" id="sTotalAsgn" style="color:#5c6bc0;">0</div><div class="lbl">מטלות פעילות</div></div><div class="stat-box"><div class="num" id="sSubmitted" style="color:#00b894;">0</div><div class="lbl">הגשות</div></div><div class="stat-box"><div class="num" id="sPending" style="color:#f39c12;">0</div><div class="lbl">ממתינות</div></div><div class="stat-box"><div class="num" id="sGraded" style="color:#9c27b0;">0</div><div class="lbl">קיבלו ציון</div></div></div><div class="student-tabs" style="display:flex;gap:10px;margin-bottom:20px;"><button class="s-tab active" onclick="switchSTab('assignments',this)" style="flex:1;padding:12px;border:none;border-radius:12px;font-family:inherit;font-size:.95rem;font-weight:700;cursor:pointer;background:linear-gradient(135deg,#667eea,#764ba2);color:white;">📋 המטלות שלי</button><button class="s-tab" onclick="switchSTab('grades',this)" style="flex:1;padding:12px;border:2px solid #eee;border-radius:12px;font-family:inherit;font-size:.95rem;font-weight:700;cursor:pointer;background:white;color:#666;">📊 הציונים שלי</button></div><div id="sAssignments" class="s-panel"><div class="section-title"><span class="material-icons-round" style="color:#5c6bc0;">assignment</span> המטלות שלי</div><div id="studentMavchanimList"></div><div id="studentAssignmentsList"></div></div><div id="sGrades" class="s-panel" style="display:none;"><div class="section-title"><span style="color:#9c27b0;">📊</span> הציונים שלי</div><div id="studentGradesList"></div></div></div></div>
-<!-- TEACHER --><div id="teacherScreen"><div class="topbar"><div class="topbar-left"><h2>מערכת מטלות – מורה <span style="background:#10b981;color:white;font-size:0.65rem;padding:3px 8px;border-radius:8px;margin-right:8px;font-weight:700;vertical-align:middle;">v1.4.1</span></h2><p id="tTpName"></p></div><button class="btn-logout" onclick="logout()">יציאה</button></div><div class="screen-body"><div class="teacher-tabs"><button class="t-tab active" onclick="switchTTab('assignments',this)">📋 המטלות שלי</button><button class="t-tab" onclick="switchTTab('new',this)">➕ מטלה חדשה</button><button class="t-tab" onclick="switchTTab('mavchanim',this)">🔒 מבחני בקרה</button><button class="t-tab" onclick="switchTTab('students',this)">👥 התלמידים שלי</button><button class="t-tab" onclick="switchTTab('grades',this)">📊 מעקב ציונים</button><button class="t-tab" onclick="switchTTab('overview',this)">📈 סקירה</button></div><div id="tAssignments" class="t-panel active"><div class="filter-bar"><select id="tFilterClass" onchange="renderTeacherAssignments()"><option value="">כל הכיתות</option></select></div><div id="teacherAssignmentsList"></div></div><div id="tStudents" class="t-panel"><div class="panel-card"><h2>👥 התלמידים שלי</h2><div class="filter-bar" style="margin-bottom:15px;"><select id="tStudentsClassFilter" onchange="renderTeacherStudents()" style="padding:10px 15px;border:2px solid #eee;border-radius:10px;font-family:inherit;font-size:.95rem;min-width:200px;"><option value="">-- בחר כיתה --</option></select></div><div id="tStudentsStats" style="display:flex;gap:15px;margin-bottom:15px;flex-wrap:wrap;"></div><table class="admin-table" id="tStudentsTable" style="display:none;"><thead><tr><th>#</th><th>ת.ז</th><th>שם</th><th>כיתה</th></tr></thead><tbody id="tStudentsBody"></tbody></table><div id="tStudentsEmpty" style="text-align:center;padding:40px;color:#888;">בחר כיתה לצפייה בתלמידים</div></div></div><div id="tGrades" class="t-panel"><div class="panel-card"><h2>📊 מעקב ציונים והערכות</h2><div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;"><select id="tGradesClassFilter" onchange="loadGradesView()" style="padding:10px 15px;border:2px solid #eee;border-radius:10px;font-family:inherit;font-size:.95rem;min-width:200px;"><option value="">-- בחר כיתה --</option></select><button class="btn-preview" onclick="exportGradesToExcel()" style="margin-right:auto;">📥 ייצוא לאקסל</button></div><div id="gradesStats" style="display:flex;gap:15px;margin-bottom:20px;flex-wrap:wrap;"></div><div id="gradesContent"><div style="text-align:center;padding:40px;color:#888;">בחר כיתה לצפייה בציונים</div></div></div></div><div id="tNew" class="t-panel"><div class="panel-card"><h2>➕ יצירת מטלה חדשה</h2>
+<!-- STUDENT --><div id="studentScreen"><div class="topbar"><div class="topbar-left"><h2>מערכת מטלות <span style="background:#10b981;color:white;font-size:0.65rem;padding:3px 8px;border-radius:8px;margin-right:8px;font-weight:700;vertical-align:middle;">v1.4.2</span></h2><p id="sTpName"></p></div><button class="btn-logout" onclick="logout()">יציאה</button></div><div class="screen-body"><div class="student-welcome"><h3 id="sWelcomeName">שלום!</h3><p id="sWelcomeClass"></p></div><div class="stats-row"><div class="stat-box"><div class="num" id="sTotalAsgn" style="color:#5c6bc0;">0</div><div class="lbl">מטלות פעילות</div></div><div class="stat-box"><div class="num" id="sSubmitted" style="color:#00b894;">0</div><div class="lbl">הגשות</div></div><div class="stat-box"><div class="num" id="sPending" style="color:#f39c12;">0</div><div class="lbl">ממתינות</div></div><div class="stat-box"><div class="num" id="sGraded" style="color:#9c27b0;">0</div><div class="lbl">קיבלו ציון</div></div></div><div class="student-tabs" style="display:flex;gap:10px;margin-bottom:20px;"><button class="s-tab active" onclick="switchSTab('assignments',this)" style="flex:1;padding:12px;border:none;border-radius:12px;font-family:inherit;font-size:.95rem;font-weight:700;cursor:pointer;background:linear-gradient(135deg,#667eea,#764ba2);color:white;">📋 המטלות שלי</button><button class="s-tab" onclick="switchSTab('grades',this)" style="flex:1;padding:12px;border:2px solid #eee;border-radius:12px;font-family:inherit;font-size:.95rem;font-weight:700;cursor:pointer;background:white;color:#666;">📊 הציונים שלי</button></div><div id="sAssignments" class="s-panel"><div class="section-title"><span class="material-icons-round" style="color:#5c6bc0;">assignment</span> המטלות שלי</div><div id="studentMavchanimList"></div><div id="studentAssignmentsList"></div></div><div id="sGrades" class="s-panel" style="display:none;"><div class="section-title"><span style="color:#9c27b0;">📊</span> הציונים שלי</div><div id="studentGradesList"></div></div></div></div>
+<!-- TEACHER --><div id="teacherScreen"><div class="topbar"><div class="topbar-left"><h2>מערכת מטלות – מורה <span style="background:#10b981;color:white;font-size:0.65rem;padding:3px 8px;border-radius:8px;margin-right:8px;font-weight:700;vertical-align:middle;">v1.4.2</span></h2><p id="tTpName"></p></div><button class="btn-logout" onclick="logout()">יציאה</button></div><div class="screen-body"><div class="teacher-tabs"><button class="t-tab active" onclick="switchTTab('assignments',this)">📋 המטלות שלי</button><button class="t-tab" onclick="switchTTab('new',this)">➕ מטלה חדשה</button><button class="t-tab" onclick="switchTTab('mavchanim',this)">🔒 מבחני בקרה</button><button class="t-tab" onclick="switchTTab('students',this)">👥 התלמידים שלי</button><button class="t-tab" onclick="switchTTab('grades',this)">📊 מעקב ציונים</button><button class="t-tab" onclick="switchTTab('overview',this)">📈 סקירה</button></div><div id="tAssignments" class="t-panel active"><div class="filter-bar"><select id="tFilterClass" onchange="renderTeacherAssignments()"><option value="">כל הכיתות</option></select></div><div id="teacherAssignmentsList"></div></div><div id="tStudents" class="t-panel"><div class="panel-card"><h2>👥 התלמידים שלי</h2><div class="filter-bar" style="margin-bottom:15px;"><select id="tStudentsClassFilter" onchange="renderTeacherStudents()" style="padding:10px 15px;border:2px solid #eee;border-radius:10px;font-family:inherit;font-size:.95rem;min-width:200px;"><option value="">-- בחר כיתה --</option></select></div><div id="tStudentsStats" style="display:flex;gap:15px;margin-bottom:15px;flex-wrap:wrap;"></div><table class="admin-table" id="tStudentsTable" style="display:none;"><thead><tr><th>#</th><th>ת.ז</th><th>שם</th><th>כיתה</th></tr></thead><tbody id="tStudentsBody"></tbody></table><div id="tStudentsEmpty" style="text-align:center;padding:40px;color:#888;">בחר כיתה לצפייה בתלמידים</div></div></div><div id="tGrades" class="t-panel"><div class="panel-card"><h2>📊 מעקב ציונים והערכות</h2><div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;"><select id="tGradesClassFilter" onchange="loadGradesView()" style="padding:10px 15px;border:2px solid #eee;border-radius:10px;font-family:inherit;font-size:.95rem;min-width:200px;"><option value="">-- בחר כיתה --</option></select><button class="btn-preview" onclick="exportGradesToExcel()" style="margin-right:auto;">📥 ייצוא לאקסל</button></div><div id="gradesStats" style="display:flex;gap:15px;margin-bottom:20px;flex-wrap:wrap;"></div><div id="gradesContent"><div style="text-align:center;padding:40px;color:#888;">בחר כיתה לצפייה בציונים</div></div></div></div><div id="tNew" class="t-panel"><div class="panel-card"><h2>➕ יצירת מטלה חדשה</h2>
 
 <!-- v1.4.0: 3 קופסאות בחירת סוג -->
 <div id="taskTypeSelector" style="background:#f8fafc;border-radius:14px;padding:16px;margin-bottom:20px;border:1px solid #e2e8f0;">
@@ -215,10 +216,13 @@ body{font-family:"Rubik",sans-serif;background:var(--bg);color:var(--text);min-h
 <label style="color:#065f46;font-weight:700;">משך השיעור (דקות) *</label>
 <input type="number" id="nLiveLessonDuration" value="45" min="5" max="180" style="background:white;">
 </div>
-<div style="background:rgba(255,255,255,0.7);border-radius:10px;padding:12px;margin-top:10px;">
-<div style="font-weight:800;color:#065f46;font-size:0.85rem;margin-bottom:8px;">🤖 תוכן השיעור — ייווצר ע"י AI</div>
-<div style="font-size:0.78rem;color:#047857;line-height:1.5;">בשלב הבא ייפתח אזור שבו תזין נושא לימוד וה-AI יבנה שיעור אינטראקטיבי עם הסברים ומשימות. השיעור יוצג לתלמידים במסך משלהם, ואתה תראה את התקדמותם בזמן אמת.</div>
-<div style="margin-top:8px;padding:8px 10px;background:#fef3c7;border-radius:8px;font-size:0.75rem;color:#78350f;">⚠️ <strong>בפיתוח:</strong> בגרסה הנוכחית — שיעור לייב נשמר במערכת. צד התלמיד והדשבורד יושלמו בשלב הבא.</div>
+<!-- v1.4.2: כפתור יצירת תוכן AI ותצוגה מקדימה -->
+<div style="background:rgba(255,255,255,0.7);border-radius:10px;padding:14px;margin-top:10px;">
+<div style="font-weight:800;color:#065f46;font-size:0.95rem;margin-bottom:10px;">🤖 תוכן השיעור</div>
+<div style="font-size:0.78rem;color:#047857;line-height:1.5;margin-bottom:12px;">מלא את הכותרת והתיאור למעלה, ולחץ על הכפתור כדי שה-AI יבנה לך שיעור אינטראקטיבי. תוכל לראות תצוגה מקדימה לפני שמירה.</div>
+<button type="button" id="btnGenerateLessonAI" onclick="generateLiveLessonContent()" style="width:100%;padding:14px;background:linear-gradient(135deg,#8b5cf6,#ec4899);color:white;border:none;border-radius:10px;font-family:inherit;font-size:1rem;font-weight:800;cursor:pointer;box-shadow:0 4px 12px rgba(139,92,246,0.3);">🤖 צור תוכן עם AI</button>
+<div id="liveLessonAIStatus" style="margin-top:10px;font-size:0.85rem;"></div>
+<div id="liveLessonContentPreview" style="display:none;margin-top:14px;background:white;border-radius:10px;padding:14px;border:2px solid #10b981;"></div>
 </div>
 </div>
 
@@ -1626,11 +1630,24 @@ async function joinLiveLesson(assignmentId) {
         if (existing && existing.length) {
             await sbUpdate('live_lesson_sessions', 'id=eq.' + existing[0].id, { last_seen: new Date().toISOString() });
             _studentLessonContent = existing[0].current_content || '';
+            // v1.4.2 — טעינת מצב הבלוקים
+            _studentBlocksState.currentBlockIndex = existing[0].current_block_index || 0;
+            _studentBlocksState.taskAnswers = existing[0].task_answers || {};
+            _studentBlocksState.sessionId = existing[0].id;
         } else {
             sessionData.joined_at = new Date().toISOString();
             sessionData.current_content = '';
+            sessionData.current_block_index = 0;
+            sessionData.task_answers = {};
             await sbInsert('live_lesson_sessions', sessionData);
             _studentLessonContent = '';
+            // v1.4.2 — מצב חדש לבלוקים
+            var fresh = await sbFetch('live_lesson_sessions', '?assignment_id=eq.' + assignmentId + '&student_id=eq.' + curUser.id);
+            if (fresh && fresh.length) {
+                _studentBlocksState.currentBlockIndex = 0;
+                _studentBlocksState.taskAnswers = {};
+                _studentBlocksState.sessionId = fresh[0].id;
+            }
         }
         
         _studentLessonId = assignmentId;
@@ -1698,6 +1715,32 @@ function renderStudentLesson(a) {
         html += '<h3 style="margin:0;font-size:1.3rem;color:#374151;">השיעור הסתיים</h3>';
         html += '<p style="color:#6b7280;margin:8px 0;">המורה סיים את השיעור. תודה על השתתפותך!</p>';
         html += '<button onclick="leaveLiveLesson()" style="margin-top:16px;background:#3b82f6;color:white;border:none;padding:12px 28px;border-radius:10px;font-family:inherit;font-weight:800;cursor:pointer;">חזרה למטלות</button>';
+        html += '</div>';
+    } else if (a.live_lesson_content && a.live_lesson_content.blocks && a.live_lesson_content.blocks.length) {
+        // v1.4.2 — יש תוכן AI: הצג בלוקים אינטראקטיביים
+        html += '<div style="flex:1;padding:24px;background:#f9fafb;">';
+        
+        // אזור התוכן הראשי
+        html += '<div style="background:white;border-radius:14px;padding:20px;box-shadow:0 4px 12px rgba(0,0,0,0.06);">';
+        html += renderLessonBlocksUI(a.live_lesson_content);
+        html += '</div>';
+        
+        // צ'אט עם המורה (נשמר כאלמנט קיים)
+        html += '<div id="studentChatPanel" style="margin-top:16px;background:white;border-radius:14px;padding:16px;box-shadow:0 4px 12px rgba(0,0,0,0.06);">';
+        html += '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">';
+        html += '<div style="font-weight:800;color:#1e293b;display:flex;align-items:center;gap:8px;">';
+        html += '<span>💬 צ\\'אט עם המורה</span>';
+        html += '<span id="studentChatUnread" style="background:#dc2626;color:white;font-size:0.65rem;padding:2px 7px;border-radius:10px;font-weight:800;display:none;">0</span>';
+        html += '</div>';
+        html += '<div style="font-size:0.72rem;color:#94a3b8;">מתעדכן כל 3 שנ\\'</div>';
+        html += '</div>';
+        html += '<div id="studentChatMessages" style="background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:12px;min-height:120px;max-height:240px;overflow-y:auto;margin-bottom:10px;"><div style="text-align:center;color:#94a3b8;padding:20px 10px;font-size:0.85rem;">טוען הודעות...</div></div>';
+        html += '<div style="display:flex;gap:8px;">';
+        html += '<input type="text" id="studentChatInput" placeholder="שאל את המורה..." onkeypress="if(event.key===\\'Enter\\')sendStudentMessage()" style="flex:1;padding:10px 12px;border:2px solid #d1fae5;border-radius:8px;font-family:inherit;font-size:0.9rem;background:white;">';
+        html += '<button onclick="sendStudentMessage()" style="background:linear-gradient(135deg,#10b981,#059669);color:white;border:none;padding:10px 22px;border-radius:8px;font-family:inherit;font-weight:800;cursor:pointer;font-size:0.9rem;">שלח</button>';
+        html += '</div>';
+        html += '</div>';
+        
         html += '</div>';
     } else {
         html += '<div style="flex:1;padding:24px;background:#f9fafb;">';
@@ -2014,7 +2057,8 @@ function createAssignment(){
             teacher_name: curUser.name,
             specific_students: specificStudentsLL,
             is_live_lesson: true,
-            live_lesson_duration_minutes: duration
+            live_lesson_duration_minutes: duration,
+            live_lesson_content: _pendingLessonContent || null  // v1.4.2 - תוכן AI מאושר
         };
         if (!editingAssignmentId) dataLL.created_at = new Date().toISOString();
         var promiseLL = editingAssignmentId 
@@ -3280,7 +3324,367 @@ async function viewAttemptDetail(attemptId) {
     }
 }
 
-function escapeHtmlMv(s) {
+// ============================================
+// v1.4.2 - פונקציות תוכן שיעור לייב עם AI
+// ============================================
+var _pendingLessonContent = null; // התוכן שנוצר וממתין לאישור/שמירה
+
+async function generateLiveLessonContent() {
+    var title = (document.getElementById("nTitle").value || "").trim();
+    var desc = (document.getElementById("nDesc").value || "").trim();
+    var duration = parseInt(document.getElementById("nLiveLessonDuration").value) || 45;
+    
+    if (!title || title.length < 2) {
+        toast("⚠️ יש להזין כותרת לשיעור לפני יצירת תוכן");
+        return;
+    }
+    
+    var btn = document.getElementById("btnGenerateLessonAI");
+    var statusEl = document.getElementById("liveLessonAIStatus");
+    var previewEl = document.getElementById("liveLessonContentPreview");
+    
+    btn.disabled = true;
+    btn.style.opacity = "0.6";
+    btn.style.cursor = "wait";
+    btn.textContent = "🤖 ה-AI חושב...";
+    statusEl.innerHTML = '<div style="background:#fef3c7;padding:10px;border-radius:8px;color:#78350f;">⏳ בונה שיעור — זה לוקח 15-30 שניות...</div>';
+    previewEl.style.display = "none";
+    
+    try {
+        var res = await fetch("https://lamed-ai-functions.netlify.app/.netlify/functions/mavchan-ai", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({
+                action: "generate_lesson",
+                title: title,
+                description: desc,
+                duration_minutes: duration
+            })
+        });
+        
+        var data = await res.json();
+        
+        if (!res.ok || data.error) {
+            throw new Error(data.error || "שגיאה ביצירת השיעור");
+        }
+        
+        if (!data.blocks || !Array.isArray(data.blocks) || data.blocks.length === 0) {
+            throw new Error("התקבל תוכן לא תקין מה-AI");
+        }
+        
+        // שמור את התוכן כממתין לאישור
+        _pendingLessonContent = data;
+        
+        // הצג תצוגה מקדימה
+        renderLessonPreview(data);
+        
+        statusEl.innerHTML = '<div style="background:#dcfce7;padding:10px;border-radius:8px;color:#065f46;font-weight:700;">✅ התוכן נוצר! בדוק למטה ואשר.</div>';
+        
+    } catch (err) {
+        console.error("generateLiveLessonContent error:", err);
+        statusEl.innerHTML = '<div style="background:#fee2e2;padding:10px;border-radius:8px;color:#991b1b;">❌ שגיאה: ' + (err.message || "נסה שוב") + '</div>';
+        _pendingLessonContent = null;
+    } finally {
+        btn.disabled = false;
+        btn.style.opacity = "1";
+        btn.style.cursor = "pointer";
+        btn.textContent = "🤖 צור תוכן עם AI";
+    }
+}
+
+function renderLessonPreview(content) {
+    var previewEl = document.getElementById("liveLessonContentPreview");
+    if (!previewEl) return;
+    
+    var html = '';
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;padding-bottom:10px;border-bottom:2px solid #d1fae5;">';
+    html += '<div style="font-weight:900;color:#065f46;font-size:1.05rem;">👁 תצוגה מקדימה</div>';
+    html += '<div style="font-size:0.78rem;color:#047857;background:#d1fae5;padding:4px 10px;border-radius:8px;font-weight:700;">' + (content.blocks ? content.blocks.length : 0) + ' בלוקים</div>';
+    html += '</div>';
+    
+    // כותרת ופתיחה
+    if (content.lesson_title) {
+        html += '<div style="font-size:1.15rem;font-weight:900;color:#065f46;margin-bottom:8px;">' + escHtml(content.lesson_title) + '</div>';
+    }
+    if (content.intro) {
+        html += '<div style="background:#f0fdf4;padding:12px;border-radius:8px;margin-bottom:14px;color:#374151;line-height:1.6;border-right:4px solid #10b981;">' + escHtml(content.intro) + '</div>';
+    }
+    
+    // בלוקים
+    if (content.blocks && content.blocks.length) {
+        content.blocks.forEach(function(block, idx) {
+            var typeIcon = block.type === 'concept' ? '💡' : (block.type === 'example' ? '📌' : (block.type === 'task' ? '✏️' : '📄'));
+            var typeName = block.type === 'concept' ? 'מושג' : (block.type === 'example' ? 'דוגמה' : (block.type === 'task' ? 'משימה' : 'תוכן'));
+            var typeColor = block.type === 'concept' ? '#3b82f6' : (block.type === 'example' ? '#f59e0b' : (block.type === 'task' ? '#ec4899' : '#6b7280'));
+            
+            html += '<div style="background:white;border:2px solid #e5e7eb;border-radius:10px;padding:12px;margin-bottom:10px;">';
+            html += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">';
+            html += '<div style="background:' + typeColor + ';color:white;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:0.85rem;">' + (idx + 1) + '</div>';
+            html += '<div style="font-size:0.78rem;color:' + typeColor + ';font-weight:800;background:' + typeColor + '15;padding:3px 9px;border-radius:6px;">' + typeIcon + ' ' + typeName + '</div>';
+            if (block.title) html += '<div style="font-weight:800;color:#1f2937;">' + escHtml(block.title) + '</div>';
+            html += '</div>';
+            
+            if (block.content) {
+                html += '<div style="color:#374151;line-height:1.6;font-size:0.92rem;white-space:pre-wrap;">' + escHtml(block.content) + '</div>';
+            }
+            if (block.question) {
+                html += '<div style="background:#fdf2f8;padding:10px;border-radius:8px;margin-top:8px;border-right:3px solid #ec4899;">';
+                html += '<div style="font-weight:800;color:#9d174d;margin-bottom:4px;font-size:0.9rem;">❓ ' + escHtml(block.question) + '</div>';
+                if (block.guidance) {
+                    html += '<div style="font-size:0.82rem;color:#831843;font-style:italic;">💡 ' + escHtml(block.guidance) + '</div>';
+                }
+                html += '</div>';
+            }
+            html += '</div>';
+        });
+    }
+    
+    // סיכום
+    if (content.closing) {
+        html += '<div style="background:#fef3c7;padding:12px;border-radius:8px;margin-top:14px;color:#374151;line-height:1.6;border-right:4px solid #f59e0b;">';
+        html += '<div style="font-weight:800;color:#92400e;margin-bottom:4px;font-size:0.85rem;">🎯 סיכום</div>';
+        html += escHtml(content.closing);
+        html += '</div>';
+    }
+    
+    // כפתורי פעולה
+    html += '<div style="display:flex;gap:10px;margin-top:18px;padding-top:14px;border-top:2px solid #d1fae5;">';
+    html += '<button type="button" onclick="regenerateLessonContent()" style="flex:1;padding:12px;background:#f3f4f6;color:#374151;border:2px solid #d1d5db;border-radius:10px;font-family:inherit;font-weight:800;cursor:pointer;font-size:0.92rem;">🔄 צור שוב</button>';
+    html += '<button type="button" onclick="confirmLessonContent()" style="flex:2;padding:12px;background:linear-gradient(135deg,#10b981,#059669);color:white;border:none;border-radius:10px;font-family:inherit;font-weight:800;cursor:pointer;font-size:0.95rem;box-shadow:0 4px 12px rgba(16,185,129,0.3);">✅ אישור התוכן הזה</button>';
+    html += '</div>';
+    
+    previewEl.innerHTML = html;
+    previewEl.style.display = "block";
+}
+
+function regenerateLessonContent() {
+    if (!confirm("ליצור תוכן חדש? התוכן הנוכחי יוחלף")) return;
+    _pendingLessonContent = null;
+    document.getElementById("liveLessonContentPreview").style.display = "none";
+    generateLiveLessonContent();
+}
+
+function confirmLessonContent() {
+    if (!_pendingLessonContent) {
+        toast("⚠️ אין תוכן לאישור");
+        return;
+    }
+    var statusEl = document.getElementById("liveLessonAIStatus");
+    statusEl.innerHTML = '<div style="background:#dcfce7;padding:10px;border-radius:8px;color:#065f46;font-weight:700;">✅ התוכן אושר! לחץ "🟢 צור שיעור לייב" למטה כדי לפרסם.</div>';
+    
+    // סמן את הכפתור בויזואלי כמוכן
+    var btn = document.getElementById("btnGenerateLessonAI");
+    btn.style.background = "linear-gradient(135deg,#10b981,#059669)";
+    btn.textContent = "✅ התוכן מוכן — שמור את השיעור למטה";
+    btn.disabled = true;
+    btn.style.opacity = "0.7";
+    btn.style.cursor = "default";
+    
+    toast("✅ התוכן אושר! לחץ 'צור שיעור לייב' למטה");
+}
+
+// ============================================
+// v1.4.2 - צד התלמיד: לוגיקה לבלוקי AI
+// (משתמשת בתשתית הקיימת של renderStudentLesson)
+// ============================================
+var _studentBlocksState = {
+    currentBlockIndex: 0,
+    taskAnswers: {},
+    sessionId: null
+};
+
+async function loadStudentLessonBlocks(assignmentId, sessionRow) {
+    if (sessionRow) {
+        _studentBlocksState.currentBlockIndex = sessionRow.current_block_index || 0;
+        _studentBlocksState.taskAnswers = sessionRow.task_answers || {};
+        _studentBlocksState.sessionId = sessionRow.id;
+    }
+}
+
+function renderLessonBlocksUI(content) {
+    if (!content || !content.blocks || !content.blocks.length) {
+        return '<div style="background:#fef3c7;padding:20px;border-radius:12px;color:#78350f;text-align:center;">⚠️ אין תוכן זמין לשיעור הזה. המורה לא יצר תוכן AI.</div>';
+    }
+    
+    var state = _studentBlocksState;
+    var blocks = content.blocks;
+    var idx = state.currentBlockIndex;
+    var total = blocks.length;
+    
+    var html = '';
+    
+    // Progress bar
+    var pct = total > 0 ? Math.round((idx / total) * 100) : 0;
+    html += '<div style="background:#f3f4f6;border-radius:10px;padding:14px;margin-bottom:18px;">';
+    html += '<div style="display:flex;justify-content:space-between;font-size:0.85rem;font-weight:700;color:#374151;margin-bottom:8px;">';
+    html += '<span>בלוק ' + Math.min(idx + 1, total) + ' מתוך ' + total + '</span>';
+    html += '<span>' + pct + '%</span>';
+    html += '</div>';
+    html += '<div style="background:#e5e7eb;border-radius:8px;height:10px;overflow:hidden;">';
+    html += '<div style="background:linear-gradient(135deg,#10b981,#059669);height:100%;width:' + pct + '%;transition:width 0.4s;"></div>';
+    html += '</div>';
+    html += '</div>';
+    
+    // פתיחה (רק בבלוק הראשון)
+    if (idx === 0 && content.intro) {
+        html += '<div style="background:linear-gradient(135deg,#dbeafe,#e0e7ff);padding:16px;border-radius:12px;margin-bottom:18px;color:#1e3a8a;line-height:1.7;font-size:1rem;border-right:4px solid #3b82f6;">';
+        html += '<div style="font-weight:800;margin-bottom:6px;font-size:0.92rem;">👋 פתיחה</div>';
+        html += escHtml(content.intro);
+        html += '</div>';
+    }
+    
+    // סיום
+    if (idx >= total) {
+        html += '<div style="text-align:center;padding:30px 20px;background:#f0fdf4;border-radius:14px;">';
+        html += '<div style="font-size:4rem;margin-bottom:12px;">🎉</div>';
+        html += '<h3 style="font-size:1.4rem;font-weight:900;color:#065f46;margin-bottom:14px;">סיימת את השיעור!</h3>';
+        if (content.closing) {
+            html += '<div style="background:#fef3c7;padding:16px;border-radius:12px;color:#374151;line-height:1.7;text-align:right;margin:14px 0;border-right:4px solid #f59e0b;">' + escHtml(content.closing) + '</div>';
+        }
+        html += '<div style="background:#dcfce7;padding:14px;border-radius:10px;color:#065f46;font-weight:700;margin-top:14px;">✅ כל ההתקדמות שלך נשמרה. תוכל לסגור.</div>';
+        html += '</div>';
+        return html;
+    }
+    
+    // הבלוק הנוכחי
+    var block = blocks[idx];
+    var typeIcon = block.type === 'concept' ? '💡' : (block.type === 'example' ? '📌' : (block.type === 'task' ? '✏️' : '📄'));
+    var typeName = block.type === 'concept' ? 'מושג' : (block.type === 'example' ? 'דוגמה' : (block.type === 'task' ? 'משימה' : 'תוכן'));
+    var typeColor = block.type === 'concept' ? '#3b82f6' : (block.type === 'example' ? '#f59e0b' : (block.type === 'task' ? '#ec4899' : '#6b7280'));
+    
+    html += '<div style="background:' + typeColor + '15;border:2px solid ' + typeColor + ';border-radius:14px;padding:22px;margin-bottom:20px;">';
+    html += '<div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;flex-wrap:wrap;">';
+    html += '<div style="background:' + typeColor + ';color:white;padding:6px 14px;border-radius:8px;font-weight:800;font-size:0.85rem;">' + typeIcon + ' ' + typeName + '</div>';
+    if (block.title) html += '<h3 style="margin:0;font-size:1.2rem;font-weight:900;color:#1f2937;">' + escHtml(block.title) + '</h3>';
+    html += '</div>';
+    
+    if (block.content) {
+        html += '<div style="color:#374151;line-height:1.7;font-size:1.02rem;white-space:pre-wrap;">' + escHtml(block.content) + '</div>';
+    }
+    
+    if (block.type === 'task') {
+        html += '<div style="margin-top:18px;">';
+        html += '<div style="background:#fdf2f8;padding:14px;border-radius:10px;border-right:4px solid #ec4899;margin-bottom:12px;">';
+        html += '<div style="font-weight:800;color:#9d174d;font-size:1.02rem;">❓ ' + escHtml(block.question || 'משימה') + '</div>';
+        if (block.guidance) {
+            html += '<div style="font-size:0.88rem;color:#831843;font-style:italic;margin-top:6px;">💡 ' + escHtml(block.guidance) + '</div>';
+        }
+        html += '</div>';
+        
+        var currentAnswer = state.taskAnswers['block_' + idx] || '';
+        html += '<label style="display:block;font-weight:700;color:#374151;margin-bottom:6px;font-size:0.95rem;">✍️ התשובה שלך:</label>';
+        html += '<textarea id="studentBlockTaskAnswer" placeholder="כתוב את תשובתך כאן..." style="width:100%;min-height:130px;padding:14px;border:2px solid #e5e7eb;border-radius:10px;font-family:inherit;font-size:1rem;line-height:1.6;resize:vertical;box-sizing:border-box;" oninput="onStudentBlockTaskInput()">' + escHtml(currentAnswer) + '</textarea>';
+        html += '<div id="studentBlockAnswerHint" style="font-size:0.85rem;color:#6b7280;margin-top:6px;">נדרשת תשובה לפני שתוכל להמשיך</div>';
+        html += '</div>';
+    }
+    
+    html += '</div>'; // סוף הבלוק
+    
+    // ניווט
+    html += '<div style="display:flex;gap:10px;margin-top:20px;">';
+    if (idx > 0) {
+        html += '<button onclick="prevStudentLessonBlock()" style="padding:13px 20px;background:#f3f4f6;color:#374151;border:2px solid #d1d5db;border-radius:10px;font-family:inherit;font-weight:700;cursor:pointer;font-size:0.95rem;">← קודם</button>';
+    }
+    
+    var isLast = (idx === total - 1);
+    var nextLabel = isLast ? '✅ סיים שיעור' : 'הבא →';
+    var nextDisabled = (block.type === 'task' && (!state.taskAnswers['block_' + idx] || !state.taskAnswers['block_' + idx].trim()));
+    html += '<button id="btnNextStudentLessonBlock" onclick="nextStudentLessonBlock()" ' + (nextDisabled ? 'disabled' : '') + ' style="flex:1;padding:15px;background:' + (nextDisabled ? '#d1d5db' : 'linear-gradient(135deg,#10b981,#059669)') + ';color:white;border:none;border-radius:10px;font-family:inherit;font-weight:800;cursor:' + (nextDisabled ? 'not-allowed' : 'pointer') + ';font-size:1rem;box-shadow:0 4px 12px rgba(16,185,129,0.25);">' + nextLabel + '</button>';
+    html += '</div>';
+    
+    return html;
+}
+
+function onStudentBlockTaskInput() {
+    var textarea = document.getElementById("studentBlockTaskAnswer");
+    if (!textarea) return;
+    var idx = _studentBlocksState.currentBlockIndex;
+    var val = textarea.value;
+    _studentBlocksState.taskAnswers['block_' + idx] = val;
+    
+    // עדכון current_content בדשבורד המורה (בלייב)
+    if (_studentBlocksState.sessionId) {
+        sbUpdate('live_lesson_sessions', 'id=eq.' + _studentBlocksState.sessionId, {
+            current_content: val,
+            last_seen: new Date().toISOString()
+        }).catch(function(e){ console.warn('update content error', e); });
+    }
+    
+    // עדכון UI של הכפתור הבא
+    var btnNext = document.getElementById("btnNextStudentLessonBlock");
+    var hint = document.getElementById("studentBlockAnswerHint");
+    if (btnNext) {
+        var enabled = val.trim().length > 0;
+        btnNext.disabled = !enabled;
+        btnNext.style.background = enabled ? 'linear-gradient(135deg,#10b981,#059669)' : '#d1d5db';
+        btnNext.style.cursor = enabled ? 'pointer' : 'not-allowed';
+        if (hint) {
+            hint.textContent = enabled ? '✅ תוכל להמשיך' : 'נדרשת תשובה לפני שתוכל להמשיך';
+            hint.style.color = enabled ? '#10b981' : '#6b7280';
+        }
+    }
+}
+
+async function nextStudentLessonBlock() {
+    var state = _studentBlocksState;
+    if (!_studentLessonId) return;
+    
+    var arr = await sbFetch('assignments', '?id=eq.' + _studentLessonId);
+    if (!arr.length) return;
+    var content = arr[0].live_lesson_content;
+    if (!content || !content.blocks) return;
+    
+    var blocks = content.blocks;
+    var idx = state.currentBlockIndex;
+    var block = blocks[idx];
+    
+    if (block && block.type === 'task') {
+        var ans = (state.taskAnswers['block_' + idx] || '').trim();
+        if (!ans) {
+            toast("⚠️ נדרשת תשובה לפני שתוכל להמשיך");
+            return;
+        }
+    }
+    
+    state.currentBlockIndex = idx + 1;
+    var newPct = Math.round((state.currentBlockIndex / blocks.length) * 100);
+    
+    if (state.sessionId) {
+        try {
+            await sbUpdate('live_lesson_sessions', 'id=eq.' + state.sessionId, {
+                current_block_index: state.currentBlockIndex,
+                task_answers: state.taskAnswers,
+                progress_percent: newPct,
+                last_seen: new Date().toISOString(),
+                current_content: ''
+            });
+        } catch(e) {
+            console.error("save error:", e);
+        }
+    }
+    
+    // ריענון מסך התלמיד
+    renderStudentLesson(arr[0]);
+}
+
+async function prevStudentLessonBlock() {
+    if (_studentBlocksState.currentBlockIndex <= 0) return;
+    _studentBlocksState.currentBlockIndex--;
+    
+    if (_studentBlocksState.sessionId) {
+        try {
+            await sbUpdate('live_lesson_sessions', 'id=eq.' + _studentBlocksState.sessionId, {
+                current_block_index: _studentBlocksState.currentBlockIndex,
+                last_seen: new Date().toISOString()
+            });
+        } catch(e) {}
+    }
+    
+    var arr = await sbFetch('assignments', '?id=eq.' + _studentLessonId);
+    if (arr.length) renderStudentLesson(arr[0]);
+}
+
+
     return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
