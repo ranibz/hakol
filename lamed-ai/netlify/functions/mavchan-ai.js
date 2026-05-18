@@ -1,6 +1,6 @@
 // netlify/functions/mavchan-ai.js
 // פונקציה לבניית ובדיקת מבחני בקרה + שיעורי לייב עם Gemini
-// גרסה: 3.4.0 | תאריך: 2026-05-16 — קצר, פשוט, יציב, עם הודעות quota ברורות
+// גרסה: 3.4.1 | תאריך: 2026-05-18 — החזרת cleanGeminiJson שתופס newlines בתוך strings (היה ב-v3.3.0 אבל ירד ב-v3.4.0)
 
 exports.handler = async function(event, context) {
     const headers = {
@@ -22,6 +22,49 @@ exports.handler = async function(event, context) {
 
     const action = body.action;
     if (!action) return { statusCode: 400, headers, body: JSON.stringify({ error: 'Missing action' }) };
+
+    // ============================================
+    // v3.4.1 - cleanGeminiJson: מתקן JSON שבור מ-Gemini
+    // (newlines אמיתיים בתוך strings, backticks, וכו')
+    // ============================================
+    function cleanGeminiJson(text) {
+        if (!text || typeof text !== 'string') return text;
+        text = text.trim();
+        if (text.indexOf('```') === 0) {
+            text = text.replace(/^```(?:json)?\s*/i, '').replace(/```\s*$/i, '').trim();
+        }
+        var result = '';
+        var inString = false;
+        var prevChar = '';
+        for (var i = 0; i < text.length; i++) {
+            var c = text[i];
+            if (c === '"' && prevChar !== '\\') {
+                inString = !inString;
+                result += c;
+            } else if (inString) {
+                if (c === '\n') result += '\\n';
+                else if (c === '\r') result += '\\r';
+                else if (c === '\t') result += '\\t';
+                else if (c.charCodeAt(0) < 32) result += ' ';
+                else result += c;
+            } else {
+                result += c;
+            }
+            prevChar = c;
+        }
+        return result;
+    }
+
+    function parseAndClean(text) {
+        try { return JSON.parse(text); } catch(e) {}
+        try { return JSON.parse(cleanGeminiJson(text)); } catch(e) {}
+        var match = text.match(/\{[\s\S]*\}/);
+        if (match) {
+            try { return JSON.parse(match[0]); } catch(e) {}
+            try { return JSON.parse(cleanGeminiJson(match[0])); } catch(e) {}
+        }
+        return null;
+    }
 
     let prompt = '';
 
@@ -103,7 +146,6 @@ ${attemptsNote}
         if (!response.ok) {
             const errText = await response.text();
             console.error('Gemini HTTP error:', response.status, errText.substring(0, 500));
-            // טפל ב-quota error באופן ספציפי
             if (response.status === 429 || errText.indexOf('RESOURCE_EXHAUSTED') !== -1 || errText.indexOf('quota') !== -1) {
                 return { statusCode: 429, headers, body: JSON.stringify({ error: 'quota_exceeded: ה-AI עמוס, נסה שוב בעוד 30-60 שניות', details: errText.substring(0, 300) }) };
             }
@@ -117,20 +159,12 @@ ${attemptsNote}
             return { statusCode: 500, headers, body: JSON.stringify({ error: 'תגובה ריקה מ-Gemini' }) };
         }
 
-        let parsed;
-        try {
-            parsed = JSON.parse(text);
-        } catch (e) {
-            const match = text.match(/\{[\s\S]*\}/);
-            if (match) {
-                try { parsed = JSON.parse(match[0]); }
-                catch (e2) {
-                    console.error('Parse failed:', text.substring(0, 500));
-                    return { statusCode: 500, headers, body: JSON.stringify({ error: 'לא ניתן לפרסר את התגובה', raw: text.substring(0, 300) }) };
-                }
-            } else {
-                return { statusCode: 500, headers, body: JSON.stringify({ error: 'אין JSON בתגובה', raw: text.substring(0, 300) }) };
-            }
+        // v3.4.1 - שימוש בפונקציית הניקוי המשופרת
+        const parsed = parseAndClean(text);
+        
+        if (!parsed) {
+            console.error('All parse attempts failed. Raw:', text.substring(0, 1000));
+            return { statusCode: 500, headers, body: JSON.stringify({ error: 'לא ניתן לפרסר את התגובה', raw: text.substring(0, 500) }) };
         }
 
         if (action === 'generate_lesson') {
