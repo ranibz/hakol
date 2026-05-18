@@ -1,6 +1,6 @@
 // netlify/functions/mavchan-ai.js
 // פונקציה לבניית ובדיקת מבחני בקרה + שיעורי לייב עם Gemini
-// גרסה: 3.4.1 | תאריך: 2026-05-18 — החזרת cleanGeminiJson שתופס newlines בתוך strings (היה ב-v3.3.0 אבל ירד ב-v3.4.0)
+// גרסה: 3.4.2 | תאריך: 2026-05-18 — הגדלת maxTokens ל-8192 + פרומפט מבקש פסקאות קצרות (התשובה נחתכה ב-29s ולא הצליחה לסיים)
 
 exports.handler = async function(event, context) {
     const headers = {
@@ -92,15 +92,19 @@ exports.handler = async function(event, context) {
 נושא: "${title}"
 ${description ? 'הנחיות: ' + description + '\n' : ''}משך: ${duration} דקות
 
+⚠️ חשוב מאוד - כל פסקה צריכה להיות קצרה:
+- "intro": משפט אחד או שניים בלבד (עד 250 תווים)
+- כל "content" של בלוק: 2-3 משפטים קצרים, לא יותר (עד 400 תווים)
+- "closing": משפט אחד בלבד
+
 מבנה (סדר חשוב):
-- ${numConcepts} בלוקי "concept" (הסבר מושג)
-- 1-2 בלוקי "example" (דוגמה)
+- ${numConcepts} בלוקי "concept" (הסבר מושג קצר)
+- 1 בלוק "example" (דוגמה קצרה)
 - ${numTasks} בלוקי "task" (משימת כתיבה)
 סדר: concept → example → task → concept → task
-כל "content" - 2-3 פסקאות אמיתיות עם דוגמאות מוחשיות.
 
 החזר JSON תקין בלבד:
-{"lesson_title":"כותרת","intro":"פתיחה","blocks":[{"type":"concept","title":"שם","content":"הסבר"},{"type":"example","title":"דוגמה","content":"תיאור"},{"type":"task","title":"משימה","question":"?","guidance":"הנחיה"}],"closing":"סיכום"}`;
+{"lesson_title":"כותרת","intro":"פתיחה קצרה","blocks":[{"type":"concept","title":"שם","content":"הסבר קצר"},{"type":"example","title":"דוגמה","content":"תיאור קצר"},{"type":"task","title":"משימה","question":"?","guidance":"הנחיה"}],"closing":"סיכום משפט אחד"}`;
 
     } else if (action === 'generate_quiz_question') {
         const { block_content, block_title, block_type, previous_attempts } = body;
@@ -126,7 +130,7 @@ ${attemptsNote}
         const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
         const temperature = action === 'generate_lesson' ? 0.8 : 0.65;
         let maxTokens;
-        if (action === 'generate_lesson') maxTokens = 4096;
+        if (action === 'generate_lesson') maxTokens = 8192;
         else if (action === 'generate_quiz_question') maxTokens = 1536;
         else maxTokens = 2048;
         
