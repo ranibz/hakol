@@ -1,4 +1,6 @@
 <!DOCTYPE html>
+<!-- גרסה: 1.8.0 | תאריך: 2026-05-31 | פרומפט בודק AI מעודכן לזרימה דו-שלבית: (1) אחרי שהתלמיד מדביק את הפרומפט, הבודק עונה "קיבלתי את ההנחיות. אנא הדבק עכשיו את הטקסט" ומחכה. (2) רק אחרי שהתלמיד מדביק את הטקסט, הבודק מנתח לפי 7 הסעיפים. (3) בסוף הניתוח שואל "האם יש טקסט נוסף?" כדי לאפשר בדיקות חוזרות באותה שיחה. ההוראות במודאל עודכנו בהתאם. -->
+<!-- גרסה: 1.7.0 | תאריך: 2026-05-28 | חסימת הדבקה מוחלטת: הוסרה אפשרות המילוט בסיסמה. -->
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
@@ -274,7 +276,6 @@ textarea{resize:none;min-height:60px;line-height:1.6;overflow-y:hidden;transitio
     <div id="adminOverview" class="admin-panel">
       <div class="dashboard-grid"><div class="stat-card" style="border-color:#667eea;"><span class="stat-icon">👥</span><div class="stat-number" id="adminTotalStudents" style="color:#667eea;">0</div><div class="stat-label">תלמידים</div></div><div class="stat-card" style="border-color:#00b894;"><span class="stat-icon">✅</span><div class="stat-number" id="adminAvgProgress" style="color:#00b894;">0%</div><div class="stat-label">ממוצע</div></div><div class="stat-card" style="border-color:#fd79a8;"><span class="stat-icon">👩‍🏫</span><div class="stat-number" id="adminTotalTeachers" style="color:#fd79a8;">0</div><div class="stat-label">מורים</div></div></div>
       <div class="admin-card"><h2>📊 לפי כיתות</h2><div id="classesOverview"></div></div>
-      <div class="admin-card"><h2>🔐 סיסמת הדבקה</h2><p style="color:#666;margin-top:-10px;">סיסמה שמורה/מנהל נותנים לתלמיד כדי לאפשר הדבקה</p><div class="admin-form"><input type="text" id="pastePassInput" placeholder="סיסמה חדשה"><button class="btn-admin btn-primary" onclick="savePastePassword()">שמור סיסמה</button></div><div id="currentPastePass" style="margin-top:10px;color:#888;font-size:0.9rem;"></div></div>
     </div>
   </div>
 </div>
@@ -398,22 +399,6 @@ async function sbSetTeacherNotes(studentId, notesObj) {
 async function sbGetSettings() {
     const data = await supabase('tik_settings?id=eq.1');
     return data && data.length > 0 ? data[0] : null;
-}
-
-// Set paste password
-async function sbSetPastePassword(password) {
-    const existing = await sbGetSettings();
-    if (existing) {
-        await supabase('tik_settings?id=eq.1', {
-            method: 'PATCH',
-            body: JSON.stringify({ paste_password: password })
-        });
-    } else {
-        await supabase('tik_settings', {
-            method: 'POST',
-            body: JSON.stringify({ id: 1, paste_password: password })
-        });
-    }
 }
 
 // ==================================================================
@@ -1131,26 +1116,7 @@ function closeTikModal(){document.getElementById('tikModal').style.display='none
 // ==================================================================
 // ADMIN
 // ==================================================================
-function loadAdminData(){loadStudentsTable();loadTeachersTable();loadOverview();loadPastePassword();}
-
-async function loadPastePassword(){
-  try{
-    const settings = await sbGetSettings();
-    const v = settings ? settings.paste_password || '' : '';
-    document.getElementById('pastePassInput').value=v;
-    document.getElementById('currentPastePass').textContent=v?'סיסמה נוכחית: '+v:'לא הוגדרה סיסמה';
-  }catch(e){}
-}
-
-async function savePastePassword(){
-  const v=document.getElementById('pastePassInput').value.trim();
-  if(!v){alert('הכנס סיסמה');return;}
-  try{
-    await sbSetPastePassword(v);
-    document.getElementById('currentPastePass').textContent='✅ סיסמה נוכחית: '+v;
-    showSaveToast('🔐 סיסמה נשמרה!');
-  }catch(e){alert('שגיאה');}
-}
+function loadAdminData(){loadStudentsTable();loadTeachersTable();loadOverview();}
 
 async function loadStudentsTable(){
   try{
@@ -1291,44 +1257,18 @@ function startDictation(field,btn){
 }
 
 // ==================================================================
-// PASTE PROTECTION — חסימה עם אפשרות פתיחה בסיסמה
+// PASTE PROTECTION — חסימה מוחלטת (v1.7.0)
+// הדבקה לתיק חסומה לתלמיד תמיד. אין מילוט עם סיסמה. הדבקה מותרת
+// רק בתיבות עם class="allow-paste" (תיבת קישור). זה אילוץ פדגוגי:
+// כדי שהתלמיד יקליד במו ידיו ויפנים את החומר.
 // ==================================================================
-let _pasteUnlocked = false;
-
 function initPasteProtection() {
   document.addEventListener('paste', e => {
     if (currentRole !== 'student') return;
     if (e.target.classList && e.target.classList.contains('allow-paste')) return;
-    if (_pasteUnlocked) { logPasteEvent(e.target); return; }
     e.preventDefault();
-    showPasteDialog();
+    showSaveToast('🚫 לא ניתן להדביק לתיק — יש להקליד את הטקסט ידנית', true);
   });
-  document.addEventListener('copy', e => {
-    if (currentRole !== 'student') return;
-    if (!_pasteUnlocked) { e.preventDefault(); showSaveToast('📋 העתקה חסומה', true); }
-  });
-}
-
-async function showPasteDialog() {
-  const pass = prompt('🔐 הדבקה דורשת סיסמת מורה:');
-  if (pass === null) return;
-  try {
-    const settings = await sbGetSettings();
-    const correctPass = settings ? settings.paste_password : null;
-    if (!correctPass) { showSaveToast('⚠️ סיסמה לא הוגדרה במערכת', true); return; }
-    if (pass === correctPass) {
-      _pasteUnlocked = true;
-      showSaveToast('✅ הדבקה הופעלה לשארית הסשן');
-    } else {
-      showSaveToast('❌ סיסמה שגויה', true);
-    }
-  } catch (e) {
-    showSaveToast('⚠️ שגיאת חיבור', true);
-  }
-}
-
-function logPasteEvent(target) {
-  // Skip logging for now - can be added later if needed
 }
 
 // ==================================================================
@@ -1350,5 +1290,214 @@ document.getElementById('adminPassword').addEventListener('keypress',e=>{if(e.ke
 buildStudentPages();
 initPasteProtection();
 </script>
+<!-- ================================================================== -->
+<!-- v1.5.0 - בודק שימוש ב-AI (פרומפט מוכן להעתקה לכלי AI חיצוני)        -->
+<!-- מופיע רק לתלמיד. מספק פרומפט מחמיר שדורש דוגמאות אישיות בתיקון.    -->
+<!-- ================================================================== -->
+<style>
+  #aiCheckFab {
+    position: fixed; bottom: 24px; left: 24px; z-index: 998;
+    background: linear-gradient(135deg, #7c3aed, #4f46e5);
+    color: white; border: none; border-radius: 50px;
+    padding: 14px 22px; font-family: 'Heebo', sans-serif;
+    font-size: 15px; font-weight: 800; cursor: pointer;
+    box-shadow: 0 8px 24px rgba(124, 58, 237, 0.4);
+    display: none; align-items: center; gap: 8px;
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+  #aiCheckFab:hover { transform: translateY(-2px); box-shadow: 0 12px 32px rgba(124, 58, 237, 0.5); }
+  #aiCheckFab .ico { font-size: 18px; }
+  @media (max-width: 640px) {
+    #aiCheckFab { bottom: 16px; left: 16px; padding: 11px 16px; font-size: 13px; }
+  }
+
+  .aichk-modal {
+    position: fixed; inset: 0; background: rgba(15, 23, 42, 0.7);
+    z-index: 9999; display: none; align-items: center; justify-content: center;
+    padding: 20px; backdrop-filter: blur(6px);
+  }
+  .aichk-modal.show { display: flex; }
+  .aichk-card {
+    background: white; border-radius: 20px; max-width: 720px; width: 100%;
+    max-height: 90vh; overflow: hidden; display: flex; flex-direction: column;
+    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.3);
+  }
+  .aichk-head {
+    background: linear-gradient(135deg, #7c3aed, #4f46e5); color: white;
+    padding: 20px 26px; display: flex; justify-content: space-between; align-items: center;
+  }
+  .aichk-head h3 { margin: 0; font-family: 'Rubik', sans-serif; font-size: 1.3rem; }
+  .aichk-head .x {
+    background: rgba(255,255,255,0.2); border: none; color: white;
+    width: 32px; height: 32px; border-radius: 50%; font-size: 18px; cursor: pointer;
+  }
+  .aichk-body { padding: 24px 26px; overflow-y: auto; flex: 1; }
+  .aichk-steps {
+    background: #faf5ff; border-right: 4px solid #7c3aed;
+    padding: 14px 18px; border-radius: 10px; margin-bottom: 18px;
+    font-size: 0.92rem; line-height: 1.7; color: #4c1d95;
+  }
+  .aichk-steps ol { margin: 6px 0 0; padding-right: 20px; }
+  .aichk-prompt-box {
+    background: #f8fafc; border: 2px solid #e2e8f0; border-radius: 12px;
+    padding: 16px; margin-top: 8px; position: relative;
+  }
+  .aichk-prompt-text {
+    font-family: 'SFMono-Regular', Consolas, monospace; font-size: 0.85rem;
+    line-height: 1.6; color: #334155; white-space: pre-wrap; word-wrap: break-word;
+    direction: rtl; max-height: 280px; overflow-y: auto;
+  }
+  .aichk-copy {
+    width: 100%; margin-top: 12px; padding: 12px;
+    background: #7c3aed; color: white; border: none; border-radius: 10px;
+    font-family: 'Heebo'; font-size: 1rem; font-weight: 800; cursor: pointer;
+    transition: background 0.2s;
+  }
+  .aichk-copy:hover { background: #6d28d9; }
+  .aichk-copy.copied { background: #10b981; }
+  .aichk-warn {
+    margin-top: 16px; background: #fef3c7; border: 1px solid #fcd34d;
+    border-radius: 10px; padding: 12px 16px; font-size: 0.88rem;
+    color: #78350f; line-height: 1.6;
+  }
+</style>
+
+<button id="aiCheckFab" onclick="openAiCheck()" title="בודק שימוש ב-AI">
+  <span class="ico">🔍</span>
+  <span>בדוק שימוש ב-AI</span>
+</button>
+
+<div class="aichk-modal" id="aiCheckModal" onclick="if(event.target===this)closeAiCheck()">
+  <div class="aichk-card">
+    <div class="aichk-head">
+      <h3>🔍 בדיקת שימוש ב-AI בטקסט שלך</h3>
+      <button class="x" onclick="closeAiCheck()">✕</button>
+    </div>
+    <div class="aichk-body">
+      <div class="aichk-steps">
+        <strong>איך עובדים?</strong>
+        <ol>
+          <li>העתק את הפרומפט הבא (כפתור למטה)</li>
+          <li>פתח את ChatGPT / Gemini / Claude (או כל כלי AI שאתה משתמש בו)</li>
+          <li>הדבק שם את הפרומפט ושלח — הבודק יבקש ממך להדביק את הטקסט שלך</li>
+          <li>הדבק את הטקסט שכתבת בתיק — תקבל ניתוח מלא</li>
+          <li>אם תרצה — אפשר לבדוק עוד טקסטים באותה שיחה</li>
+          <li>אם יש לך אחוז AI גבוה, חזור לתיק ותתקן <strong>בהקלדה</strong></li>
+        </ol>
+      </div>
+
+      <label style="display:block;font-weight:800;color:#475569;margin-bottom:8px;font-size:0.95rem;">📋 הפרומפט המוכן להעתקה:</label>
+      <div class="aichk-prompt-box">
+        <div class="aichk-prompt-text" id="aichkPromptText"></div>
+      </div>
+
+      <button class="aichk-copy" id="aichkCopyBtn" onclick="copyAiCheckPrompt()">
+        📋 העתק את הפרומפט
+      </button>
+
+      <div class="aichk-warn">
+        <strong>⚠️ זכור:</strong> אחרי שתקבל את הניתוח, חזור לתיק והקלד את התיקון <strong>ידנית במילים שלך</strong> — אי-אפשר להדביק תוכן חיצוני לתיק. זה בכוונה: כדי שתחשוב ותפנים את מה שאתה כותב.
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // v1.6.0 - הפרומפט מחקה את ההיגיון של ה-API ב-lamed-ai-checker (analyze.js).
+  // מותאם לתלמיד תקשורת בתיכון, מבדיל בין מושגים אקדמיים נדרשים לבין סימני AI אמיתיים.
+  // הפלט בעברית מילולית מובנית (לא JSON), כדי שיהיה ידידותי לתלמיד.
+  const AI_CHECK_PROMPT = `אתה מומחה לזיהוי תוכן שנכתב על ידי בינה מלאכותית בעברית. עליך לנתח את הטקסט הבא שאני אצרף בסוף — טקסט שכתבתי בעצמי בעבודת חקר.
+
+⚠️ הקשר חשוב עליי:
+אני תלמיד תקשורת בתיכון. בעבודת החקר שלי אני **חייב** להשתמש במושגים מקצועיים מתחום התקשורת (כגון: מסגור, הבניית מציאות, ספירלת השתיקה, סדר יום, דנוטציה וקונוטציה, סטריאוטיפים, אושיות רשת, ועוד מושגים אקדמיים).
+**שימוש במושגים מקצועיים אלה הוא דרישה של המטלה ואינו סימן לכתיבת AI.** אדרבה — תלמיד שלא משתמש במושגים מקצועיים זה דבר חשוד יותר.
+
+התמקד בסימנים האמיתיים שמרמזים על AI:
+- סגנון אחיד מדי
+- היעדר מוחלט של טעויות
+- חוסר בקול אישי או דעה אישית
+- מבנה משפטים "מושלם" מדי
+- היעדר דוגמאות אישיות או קונקרטיות מהחיים שלי
+- חזרתיות
+- פסקאות סגורות וממוסגרות מדי שלא נשמעות טבעיות לתלמיד תיכון
+
+אנא ענה לי בעברית, מובנה לפי הסעיפים הבאים בדיוק (סמן כל סעיף בכותרת ברורה):
+
+**1. אחוז AI: __%**
+מספר בודד בין 0-100 — ההסתברות שהטקסט נכתב/נערך ע"י AI.
+
+**2. פסק דין:**
+אחד מהבאים: "סביר אנושי" / "שילוב" / "סביר AI" / "כמעט בוודאות AI".
+
+**3. סיכום במשפט אחד:**
+מה הרושם הכללי שלך מהטקסט.
+
+**4. סימני AI שזיהיתי (אם יש):**
+רשום 2-4 סימנים ספציפיים. אל תכלול שימוש במושגים מקצועיים. תן ציטוט מילולי קצר מהטקסט שלי עבור כל סימן.
+
+**5. סימני כתיבה אנושית (אם יש):**
+רשום סימנים שמרמזים שהטקסט אכן שלי — קול אישי, דוגמה אישית, ניסוח לא חלק, וכו'.
+
+**6. חמש שאלות שמורה יכול לשאול אותי כדי לבחון הבנה:**
+שאלות ספציפיות לטקסט שלי (לא גנריות):
+- שאלה 1: לבדוק הבנה כללית
+- שאלה 2: דורשת ידע מעמיק שאי-אפשר להמציא רק מהטקסט
+- שאלה 3: מבקשת דוגמה אישית או הקשר אישי שלי
+- שאלה 4: בודקת הבנת מונח ספציפי שהשתמשתי בו
+- שאלה 5: מאתגרת — מבקשת ממני להסביר במילים שלי
+
+**7. דרישת תיקון:**
+אם אחוז ה-AI מעל 30% — עבור כל סימן AI שזיהית, תן לי הנחיה איך לתקן. **אל תנסח לי את התיקון.** במקום, דרוש ממני:
+- לכתוב את הקטע מחדש במילים שלי
+- להוסיף **דוגמה אישית** — משהו ממשי שקרה לי, שראיתי, שעשיתי, מהכיתה או מהחיים — ולהסביר איך הדוגמה מתקשרת למה שכתבתי
+- אם אחוז AI מעל 50% — דרוש ממני לכתוב מחדש את הפסקה הזו מהזיכרון, בלי להסתכל על מקור כלשהו
+
+---
+
+**חשוב מאוד — איך לעבוד איתי:**
+
+עכשיו, אחרי שקראת את ההנחיות, אנא ענה לי תחילה רק במשפט קצר:
+"קיבלתי את ההנחיות. אנא הדבק עכשיו את הטקסט שתרצה שאבדוק, ואחזיר לך ניתוח מלא לפי 7 הסעיפים."
+
+**אל תתחיל לנתח עד שאדביק את הטקסט.** המתן להודעה הבאה שלי שתכיל את הטקסט שלי לבדיקה.
+
+לאחר שתסיים את הניתוח של הטקסט הראשון שלי, שאל אותי בסוף:
+"האם יש לך טקסט נוסף שתרצה שאבדוק? אם כן — הדבק אותו עכשיו ואבדוק אותו לפי אותם 7 הסעיפים."
+
+המשך לעבוד איתי ככה — בודק כל טקסט שאני שולח, ושואל בסוף אם יש עוד — עד שאומר לך שסיימתי.
+`;
+
+  function openAiCheck() {
+    document.getElementById('aichkPromptText').textContent = AI_CHECK_PROMPT;
+    document.getElementById('aiCheckModal').classList.add('show');
+  }
+  function closeAiCheck() {
+    document.getElementById('aiCheckModal').classList.remove('show');
+  }
+  function copyAiCheckPrompt() {
+    navigator.clipboard.writeText(AI_CHECK_PROMPT).then(() => {
+      const btn = document.getElementById('aichkCopyBtn');
+      const orig = btn.textContent;
+      btn.textContent = '✅ הועתק! עכשיו פתח את ChatGPT והדבק שם';
+      btn.classList.add('copied');
+      setTimeout(() => { btn.textContent = orig; btn.classList.remove('copied'); }, 3000);
+    }).catch(() => {
+      alert('שגיאה בהעתקה. נסה לסמן את הטקסט ולהעתיק ידנית.');
+    });
+  }
+
+  // הצגת הכפתור רק לתלמידים אחרי טעינת התפקיד
+  function _showAiCheckIfStudent() {
+    const fab = document.getElementById('aiCheckFab');
+    if (fab && typeof currentRole !== 'undefined' && currentRole === 'student') {
+      fab.style.display = 'inline-flex';
+    } else if (fab) {
+      fab.style.display = 'none';
+    }
+  }
+  // בודק כל 500ms את ה-role (כי הוא נקבע אחרי login אסינכרוני)
+  setInterval(_showAiCheckIfStudent, 500);
+</script>
+
 </body>
 </html>
