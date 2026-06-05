@@ -1,12 +1,13 @@
 <!DOCTYPE html>
-<!-- דף מורה/אדמין - הפקות וידאוקאסט | VERSION 1.1.1 - 05/06/2026 - שינוי סיסמת ברירת המחדל ל-1234. | פיתוח: רני בן זאב -->
+<!-- דף מורה/אדמין - הפקות וידאוקאסט | VERSION 1.2.0 - 05/06/2026 - הוספת שדה תעודת זהות לכל תלמיד (נשמר ב-national_id, משמש לכניסת התלמיד). הוספת תלמיד היא כעת upsert (מאפשר גם הוספת ת"ז לתלמיד קיים). קריאות הרוסטר עברו לעמודות מפורשות (בלי national_id) כדי שלא יישברו כשנועלים את עמודת הת"ז. | פיתוח: רני בן זאב -->
+<!-- VERSION 1.1.1 - 05/06/2026 - שינוי סיסמת ברירת המחדל ל-1234. | פיתוח: רני בן זאב -->
 <!-- VERSION 1.1.0 - 05/06/2026 - ניהול מדורג: בחירה-או-הוספה (➕) בכל רמה - בית ספר -> מורה -> כיתה -> תלמידים. הרמות נטענות מהרוסטר; ➕ מוסיף חדש בכל רמה. תלמיד חדש נשמר עם הצירוף הנבחר ומעדכן את כל התפריטים. | פיתוח: רני בן זאב -->
 <!-- VERSION 1.0.0 - 05/06/2026 - שער סיסמה, חיבור ל-Supabase (lamed), ניהול רוסטר בסיסי. | פיתוח: רני בן זאב -->
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>דף מורה — הפקות וידאוקאסט · v1.1.1</title>
+<title>דף מורה — הפקות וידאוקאסט · v1.2.0</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700;800;900&display=swap" rel="stylesheet">
 <style>
@@ -111,8 +112,10 @@ body{font-family:'Heebo',sans-serif;background:var(--bg);color:var(--ink);line-h
       <h3>➕ הוספת תלמיד לכיתה הנבחרת</h3>
       <div class="addrow">
         <input type="text" id="newName" placeholder="שם התלמיד/ה" onkeydown="if(event.key==='Enter')addStudent()">
-        <button class="btn btn-main" onclick="addStudent()">הוסף</button>
+        <input type="text" id="newId" placeholder="תעודת זהות" inputmode="numeric" onkeydown="if(event.key==='Enter')addStudent()">
+        <button class="btn btn-main" onclick="addStudent()">שמור</button>
       </div>
+      <div class="hint">תעודת הזהות נדרשת — זה מה שהתלמיד יקליד כדי להיכנס לטופס שלו. כדי להוסיף ת"ז לתלמיד שכבר קיים: הקלד את אותו שם בדיוק יחד עם הת"ז ולחץ שמור.</div>
       <div class="rlist" id="rlist"><div class="empty">בחר בית ספר, מורה וכיתה כדי לראות את התלמידים.</div></div>
       <div class="status" id="status"></div>
     </div>
@@ -155,7 +158,7 @@ async function sb(path, opts){
 async function loadAll(){
   status('טוען...');
   try{
-    roster = await sb('videocast_roster?select=*&order=school_name.asc') || [];
+    roster = await sb('videocast_roster?select=id,school_name,teacher_name,student_class,student_name&order=school_name.asc') || [];
     fillSel('schoolSel', uniq(roster.map(function(r){return r.school_name;})), '— בחר בית ספר —');
     fillSel('teacherSel', [], '— בחר מורה —');
     fillSel('classSel', [], '— בחר כיתה —');
@@ -219,23 +222,29 @@ function rebuild(sc,tc,cl){
 }
 
 async function addStudent(){
-  const sc=selVal('schoolSel'), tc=selVal('teacherSel'), cl=selVal('classSel'), name=val('newName');
+  const sc=selVal('schoolSel'), tc=selVal('teacherSel'), cl=selVal('classSel'), name=val('newName'), nid=val('newId');
   if(!sc){ status('בחר/הוסף בית ספר.', true); return; }
   if(!tc){ status('בחר/הוסף מורה.', true); return; }
   if(!cl){ status('בחר/הוסף כיתה.', true); return; }
   if(!name){ status('הקלד שם תלמיד.', true); return; }
-  status('מוסיף...');
+  if(!nid){ status('הקלד תעודת זהות (נדרשת לכניסת התלמיד).', true); return; }
+  status('שומר...');
   try{
-    await sb('videocast_roster', { method:'POST', headers:{ Prefer:'return=minimal' }, body: JSON.stringify({ school_name:sc, teacher_name:tc, student_class:cl, student_name:name }) });
+    await sb('videocast_roster?on_conflict=school_name,teacher_name,student_class,student_name', {
+      method:'POST',
+      headers:{ Prefer:'resolution=merge-duplicates,return=minimal' },
+      body: JSON.stringify({ school_name:sc, teacher_name:tc, student_class:cl, student_name:name, national_id:nid })
+    });
     document.getElementById('newName').value='';
+    document.getElementById('newId').value='';
     document.getElementById('newName').focus();
-    roster = await sb('videocast_roster?select=*&order=school_name.asc') || [];
+    roster = await sb('videocast_roster?select=id,school_name,teacher_name,student_class,student_name&order=school_name.asc') || [];
     rebuild(sc,tc,cl);
     showStudents();
-    status('נוסף: '+name);
+    status('נשמר: '+name);
   }catch(e){
-    if(/409|duplicate/i.test(e.message)) status('התלמיד כבר קיים ברשימה.', true);
-    else status('שגיאה בהוספה: '+e.message, true);
+    if(/23505|duplicate|conflict/i.test(e.message)) status('שגיאה: ייתכן שתעודת הזהות הזו כבר משויכת לתלמיד אחר.', true);
+    else status('שגיאה בשמירה: '+e.message, true);
   }
 }
 
@@ -244,7 +253,7 @@ async function delStudent(id, name){
   const sc=selVal('schoolSel'), tc=selVal('teacherSel'), cl=selVal('classSel');
   try{
     await sb('videocast_roster?id=eq.'+id, { method:'DELETE', headers:{ Prefer:'return=minimal' } });
-    roster = await sb('videocast_roster?select=*&order=school_name.asc') || [];
+    roster = await sb('videocast_roster?select=id,school_name,teacher_name,student_class,student_name&order=school_name.asc') || [];
     rebuild(sc,tc,cl);
     showStudents();
     status('נמחק: '+name);
