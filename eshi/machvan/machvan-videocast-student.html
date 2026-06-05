@@ -1,12 +1,12 @@
 <!DOCTYPE html>
-<!-- הערכה עצמית - הפקת וידאוקאסט 5 יח"ל | VERSION 1.2.0 - 05/06/2026 - חיבור ל-Supabase (lamed): בחירה מדורגת מהרוסטר (בית ספר→מורה→כיתה→שם), תמיכה בקישור עם פרמטרים (?school=&teacher=&class=) למילוי מראש, וכפתור "שלח הערכה" ששומר את ההערכה העצמית (role=student). | פיתוח: רני בן זאב -->
-<!-- VERSION 1.1.0 - 05/06/2026 - ניסוח מדויק של תנאי הפיוס + דגשים לכל קריטריון. | פיתוח: רני בן זאב -->
+<!-- הערכה עצמית - הפקת וידאוקאסט 5 יח"ל | VERSION 1.3.0 - 05/06/2026 - כניסה לפי תעודת זהות: התלמיד מקליד ת"ז → זיהוי דרך פונקציית שרת (videocast-id-lookup) → השם והכיתה ננעלים אוטומטית, בלי בחירה חופשית ובלי גישה לתלמידים אחרים. שאר הטופס נחשף רק אחרי זיהוי. | פיתוח: רני בן זאב -->
+<!-- VERSION 1.2.0 - 05/06/2026 - חיבור ל-Supabase + בחירה מדורגת + שמירה. | פיתוח: רני בן זאב -->
 <!-- VERSION 1.0.0 - 05/06/2026 - טופס הערכה עצמית לתלמיד, מקביל למחוון המורה. הערכה עצמית בלבד. ללא שמירת נתונים. | פיתוח: רני בן זאב -->
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>הערכה עצמית — הפקת וידאוקאסט · v1.2.0</title>
+<title>הערכה עצמית — הפקת וידאוקאסט · v1.3.0</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700;800;900&display=swap" rel="stylesheet">
 <style>
@@ -129,6 +129,9 @@ body{font-family:'Heebo',sans-serif;background:var(--bg);color:var(--ink);line-h
 .idcard-context + .idcard{margin-top:14px;}
 .savemsg{font-size:.85rem;font-weight:800;color:#fff;align-self:center;}
 .savemsg.err{color:#fda4b8;}
+.idmsg{font-size:.9rem;font-weight:800;color:#b45309;min-height:20px;margin:4px 2px 0;}
+.idmsg.err{color:#dc2626;}
+.welcome{background:linear-gradient(135deg,#fff7ed,#ffedd5);border:1.5px solid #fcd9a8;border-radius:14px;padding:14px 18px;font-size:1.05rem;font-weight:700;color:#7a4a06;margin-bottom:14px;}
 
 /* PRINT */
 .print-meta{display:none;}
@@ -161,16 +164,14 @@ body{font-family:'Heebo',sans-serif;background:var(--bg);color:var(--ink);line-h
 
 <div class="wrap">
 
-  <div class="idcard idcard-context">
-    <div class="idfield"><label>בית ספר</label><select id="schoolName" onchange="onSchoolChange()"><option value="">— בחר בית ספר —</option></select></div>
-    <div class="idfield"><label>מורה</label><select id="teacherName" onchange="onTeacherChange()"><option value="">— בחר מורה —</option></select></div>
+  <div class="idcard idcard-context" id="idCard">
+    <div class="idfield" style="flex:1;"><label>תעודת זהות</label><input type="text" id="natId" inputmode="numeric" placeholder="הקלד/י את תעודת הזהות שלך" onkeydown="if(event.key==='Enter')identify()"></div>
+    <div style="flex:none;display:flex;align-items:flex-end;"><button class="btn btn-load" style="margin-top:0;" onclick="identify()">כניסה →</button></div>
   </div>
-  <div class="idcard">
-    <div class="idfield"><label>כיתה</label><select id="stClass" onchange="onClassChange()"><option value="">— בחר כיתה —</option></select></div>
-    <div class="idfield"><label>השם שלי</label><select id="stName"><option value="">— בחר את שמך —</option></select></div>
-    <div class="idfield"><label>תאריך</label><input type="text" id="stDate" placeholder="DD/MM/YYYY"></div>
-  </div>
-  <div><button class="btn btn-load" onclick="initRoster()">⟳ רענן נתונים</button></div>
+  <div class="idmsg" id="idMsg"></div>
+
+  <div id="mainContent" style="display:none;">
+  <div class="welcome" id="welcome"></div>
 
   <div class="infobox">
     <b>🤝 איך ההערכה שלך משפיעה על הציון</b> — לכל סעיף בנפרד:
@@ -198,9 +199,11 @@ body{font-family:'Heebo',sans-serif;background:var(--bg);color:var(--ink);line-h
     <textarea id="feedback" placeholder="מה היה לי קל? מה היה מאתגר? מה הייתי משפר בהפקה הבאה?"></textarea>
   </div>
 
+  </div><!-- /mainContent -->
+
 </div>
 
-<div class="finalbar">
+<div class="finalbar" id="finalBar" style="display:none;">
   <div class="inner">
     <div>
       <div class="final-lbl">הערכה עצמית</div>
@@ -325,17 +328,19 @@ function recalc(){
 
 function resetAll(){
   if(!confirm('לאפס את כל ההערכות וההרהור?')) return;
-  document.getElementById('stName').value='';
-  document.getElementById('stClass').value='';
   document.getElementById('feedback').value='';
   render();
 }
 
-// ===== חיבור ל-Supabase (lamed) =====
+// ===== זיהוי לפי ת"ז (דרך פונקציית שרת) + שמירה ל-Supabase =====
 const SB_URL = 'https://hykpagdgaeulhghyvcqw.supabase.co';
 const SB_KEY = 'sb_publishable_o4Nff2ctoa1niZthDyMvLQ_e2hQwNuT';
+const LOOKUP_URL = '/.netlify/functions/videocast-id-lookup';
+let identity = null;
+
 function gv(id){ return (document.getElementById(id).value||'').trim(); }
-function saveMsg(m, err){ const s=document.getElementById('saveMsg'); s.textContent=m||''; s.className='savemsg'+(err?' err':''); }
+function saveMsg(m, err){ const s=document.getElementById('saveMsg'); if(!s) return; s.textContent=m||''; s.className='savemsg'+(err?' err':''); }
+function setIdMsg(m, err){ const s=document.getElementById('idMsg'); s.textContent=m||''; s.className='idmsg'+(err?' err':''); }
 
 async function sb(path, opts){
   opts = opts || {};
@@ -349,49 +354,27 @@ async function sb(path, opts){
   return txt ? JSON.parse(txt) : null;
 }
 
-let rosterData = [];
-function uniq(a){ return Array.from(new Set(a.filter(Boolean))).sort(); }
-function fillSelect(id, items, ph){ const s=document.getElementById(id); s.innerHTML='<option value="">'+(ph||'— בחר —')+'</option>'; items.forEach(function(v){ const o=document.createElement('option'); o.value=v; o.textContent=v; s.appendChild(o); }); }
-function cascadeReset(ids){ ids.forEach(function(id){ const s=document.getElementById(id); if(s) s.innerHTML='<option value="">— בחר —</option>'; }); }
-
-async function initRoster(){
-  saveMsg('טוען נתונים...');
+async function identify(){
+  const nid = gv('natId');
+  if(!nid){ setIdMsg('הקלד/י תעודת זהות.', true); return; }
+  setIdMsg('מזהה...');
   try{
-    rosterData = await sb('videocast_roster?select=school_name,teacher_name,student_class,student_name&order=school_name.asc') || [];
-    fillSelect('schoolName', uniq(rosterData.map(function(r){return r.school_name;})), '— בחר בית ספר —');
-    cascadeReset(['teacherName','stClass','stName']);
-    applyUrlPrefill();
-    saveMsg('');
-  }catch(e){ saveMsg('שגיאה בטעינת הנתונים: '+e.message, true); }
-}
-
-function onSchoolChange(){
-  const s = gv('schoolName');
-  fillSelect('teacherName', uniq(rosterData.filter(function(r){return r.school_name===s;}).map(function(r){return r.teacher_name;})), '— בחר מורה —');
-  cascadeReset(['stClass','stName']);
-}
-function onTeacherChange(){
-  const s=gv('schoolName'), t=gv('teacherName');
-  fillSelect('stClass', uniq(rosterData.filter(function(r){return r.school_name===s && r.teacher_name===t;}).map(function(r){return r.student_class;})), '— בחר כיתה —');
-  cascadeReset(['stName']);
-}
-function onClassChange(){
-  const s=gv('schoolName'), t=gv('teacherName'), c=gv('stClass');
-  fillSelect('stName', uniq(rosterData.filter(function(r){return r.school_name===s && r.teacher_name===t && r.student_class===c;}).map(function(r){return r.student_name;})), '— בחר את שמך —');
-}
-
-function applyUrlPrefill(){
-  const p = new URLSearchParams(location.search);
-  const sc=p.get('school'), tc=p.get('teacher'), cl=p.get('class');
-  if(sc){ document.getElementById('schoolName').value=sc; onSchoolChange(); }
-  if(sc && tc){ document.getElementById('teacherName').value=tc; onTeacherChange(); }
-  if(sc && tc && cl){ document.getElementById('stClass').value=cl; onClassChange(); }
+    const r = await fetch(LOOKUP_URL, {
+      method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ national_id: nid })
+    });
+    const data = await r.json();
+    if(!data || !data.ok){ setIdMsg((data && data.error) || 'תעודת זהות לא נמצאה.', true); return; }
+    identity = data.student;
+    setIdMsg('');
+    document.getElementById('idCard').style.display='none';
+    document.getElementById('welcome').innerHTML = 'שלום, <b>'+identity.student_name+'</b> · כיתה '+identity.student_class;
+    document.getElementById('mainContent').style.display='block';
+    document.getElementById('finalBar').style.display='block';
+  }catch(e){ setIdMsg('שגיאה בזיהוי. נסה/י שוב בעוד רגע.', true); }
 }
 
 async function saveSelf(){
-  const school=gv('schoolName'), teacher=gv('teacherName'), cls=gv('stClass'), student=gv('stName');
-  if(!school || !teacher || !cls){ saveMsg('בחר בית ספר, מורה וכיתה.', true); return; }
-  if(!student){ saveMsg('בחר את שמך מהרשימה.', true); return; }
+  if(!identity){ saveMsg('יש להזדהות קודם.', true); return; }
   const scores={}, cat_scores={}; let final=0;
   CATEGORIES.forEach(function(cat){
     const vals = state[cat.id];
@@ -401,7 +384,8 @@ async function saveSelf(){
     final += avg*cat.weight/100;
   });
   const payload = {
-    school_name:school, teacher_name:teacher, student_class:cls, student_name:student,
+    school_name:identity.school_name, teacher_name:identity.teacher_name,
+    student_class:identity.student_class, student_name:identity.student_name,
     role:'student', scores:scores, cat_scores:cat_scores,
     final_score:Math.round(final), notes:gv('feedback'), updated_at:new Date().toISOString()
   };
@@ -414,21 +398,20 @@ async function saveSelf(){
   }catch(e){ saveMsg('שגיאה בשליחה: '+e.message, true); }
 }
 
+let todayStr = '';
 (function(){
   const d = new Date();
   const pad = function(n){ return String(n).padStart(2,'0'); };
-  document.getElementById('stDate').value = pad(d.getDate())+'/'+pad(d.getMonth()+1)+'/'+d.getFullYear();
+  todayStr = pad(d.getDate())+'/'+pad(d.getMonth()+1)+'/'+d.getFullYear();
 })();
 
 window.addEventListener('beforeprint', function(){
-  const name = document.getElementById('stName').value || '—';
-  const cls = document.getElementById('stClass').value || '—';
-  const date = document.getElementById('stDate').value || '—';
-  document.getElementById('printMeta').textContent = 'תלמיד/ה: '+name+'  ·  כיתה: '+cls+'  ·  תאריך: '+date;
+  const name = identity ? identity.student_name : '—';
+  const cls = identity ? identity.student_class : '—';
+  document.getElementById('printMeta').textContent = 'תלמיד/ה: '+name+'  ·  כיתה: '+cls+'  ·  תאריך: '+todayStr;
 });
 
 render();
-initRoster();
 </script>
 </body>
 </html>
