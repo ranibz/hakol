@@ -1,10 +1,11 @@
 <!DOCTYPE html>
-<!-- דף סיכום מורה - הפקות וידאוקאסט | VERSION 1.0.0 - 05/06/2026 - שער סיסמה, בחירה מדורגת (בית ספר/מורה/כיתה), משיכת הערכות מורה + תלמיד מ-lamed, חישוב פיוס לכל קטגוריה (כלל ±10): נמוך→מורה, עד+10→ממוצע, מעל+10→מורה. טבלת מורה/תלמיד/פיוס/התערבות/סופי, עריכת התערבות מורה, וייצוא Excel. | פיתוח: רני בן זאב -->
+<!-- דף סיכום מורה - הפקות וידאוקאסט | VERSION 1.1.0 - 05/06/2026 - לחיצה על שם תלמיד פותחת פירוט לפי קטגוריה: ציון מורה, ציון תלמיד והפיוס בכל אחת מ-4 הקטגוריות (מסביר למה הציון הסופי יצא כפי שיצא). | פיתוח: רני בן זאב -->
+<!-- VERSION 1.0.0 - 05/06/2026 - שער סיסמה, פיוס לפי קטגוריה, טבלת סיכום, התערבות מורה, ייצוא Excel. | פיתוח: רני בן זאב -->
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>סיכום ציונים — הפקות וידאוקאסט · v1.0.0</title>
+<title>סיכום ציונים — הפקות וידאוקאסט · v1.1.0</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700;800;900&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
@@ -64,6 +65,15 @@ td.name{text-align:right;font-weight:700;}
 .status{margin-top:12px;font-size:.88rem;font-weight:700;min-height:20px;color:var(--accent);}
 .status.err{color:var(--low);}
 .empty{color:var(--muted);text-align:center;padding:20px;}
+.nm-toggle{cursor:pointer;user-select:none;}
+.nm-toggle:hover{color:var(--accent);}
+tr.detail > td{background:#f8fafc;padding:0;}
+.brk{padding:12px 16px;}
+.brk-head{font-weight:800;font-size:.9rem;margin-bottom:8px;color:var(--accent);}
+.brk-tbl{width:100%;font-size:.86rem;min-width:0;}
+.brk-tbl th{background:#eef3f8;font-size:.74rem;}
+.brk-tbl td{padding:7px 10px;}
+.brk-tbl .bk-n{text-align:right;font-weight:700;}
 .legend{font-size:.8rem;color:var(--muted);margin-top:10px;line-height:1.6;}
 </style>
 </head>
@@ -204,15 +214,15 @@ async function loadSummary(){
       const name = rr.student_name;
       const tRow = (byStudent[name]||{}).teacher || null;
       const sRow = (byStudent[name]||{}).student || null;
+      const cats = CATS.map(function(cat){
+        const T = tRow ? num((tRow.cat_scores||{})[cat.id]) : null;
+        const S = sRow ? num((sRow.cat_scores||{})[cat.id]) : null;
+        return { name:cat.name, w:cat.w, T:T, S:S, R:reconcileCat(T,S) };
+      });
       let reconciled = null;
       if(tRow){
         let f=0;
-        CATS.forEach(function(cat){
-          const T = num((tRow.cat_scores||{})[cat.id]);
-          const S = sRow ? num((sRow.cat_scores||{})[cat.id]) : null;
-          const R = reconcileCat(T,S);
-          f += (R==null?0:R)*cat.w/100;
-        });
+        cats.forEach(function(c){ f += (c.R==null?0:c.R)*c.w/100; });
         reconciled = Math.round(f);
       }
       const override = tRow ? num(tRow.override_final) : null;
@@ -223,7 +233,8 @@ async function loadSummary(){
         studentFinal: sRow ? num(sRow.final_score) : null,
         reconciled: reconciled,
         override: override,
-        finalGrade: finalGrade
+        finalGrade: finalGrade,
+        cats: cats
       };
     });
     renderTable();
@@ -237,10 +248,10 @@ function renderTable(){
   const tb = document.getElementById('tbody');
   if(!summaryRows.length){ tb.innerHTML='<tr><td colspan="6" class="empty">אין תלמידים בכיתה זו.</td></tr>'; return; }
   let html='';
-  summaryRows.forEach(function(r){
+  summaryRows.forEach(function(r, i){
     const safe = r.name.replace(/'/g,"\\'");
     html += '<tr>'
-      + '<td class="name">'+r.name+'</td>'
+      + '<td class="name"><span class="nm-toggle" onclick="toggleDetail('+i+')">▾ '+r.name+'</span></td>'
       + '<td>'+cell(r.teacherFinal)+'</td>'
       + '<td>'+cell(r.studentFinal)+'</td>'
       + '<td>'+cell(r.reconciled)+'</td>'
@@ -248,8 +259,26 @@ function renderTable(){
         + 'onchange="saveOverride(\''+safe+'\',this.value)" '+(r.teacherFinal==null?'disabled title="אין ציון מורה"':'')+'></td>'
       + '<td><span class="final" style="color:'+bandColor(r.finalGrade)+'">'+(r.finalGrade!=null?r.finalGrade:'—')+'</span></td>'
       + '</tr>';
+    html += '<tr class="detail" id="detail'+i+'" style="display:none;"><td colspan="6">'+detailHtml(r)+'</td></tr>';
   });
   tb.innerHTML = html;
+}
+
+function bcell(v){ return v==null ? '<span class="muted">—</span>' : (Math.round(v*10)/10); }
+
+function detailHtml(r){
+  let h = '<div class="brk"><div class="brk-head">'+r.name+' — פירוט לפי קטגוריה</div>'
+    + '<table class="brk-tbl"><thead><tr><th>קטגוריה</th><th>משקל</th><th>ציון מורה</th><th>ציון תלמיד</th><th>פיוס</th></tr></thead><tbody>';
+  r.cats.forEach(function(c){
+    h += '<tr><td class="bk-n">'+c.name+'</td><td>'+c.w+'%</td><td>'+bcell(c.T)+'</td><td>'+bcell(c.S)+'</td><td>'+bcell(c.R)+'</td></tr>';
+  });
+  h += '</tbody></table></div>';
+  return h;
+}
+
+function toggleDetail(i){
+  const d = document.getElementById('detail'+i);
+  if(d) d.style.display = (d.style.display==='none') ? '' : 'none';
 }
 
 async function saveOverride(name, value){
