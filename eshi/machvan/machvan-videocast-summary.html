@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<!-- דף סיכום מורה - הפקות וידאוקאסט | VERSION 1.0.0 - 05/06/2026 - שער סיסמה, בחירה מדורגת (בית ספר/מורה/כיתה), משיכת הערכות מורה + תלמיד מ-lamed, חישוב פיוס לכל קטגוריה (כלל ±10): נמוך→מורה, עד+10→ממוצע, מעל+10→מורה. טבלת מורה/תלמיד/פיוס/התערבות/סופי, עריכת התערבות מורה, וייצוא Excel. | פיתוח: רני בן זאב -->
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>סיכום ציונים — הפקות וידאוקאסט · v1.0.0</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700;800;900&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --ink:#0d1726; --ink2:#1c2b41; --bg:#eef1f6; --card:#ffffff;
+  --accent:#0e7490; --accent2:#06b6d4; --line:#e3e8ef; --muted:#637085;
+  --good:#059669; --mid:#d97706; --low:#dc2626;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Heebo',sans-serif;background:var(--bg);color:var(--ink);line-height:1.5;
+  background-image:radial-gradient(circle at 100% 0,rgba(6,182,212,.06),transparent 45%);min-height:100vh;}
+.wrap{max-width:1000px;margin:0 auto;padding:0 16px 60px;}
+
+#gate{position:fixed;inset:0;z-index:100;background:linear-gradient(135deg,var(--ink),var(--ink2));display:flex;align-items:center;justify-content:center;padding:20px;}
+.gatebox{background:var(--card);border-radius:18px;padding:30px 28px;width:100%;max-width:360px;text-align:center;box-shadow:0 20px 50px rgba(0,0,0,.3);}
+.gatebox h2{font-size:1.3rem;font-weight:900;margin-bottom:6px;}
+.gatebox p{color:var(--muted);font-size:.9rem;margin-bottom:18px;}
+.gatebox input{width:100%;padding:12px 14px;border:1.6px solid var(--line);border-radius:11px;font-family:inherit;font-size:1.05rem;text-align:center;outline:none;margin-bottom:12px;}
+.gatebox input:focus{border-color:var(--accent2);box-shadow:0 0 0 4px rgba(6,182,212,.12);}
+.gatebox button{width:100%;padding:12px;border:none;border-radius:11px;background:var(--accent);color:#fff;font-family:inherit;font-weight:800;font-size:1rem;cursor:pointer;}
+.gatebox button:hover{background:var(--accent2);}
+.gate-err{color:var(--low);font-size:.85rem;font-weight:700;min-height:18px;}
+
+.topbar{background:linear-gradient(135deg,var(--ink),var(--ink2));color:#fff;position:relative;overflow:hidden;border-radius:0 0 22px 22px;padding:26px 28px;box-shadow:0 14px 40px rgba(13,23,38,.28);}
+.topbar::after{content:"";position:absolute;top:-60px;left:-40px;width:240px;height:240px;border-radius:50%;background:radial-gradient(circle,rgba(6,182,212,.35),transparent 70%);}
+.badge{display:inline-block;background:rgba(6,182,212,.16);border:1px solid rgba(6,182,212,.45);color:#7dd3e8;font-size:.72rem;font-weight:800;letter-spacing:1px;padding:4px 11px;border-radius:30px;position:relative;z-index:1;}
+.topbar h1{position:relative;z-index:1;margin-top:12px;font-size:1.5rem;font-weight:900;}
+.topbar .sub{position:relative;z-index:1;color:rgba(255,255,255,.6);font-size:.9rem;margin-top:3px;}
+
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px 20px;box-shadow:0 6px 22px rgba(13,23,38,.06);}
+.card.first{margin-top:-18px;position:relative;z-index:3;}
+.card + .card{margin-top:16px;}
+.row{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;}
+.field{flex:1;min-width:150px;}
+.field label{display:block;font-size:.74rem;font-weight:800;color:var(--muted);margin-bottom:5px;}
+.field select{width:100%;padding:10px 13px;border:1.6px solid var(--line);border-radius:10px;font-family:inherit;font-size:.98rem;font-weight:600;background:#fbfcfe;outline:none;color:var(--ink);}
+.field select:focus{border-color:var(--accent2);background:#fff;box-shadow:0 0 0 4px rgba(6,182,212,.12);}
+.btn{border:none;border-radius:10px;font-family:inherit;font-weight:800;font-size:.92rem;cursor:pointer;padding:11px 18px;transition:.15s;}
+.btn-main{background:var(--accent);color:#fff;}
+.btn-main:hover{background:var(--accent2);}
+.btn-xl{background:var(--good);color:#fff;}
+.btn-xl:hover{background:#047857;}
+.toolbar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:8px;}
+.toolbar h3{font-size:1.05rem;font-weight:900;}
+
+.tablewrap{overflow-x:auto;}
+table{width:100%;border-collapse:collapse;font-size:.92rem;min-width:640px;}
+th,td{padding:10px 12px;text-align:center;border-bottom:1px solid var(--line);}
+th{background:#f4f7fb;font-weight:800;color:var(--muted);font-size:.78rem;white-space:nowrap;}
+td.name{text-align:right;font-weight:700;}
+.pill{display:inline-block;min-width:42px;padding:3px 8px;border-radius:8px;font-weight:800;font-variant-numeric:tabular-nums;}
+.muted{color:var(--muted);font-size:.82rem;}
+.ovr{width:64px;padding:7px 6px;border:1.5px solid var(--line);border-radius:8px;text-align:center;font-family:inherit;font-weight:800;font-variant-numeric:tabular-nums;outline:none;}
+.ovr:focus{border-color:var(--accent2);box-shadow:0 0 0 3px rgba(6,182,212,.12);}
+.final{font-size:1.05rem;font-weight:900;font-variant-numeric:tabular-nums;}
+.status{margin-top:12px;font-size:.88rem;font-weight:700;min-height:20px;color:var(--accent);}
+.status.err{color:var(--low);}
+.empty{color:var(--muted);text-align:center;padding:20px;}
+.legend{font-size:.8rem;color:var(--muted);margin-top:10px;line-height:1.6;}
+</style>
+</head>
+<body>
+
+<div id="gate">
+  <div class="gatebox">
+    <h2>📊 סיכום ציונים</h2>
+    <p>הזן סיסמה כדי להיכנס</p>
+    <input type="password" id="pw" placeholder="סיסמה" onkeydown="if(event.key==='Enter')unlock()">
+    <button onclick="unlock()">כניסה</button>
+    <div class="gate-err" id="gateErr"></div>
+  </div>
+</div>
+
+<div id="app" style="display:none">
+  <header class="topbar">
+    <span class="badge">סיכום · VIDEOCAST</span>
+    <h1>סיכום ציונים — הפקות וידאוקאסט</h1>
+    <div class="sub">מורה · תלמיד · פיוס · התערבות מורה</div>
+  </header>
+
+  <div class="wrap">
+    <div class="card first">
+      <div class="row">
+        <div class="field"><label>בית ספר</label><select id="schoolSel" onchange="onSchool()"><option value="">— בחר —</option></select></div>
+        <div class="field"><label>מורה</label><select id="teacherSel" onchange="onTeacher()"><option value="">— בחר —</option></select></div>
+        <div class="field"><label>כיתה</label><select id="classSel"><option value="">— בחר —</option></select></div>
+        <div style="flex:none;"><button class="btn btn-main" onclick="loadSummary()">הצג סיכום</button></div>
+      </div>
+      <div class="status" id="status"></div>
+    </div>
+
+    <div class="card">
+      <div class="toolbar">
+        <h3>טבלת סיכום</h3>
+        <button class="btn btn-xl" onclick="exportXlsx()">⬇ ייצוא ל-Excel</button>
+      </div>
+      <div class="tablewrap">
+        <table>
+          <thead><tr>
+            <th>תלמיד/ה</th><th>ציון מורה</th><th>הערכה עצמית</th><th>פיוס (מחושב)</th><th>התערבות מורה</th><th>ציון סופי</th>
+          </tr></thead>
+          <tbody id="tbody"><tr><td colspan="6" class="empty">בחר בית ספר, מורה וכיתה ולחץ "הצג סיכום".</td></tr></tbody>
+        </table>
+      </div>
+      <div class="legend">
+        <b>פיוס לכל קטגוריה:</b> התלמיד נמוך מהמורה ← ציון המורה · התלמיד עד 10 נק׳ מעל ← ממוצע · מעל 10 נק׳ ← ציון המורה.
+        <b>התערבות מורה</b> גוברת על הפיוס. השאר ריק כדי להשתמש בפיוס המחושב.
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const TEACHER_PASSWORD = '1234'; // ← שנה לסיסמה שלך
+const SB_URL = 'https://hykpagdgaeulhghyvcqw.supabase.co';
+const SB_KEY = 'sb_publishable_o4Nff2ctoa1niZthDyMvLQ_e2hQwNuT';
+const CATS = [
+  {id:'final',  name:'תוצר סופי',   w:50},
+  {id:'know',   name:'ידע מקצועי',  w:20},
+  {id:'folder', name:'תיק הפקה',    w:15},
+  {id:'student',name:'תלמידאות',    w:15}
+];
+
+function unlock(){
+  if(document.getElementById('pw').value === TEACHER_PASSWORD){
+    document.getElementById('gate').style.display='none';
+    document.getElementById('app').style.display='block';
+    initRoster();
+  } else { document.getElementById('gateErr').textContent='סיסמה שגויה'; }
+}
+
+const enc = encodeURIComponent;
+function gv(id){ return (document.getElementById(id).value||'').trim(); }
+function status(m, err){ const s=document.getElementById('status'); s.textContent=m||''; s.className='status'+(err?' err':''); }
+function uniq(a){ return Array.from(new Set(a.filter(Boolean))).sort(); }
+function num(x){ return (x===null||x===undefined||x==='')?null:Number(x); }
+function fillSel(id, items, ph){ const s=document.getElementById(id); s.innerHTML='<option value="">'+(ph||'— בחר —')+'</option>'; items.forEach(function(v){ const o=document.createElement('option'); o.value=v; o.textContent=v; s.appendChild(o); }); }
+
+async function sb(path, opts){
+  opts = opts || {};
+  const r = await fetch(SB_URL + '/rest/v1/' + path, {
+    method: opts.method || 'GET',
+    headers: Object.assign({ apikey: SB_KEY, Authorization:'Bearer '+SB_KEY, 'Content-Type':'application/json' }, opts.headers||{}),
+    body: opts.body
+  });
+  const txt = await r.text();
+  if(!r.ok) throw new Error(r.status+' '+txt);
+  return txt ? JSON.parse(txt) : null;
+}
+
+let roster = [];
+async function initRoster(){
+  status('טוען...');
+  try{
+    roster = await sb('videocast_roster?select=school_name,teacher_name,student_class,student_name&order=school_name.asc') || [];
+    fillSel('schoolSel', uniq(roster.map(function(r){return r.school_name;})), '— בחר —');
+    fillSel('teacherSel', [], '— בחר —'); fillSel('classSel', [], '— בחר —');
+    status('');
+  }catch(e){ status('שגיאה בטעינה: '+e.message, true); }
+}
+function onSchool(){
+  const s=gv('schoolSel');
+  fillSel('teacherSel', uniq(roster.filter(function(r){return r.school_name===s;}).map(function(r){return r.teacher_name;})), '— בחר —');
+  fillSel('classSel', [], '— בחר —');
+}
+function onTeacher(){
+  const s=gv('schoolSel'), t=gv('teacherSel');
+  fillSel('classSel', uniq(roster.filter(function(r){return r.school_name===s && r.teacher_name===t;}).map(function(r){return r.student_class;})), '— בחר —');
+}
+
+function bandColor(v){ if(v==null) return 'var(--muted)'; return v>=80?'var(--good)':v>=60?'var(--mid)':'var(--low)'; }
+function reconcileCat(T, S){
+  if(T==null) return null;
+  if(S==null) return T;
+  if(S>T && S<=T+10) return (T+S)/2;
+  return T;
+}
+
+let summaryRows = [];
+let ctx = {};
+
+async function loadSummary(){
+  const s=gv('schoolSel'), t=gv('teacherSel'), c=gv('classSel');
+  if(!s || !t || !c){ status('בחר בית ספר, מורה וכיתה.', true); return; }
+  ctx = {s:s, t:t, c:c};
+  status('טוען נתונים...');
+  try{
+    const rosterRows = await sb('videocast_roster?school_name=eq.'+enc(s)+'&teacher_name=eq.'+enc(t)+'&student_class=eq.'+enc(c)+'&select=student_name&order=student_name.asc') || [];
+    const assess = await sb('videocast_assessments?school_name=eq.'+enc(s)+'&teacher_name=eq.'+enc(t)+'&student_class=eq.'+enc(c)+'&select=*') || [];
+    const byStudent = {};
+    assess.forEach(function(a){
+      byStudent[a.student_name] = byStudent[a.student_name] || {};
+      byStudent[a.student_name][a.role] = a;
+    });
+    summaryRows = rosterRows.map(function(rr){
+      const name = rr.student_name;
+      const tRow = (byStudent[name]||{}).teacher || null;
+      const sRow = (byStudent[name]||{}).student || null;
+      let reconciled = null;
+      if(tRow){
+        let f=0;
+        CATS.forEach(function(cat){
+          const T = num((tRow.cat_scores||{})[cat.id]);
+          const S = sRow ? num((sRow.cat_scores||{})[cat.id]) : null;
+          const R = reconcileCat(T,S);
+          f += (R==null?0:R)*cat.w/100;
+        });
+        reconciled = Math.round(f);
+      }
+      const override = tRow ? num(tRow.override_final) : null;
+      const finalGrade = (override!=null) ? override : reconciled;
+      return {
+        name:name,
+        teacherFinal: tRow ? num(tRow.final_score) : null,
+        studentFinal: sRow ? num(sRow.final_score) : null,
+        reconciled: reconciled,
+        override: override,
+        finalGrade: finalGrade
+      };
+    });
+    renderTable();
+    status(summaryRows.length+' תלמידים.');
+  }catch(e){ status('שגיאה: '+e.message, true); }
+}
+
+function cell(v){ if(v==null) return '<span class="muted">—</span>'; return '<span class="pill" style="background:'+bandColor(v)+'22;color:'+bandColor(v)+'">'+v+'</span>'; }
+
+function renderTable(){
+  const tb = document.getElementById('tbody');
+  if(!summaryRows.length){ tb.innerHTML='<tr><td colspan="6" class="empty">אין תלמידים בכיתה זו.</td></tr>'; return; }
+  let html='';
+  summaryRows.forEach(function(r){
+    const safe = r.name.replace(/'/g,"\\'");
+    html += '<tr>'
+      + '<td class="name">'+r.name+'</td>'
+      + '<td>'+cell(r.teacherFinal)+'</td>'
+      + '<td>'+cell(r.studentFinal)+'</td>'
+      + '<td>'+cell(r.reconciled)+'</td>'
+      + '<td><input class="ovr" type="number" min="0" max="100" value="'+(r.override!=null?r.override:'')+'" '
+        + 'onchange="saveOverride(\''+safe+'\',this.value)" '+(r.teacherFinal==null?'disabled title="אין ציון מורה"':'')+'></td>'
+      + '<td><span class="final" style="color:'+bandColor(r.finalGrade)+'">'+(r.finalGrade!=null?r.finalGrade:'—')+'</span></td>'
+      + '</tr>';
+  });
+  tb.innerHTML = html;
+}
+
+async function saveOverride(name, value){
+  const v = value===''? null : Math.max(0, Math.min(100, Math.round(Number(value)||0)));
+  status('שומר התערבות...');
+  try{
+    const q = 'videocast_assessments?school_name=eq.'+enc(ctx.s)+'&teacher_name=eq.'+enc(ctx.t)
+            + '&student_class=eq.'+enc(ctx.c)+'&student_name=eq.'+enc(name)+'&role=eq.teacher';
+    await sb(q, { method:'PATCH', headers:{ Prefer:'return=minimal' }, body: JSON.stringify({ override_final: v }) });
+    const row = summaryRows.find(function(r){return r.name===name;});
+    if(row){ row.override=v; row.finalGrade=(v!=null)?v:row.reconciled; }
+    renderTable();
+    status('✓ ההתערבות נשמרה ('+name+')');
+  }catch(e){ status('שגיאה בשמירת התערבות: '+e.message, true); }
+}
+
+function exportXlsx(){
+  if(!summaryRows.length){ status('אין נתונים לייצוא.', true); return; }
+  const data = summaryRows.map(function(r){
+    return {
+      'תלמיד/ה': r.name,
+      'ציון מורה': r.teacherFinal!=null?r.teacherFinal:'',
+      'הערכה עצמית': r.studentFinal!=null?r.studentFinal:'',
+      'פיוס מחושב': r.reconciled!=null?r.reconciled:'',
+      'התערבות מורה': r.override!=null?r.override:'',
+      'ציון סופי': r.finalGrade!=null?r.finalGrade:''
+    };
+  });
+  const ws = XLSX.utils.json_to_sheet(data);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'סיכום');
+  const fname = 'סיכום_'+ctx.c+'_'+ctx.t+'.xlsx';
+  XLSX.writeFile(wb, fname);
+}
+</script>
+</body>
+</html>

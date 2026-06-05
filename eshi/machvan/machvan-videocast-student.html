@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<!-- הערכה עצמית - הפקת וידאוקאסט 5 יח"ל | VERSION 1.2.0 - 05/06/2026 - חיבור ל-Supabase (lamed): בחירה מדורגת מהרוסטר (בית ספר→מורה→כיתה→שם), תמיכה בקישור עם פרמטרים (?school=&teacher=&class=) למילוי מראש, וכפתור "שלח הערכה" ששומר את ההערכה העצמית (role=student). | פיתוח: רני בן זאב -->
+<!-- VERSION 1.1.0 - 05/06/2026 - ניסוח מדויק של תנאי הפיוס + דגשים לכל קריטריון. | פיתוח: רני בן זאב -->
+<!-- VERSION 1.0.0 - 05/06/2026 - טופס הערכה עצמית לתלמיד, מקביל למחוון המורה. הערכה עצמית בלבד. ללא שמירת נתונים. | פיתוח: רני בן זאב -->
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>הערכה עצמית — הפקת וידאוקאסט · v1.2.0</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700;800;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#231603; --ink2:#3a2708; --bg:#f6f2ea; --card:#ffffff;
+  --accent:#b45309; --accent2:#f59e0b; --line:#ece4d6; --muted:#7a6b54;
+  --good:#059669; --mid:#d97706; --low:#dc2626;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Heebo',sans-serif;background:var(--bg);color:var(--ink);line-height:1.5;
+  background-image:radial-gradient(circle at 100% 0,rgba(245,158,11,.08),transparent 45%);min-height:100vh;}
+.wrap{max-width:920px;margin:0 auto;padding:0 16px 140px;}
+
+/* HEADER */
+.topbar{background:linear-gradient(135deg,var(--ink),var(--ink2));color:#fff;position:relative;overflow:hidden;
+  border-radius:0 0 22px 22px;padding:30px 28px 26px;box-shadow:0 14px 40px rgba(35,22,3,.28);}
+.topbar::before{content:"";position:absolute;inset:0;opacity:.5;pointer-events:none;
+  background:repeating-linear-gradient(0deg,rgba(255,255,255,.035) 0 1px,transparent 1px 4px);}
+.topbar::after{content:"";position:absolute;top:-60px;left:-40px;width:240px;height:240px;border-radius:50%;
+  background:radial-gradient(circle,rgba(245,158,11,.4),transparent 70%);pointer-events:none;}
+.brandrow{display:flex;align-items:center;gap:12px;position:relative;z-index:1;flex-wrap:wrap;}
+.badge{display:inline-flex;align-items:center;gap:7px;background:rgba(245,158,11,.16);border:1px solid rgba(245,158,11,.5);
+  color:#fcd34d;font-size:.72rem;font-weight:800;letter-spacing:1px;padding:4px 11px;border-radius:30px;}
+.badge .dot{width:9px;height:9px;border-radius:50%;background:var(--accent2);box-shadow:0 0 0 0 rgba(245,158,11,.6);animation:pulse 1.8s infinite;}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(245,158,11,.55)}70%{box-shadow:0 0 0 8px rgba(245,158,11,0)}100%{box-shadow:0 0 0 0 rgba(245,158,11,0)}}
+.ver{margin-right:auto;font-size:.72rem;color:rgba(255,255,255,.45);font-weight:700;letter-spacing:.5px;}
+.topbar h1{position:relative;z-index:1;margin-top:14px;font-size:1.7rem;font-weight:900;letter-spacing:-.5px;}
+.topbar .sub{position:relative;z-index:1;color:rgba(255,255,255,.62);font-size:.92rem;font-weight:500;margin-top:3px;}
+
+/* STUDENT INFO */
+.idcard{background:var(--card);border-radius:16px;padding:16px 18px;margin-top:-22px;position:relative;z-index:3;
+  box-shadow:0 8px 26px rgba(35,22,3,.1);display:flex;gap:14px;flex-wrap:wrap;border:1px solid var(--line);}
+.idfield{flex:1;min-width:160px;}
+.idfield label{display:block;font-size:.74rem;font-weight:800;color:var(--muted);margin-bottom:5px;letter-spacing:.3px;}
+.idfield input{width:100%;padding:10px 13px;border:1.6px solid var(--line);border-radius:10px;font-family:inherit;
+  font-size:1rem;font-weight:600;color:var(--ink);background:#fdfbf7;outline:none;transition:.18s;}
+.idfield input:focus{border-color:var(--accent2);background:#fff;box-shadow:0 0 0 4px rgba(245,158,11,.14);}
+
+/* INFO BOX */
+.infobox{background:#fff8ec;border:1px solid #f5d99a;border-right:4px solid var(--accent2);border-radius:12px;
+  padding:14px 18px;margin-top:16px;font-size:.92rem;line-height:1.65;color:#5c4a2a;}
+.infobox b{color:var(--accent);}
+.infobox ul{margin:8px 0 6px;padding-right:20px;}
+.infobox li{margin-bottom:5px;}
+
+/* SELF SCORE HERO */
+.scorehero{background:linear-gradient(135deg,var(--ink),var(--ink2));color:#fff;border-radius:16px;margin-top:16px;
+  padding:16px 22px;display:flex;align-items:center;gap:18px;flex-wrap:wrap;box-shadow:0 8px 26px rgba(35,22,3,.14);position:relative;overflow:hidden;}
+.scorehero::after{content:"";position:absolute;top:-40px;left:-30px;width:170px;height:170px;border-radius:50%;
+  background:radial-gradient(circle,rgba(245,158,11,.3),transparent 70%);pointer-events:none;}
+.hero-main{position:relative;z-index:1;}
+.hero-lbl{font-size:.78rem;color:rgba(255,255,255,.62);font-weight:700;letter-spacing:.3px;}
+.hero-num{font-size:2.7rem;font-weight:900;font-variant-numeric:tabular-nums;line-height:1;transition:color .2s;}
+.hero-100{font-size:1rem;color:rgba(255,255,255,.45);font-weight:700;margin-right:4px;}
+.hero-note{font-size:.72rem;color:rgba(255,255,255,.5);font-weight:600;margin-top:3px;}
+.hero-chips{position:relative;z-index:1;display:flex;gap:8px;flex-wrap:wrap;margin-right:auto;}
+.chip{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);border-radius:12px;padding:7px 12px;text-align:center;}
+.chip span{display:block;font-size:.72rem;color:rgba(255,255,255,.6);font-weight:700;}
+.chip b{display:block;font-size:1.05rem;font-weight:900;font-variant-numeric:tabular-nums;margin-top:2px;}
+
+/* CATEGORY CARD */
+.cat{background:var(--card);border:1px solid var(--line);border-radius:18px;margin-top:18px;overflow:hidden;
+  box-shadow:0 6px 22px rgba(35,22,3,.06);}
+.cat-head{display:flex;align-items:center;gap:12px;padding:16px 20px;background:linear-gradient(90deg,#fcf8f1,#fff);
+  border-bottom:1px solid var(--line);flex-wrap:wrap;}
+.cat-ico{font-size:1.5rem;line-height:1;}
+.cat-name{font-size:1.12rem;font-weight:900;}
+.cat-wgt{background:rgba(180,83,9,.1);color:var(--accent);font-weight:800;font-size:.8rem;padding:3px 11px;border-radius:30px;}
+.cat-score{margin-right:auto;text-align:left;}
+.cat-score .pts{font-size:1.25rem;font-weight:900;font-variant-numeric:tabular-nums;}
+.cat-score .pts small{font-size:.78rem;color:var(--muted);font-weight:700;}
+.cat-desc{padding:12px 20px;color:var(--muted);font-size:.88rem;line-height:1.6;background:#fcf9f3;border-bottom:1px solid var(--line);}
+.cat-desc b{color:var(--ink);font-weight:700;}
+.cat-body{padding:8px 20px 18px;}
+
+/* CRITERION ROW */
+.crit{display:grid;grid-template-columns:1fr auto;align-items:center;gap:10px 16px;padding:11px 0;border-bottom:1px dashed var(--line);}
+.crit:last-child{border-bottom:none;}
+.crit-label{font-weight:600;font-size:.96rem;}
+.crit-main{min-width:0;}
+.crit-hint{font-size:.79rem;color:var(--muted);line-height:1.45;margin-top:3px;font-weight:400;}
+.crit-ctrl{display:flex;align-items:center;gap:12px;min-width:230px;justify-content:flex-end;}
+.crit-ctrl input[type=range]{direction:ltr;width:160px;accent-color:var(--accent);cursor:pointer;height:6px;}
+.crit-num{width:58px;padding:7px 6px;border:1.5px solid var(--line);border-radius:9px;text-align:center;font-family:inherit;
+  font-weight:800;font-size:.95rem;color:var(--ink);background:#fdfbf7;outline:none;font-variant-numeric:tabular-nums;}
+.crit-num:focus{border-color:var(--accent2);box-shadow:0 0 0 3px rgba(245,158,11,.14);}
+@media(max-width:560px){
+  .crit{grid-template-columns:1fr;}
+  .crit-ctrl{justify-content:flex-start;}
+  .crit-ctrl input[type=range]{flex:1;width:auto;}
+}
+
+/* REFLECTION */
+.notes{background:var(--card);border:1px solid var(--line);border-radius:18px;margin-top:18px;padding:16px 20px;box-shadow:0 6px 22px rgba(35,22,3,.06);}
+.notes label{display:block;font-weight:900;font-size:1.05rem;margin-bottom:10px;}
+.notes textarea{width:100%;min-height:90px;padding:12px 14px;border:1.6px solid var(--line);border-radius:12px;
+  font-family:inherit;font-size:.97rem;line-height:1.6;resize:vertical;background:#fdfbf7;outline:none;}
+.notes textarea:focus{border-color:var(--accent2);background:#fff;box-shadow:0 0 0 4px rgba(245,158,11,.12);}
+
+/* BOTTOM BAR */
+.finalbar{position:fixed;bottom:0;left:0;right:0;z-index:50;background:rgba(35,22,3,.97);backdrop-filter:blur(8px);
+  color:#fff;border-top:2px solid var(--accent2);box-shadow:0 -10px 40px rgba(35,22,3,.3);}
+.finalbar .inner{max-width:920px;margin:0 auto;padding:13px 20px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;}
+.final-lbl{font-size:.82rem;color:rgba(255,255,255,.6);font-weight:700;}
+.final-num{font-size:2.5rem;font-weight:900;line-height:1;font-variant-numeric:tabular-nums;transition:color .2s;}
+.final-100{font-size:.95rem;color:rgba(255,255,255,.5);font-weight:700;align-self:flex-end;margin-bottom:5px;margin-right:-8px;}
+.final-actions{margin-right:auto;display:flex;gap:9px;}
+.btn{border:none;border-radius:11px;font-family:inherit;font-weight:800;font-size:.9rem;cursor:pointer;padding:11px 18px;transition:.18s;}
+.btn-print{background:var(--accent2);color:#3a2708;}
+.btn-print:hover{background:#fbbf24;transform:translateY(-1px);}
+.btn-reset{background:rgba(255,255,255,.12);color:#fff;}
+.btn-reset:hover{background:rgba(255,255,255,.2);}
+.btn-save{background:#059669;color:#fff;}
+.btn-save:hover{background:#047857;transform:translateY(-1px);}
+.btn-load{background:var(--accent);color:#fff;margin-top:10px;}
+.btn-load:hover{background:var(--accent2);}
+.idfield select{width:100%;padding:10px 13px;border:1.6px solid var(--line);border-radius:10px;font-family:inherit;font-size:1rem;font-weight:600;color:var(--ink);background:#fdfbf7;outline:none;}
+.idfield select:focus{border-color:var(--accent2);background:#fff;box-shadow:0 0 0 4px rgba(245,158,11,.14);}
+.idcard-context{border-top:3px solid var(--accent2);}
+.idcard-context + .idcard{margin-top:14px;}
+.savemsg{font-size:.85rem;font-weight:800;color:#fff;align-self:center;}
+.savemsg.err{color:#fda4b8;}
+
+/* PRINT */
+.print-meta{display:none;}
+@media print{
+  body{background:#fff;}
+  .topbar{box-shadow:none;border-radius:0;background:var(--ink)!important;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+  .badge .dot{animation:none;}
+  .wrap{padding-bottom:20px;max-width:100%;}
+  .finalbar{position:static;background:#fff;color:var(--ink);border-top:2px solid var(--accent2);box-shadow:none;}
+  .finalbar .final-lbl,.finalbar .final-100{color:var(--muted);}
+  .final-actions{display:none;}
+  .crit-ctrl input[type=range]{display:none;}
+  .crit-num{border:none;background:none;width:auto;font-size:1.05rem;}
+  .idfield input,.notes textarea{border-color:#ccc;}
+  .cat,.notes,.idcard,.infobox{box-shadow:none;break-inside:avoid;}
+  .print-meta{display:block;text-align:left;font-size:.8rem;color:var(--muted);margin-top:8px;}
+}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brandrow">
+    <span class="badge"><span class="dot"></span>הערכה עצמית</span>
+    <span class="ver">v1.0.0 · הפקת וידאוקאסט</span>
+  </div>
+  <h1>הערכה עצמית — הפקת וידאוקאסט</h1>
+  <div class="sub">דרג את עצמך בכל סעיף · 5 יחידות לימוד</div>
+</header>
+
+<div class="wrap">
+
+  <div class="idcard idcard-context">
+    <div class="idfield"><label>בית ספר</label><select id="schoolName" onchange="onSchoolChange()"><option value="">— בחר בית ספר —</option></select></div>
+    <div class="idfield"><label>מורה</label><select id="teacherName" onchange="onTeacherChange()"><option value="">— בחר מורה —</option></select></div>
+  </div>
+  <div class="idcard">
+    <div class="idfield"><label>כיתה</label><select id="stClass" onchange="onClassChange()"><option value="">— בחר כיתה —</option></select></div>
+    <div class="idfield"><label>השם שלי</label><select id="stName"><option value="">— בחר את שמך —</option></select></div>
+    <div class="idfield"><label>תאריך</label><input type="text" id="stDate" placeholder="DD/MM/YYYY"></div>
+  </div>
+  <div><button class="btn btn-load" onclick="initRoster()">⟳ רענן נתונים</button></div>
+
+  <div class="infobox">
+    <b>🤝 איך ההערכה שלך משפיעה על הציון</b> — לכל סעיף בנפרד:
+    <ul>
+      <li>הערכת את עצמך <b>עד 10 נקודות מעל המורה</b> ← הציון בסעיף <b>ישוקלל</b> (ממוצע בינך לבין המורה).</li>
+      <li>הערכת <b>נמוך מהמורה</b> ← לא תיפגע, <b>הערכת המורה תיחשב</b>.</li>
+      <li>הערכת <b>יותר מ-10 נקודות מעל המורה</b> ← ההערכה שלך באותו סעיף <b>לא תיחשב</b>, והערכת המורה תיחשב.</li>
+    </ul>
+    המסקנה: כדאי להעריך את עצמך <b>בכנות ובדיוק</b> — ככה רק תרוויח.
+  </div>
+
+  <div class="scorehero">
+    <div class="hero-main">
+      <div class="hero-lbl">ההערכה העצמית שלי</div>
+      <div><span class="hero-num" id="heroNum">0</span><span class="hero-100">/100</span></div>
+      <div class="hero-note">זו ההערכה שלך — לא הציון הסופי</div>
+    </div>
+    <div class="hero-chips" id="heroChips"></div>
+  </div>
+
+  <div id="cats"></div>
+
+  <div class="notes">
+    <label>✍️ הרהור אישי</label>
+    <textarea id="feedback" placeholder="מה היה לי קל? מה היה מאתגר? מה הייתי משפר בהפקה הבאה?"></textarea>
+  </div>
+
+</div>
+
+<div class="finalbar">
+  <div class="inner">
+    <div>
+      <div class="final-lbl">הערכה עצמית</div>
+      <span class="final-num" id="finalNum">0</span><span class="final-100"> / 100</span>
+    </div>
+    <div class="print-meta" id="printMeta"></div>
+    <span class="savemsg" id="saveMsg"></span>
+    <div class="final-actions">
+      <button class="btn btn-save" onclick="saveSelf()">💾 שלח הערכה</button>
+      <button class="btn btn-print" onclick="window.print()">🖨️ הדפסה</button>
+      <button class="btn btn-reset" onclick="resetAll()">↺ איפוס</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const CATEGORIES = [
+  { id:'final', name:'תוצר סופי', weight:50, icon:'🎬',
+    desc:'התוצר המוגמר וכל מרכיביו: <b>פתיח וסגיר</b>, <b>לפחות שני ראיונות</b> — אחד באולפן ואחד בחוץ, <b>קריינות רצף</b>, ואיכות טכנית: אחידות סאונד, תמונה וצבע, ללא קפיצות, נקיון מסך ירוק ושימוש במולטיקאמרה.',
+    criteria:[
+    {l:'פתיח', h:'פתיחה שמושכת תשומת לב ומציגה את הנושא — כותרת, מוזיקה או קטע פתיחה שיוצר עניין.'},
+    {l:'סגיר', h:'סיום ברור שעוטף את התוכן — סצנת סיום, קרדיטים ותחושת סגירה.'},
+    {l:'ראיון אולפן', h:'ראיון מצולם באולפן — תאורה טובה, מיקום ורקע נקיים, שאלות ברורות.'},
+    {l:'ראיון חוץ', h:'ראיון בשטח — סאונד נקי למרות רעשי רקע, תמונה יציבה, קשר למקום.'},
+    {l:'קריינות רצף', h:'קריינות רציפה שמחברת בין הקטעים — ברורה, בקצב מתאים ובעוצמה אחידה.'},
+    {l:'אחידות סאונד', h:'עוצמת קול אחידה לאורך כל ההפקה — בלי קפיצות עוצמה בין הקטעים.'},
+    {l:'תמונה', h:'חדות, מסגור (קומפוזיציה), תאורה נכונה ויציבות צילום.'},
+    {l:'צבע', h:'אחידות וטיפול בצבע בין הקטעים — גוונים נעימים ועקביים.'},
+    {l:'ללא קפיצות', h:'מעברים חלקים בין השוטים — בלי קפיצות (ג׳אמפ-קאט) לא מכוונות.'},
+    {l:'נקיון מסך ירוק', h:'הסרת המסך הירוק נקייה — בלי שאריות או הילה ירוקה בקצוות.'},
+    {l:'מולטיקאמרה', h:'שימוש בכמה זוויות מצלמה ומעבר הגיוני ביניהן.'}
+  ]},
+  { id:'know', name:'ידע מקצועי', weight:20, icon:'🎛️',
+    desc:'הבנת ההפקה והשליטה הטכנית: <b>הכרת המרכיבים הטכניים</b> של הפרויקט, <b>שליטה במערכת העריכה</b>, ו<b>יכולת עריכה עצמאית</b>.',
+    criteria:[
+    {l:'הכרת המרכיבים הטכניים של הפרויקט', h:'הבנה של הציוד והתהליך — מצלמה, סאונד, תאורה ועריכה.'},
+    {l:'שליטה במערכת העריכה', h:'שימוש יעיל בכלי העריכה — חיתוך, שכבות, אודיו ואפקטים.'},
+    {l:'יכולת עריכה עצמאית', h:'עריכה עצמאית בלי תלות מתמדת בעזרת המורה.'}
+  ]},
+  { id:'folder', name:'תיק הפקה מלא', weight:15, icon:'📁',
+    desc:'<b>תיק הפקה מלא ומסודר</b> המתעד את כל שלבי ההפקה — מתכנון ועד תוצר סופי.',
+    criteria:[
+    {l:'שלמות תיק ההפקה', h:'כל שלבי ההפקה מתועדים — תכנון, תסריט/סטוריבורד, לוח צילומים ורשימת ציוד.'}
+  ]},
+  { id:'student', name:'תלמידאות', weight:15, icon:'🎓',
+    desc:'ההתנהלות לאורך התהליך: <b>הגעה רציפה לשיעורים ונוכחות</b>, <b>יכולת עבודה עצמאית</b>, ו<b>אחריות אישית</b>.',
+    criteria:[
+    {l:'הגעה רציפה לשיעורים', h:'הגעה קבועה ועקבית לאורך כל התקופה.'},
+    {l:'נוכחות', h:'נוכחות פעילה ומעורבת בשיעורים.'},
+    {l:'יכולת עבודה עצמאית', h:'התקדמות עצמאית במשימות בלי המתנה מתמדת להכוונה.'},
+    {l:'אחריות אישית', h:'עמידה בלוחות זמנים, שמירה על הציוד ואחריות לתוצר.'}
+  ]},
+];
+
+const state = {};
+
+function bandColor(v){ return v>=80 ? 'var(--good)' : v>=60 ? 'var(--mid)' : 'var(--low)'; }
+
+function render(){
+  const host = document.getElementById('cats');
+  let html = '';
+  CATEGORIES.forEach(function(cat){
+    state[cat.id] = cat.criteria.map(function(){ return 0; });
+    html += '<div class="cat">';
+    html += '<div class="cat-head"><span class="cat-ico">'+cat.icon+'</span>';
+    html += '<span class="cat-name">'+cat.name+'</span>';
+    html += '<span class="cat-wgt">'+cat.weight+'%</span>';
+    html += '<div class="cat-score"><div class="pts" id="catpts_'+cat.id+'">0.0 <small>/ '+cat.weight+'</small></div></div>';
+    html += '</div>';
+    if(cat.desc){ html += '<div class="cat-desc">'+cat.desc+'</div>'; }
+    html += '<div class="cat-body">';
+    cat.criteria.forEach(function(crit, i){
+      const rid = cat.id+'_'+i;
+      html += '<div class="crit"><div class="crit-main"><div class="crit-label">'+crit.l+'</div>';
+      html += '<div class="crit-hint">'+crit.h+'</div></div>';
+      html += '<div class="crit-ctrl">';
+      html += '<input type="range" min="0" max="100" step="5" value="0" id="r_'+rid+'" oninput="onSlide(\''+cat.id+'\','+i+',this.value)">';
+      html += '<input type="number" min="0" max="100" value="0" class="crit-num" id="n_'+rid+'" onchange="onNum(\''+cat.id+'\','+i+',this.value)">';
+      html += '</div></div>';
+    });
+    html += '</div></div>';
+  });
+  host.innerHTML = html;
+  recalc();
+}
+
+function onSlide(catId, i, val){
+  state[catId][i] = clamp(val);
+  document.getElementById('n_'+catId+'_'+i).value = state[catId][i];
+  recalc();
+}
+function onNum(catId, i, val){
+  val = clamp(val);
+  state[catId][i] = val;
+  document.getElementById('n_'+catId+'_'+i).value = val;
+  document.getElementById('r_'+catId+'_'+i).value = val;
+  recalc();
+}
+function clamp(v){ v = Math.round(Number(v)||0); return Math.max(0, Math.min(100, v)); }
+
+function recalc(){
+  let final = 0; let chips = '';
+  CATEGORIES.forEach(function(cat){
+    const vals = state[cat.id];
+    const avg = vals.reduce(function(a,b){return a+b;},0) / vals.length;
+    const contribution = avg * cat.weight / 100;
+    final += contribution;
+    const el = document.getElementById('catpts_'+cat.id);
+    el.innerHTML = contribution.toFixed(1)+' <small>/ '+cat.weight+'</small>';
+    el.style.color = bandColor(avg);
+    chips += '<div class="chip"><span>'+cat.name+'</span><b style="color:'+bandColor(avg)+'">'+contribution.toFixed(1)+'<small style="color:rgba(255,255,255,.4);font-weight:700"> /'+cat.weight+'</small></b></div>';
+  });
+  const rounded = Math.round(final);
+  const fn = document.getElementById('finalNum');
+  fn.textContent = rounded;
+  fn.style.color = bandColor(rounded);
+  const hn = document.getElementById('heroNum');
+  hn.textContent = rounded;
+  hn.style.color = bandColor(rounded);
+  document.getElementById('heroChips').innerHTML = chips;
+}
+
+function resetAll(){
+  if(!confirm('לאפס את כל ההערכות וההרהור?')) return;
+  document.getElementById('stName').value='';
+  document.getElementById('stClass').value='';
+  document.getElementById('feedback').value='';
+  render();
+}
+
+// ===== חיבור ל-Supabase (lamed) =====
+const SB_URL = 'https://hykpagdgaeulhghyvcqw.supabase.co';
+const SB_KEY = 'sb_publishable_o4Nff2ctoa1niZthDyMvLQ_e2hQwNuT';
+function gv(id){ return (document.getElementById(id).value||'').trim(); }
+function saveMsg(m, err){ const s=document.getElementById('saveMsg'); s.textContent=m||''; s.className='savemsg'+(err?' err':''); }
+
+async function sb(path, opts){
+  opts = opts || {};
+  const r = await fetch(SB_URL + '/rest/v1/' + path, {
+    method: opts.method || 'GET',
+    headers: Object.assign({ apikey: SB_KEY, Authorization:'Bearer '+SB_KEY, 'Content-Type':'application/json' }, opts.headers||{}),
+    body: opts.body
+  });
+  const txt = await r.text();
+  if(!r.ok) throw new Error(r.status+' '+txt);
+  return txt ? JSON.parse(txt) : null;
+}
+
+let rosterData = [];
+function uniq(a){ return Array.from(new Set(a.filter(Boolean))).sort(); }
+function fillSelect(id, items, ph){ const s=document.getElementById(id); s.innerHTML='<option value="">'+(ph||'— בחר —')+'</option>'; items.forEach(function(v){ const o=document.createElement('option'); o.value=v; o.textContent=v; s.appendChild(o); }); }
+function cascadeReset(ids){ ids.forEach(function(id){ const s=document.getElementById(id); if(s) s.innerHTML='<option value="">— בחר —</option>'; }); }
+
+async function initRoster(){
+  saveMsg('טוען נתונים...');
+  try{
+    rosterData = await sb('videocast_roster?select=school_name,teacher_name,student_class,student_name&order=school_name.asc') || [];
+    fillSelect('schoolName', uniq(rosterData.map(function(r){return r.school_name;})), '— בחר בית ספר —');
+    cascadeReset(['teacherName','stClass','stName']);
+    applyUrlPrefill();
+    saveMsg('');
+  }catch(e){ saveMsg('שגיאה בטעינת הנתונים: '+e.message, true); }
+}
+
+function onSchoolChange(){
+  const s = gv('schoolName');
+  fillSelect('teacherName', uniq(rosterData.filter(function(r){return r.school_name===s;}).map(function(r){return r.teacher_name;})), '— בחר מורה —');
+  cascadeReset(['stClass','stName']);
+}
+function onTeacherChange(){
+  const s=gv('schoolName'), t=gv('teacherName');
+  fillSelect('stClass', uniq(rosterData.filter(function(r){return r.school_name===s && r.teacher_name===t;}).map(function(r){return r.student_class;})), '— בחר כיתה —');
+  cascadeReset(['stName']);
+}
+function onClassChange(){
+  const s=gv('schoolName'), t=gv('teacherName'), c=gv('stClass');
+  fillSelect('stName', uniq(rosterData.filter(function(r){return r.school_name===s && r.teacher_name===t && r.student_class===c;}).map(function(r){return r.student_name;})), '— בחר את שמך —');
+}
+
+function applyUrlPrefill(){
+  const p = new URLSearchParams(location.search);
+  const sc=p.get('school'), tc=p.get('teacher'), cl=p.get('class');
+  if(sc){ document.getElementById('schoolName').value=sc; onSchoolChange(); }
+  if(sc && tc){ document.getElementById('teacherName').value=tc; onTeacherChange(); }
+  if(sc && tc && cl){ document.getElementById('stClass').value=cl; onClassChange(); }
+}
+
+async function saveSelf(){
+  const school=gv('schoolName'), teacher=gv('teacherName'), cls=gv('stClass'), student=gv('stName');
+  if(!school || !teacher || !cls){ saveMsg('בחר בית ספר, מורה וכיתה.', true); return; }
+  if(!student){ saveMsg('בחר את שמך מהרשימה.', true); return; }
+  const scores={}, cat_scores={}; let final=0;
+  CATEGORIES.forEach(function(cat){
+    const vals = state[cat.id];
+    const avg = vals.reduce(function(a,b){return a+b;},0)/vals.length;
+    scores[cat.id]=vals.slice();
+    cat_scores[cat.id]=Math.round(avg*10)/10;
+    final += avg*cat.weight/100;
+  });
+  const payload = {
+    school_name:school, teacher_name:teacher, student_class:cls, student_name:student,
+    role:'student', scores:scores, cat_scores:cat_scores,
+    final_score:Math.round(final), notes:gv('feedback'), updated_at:new Date().toISOString()
+  };
+  saveMsg('שולח...');
+  try{
+    await sb('videocast_assessments?on_conflict=school_name,teacher_name,student_class,student_name,role', {
+      method:'POST', headers:{ Prefer:'resolution=merge-duplicates,return=minimal' }, body: JSON.stringify(payload)
+    });
+    saveMsg('✓ ההערכה נשלחה. תודה!');
+  }catch(e){ saveMsg('שגיאה בשליחה: '+e.message, true); }
+}
+
+(function(){
+  const d = new Date();
+  const pad = function(n){ return String(n).padStart(2,'0'); };
+  document.getElementById('stDate').value = pad(d.getDate())+'/'+pad(d.getMonth()+1)+'/'+d.getFullYear();
+})();
+
+window.addEventListener('beforeprint', function(){
+  const name = document.getElementById('stName').value || '—';
+  const cls = document.getElementById('stClass').value || '—';
+  const date = document.getElementById('stDate').value || '—';
+  document.getElementById('printMeta').textContent = 'תלמיד/ה: '+name+'  ·  כיתה: '+cls+'  ·  תאריך: '+date;
+});
+
+render();
+initRoster();
+</script>
+</body>
+</html>
