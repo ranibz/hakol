@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- תיק הפקה דיגיטלי - מגמת וידאוקאסט | VERSION 1.1.0 - 06/06/2026 - הוספת "מצב בוחן": קישור עם ?group=...&student=N פותח את תיק התלמיד לקריאה בלבד (כל השדות נעולים). הוספת כרטיס "קישורים לבוחן" בדף השער שמייצר קישור אישי לכל תלמיד להעתקה. | פיתוח: רני בן זאב -->
 <html lang="he" dir="rtl">
 <head>
     <meta charset="UTF-8">
@@ -192,6 +193,12 @@
                 <option value="תשפו">תשפ"ו</option>
                 <option value="תשפז">תשפ"ז</option>
             </select>
+        </div>
+        <div class="card" id="examiner-links-card">
+            <h2>🔗 קישורים לבוחן</h2>
+            <p>צרו קישור אישי לכל תלמיד. הבוחן ייכנס דרכו ויראה את תיק ההפקה של אותו תלמיד <b>לקריאה בלבד</b> (בלי לערוך). יש לטעון קבוצה ולמלא שמות לפני יצירת הקישורים.</p>
+            <button class="btn btn-save" type="button" onclick="genExaminerLinks()" style="margin-bottom:12px;"><i class="fas fa-link"></i> צור קישורים</button>
+            <div id="examiner-links-list"></div>
         </div>
     </div>
 
@@ -457,6 +464,10 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
+    // ─── מצב בוחן (קריאה בלבד, לפי קישור אישי) ───────────────────
+    let EXAM_MODE = false;
+    let EXAM_STUDENT = null;
+
     // ─── Status helper ────────────────────────────────────────────
     function setStatus(type, text) {
         const el = document.getElementById('save-status');
@@ -582,6 +593,7 @@
                 } else {
                     applyData(data);
                     setStatus('saved', `נטען: ${code}`);
+                    if (EXAM_MODE) afterExamLoad();
                 }
             })
             .catch(err => { console.error(err); setStatus('error', 'שגיאה בטעינה'); });
@@ -809,6 +821,7 @@
             if (!el) return;
             el.innerHTML = '';
             for (let i = 1; i <= 4; i++) {
+                if (EXAM_MODE && String(i) !== String(EXAM_STUDENT)) continue;
                 el.innerHTML += `
                 <div class="card-3d ${grid.cls}" onclick="showSection('page-${grid.prefix}-st${i}')">
                     <i class="fas ${grid.icon}"></i><br>
@@ -827,15 +840,58 @@
         const t12 = document.getElementById('table-y12-sf'); if (t12) t12.innerHTML = h12;
     }
 
+    // ─── מצב בוחן: קריאה בלבד ─────────────────────────────────────
+    function applyExamMode() {
+        const bar = document.querySelector('.group-code-bar'); if (bar) bar.style.display = 'none';
+        const lc = document.getElementById('examiner-links-card'); if (lc) lc.style.display = 'none';
+        document.querySelectorAll('input, textarea, select').forEach(el => { el.disabled = true; el.readOnly = true; });
+        const act = document.querySelector('.header-bar .actions');
+        if (act) act.innerHTML = '<span id="exam-banner" style="background:#0e7490;color:#fff;padding:8px 14px;border-radius:10px;font-weight:800;"><i class="fas fa-eye"></i> תצוגת בוחן (קריאה בלבד)</span>';
+    }
+    function afterExamLoad() {
+        const nm = (document.getElementById('s' + EXAM_STUDENT + '_name') || {}).value;
+        const name = (nm || '').trim() || ('תלמיד ' + EXAM_STUDENT);
+        const b = document.getElementById('exam-banner');
+        if (b) b.innerHTML = '<i class="fas fa-eye"></i> תצוגת בוחן · ' + name + ' (קריאה בלבד)';
+        document.querySelectorAll('input, textarea, select').forEach(el => { el.disabled = true; el.readOnly = true; });
+    }
+
+    // ─── מחולל קישורים לבוחן (צד מורה) ────────────────────────────
+    function genExaminerLinks() {
+        const code = getFullCode();
+        if (!code) { alert('הזינו קוד קבוצה (ולחצו "טען נתונים") לפני יצירת הקישורים.'); return; }
+        const base = location.origin + location.pathname;
+        let html = '';
+        for (let i = 1; i <= 4; i++) {
+            const nm = (document.getElementById('s' + i + '_name').value || '').trim();
+            if (!nm) continue;
+            const url = base + '?group=' + encodeURIComponent(code) + '&student=' + i;
+            html += '<div style="display:flex;gap:8px;align-items:center;margin-bottom:8px;flex-wrap:wrap;">'
+                 +  '<b style="min-width:130px;">' + nm + '</b>'
+                 +  '<input type="text" readonly value="' + url + '" style="flex:1;min-width:220px;" onclick="this.select()">'
+                 +  '<button type="button" class="btn-load" onclick="copyExamLink(this,\'' + url + '\')">העתק</button>'
+                 +  '</div>';
+        }
+        if (!html) html = '<p style="color:#888;">לא נמצאו שמות תלמידים. מלאו את שמות הקבוצה בדף השער ושמרו.</p>';
+        document.getElementById('examiner-links-list').innerHTML = html;
+    }
+    function copyExamLink(btn, url) {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(url).then(function(){ btn.innerText = 'הועתק ✓'; }, function(){ window.prompt('העתק/י את הקישור:', url); });
+        } else { window.prompt('העתק/י את הקישור:', url); }
+    }
+
     // ─── Init ─────────────────────────────────────────────────────
     window.onload = function () {
+        const urlParams = new URLSearchParams(window.location.search);
+        const groupFromUrl = urlParams.get('group');
+        const studentFromUrl = urlParams.get('student');
+        if (studentFromUrl && /^[1-4]$/.test(studentFromUrl)) { EXAM_MODE = true; EXAM_STUDENT = studentFromUrl; }
+
         generateStudentPages();
         createButtons();
         syncNames();
 
-        // טעינה אוטומטית אם הגיע קוד קבוצה מה-URL (פורמט: prefix_group)
-        const urlParams = new URLSearchParams(window.location.search);
-        const groupFromUrl = urlParams.get('group');
         if (groupFromUrl) {
             const firstUnderscore = groupFromUrl.indexOf('_');
             if (firstUnderscore > -1) {
@@ -844,10 +900,13 @@
             } else {
                 document.getElementById('group-code-input').value = groupFromUrl;
             }
+            if (EXAM_MODE) document.getElementById('student-self-select').value = EXAM_STUDENT;
             loadFromFirebase();
         } else {
             setStatus('idle', '');
         }
+
+        if (EXAM_MODE) applyExamMode();
     };
 </script>
 </body>
