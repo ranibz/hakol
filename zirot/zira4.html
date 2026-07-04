@@ -158,14 +158,14 @@
             </div>
             <div class="card-content">
                 <div class="concepts-grid">
-                    <div class="concept-tag" data-concept="תאוריית העליונות">תאוריית העליונות</div>
-                    <div class="concept-tag" data-concept="תאוריית ההרפייה">תאוריית ההרפייה</div>
-                    <div class="concept-tag" data-concept="תאוריית אי הלימה">תאוריית אי הלימה</div>
-                    <div class="concept-tag" data-concept="סאטירה">סאטירה</div>
-                    <div class="concept-tag" data-concept="תפקידי הסאטירה בדמוקרטיה">תפקידי הסאטירה בדמוקרטיה</div>
-                    <div class="concept-tag" data-concept="פוליסמיות">פוליסמיות</div>
-                    <div class="concept-tag" data-concept="הומור ויראלי">הומור ויראלי</div>
-                    <div class="concept-tag" data-concept="ממים">ממים</div>
+                    <div class="concept-tag" data-concept="תאוריית העליונות" data-slug="tyavryvt-mrkzyvt-bchkr-hhvmvr">תאוריית העליונות</div>
+                    <div class="concept-tag" data-concept="תאוריית ההרפייה" data-slug="tyavryvt-mrkzyvt-bchkr-hhvmvr">תאוריית ההרפייה</div>
+                    <div class="concept-tag" data-concept="תאוריית אי הלימה" data-slug="tyavryvt-mrkzyvt-bchkr-hhvmvr">תאוריית אי הלימה</div>
+                    <div class="concept-tag" data-concept="סאטירה" data-slug="satyrh">סאטירה</div>
+                    <div class="concept-tag" data-concept="תפקידי הסאטירה בדמוקרטיה" data-slug="tpkydy-hsatyrh-bmdynh-dmvkrtyt">תפקידי הסאטירה בדמוקרטיה</div>
+                    <div class="concept-tag" data-concept="פוליסמיות" data-slug="pvlysmyvt">פוליסמיות</div>
+                    <div class="concept-tag" data-concept="הומור ויראלי" data-slug="humor-viraly">הומור ויראלי</div>
+                    <div class="concept-tag" data-concept="ממים" data-slug="mmym">ממים</div>
                 </div>
             </div>
         </section>
@@ -364,5 +364,50 @@
         });
     </script>
 
+
+    <!-- concept-loader: משיכת פירושי מושגים מ-Supabase (לפי data-slug) -->
+    <script>
+    (function () {
+      const SUPABASE_URL = "https://eubgzfkkovxgijhrmnif.supabase.co";
+      const KEY = "sb_publishable_vJ768fOwYWiDWeYsBBR45g_4NM4s55p";
+      const AGRON_URL = "https://ranibz.github.io/hakol/agron/index.html";
+      const cache = {};
+      async function fetchRow(col, val) {
+        const k = col + ":" + val;
+        if (cache[k] !== undefined) return cache[k];
+        const url = SUPABASE_URL + "/rest/v1/concepts?select=definition_html&limit=1&" + col + "=eq." + encodeURIComponent(val);
+        let row = null;
+        try {
+          const res = await fetch(url, { headers: { apikey: KEY } });
+          if (res.ok) { const d = await res.json(); row = d[0] || null; }
+        } catch (e) { row = null; }
+        cache[k] = row; return row;
+      }
+      function show(title, html) {
+        document.getElementById("modalTitle").textContent = title;
+        document.getElementById("modalBody").innerHTML = html;
+        document.getElementById("conceptModal").classList.add("active");
+      }
+      const fallback = '<p>הפירוש המלא למושג זה זמין באגרון המושגים.</p><p><a href="' + AGRON_URL + '" target="_blank" style="font-weight:bold;">פתחו את האגרון &#8592;</a></p>';
+      document.addEventListener("DOMContentLoaded", function () {
+        const modal = document.getElementById("conceptModal");
+        if (!modal) return;
+        document.querySelectorAll(".concept-tag").forEach(t => t.replaceWith(t.cloneNode(true)));
+        document.querySelectorAll(".concept-tag").forEach(function (tag) {
+          tag.style.cursor = "pointer";
+          tag.addEventListener("click", async function () {
+            const slug = this.getAttribute("data-slug");
+            const term = (this.getAttribute("data-concept") || this.textContent).trim();
+            show(term, '<p style="color:#888;">טוען פירוש&#8230;</p>');
+            let row = slug ? await fetchRow("slug", slug) : await fetchRow("term", term);
+            show(term, (row && row.definition_html) ? row.definition_html : fallback);
+          });
+        });
+        window.closeModal = function () { modal.classList.remove("active"); };
+        modal.addEventListener("click", function (e) { if (e.target === modal) window.closeModal(); });
+        document.addEventListener("keydown", function (e) { if (e.key === "Escape") window.closeModal(); });
+      });
+    })();
+    </script>
 </body>
 </html>

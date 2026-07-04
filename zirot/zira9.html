@@ -498,19 +498,19 @@
             </div>
             <div class="card-content">
                 <div class="concepts-grid">
-                    <span class="concept-tag" data-concept="פרסום">פרסום</span>
-                    <span class="concept-tag" data-concept="אקטיביזם חברתי">אקטיביזם חברתי</span>
-                    <span class="concept-tag" data-concept="סטריאוטיפ">סטריאוטיפ</span>
-                    <span class="concept-tag" data-concept="פניית מסר רגשית">פניית מסר רגשית</span>
-                    <span class="concept-tag" data-concept="פניית מסר שכלית">פניית מסר שכלית</span>
-                    <span class="concept-tag" data-concept="קמפיין פרסום חברתי">קמפיין פרסום חברתי</span>
-                    <span class="concept-tag" data-concept="קמפיין פרסום מסחרי">קמפיין פרסום מסחרי</span>
-                    <span class="concept-tag" data-concept="אתיקה בפרסום">אתיקה בפרסום</span>
-                    <span class="concept-tag" data-concept="רייטינג">רייטינג</span>
-                    <span class="concept-tag" data-concept="ייצוג מגדרי">ייצוג מגדרי</span>
-                    <span class="concept-tag" data-concept="פרסום סמוי / תוכן שיווקי">פרסום סמוי / תוכן שיווקי</span>
-                    <span class="concept-tag" data-concept="תוכן ממומן">תוכן ממומן ) גם ברשתות החברתיות(</span>
-                    <span class="concept-tag" data-concept="תרבות הצריכה">תרבות הצריכה</span>
+                    <span class="concept-tag" data-concept="פרסום" data-slug="prsvm">פרסום</span>
+                    <span class="concept-tag" data-concept="אקטיביזם חברתי" data-slug="aktybyzm-chbrty">אקטיביזם חברתי</span>
+                    <span class="concept-tag" data-concept="סטריאוטיפ" data-slug="stryavtyp-2">סטריאוטיפ</span>
+                    <span class="concept-tag" data-concept="פניית מסר רגשית" data-slug="svgy-pnyyt-msr">פניית מסר רגשית</span>
+                    <span class="concept-tag" data-concept="פניית מסר שכלית" data-slug="svgy-pnyyt-msr">פניית מסר שכלית</span>
+                    <span class="concept-tag" data-concept="קמפיין פרסום חברתי" data-slug="svgy-kmpyyn-prsvmy">קמפיין פרסום חברתי</span>
+                    <span class="concept-tag" data-concept="קמפיין פרסום מסחרי" data-slug="svgy-kmpyyn-prsvmy">קמפיין פרסום מסחרי</span>
+                    <span class="concept-tag" data-concept="אתיקה בפרסום" data-slug="atykh-bprsvm">אתיקה בפרסום</span>
+                    <span class="concept-tag" data-concept="רייטינג" data-slug="ryytyng">רייטינג</span>
+                    <span class="concept-tag" data-concept="ייצוג מגדרי" data-slug="yytzvg-mgdry-3">ייצוג מגדרי</span>
+                    <span class="concept-tag" data-concept="פרסום סמוי / תוכן שיווקי" data-slug="prsvm-smvytvkn-shyvvky-tvkn-mmvmn">פרסום סמוי / תוכן שיווקי</span>
+                    <span class="concept-tag" data-concept="תוכן ממומן" data-slug="prsvm-smvytvkn-shyvvky-tvkn-mmvmn">תוכן ממומן ) גם ברשתות החברתיות(</span>
+                    <span class="concept-tag" data-concept="תרבות הצריכה" data-slug="trbvt-htzrykh">תרבות הצריכה</span>
                 </div>
             </div>
         </section>
@@ -971,5 +971,50 @@
         </div>
     </div>
 
+
+    <!-- concept-loader: משיכת פירושי מושגים מ-Supabase (לפי data-slug) -->
+    <script>
+    (function () {
+      const SUPABASE_URL = "https://eubgzfkkovxgijhrmnif.supabase.co";
+      const KEY = "sb_publishable_vJ768fOwYWiDWeYsBBR45g_4NM4s55p";
+      const AGRON_URL = "https://ranibz.github.io/hakol/agron/index.html";
+      const cache = {};
+      async function fetchRow(col, val) {
+        const k = col + ":" + val;
+        if (cache[k] !== undefined) return cache[k];
+        const url = SUPABASE_URL + "/rest/v1/concepts?select=definition_html&limit=1&" + col + "=eq." + encodeURIComponent(val);
+        let row = null;
+        try {
+          const res = await fetch(url, { headers: { apikey: KEY } });
+          if (res.ok) { const d = await res.json(); row = d[0] || null; }
+        } catch (e) { row = null; }
+        cache[k] = row; return row;
+      }
+      function show(title, html) {
+        document.getElementById("modalTitle").textContent = title;
+        document.getElementById("modalBody").innerHTML = html;
+        document.getElementById("conceptModal").classList.add("active");
+      }
+      const fallback = '<p>הפירוש המלא למושג זה זמין באגרון המושגים.</p><p><a href="' + AGRON_URL + '" target="_blank" style="font-weight:bold;">פתחו את האגרון &#8592;</a></p>';
+      document.addEventListener("DOMContentLoaded", function () {
+        const modal = document.getElementById("conceptModal");
+        if (!modal) return;
+        document.querySelectorAll(".concept-tag").forEach(t => t.replaceWith(t.cloneNode(true)));
+        document.querySelectorAll(".concept-tag").forEach(function (tag) {
+          tag.style.cursor = "pointer";
+          tag.addEventListener("click", async function () {
+            const slug = this.getAttribute("data-slug");
+            const term = (this.getAttribute("data-concept") || this.textContent).trim();
+            show(term, '<p style="color:#888;">טוען פירוש&#8230;</p>');
+            let row = slug ? await fetchRow("slug", slug) : await fetchRow("term", term);
+            show(term, (row && row.definition_html) ? row.definition_html : fallback);
+          });
+        });
+        window.closeModal = function () { modal.classList.remove("active"); };
+        modal.addEventListener("click", function (e) { if (e.target === modal) window.closeModal(); });
+        document.addEventListener("keydown", function (e) { if (e.key === "Escape") window.closeModal(); });
+      });
+    })();
+    </script>
 </body>
 </html>
