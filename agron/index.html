@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- אגרון: נטען דינמית מטבלת concepts ב-Supabase (project matalot). עריכה בטבלה מתעדכנת כאן ובכל הזירות. -->
 <html lang="he" dir="rtl">
 <head>
     <meta charset="UTF-8">
@@ -84,17 +85,17 @@
     </header>
 
     <div class="filters">
-        <button class="filter-btn active" onclick="filterByZone('all', this)">הכל</button>
-        <button class="filter-btn" onclick="filterByZone('al', this)">זירת העל</button>
-        <button class="filter-btn" onclick="filterByZone('1', this)">זירה 1</button>
-        <button class="filter-btn" onclick="filterByZone('2', this)">זירה 2</button>
-        <button class="filter-btn" onclick="filterByZone('3', this)">זירה 3</button>
-        <button class="filter-btn" onclick="filterByZone('4', this)">זירה 4</button>
-        <button class="filter-btn" onclick="filterByZone('5', this)">זירה 5</button>
-        <button class="filter-btn" onclick="filterByZone('6', this)">זירה 6</button>
-        <button class="filter-btn" onclick="filterByZone('7', this)">זירה 7</button>
-        <button class="filter-btn" onclick="filterByZone('8', this)">זירה 8</button>
-        <button class="filter-btn" onclick="filterByZone('9', this)">זירה 9</button>
+        <button class="filter-btn active" onclick="filterByZone('all', this)">📚 הכל</button>
+        <button class="filter-btn" onclick="filterByZone('al', this)">🪟 זירת העל</button>
+        <button class="filter-btn" onclick="filterByZone('1', this)">🧭 זירה 1 · מציאות תקשורתית</button>
+        <button class="filter-btn" onclick="filterByZone('2', this)">🌍 זירה 2 · גלובליזציה</button>
+        <button class="filter-btn" onclick="filterByZone('3', this)">📰 זירה 3 · חדשות וצילום</button>
+        <button class="filter-btn" onclick="filterByZone('4', this)">🎭 זירה 4 · הומור וסאטירה</button>
+        <button class="filter-btn" onclick="filterByZone('5', this)">📱 זירה 5 · תרבות דיגיטלית</button>
+        <button class="filter-btn" onclick="filterByZone('6', this)">📺 זירה 6 · ריאליטי</button>
+        <button class="filter-btn" onclick="filterByZone('7', this)">🎬 זירה 7 · קליפים וסרטוני רשת</button>
+        <button class="filter-btn" onclick="filterByZone('8', this)">⚽ זירה 8 · ספורט</button>
+        <button class="filter-btn" onclick="filterByZone('9', this)">📢 זירה 9 · פרסום</button>
     </div>
 
     <h2 id="zoneTitle"></h2>
@@ -4421,5 +4422,48 @@
             });
         }
     </script>
+
+    <!-- Supabase sync: האגרון נטען מטבלת concepts (מקור אמת יחיד). נכשל? הכרטיסים הסטטיים נשארים כגיבוי -->
+    <script>
+    (function () {
+      const SUPABASE_URL = "https://eubgzfkkovxgijhrmnif.supabase.co";
+      const KEY = "sb_publishable_vJ768fOwYWiDWeYsBBR45g_4NM4s55p";
+      const ZONE_ORDER = ["al","1","2","3","4","5","6","7","8","9"];
+      function esc(s){ return (s||"").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+      function shortLabel(z){ return z === "al" ? "זירת העל" : "זירה " + z; }
+      function cardHTML(r){
+        return '<div class="concept-card" data-zone="' + esc(r.zone) + '">' +
+          '<div class="concept-header" onclick="toggleConcept(this)">' +
+            '<div class="tags-wrapper">' +
+              '<span class="zira-tag tag-' + esc(r.zone) + '">' + shortLabel(r.zone) + '</span>' +
+              '<span class="concept-name">' + esc(r.term) + '</span>' +
+            '</div>' +
+            '<span class="arrow">▼</span>' +
+          '</div>' +
+          '<div class="concept-body">' + (r.definition_html || "") + '</div>' +
+        '</div>';
+      }
+      async function load(){
+        const list = document.getElementById("conceptsList");
+        if (!list) return;
+        try {
+          const url = SUPABASE_URL + "/rest/v1/concepts?select=term,zone,definition_html&limit=1000";
+          const res = await fetch(url, { headers: { apikey: KEY } });
+          if (!res.ok) return;                       // גיבוי: הכרטיסים הסטטיים נשארים
+          const rows = await res.json();
+          if (!Array.isArray(rows) || rows.length === 0) return;
+          rows.sort(function(a,b){
+            const za = ZONE_ORDER.indexOf(a.zone), zb = ZONE_ORDER.indexOf(b.zone);
+            if (za !== zb) return za - zb;
+            return (a.term||"").localeCompare(b.term||"", "he");
+          });
+          list.innerHTML = rows.map(cardHTML).join("");
+        } catch (e) { /* גיבוי שקט: נשארים הכרטיסים הסטטיים */ }
+      }
+      if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", load);
+      else load();
+    })();
+    </script>
+
 </body>
 </html>
