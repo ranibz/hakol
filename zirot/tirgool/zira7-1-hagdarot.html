@@ -1,1 +1,1050 @@
+<!DOCTYPE html>
+<!-- zira7-lomdim/1-hagdarot.html · v4.9.1 · 2026-07-23 · ברכה אישית עם שם המורה מהכניסה; הוסרה אזהרת file:// (PATCH) -->
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>זירה 7 · שלב 6.1 — קליפ מוזיקלי מול סרטון רשת</title>
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700;900&family=Heebo:wght@400;500;700&display=swap" rel="stylesheet">
+<!-- Firebase (מערכת השיעורים האינטראקטיביים · tests-fd938) -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<style>
+    :root { --clip:#7c3aed; --sfv:#db2777; --ink:#2b2b3a; --ok:#16a34a; --no:#e11d48; }
+    * { box-sizing:border-box; }
+    body { font-family:'Heebo',sans-serif; margin:0; padding:30px 16px 70px; color:var(--ink);
+        min-height:100vh; background:linear-gradient(-45deg,#7c3aed,#db2777,#f472b6,#a78bfa); background-size:400% 400%; animation:bg 18s ease infinite; }
+    @keyframes bg { 0%{background-position:0% 50%} 50%{background-position:100% 50%} 100%{background-position:0% 50%} }
+    .wrap { max-width:840px; margin:0 auto; }
+    .card { background:#fff; border-radius:22px; padding:26px 28px; margin-bottom:20px; box-shadow:0 10px 30px rgba(0,0,0,.2); }
 
+    header.hero { text-align:center; color:#fff; margin-bottom:20px; }
+    header.hero .badge { display:inline-block; background:rgba(255,255,255,.2); padding:6px 16px; border-radius:30px; font-family:'Rubik'; font-weight:700; font-size:.85rem; margin-bottom:12px; }
+    header.hero h1 { font-family:'Rubik'; font-weight:900; font-size:2rem; margin:0 0 6px; text-shadow:0 3px 12px rgba(0,0,0,.25); }
+    header.hero p { max-width:620px; margin:0 auto; opacity:.95; line-height:1.6; }
+
+    h2.sec { font-family:'Rubik'; font-weight:900; color:var(--clip); font-size:1.35rem; margin:0 0 6px; display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+    .step-tag { font-family:'Rubik'; font-weight:900; font-size:.75rem; color:#fff; background:linear-gradient(135deg,var(--clip),var(--sfv)); padding:3px 10px; border-radius:20px; }
+    .sec-note { color:#6b7280; margin:0 0 18px; font-size:.98rem; }
+    .prose { line-height:1.9; font-size:1.02rem; }
+    .prose p { margin:0 0 12px; }
+    .prose b.clip { color:var(--clip); } .prose b.sfv { color:var(--sfv); }
+    .deepen { max-height:0; overflow:hidden; transition:max-height .5s ease; }
+    .deepen.open { max-height:1600px; }
+    .deepen-btn { background:#f5f3ff; color:var(--clip); border:1px solid #ddd6fe; border-radius:30px; padding:9px 20px; font-family:'Rubik'; font-weight:700; cursor:pointer; margin-top:6px; }
+
+    /* הקראה עם מרקר */
+    .read-controls { display:flex; align-items:center; gap:12px; flex-wrap:wrap; background:#faf9ff; border:1px solid #eee6ff; border-radius:14px; padding:10px 14px; margin-bottom:16px; }
+    .read-play { background:linear-gradient(135deg,var(--clip),var(--sfv)); color:#fff; border:none; border-radius:30px; padding:9px 18px; font-family:'Rubik'; font-weight:800; cursor:pointer; font-size:.95rem; }
+    .read-restart { background:#fff; border:1px solid #ddd6fe; color:var(--clip); border-radius:50%; width:34px; height:34px; cursor:pointer; font-size:1.1rem; }
+    .rspeed { font-size:.85rem; color:#6b7280; font-weight:600; display:flex; align-items:center; gap:6px; }
+    .rspeed button { background:#fff; border:1px solid #e5e7eb; border-radius:20px; padding:4px 12px; cursor:pointer; font-family:'Heebo'; font-size:.85rem; }
+    .rspeed button.active { background:var(--clip); color:#fff; border-color:var(--clip); }
+    .word { transition:background .12s ease, color .12s ease; border-radius:4px; padding:0 1px; }
+    .word.reading { background:#ffe066; color:#3a2f00; box-shadow:0 0 0 3px #ffe066; }
+
+    /* מפת מהלך הלימוד */
+    .flow { display:flex; flex-direction:column; gap:10px; }
+    .flow .stage { border:2px solid #eef0f6; border-radius:14px; padding:12px 16px; }
+    .flow .stage.here { border-color:var(--clip); background:#faf5ff; box-shadow:0 4px 14px rgba(124,58,237,.15); }
+    .flow .stage .sh { font-family:'Rubik'; font-weight:900; display:flex; align-items:center; gap:10px; }
+    .flow .stage .sh .no { background:linear-gradient(135deg,var(--clip),var(--sfv)); color:#fff; border-radius:8px; padding:2px 9px; font-size:.85rem; }
+    .flow .stage.here .sh { color:var(--clip); }
+    .flow .stage .here-tag { font-size:.72rem; background:var(--clip); color:#fff; border-radius:20px; padding:2px 10px; margin-right:auto; }
+    .flow .stage .subs { margin:6px 0 0; padding-right:34px; color:#6b6786; font-size:.9rem; line-height:1.7; }
+
+    .goals { list-style:none; padding:0; margin:0; }
+    .goals li { display:flex; gap:10px; align-items:flex-start; padding:9px 0; border-top:1px solid #f0f0f7; }
+    .goals li:first-child { border-top:0; }
+    .goals li::before { content:"✓"; color:var(--ok); font-weight:900; flex:0 0 auto; }
+
+    .views { display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; margin-top:14px; }
+    .view { border-radius:14px; padding:14px; text-align:center; background:#faf5ff; border:2px solid #eee6ff; }
+    .view .ic { font-size:1.7rem; } .view .vt { font-family:'Rubik'; font-weight:900; color:var(--clip); margin:4px 0; }
+    .view p { margin:0; font-size:.85rem; color:#6b6786; line-height:1.4; }
+
+    /* מושגי הזירה */
+    .concepts { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+    .concept { border:2px solid #eef0f6; border-radius:14px; overflow:hidden; }
+    .concept.hot { border-color:#f0b429; }
+    .concept .ch { padding:12px 15px; cursor:pointer; display:flex; align-items:center; justify-content:space-between; gap:8px; font-family:'Rubik'; font-weight:800; color:var(--clip); background:#faf9ff; font-size:.98rem; }
+    .concept.hot .ch { background:#fffbea; color:#b45309; }
+    .concept .ch .pm { transition:transform .3s; color:#a78bfa; }
+    .concept.open .ch .pm { transform:rotate(45deg); }
+    .concept .cbody { max-height:0; overflow:hidden; transition:max-height .4s ease; }
+    .concept.open .cbody { max-height:1400px; }
+    .concept .cbody .cdef { padding:12px 15px; font-size:.9rem; line-height:1.6; color:#4b4869; overflow:auto; max-height:340px; }
+    .concept .cbody .cdef p { margin:0 0 8px; }
+    .hot-note { font-size:.85rem; color:#b45309; background:#fffbea; border:1px solid #fde68a; border-radius:10px; padding:8px 12px; margin-bottom:14px; }
+
+    /* פעילות מיון */
+    .progress { height:10px; background:#eee; border-radius:20px; overflow:hidden; margin-bottom:18px; }
+    .progress > div { height:100%; width:0; background:linear-gradient(90deg,var(--clip),var(--sfv)); transition:width .4s ease; }
+    .q { border:2px solid #eef0f6; border-radius:16px; padding:18px; margin-bottom:14px; transition:.3s; }
+    .q.done { opacity:.7; }
+    .q .stmt { font-size:1.06rem; font-weight:600; margin-bottom:14px; }
+    .btns { display:flex; gap:12px; flex-wrap:wrap; }
+    .opt { flex:1 1 0; min-width:140px; border:2px solid; border-radius:14px; padding:12px; font-family:'Rubik'; font-weight:700; font-size:1rem; cursor:pointer; background:#fff; transition:.2s; }
+    .opt.clip { border-color:var(--clip); color:var(--clip); } .opt.sfv { border-color:var(--sfv); color:var(--sfv); }
+    .opt.clip:hover { background:var(--clip); color:#fff; } .opt.sfv:hover { background:var(--sfv); color:#fff; }
+    .opt:disabled { cursor:default; }
+    .opt.correct { background:var(--ok)!important; border-color:var(--ok)!important; color:#fff!important; }
+    .opt.wrong { background:var(--no)!important; border-color:var(--no)!important; color:#fff!important; }
+    .fb { margin-top:12px; padding:10px 14px; border-radius:10px; font-size:.95rem; display:none; }
+    .fb.show { display:block; }
+    .fb.good { background:#eafaf0; color:#15803d; border-right:4px solid var(--ok); }
+    .fb.bad { background:#fdeaef; color:#b91c3c; border-right:4px solid var(--no); }
+    .score-box { text-align:center; padding:24px; border-radius:16px; background:#faf5ff; display:none; margin-top:16px; }
+    .score-box.show { display:block; }
+    .score-box .big { font-family:'Rubik'; font-weight:900; font-size:2.4rem; color:var(--clip); }
+    .btn-reset { margin-top:12px; background:var(--clip); color:#fff; border:none; border-radius:30px; padding:10px 24px; font-family:'Rubik'; font-weight:700; cursor:pointer; }
+
+    /* טבלת השוואה */
+    .cmp { border:1px solid #eef0f6; border-radius:12px; overflow:hidden; }
+    .cmp-row { display:grid; grid-template-columns:1fr 1.4fr 1.4fr; border-top:1px solid #eef0f6; }
+    .cmp-row:first-child { border-top:0; }
+    .cmp-row.head > div { background:#f5f3ff; font-family:'Rubik'; font-weight:900; padding:12px; text-align:center; }
+    .cmp-row.head .h-clip { color:var(--clip); } .cmp-row.head .h-sfv { color:var(--sfv); }
+    .cmp-row .crit { padding:12px; font-weight:700; background:#fafafe; cursor:pointer; display:flex; align-items:center; justify-content:space-between; gap:8px; }
+    .cmp-row .crit .plus { color:#a78bfa; font-weight:900; }
+    .cmp-row .cell { padding:12px; font-size:.92rem; color:#4b4869; line-height:1.5; display:none; }
+    .cmp-row.open .cell { display:block; animation:fade .3s ease; }
+    @keyframes fade { from{opacity:0} to{opacity:1} }
+
+    .quiz-q { font-size:1.1rem; font-weight:700; margin:0 0 12px; }
+    .quiz-opt { display:block; width:100%; text-align:right; border:2px solid #eef0f6; border-radius:12px; padding:12px 16px; margin-bottom:10px; background:#fff; font-family:'Heebo'; font-size:1rem; cursor:pointer; transition:.2s; }
+    .quiz-opt:hover { border-color:var(--clip); }
+    .quiz-opt.correct { background:#eafaf0; border-color:var(--ok); color:#15803d; font-weight:700; }
+    .quiz-opt.wrong { background:#fdeaef; border-color:var(--no); color:#b91c3c; }
+
+    .slider-wrap input { width:100%; }
+    .slider-labels { display:flex; justify-content:space-between; font-weight:700; margin-top:6px; }
+    .slider-labels .l-clip { color:var(--clip); } .slider-labels .l-sfv { color:var(--sfv); }
+
+    .back { display:inline-flex; align-items:center; gap:8px; margin-bottom:16px; color:#fff; text-decoration:none; font-family:'Rubik'; font-weight:700; font-size:.9rem; background:rgba(0,0,0,.18); padding:9px 18px; border-radius:30px; }
+    .linkmaker-btn { margin:0 8px 16px; background:rgba(255,255,255,.92); color:var(--clip); border:none; border-radius:30px; padding:9px 16px; font-family:'Rubik',sans-serif; font-weight:800; font-size:.85rem; cursor:pointer; box-shadow:0 3px 10px rgba(0,0,0,.15); }
+
+    /* דלת כניסת מורה */
+    .login-gate { position:fixed; inset:0; z-index:2000; display:flex; align-items:center; justify-content:center; padding:20px;
+        background:linear-gradient(-45deg,#7c3aed,#db2777,#f472b6,#a78bfa); background-size:400% 400%; animation:bg 18s ease infinite; }
+    .login-box { background:#fff; border-radius:22px; max-width:400px; width:100%; padding:32px 28px; text-align:center; box-shadow:0 20px 50px rgba(0,0,0,.35); }
+    .login-box .lg-ic { font-size:3rem; }
+    .login-box h2 { font-family:'Rubik'; font-weight:900; color:var(--clip); margin:6px 0 4px; }
+    .login-box p { color:#6b7280; margin:0 0 18px; font-size:.95rem; }
+    .login-box input { width:100%; padding:12px 14px; border:2px solid #eef0f6; border-radius:12px; font-family:'Heebo'; font-size:1rem; margin-bottom:12px; }
+    .login-box button { width:100%; background:linear-gradient(135deg,var(--clip),var(--sfv)); color:#fff; border:none; border-radius:30px; padding:13px; font-family:'Rubik'; font-weight:900; font-size:1.05rem; cursor:pointer; }
+    .login-box #lgErr { display:none; color:#b91c3c; font-weight:700; margin-top:12px; }
+    .login-box .lg-hint { font-size:.82rem; color:#9ca3af; margin:16px 0 0; }
+
+    .teacher-banner { background:#fff; border-radius:18px; padding:18px 20px; margin-bottom:20px; box-shadow:0 10px 26px rgba(0,0,0,.22); text-align:right; }
+    .teacher-banner .tp-head { display:flex; align-items:center; gap:12px; margin-bottom:14px; }
+    .teacher-banner .tp-ic { font-size:2rem; }
+    .teacher-banner .tp-title { font-family:'Rubik',sans-serif; font-weight:900; color:var(--clip); font-size:1.15rem; }
+    .teacher-banner .tp-sub { font-size:.86rem; color:#6b7280; }
+    .teacher-banner .tp-link { display:flex; align-items:center; gap:9px; flex-wrap:wrap; background:#faf5ff; border:1px solid #eee6ff; border-radius:12px; padding:10px 12px; }
+    .teacher-banner .tp-lbl { font-family:'Rubik',sans-serif; font-weight:800; color:var(--clip); font-size:.86rem; }
+    .teacher-banner input { flex:1 1 240px; padding:9px 12px; border:2px solid #eef0f6; border-radius:10px; direction:ltr; font-size:.8rem; }
+    .teacher-banner .tp-link button { background:var(--clip); color:#fff; border:none; border-radius:20px; padding:8px 16px; font-family:'Rubik',sans-serif; font-weight:700; cursor:pointer; }
+    #tbCopied { color:#15803d; font-weight:700; font-size:.85rem; }
+    .teacher-banner .tp-warn { background:#fff4f4; border:1px solid #fbc9c9; color:#b91c3c; border-radius:10px; padding:9px 13px; font-size:.85rem; font-weight:600; margin-top:10px; }
+    .teacher-banner .tp-steps { margin:14px 0 0; padding-right:20px; font-size:.93rem; line-height:1.75; color:#3f3d56; }
+    .teacher-banner .tp-steps li { margin-bottom:9px; }
+    .teacher-banner .tp-steps b { color:var(--clip); }
+    .teacher-banner .tp-foot { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:14px; padding-top:12px; border-top:1px dashed #eee; }
+    .teacher-banner .tp-btn { background:linear-gradient(135deg,var(--clip),var(--sfv)); color:#fff; text-decoration:none; border:none; border-radius:24px; padding:9px 18px; font-family:'Rubik',sans-serif; font-weight:800; font-size:.86rem; cursor:pointer; }
+    .teacher-banner .tp-ghost { background:#f3f0ff; color:var(--clip); }
+    .teacher-banner .tp-note { font-size:.8rem; color:#9ca3af; }
+    .teacher-banner.mini .tp-steps, .teacher-banner.mini .tp-note { display:none; }
+
+    /* מד התקדמות ונעילת מבדק */
+    .gate-list { display:flex; flex-direction:column; gap:10px; margin-bottom:16px; }
+    .gate-item { display:flex; align-items:flex-start; gap:12px; padding:12px 14px; border:2px solid #eef0f6; border-radius:12px; font-weight:600; line-height:1.55; transition:.3s; }
+    .gate-item .gd { flex:0 0 auto; width:26px; height:26px; margin-top:1px; border-radius:50%; border:2px solid #d1d5db; display:flex; align-items:center; justify-content:center; font-weight:900; color:#fff; font-size:.9rem; transition:.3s; }
+    .gate-item.done { border-color:#bbf7d0; background:#f0fdf4; color:#15803d; }
+    .gate-item.done .gd { background:var(--ok); border-color:var(--ok); }
+    .gate-item.done .gd::after { content:"✓"; }
+    .gate-bar { height:12px; background:#eee; border-radius:20px; overflow:hidden; }
+    .gate-bar > div { height:100%; width:0; background:linear-gradient(90deg,var(--ok),#4ade80); transition:width .5s ease; }
+
+    .test-card { text-align:center; }
+    .test-card .lock { font-size:3rem; margin-bottom:6px; }
+    .test-card h2 { font-family:'Rubik'; font-weight:900; margin:0 0 8px; }
+    #testLocked { color:#9ca3af; }
+    #testLocked h2 { color:#6b7280; }
+    #testOpen h2 { color:var(--ok); }
+    .btn-test { margin-top:12px; background:linear-gradient(135deg,var(--clip),var(--sfv)); color:#fff; border:none; border-radius:30px; padding:14px 34px; font-family:'Rubik'; font-weight:900; font-size:1.1rem; cursor:pointer; box-shadow:0 8px 20px rgba(124,58,237,.35); transition:.2s; }
+    .btn-test:hover { transform:translateY(-2px); }
+    #remaining { font-weight:800; color:var(--sfv); }
+
+    /* כפתור מפתח (לבדיקה — כרגע מוצג תמיד; לפני פרסום לתלמידים נחביא) */
+    .dev-skip { position:fixed; top:12px; left:12px; z-index:1500; display:block; background:#e11d48; color:#fff; border:none;
+        border-radius:30px; padding:9px 16px; font-family:'Rubik',sans-serif; font-weight:800; cursor:pointer; box-shadow:0 4px 12px rgba(0,0,0,.3); }
+
+    /* מבדק — שכבת-על */
+    .test-overlay { position:fixed; inset:0; background:rgba(0,0,0,.6); display:none; align-items:flex-start; justify-content:center; z-index:1200; padding:20px; overflow:auto; }
+    .test-overlay.open { display:flex; }
+    .test-modal { background:#fff; border-radius:22px; max-width:680px; width:100%; margin:auto; box-shadow:0 22px 55px rgba(0,0,0,.4); direction:rtl; }
+    .tm-head { position:sticky; top:0; background:linear-gradient(135deg,var(--clip),var(--sfv)); color:#fff; padding:18px 24px; display:flex; align-items:center; justify-content:space-between; border-radius:22px 22px 0 0; }
+    .tm-head h3 { margin:0; font-family:'Rubik'; font-size:1.3rem; }
+    .tm-head button { background:rgba(255,255,255,.22); border:none; color:#fff; width:36px; height:36px; border-radius:50%; font-size:1.3rem; cursor:pointer; }
+    .tm-body { padding:22px 24px 28px; }
+    .tm-identity { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:20px; }
+    .tm-identity label { display:flex; flex-direction:column; gap:4px; font-weight:700; font-size:.9rem; color:#4b4869; }
+    .tm-identity input { padding:10px 12px; border:2px solid #eef0f6; border-radius:10px; font-family:'Heebo'; font-size:1rem; }
+    .tq { border-bottom:1px solid #f0f0f7; padding:14px 0; }
+    .tq .tq-q { font-weight:700; font-size:1.03rem; margin-bottom:10px; }
+    .test-opt { display:block; width:100%; text-align:right; border:2px solid #eef0f6; border-radius:12px; padding:11px 15px; margin-bottom:9px; background:#fff; font-family:'Heebo'; font-size:1rem; cursor:pointer; transition:.15s; }
+    .test-opt:hover { border-color:var(--clip); }
+    .test-opt.sel { border-color:var(--clip); background:#f5f3ff; font-weight:700; }
+    .tm-open { margin:16px 0; }
+    .tm-open label { font-weight:700; display:block; margin-bottom:6px; }
+    .tm-open textarea { width:100%; min-height:90px; padding:12px; border:2px solid #eef0f6; border-radius:12px; font-family:'Heebo'; font-size:1rem; resize:vertical; }
+    #tResult { display:none; text-align:center; padding:16px; border-radius:12px; font-weight:700; margin-top:12px; }
+    .tm-section-title { font-family:'Rubik'; font-weight:900; color:var(--sfv); font-size:1.1rem; margin:22px 0 10px; padding-top:16px; border-top:2px dashed #eee; }
+    .op-hint { color:#6b7280; font-size:.9rem; margin:0 0 10px; }
+    .op-concepts { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:8px; }
+    .op-concepts .opc { border:2px solid #ddd6fe; background:#f5f3ff; color:var(--clip); border-radius:10px; padding:6px 12px; font-size:.85rem; font-weight:700; transition:.2s; }
+    .op-concepts .opc.used { background:var(--ok); border-color:var(--ok); color:#fff; }
+    .op-count { font-weight:800; color:var(--clip); margin-bottom:8px; font-family:'Rubik'; }
+    .opinion textarea { width:100%; min-height:130px; padding:12px; border:2px solid #eef0f6; border-radius:12px; font-family:'Heebo'; font-size:1rem; resize:vertical; }
+    @media (max-width:600px){ .tm-identity{ grid-template-columns:1fr; } }
+
+    /* וידג'ט התקדמות צף */
+    .float-prog { position:fixed; bottom:16px; left:16px; z-index:900; background:#fff; border-radius:18px;
+        box-shadow:0 10px 28px rgba(0,0,0,.32); padding:14px 16px; display:flex; flex-direction:column; gap:9px;
+        direction:rtl; font-family:'Rubik',sans-serif; min-width:158px; transition:.3s; }
+    .float-prog .fp-title { font-size:.92rem; font-weight:900; color:var(--clip); text-align:center; margin-bottom:2px; }
+    .float-prog .fp-row { display:flex; align-items:center; gap:11px; }
+    .float-prog .fp { width:42px; height:42px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+        font-size:1.35rem; background:#f1f1f6; filter:grayscale(1); opacity:.55; position:relative; transition:.3s; flex:0 0 auto; }
+    .float-prog .fp-lbl { font-size:1rem; font-weight:800; color:#9ca3af; }
+    .float-prog .fp-row.done .fp { filter:none; opacity:1; background:#eafaf0; box-shadow:0 0 0 3px var(--ok); }
+    .float-prog .fp-row.done .fp::after { content:"✓"; position:absolute; bottom:-3px; left:-3px; width:19px; height:19px;
+        background:var(--ok); color:#fff; border-radius:50%; font-size:.78rem; display:flex; align-items:center; justify-content:center; font-weight:900; }
+    .float-prog .fp-row.done .fp-lbl { color:var(--ok); }
+    .float-prog.ready { background:linear-gradient(135deg,var(--clip),var(--sfv)); cursor:pointer; animation:pulse 1.6s infinite; align-items:center; }
+    .float-prog.ready .fp-ready { color:#fff; font-weight:900; font-size:1.1rem; text-align:center; padding:6px 4px; }
+    @keyframes pulse { 0%,100%{ box-shadow:0 10px 28px rgba(124,58,237,.4);} 50%{ box-shadow:0 10px 34px rgba(219,39,119,.75);} }
+    @media (max-width:600px){ .float-prog{ bottom:10px; left:10px; padding:11px 13px; min-width:auto; }
+        .float-prog .fp{ width:36px; height:36px; font-size:1.15rem; } .float-prog .fp-lbl{ font-size:.9rem; } }
+    @media (max-width:600px){ .cmp-row{ grid-template-columns:1fr; } header.hero h1{ font-size:1.6rem; } .card{ padding:20px; } .concepts,.views{ grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+    <a href="../index.html" class="back">→ חזרה</a>
+    <div class="teacher-banner" id="teacherBanner" style="display:none;">
+        <div class="tp-head">
+            <span class="tp-ic">👩‍🏫</span>
+            <div>
+                <div class="tp-title">היי <span id="tbTeacher">מורה</span> — הנה מה שצריך לעשות</div>
+                <div class="tp-sub">כיתה: <b id="tbClass">—</b> · המסך שלמטה הוא בדיוק מה שהתלמידים יראו</div>
+            </div>
+        </div>
+
+        <div class="tp-link">
+            <span class="tp-lbl">📤 הקישור לשליחה לכיתה:</span>
+            <input id="tbUrl" readonly>
+            <button onclick="copyTb()">📋 העתק</button>
+            <span id="tbCopied" style="display:none;">הועתק! ✓</span>
+        </div>
+
+        <ol class="tp-steps">
+            <li><b>שלחו את הקישור</b> לתלמידי הכיתה (וואטסאפ / כיתה דיגיטלית). כל כיתה — קישור נפרד: התנתקו וצרו קישור חדש עם שם כיתה אחר.</li>
+            <li><b>התלמידים לומדים</b>: תיאוריה (הקראה + עוגני קריאה) → מושגים (פתיחה + בדיקת הבנה) → תרגול (משחק, טבלה, חידון). המבדק <b>נעול</b> עד שהשלימו את שלושת השלבים.</li>
+            <li><b>התלמיד ממלא שם בלבד</b> (הכיתה כבר מוגדרת בקישור), עונה על המבדק — 6 שאלות אמריקאיות, 3 פתוחות וטור דעה — ושולח.</li>
+            <li><b>אתם בודקים</b>: היכנסו ל<b>סביבת המורה</b> ← בחרו <b>כיתה</b> ואז <b>מטלה</b>. תראו לכל תלמיד רמזור מעורבות (🟢 עבר / 🟡 חלקי / 🔴 דילג), את כל התשובות, ותוכלו לתת <b>ציון ומשוב</b> — הכי מהר עם "⚡ בדיקה מהירה".</li>
+        </ol>
+
+        <div class="tp-foot">
+            <a class="tp-btn" href="../teacher-central.html" target="_blank">🗂️ פתיחת סביבת המורה</a>
+            <button class="tp-btn tp-ghost" onclick="document.getElementById('teacherBanner').classList.toggle('mini')">הסתר/הצג הסבר</button>
+            <span class="tp-note">גללו מטה כדי לעבור בעצמכם על השיעור לפני השיעור בכיתה.</span>
+        </div>
+    </div>
+
+    <header class="hero">
+        <div class="badge">זירה 7 · סרטוני רשת וקליפים מוזיקליים</div>
+        <h1>שלב 6.1 — הגדרות ואבחנות</h1>
+        <p>קליפ מוזיקלי מול סרטון רשת. זהו השלב הראשון במהלך הלימוד של הזירה. נכיר את התיאוריה, את מושגי הזירה, ונתרגל.</p>
+    </header>
+
+    <!-- מהלך הלימוד בזירה -->
+    <div class="card" id="flow">
+        <h2 class="sec">🧭 מהלך הלימוד בזירה 7</h2>
+        <p class="sec-note">לפניכם השלבים כפי שהם בזירה. אנחנו נמצאים כעת בשלב הראשון.</p>
+        <div class="flow">
+            <div class="stage here">
+                <div class="sh"><span class="no">6.1</span> הגדרות ואבחנות — קליפים וסרטוני רשת <span class="here-tag">אתם כאן</span></div>
+            </div>
+            <div class="stage">
+                <div class="sh"><span class="no">6.2</span> קליפים וסרטוני רשת כשפה</div>
+                <div class="subs">6.2.1 קליפים מוזיקליים · 6.2.2 סרטוני רשת · 6.2.3 כלים לניתוח (מודל לאסוול)</div>
+            </div>
+            <div class="stage">
+                <div class="sh"><span class="no">6.3</span> השפעות והשלכות</div>
+                <div class="subs">6.3.1 פוליטיקה, פייק ניוז ומרחב ציבורי · 6.3.2 ייצוג מגדרי וסטריאוטיפי</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- מד התקדמות ונעילת מבדק -->
+    <div class="card" id="progressCard">
+        <h2 class="sec">👋 לפני שמתחילים</h2>
+        <p class="sec-note">בשלב הזה אנחנו <b>עוברים על השיעור</b> ולומדים את החומר. בסוף היחידה מחכה <b>מבדק קצר שנשלח אוטומטית למורה</b>. כדי <b>לפתוח את אפשרות המבדק</b>, צריך קודם להשלים את שלושת השלבים הבאים — כל שלב שמסתיים מקבל וי ירוק (גם בוידג'ט הצף שתמיד על המסך):</p>
+        <div class="gate-list">
+            <div class="gate-item" id="g-theory"><span class="gd"></span>
+                <div><b>1. תיאוריה:</b> לחצו על <b>"▶️ הַקְרֵא לי"</b> ותנו למרקר הצהוב לרוץ <b>עד הסוף</b>, וגם ענו נכון על <b>2 עוגני הקריאה</b> שבתחתית התיאוריה.</div></div>
+            <div class="gate-item" id="g-concepts"><span class="gd"></span>
+                <div><b>2. מושגים:</b> פתחו את <b>כל 11 המושגים</b> (<span id="cOpen">0</span>/11), וענו נכון על <b>לפחות 18 מתוך 22</b> בבדיקת ההבנה (<span id="ccScore">0</span>/22).</div></div>
+            <div class="gate-item" id="g-practice"><span class="gd"></span>
+                <div><b>3. תרגול ובדיקה:</b> סיימו את <b>משחק המיון</b> (7+), פתחו את <b>כל שורות טבלת ההשוואה</b>, וענו נכון ב<b>חידון הסיום</b> (4/5).</div></div>
+        </div>
+        <div class="gate-bar"><div id="gateFill"></div></div>
+    </div>
+
+    <!-- מטרות -->
+    <div class="card" id="goals">
+        <h2 class="sec"><span class="step-tag">שלב א'</span> 🎯 מה נלמד בשלב זה?</h2>
+        <ul class="goals">
+            <li>נגדיר מהו <b>קליפ מוזיקלי</b> ומהו <b>סרטון רשת קצר (SFV)</b> ומה האבחנות ביניהם.</li>
+            <li>נשווה בין הז'אנרים לפי מדדים: מדיום, מטרה, הפקה, אורך, נרטיב, קהל, קשב וחוויית צפייה.</li>
+            <li>נבין שהגבול בין הז'אנרים מטושטש — והם משפיעים זה על זה.</li>
+        </ul>
+    </div>
+
+    <!-- התיאוריה -->
+    <div class="card" id="theory">
+        <h2 class="sec"><span class="step-tag">שלב ב'</span> 📖 התיאוריה</h2>
+        <div class="read-controls">
+            <button id="readBtn" class="read-play" onclick="toggleRead()">▶️ הַקְרֵא לי</button>
+            <span class="rspeed">קצב:
+                <button onclick="setSpeed(380,this)">איטי</button>
+                <button class="active" onclick="setSpeed(250,this)">רגיל</button>
+                <button onclick="setSpeed(160,this)">מהיר</button>
+            </span>
+            <button class="read-restart" onclick="restartRead()" title="מהתחלה">↺</button>
+        </div>
+        <div class="prose">
+            <p>התפתחויות טכנולוגיות של הרשתות החברתיות — ובראשן הבינה המלאכותית — שינו את כללי המשחק: כל משתמש יכול ליצור סרטונים ולהפיצם. קליפים וסרטונים קצרים הפכו לז'אנר <b>דומיננטי</b> בתקשורת, כתוצאה ממגוון גורמים: כלי בינה מלאכותית, מבנה האלגוריתם, אינטרסים מסחריים-כלכליים ונורמות תרבותיות. לכן יש להם מקום בולט ב<b>הבניה חברתית של המציאות</b>.</p>
+
+            <p><b class="clip">קליפ מוזיקלי</b> הוא יצירה המשלבת פס קול מוזיקלי ודימויים חזותיים, המושפעים מז'אנרים קולנועיים, טלוויזיוניים ופרסומיים. המרכיבים יכולים לתמוך זה בזה וליצור יחידה מגובשת — או להתנגד זה לזה וליצור תוצר <b>פוליסמי</b> ורב-מסרים. הקליפ הוא תוצר כלכלי שמטרתו שיווק היוצרים או השירים, ולכן הוא מכוון לקהל רחב, משקף את הלך הרוח החברתי וגם משתתף בעיצובו. מכיוון שהקהל המרכזי שלו הוא צעירים, הקליפ פועל כ<b>סוכן חִברות</b> (סוציאליזציה) משמעותי.</p>
+
+            <p><b class="sfv">סרטון רשת קצר</b> (SFV — Short-Form Video) הוא מושג רחב הכולל סרטוני טיקטוק, רילס ועוד. אלו יחידות תקשורת עצמאיות, המשלבות מוזיקה, מידע חזותי וטקסט במינונים שונים, ומשמשות למטרות מגוונות — מסחריות, פוליטיות, חברתיות ובידוריות. את הסרטונים יוצרים משתמשים רגילים, משפיעני רשת או דמויות ציבוריות: כל אחד יכול לייצר ולהפיץ סרטון בכל רגע.</p>
+
+            <p><b>שלוש נקודות מבט</b> — בזירה הזו אנחנו נמצאים בו-זמנית ב:</p>
+            <div class="views">
+                <div class="view"><div class="ic">👀</div><div class="vt">צרכנים</div><p>צריך לפענח מה מעצב את הסרטון וכיצד הוא משפיע עלינו ועל החברה.</p></div>
+                <div class="view"><div class="ic">🎬</div><div class="vt">יוצרים</div><p>עושים בחירות אתיות ואסתטיות ומעצבים סרטונים מתוך מודעות.</p></div>
+                <div class="view"><div class="ic">🔁</div><div class="vt">מפיצים</div><p>אחראים על מה שהעברנו הלאה — פייק, בריונות, שימוש ב-AI.</p></div>
+            </div>
+
+            <div class="deepen" id="deepen">
+                <p style="margin-top:16px;"><b>חשוב להכיר — כוח האלגוריתם.</b> הרשתות מציגות עצמן כ"פלטפורמה בלבד" שאינה אחראית לתכנים, אך בפועל הרגלי השימוש מעוצבים גם על ידי המלצות האתר ופעילות האלגוריתם. מטרת הרשתות היא להשאיר אותנו כמה שיותר זמן — ומכך נגזרת פעילות האלגוריתם. לכן צריכת התכנים, יצירתם והפצתם אינה החלטה אישית בלבד, אלא שילוב עם פעילות האלגוריתם — ומכאן הכוח הרב של הרשתות בעיצוב דעת קהל ובהבניה חברתית של המציאות.</p>
+            </div>
+            <button class="deepen-btn" id="deepenBtn" onclick="toggleDeepen()">רוצים להעמיק? ⬇️</button>
+        </div>
+
+        <div id="readAnchors" style="margin-top:22px; border-top:2px dashed #eee; padding-top:18px;">
+            <h3 style="font-family:'Rubik'; color:var(--sfv); font-size:1.1rem; margin:0 0 4px;">🔎 עוגני קריאה</h3>
+            <p class="sec-note">שתי שאלות מהטקסט עצמו — כדי לוודא שקראתם (לא רק הרצתם את המרקר). התשובה לאחת מהן נמצאת ב"רוצים להעמיק?".</p>
+            <div id="anchorBox"></div>
+            <div id="anchorHint" style="display:none; margin-top:6px; padding:10px 14px; border-radius:10px; font-weight:600;"></div>
+        </div>
+    </div>
+
+    <!-- מושגי הזירה -->
+    <div class="card" id="concepts">
+        <h2 class="sec"><span class="step-tag">שלב ג'</span> 🔑 מושגי הזירה</h2>
+        <p class="sec-note">אלה כל המושגים המרכזיים של זירה 7. לחצו על מושג כדי לחשוף את ההגדרה.</p>
+        <div class="hot-note">⭐ המושגים המסומנים בצהוב הם המרכזיים לשלב הנוכחי (6.1). את השאר נעמיק בשלבים הבאים.</div>
+        <div style="text-align:center; margin-bottom:14px;"><button onclick="openAllConcepts()" style="background:#f5f3ff; color:var(--clip); border:1px solid #ddd6fe; border-radius:30px; padding:9px 20px; font-family:'Rubik'; font-weight:700; cursor:pointer;">📂 פתחו את כל המושגים בבת אחת</button></div>
+        <div class="concepts" id="conceptsGrid"></div>
+
+        <div id="conceptCheck" style="margin-top:24px; border-top:2px dashed #eee; padding-top:20px;">
+            <h3 style="font-family:'Rubik'; color:var(--sfv); font-size:1.15rem; margin:0 0 4px;">✅ בדיקת הבנה מעמיקה</h3>
+            <p class="sec-note">שתי שאלות יישומיות על כל מושג (22 בסך הכול). כדי לפתוח את השלב צריך <b>לפתוח את כל המושגים</b> וגם <b>18/22</b> לפחות. אפשר לחזור לכרטיסים למעלה בכל רגע.</p>
+            <div id="ccBox"></div>
+            <div id="ccResult" style="display:none; text-align:center; padding:14px; border-radius:12px; font-weight:700; margin-top:6px;"></div>
+        </div>
+    </div>
+
+    <!-- משחק מיון -->
+    <div class="card" id="game">
+        <h2 class="sec"><span class="step-tag">שלב ד'</span> 🎮 משחק מיון — למי שייך המאפיין?</h2>
+        <p class="sec-note">נתרגל! קראו כל משפט וקבעו: <b style="color:var(--clip)">קליפ מוזיקלי</b> או <b style="color:var(--sfv)">סרטון רשת</b>?</p>
+        <div class="progress"><div id="bar"></div></div>
+        <div id="gameBox"></div>
+        <div class="score-box" id="scoreBox">
+            <div class="big" id="scoreNum">0/10</div>
+            <div id="scoreMsg"></div>
+            <button class="btn-reset" onclick="resetGame()">שחקו שוב 🔄</button>
+        </div>
+    </div>
+
+    <!-- טבלת השוואה -->
+    <div class="card" id="table">
+        <h2 class="sec"><span class="step-tag">שלב ה'</span> 🔍 טבלת ההשוואה המלאה</h2>
+        <p class="sec-note">לחצו על כל שורה כדי לחשוף את ההבדל.</p>
+        <div class="cmp" id="cmp">
+            <div class="cmp-row head"><div>מדד</div><div class="h-clip">🎬 קליפ מוזיקלי</div><div class="h-sfv">📱 סרטון רשת</div></div>
+        </div>
+    </div>
+
+    <!-- חידון -->
+    <div class="card" id="quiz">
+        <h2 class="sec"><span class="step-tag">שלב ו'</span> 🧠 בדקו את עצמכם</h2>
+        <p class="sec-note">בחרו תשובה — תקבלו משוב מיד.</p>
+        <div id="quizBox"></div>
+    </div>
+
+    <!-- רפלקציה -->
+    <div class="card" id="reflect">
+        <h2 class="sec"><span class="step-tag">שלב ז'</span> 💭 מקרה גבולי</h2>
+        <p class="sec-note">פרסומת שצולמה כמו קליפ והופצה כרילס בטיקטוק. לאיזה צד היא קרובה יותר? הזיזו את הסמן.</p>
+        <div class="slider-wrap">
+            <input type="range" min="0" max="100" value="50" id="slider" oninput="onSlide(this.value)">
+            <div class="slider-labels"><span class="l-clip">🎬 קליפ מובהק</span><span class="l-sfv">סרטון רשת מובהק 📱</span></div>
+            <p id="slideMsg" style="margin-top:14px; font-weight:600; color:#6b7280;">אין תשובה אחת נכונה — הגבולות מטושטשים! מה שחשוב זה הנימוק שלכם. 🤔</p>
+        </div>
+    <!-- מבדק (נעול עד להשלמת הלמידה) -->
+    <div class="card test-card" id="testCard">
+        <div id="testLocked">
+            <div class="lock">🔒</div>
+            <h2>המבדק נעול</h2>
+            <p>השלימו את שלבי הלמידה כדי לפתוח את המבדק.<br>נשאר להשלים: <span id="remaining">תיאוריה, מושגים, תרגול</span></p>
+        </div>
+        <div id="testOpen" style="display:none;">
+            <div class="lock">🎉</div>
+            <h2>כל הכבוד! השלמתם את הלמידה</h2>
+            <p>עכשיו אפשר לגשת למבדק. התוצאות יישלחו למורה.</p>
+            <button class="btn-test" onclick="startTest()">התחל מבדק ←</button>
+        </div>
+    </div>
+</div>
+
+<button class="dev-skip" id="devSkip" onclick="devSkip()">⏭️ דלג על השלבים (מפתח)</button>
+
+<!-- מבדק -->
+<div class="test-overlay" id="testOverlay">
+    <div class="test-modal">
+        <div class="tm-head"><h3>📝 מבדק — קליפ מול סרטון רשת</h3><button onclick="closeTest()" aria-label="סגור">×</button></div>
+        <div class="tm-body">
+            <p style="color:#6b7280; margin:0 0 16px;">ענו על השאלות והוסיפו את התשובה הפתוחה. בסיום — התוצאות והדוח יישלחו למורה.</p>
+            <div class="tm-identity" style="grid-template-columns:1fr;">
+                <label>שם מלא<input id="tName" placeholder="שם ושם משפחה"></label>
+                <div id="tClassShow" style="font-weight:700;color:#4b4869;font-size:.92rem;"></div>
+            </div>
+            <div id="tQuestions"></div>
+
+            <div class="tm-section-title">✍️ שאלות פתוחות</div>
+            <div class="tm-open"><label>1. בחרו קליפ או סרטון רשת שאתם מכירים. מהו המסר המרכזי שלו, ואיזה מושג מהזירה בא בו לידי ביטוי?</label><textarea id="tOpen1" placeholder="כתבו כאן..."></textarea></div>
+            <div class="tm-open"><label>2. הסבירו במילים שלכם: כיצד האלגוריתם של הרשתות משפיע על מה שאנחנו רואים ועל דעותינו?</label><textarea id="tOpen2" placeholder="כתבו כאן..."></textarea></div>
+            <div class="tm-open"><label>3. תנו דוגמה לסטריאוטיפ או לייצוג מגדרי שראיתם בקליפ/סרטון, והסבירו מדוע הוא בעייתי.</label><textarea id="tOpen3" placeholder="כתבו כאן..."></textarea></div>
+
+            <div class="tm-section-title">🗞️ טור דעה</div>
+            <div class="opinion">
+                <p style="margin:0 0 6px;">נושא לכתיבה: <b id="opTopic" style="color:var(--sfv);"></b></p>
+                <p class="op-hint">כתבו טור דעה קצר. חובה לשלב <b>לפחות 4 מושגים</b> מהזירה — מושג שתשתמשו בו ייצבע בירוק.</p>
+                <div class="op-concepts" id="opConcepts"></div>
+                <div class="op-count"><span id="opCount">0</span>/4 מושגים בשימוש</div>
+                <textarea id="tOpinion" oninput="checkOpinion()" placeholder="כתבו את טור הדעה כאן..."></textarea>
+            </div>
+
+            <button class="btn-test" style="width:100%; margin-top:16px;" onclick="submitTest()">שליחת המבדק למורה ←</button>
+            <div id="tResult"></div>
+        </div>
+    </div>
+</div>
+
+<!-- דלת כניסה: מורה בלבד (תלמיד עוקף עם ?code=) -->
+<div class="login-gate" id="loginGate">
+    <div class="login-box">
+        <div class="lg-ic">👩‍🏫</div>
+        <h2>כניסת מורה</h2>
+        <p>היכנסו כדי לצפות בשיעור וליצור קישור לשליחה לתלמידים.</p>
+        <input id="lgPhone" type="tel" style="direction:ltr" placeholder="טלפון (05xxxxxxxx)">
+        <input id="lgPass" type="password" placeholder="סיסמה אישית">
+        <input id="lgClass" placeholder="שם הכיתה (למשל יא'3)">
+        <button onclick="teacherEnter()">כניסה ←</button>
+        <div id="lgErr"></div>
+        <p class="lg-hint">תלמידים נכנסים דרך הקישור שהמורה שולח — אין צורך להתחבר.</p>
+    </div>
+</div>
+
+<!-- וידג'ט התקדמות צף -->
+<div class="float-prog" id="floatProg" onclick="floatClick()">
+    <div class="fp-title">השלבים שלי · <span id="fpDone">0</span>/3</div>
+    <div class="fp-row" id="fpr-theory"><span class="fp" id="fp-theory">📖</span><span class="fp-lbl">תיאוריה</span></div>
+    <div class="fp-row" id="fpr-concepts"><span class="fp" id="fp-concepts">🔑</span><span class="fp-lbl">מושגים</span></div>
+    <div class="fp-row" id="fpr-practice"><span class="fp" id="fp-practice">🎮</span><span class="fp-lbl">תרגול</span></div>
+</div>
+
+<script>
+    function toggleDeepen(){ const d=document.getElementById('deepen'); d.classList.toggle('open');
+        document.getElementById('deepenBtn').textContent = d.classList.contains('open')?'לסגירה ⬆️':'רוצים להעמיק? ⬇️'; }
+
+    // ערבוב סדר תשובות (כדי שהמיקום לא יהיה רמז)
+    function shuffleQ(item){
+        const arr = item.o.map((o,i)=>({o, ok:i===item.c}));
+        for (let i=arr.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]]; }
+        return { q:item.q, o:arr.map(x=>x.o), c:arr.findIndex(x=>x.ok) };
+    }
+
+    // ===== הקראה עם מרקר צהוב =====
+    function wrapWords(node){
+        Array.from(node.childNodes).forEach(child => {
+            if (child.nodeType === 3){
+                const parts = child.textContent.split(/(\s+)/);
+                const frag = document.createDocumentFragment();
+                parts.forEach(p => {
+                    if (p.trim() === '') frag.appendChild(document.createTextNode(p));
+                    else { const s = document.createElement('span'); s.className = 'word'; s.textContent = p; frag.appendChild(s); }
+                });
+                node.replaceChild(frag, child);
+            } else if (child.nodeType === 1){ wrapWords(child); }
+        });
+    }
+    let rWords = [], rIdx = 0, rTimer = null, rPlaying = false, rSpeed = 250;
+    document.querySelectorAll('#theory .prose > p').forEach(p => wrapWords(p));
+    rWords = Array.from(document.querySelectorAll('#theory .prose > p .word'));
+
+    function setPlayBtn(){ document.getElementById('readBtn').textContent = rPlaying ? '⏸️ השהיה' : (rIdx>=rWords.length ? '▶️ שוב' : '▶️ הַקְרֵא לי'); }
+    function toggleRead(){ rPlaying ? pauseRead() : playRead(); }
+    function playRead(){ if (rIdx >= rWords.length) restartRead(); rPlaying = true; setPlayBtn(); stepRead(); }
+    function pauseRead(){ rPlaying = false; clearTimeout(rTimer); setPlayBtn(); }
+    function restartRead(){ clearTimeout(rTimer); rWords.forEach(w => w.classList.remove('reading')); rIdx = 0; if(!rPlaying) setPlayBtn(); }
+    function stepRead(){
+        if (!rPlaying) return;
+        if (rIdx >= rWords.length){ finishRead(); return; }
+        if (rIdx > 0) rWords[rIdx-1].classList.remove('reading');
+        const w = rWords[rIdx]; w.classList.add('reading'); w.scrollIntoView({ block:'nearest' });
+        const longer = w.textContent.length > 7 ? 1.4 : 1;    // מילים ארוכות מעט לאט יותר
+        rIdx++;
+        rTimer = setTimeout(stepRead, rSpeed * longer);
+    }
+    function finishRead(){ rPlaying = false; clearTimeout(rTimer);
+        if (rWords.length) rWords[rWords.length-1].classList.remove('reading');
+        setPlayBtn(); readDone = true; updateTheoryGate(); }
+    function setSpeed(ms, btn){ rSpeed = ms;
+        document.querySelectorAll('.rspeed button').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active'); }
+
+    // ===== שער תיאוריה: סיום ההקראה + עוגני קריאה =====
+    let readDone = false, anchorScore = 0, anchorAnswered = 0, anchorsPassed = false;
+
+    const ANCHORS = [
+        { q:"לפי הקטע (כולל \"רוצים להעמיק?\"), מהי המטרה של הרשתות החברתיות — שממנה נגזרת פעילות האלגוריתם?",
+          o:["להשאיר אותנו כמה שיותר זמן","לחנך את המשתמשים ולספק להם מידע אמין ומדויק על העולם","למכור מנויים בתשלום חודשי לכל המשתמשים","לצנזר תכנים"], c:0 },
+        { q:"לפי הקטע, כ\"סוכן\" של מה פועל הקליפ המוזיקלי עבור צעירים?",
+          o:["סוכן חִברות (סוציאליזציה)","סוכן מכירות שמטרתו היחידה היא למכור מוצרים לצעירים","סוכן חדשות","סוכן צנזורה"], c:0 },
+    ];
+    const ANCHORS_S = ANCHORS.map(shuffleQ);
+    (function(){
+        const box = document.getElementById('anchorBox');
+        ANCHORS_S.forEach((item, qi) => {
+            const d = document.createElement('div'); d.style.marginBottom = '16px';
+            let html = '<p class="quiz-q" style="font-size:1rem;">' + (qi+1) + '. ' + item.q + '</p>';
+            item.o.forEach((op, oi) => { html += '<button class="quiz-opt" onclick="anchorPick(' + qi + ',' + oi + ',this)">' + op + '</button>'; });
+            d.innerHTML = html; box.appendChild(d);
+        });
+    })();
+    function anchorPick(qi, oi, btn){
+        const item = ANCHORS_S[qi], parent = btn.parentNode; if (parent.dataset.done) return; parent.dataset.done = '1';
+        parent.querySelectorAll('.quiz-opt').forEach(b => b.disabled = true);
+        const correct = oi === item.c; if (correct) anchorScore++;
+        btn.classList.add(correct ? 'correct' : 'wrong');
+        if (!correct) parent.querySelectorAll('.quiz-opt')[item.c].classList.add('correct');
+        anchorAnswered++;
+        if (anchorAnswered === ANCHORS.length){
+            anchorsPassed = anchorScore === ANCHORS.length;
+            if (!anchorsPassed) setTimeout(resetAnchors, 2600);
+        }
+        updateTheoryGate();
+    }
+    function resetAnchors(){
+        anchorScore = 0; anchorAnswered = 0; anchorsPassed = false;
+        document.querySelectorAll('#anchorBox > div').forEach(d => { delete d.dataset.done;
+            d.querySelectorAll('.quiz-opt').forEach(b => { b.disabled = false; b.classList.remove('correct','wrong'); }); });
+        updateTheoryGate();
+    }
+    function updateTheoryGate(){
+        const hint = document.getElementById('anchorHint');
+        if (anchorAnswered === ANCHORS.length && !anchorsPassed){
+            hint.style.display = 'block'; hint.style.background = '#fdeaef'; hint.style.color = '#b91c3c';
+            hint.textContent = 'לא מדויק — חזרו לטקסט (ול"רוצים להעמיק?") ונסו שוב.';
+        } else if (anchorsPassed && !readDone){
+            hint.style.display = 'block'; hint.style.background = '#fff8e6'; hint.style.color = '#b45309';
+            hint.textContent = 'ענית נכון! נשאר להפעיל את "▶️ הַקְרֵא לי" ולתת למרקר הצהוב לרוץ עד הסוף.';
+        } else if (!anchorsPassed && readDone){
+            hint.style.display = 'block'; hint.style.background = '#fff8e6'; hint.style.color = '#b45309';
+            hint.textContent = 'ההקראה הסתיימה 👍 עכשיו ענו נכון על 2 עוגני הקריאה.';
+        } else if (anchorsPassed && readDone){
+            hint.style.display = 'block'; hint.style.background = '#f0fdf4'; hint.style.color = '#15803d';
+            hint.textContent = 'מצוין! עברתם את שלב התיאוריה 🎉';
+        } else { hint.style.display = 'none'; }
+        gate.theory = anchorsPassed && readDone;
+        checkGate();
+    }
+
+    // ===== נעילה שלבית + מד התקדמות =====
+    const gate = { theory:false, concepts:false, practice:false };
+    function setItem(id, done){ document.getElementById(id).classList.toggle('done', done); }
+    let gamePass = false;
+    function updatePracticeGate(){
+        const tableAllOpened = (typeof tableOpened !== 'undefined') && tableOpened.size >= CMP.length;
+        gate.practice = gamePass && tableAllOpened && (typeof finalQuizPassed !== 'undefined' && finalQuizPassed);
+        checkGate();
+    }
+    function checkGate(){
+        setItem('g-theory', gate.theory); setItem('g-concepts', gate.concepts); setItem('g-practice', gate.practice);
+        const done = [gate.theory, gate.concepts, gate.practice].filter(Boolean).length;
+        document.getElementById('gateFill').style.width = (done/3*100) + '%';
+        const all = done === 3;
+        document.getElementById('testLocked').style.display = all ? 'none' : 'block';
+        document.getElementById('testOpen').style.display = all ? 'block' : 'none';
+        if (!all){ const rem=[]; if(!gate.theory)rem.push('תיאוריה'); if(!gate.concepts)rem.push('מושגים'); if(!gate.practice)rem.push('תרגול');
+            document.getElementById('remaining').textContent = rem.join(', '); }
+        // וידג'ט צף
+        document.getElementById('fpr-theory').classList.toggle('done', gate.theory);
+        document.getElementById('fpr-concepts').classList.toggle('done', gate.concepts);
+        document.getElementById('fpr-practice').classList.toggle('done', gate.practice);
+        document.getElementById('fpDone').textContent = done;
+        const fw = document.getElementById('floatProg');
+        if (all && !fw.classList.contains('ready')){
+            fw.classList.add('ready');
+            fw.innerHTML = '<span class="fp-ready">🎉 המבדק פתוח! לחצו כאן</span>';
+        }
+    }
+    function floatClick(){
+        if (document.getElementById('floatProg').classList.contains('ready'))
+            document.getElementById('testCard').scrollIntoView({ behavior:'smooth' });
+    }
+    // כפתור מפתח: דילוג על כל השלבים (רק עם ?dev=1)
+    if (new URLSearchParams(location.search).has('dev')){
+        const b = document.getElementById('devSkip'); if (b) b.style.display = 'block';
+    }
+    function devSkip(){
+        gate.theory = gate.concepts = gate.practice = true; checkGate();
+        document.getElementById('testCard').scrollIntoView({ behavior:'smooth' });
+    }
+    // ===== מבדק + חיבור למערכת השיעורים (Firebase tests-fd938) =====
+    const TOPIC = 'zira7_hagdarot';
+    const CLASSCODE = new URLSearchParams(location.search).get('code') || '';
+    const CLASSNAME = new URLSearchParams(location.search).get('class') || '';
+    let db = null;
+    try {
+        firebase.initializeApp({
+            apiKey: "AIzaSyCCHvn_ulmiyM56DuslNzNC0Ge6a8i2vhY",
+            authDomain: "tests-fd938.firebaseapp.com",
+            databaseURL: "https://tests-fd938-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "tests-fd938",
+            storageBucket: "tests-fd938.firebasestorage.app",
+            messagingSenderId: "586813097412",
+            appId: "1:586813097412:web:39a71b3e0ea03573509091"
+        });
+        db = firebase.database();
+    } catch(e){ console.warn('Firebase init', e); }
+
+    const TEST = [
+        { q:"מהו ההבדל המרכזי בין קליפ מוזיקלי לסרטון רשת מבחינת ההפקה?", o:["קליפ = הפקה יקרה ומקצועית; סרטון רשת = מיידי, כל אחד יכול","שניהם דורשים אולפן מקצועי, צוות גדול וציוד יקר במיוחד","אין הבדל בהפקה","סרטון רשת יקר יותר"], c:0 },
+        { q:"מדוע קליפ מוזיקלי נחשב 'סוכן חִברות'?", o:["כי הוא מעצב ערכים וזהות אצל צעירים","כי הוא נמכר בכסף רב לכל תחנות הטלוויזיה בעולם","כי הוא קצר","כי אין לו השפעה"], c:0 },
+        { q:"'יונה לבנה' שמייצגת שלום — זו דוגמה ל:", o:["קונוטציה","המשמעות המילולית הישירה של מה שרואים בתמונה","דנוטציה","הכחדה סימבולית"], c:0 },
+        { q:"מה מאפיין את הנרטיב של סרטון רשת קצר?", o:["השורה התחתונה מוצגת בהתחלה כדי ללכוד קשב","מבנה קולנועי ארוך עם התחלה, אמצע וסוף מפורטים","אין לו נרטיב כלל","הוא תמיד שיר"], c:0 },
+        { q:"כשקבוצה כמעט לא מיוצגת בקליפים ובסרטונים, מדובר ב:", o:["הכחדה סימבולית","ייצוג יתר שנותן לה במה מרכזית ובולטת בשיח","סטריאוטיפ חיובי","פוליסמיה"], c:0 },
+        { q:"מה תפקיד האלגוריתם ברשתות החברתיות?", o:["מעצב מה נחשף אלינו וכמה זמן נישאר","מתרגם את הסרטונים לשפות שונות עבור המשתמשים","אין לו תפקיד","מוחק תוכן ישן"], c:0 },
+    ];
+    const TEST_S = TEST.map(shuffleQ);
+    const testAnswers = [];
+
+    function startTest(){
+        buildTestQuestions();
+        buildOpinion();
+        const cs = document.getElementById('tClassShow');
+        if (cs) cs.textContent = CLASSNAME ? ('כיתה: ' + CLASSNAME + ' (נקבעה על ידי המורה)') : '';
+        document.getElementById('testOverlay').classList.add('open');
+    }
+
+    // ===== טור דעה — מושגים נצבעים בירוק בשימוש =====
+    const OPC = [
+        { t:'קליפ מוזיקלי', m:['קליפ'] },
+        { t:'סרטוני רשת קצרים', m:['סרטון רשת','סרטוני רשת','סרטון קצר','סרטונים קצרים'] },
+        { t:'הבנייה חברתית של המציאות', m:['הבניה חברתית','הבנייה חברתית'] },
+        { t:'חיברות', m:['חיברות','סוציאליזציה'] },
+        { t:'שימושים וסיפוקים', m:['שימושים וסיפוקים','שימושים והסיפוקים'] },
+        { t:'דנוטציה', m:['דנוטציה'] },
+        { t:'קונוטציה', m:['קונוטציה'] },
+        { t:'מגדר', m:['מגדר'] },
+        { t:'ייצוג מגדרי', m:['ייצוג מגדרי'] },
+        { t:'סטריאוטיפ', m:['סטריאוטיפ'] },
+        { t:'הכחדה סימבולית', m:['הכחדה סימבולית'] },
+    ];
+    const OP_TOPICS = [
+        'האם סרטוני רשת קצרים מזיקים או מועילים לשיח הציבורי של בני נוער?',
+        'ייצוג מגדרי בקליפים ובסרטוני רשת — האם המצב משתפר?',
+        'מי אחראי לתוכן שקרי שמופץ ברשת — היוצר, המפיץ או הפלטפורמה?',
+        'האם ראוי שהאלגוריתם יחליט עבורנו אילו סרטונים נראה?'
+    ];
+    let opinionUsed = 0, opinionTopic = '';
+    function buildOpinion(){
+        if (!opinionTopic) opinionTopic = OP_TOPICS[Math.floor(Math.random() * OP_TOPICS.length)];
+        document.getElementById('opTopic').textContent = opinionTopic;
+        const box = document.getElementById('opConcepts');
+        if (box.children.length) return; // כבר נבנה
+        OPC.forEach((c, i) => { const s = document.createElement('span'); s.className = 'opc'; s.id = 'opc' + i; s.textContent = c.t; box.appendChild(s); });
+    }
+    function checkOpinion(){
+        const txt = document.getElementById('tOpinion').value;
+        let used = 0;
+        OPC.forEach((c, i) => {
+            const hit = c.m.some(m => txt.indexOf(m) !== -1);
+            document.getElementById('opc' + i).classList.toggle('used', hit);
+            if (hit) used++;
+        });
+        opinionUsed = used;
+        document.getElementById('opCount').textContent = used;
+    }
+    function closeTest(){ document.getElementById('testOverlay').classList.remove('open'); }
+
+    // ===== דלת כניסה: מורה מתחבר → רואה הכל + מקבל קישור; תלמיד עם ?code= עוקף =====
+    function grantAccess(){ const g = document.getElementById('loginGate'); if (g) g.style.display = 'none'; }
+    function teacherEnter(){
+        const phone = document.getElementById('lgPhone').value.trim();
+        const pass  = document.getElementById('lgPass').value.trim();
+        const klass = document.getElementById('lgClass').value.trim();
+        const err = document.getElementById('lgErr'); err.style.display = 'none';
+        if (!phone || !pass){ err.textContent = 'נא למלא טלפון וסיסמה.'; err.style.display = 'block'; return; }
+        if (!klass){ err.textContent = 'נא למלא את שם הכיתה (יופיע אצל התלמידים).'; err.style.display = 'block'; return; }
+        if (!db){ err.textContent = 'אין חיבור לשרת.'; err.style.display = 'block'; return; }
+        err.textContent = 'מתחבר…'; err.style.display = 'block';
+        db.ref('teachers').once('value').then(snap => {
+            let fk = '', tName = '';
+            snap.forEach(ch => { if (fk) return; const t = ch.val();
+                if ((t.phone || t.telephone || '') === phone && t.password === pass && t.status === 'approved'){
+                    fk = ch.key;
+                    tName = (t.name || ((t.firstName || '') + ' ' + (t.lastName || '')).trim() || '').trim();
+                } });
+            if (!fk){ err.textContent = 'טלפון/סיסמה שגויים או שהמשתמש אינו מאושר.'; err.style.display = 'block'; return; }
+            // יצירת מיפוי קוד→מורה (בלתי נראה) + קישור לשליחה הכולל את שם הכיתה
+            const code = fk.toLowerCase();
+            db.ref('teacher_codes/' + code + '_' + fk).set(fk);
+            const url = location.href.split('?')[0] + '?code=' + encodeURIComponent(code) + '&class=' + encodeURIComponent(klass);
+            document.getElementById('tbUrl').value = url;
+            document.getElementById('tbClass').textContent = klass;
+            document.getElementById('tbTeacher').textContent = tName || 'מורה';
+            document.getElementById('teacherBanner').style.display = 'block';
+            grantAccess();
+        }).catch(e => { err.textContent = 'שגיאה: ' + (e && e.message || e); err.style.display = 'block'; });
+    }
+    function copyTb(){
+        const u = document.getElementById('tbUrl'); u.select();
+        navigator.clipboard.writeText(u.value).then(() => {
+            const c = document.getElementById('tbCopied'); c.style.display = 'inline'; setTimeout(() => c.style.display = 'none', 2000);
+        });
+    }
+    // בכניסה: אם יש קוד (תלמיד מהקישור) — פותחים ישר; אחרת דלת המורה
+    if (CLASSCODE) grantAccess();
+    function buildTestQuestions(){
+        const box = document.getElementById('tQuestions'); box.innerHTML = '';
+        TEST_S.forEach((item, qi) => {
+            const d = document.createElement('div'); d.className = 'tq';
+            let html = '<div class="tq-q">' + (qi+1) + '. ' + item.q + '</div>';
+            item.o.forEach((op, oi) => { html += '<button class="test-opt" onclick="testPick(' + qi + ',' + oi + ',this)">' + op + '</button>'; });
+            d.innerHTML = html; box.appendChild(d);
+        });
+    }
+    function testPick(qi, oi, btn){
+        testAnswers[qi] = oi;
+        btn.parentNode.querySelectorAll('.test-opt').forEach(b => b.classList.remove('sel'));
+        btn.classList.add('sel');
+    }
+    function submitTest(){
+        const name = document.getElementById('tName').value.trim();
+        const cls  = CLASSNAME;
+        const code = (CLASSCODE || '').trim().toLowerCase();
+        if (!name){ alert('נא למלא שם מלא.'); return; }
+        if (testAnswers.filter(a => a !== undefined).length < TEST_S.length){ alert('נא לענות על כל שאלות הרב-ברירה.'); return; }
+        const o1 = document.getElementById('tOpen1').value.trim();
+        const o2 = document.getElementById('tOpen2').value.trim();
+        const o3 = document.getElementById('tOpen3').value.trim();
+        if (!o1 || !o2 || !o3){ alert('נא לענות על שלוש השאלות הפתוחות.'); return; }
+        const opinion = document.getElementById('tOpinion').value.trim();
+        if (!opinion){ alert('נא לכתוב את טור הדעה.'); return; }
+        if (opinionUsed < 4){ alert('בטור הדעה יש לשלב לפחות 4 מושגים מהזירה. כרגע: ' + opinionUsed + '.'); return; }
+        let ts = 0; TEST_S.forEach((q,i) => { if (testAnswers[i] === q.c) ts++; });
+        const answers = {
+            'ציון מבדק (רב-ברירה)': ts + '/' + TEST_S.length,
+            'שאלה פתוחה 1': o1,
+            'שאלה פתוחה 2': o2,
+            'שאלה פתוחה 3': o3,
+            'טור דעה — נושא': opinionTopic,
+            'טור דעה — טקסט': opinion,
+            'טור דעה — מושגים בשימוש': opinionUsed + ' מושגים',
+            'שלב תיאוריה — הקראה': readDone ? 'הושלמה' : 'לא הושלמה',
+            'עוגני קריאה': anchorScore + '/2',
+            'מושגים שנפתחו': conceptsOpened.size + '/11',
+            'בדיקת מושגים': ccScore + '/22',
+            'משחק מיון': score + '/10',
+            'טבלת השוואה': tableOpened.size + '/9',
+            'חידון סיום': fqScore + '/5'
+        };
+        const res = document.getElementById('tResult'); res.style.display = 'block';
+        if (!db){ res.style.background = '#fdeaef'; res.style.color = '#b91c3c'; res.textContent = 'שגיאה בחיבור. נסו שוב מאוחר יותר.'; return; }
+        res.style.background = '#fff8e6'; res.style.color = '#b45309'; res.textContent = 'שולח…';
+        // שליפת teacherID מ-teacher_codes — תומך גם ב-"code_teacherID" וגם ב-"code"
+        const lookup = code
+            ? db.ref('teacher_codes').once('value').then(snap => { let tid = '';
+                  snap.forEach(c => { const k = c.key; if (k === code || k.indexOf(code + '_') === 0) tid = c.val(); }); return tid; })
+            : Promise.resolve('');
+        lookup.then(teacherID => {
+              const rec = {
+                  student: Object.assign({ name: name, class: cls, classCode: code }, teacherID ? { teacherID: teacherID } : {}),
+                  teacherID: teacherID || '',
+                  answers: answers,
+                  submittedAt: Date.now()
+              };
+              return db.ref('tests/' + TOPIC).push(rec);
+          })
+          .then(() => { res.style.background = '#f0fdf4'; res.style.color = '#15803d';
+              res.innerHTML = '✅ נשלח למורה בהצלחה! ציון המבדק: <b>' + ts + '/' + TEST_S.length + '</b>. אפשר לסגור את החלון.';
+              document.querySelectorAll('#testOverlay .test-opt, #tName, #tOpen1, #tOpen2, #tOpen3, #tOpinion, .test-modal .btn-test').forEach(el => el.disabled = true); })
+          .catch(e => { res.style.background = '#fdeaef'; res.style.color = '#b91c3c'; res.textContent = 'שגיאה בשליחה: ' + (e && e.message || e); });
+    }
+
+    // ===== מושגי הזירה — פירוש נטען מהאגרון (Supabase) לפי slug =====
+    const SUPABASE_URL = "https://eubgzfkkovxgijhrmnif.supabase.co";
+    const KEY = "sb_publishable_vJ768fOwYWiDWeYsBBR45g_4NM4s55p";
+    const AGRON_URL = "https://ranibz.github.io/hakol/agron/index.html";
+    const defCache = {};
+    async function fetchDef(slug, term){
+        const key = slug ? ("slug:"+slug) : ("term:"+term);
+        if (defCache[key] !== undefined) return defCache[key];
+        const col = slug ? "slug" : "term", val = slug || term;
+        const url = SUPABASE_URL + "/rest/v1/concepts?select=definition_html&limit=1&" + col + "=eq." + encodeURIComponent(val);
+        let html = null;
+        try { const res = await fetch(url, { headers: { apikey: KEY } }); if (res.ok){ const d = await res.json(); if (d[0] && d[0].definition_html) html = d[0].definition_html; } } catch(e){}
+        defCache[key] = html; return html;
+    }
+    const defFallback = '<p>הפירוש המלא למושג זמין באגרון המושגים.</p><p><a href="'+AGRON_URL+'" target="_blank" style="font-weight:bold;color:var(--clip);">פתחו את האגרון ←</a></p>';
+
+    const CONCEPTS = [
+        { t:"קליפ מוזיקלי", hot:true, slug:"klyp-mvzykaly", term:"קליפ מוזיקאלי" },
+        { t:"סרטוני רשת קצרים (SFV)", hot:true, slug:"srtvny-rsht-ktzrym", term:"סרטוני רשת קצרים" },
+        { t:"הבנייה חברתית של המציאות", slug:"hbnyyh-chbrtyt-shl-hmtzyavt", term:"הבנייה חברתית של המציאות" },
+        { t:"חיברות (סוציאליזציה)", slug:"chybrvt-svtzyalyztzyh-2", term:"חיברות-סוציאליזציה" },
+        { t:"גישת השימושים והסיפוקים", slug:"gysht-hshymvshym-vhsypvkym-2", term:"גישת השימושים והסיפוקים" },
+        { t:"דנוטציה", slug:"dnvttzyh-kvnvttzyh", term:"דנוטציה-קונוטציה" },
+        { t:"קונוטציה", slug:"dnvttzyh-kvnvttzyh", term:"דנוטציה-קונוטציה" },
+        { t:"מגדר", slug:"myn-vmgdr", term:"מין ומגדר" },
+        { t:"ייצוג מגדרי", slug:"yytzvg-mgdry", term:"ייצוג מגדרי" },
+        { t:"סטריאוטיפ", slug:"stryavtyp", term:"סטריאוטיפ" },
+        { t:"הכחדה סימבולית", slug:"hkchdh-symbvlyt", term:"הכחדה סימבולית" },
+    ];
+    // ===== שער מושגים: פתיחת כולם + בדיקה מעמיקה =====
+    const conceptsOpened = new Set();
+    let ccScore = 0, ccAnswered = 0, ccPassed = false;
+    const CC_TOTAL = 22, CC_PASS = 18;
+
+    function openAllConcepts(){
+        document.querySelectorAll('#conceptsGrid .concept').forEach(el => {
+            if (!el.classList.contains('open')) el.querySelector('.ch').click();
+        });
+    }
+    function updateConceptsGate(){
+        document.getElementById('cOpen').textContent = conceptsOpened.size;
+        const openedAll = conceptsOpened.size >= CONCEPTS.length;
+        gate.concepts = openedAll && ccPassed;
+        checkGate();
+    }
+
+    (function(){
+        const g = document.getElementById('conceptsGrid');
+        CONCEPTS.forEach((c, idx) => {
+            const el = document.createElement('div'); el.className = 'concept' + (c.hot ? ' hot' : '');
+            el.innerHTML = '<div class="ch">' + (c.hot ? '⭐ ' : '') + c.t + ' <span class="pm">＋</span></div>' +
+                '<div class="cbody"><div class="cdef">לחצו לפתיחת הפירוש מהאגרון…</div></div>';
+            const ch = el.querySelector('.ch'), box = el.querySelector('.cdef');
+            ch.addEventListener('click', async function(){
+                el.classList.toggle('open');
+                if (el.classList.contains('open')){
+                    conceptsOpened.add(idx); updateConceptsGate();
+                    if (!el.dataset.loaded){
+                        el.dataset.loaded = '1';
+                        box.innerHTML = '<span style="color:#999;">טוען פירוש מהאגרון…</span>';
+                        const html = await fetchDef(c.slug, c.term);
+                        box.innerHTML = html || defFallback;
+                    }
+                }
+            });
+            g.appendChild(el);
+        });
+    })();
+
+    // שתי שאלות יישומיות לכל מושג
+    const CCG = [
+        { name:"קליפ מוזיקלי", qs:[
+            { q:"אמן משחרר קליפ יקר עם במאי מפורסם בדיוק לפני יציאת האלבום. מה זה מלמד על מהות הקליפ?", o:["כלי שיווקי-כלכלי לקידום האמן והשיר","יצירת אמנות טהורה שאין לה שום מטרה מסחרית או קידום","סרטון רשת חובבני שכל אחד יכול להפיק בכמה דקות","תוצר קצר במיוחד"], c:0 },
+            { q:"מדוע אומרים שקליפ 'משקף וגם מעצב' את הלך הרוח החברתי?", o:["הוא נענה לטעם הקהל ובו-זמנית מפיץ ומחזק ערכים","מפני שאין לו שום השפעה על הקהל או על התרבות סביבו","מפני שהוא רק מתעד אירועים בצורה אובייקטיבית לחלוטין","כי הוא נוצר בידי משתמשים"], c:0 } ]},
+        { name:"סרטוני רשת קצרים (SFV)", qs:[
+            { q:"תלמיד מעלה רילס תוך חיקוי 'טרנד' עם אותו פס קול של רבים אחרים. איזה מאפיין של SFV בא לידי ביטוי?", o:["יצירה מבוססת חיקוי ואימוץ מרכיבים קיימים","הפקה מקצועית ויקרה שדורשת צוות וציוד מיוחד לאורך זמן","נרטיב קולנועי ארוך עם התחלה, אמצע וסוף מסודרים","צפייה פסיבית"], c:0 },
+            { q:"מהו ההבדל המהותי בין SFV לקליפ מבחינת מי יוצר?", o:["כל משתמש יכול ליצור SFV מיד ובלי משאבים","שניהם מופקים אך ורק בידי תאגידים גדולים ואמנים מקצועיים","רק אמנים מפורסמים יכולים ליצור סרטוני רשת","אין ביניהם הבדל"], c:0 } ]},
+        { name:"הבנייה חברתית של המציאות", qs:[
+            { q:"פיד טיקטוק מציג בעיקר סרטוני מלחמה עוצמתיים וחד-צדדיים. כיצד זה קשור להבניית מציאות?", o:["המדיה בונה עבורנו תמונת מציאות מסוימת","מדובר בשיקוף אובייקטיבי ומדויק של כל מה שקורה בעולם","זה בידור בלבד שאין לו שום קשר לתפיסת המציאות שלנו","זה לא קשור למציאות"], c:0 },
+            { q:"מדוע 'הבנייה' שונה מ'שיקוף'?", o:["כי הבחירות מה להראות יוצרות מציאות ולא רק מתעדות","כי שיקוף הוא תמיד מדויק ואילו הבנייה קורית רק במהדורות הרשמיות","כי אין באמת שום הבדל בין שני המושגים האלה","כי הבנייה קורית רק בפרסום"], c:0 } ]},
+        { name:"חיברות (סוציאליזציה)", qs:[
+            { q:"בני נוער לומדים 'איך נראית הצלחה' מקליפים. איזה תפקיד ממלא כאן הקליפ?", o:["סוכן חִברות שמעביר ערכים ונורמות","כלי טכני בלבד שאין לו שום השפעה חינוכית או חברתית","מקור מידע ניטרלי לחלוטין וללא שום עמדה או הטיה","אין לו תפקיד"], c:0 },
+            { q:"מה מייחד חִברות דרך קליפים לעומת למידה בבית הספר?", o:["היא לא-מפורשת ומתרחשת דרך צריכת תרבות פופולרית","היא פורמלית, מכוונת ומתרחשת רק בנוכחות מורה מוסמך","היא זהה לחלוטין ללמידה הפורמלית בכיתה","היא לא קיימת"], c:0 } ]},
+        { name:"גישת השימושים והסיפוקים", qs:[
+            { q:"תלמידה גוללת רילס 'כדי להרגיש חלק מהחברים ולדעת על מה מדברים'. איזה צורך היא מספקת?", o:["צורך חברתי של שייכות ומידע","צורך שאין לו שום קשר למניעים חברתיים או אישיים כלשהם","צורך פיזי בסיסי כמו רעב או שינה","אין כאן צורך"], c:0 },
+            { q:"מהי ההנחה המרכזית של הגישה לגבי הקהל?", o:["הקהל פעיל ובוחר מדיה כדי לספק צרכים","הקהל פסיבי לחלוטין ומקבל כל מסר שמוגש לו בלי לבחור","לכל בני הקהל יש בדיוק אותו צורך זהה","הקהל לא מושפע כלל"], c:0 } ]},
+        { name:"דנוטציה", qs:[
+            { q:"בקליפ מופיעה יונה לבנה. מהי הדנוטציה?", o:["ציפור לבנה","סמל אוניברסלי של שלום ופיוס בין עמים ותרבויות","תחושת תקווה לעתיד טוב יותר","טוהר ותמימות"], c:0 },
+            { q:"מה מאפיין קריאה דנוטטיבית של דימוי?", o:["תיאור מה שרואים בפועל, בלי פרשנות","פרשנות תרבותית עמוקה של המשמעויות הסמויות מאחורי הדימוי","הרגש שהתמונה מעוררת אצל הצופה","המסר הפוליטי הסמוי"], c:0 } ]},
+        { name:"קונוטציה", qs:[
+            { q:"אותה יונה לבנה מעוררת אצל הצופים אסוציאציה של שלום. זו:", o:["קונוטציה","דנוטציה — המשמעות המילולית הישירה של מה שרואים","הכחדה סימבולית","סטריאוטיפ"], c:0 },
+            { q:"מדוע אותה תמונה יכולה לשאת קונוטציות שונות אצל אנשים שונים?", o:["כי הקונוטציה תלויה בהקשר תרבותי ובניסיון אישי","כי הדנוטציה עצמה משתנה מאדם לאדם בכל פעם מחדש","כי התמונה משתנה פיזית","כי אין לה משמעות"], c:0 } ]},
+        { name:"מגדר", qs:[
+            { q:"המשפט 'בנות עדינות ובנים חזקים' מתאר בעיקר:", o:["הבחנה מגדרית-תרבותית של תכונות","עובדה ביולוגית מדעית שאי אפשר לערער עליה כלל","הבדל גופני מולד בין המינים","הכחדה סימבולית"], c:0 },
+            { q:"מהו ההבדל בין 'מין' (sex) ל'מגדר'?", o:["מין הוא ביולוגי; מגדר הוא הבניה תרבותית","שניהם מושגים ביולוגיים שמתייחסים בדיוק לאותו דבר","מגדר הוא הביולוגי ומין הוא התרבותי","אין הבדל"], c:0 } ]},
+        { name:"ייצוג מגדרי", qs:[
+            { q:"מחקר מצא שמשפיעניות מציגות יותר תוכן מיני ממשפיענים. זו דוגמה ל:", o:["הבדל בייצוג מגדרי","דנוטציה של מה שמופיע בפועל בתוך הסרטון","פוליסמיה","חיברות"], c:0 },
+            { q:"בבדיקת ייצוג מגדרי בקליפ נבחן, בין היתר:", o:["תדירות הופעה, תפקידים וביטויי מיניות לפי מגדר","רק איכות הצילום ומספר הצפיות שהסרטון קיבל ברשת","אורך הקליפ בלבד","סוג המצלמה"], c:0 } ]},
+        { name:"סטריאוטיפ", qs:[
+            { q:"סרטון שמציג את כל בני קבוצה מסוימת כ'מצחיקים ועצלנים' משתמש ב:", o:["סטריאוטיפ","קונוטציה חיובית שנועדה להחמיא לאותה קבוצה","דנוטציה","הכחדה סימבולית"], c:0 },
+            { q:"מדוע סטריאוטיפים בעייתיים גם כשהם נשמעים 'חיוביים'?", o:["הם מכלילים ומקבעים קבוצה ומוחקים שונוּת","הם תמיד מדויקים ומשקפים נאמנה את כל בני הקבוצה","הם מופיעים רק בפרסומות","הם לא בעייתיים"], c:0 } ]},
+        { name:"הכחדה סימבולית", qs:[
+            { q:"בסדרת קליפים פופולרית כמעט לא מופיעים אנשים עם מוגבלות. זו דוגמה ל:", o:["הכחדה סימבולית","ייצוג יתר שנותן במה מוגזמת לקבוצה מסוימת","סטריאוטיפ חיובי","דנוטציה"], c:0 },
+            { q:"מהו המסר הסמוי של היעדר ייצוג לקבוצה במדיה?", o:["כאילו הקבוצה לא קיימת או לא חשובה","שהקבוצה חשובה מאוד ומקבלת מקום מרכזי בשיח","שיש לה הרבה כוח","שהיא מיוצגת נכון"], c:0 } ]},
+    ];
+    (function(){
+        const box = document.getElementById('ccBox'); let gi = 0;
+        CCG.forEach(group => {
+            const h = document.createElement('div'); h.style.cssText = 'font-family:Rubik;font-weight:900;color:var(--clip);margin:18px 0 8px;font-size:1rem;';
+            h.textContent = '● ' + group.name; box.appendChild(h);
+            group.qs.forEach(item => {
+                const s = shuffleQ(item);
+                const qi = gi++; const d = document.createElement('div'); d.style.marginBottom = '16px';
+                let html = '<p class="quiz-q" style="font-size:1rem;">' + s.q + '</p>';
+                s.o.forEach((op, oi) => { html += '<button class="quiz-opt" onclick="ccPick(' + qi + ',' + oi + ',this,' + s.c + ')">' + op + '</button>'; });
+                d.innerHTML = html; box.appendChild(d);
+            });
+        });
+    })();
+    function ccPick(qi, oi, btn, correctIdx){
+        const parent = btn.parentNode; if (parent.dataset.done) return; parent.dataset.done = '1';
+        parent.querySelectorAll('.quiz-opt').forEach(b => b.disabled = true);
+        const correct = oi === correctIdx; if (correct) ccScore++;
+        btn.classList.add(correct ? 'correct' : 'wrong');
+        if (!correct) parent.querySelectorAll('.quiz-opt')[correctIdx].classList.add('correct');
+        document.getElementById('ccScore').textContent = ccScore;
+        ccAnswered++;
+        if (ccAnswered === CC_TOTAL){
+            const res = document.getElementById('ccResult'); res.style.display = 'block';
+            ccPassed = ccScore >= CC_PASS;
+            if (ccPassed){
+                const missing = CONCEPTS.length - conceptsOpened.size;
+                if (missing <= 0){
+                    res.style.background = '#f0fdf4'; res.style.color = '#15803d';
+                    res.textContent = 'מצוין! ' + ccScore + '/22 — עברת את שלב המושגים 🎉';
+                } else {
+                    res.style.background = '#fff8e6'; res.style.color = '#b45309';
+                    res.innerHTML = 'כל הכבוד — עברת את הבדיקה (' + ccScore + '/22)! ✅<br>נשאר רק לפתוח את כל כרטיסי המושגים למעלה — עוד <b>' + missing + '</b>. פִּתחו אותם והשלב ייסגר אוטומטית.';
+                }
+            } else {
+                res.style.background = '#fdeaef'; res.style.color = '#b91c3c';
+                res.textContent = 'קיבלתם ' + ccScore + '/22 (צריך 18). חזרו לכרטיסים ונסו שוב.';
+            }
+            updateConceptsGate();
+            if (!ccPassed) setTimeout(resetCC, 3000);
+        }
+    }
+    function resetCC(){
+        ccScore = 0; ccAnswered = 0; ccPassed = false; document.getElementById('ccScore').textContent = '0';
+        document.getElementById('ccResult').style.display = 'none';
+        document.querySelectorAll('#ccBox > div').forEach(d => { if(!d.dataset.done) return; delete d.dataset.done;
+            d.querySelectorAll('.quiz-opt').forEach(b => { b.disabled = false; b.classList.remove('correct','wrong'); }); });
+        updateConceptsGate();
+    }
+
+    // ===== משחק מיון =====
+    const STMTS = [
+        { t:"הפקה יקרה, ארוכה ומקצועית", a:"clip", e:"קליפ — הפקה מסחרית יקרה; לא כל אחד יכול להפיק." },
+        { t:"כל אחד יכול לייצר אותו בכל רגע, בלי משאבים", a:"sfv", e:"סרטון רשת — נוצר מיד באמצעים שהפלטפורמה מציעה." },
+        { t:"אורכו נמשך כאורך השיר", a:"clip", e:"קליפ — השיר הוא המוקד והקליפ מלווה אותו." },
+        { t:"קצר מאוד, כמה שניות", a:"sfv", e:"סרטון רשת — קצר, מותאם לגלילה מהירה." },
+        { t:"נצפה כמעט תמיד בטלפון, בטיקטוק ובאינסטגרם", a:"sfv", e:"סרטון רשת — חי ברשתות החברתיות ובנייד." },
+        { t:"המטרה המרכזית: קידום מסחרי של האמן או השיר", a:"clip", e:"קליפ — תוצר כלכלי לשיווק היוצרים." },
+        { t:"נרטיב של 'פירמידה הפוכה' — קודם השורה התחתונה", a:"sfv", e:"סרטון רשת — לוכד תשומת לב בשניות הראשונות." },
+        { t:"מבנה כמו-קולנועי או טלוויזיוני", a:"clip", e:"קליפ — אימץ מרכיבים קולנועיים וטלוויזיוניים." },
+        { t:"חוויית צפייה פעילה — גלילה בין סרטונים בפיד", a:"sfv", e:"סרטון רשת — הצופה גולל ובוחר כל הזמן." },
+        { t:"דורש רמת קשב גבוהה ותשומת לב לאורך זמן", a:"clip", e:"קליפ — צפייה ממוקדת יותר." },
+    ];
+    let answered=0, score=0;
+    function buildGame(){ const g=document.getElementById('gameBox'); g.innerHTML=''; answered=0; score=0; updateBar();
+        document.getElementById('scoreBox').classList.remove('show');
+        STMTS.forEach((s,i)=>{ const q=document.createElement('div'); q.className='q'; q.id='q'+i;
+            q.innerHTML='<div class="stmt">'+s.t+'</div><div class="btns">'+
+                '<button class="opt clip" onclick="answer('+i+',\'clip\')">🎬 קליפ מוזיקלי</button>'+
+                '<button class="opt sfv" onclick="answer('+i+',\'sfv\')">📱 סרטון רשת</button>'+
+                '</div><div class="fb" id="fb'+i+'"></div>'; g.appendChild(q); }); }
+    function answer(i,choice){ const s=STMTS[i], q=document.getElementById('q'+i);
+        if(q.classList.contains('done')) return; q.classList.add('done');
+        q.querySelectorAll('.opt').forEach(b=>b.disabled=true);
+        const correct=choice===s.a; if(correct) score++;
+        q.querySelector('.opt.'+choice).classList.add(correct?'correct':'wrong');
+        if(!correct) q.querySelector('.opt.'+s.a).classList.add('correct');
+        const fb=document.getElementById('fb'+i); fb.className='fb show '+(correct?'good':'bad');
+        fb.textContent=(correct?'✅ נכון! ':'❌ לא מדויק. ')+s.e; answered++; updateBar();
+        if(answered===STMTS.length) showScore(); }
+    function updateBar(){ document.getElementById('bar').style.width=(answered/STMTS.length*100)+'%'; }
+    function showScore(){ const box=document.getElementById('scoreBox'); box.classList.add('show');
+        document.getElementById('scoreNum').textContent=score+'/'+STMTS.length;
+        let m; if(score>=9) m='מעולה! אתם מבחינים כמו מומחים 🏆'; else if(score>=6) m='יפה מאוד! עוד קצת חידוד וזה מושלם 👍'; else m='כדאי לחזור על התיאוריה ועל הטבלה ולנסות שוב 💪';
+        document.getElementById('scoreMsg').textContent=m;
+        if(score>=7){ gamePass=true; updatePracticeGate(); } }
+    function resetGame(){ buildGame(); document.getElementById('game').scrollIntoView({behavior:'smooth'}); }
+
+    const CMP=[
+        ["מדיום מרכזי","תקשורת מסורתית או יוטיוב; נצפה במסכי טלוויזיה ובהופעות.","רשתות חברתיות — בעיקר טיקטוק ואינסטגרם, כמעט תמיד בנייד."],
+        ["מטרה","קידום מסחרי של האמן או המותג.","תקשורת חברתית, תעמולה, כלכלה, אתגר, מם, ויראליות."],
+        ["פס הקול","השיר הוא המוקד; הקליפ משרת אותו.","לא חייב שיר; לרוב פס קול טרנדי או מקורי ברקע."],
+        ["הפקה","יקרה, ארוכה ומקצועית — לא כל אחד יכול.","קצרה ומיידית, לרוב חובבנית; כל אחד יכול, בלי משאבים."],
+        ["משך","כאורך השיר.","קצר, כמה שניות."],
+        ["מבנה נרטיבי","כמו-קולנועי או טלוויזיוני.","'פירמידה הפוכה' — קודם השורה התחתונה."],
+        ["קהל יעד","רחב ככל האפשר, בעיקר צעירים.","מגוון — מהקהל הרחב ועד קבוצה ממוקדת."],
+        ["רמת קשב","דורש יותר תשומת לב.","קשב קצר של שניות, ואז ממשיכים לגלול."],
+        ["חוויית צפייה","פסיבית יותר — צופים בקליפ.","פעילה יותר — גוללים בין סרטונים."],
+    ];
+    let tableOpened = new Set();
+    (function(){ const c=document.getElementById('cmp'); CMP.forEach((r,ri)=>{ const row=document.createElement('div'); row.className='cmp-row';
+        row.innerHTML='<div class="crit" onclick="toggleCmp(this,'+ri+')">'+r[0]+' <span class="plus">+</span></div><div class="cell">'+r[1]+'</div><div class="cell">'+r[2]+'</div>'; c.appendChild(row); }); })();
+    function toggleCmp(el, ri){ const row=el.parentNode; row.classList.toggle('open'); if(row.classList.contains('open')){ tableOpened.add(ri); updatePracticeGate(); } }
+
+    const QUIZ=[
+        { q:"מהו ההבדל המרכזי במטרה בין השניים?", o:["הקליפ מקדם מסחרית; סרטון הרשת משמש למגוון מטרות","אין ביניהם שום הבדל, שניהם נועדו אך ורק לבידור קליל","סרטון הרשת תמיד פוליטי","הקליפ תמיד קצר יותר"], c:0 },
+        { q:"מדוע סרטון רשת מציג את 'השורה התחתונה' בהתחלה?", o:["כדי ללכוד תשומת לב בשניות הראשונות","מפני שהחוק מחייב להציג את המידע החשוב מיד בהתחלה","כי אסור לו נרטיב","כי הוא ארוך מאוד"], c:0 },
+        { q:"מדוע קליפ נחשב 'סוכן חִברות' עבור צעירים?", o:["כי הוא מעצב ערכים, זהות ועמדות של בני נוער","כי הוא יקר להפקה ודורש צוות מקצועי גדול מאוד","כי הוא קצר","כי הוא ברשתות בלבד"], c:0 },
+        { q:"מה תפקיד האלגוריתם בצריכת סרטונים?", o:["הוא מעצב מה נראה וכמה זמן נישאר בפיד","אין לו שום תפקיד בצריכת הסרטונים או בחשיפה אליהם","הוא רק מתרגם שפות","הוא מוחק סרטונים ישנים"], c:0 },
+        { q:"מה נכון לגבי הגבול בין הז'אנרים?", o:["הוא מטושטש והם משפיעים זה על זה","הוא חד וברור לחלוטין ואי אפשר לטעות ביניהם אף פעם","קליפ תמיד הופך לסרטון רשת","אין ביניהם שום קשר"], c:0 },
+    ];
+    const QUIZ_S = QUIZ.map(shuffleQ);
+    let fqScore = 0, fqAnswered = 0, finalQuizPassed = false;
+    (function(){ const box=document.getElementById('quizBox'); QUIZ_S.forEach((item,qi)=>{ const d=document.createElement('div'); d.style.marginBottom='22px';
+        let html='<p class="quiz-q">'+(qi+1)+'. '+item.q+'</p>'; item.o.forEach((op,oi)=>{ html+='<button class="quiz-opt" onclick="quizPick('+qi+','+oi+',this)">'+op+'</button>'; });
+        d.innerHTML=html; box.appendChild(d); }); })();
+    function quizPick(qi,oi,btn){ const item=QUIZ_S[qi], parent=btn.parentNode; if(parent.dataset.done) return; parent.dataset.done='1';
+        parent.querySelectorAll('.quiz-opt').forEach(b=>b.disabled=true);
+        if(oi===item.c){ btn.classList.add('correct'); fqScore++; } else { btn.classList.add('wrong'); parent.querySelectorAll('.quiz-opt')[item.c].classList.add('correct'); }
+        fqAnswered++;
+        if(fqAnswered===QUIZ_S.length){ finalQuizPassed = fqScore>=4; updatePracticeGate(); } }
+
+    function onSlide(v){ const m=document.getElementById('slideMsg');
+        if(v<35) m.textContent='נטיתם לכיוון הקליפ 🎬 — נמקו: אילו מאפיינים של קליפ מופיעים כאן?';
+        else if(v>65) m.textContent='נטיתם לכיוון סרטון הרשת 📱 — נמקו: אילו מאפיינים של סרטון רשת בולטים?';
+        else m.textContent='בדיוק באמצע — זו התשובה שמראה שהגבולות מטושטשים! 🤔 נמקו את שני הצדדים.'; }
+
+    buildGame();
+    checkGate();
+</script>
+</body>
+</html>
