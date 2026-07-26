@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- zirot/tirgool/zira1-1-tikshoret.html · v1.2.0 · 2026-07-24 · זירה 1 שלב 6.א — סוגי תקשורת ומרכיבי התהליך התקשורתי. תיקון: 10 מושגים אמיתיים (✓) עם תתי-סעיפים (•) בתוך הכרטיס; צהוב = תקשורת ציבורית/מסחרית; בדיקה 20 שאלות סף 16 · רצועת קרדיט ולוגו בראש הדף (MINOR) -->
+<!-- zirot/tirgool/zira1-1-tikshoret.html · v2.0.0 · 2026-07-24 · זירה 1 שלב 6.א — סוגי תקשורת ומרכיבי התהליך התקשורתי. תיקון: 10 מושגים אמיתיים (✓) עם תתי-סעיפים (•) בתוך הכרטיס; צהוב = תקשורת ציבורית/מסחרית; בדיקה 20 שאלות סף 16 · רצועת קרדיט ולוגו בראש הדף (MINOR) · שלב ב: נוסף חוזה מעקב אחיד להגשה — meta, score, stages, items (MINOR) · המעבר ל-Supabase הושלם: הגשות וכניסת מורה מול lms_* במקום Firebase (MAJOR) -->
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
@@ -708,6 +708,46 @@ function checkOp(){const t=document.getElementById('op').value;let u=0;
   document.getElementById('oc'+i).classList.toggle('g',hit);if(hit)u++;});
  opUsed=u;document.getElementById('opC').textContent=u;
  document.getElementById('sendB').classList.toggle('dis',u<4);}
+
+/* ===== חוזה מעקב אחיד (v1) ===== */
+const TRACK={items:[],stages:[]};
+function trackMeta(){
+  const t=String(TOPIC||'');
+  const type=t.indexOf('masa')===0?'masa':(t.indexOf('_mushag_')>-1?'mushag':'summary');
+  const zone=(t.match(/^zira([0-9]+|al)/)||[])[1]||'';
+  return {schema:1,type:type,topic:t,zone:zone,
+          concept:(typeof KEY!=='undefined'?KEY:''),page:location.pathname.split('/').pop()};
+}
+
+
+/* ===== שליחה ל-Supabase ===== */
+async function sbSend(row){
+  const r=await fetch(SUP+'/rest/v1/lms_submissions',{method:'POST',
+    headers:{apikey:SKEY,Authorization:'Bearer '+SKEY,'Content-Type':'application/json'},
+    body:JSON.stringify([row])});
+  if(!r.ok)throw new Error(r.status+' '+(await r.text()).slice(0,180));
+  return true;
+}
+/* קוד הכיתה הוא מזהה המורה — התאמה ללא תלות באותיות גדולות/קטנות */
+async function sbTeacher(code){
+  if(!code)return '';
+  try{
+    const r=await fetch(SUP+'/rest/v1/lms_teachers?select=id&id=ilike.'+encodeURIComponent(code),
+      {headers:{apikey:SKEY,Authorization:'Bearer '+SKEY}});
+    const j=await r.json();
+    return (j&&j[0]&&j[0].id)||code;
+  }catch(e){ return code; }
+}
+function sbRow(o){
+  const m=o.meta||{};
+  return {teacher_id:o.tid||null,student_name:o.name,class_name:o.cls||null,class_code:o.code||null,
+    topic:o.topic,lesson_type:m.type||null,zone:m.zone||null,concept:m.concept||null,page:m.page||null,
+    score_auto:(o.score&&typeof o.score.auto==='number')?o.score.auto:null,
+    score_max:(o.score&&typeof o.score.autoMax==='number')?o.score.autoMax:null,
+    skipped:!!m.skipped,stages:o.stages||[],items:o.items||[],answers:o.answers||{},
+    submitted_at:new Date().toISOString()};
+}
+
 function submitTest(){
  if(document.getElementById('sendB').classList.contains('dis')){alert('בטור הדעה יש לשלב לפחות 4 מושגים. כרגע: '+opUsed);return;}
  const name=document.getElementById('sName').value.trim();
@@ -715,7 +755,7 @@ function submitTest(){
  if(tAns.filter(x=>x!==undefined).length<TEST_S.length){alert('נא לענות על כל שאלות הרב-ברירה.');return;}
  const o1=document.getElementById('o1').value.trim(),o2=document.getElementById('o2').value.trim(),o3=document.getElementById('o3').value.trim();
  if(!o1||!o2||!o3){alert('נא לענות על שלוש השאלות הפתוחות.');return;}
- let ts=0;TEST_S.forEach((q,i)=>{if(tAns[i]===q.c)ts++;});
+ let ts=0;TEST_S.forEach((q,i)=>{const ok=tAns[i]===q.c;if(ok)ts++;TRACK.items.push({q:q.q,ok:ok,tries:1});});
  const answers={'ציון מבדק (רב-ברירה)':ts+'/'+TEST_S.length,
   'שאלה פתוחה 1':o1,'שאלה פתוחה 2':o2,'שאלה פתוחה 3':o3,
   'טור דעה — נושא':opTopic,'טור דעה — טקסט':document.getElementById('op').value.trim(),
@@ -727,11 +767,8 @@ function submitTest(){
  if(!db){s.style.background='#fdf2f4';s.style.color='#9f1239';s.textContent='אין חיבור לשרת.';return;}
  s.style.background='#fffaeb';s.style.color='#b45309';s.textContent='שולח…';
  const code=(CODE||'').toLowerCase();
- const look=code?db.ref('teacher_codes').once('value').then(sn=>{let id='';
-   sn.forEach(c=>{const k=c.key;if(k===code||k.indexOf(code+'_')===0)id=c.val();});return id;}):Promise.resolve('');
- look.then(tid=>db.ref('tests/'+TOPIC).push({
-   student:Object.assign({name,class:CLASSNAME,classCode:code},tid?{teacherID:tid}:{}),
-   teacherID:tid||'',answers,submittedAt:Date.now()}))
+  const look=Promise.resolve((CLASSCODE||CODE||'').trim());
+ look.then(tid=>sbSend(sbRow({tid:(typeof teacherID!=='undefined'?teacherID:(typeof tid!=='undefined'?tid:'')),name:name,cls:(typeof CLASSNAME!=='undefined'?CLASSNAME:(typeof CLS!=='undefined'?CLS:'')),code:(typeof CLASSCODE!=='undefined'?CLASSCODE:(typeof CODE!=='undefined'?CODE:'')),topic:TOPIC,meta:trackMeta(),score:{auto:ts,autoMax:TEST_S.length},stages:[{name:'הקראה',done:!!readDone},{name:'עוגני קריאה',n:aScore,max:2},{name:'מושגים שנפתחו',n:opened.size,max:CONS.length},{name:'בדיקת מושגים',n:ccS,max:CC_TOT},{name:'משחק מיון',n:gScore,max:STMTS.length},{name:'טבלת השוואה',n:tblOpen.size,max:CMP.length},{name:'חידון סיום',n:fqS,max:5}],items:TRACK.items,answers:answers})))
   .then(()=>{s.style.background='#f2fbf6';s.style.color='#0f7a4d';
    s.innerHTML=`✅ נשלח למורה בהצלחה! ציון: <b>${ts}/${TEST_S.length}</b>`;
    document.querySelectorAll('#ov .opt,#sName,#o1,#o2,#o3,#op,#sendB').forEach(e=>e.disabled=true);})
@@ -740,21 +777,27 @@ function submitTest(){
 
 /* ---------- כניסת מורה ---------- */
 function grant(){document.getElementById('lgate').style.display='none';}
+
+function tPhoneNorm(s){
+  let p=String(s||'').replace(/\D/g,'');
+  p=p.replace(/^00+/,''); if(p.indexOf('972')===0)p=p.slice(3);
+  p=p.replace(/^0+/,''); return p?('0'+p):'';
+}
+
 function teacherEnter(){
  const ph=document.getElementById('lgPhone').value.trim(),pw=document.getElementById('lgPass').value.trim(),
        kl=document.getElementById('lgClass').value.trim(),er=document.getElementById('lerr');
  er.style.display='none';
  if(!ph||!pw){er.textContent='נא למלא טלפון וסיסמה.';er.style.display='block';return;}
  if(!kl){er.textContent='נא למלא שם כיתה.';er.style.display='block';return;}
- if(!db){er.textContent='אין חיבור לשרת.';er.style.display='block';return;}
  er.textContent='מתחבר…';er.style.display='block';
- db.ref('teachers').once('value').then(sn=>{
+ fetch(SUP+'/rest/v1/lms_teachers?select=id,name,password,status&phone=eq.'+encodeURIComponent(tPhoneNorm(ph)),{headers:{apikey:SKEY,Authorization:'Bearer '+SKEY}})
+  .then(r=>r.json()).then(rows=>{
+  const t=(rows||[]).find(x=>x.password===pw&&x.status==='approved');
   let fk='',nm='';
-  sn.forEach(ch=>{if(fk)return;const t=ch.val();
-   if((t.phone||t.telephone||'')===ph&&t.password===pw&&t.status==='approved'){fk=ch.key;nm=(t.name||'').trim();}});
+  if(t){fk=t.id;nm=(t.name||'').trim();}
   if(!fk){er.textContent='טלפון/סיסמה שגויים או שאינך מאושר.';er.style.display='block';return;}
-  const code=fk.toLowerCase();
-  db.ref('teacher_codes/'+code+'_'+fk).set(fk);
+  const code=fk;
   document.getElementById('tpUrl').value=location.href.split('?')[0]+'?code='+encodeURIComponent(code)+'&class='+encodeURIComponent(kl);
   document.getElementById('tpName').textContent=nm||'מורה';
   document.getElementById('tpClass').textContent=kl;

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- zirot/tirgool/ziraal-mushag.html · v2.1.0 · 2026-07-25 · מיני-שיעור למושג בודד מזירת העל. 38 מושגים: 22 מושגי הזירה + 16 חוצי זירות. ?c= · רצועת קרדיט ולוגו בראש הדף (MINOR) -->
+<!-- zirot/tirgool/ziraal-mushag.html · v3.0.0 · 2026-07-25 · מיני-שיעור למושג בודד מזירת העל. 38 מושגים: 22 מושגי הזירה + 16 חוצי זירות. ?c= · רצועת קרדיט ולוגו בראש הדף (MINOR) · שלב ב: נוסף חוזה מעקב אחיד להגשה — meta, score, stages, items (MINOR) · המעבר ל-Supabase הושלם: הגשות וכניסת מורה מול lms_* במקום Firebase (MAJOR) -->
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
@@ -637,6 +637,17 @@ function stepR(){
 /* ================= בדיקה ================= */
 function shuf(it){const a=it.o.map((o,i)=>({o,ok:i===0}));for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]];}
   return{q:it.q,o:a.map(x=>x.o),c:a.findIndex(x=>x.ok)};}
+
+/* ===== חוזה מעקב אחיד (v1) ===== */
+const TRACK={items:[],stages:[]};
+function trackMeta(){
+  const t=String(TOPIC||'');
+  const type=t.indexOf('masa')===0?'masa':(t.indexOf('_mushag_')>-1?'mushag':'summary');
+  const zone=(t.match(/^zira([0-9]+|al)/)||[])[1]||'';
+  return {schema:1,type:type,topic:t,zone:zone,
+          concept:(typeof KEY!=='undefined'?KEY:''),page:location.pathname.split('/').pop()};
+}
+
 const QS=C.qs.map(shuf); let qScore=0,qDone=0,qPass=false;
 document.getElementById('qs').innerHTML=QS.map((it,i)=>
   `<div class="q" id="q${i}"><div class="qq">${i+1}. ${it.q}</div>`+
@@ -645,6 +656,7 @@ function pick(i,k,btn){
   const p=btn.parentNode; if(p.dataset.d)return; p.dataset.d='1';
   p.querySelectorAll('.opt').forEach(b=>b.disabled=true);
   const ok=k===QS[i].c; if(ok)qScore++;
+  TRACK.items.push({q:QS[i].q,ok:ok,tries:1});
   btn.classList.add(ok?'ok':'no');
   if(!ok)p.querySelectorAll('.opt')[QS[i].c].classList.add('ok');
   qDone++;
@@ -681,6 +693,35 @@ function checkUse(){
   document.getElementById('useHint').innerHTML=ok?'✅ מצוין — המושג מופיע בתשובה':
     `💡 חובה להשתמש במילה "<b>${C.key}</b>" בתשובה, ולכתוב לפחות 40 תווים`;
 }
+
+/* ===== שליחה ל-Supabase ===== */
+async function sbSend(row){
+  const r=await fetch(SUP+'/rest/v1/lms_submissions',{method:'POST',
+    headers:{apikey:SKEY,Authorization:'Bearer '+SKEY,'Content-Type':'application/json'},
+    body:JSON.stringify([row])});
+  if(!r.ok)throw new Error(r.status+' '+(await r.text()).slice(0,180));
+  return true;
+}
+/* קוד הכיתה הוא מזהה המורה — התאמה ללא תלות באותיות גדולות/קטנות */
+async function sbTeacher(code){
+  if(!code)return '';
+  try{
+    const r=await fetch(SUP+'/rest/v1/lms_teachers?select=id&id=ilike.'+encodeURIComponent(code),
+      {headers:{apikey:SKEY,Authorization:'Bearer '+SKEY}});
+    const j=await r.json();
+    return (j&&j[0]&&j[0].id)||code;
+  }catch(e){ return code; }
+}
+function sbRow(o){
+  const m=o.meta||{};
+  return {teacher_id:o.tid||null,student_name:o.name,class_name:o.cls||null,class_code:o.code||null,
+    topic:o.topic,lesson_type:m.type||null,zone:m.zone||null,concept:m.concept||null,page:m.page||null,
+    score_auto:(o.score&&typeof o.score.auto==='number')?o.score.auto:null,
+    score_max:(o.score&&typeof o.score.autoMax==='number')?o.score.autoMax:null,
+    skipped:!!m.skipped,stages:o.stages||[],items:o.items||[],answers:o.answers||{},
+    submitted_at:new Date().toISOString()};
+}
+
 function submitTask(){
   if(document.getElementById('sendBtn').classList.contains('dis'))return;
   const name=document.getElementById('sName').value.trim();
@@ -690,14 +731,12 @@ function submitTask(){
   if(!db){s.style.background='#fdf2f4';s.style.color='#9f1239';s.textContent='אין חיבור לשרת.';return;}
   s.style.background='#fffaeb';s.style.color='#b45309';s.textContent='שולח…';
   const code=(CODE||'').toLowerCase();
-  const look=code?db.ref('teacher_codes').once('value').then(sn=>{let id='';
-    sn.forEach(c=>{const k=c.key;if(k===code||k.indexOf(code+'_')===0)id=c.val();});return id;}):Promise.resolve('');
-  look.then(tid=>db.ref('tests/'+TOPIC).push({
-      student:Object.assign({name,class:CLS,classCode:code},tid?{teacherID:tid}:{}),
-      teacherID:tid||'',
+  sbTeacher(code).then(tid=>sbSend(sbRow({
+      tid:tid,name:name,cls:CLS,code:code,topic:TOPIC,meta:trackMeta(),
+      score:{auto:qScore,autoMax:QS.length},
+      stages:[{name:'הקראה',done:!!readDone}].concat(TRACK.stages),items:TRACK.items,
       answers:{'מושג':C.name,'שאלת המטלה':C.task,'תשובת התלמיד':ans,
-        'הקראה':readDone?'הושלמה':'לא הושלמה','בדיקת הבנה':qScore+'/4'},
-      submittedAt:Date.now()}))
+        'הקראה':readDone?'הושלמה':'לא הושלמה','בדיקת הבנה':qScore+'/4'}})))
    .then(()=>{s.style.background='#f2fbf6';s.style.color='#0f7a4d';s.textContent='✅ נשלח למורה בהצלחה!';
      ['sName','sAns','sendBtn'].forEach(i=>document.getElementById(i).disabled=true);})
    .catch(e=>{s.style.background='#fdf2f4';s.style.color='#9f1239';s.textContent='שגיאה: '+(e.message||e);});
@@ -707,6 +746,13 @@ function submitTask(){
 document.getElementById('lgConcept').innerHTML=Object.entries(CONCEPTS)
   .map(([k,v])=>`<option value="${k}"${k===KEY?' selected':''}>${v.name}</option>`).join('');
 function grant(){document.getElementById('loginGate').style.display='none';}
+
+function tPhoneNorm(s){
+  let p=String(s||'').replace(/\D/g,'');
+  p=p.replace(/^00+/,''); if(p.indexOf('972')===0)p=p.slice(3);
+  p=p.replace(/^0+/,''); return p?('0'+p):'';
+}
+
 function teacherEnter(){
   const ph=document.getElementById('lgPhone').value.trim(),
         pw=document.getElementById('lgPass').value.trim(),
@@ -716,15 +762,15 @@ function teacherEnter(){
   er.style.display='none';
   if(!ph||!pw){er.textContent='נא למלא טלפון וסיסמה.';er.style.display='block';return;}
   if(!kl){er.textContent='נא למלא שם כיתה.';er.style.display='block';return;}
-  if(!db){er.textContent='אין חיבור לשרת.';er.style.display='block';return;}
+  
   er.textContent='מתחבר…';er.style.display='block';
-  db.ref('teachers').once('value').then(sn=>{
+  fetch(SUP+'/rest/v1/lms_teachers?select=id,name,password,status&phone=eq.'+encodeURIComponent(tPhoneNorm(ph)),{headers:{apikey:SKEY,Authorization:'Bearer '+SKEY}})
+   .then(r=>r.json()).then(rows=>{
+    const t=(rows||[]).find(x=>x.password===pw&&x.status==='approved');
     let fk='',nm='';
-    sn.forEach(ch=>{if(fk)return;const t=ch.val();
-      if((t.phone||t.telephone||'')===ph&&t.password===pw&&t.status==='approved'){fk=ch.key;nm=(t.name||'').trim();}});
+    if(t){fk=t.id;nm=(t.name||'').trim();}
     if(!fk){er.textContent='טלפון/סיסמה שגויים או שאינך מאושר.';er.style.display='block';return;}
-    const code=fk.toLowerCase();
-    db.ref('teacher_codes/'+code+'_'+fk).set(fk);
+    const code=fk;
     const url=location.href.split('?')[0]+'?c='+encodeURIComponent(cn)+'&code='+encodeURIComponent(code)+'&class='+encodeURIComponent(kl);
     document.getElementById('tbUrl').value=url;
     document.getElementById('tbName').textContent=nm||'מורה';
