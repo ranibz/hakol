@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- eshi/shioor/lms-migrate.html · v1.0.0 · 2026-07-25 · כלי חד-פעמי: העברת מורים, כיתות והגשות מ-Firebase ל-Supabase. ניתן להרצה חוזרת בלי כפילויות. -->
+<!-- eshi/shioor/lms-migrate.html · v1.1.0 · 2026-07-25 · איחוד טלפונים כפולים, הכנסה שורה-שורה בעת כשל ודיווח מפורט של הרשומה הבעייתית (MINOR) -->
 <html lang="he" dir="rtl">
 <head>
 <meta charset="utf-8">
@@ -106,17 +106,47 @@ async function run(){
     mark('s2','run','מעביר…');
     const tSnap=await db.ref('teachers').once('value');
     const tVal=tSnap.val()||{};
-    const teachers=Object.entries(tVal).map(([id,t])=>({
+    let raw=Object.entries(tVal).map(([id,t])=>({
       id:id,
       name:(t.name||((t.firstName||'')+' '+(t.lastName||''))).trim()||null,
-      phone:t.phone||t.telephone||null,
+      phone:norm(t.phone||t.telephone||''),
       password:t.password||null,
       status:t.status||'pending'
     })).filter(t=>t.phone);
-    for(const c of chunk(teachers,200))
-      await sb('lms_teachers?on_conflict=id','POST',c,{Prefer:'resolution=merge-duplicates'});
-    mark('s2','done',teachers.length+' מורים');
-    log('✔ מורים:',teachers.length);
+    log('נמצאו ב-Firebase:',raw.length,'רשומות מורה');
+
+    /* איחוד כפילויות טלפון — האינדקס בסופר בייס ייחודי לפי טלפון */
+    const byPhone={}, dups=[];
+    raw.forEach(t=>{
+      const k=t.phone.toLowerCase();
+      if(!byPhone[k]){byPhone[k]=t;return;}
+      dups.push(t.phone);
+      const cur=byPhone[k];
+      if(t.status==='approved'&&cur.status!=='approved')byPhone[k]=t;
+    });
+    const teachers=Object.values(byPhone);
+    if(dups.length)log('⚠ טלפונים כפולים אוחדו:',[...new Set(dups)].join(', '));
+
+    /* הכנסה בקבוצות; אם קבוצה נופלת — שורה-שורה כדי לאתר את האשמה */
+    let okN=0; const failed=[];
+    for(const c of chunk(teachers,100)){
+      try{ await sb('lms_teachers?on_conflict=id','POST',c,{Prefer:'resolution=merge-duplicates'}); okN+=c.length; }
+      catch(e){
+        log('קבוצה נכשלה, בודק שורה-שורה…');
+        for(const row of c){
+          try{ await sb('lms_teachers?on_conflict=id','POST',[row],{Prefer:'resolution=merge-duplicates'}); okN++; }
+          catch(e2){ failed.push({id:row.id,phone:row.phone,err:e2.message}); }
+        }
+      }
+    }
+    if(failed.length){
+      log('✖ נכשלו',failed.length,'רשומות:');
+      failed.slice(0,5).forEach(f=>log('   ',f.id,'|',f.phone,'|',f.err.slice(0,160)));
+      if(failed.length>5)log('    ועוד',failed.length-5,'…');
+    }
+    if(!okN)throw new Error('אף רשומת מורה לא נכנסה — ראו פירוט למעלה');
+    mark('s2','done',okN+' מורים'+(failed.length?' ('+failed.length+' נכשלו)':''));
+    log('✔ מורים שהועברו:',okN);
 
     /* ---- 3. כיתות ---- */
     mark('s3','run','מעביר…');
