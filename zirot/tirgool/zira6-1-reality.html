@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- zirot/tirgool/zira6-1-reality.html · v2.0.0 · 2026-07-24 · זירה 6 — תוכניות ריאליטי. סיכום הזירה. · רצועת קרדיט ולוגו בראש הדף (MINOR) · שלב ב: נוסף חוזה מעקב אחיד להגשה — meta, score, stages, items (MINOR) · המעבר ל-Supabase הושלם: הגשות וכניסת מורה מול lms_* במקום Firebase (MAJOR) -->
+<!-- zirot/tirgool/zira6-1-reality.html · v2.1.0 · 2026-07-24 · זירה 6 — תוכניות ריאליטי. סיכום הזירה. · רצועת קרדיט ולוגו בראש הדף (MINOR) · שלב ב: נוסף חוזה מעקב אחיד להגשה — meta, score, stages, items (MINOR) · המעבר ל-Supabase הושלם: הגשות וכניסת מורה מול lms_* במקום Firebase (MAJOR) · התלמיד בוחר את שמו מרשימת הכיתה במקום להקליד (MINOR) -->
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
@@ -795,6 +795,34 @@ function copyTp(){const u=document.getElementById('tpUrl');u.select();
  navigator.clipboard.writeText(u.value).then(()=>{const o=document.getElementById('tpOk');
   o.style.display='inline';setTimeout(()=>o.style.display='none',2000);});}
 if(CODE)grant();
+
+/* ===== בחירת שם מרשימת הכיתה ===== */
+(async function rosterPicker(){
+  try{
+    const _code=(typeof CLASSCODE!=='undefined'?CLASSCODE:(typeof CODE!=='undefined'?CODE:''))||'';
+    const _cls=(typeof CLASSNAME!=='undefined'?CLASSNAME:(typeof CLS!=='undefined'?CLS:''))||'';
+    if(!_code||!_cls)return;
+    const r=await fetch(SUP+'/rest/v1/lms_classes?select=students&teacher_id=ilike.'+
+      encodeURIComponent(_code)+'&name=eq.'+encodeURIComponent(_cls),
+      {headers:{apikey:SKEY,Authorization:'Bearer '+SKEY}});
+    const j=await r.json();
+    const list=(((j&&j[0])||{}).students||[]).map(s=>String(s||'').replace(/\s+/g,' ').trim()).filter(Boolean);
+    if(!list.length)return;
+    const el=document.getElementById('sName'); if(!el||el.tagName==='SELECT')return;
+    const sel=document.createElement('select');
+    sel.id='sName'; sel.className=el.className;
+    sel.style.cssText=el.style.cssText;
+    sel.innerHTML='<option value="">— בחרו את שמכם מרשימת הכיתה —</option>'+
+      list.map(n=>'<option>'+n.replace(/</g,'&lt;')+'</option>').join('');
+    const KEYLS='me_'+_code+'_'+_cls;
+    const saved=localStorage.getItem(KEYLS);
+    if(saved&&list.indexOf(saved)>-1)sel.value=saved;
+    sel.addEventListener('change',()=>{ if(sel.value)localStorage.setItem(KEYLS,sel.value);
+      if(typeof checkUse==='function')checkUse(); });
+    el.parentNode.replaceChild(sel,el);
+  }catch(e){}
+})();
+
 </script>
 </body>
 </html>
