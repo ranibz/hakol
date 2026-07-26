@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<!-- eshi/shioor/lms-migrate.html · v1.0.0 · 2026-07-25 · כלי חד-פעמי: העברת מורים, כיתות והגשות מ-Firebase ל-Supabase. ניתן להרצה חוזרת בלי כפילויות. -->
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>העברת נתונים ל-Supabase</title>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#1d1a3d;--soft:#6a6490;--line:#e6e1f5;--v:#7040d8;--ok:#16a34a;--bad:#dc2626;}
+*{box-sizing:border-box}
+body{margin:0;background:#f6f5fc;font-family:'Heebo',sans-serif;color:var(--ink);line-height:1.7}
+.wrap{max-width:900px;margin:0 auto;padding:30px 18px 70px}
+h1{font-size:1.7rem;margin:0 0 6px}
+.sub{color:var(--soft);margin:0 0 20px;font-size:.95rem}
+.card{background:#fff;border:1px solid var(--line);border-radius:18px;padding:20px 22px;margin-bottom:16px}
+.warn{background:#fff7ed;border-color:#fdba74;color:#7c3f06;font-size:.93rem}
+.steps{display:grid;gap:10px;margin:14px 0}
+.step{display:flex;align-items:center;gap:12px;border:1px solid var(--line);border-radius:12px;padding:11px 14px;font-size:.95rem}
+.step .ic{font-size:1.3rem;width:26px;text-align:center}
+.step .nm{font-weight:800}
+.step .st{margin-inline-start:auto;font-weight:800;font-size:.86rem;color:var(--soft)}
+.step.run{border-color:var(--v);background:#faf8ff}
+.step.done{border-color:var(--ok);background:#f2fbf6}
+.step.done .st{color:var(--ok)}
+.step.err{border-color:var(--bad);background:#fef2f2}
+.step.err .st{color:var(--bad)}
+button{background:var(--v);color:#fff;border:0;border-radius:12px;padding:13px 26px;font-family:inherit;
+  font-weight:900;font-size:1rem;cursor:pointer}
+button:disabled{opacity:.5;cursor:default}
+button.ghost{background:#fff;color:var(--v);border:2px solid var(--line)}
+pre{background:#1d1a3d;color:#d9d2ee;border-radius:12px;padding:14px;font-size:12px;direction:ltr;
+  text-align:left;max-height:280px;overflow:auto;white-space:pre-wrap}
+.row{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>העברת נתונים ל-Supabase</h1>
+  <p class="sub">כלי חד-פעמי. מעתיק מורים, כיתות והגשות מ-Firebase אל טבלאות <code>lms_*</code>.</p>
+
+  <div class="card warn">
+    <b>לפני שמריצים:</b> יש להריץ קודם את <code>lms-schema.sql</code> ב-SQL Editor של Supabase.
+    ההעברה <b>אינה מוחקת דבר</b> מ-Firebase, וניתן להריץ אותה שוב — הגשות שכבר הועברו מזוהות לפי המפתח המקורי ולא ישוכפלו.
+  </div>
+
+  <div class="card">
+    <div class="steps">
+      <div class="step" id="s1"><span class="ic">🔌</span><span class="nm">חיבור לשני השרתים</span><span class="st">ממתין</span></div>
+      <div class="step" id="s2"><span class="ic">👩‍🏫</span><span class="nm">מורים</span><span class="st">ממתין</span></div>
+      <div class="step" id="s3"><span class="ic">🏫</span><span class="nm">כיתות</span><span class="st">ממתין</span></div>
+      <div class="step" id="s4"><span class="ic">📥</span><span class="nm">הגשות</span><span class="st">ממתין</span></div>
+      <div class="step" id="s5"><span class="ic">✅</span><span class="nm">אימות</span><span class="st">ממתין</span></div>
+    </div>
+    <div class="row">
+      <button id="go" onclick="run()">▶ התחלת ההעברה</button>
+      <button class="ghost" onclick="location.reload()">איפוס</button>
+    </div>
+  </div>
+
+  <div class="card"><b>יומן</b><pre id="log">מוכן.</pre></div>
+</div>
+
+<script>
+const SUP="https://eubgzfkkovxgijhrmnif.supabase.co";
+const SKEY="sb_publishable_vJ768fOwYWiDWeYsBBR45g_4NM4s55p";
+const HDR={apikey:SKEY,Authorization:'Bearer '+SKEY,'Content-Type':'application/json'};
+
+let db=null;
+try{
+  firebase.initializeApp({apiKey:"AIzaSyCCHvn_ulmiyM56DuslNzNC0Ge6a8i2vhY",
+    authDomain:"tests-fd938.firebaseapp.com",
+    databaseURL:"https://tests-fd938-default-rtdb.europe-west1.firebasedatabase.app",
+    projectId:"tests-fd938"});
+  db=firebase.database();
+}catch(e){}
+
+const L=document.getElementById('log');
+const log=(...a)=>{L.textContent+='\n'+a.join(' ');L.scrollTop=L.scrollHeight;};
+const mark=(id,cls,txt)=>{const e=document.getElementById(id);
+  e.className='step '+cls;e.querySelector('.st').textContent=txt;};
+
+async function sb(path,method,body,extra){
+  const r=await fetch(SUP+'/rest/v1/'+path,{method,headers:Object.assign({},HDR,extra||{}),
+    body:body?JSON.stringify(body):undefined});
+  if(!r.ok){const t=await r.text();throw new Error(r.status+' '+t.slice(0,300));}
+  const t=await r.text();
+  return t?JSON.parse(t):[];
+}
+const chunk=(a,n)=>{const o=[];for(let i=0;i<a.length;i+=n)o.push(a.slice(i,i+n));return o;};
+const norm=s=>String(s||'').replace(/\s+/g,' ').trim();
+
+async function run(){
+  document.getElementById('go').disabled=true;
+  try{
+    /* ---- 1. חיבור ---- */
+    mark('s1','run','בודק…');
+    if(!db)throw new Error('אין חיבור ל-Firebase');
+    await sb('lms_teachers?select=id&limit=1','GET');
+    mark('s1','done','תקין');
+    log('✔ שני השרתים נגישים');
+
+    /* ---- 2. מורים ---- */
+    mark('s2','run','מעביר…');
+    const tSnap=await db.ref('teachers').once('value');
+    const tVal=tSnap.val()||{};
+    const teachers=Object.entries(tVal).map(([id,t])=>({
+      id:id,
+      name:(t.name||((t.firstName||'')+' '+(t.lastName||''))).trim()||null,
+      phone:t.phone||t.telephone||null,
+      password:t.password||null,
+      status:t.status||'pending'
+    })).filter(t=>t.phone);
+    for(const c of chunk(teachers,200))
+      await sb('lms_teachers?on_conflict=id','POST',c,{Prefer:'resolution=merge-duplicates'});
+    mark('s2','done',teachers.length+' מורים');
+    log('✔ מורים:',teachers.length);
+
+    /* ---- 3. כיתות ---- */
+    mark('s3','run','מעביר…');
+    const cSnap=await db.ref('classes').once('value');
+    const cVal=cSnap.val()||{};
+    const classes=[];
+    Object.entries(cVal).forEach(([tid,list])=>{
+      Object.values(list||{}).forEach(c=>{
+        if(!c||!c.name)return;
+        classes.push({teacher_id:tid,name:norm(c.name),
+          students:(c.students||[]).map(norm).filter(Boolean),
+          updated_at:new Date(c.updatedAt||Date.now()).toISOString()});
+      });
+    });
+    if(classes.length)
+      for(const c of chunk(classes,200))
+        await sb('lms_classes?on_conflict=teacher_id,name','POST',c,{Prefer:'resolution=merge-duplicates'});
+    mark('s3','done',classes.length+' כיתות');
+    log('✔ כיתות:',classes.length);
+
+    /* ---- 4. הגשות ---- */
+    mark('s4','run','קורא…');
+    const sSnap=await db.ref('tests').once('value');
+    const sVal=sSnap.val()||{};
+    const rows=[];
+    Object.entries(sVal).forEach(([topic,items])=>{
+      Object.entries(items||{}).forEach(([key,d])=>{
+        if(!d)return;
+        const st=d.student||{}, m=d.meta||{}, sc=d.score||{};
+        rows.push({
+          teacher_id:  d.teacherID||st.teacherID||null,
+          student_name:norm(st.name||((st.firstName||'')+' '+(st.lastName||'')))||'—',
+          class_name:  norm(st.class)||null,
+          class_code:  st.classCode||null,
+          topic:       topic,
+          lesson_type: m.type||null,
+          zone:        m.zone||null,
+          concept:     m.concept||null,
+          page:        m.page||null,
+          score_auto:  (typeof sc.auto==='number')?sc.auto:null,
+          score_max:   (typeof sc.autoMax==='number')?sc.autoMax:null,
+          skipped:     !!(m.skipped||d.skipped),
+          stages:      d.stages||[],
+          items:       d.items||[],
+          answers:     d.answers||{},
+          submitted_at:new Date(d.submittedAt||Date.now()).toISOString(),
+          grade:       (d.feedback&&d.feedback.grade!=null)?Number(d.feedback.grade):null,
+          feedback:    (d.feedback&&(d.feedback.text||d.feedback.comment))||null,
+          legacy_key:  topic+'/'+key
+        });
+      });
+    });
+    mark('s4','run','מעביר '+rows.length+'…');
+    let done=0;
+    for(const c of chunk(rows,300)){
+      await sb('lms_submissions?on_conflict=legacy_key','POST',c,{Prefer:'resolution=merge-duplicates'});
+      done+=c.length; mark('s4','run',done+'/'+rows.length);
+    }
+    mark('s4','done',rows.length+' הגשות');
+    log('✔ הגשות:',rows.length);
+
+    /* ---- 5. אימות ---- */
+    mark('s5','run','סופר…');
+    const cnt=async t=>{
+      const r=await fetch(SUP+'/rest/v1/'+t+'?select=id',
+        {headers:Object.assign({},HDR,{Prefer:'count=exact',Range:'0-0'})});
+      return (r.headers.get('content-range')||'/0').split('/')[1];
+    };
+    const a=await cnt('lms_teachers'), b=await cnt('lms_classes'), c=await cnt('lms_submissions');
+    mark('s5','done','הושלם');
+    log('','— בסופר בייס עכשיו —','מורים: '+a,'כיתות: '+b,'הגשות: '+c);
+    log('','אם המספרים תואמים למה שהועבר, ההעברה הצליחה.');
+  }catch(e){
+    log('✖ שגיאה:',e.message);
+    ['s1','s2','s3','s4','s5'].forEach(id=>{
+      const el=document.getElementById(id);
+      if(el.classList.contains('run'))mark(id,'err','נכשל');
+    });
+    document.getElementById('go').disabled=false;
+  }
+}
+</script>
+</body>
+</html>
