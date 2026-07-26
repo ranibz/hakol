@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- zirot/tirgool/zira7-1-hagdarot.html · v4.10.1 · 2026-07-23 · קישור סביבת המורה: eshi/shioor/ · מיקום חדש: zirot/tirgool/ · עדכון קישורים יחסיים (חזרה לזירות, סביבת המורה) (MINOR) -->
+<!-- zirot/tirgool/zira7-1-hagdarot.html · v4.11.0 · 2026-07-25 · נוסף חוזה מעקב (meta/score/stages/items); שימוש בכפתור הדילוג של המפתח מסומן כעת בהגשה (MINOR) -->
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
@@ -625,10 +625,20 @@
         const b = document.getElementById('devSkip'); if (b) b.style.display = 'block';
     }
     function devSkip(){
+        TRACK.skipped = true;
         gate.theory = gate.concepts = gate.practice = true; checkGate();
         document.getElementById('testCard').scrollIntoView({ behavior:'smooth' });
     }
     // ===== מבדק + חיבור למערכת השיעורים (Firebase tests-fd938) =====
+
+    /* ===== חוזה מעקב אחיד (v1) ===== */
+    const TRACK={items:[],stages:[],skipped:false};
+    function trackMeta(){
+      const t=String(TOPIC||'');
+      const zone=(t.match(/^zira([0-9]+|al)/)||[])[1]||'';
+      return {schema:1,type:'summary',topic:t,zone:zone,concept:'',
+              page:location.pathname.split('/').pop(),skipped:TRACK.skipped};
+    }
     const TOPIC = 'zira7_hagdarot';
     const CLASSCODE = new URLSearchParams(location.search).get('code') || '';
     const CLASSNAME = new URLSearchParams(location.search).get('class') || '';
@@ -771,9 +781,11 @@
         const opinion = document.getElementById('tOpinion').value.trim();
         if (!opinion){ alert('נא לכתוב את טור הדעה.'); return; }
         if (opinionUsed < 4){ alert('בטור הדעה יש לשלב לפחות 4 מושגים מהזירה. כרגע: ' + opinionUsed + '.'); return; }
-        let ts = 0; TEST_S.forEach((q,i) => { if (testAnswers[i] === q.c) ts++; });
+        let ts = 0; TEST_S.forEach((q,i) => { const ok = testAnswers[i] === q.c; if (ok) ts++;
+            TRACK.items.push({q:q.q, ok:ok, tries:1}); });
         const answers = {
             'ציון מבדק (רב-ברירה)': ts + '/' + TEST_S.length,
+            'מצב הגשה': TRACK.skipped ? '⚠ דילג על השלבים (כפתור מפתח)' : 'רגיל',
             'שאלה פתוחה 1': o1,
             'שאלה פתוחה 2': o2,
             'שאלה פתוחה 3': o3,
@@ -800,6 +812,17 @@
               const rec = {
                   student: Object.assign({ name: name, class: cls, classCode: code }, teacherID ? { teacherID: teacherID } : {}),
                   teacherID: teacherID || '',
+                  meta: trackMeta(),
+                  score: {auto: ts, autoMax: TEST_S.length},
+                  stages: [
+                    {name:'הקראה', done: !!readDone},
+                    {name:'עוגני קריאה', n: anchorScore, max: 2},
+                    {name:'מושגים שנפתחו', n: conceptsOpened.size, max: 11},
+                    {name:'בדיקת מושגים', n: ccScore, max: 22},
+                    {name:'משחק מיון', n: score, max: 10},
+                    {name:'טבלת השוואה', n: tableOpened.size, max: 9},
+                    {name:'חידון סיום', n: fqScore, max: 5}],
+                  items: TRACK.items,
                   answers: answers,
                   submittedAt: Date.now()
               };
