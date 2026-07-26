@@ -1,12 +1,11 @@
 <!DOCTYPE html>
+<!-- eshi/shioor/teacher-register.html · v2.0.0 · 2026-07-25 · הומר ל-Supabase (lms_teachers, status=pending); נרמול טלפון ישראלי ובדיקת הרשמה כפולה (MAJOR) -->
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>רישום מורה</title>
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@400;700;900&family=Heebo:wght@300;400;500;700&display=swap" rel="stylesheet">
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 <style>
 :root{--paper:#f5f0e8;--paper-dark:#e8e0cc;--ink:#1a1208;--ink-light:#6b5d45;--accent:#8b1a1a;--green:#2d7a2d;--shadow:4px 4px 0 #1a1208;--shadow-sm:2px 2px 0 #1a1208;}
 *{margin:0;padding:0;box-sizing:border-box;}
@@ -67,7 +66,7 @@ body{background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;min
     </div>
     <div class="field">
       <label>טלפון</label>
-      <input id="f-phone" type="tel" placeholder="050-0000000" autocomplete="tel" dir="ltr" style="text-align:right;">
+      <input id="f-phone" type="tel" placeholder="0501234567 — גם עם מקפים או +972" autocomplete="tel" dir="ltr" style="text-align:right;">
     </div>
     <div class="field">
       <label>סיסמה מבוקשת</label>
@@ -87,42 +86,72 @@ body{background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;min
 <div class="footer">פיתוח: רני בן זאב • גליל מערבי</div>
 
 <script>
-const firebaseConfig={apiKey:"AIzaSyCCHvn_ulmiyM56DuslNzNC0Ge6a8i2vhY",authDomain:"tests-fd938.firebaseapp.com",databaseURL:"https://tests-fd938-default-rtdb.europe-west1.firebasedatabase.app",projectId:"tests-fd938",storageBucket:"tests-fd938.firebasestorage.app",messagingSenderId:"586813097412",appId:"1:586813097412:web:39a71b3e0ea03573509091"};
-firebase.initializeApp(firebaseConfig);
-const db=firebase.database();
+const SUP="https://eubgzfkkovxgijhrmnif.supabase.co";
+const SKEY="sb_publishable_vJ768fOwYWiDWeYsBBR45g_4NM4s55p";
+const HDR={apikey:SKEY,Authorization:'Bearer '+SKEY,'Content-Type':'application/json'};
+
+/* נרמול טלפון ישראלי — זה מה שמנע הרשמות כפולות */
+function normPhone(s){
+  let p=String(s||'').replace(/\D/g,'');
+  p=p.replace(/^00+/,'');
+  if(p.indexOf('972')===0)p=p.slice(3);
+  p=p.replace(/^0+/,'');
+  return p?('0'+p):'';
+}
+function newId(){
+  return 'T'+Date.now().toString(36)+Math.random().toString(36).slice(2,8);
+}
+async function sb(path,method,body,extra){
+  const r=await fetch(SUP+'/rest/v1/'+path,{method:method||'GET',
+    headers:Object.assign({},HDR,extra||{}),body:body?JSON.stringify(body):undefined});
+  if(!r.ok)throw new Error(r.status+' '+(await r.text()).slice(0,200));
+  const t=await r.text(); return t?JSON.parse(t):[];
+}
 
 async function submitRequest(){
   const name=document.getElementById('f-name').value.trim();
   const school=document.getElementById('f-school').value.trim();
-  const phone=document.getElementById('f-phone').value.trim();
+  const raw=document.getElementById('f-phone').value.trim();
+  const phone=normPhone(raw);
   const pass=document.getElementById('f-pass').value;
   const pass2=document.getElementById('f-pass2').value;
   const msg=document.getElementById('msg');
   const btn=document.getElementById('sub-btn');
-
   msg.className='msg';msg.style.display='none';
 
-  if(!name||!school||!phone||!pass||!pass2){
-    msg.className='msg err';msg.textContent='יש למלא את כל השדות.';return;
-  }
+  if(!name||!school||!raw||!pass||!pass2){
+    msg.className='msg err';msg.textContent='יש למלא את כל השדות.';return;}
+  if(!/^0[0-9]{8,9}$/.test(phone)){
+    msg.className='msg err';msg.textContent='מספר הטלפון אינו תקין. הקלידו מספר ישראלי, למשל 0501234567.';return;}
   if(pass.length<6){
-    msg.className='msg err';msg.textContent='הסיסמה חייבת להכיל לפחות 6 תווים.';return;
-  }
+    msg.className='msg err';msg.textContent='הסיסמה חייבת להכיל לפחות 6 תווים.';return;}
   if(pass!==pass2){
-    msg.className='msg err';msg.textContent='הסיסמאות אינן תואמות.';return;
-  }
+    msg.className='msg err';msg.textContent='הסיסמאות אינן תואמות.';return;}
 
-  btn.disabled=true;btn.textContent='שולח...';
+  btn.disabled=true;btn.textContent='בודק...';
 
   try{
-    await db.ref('teacher_requests').push({
-      name,school,phone,
-      passwordRequested:pass,
-      status:'pending',
-      requestedAt:Date.now()
-    });
+    /* מניעת הרשמה כפולה — הבעיה שהייתה בשנה שעברה */
+    const ex=await sb('lms_teachers?select=id,status,name&phone=eq.'+encodeURIComponent(phone));
+    if(ex&&ex.length){
+      const t=ex[0];
+      msg.className='msg pending';
+      msg.innerHTML = (t.status==='approved')
+        ? '📋 המספר הזה כבר רשום ומאושר.<br><span style="font-weight:400;font-size:14px;">'+
+          'אין צורך להירשם שוב — היכנסו עם הטלפון והסיסמה שלכם. שכחתם סיסמה? פנו למנהל.</span>'
+        : '⏳ כבר קיימת בקשה בשם הזה, והיא ממתינה לאישור.<br>'+
+          '<span style="font-weight:400;font-size:14px;">אין צורך להירשם שוב.</span>';
+      btn.disabled=false;btn.textContent='שלח בקשת רישום ←';
+      return;
+    }
+
+    btn.textContent='שולח...';
+    await sb('lms_teachers','POST',[{id:newId(),name:name,school:school,phone:phone,
+      password:pass,status:'pending',is_admin:false}]);
+
     msg.className='msg ok';
-    msg.innerHTML='✓ הבקשה נשלחה בהצלחה!<br><span style="font-weight:400;font-size:14px;">המנהל יאשר אותה בקרוב ותוכלו להיכנס לסביבת המורה.</span>';
+    msg.innerHTML='✓ הבקשה נשלחה בהצלחה!<br><span style="font-weight:400;font-size:14px;">'+
+      'המנהל יאשר אותה בקרוב, ואז תוכלו להיכנס עם הטלפון <b>'+phone+'</b> והסיסמה שבחרתם.</span>';
     btn.textContent='✓ נשלח';
   }catch(e){
     msg.className='msg err';msg.textContent='שגיאה בשליחה — בדקו חיבור לאינטרנט ונסו שוב.';
