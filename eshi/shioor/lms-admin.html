@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<!-- eshi/shioor/lms-admin.html · v1.0.0 · 2026-07-25 · מסך מנהל: אישור בקשות הרשמה של מורים, השעיה וניהול הרשאות. כניסה למי שמסומן is_admin. -->
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ניהול מורים · הכל בכף היד</title>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;700;900&family=Secular+One&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#1d1a3d;--soft:#6a6490;--line:#eae5f7;--bg:#f7f5fc;--v:#7040d8;--vd:#4f2ba3;
+  --ok:#16a34a;--okw:#eafaf1;--warn:#e08519;--warnw:#fff4e4;--bad:#dc2626;--badw:#fdf2f4;}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);font-family:'Heebo',sans-serif;color:var(--ink);line-height:1.7}
+.wrap{max-width:940px;margin:0 auto;padding:26px 16px 70px}
+h1{font-family:'Secular One',sans-serif;font-size:1.8rem;margin:0 0 4px}
+.sub{color:var(--soft);margin:0 0 20px;font-size:.95rem}
+.card{background:#fff;border:1px solid var(--line);border-radius:18px;padding:20px 22px;margin-bottom:14px}
+input{width:100%;padding:12px;border:1px solid #ddd;border-radius:10px;font-family:inherit;font-size:1rem;margin-bottom:10px}
+.btn{background:var(--v);color:#fff;border:0;border-radius:11px;padding:11px 20px;font-family:inherit;
+  font-weight:900;cursor:pointer;font-size:.94rem}
+.btn:hover{background:var(--vd)}
+.btn.ok{background:var(--ok)} .btn.bad{background:var(--bad)}
+.btn.sm{padding:7px 14px;font-size:.83rem;border-radius:9px}
+.err{background:var(--badw);color:#9f1239;border-radius:10px;padding:10px 13px;font-size:.9rem;margin-top:8px}
+.tabs{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+.tab{background:#fff;border:2px solid var(--line);border-radius:20px;padding:8px 18px;font-weight:900;
+  cursor:pointer;font-size:.9rem;color:var(--soft)}
+.tab.on{background:var(--v);color:#fff;border-color:var(--v)}
+.tab .n{font-size:.78rem;opacity:.85}
+table{width:100%;border-collapse:separate;border-spacing:0;font-size:.9rem}
+th,td{padding:10px 9px;border-bottom:1px solid var(--line);text-align:right}
+th{background:#faf9ff;font-weight:900;color:var(--vd);font-size:.8rem}
+tr:hover td{background:#fbfaff}
+.pill{display:inline-block;font-size:.72rem;font-weight:900;border-radius:20px;padding:2px 10px}
+.p-ok{background:var(--okw);color:#0f7a4d}
+.p-wait{background:var(--warnw);color:#a85f08}
+.p-off{background:#f2f0f9;color:var(--soft)}
+.acts{display:flex;gap:6px;flex-wrap:wrap}
+.empty{text-align:center;color:var(--soft);padding:26px}
+.msg{margin-top:10px;font-size:.9rem;font-weight:700}
+.srch{max-width:280px;margin-bottom:12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>ניהול מורים</h1>
+  <p class="sub">אישור בקשות הרשמה, השעיה והרשאות.</p>
+  <div id="app"><div class="card" id="login">
+    <b>כניסת מנהל</b>
+    <p class="sub" style="margin:6px 0 12px;">טלפון וסיסמה של חשבון מורה המסומן כמנהל.</p>
+    <input id="ph" placeholder="טלפון" dir="ltr" style="text-align:right">
+    <input id="pw" type="password" placeholder="סיסמה">
+    <button class="btn" onclick="login()">כניסה ←</button>
+    <div id="lerr"></div>
+  </div></div>
+</div>
+
+<script>
+const SUP="https://eubgzfkkovxgijhrmnif.supabase.co";
+const SKEY="sb_publishable_vJ768fOwYWiDWeYsBBR45g_4NM4s55p";
+const HDR={apikey:SKEY,Authorization:'Bearer '+SKEY,'Content-Type':'application/json'};
+async function sb(path,method,body,extra){
+  const r=await fetch(SUP+'/rest/v1/'+path,{method:method||'GET',
+    headers:Object.assign({},HDR,extra||{}),body:body?JSON.stringify(body):undefined});
+  if(!r.ok)throw new Error(r.status+' '+(await r.text()).slice(0,200));
+  const t=await r.text(); return t?JSON.parse(t):[];
+}
+function normPhone(s){
+  let p=String(s||'').replace(/\D/g,'');
+  p=p.replace(/^00+/,''); if(p.indexOf('972')===0)p=p.slice(3);
+  p=p.replace(/^0+/,''); return p?('0'+p):'';
+}
+const esc=s=>String(s==null?'':s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+let all=[], tab='pending', q='';
+
+async function login(){
+  const ph=normPhone(document.getElementById('ph').value);
+  const pw=document.getElementById('pw').value;
+  const e=document.getElementById('lerr');
+  e.innerHTML='';
+  try{
+    const rows=await sb('lms_teachers?select=*&phone=eq.'+encodeURIComponent(ph));
+    const t=(rows||[]).find(x=>x.password===pw&&x.status==='approved');
+    if(!t){e.innerHTML='<div class="err">טלפון או סיסמה שגויים.</div>';return;}
+    if(!t.is_admin){e.innerHTML='<div class="err">החשבון הזה אינו מסומן כמנהל.</div>';return;}
+    load();
+  }catch(err){e.innerHTML='<div class="err">שגיאה: '+esc(err.message)+'</div>';}
+}
+
+async function load(){
+  document.getElementById('app').innerHTML='<div class="card empty">טוען…</div>';
+  try{ all=await sb('lms_teachers?select=*&order=created_at.desc'); }
+  catch(e){ document.getElementById('app').innerHTML='<div class="card err">'+esc(e.message)+'</div>'; return; }
+  render();
+}
+
+function counts(){
+  return {pending:all.filter(t=>t.status==='pending').length,
+          approved:all.filter(t=>t.status==='approved').length,
+          other:all.filter(t=>t.status!=='pending'&&t.status!=='approved').length};
+}
+function setTab(t){tab=t;render();}
+function setQ(v){q=v.trim();render();}
+
+function render(){
+  const c=counts();
+  const list=all.filter(t=>{
+    const st = tab==='all'?true:(tab==='other'?(t.status!=='pending'&&t.status!=='approved'):t.status===tab);
+    if(!st)return false;
+    if(!q)return true;
+    const s=(t.name||'')+' '+(t.phone||'')+' '+(t.school||'');
+    return s.indexOf(q)>-1;
+  });
+  document.getElementById('app').innerHTML=`
+    <div class="tabs">
+      <button class="tab ${tab==='pending'?'on':''}" onclick="setTab('pending')">⏳ ממתינים <span class="n">${c.pending}</span></button>
+      <button class="tab ${tab==='approved'?'on':''}" onclick="setTab('approved')">✅ מאושרים <span class="n">${c.approved}</span></button>
+      <button class="tab ${tab==='other'?'on':''}" onclick="setTab('other')">⛔ מושעים <span class="n">${c.other}</span></button>
+      <button class="tab ${tab==='all'?'on':''}" onclick="setTab('all')">הכל <span class="n">${all.length}</span></button>
+    </div>
+    <div class="card">
+      <input class="srch" placeholder="חיפוש לפי שם, טלפון או בית ספר" value="${esc(q)}" oninput="setQ(this.value)">
+      ${list.length?`<table><thead><tr><th>שם</th><th>בית ספר</th><th>טלפון</th><th>סטטוס</th><th>פעולות</th></tr></thead>
+      <tbody>${list.map(row).join('')}</tbody></table>`
+      :'<div class="empty">אין רשומות בקטגוריה הזו.</div>'}
+      <div class="msg" id="msg"></div>
+    </div>`;
+}
+function row(t){
+  const pill = t.status==='approved'?'<span class="pill p-ok">מאושר</span>'
+             : t.status==='pending' ?'<span class="pill p-wait">ממתין</span>'
+             : '<span class="pill p-off">'+esc(t.status)+'</span>';
+  const adm = t.is_admin?' <span class="pill p-ok">מנהל</span>':'';
+  const acts = t.status==='approved'
+    ? `<button class="btn bad sm" onclick="setStatus('${t.id}','suspended')">השעיה</button>`
+    : `<button class="btn ok sm" onclick="setStatus('${t.id}','approved')">אישור</button>
+       <button class="btn bad sm" onclick="setStatus('${t.id}','rejected')">דחייה</button>`;
+  return `<tr><td><b>${esc(t.name||'—')}</b>${adm}</td><td>${esc(t.school||'—')}</td>
+    <td dir="ltr" style="text-align:right">${esc(t.phone||'—')}</td><td>${pill}</td>
+    <td><div class="acts">${acts}</div></td></tr>`;
+}
+async function setStatus(id,st){
+  const m=document.getElementById('msg');
+  try{
+    await sb('lms_teachers?id=eq.'+encodeURIComponent(id),'PATCH',{status:st});
+    const t=all.find(x=>x.id===id); if(t)t.status=st;
+    m.style.color='#0f7a4d'; m.textContent='✅ עודכן';
+    render();
+  }catch(e){ m.style.color='#9f1239'; m.textContent='שגיאה: '+e.message; }
+}
+document.addEventListener('keydown',e=>{
+  if(e.key==='Enter'&&document.getElementById('login'))login();});
+</script>
+</body>
+</html>
