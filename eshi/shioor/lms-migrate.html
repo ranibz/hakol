@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<!-- eshi/shioor/lms-migrate.html · v1.1.0 · 2026-07-25 · איחוד טלפונים כפולים, הכנסה שורה-שורה בעת כשל ודיווח מפורט של הרשומה הבעייתית (MINOR) -->
+<!-- eshi/shioor/lms-migrate.html · v2.1.0 · 2026-07-25 · בהרשמה כפולה נשמרת הרשומה ללא קידומת +972 — ההרשמה החוזרת שהמורה משתמש בה בפועל (MINOR) -->
 <html lang="he" dir="rtl">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>העברת נתונים ל-Supabase</title>
+<title>העברת מורים ל-Supabase · תשפ״ז</title>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;700;900&display=swap" rel="stylesheet">
@@ -38,21 +38,25 @@ pre{background:#1d1a3d;color:#d9d2ee;border-radius:12px;padding:14px;font-size:1
 </head>
 <body>
 <div class="wrap">
-  <h1>העברת נתונים ל-Supabase</h1>
-  <p class="sub">כלי חד-פעמי. מעתיק מורים, כיתות והגשות מ-Firebase אל טבלאות <code>lms_*</code>.</p>
+  <h1>פתיחת שנה — העברת מורים</h1>
+  <p class="sub">מעביר <b>מורים בלבד</b> מ-Firebase, עם נרמול מספרי טלפון ואיחוד הרשמות כפולות. הגשות תשפ״ו נשארות בפיירבייס כארכיון ואינן מועברות.</p>
 
   <div class="card warn">
-    <b>לפני שמריצים:</b> יש להריץ קודם את <code>lms-schema.sql</code> ב-SQL Editor של Supabase.
-    ההעברה <b>אינה מוחקת דבר</b> מ-Firebase, וניתן להריץ אותה שוב — הגשות שכבר הועברו מזוהות לפי המפתח המקורי ולא ישוכפלו.
+    <b>לפני שמריצים:</b> יש להריץ את <code>lms-reset.sql</code> ב-SQL Editor, כדי להתחיל נקי.
+    <br><b>מה הכלי עושה:</b> קורא את רשימת המורים מ-Firebase, מנרמל כל מספר טלפון לצורה אחידה
+    (<code>+972-54-…</code> ו-<code>054-…</code> הופכים לאותו מספר), מאחד הרשמות כפולות של אותו אדם,
+    וכותב לטבלת <code>lms_teachers</code>.
+    <br><b>מה הוא לא עושה:</b> אינו נוגע ב-Firebase, ואינו מעביר הגשות או כיתות.
   </div>
 
   <div class="card">
     <div class="steps">
       <div class="step" id="s1"><span class="ic">🔌</span><span class="nm">חיבור לשני השרתים</span><span class="st">ממתין</span></div>
-      <div class="step" id="s2"><span class="ic">👩‍🏫</span><span class="nm">מורים</span><span class="st">ממתין</span></div>
-      <div class="step" id="s3"><span class="ic">🏫</span><span class="nm">כיתות</span><span class="st">ממתין</span></div>
-      <div class="step" id="s4"><span class="ic">📥</span><span class="nm">הגשות</span><span class="st">ממתין</span></div>
+      <div class="step" id="s2"><span class="ic">📞</span><span class="nm">קריאה ונרמול טלפונים</span><span class="st">ממתין</span></div>
+      <div class="step" id="s3"><span class="ic">🔗</span><span class="nm">איחוד הרשמות כפולות</span><span class="st">ממתין</span></div>
+      <div class="step" id="s4"><span class="ic">👩‍🏫</span><span class="nm">כתיבה לסופר בייס</span><span class="st">ממתין</span></div>
       <div class="step" id="s5"><span class="ic">✅</span><span class="nm">אימות</span><span class="st">ממתין</span></div>
+    </div>
     </div>
     <div class="row">
       <button id="go" onclick="run()">▶ התחלת ההעברה</button>
@@ -92,133 +96,104 @@ async function sb(path,method,body,extra){
 const chunk=(a,n)=>{const o=[];for(let i=0;i<a.length;i+=n)o.push(a.slice(i,i+n));return o;};
 const norm=s=>String(s||'').replace(/\s+/g,' ').trim();
 
+/* נרמול טלפון ישראלי — הלב של התיקון */
+function normPhone(s){
+  let p=String(s||'').replace(/\D/g,'');
+  p=p.replace(/^00+/,'');
+  if(p.indexOf('972')===0)p=p.slice(3);
+  p=p.replace(/^0+/,'');
+  return p?('0'+p):'';
+}
+
 async function run(){
   document.getElementById('go').disabled=true;
   try{
-    /* ---- 1. חיבור ---- */
     mark('s1','run','בודק…');
     if(!db)throw new Error('אין חיבור ל-Firebase');
     await sb('lms_teachers?select=id&limit=1','GET');
     mark('s1','done','תקין');
     log('✔ שני השרתים נגישים');
 
-    /* ---- 2. מורים ---- */
-    mark('s2','run','מעביר…');
-    const tSnap=await db.ref('teachers').once('value');
-    const tVal=tSnap.val()||{};
-    let raw=Object.entries(tVal).map(([id,t])=>({
-      id:id,
-      name:(t.name||((t.firstName||'')+' '+(t.lastName||''))).trim()||null,
-      phone:norm(t.phone||t.telephone||''),
-      password:t.password||null,
-      status:t.status||'pending'
-    })).filter(t=>t.phone);
-    log('נמצאו ב-Firebase:',raw.length,'רשומות מורה');
-
-    /* איחוד כפילויות טלפון — האינדקס בסופר בייס ייחודי לפי טלפון */
-    const byPhone={}, dups=[];
-    raw.forEach(t=>{
-      const k=t.phone.toLowerCase();
-      if(!byPhone[k]){byPhone[k]=t;return;}
-      dups.push(t.phone);
-      const cur=byPhone[k];
-      if(t.status==='approved'&&cur.status!=='approved')byPhone[k]=t;
+    /* ---- קריאה ונרמול ---- */
+    mark('s2','run','קורא…');
+    const snap=await db.ref('teachers').once('value');
+    const val=snap.val()||{};
+    const raw=Object.entries(val).map(([id,t])=>{
+      const orig=String(t.phone||t.telephone||'').trim();
+      const digits=orig.replace(/\D/g,'');
+      const intl=/^(00)?972/.test(digits);
+      return {id, orig, intl, phone:normPhone(orig),
+        created:Number(t.createdAt||t.created||t.timestamp||0),
+        name:(t.name||((t.firstName||'')+' '+(t.lastName||''))).trim()||null,
+        password:t.password||null, status:t.status||'pending'};
     });
-    const teachers=Object.values(byPhone);
-    if(dups.length)log('⚠ טלפונים כפולים אוחדו:',[...new Set(dups)].join(', '));
+    const noPhone=raw.filter(t=>!t.phone).length;
+    const withPhone=raw.filter(t=>t.phone);
+    const changed=withPhone.filter(t=>t.orig!==t.phone);
+    mark('s2','done',withPhone.length+' רשומות');
+    log('נמצאו ב-Firebase:',raw.length,'רשומות מורה');
+    if(noPhone)log('⚠ ללא טלפון תקין (מדולגות):',noPhone);
+    log('טלפונים שנורמלו:',changed.length);
+    changed.slice(0,6).forEach(t=>log('    ',t.orig,'→',t.phone));
+    if(changed.length>6)log('     ועוד',changed.length-6,'…');
 
-    /* הכנסה בקבוצות; אם קבוצה נופלת — שורה-שורה כדי לאתר את האשמה */
+    /* ---- איחוד כפילויות ---- */
+    mark('s3','run','מאחד…');
+    /* דירוג: רשומה בלי קידומת בינלאומית עדיפה תמיד — היא ההרשמה
+       החוזרת שהמורה משתמש בה בפועל, ולכן הסיסמה שבה היא הנכונה. */
+    const rank=t=>(t.intl?0:4)+(t.status==='approved'?2:0);
+    const byPhone={}, merged=[];
+    withPhone.forEach(t=>{
+      const k=t.phone;
+      if(!byPhone[k]){byPhone[k]=t;return;}
+      const cur=byPhone[k];
+      const rt=rank(t), rc=rank(cur);
+      const better = rt>rc || (rt===rc && t.created>cur.created) ||
+                     (rt===rc && t.created===cur.created && (t.name||'').length>(cur.name||'').length);
+      const keep = better?t:cur, drop = better?cur:t;
+      merged.push({phone:k, kept:keep.orig, dropped:drop.orig,
+        why: drop.intl&&!keep.intl ? 'נמחקה זו עם הקידומת'
+           : keep.status==='approved'&&drop.status!=='approved' ? 'נשמרה המאושרת'
+           : 'נשמרה המאוחרת'});
+      byPhone[k]=keep;
+    });
+    const teachers=Object.values(byPhone).map(t=>({
+      id:t.id,name:t.name,phone:t.phone,password:t.password,status:t.status}));
+    mark('s3','done',teachers.length+' ייחודיים');
+    log('הרשמות כפולות שאוחדו:',merged.length);
+    merged.slice(0,10).forEach(m=>log('    ',m.phone,'| נשמר:',m.kept,'| הוסר:',m.dropped,'|',m.why));
+    if(merged.length>10)log('     ועוד',merged.length-10,'…');
+    const byIntl=merged.filter(m=>m.why==='נמחקה זו עם הקידומת').length;
+    log('מתוכן, כפילויות שנוצרו בגלל הקידומת +972:',byIntl);
+
+    /* ---- כתיבה ---- */
+    mark('s4','run','כותב…');
     let okN=0; const failed=[];
     for(const c of chunk(teachers,100)){
       try{ await sb('lms_teachers?on_conflict=id','POST',c,{Prefer:'resolution=merge-duplicates'}); okN+=c.length; }
       catch(e){
-        log('קבוצה נכשלה, בודק שורה-שורה…');
         for(const row of c){
           try{ await sb('lms_teachers?on_conflict=id','POST',[row],{Prefer:'resolution=merge-duplicates'}); okN++; }
-          catch(e2){ failed.push({id:row.id,phone:row.phone,err:e2.message}); }
+          catch(e2){ failed.push(row.phone+' — '+e2.message.slice(0,120)); }
         }
       }
     }
-    if(failed.length){
-      log('✖ נכשלו',failed.length,'רשומות:');
-      failed.slice(0,5).forEach(f=>log('   ',f.id,'|',f.phone,'|',f.err.slice(0,160)));
-      if(failed.length>5)log('    ועוד',failed.length-5,'…');
-    }
-    if(!okN)throw new Error('אף רשומת מורה לא נכנסה — ראו פירוט למעלה');
-    mark('s2','done',okN+' מורים'+(failed.length?' ('+failed.length+' נכשלו)':''));
-    log('✔ מורים שהועברו:',okN);
+    if(failed.length){log('✖ נכשלו',failed.length+':');failed.slice(0,5).forEach(f=>log('    ',f));}
+    mark('s4','done',okN+' נכתבו');
+    log('✔ מורים בסופר בייס:',okN);
 
-    /* ---- 3. כיתות ---- */
-    mark('s3','run','מעביר…');
-    const cSnap=await db.ref('classes').once('value');
-    const cVal=cSnap.val()||{};
-    const classes=[];
-    Object.entries(cVal).forEach(([tid,list])=>{
-      Object.values(list||{}).forEach(c=>{
-        if(!c||!c.name)return;
-        classes.push({teacher_id:tid,name:norm(c.name),
-          students:(c.students||[]).map(norm).filter(Boolean),
-          updated_at:new Date(c.updatedAt||Date.now()).toISOString()});
-      });
-    });
-    if(classes.length)
-      for(const c of chunk(classes,200))
-        await sb('lms_classes?on_conflict=teacher_id,name','POST',c,{Prefer:'resolution=merge-duplicates'});
-    mark('s3','done',classes.length+' כיתות');
-    log('✔ כיתות:',classes.length);
-
-    /* ---- 4. הגשות ---- */
-    mark('s4','run','קורא…');
-    const sSnap=await db.ref('tests').once('value');
-    const sVal=sSnap.val()||{};
-    const rows=[];
-    Object.entries(sVal).forEach(([topic,items])=>{
-      Object.entries(items||{}).forEach(([key,d])=>{
-        if(!d)return;
-        const st=d.student||{}, m=d.meta||{}, sc=d.score||{};
-        rows.push({
-          teacher_id:  d.teacherID||st.teacherID||null,
-          student_name:norm(st.name||((st.firstName||'')+' '+(st.lastName||'')))||'—',
-          class_name:  norm(st.class)||null,
-          class_code:  st.classCode||null,
-          topic:       topic,
-          lesson_type: m.type||null,
-          zone:        m.zone||null,
-          concept:     m.concept||null,
-          page:        m.page||null,
-          score_auto:  (typeof sc.auto==='number')?sc.auto:null,
-          score_max:   (typeof sc.autoMax==='number')?sc.autoMax:null,
-          skipped:     !!(m.skipped||d.skipped),
-          stages:      d.stages||[],
-          items:       d.items||[],
-          answers:     d.answers||{},
-          submitted_at:new Date(d.submittedAt||Date.now()).toISOString(),
-          grade:       (d.feedback&&d.feedback.grade!=null)?Number(d.feedback.grade):null,
-          feedback:    (d.feedback&&(d.feedback.text||d.feedback.comment))||null,
-          legacy_key:  topic+'/'+key
-        });
-      });
-    });
-    mark('s4','run','מעביר '+rows.length+'…');
-    let done=0;
-    for(const c of chunk(rows,300)){
-      await sb('lms_submissions?on_conflict=legacy_key','POST',c,{Prefer:'resolution=merge-duplicates'});
-      done+=c.length; mark('s4','run',done+'/'+rows.length);
-    }
-    mark('s4','done',rows.length+' הגשות');
-    log('✔ הגשות:',rows.length);
-
-    /* ---- 5. אימות ---- */
+    /* ---- אימות ---- */
     mark('s5','run','סופר…');
-    const cnt=async t=>{
-      const r=await fetch(SUP+'/rest/v1/'+t+'?select=id',
-        {headers:Object.assign({},HDR,{Prefer:'count=exact',Range:'0-0'})});
-      return (r.headers.get('content-range')||'/0').split('/')[1];
-    };
-    const a=await cnt('lms_teachers'), b=await cnt('lms_classes'), c=await cnt('lms_submissions');
+    const r=await fetch(SUP+'/rest/v1/lms_teachers?select=id',
+      {headers:Object.assign({},HDR,{Prefer:'count=exact',Range:'0-0'})});
+    const n=(r.headers.get('content-range')||'/0').split('/')[1];
+    const ap=await sb('lms_teachers?select=id&status=eq.approved','GET');
     mark('s5','done','הושלם');
-    log('','— בסופר בייס עכשיו —','מורים: '+a,'כיתות: '+b,'הגשות: '+c);
-    log('','אם המספרים תואמים למה שהועבר, ההעברה הצליחה.');
+    log('','— סיכום —',
+        'רשומות ב-Firebase: '+raw.length,
+        'מורים בסופר בייס: '+n,
+        'מתוכם מאושרים: '+ap.length);
+    log('','הגשות תשפ״ו נשארו בפיירבייס ולא הועברו — כמתוכנן.');
   }catch(e){
     log('✖ שגיאה:',e.message);
     ['s1','s2','s3','s4','s5'].forEach(id=>{
@@ -228,6 +203,7 @@ async function run(){
     document.getElementById('go').disabled=false;
   }
 }
+
 </script>
 </body>
 </html>
