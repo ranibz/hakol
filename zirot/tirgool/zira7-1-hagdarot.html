@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- zirot/tirgool/zira7-1-hagdarot.html · v4.11.0 · 2026-07-25 · נוסף חוזה מעקב (meta/score/stages/items); שימוש בכפתור הדילוג של המפתח מסומן כעת בהגשה (MINOR) -->
+<!-- zirot/tirgool/zira7-1-hagdarot.html · v5.0.0 · 2026-07-25 · הושלם למצב שאר השיעורים: הגשה וכניסת מורה מול Supabase, בחירת שם התלמיד ובחירת כיתה מרשימה, וכפתור הדילוג מוגבל לכניסה ישירה בלבד (MAJOR) -->
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
@@ -621,7 +621,9 @@
             document.getElementById('testCard').scrollIntoView({ behavior:'smooth' });
     }
     // כפתור מפתח: דילוג על כל השלבים (רק עם ?dev=1)
-    if (new URLSearchParams(location.search).has('dev')){
+    /* כפתור הדילוג מוצג רק בכניסה ישירה — לעולם לא מתוך קישור כיתה */
+    const _q=new URLSearchParams(location.search);
+    if (_q.has('dev') && !_q.get('code')){
         const b = document.getElementById('devSkip'); if (b) b.style.display = 'block';
     }
     function devSkip(){
@@ -630,6 +632,30 @@
         document.getElementById('testCard').scrollIntoView({ behavior:'smooth' });
     }
     // ===== מבדק + חיבור למערכת השיעורים (Firebase tests-fd938) =====
+
+
+    /* ===== שליחה ל-Supabase ===== */
+    async function sbSend(row){
+      const r=await fetch(SUP+'/rest/v1/lms_submissions',{method:'POST',
+        headers:{apikey:SKEY,Authorization:'Bearer '+SKEY,'Content-Type':'application/json'},
+        body:JSON.stringify([row])});
+      if(!r.ok)throw new Error(r.status+' '+(await r.text()).slice(0,180));
+      return true;
+    }
+    function sbRow(o){
+      const m=o.meta||{};
+      return {teacher_id:o.tid||null,student_name:o.name,class_name:o.cls||null,class_code:o.code||null,
+        topic:o.topic,lesson_type:m.type||null,zone:m.zone||null,concept:m.concept||null,page:m.page||null,
+        score_auto:(o.score&&typeof o.score.auto==='number')?o.score.auto:null,
+        score_max:(o.score&&typeof o.score.autoMax==='number')?o.score.autoMax:null,
+        skipped:!!m.skipped,stages:o.stages||[],items:o.items||[],answers:o.answers||{},
+        submitted_at:new Date().toISOString()};
+    }
+    function tPhoneNorm(s){
+      let p=String(s||'').replace(/\D/g,'');
+      p=p.replace(/^00+/,''); if(p.indexOf('972')===0)p=p.slice(3);
+      p=p.replace(/^0+/,''); return p?('0'+p):'';
+    }
 
     /* ===== חוזה מעקב אחיד (v1) ===== */
     const TRACK={items:[],stages:[],skipped:false};
@@ -727,17 +753,13 @@
         if (!klass){ err.textContent = 'נא למלא את שם הכיתה (יופיע אצל התלמידים).'; err.style.display = 'block'; return; }
         if (!db){ err.textContent = 'אין חיבור לשרת.'; err.style.display = 'block'; return; }
         err.textContent = 'מתחבר…'; err.style.display = 'block';
-        db.ref('teachers').once('value').then(snap => {
-            let fk = '', tName = '';
-            snap.forEach(ch => { if (fk) return; const t = ch.val();
-                if ((t.phone || t.telephone || '') === phone && t.password === pass && t.status === 'approved'){
-                    fk = ch.key;
-                    tName = (t.name || ((t.firstName || '') + ' ' + (t.lastName || '')).trim() || '').trim();
-                } });
-            if (!fk){ err.textContent = 'טלפון/סיסמה שגויים או שהמשתמש אינו מאושר.'; err.style.display = 'block'; return; }
-            // יצירת מיפוי קוד→מורה (בלתי נראה) + קישור לשליחה הכולל את שם הכיתה
-            const code = fk.toLowerCase();
-            db.ref('teacher_codes/' + code + '_' + fk).set(fk);
+    fetch(SUP+'/rest/v1/lms_teachers?select=id,name,password,status&phone=eq.'+encodeURIComponent(tPhoneNorm(ph)),{headers:{apikey:SKEY,Authorization:'Bearer '+SKEY}})
+     .then(r=>r.json()).then(rows=>{
+      const t=(rows||[]).find(x=>x.password===pw&&x.status==='approved');
+      let fk='',nm='';
+      if(t){fk=t.id;nm=(t.name||'').trim();}
+      if(!fk){er.textContent='טלפון/סיסמה שגויים או שאינך מאושר.';er.style.display='block';return;}
+      const code=fk;
             const url = location.href.split('?')[0] + '?code=' + encodeURIComponent(code) + '&class=' + encodeURIComponent(klass);
             document.getElementById('tbUrl').value = url;
             document.getElementById('tbClass').textContent = klass;
@@ -801,13 +823,9 @@
             'חידון סיום': fqScore + '/5'
         };
         const res = document.getElementById('tResult'); res.style.display = 'block';
-        if (!db){ res.style.background = '#fdeaef'; res.style.color = '#b91c3c'; res.textContent = 'שגיאה בחיבור. נסו שוב מאוחר יותר.'; return; }
         res.style.background = '#fff8e6'; res.style.color = '#b45309'; res.textContent = 'שולח…';
-        // שליפת teacherID מ-teacher_codes — תומך גם ב-"code_teacherID" וגם ב-"code"
-        const lookup = code
-            ? db.ref('teacher_codes').once('value').then(snap => { let tid = '';
-                  snap.forEach(c => { const k = c.key; if (k === code || k.indexOf(code + '_') === 0) tid = c.val(); }); return tid; })
-            : Promise.resolve('');
+        // הקוד הוא מזהה המורה — אין עוד צורך בטבלת תיווך
+        const lookup = Promise.resolve((code||'').trim());
         lookup.then(teacherID => {
               const rec = {
                   student: Object.assign({ name: name, class: cls, classCode: code }, teacherID ? { teacherID: teacherID } : {}),
@@ -826,7 +844,7 @@
                   answers: answers,
                   submittedAt: Date.now()
               };
-              return db.ref('tests/' + TOPIC).push(rec);
+              return sbSend(sbRow({tid:teacherID||null,name:name,cls:CLASSNAME,code:CLASSCODE,topic:TOPIC,meta:trackMeta(),score:{auto:ts,autoMax:TEST_S.length},stages:rec.stages,items:rec.items,answers:answers}));
           })
           .then(() => { res.style.background = '#f0fdf4'; res.style.color = '#15803d';
               res.innerHTML = '✅ נשלח למורה בהצלחה! ציון המבדק: <b>' + ts + '/' + TEST_S.length + '</b>. אפשר לסגור את החלון.';
@@ -1068,6 +1086,69 @@
 
     buildGame();
     checkGate();
+
+    /* ===== בחירת שם מרשימת הכיתה ===== */
+    (async function rosterPicker(){
+      try{
+        if(!CLASSCODE||!CLASSNAME)return;
+        const r=await fetch(SUP+'/rest/v1/lms_classes?select=students&teacher_id=ilike.'+
+          encodeURIComponent(CLASSCODE)+'&name=eq.'+encodeURIComponent(CLASSNAME),
+          {headers:{apikey:SKEY,Authorization:'Bearer '+SKEY}});
+        const j=await r.json();
+        const list=(((j&&j[0])||{}).students||[]).map(s=>String(s||'').replace(/\s+/g,' ').trim()).filter(Boolean);
+        if(!list.length)return;
+        const el=document.getElementById('tName'); if(!el||el.tagName==='SELECT')return;
+        const sel=document.createElement('select');
+        sel.id='tName'; sel.className=el.className; sel.style.cssText=el.style.cssText;
+        sel.innerHTML='<option value="">— בחרו את שמכם מרשימת הכיתה —</option>'+
+          list.map(n=>'<option>'+n.replace(/</g,'&lt;')+'</option>').join('');
+        const K='me_'+CLASSCODE+'_'+CLASSNAME;
+        const saved=localStorage.getItem(K);
+        if(saved&&list.indexOf(saved)>-1)sel.value=saved;
+        sel.addEventListener('change',()=>{ if(sel.value)localStorage.setItem(K,sel.value); });
+        el.parentNode.replaceChild(sel,el);
+      }catch(e){}
+    })();
+
+    /* ===== רשימת הכיתות בכניסת המורה ===== */
+    (function classPicker(){
+      const ph=document.getElementById('lgPhone'), cl=document.getElementById('lgClass');
+      if(!ph||!cl)return;
+      let loadedFor='';
+      async function fill(){
+        const p=tPhoneNorm(ph.value);
+        if(!p||p===loadedFor)return;
+        loadedFor=p;
+        try{
+          const tr=await fetch(SUP+'/rest/v1/lms_teachers?select=id&phone=eq.'+encodeURIComponent(p),
+            {headers:{apikey:SKEY,Authorization:'Bearer '+SKEY}});
+          const tj=await tr.json();
+          if(!tj||!tj[0])return;
+          const cr=await fetch(SUP+'/rest/v1/lms_classes?select=name&teacher_id=eq.'+
+            encodeURIComponent(tj[0].id)+'&order=name.asc',
+            {headers:{apikey:SKEY,Authorization:'Bearer '+SKEY}});
+          const list=(await cr.json()||[]).map(x=>x.name).filter(Boolean);
+          if(!list.length)return;
+          const cur=document.getElementById('lgClass');
+          if(!cur||cur.tagName==='SELECT')return;
+          const sel=document.createElement('select');
+          sel.id='lgClass'; sel.className=cur.className; sel.style.cssText=cur.style.cssText;
+          sel.innerHTML='<option value="">— בחרו כיתה —</option>'+
+            list.map(n=>'<option>'+String(n).replace(/</g,'&lt;')+'</option>').join('')+
+            '<option value="__free">כיתה אחרת — הקלדה חופשית</option>';
+          sel.addEventListener('change',function(){
+            if(sel.value!=='__free')return;
+            const inp=document.createElement('input');
+            inp.id='lgClass'; inp.className=cur.className; inp.placeholder="שם הכיתה (למשל יא'3)";
+            sel.parentNode.replaceChild(inp,sel); inp.focus();
+          });
+          cur.parentNode.replaceChild(sel,cur);
+        }catch(e){}
+      }
+      ph.addEventListener('blur',fill);
+      ph.addEventListener('change',fill);
+    })();
+
 </script>
 </body>
 </html>

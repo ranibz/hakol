@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- zirot/tirgool/zira3-1-hadashot.html · v2.1.0 · 2026-07-24 · זירה 3 — חדשות וצילום עיתונאי. סיכום הזירה. נבנה לפי MAFRAT-ZIRA.md (שאלה אחת למושג בשל 25 מושגים) · רצועת קרדיט ולוגו בראש הדף (MINOR) · שלב ב: נוסף חוזה מעקב אחיד להגשה — meta, score, stages, items (MINOR) · המעבר ל-Supabase הושלם: הגשות וכניסת מורה מול lms_* במקום Firebase (MAJOR) · התלמיד בוחר את שמו מרשימת הכיתה במקום להקליד (MINOR) -->
+<!-- zirot/tirgool/zira3-1-hadashot.html · v2.2.0 · 2026-07-24 · זירה 3 — חדשות וצילום עיתונאי. סיכום הזירה. נבנה לפי MAFRAT-ZIRA.md (שאלה אחת למושג בשל 25 מושגים) · רצועת קרדיט ולוגו בראש הדף (MINOR) · שלב ב: נוסף חוזה מעקב אחיד להגשה — meta, score, stages, items (MINOR) · המעבר ל-Supabase הושלם: הגשות וכניסת מורה מול lms_* במקום Firebase (MAJOR) · התלמיד בוחר את שמו מרשימת הכיתה במקום להקליד (MINOR) · בכניסת המורה מהשיעור: בחירת כיתה מרשימת הכיתות שהוגדרו (MINOR) -->
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
@@ -849,6 +849,46 @@ if(CODE)grant();
       if(typeof checkUse==='function')checkUse(); });
     el.parentNode.replaceChild(sel,el);
   }catch(e){}
+})();
+
+
+/* ===== רשימת הכיתות של המורה בכניסה מהשיעור ===== */
+(function classPicker(){
+  const ph=document.getElementById('lgPhone'), cl=document.getElementById('lgClass');
+  if(!ph||!cl)return;
+  let loadedFor='';
+  async function fill(){
+    const p=tPhoneNorm(ph.value);
+    if(!p||p===loadedFor)return;
+    loadedFor=p;
+    try{
+      const tr=await fetch(SUP+'/rest/v1/lms_teachers?select=id&phone=eq.'+encodeURIComponent(p),
+        {headers:{apikey:SKEY,Authorization:'Bearer '+SKEY}});
+      const tj=await tr.json();
+      if(!tj||!tj[0])return;
+      const cr=await fetch(SUP+'/rest/v1/lms_classes?select=name&teacher_id=eq.'+
+        encodeURIComponent(tj[0].id)+'&order=name.asc',
+        {headers:{apikey:SKEY,Authorization:'Bearer '+SKEY}});
+      const list=(await cr.json()||[]).map(x=>x.name).filter(Boolean);
+      if(!list.length)return;
+      const cur=document.getElementById('lgClass');
+      if(!cur||cur.tagName==='SELECT')return;
+      const sel=document.createElement('select');
+      sel.id='lgClass'; sel.className=cur.className; sel.style.cssText=cur.style.cssText;
+      sel.innerHTML='<option value="">— בחרו כיתה —</option>'+
+        list.map(n=>'<option>'+String(n).replace(/</g,'&lt;')+'</option>').join('')+
+        '<option value="__free">כיתה אחרת — הקלדה חופשית</option>';
+      sel.addEventListener('change',function(){
+        if(sel.value!=='__free')return;
+        const inp=document.createElement('input');
+        inp.id='lgClass'; inp.className=cur.className; inp.placeholder="שם הכיתה (למשל י'3)";
+        sel.parentNode.replaceChild(inp,sel); inp.focus();
+      });
+      cur.parentNode.replaceChild(sel,cur);
+    }catch(e){}
+  }
+  ph.addEventListener('blur',fill);
+  ph.addEventListener('change',fill);
 })();
 
 </script>
