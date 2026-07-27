@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- eshi/shioor/teacher-central.html · v5.1.0 · 2026-07-25 · נוסף קישור האזור האישי לתלמיד (talmid.html) בכל כיתה — קישור אחד לכל השנה (MINOR) -->
+<!-- eshi/shioor/teacher-central.html · v5.2.0 · 2026-07-27 · נוספה לשונית "📥 מטלות": בחירת מטלה שנשלחה, רשימת מי הגיש ומי לא, ולחיצה על תלמיד פותחת את ההגשה לבדיקה ולמתן ציון. בדיקה מהירה ממוקדת למטלה אחת, סימון תלמיד שהגיש אך אינו ברשימת הכיתה, והעתקת קישור המטלה (MINOR) · תיקון: searchStudent פנה ל-search במקום ל-search-input, ולכן לחיצה על שורה בלוח הכיתה נכשלה בשקט (PATCH) -->
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
@@ -310,6 +310,7 @@ table.mtx th.nm{background:#faf9ff;}
       <button class="vbtn" id="vbtn-flat" onclick="setView('flat')">טבלה</button>
       <button class="vbtn" id="vbtn-insights" onclick="setView('insights')">📊 תובנות</button>
       <button class="vbtn" id="vbtn-board" onclick="setView('board')">📋 לוח כיתה</button>
+        <button class="vbtn" id="vbtn-asg" onclick="setView('asg')">📥 מטלות</button>
       <button class="vbtn" id="vbtn-classes" onclick="setView('classes')">🏫 כיתות</button>
       <button class="vbtn" id="vbtn-send" onclick="setView('send')">📤 שליחת מטלה</button>
     </div>
@@ -622,7 +623,7 @@ function renderBoard(){
     </div>`;
 }
 function searchStudent(n){
-  document.getElementById('search').value=n;
+  const el=document.getElementById('search-input'); if(el)el.value=n;
   setView('grouped');
 }
 
@@ -878,6 +879,7 @@ function applyFilter(){
   document.getElementById('cnt').textContent=f.length+' הגשות';
   updateStats(f);
   if(currentView==='board')renderBoard();
+  else if(currentView==='asg')renderAsg();
   else if(currentView==='classes')renderClasses();
   else if(currentView==='send')renderSend();
   else if(currentView==='insights')renderInsights(f);
@@ -887,7 +889,7 @@ function applyFilter(){
 
 function setView(v){
   currentView=v;
-  ['grouped','flat','insights','board','classes','send'].forEach(k=>{
+  ['grouped','flat','insights','board','asg','classes','send'].forEach(k=>{
     const b=document.getElementById('vbtn-'+k); if(b)b.classList.toggle('active',v===k);});
   applyFilter();
 }
@@ -1051,6 +1053,160 @@ function renderInsights(f){
 }
 
 /* ===== ⚡ בדיקה מהירה ===== */
+/* ===== 📥 מטלות — מטלה אחת, מי הגיש ומי לא, ולחיצה לבדיקה ===== */
+let asgClass='', asgKey='';
+const asgKeyOf=a=>(a.id!=null?String(a.id):(a.class_name+'|'+a.topic));
+
+/* כל ההגשות למטלה מסוימת, אחת לכל תלמיד — האחרונה */
+function asgSubs(a){
+  const idx={};
+  allData.filter(d=>normName(d.student&&d.student.class)===normName(a.class_name)&&d._topic===a.topic)
+    .forEach(d=>{const k=normName(studentName(d));
+      if(!idx[k]||(d.submittedAt||0)>(idx[k].submittedAt||0))idx[k]=d;});
+  return idx;
+}
+/* rosterOf מקבל מפתח, לא שם — כאן מגיע שם הכיתה מהמטלה */
+function rosterByName(nm){
+  const e=classList().find(([,v])=>normName(v.name)===normName(nm));
+  return e?(e[1].students||[]):[];
+}
+function asgStats(a){
+  const roster=rosterByName(a.class_name)||[];
+  const idx=asgSubs(a);
+  const done=roster.filter(s=>idx[normName(s)]);
+  const extra=Object.keys(idx).filter(k=>!roster.some(s=>normName(s)===k));
+  return {roster:roster,idx:idx,done:done,extra:extra,
+          missing:roster.filter(s=>!idx[normName(s)])};
+}
+
+function pickAsg(k){asgKey=k;renderAsg();}
+function onAsgClass(v){asgClass=v;asgKey='';renderAsg();}
+
+/* בדיקה מהירה מתוך מטלה — הרשימה מוגבלת למטלה עצמה */
+function asgReview(k,studKey){
+  const a=myAsg.find(x=>asgKeyOf(x)===k); if(!a)return;
+  const st=asgStats(a);
+  qrList=st.roster.map(s=>st.idx[normName(s)]).filter(Boolean)
+    .concat(st.extra.map(x=>st.idx[x]));
+  if(!qrList.length)return alert('אין עדיין הגשות למטלה הזו');
+  const i=studKey?qrList.findIndex(d=>d.key===studKey):qrList.findIndex(d=>!d.feedback||d.feedback.grade==null);
+  qrIdx=i>=0?i:0;
+  document.getElementById('qrOverlay').classList.add('open');
+  qrRender();
+}
+
+function renderAsg(){
+  const el=document.getElementById('content');
+  const list=classList();
+  if(!myAsg.length){
+    el.innerHTML='<div class="msg-box"><p>עדיין לא נשלחה אף מטלה</p>'+
+      '<span>עברו ל-📤 שליחת מטלה, או לחצו "העבר לכיתה" מתוך שיעור.</span></div>';
+    return;
+  }
+  const classes=[];
+  myAsg.forEach(a=>{if(a.class_name&&classes.indexOf(a.class_name)<0)classes.push(a.class_name);});
+  if(!asgClass||classes.indexOf(asgClass)<0)asgClass=classes[0]||'';
+  const mine=myAsg.filter(a=>a.class_name===asgClass)
+    .sort((x,y)=>(Date.parse(y.created_at||0)||0)-(Date.parse(x.created_at||0)||0));
+  if(!mine.some(a=>asgKeyOf(a)===asgKey))asgKey=mine.length?asgKeyOf(mine[0]):'';
+
+  const items=mine.map(function(a){
+    const st=asgStats(a);
+    const tot=st.roster.length;
+    const n=st.done.length+st.extra.length;
+    const on=asgKeyOf(a)===asgKey;
+    const pc=tot?Math.round(st.done.length/tot*100):0;
+    return `<div class="cls-item" style="${on?'background:#f3edfe;border-color:#b9adf0;':''}display:block;"
+        onclick="pickAsg('${escH(asgKeyOf(a)).replace(/'/g,"\\'")}')">
+      <div style="display:flex;align-items:center;gap:7px;">
+        <span style="flex:1;">${escH(asgTitle(a))}</span>
+        <span class="grade-pill ${n?'has':'none'}">${n}/${tot||'?'}</span>
+      </div>
+      <div style="font-size:11px;color:#8a86a0;font-weight:600;margin-top:3px;">
+        ${a.active===false?'⏸ כבויה · ':''}${escH(a.page||a.topic||'')}
+      </div>
+      <div style="background:#eceaf5;border-radius:5px;height:5px;margin-top:5px;overflow:hidden;">
+        <i style="display:block;height:100%;width:${pc}%;background:${pc>=80?'#0f7a4d':pc>=40?'#c98a12':'#b4453f'};"></i>
+      </div></div>`;
+  }).join('');
+
+  el.innerHTML=`<div class="cls-wrap">
+    <div class="cls-list">
+      <div class="board-head" style="margin-bottom:10px;">
+        <b>📥 מטלות</b>
+        <select onchange="onAsgClass(this.value)">
+          ${classes.map(c=>`<option${c===asgClass?' selected':''}>${escH(c)}</option>`).join('')}
+        </select>
+      </div>
+      ${items||'<div class="ins-empty">אין מטלות לכיתה הזו</div>'}
+    </div>
+    <div class="cls-pane" id="asgPane"></div></div>`;
+
+  const pane=document.getElementById('asgPane');
+  const a=mine.find(x=>asgKeyOf(x)===asgKey);
+  if(!a){pane.innerHTML='<div class="ins-empty">בחרו מטלה מהרשימה</div>';return;}
+
+  const st=asgStats(a);
+  const subsArr=st.roster.map(s=>st.idx[normName(s)]).filter(Boolean).concat(st.extra.map(k=>st.idx[k]));
+  const pcts=subsArr.map(autoScore).filter(Boolean).map(x=>x.pct);
+  const avg=pcts.length?Math.round(pcts.reduce((x,y)=>x+y,0)/pcts.length):null;
+  const pend=subsArr.filter(d=>!d.feedback||d.feedback.grade==null).length;
+
+  const rowOf=(nm,d,isExtra)=>{
+    const sc=autoScore(d), e=engagement(d);
+    const skip=d.meta&&d.meta.skipped;
+    const g=d.feedback&&d.feedback.grade!=null?d.feedback.grade:null;
+    const date=d.submittedAt?new Date(d.submittedAt).toLocaleString('he-IL',
+      {day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'—';
+    return `<tr class="prow" onclick="asgReview('${escH(asgKey).replace(/'/g,"\\'")}','${escH(d.key).replace(/'/g,"\\'")}')">
+      <td class="nm"><b>${escH(nm)}</b>${isExtra?' <span class="st-skip" title="אינו ברשימת הכיתה">✱</span>':''}</td>
+      <td>${engBadge(d)}</td>
+      <td>${sc?(skip?'<span class="st-skip">⚠ </span>':'')+sc.n+'/'+sc.max+' · '+sc.pct+'%':'—'}</td>
+      <td>${g!=null?`<span class="grade-pill has">${g}</span>`:'<span class="grade-pill none">ממתין</span>'}</td>
+      <td style="font-size:11.5px;color:#8a86a0;">${date}</td>
+      <td><button class="btn-save" style="padding:5px 13px;font-size:11.5px;">בדוק ←</button></td></tr>`;
+  };
+  const doneRows=st.roster.filter(s=>st.idx[normName(s)]).map(s=>rowOf(s,st.idx[normName(s)],false))
+    .concat(st.extra.map(k=>rowOf(studentName(st.idx[k])||k,st.idx[k],true))).join('');
+
+  pane.innerHTML=`
+    <div class="board-head">
+      <b style="font-size:15px;">${escH(asgTitle(a))}</b>
+      ${a.active===false?'<span class="grade-pill none">⏸ כבויה</span>':''}
+      <span class="cls-sub" style="margin:0;">${escH(a.page||a.topic||'')}</span>
+      ${a.link?`<button class="cls-new" style="width:auto;padding:6px 13px;font-size:12px;"
+        onclick="navigator.clipboard.writeText('${escH(a.link).replace(/'/g,"\\'")}');this.textContent='✓ הועתק';">📋 העתק קישור</button>`:''}
+    </div>
+    <div class="kpis">
+      <div class="kpi"><b>${st.roster.length}</b><span>ברשימת הכיתה</span></div>
+      <div class="kpi g"><b>${st.done.length}</b><span>הגישו</span></div>
+      <div class="kpi r"><b>${st.missing.length}</b><span>לא הגישו</span></div>
+      <div class="kpi ${avg===null?'':(avg>=80?'g':avg>=55?'y':'r')}"><b>${avg===null?'—':avg+'%'}</b><span>ממוצע אוטומטי</span></div>
+      <div class="kpi ${pend?'y':'g'}"><b>${pend}</b><span>ממתינות לבדיקה</span></div>
+      ${st.extra.length?`<div class="kpi y"><b>${st.extra.length}</b><span>לא ברשימה</span></div>`:''}
+    </div>
+    ${subsArr.length?`<button class="btn-save" style="margin-bottom:12px;"
+      onclick="asgReview('${escH(asgKey).replace(/'/g,"\\'")}','')">⚡ בדיקה מהירה למטלה הזו</button>`:''}
+
+    <div style="font-weight:800;font-size:13px;margin:4px 0 6px;">✔ הגישו (${subsArr.length})</div>
+    ${subsArr.length?`<div class="mx-scroll"><table class="mtx"><thead><tr>
+      <th class="nm">תלמיד</th><th>מעורבות</th><th>ציון אוטומטי</th><th>ציון מורה</th><th>הוגש</th><th></th>
+      </tr></thead><tbody>${doneRows}</tbody></table></div>`
+     :'<div class="ins-empty">אף אחד לא הגיש עדיין.</div>'}
+
+    <div style="font-weight:800;font-size:13px;margin:16px 0 6px;">– טרם הגישו (${st.missing.length})</div>
+    ${st.missing.length?`<div style="display:flex;flex-wrap:wrap;gap:6px;">
+      ${st.missing.map(s=>`<span class="grade-pill none" style="cursor:pointer;"
+        onclick="searchStudent('${escH(s).replace(/'/g,"\\'")}')">${escH(s)}</span>`).join('')}</div>`
+     :(st.roster.length?'<div class="st-ok" style="font-size:13px;">כל הכיתה הגישה 🎉</div>'
+        :'<div class="ins-empty">אין רשימת תלמידים לכיתה הזו — הוסיפו אותה בלשונית 🏫 כיתות.</div>')}
+
+    <div class="mx-legend" style="margin-top:14px;">
+      <span class="st-skip">✱</span> הגיש אך אינו ברשימת הכיתה
+      <span style="color:#777;">· לחיצה על שורה פותחת את ההגשה לבדיקה</span>
+    </div>`;
+}
+
 function startQuickReview(){
   qrList=getFiltered();
   if(!qrList.length)return alert('אין הגשות להצגה');
@@ -1066,7 +1222,8 @@ function openQuickReviewFor(key){
   document.getElementById('qrOverlay').classList.add('open');
   qrRender();
 }
-function closeQuickReview(){document.getElementById('qrOverlay').classList.remove('open');}
+function closeQuickReview(){document.getElementById('qrOverlay').classList.remove('open');
+  if(currentView==='asg')renderAsg();}
 function qrMove(step){
   const n=qrIdx+step;
   if(n<0||n>=qrList.length)return;
