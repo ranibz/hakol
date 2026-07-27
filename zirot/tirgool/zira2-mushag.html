@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<!-- zirot/tirgool/zira2-mushag.html · v1.0.0 · 2026-07-27 · מיני-שיעור למושג בודד מזירה 2 (גלובליזציה). המושג נבחר לפי ?c= · 12 מושגי הזירה כולל שלושת מושגי תשפ"ז חוצי-הזירות (הגמוניה, ייצוגים, הבניית המציאות) · נבנה על תבנית מיני-השיעור האחידה: רצועת קרדיט ולוגו, חוזה מעקב אחיד (meta, score, stages, items), הגשה וכניסת מורה מול lms_* ב-Supabase, בחירת שם התלמיד מרשימת הכיתה, בחירת כיתה בכניסת המורה וכפתור "העבר לכיתה" (MAJOR) -->
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>מיני-שיעור · מושג מזירה 2</title>
+<link href="https://fonts.googleapis.com/css2?family=Secular+One&family=Assistant:wght@400;600;800&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script>
+/* ===== העברת המטלה לכיתה ===== */
+window.__TID__=window.__TID__||'';
+async function loadAsgClasses(){
+  const box=document.getElementById('asgBox'), sel=document.getElementById('asgClass');
+  if(!box||!sel||!window.__TID__)return;
+  try{
+    const r=await fetch(SUP+'/rest/v1/lms_classes?select=name&teacher_id=eq.'+
+      encodeURIComponent(window.__TID__)+'&order=name.asc',
+      {headers:{apikey:SKEY,Authorization:'Bearer '+SKEY}});
+    const list=(await r.json()||[]).map(x=>x.name).filter(Boolean);
+    if(!list.length)return;
+    sel.innerHTML=list.map(n=>'<option>'+String(n).replace(/</g,'&lt;')+'</option>').join('');
+    const cur=(typeof CLASSNAME!=='undefined'?CLASSNAME:(typeof CLS!=='undefined'?CLS:''))||'';
+    if(cur&&list.indexOf(cur)>-1)sel.value=cur;
+    box.style.display='flex';
+  }catch(e){}
+}
+async function assignToClass(){
+  const sel=document.getElementById('asgClass'), msg=document.getElementById('asgMsg');
+  const cls=sel?sel.value:'';
+  if(!cls){msg.textContent='בחרו כיתה';msg.style.color='#fde68a';return;}
+  msg.style.color='#fff'; msg.textContent='מעביר…';
+  const page=location.pathname.split('/').pop();
+  const key=(typeof KEY!=='undefined'&&KEY)?KEY:null;
+  const title=(typeof C!=='undefined'&&C&&C.name)?C.name:document.title;
+  const url=location.href.split('?')[0]+'?code='+encodeURIComponent(window.__TID__)+
+            '&class='+encodeURIComponent(cls)+(key?('&c='+encodeURIComponent(key)):'');
+  try{
+    const r=await fetch(SUP+'/rest/v1/lms_assignments?on_conflict=teacher_id,class_name,topic',
+      {method:'POST',headers:{apikey:SKEY,Authorization:'Bearer '+SKEY,
+        'Content-Type':'application/json',Prefer:'resolution=merge-duplicates'},
+      body:JSON.stringify([{teacher_id:window.__TID__,class_name:cls,topic:TOPIC,page:page,
+        concept:key,title:title,link:url,active:true}])});
+    if(!r.ok)throw new Error((await r.text()).slice(0,140));
+    msg.style.color='#bbf7d0';
+    msg.textContent='✅ הועבר לכיתה '+cls+' — התלמידים יראו אותה באזור האישי';
+  }catch(e){ msg.style.color='#fecaca'; msg.textContent='שגיאה: '+e.message; }
+}
+
+if(typeof CLASSCODE!=='undefined'&&CLASSCODE){window.__TID__=CLASSCODE;}
+else if(typeof CODE!=='undefined'&&CODE){window.__TID__=CODE;}
+</script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<style>
+:root{--a:#0ea5e9;--b:#4338ca;--ink:#2a1f52;--soft:#6b6392;--bg:#f6f7ff;--ok:#12b76a;--no:#e11d48;}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:'Assistant',sans-serif;font-size:17px;line-height:1.75;padding:24px 16px 70px;}
+h1,h2,h3,.disp{font-family:'Secular One',sans-serif;font-weight:400;}
+.wrap{max-width:760px;margin:0 auto;}
+.card{background:#fff;border-radius:22px;padding:24px 26px;margin-bottom:18px;box-shadow:0 8px 24px rgba(42,31,82,.09);}
+.back{display:inline-flex;gap:8px;align-items:center;text-decoration:none;background:#fff;color:var(--a);
+  font-family:'Secular One',sans-serif;font-size:.9rem;padding:8px 18px;border-radius:30px;margin-bottom:14px;box-shadow:0 4px 12px rgba(42,31,82,.08);}
+
+header.hero{background:linear-gradient(135deg,var(--a),var(--b));color:#fff;border-radius:26px;padding:30px 28px;margin-bottom:20px;text-align:center;}
+header.hero .kick{background:rgba(255,255,255,.22);display:inline-block;padding:5px 16px;border-radius:30px;font-weight:800;font-size:.84rem;margin-bottom:12px;}
+header.hero h1{font-size:clamp(1.7rem,5vw,2.5rem);margin:0 0 8px;}
+header.hero p{margin:0;opacity:.95;font-size:1.02rem;}
+
+h2.sec{font-size:1.3rem;color:var(--a);margin:0 0 4px;display:flex;align-items:center;gap:9px;flex-wrap:wrap;}
+.note{color:var(--soft);margin:0 0 16px;font-size:.96rem;}
+
+.rc{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#f6f7ff;border:1px solid #e6e7fb;border-radius:14px;padding:9px 13px;margin-bottom:14px;}
+.rc button{background:linear-gradient(135deg,var(--a),var(--b));color:#fff;border:none;border-radius:30px;padding:8px 18px;font-family:'Secular One',sans-serif;cursor:pointer;font-size:.92rem;}
+.rc .sp{font-size:.85rem;color:var(--soft);display:flex;gap:6px;align-items:center;}
+.rc .sp b{background:#fff;border:1px solid #e2e2f2;border-radius:20px;padding:3px 11px;cursor:pointer;font-weight:600;}
+.rc .sp b.on{background:var(--a);color:#fff;border-color:var(--a);}
+.rc .pg{font-weight:800;color:var(--a);font-size:.9rem;}
+.prose{line-height:1.95;}
+.w{border-radius:4px;transition:background .12s;}
+.w.hi{background:#ffe066;color:#3a2f00;}
+
+.subs{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:14px;}
+.subs span{background:#f1f2ff;color:var(--a);border-radius:20px;padding:4px 12px;font-size:.87rem;font-weight:700;}
+.def{background:#f6f7ff;border-right:4px solid var(--a);border-radius:0 12px 12px 0;padding:14px 16px;font-size:.97rem;line-height:1.7;}
+.ex{background:#fff;border:1.5px solid #eaeaf7;border-radius:14px;padding:13px 16px;margin-bottom:10px;font-size:.97rem;}
+.ex b{color:var(--b);}
+
+.q{margin-bottom:18px;}
+.q .qq{font-weight:800;margin-bottom:9px;}
+.opt{display:block;width:100%;text-align:right;background:#fff;border:2px solid #eaeaf7;border-radius:12px;
+  padding:11px 15px;margin-bottom:8px;font-family:'Assistant',sans-serif;font-size:1rem;cursor:pointer;transition:.15s;}
+.opt:hover{border-color:var(--a);}
+.opt.ok{background:#f2fbf6;border-color:var(--ok);color:#0f7a4d;font-weight:800;}
+.opt.no{background:#fdf2f4;border-color:var(--no);color:#9f1239;}
+.res{display:none;text-align:center;padding:13px;border-radius:12px;font-weight:800;margin-top:6px;}
+
+.gate{display:flex;align-items:center;gap:11px;background:#fff;border:2px solid #eaeaf7;border-radius:14px;padding:11px 15px;margin-bottom:8px;font-weight:700;}
+.gate .d{width:24px;height:24px;border-radius:50%;border:2px solid #d7d7ee;flex:0 0 auto;}
+.gate.ok{border-color:#bdf0d4;background:#f4fdf8;color:#0f7a4d;}
+.gate.ok .d{background:var(--ok);border-color:var(--ok);position:relative;}
+.gate.ok .d::after{content:"✓";color:#fff;font-size:.8rem;position:absolute;inset:0;display:flex;align-items:center;justify-content:center;}
+
+.task{text-align:center;}
+.task .lk{font-size:3rem;}
+.btn{background:linear-gradient(135deg,var(--a),var(--b));color:#fff;border:none;border-radius:34px;
+  padding:13px 32px;font-family:'Secular One',sans-serif;font-size:1.05rem;cursor:pointer;}
+.btn.dis{opacity:.42;filter:grayscale(.5);cursor:default;}
+.fld{width:100%;padding:11px 14px;border:2px solid #eaeaf7;border-radius:12px;font-family:'Assistant',sans-serif;font-size:1rem;margin-bottom:10px;}
+textarea.fld{min-height:110px;resize:vertical;}
+#sent{display:none;padding:14px;border-radius:12px;font-weight:800;margin-top:10px;}
+
+.gatelogin{position:fixed;inset:0;z-index:900;background:linear-gradient(135deg,var(--a),var(--b));display:flex;align-items:center;justify-content:center;padding:20px;}
+.lbox{background:#fff;border-radius:24px;max-width:400px;width:100%;padding:30px 26px;text-align:center;box-shadow:0 20px 50px rgba(0,0,0,.32);}
+.lbox h2{color:var(--a);margin:8px 0 4px;}
+.lbox p{color:var(--soft);margin:0 0 16px;font-size:.94rem;}
+.lbox select,.lbox input{width:100%;padding:11px 13px;border:2px solid #eaeaf7;border-radius:12px;font-family:'Assistant',sans-serif;font-size:1rem;margin-bottom:10px;}
+.lbox button{width:100%;background:linear-gradient(135deg,var(--a),var(--b));color:#fff;border:none;border-radius:30px;padding:12px;font-family:'Secular One',sans-serif;font-size:1.02rem;cursor:pointer;}
+#lerr{display:none;color:#b91c3c;font-weight:700;margin-top:10px;}
+.tbanner{background:#fff;border-radius:16px;padding:14px 18px;margin-bottom:18px;box-shadow:0 8px 22px rgba(42,31,82,.12);display:none;}
+.tbanner .t1{font-family:'Secular One',sans-serif;color:var(--a);margin-bottom:8px;}
+.tbanner .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+.tbanner input{flex:1 1 220px;padding:9px 12px;border:2px solid #eaeaf7;border-radius:10px;direction:ltr;font-size:.82rem;}
+.tbanner button{background:var(--a);color:#fff;border:none;border-radius:20px;padding:8px 16px;font-family:'Secular One',sans-serif;cursor:pointer;}
+@media(max-width:600px){.card{padding:20px;}}
+
+.asg-box{margin-top:10px;padding-top:10px;border-top:1px dashed rgba(255,255,255,.35);
+  display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+.asg-box select{padding:8px 11px;border-radius:9px;border:0;font-family:inherit;font-size:.88rem;min-width:170px;}
+.asg-box button{background:#16a34a;color:#fff;border:0;border-radius:9px;padding:8px 16px;
+  font-family:inherit;font-weight:900;font-size:.88rem;cursor:pointer;}
+.asg-box button:hover{background:#0f7a4d;}
+.asg-box .m{font-size:.85rem;font-weight:800;}
+</style>
+<style>
+.rbz{background:#fff;border-bottom:1px solid #eae5f7;}
+.rbz .in{max-width:1080px;margin:0 auto;padding:9px 18px;display:flex;align-items:center;gap:12px;
+  font-family:'Heebo',system-ui,sans-serif;}
+.rbz a.brand{display:flex;align-items:center;gap:9px;text-decoration:none;color:#1d1a3d;}
+.rbz svg{display:block;flex:0 0 auto;}
+.rbz .nm{font-weight:900;font-size:.86rem;line-height:1.15;letter-spacing:-.01em;}
+.rbz .sg{font-size:.72rem;font-weight:700;color:#7040d8;line-height:1.15;}
+.rbz .by{margin-inline-start:auto;font-size:.74rem;font-weight:700;color:#6a6490;white-space:nowrap;}
+.rbz .by b{color:#1d1a3d;font-weight:900;}
+@media(max-width:560px){.rbz .sg{display:none;} .rbz .by{font-size:.68rem;}}
+</style>
+</head>
+<body>
+<div class="rbz"><div class="in">
+  <a class="brand" href="start.html">
+    <svg width="30" height="30" viewBox="0 0 32 32" role="img" aria-label="לוגו">
+      <circle cx="6"  cy="6"  r="2.7" fill="#dcd6ef"/>
+      <circle cx="16" cy="6"  r="2.7" fill="#7040d8"/>
+      <circle cx="26" cy="6"  r="2.7" fill="#dcd6ef"/>
+      <circle cx="6"  cy="16" r="2.7" fill="#e08519"/>
+      <circle cx="26" cy="16" r="2.7" fill="#e08519"/>
+      <circle cx="6"  cy="26" r="2.7" fill="#dcd6ef"/>
+      <circle cx="16" cy="26" r="2.7" fill="#7040d8"/>
+      <circle cx="26" cy="26" r="2.7" fill="#dcd6ef"/>
+      <circle cx="16" cy="16" r="4.3" fill="#1d1a3d"/>
+    </svg>
+    <span><span class="nm">הכל בכף היד · שיעורים אינטראקטיביים</span><br>
+    <span class="sg">ללמוד לרוחב, לחשוב לעומק</span></span>
+  </a>
+  <span class="by">פותח ע״י <b>רני בן זאב</b></span>
+</div></div>
+
+
+<div class="gatelogin" id="loginGate">
+  <div class="lbox">
+    <div style="font-size:2.6rem;">👩‍🏫</div>
+    <h2>כניסת מורה</h2>
+    <p>בחרו מושג, הזדהו וקבלו קישור לשליחה לתלמידים.</p>
+    <select id="lgConcept"></select>
+    <input id="lgPhone" type="tel" style="direction:ltr" placeholder="טלפון">
+    <input id="lgPass" type="password" placeholder="סיסמה אישית">
+    <input id="lgClass" placeholder="שם הכיתה (למשל י'2)">
+    <button onclick="teacherEnter()">כניסה ויצירת קישור ←</button>
+    <div id="lerr"></div>
+    <p style="font-size:.82rem;color:#9c96bd;margin-top:14px;">תלמידים נכנסים דרך הקישור — בלי הרשמה.</p>
+  </div>
+</div>
+
+<div class="wrap">
+  <a class="back" href="index.html">→ חזרה למערכת</a>
+
+  <div class="tbanner" id="tban">
+    <div class="t1">📤 היי <span id="tbName">מורה</span> — הקישור לכיתה <b id="tbClass">—</b>:</div>
+    <div class="row"><input id="tbUrl" readonly><button onclick="copyTb()">📋 העתק</button><span id="tbOk" style="display:none;color:#0f7a4d;font-weight:800;">הועתק ✓</span></div>
+    <div class="asg-box" id="asgBox" style="display:none;"><span style="font-weight:800;font-size:.88rem;">🎯 העברה לכיתה:</span><select id="asgClass"></select><button onclick="assignToClass()">העבר לכיתה</button><span class="m" id="asgMsg"></span></div>
+  </div>
+
+  <header class="hero">
+    <div class="kick">זירה 2 · מיני-שיעור למושג</div>
+    <h1 id="cName">—</h1>
+    <p id="cTag">—</p>
+  </header>
+
+  <div class="card">
+    <h2 class="sec">📊 ההתקדמות שלי</h2>
+    <p class="note">המטלה בסוף נפתחת רק אחרי שני השלבים:</p>
+    <div class="gate" id="g1"><span class="d"></span><div>1. להאזין להקראה עד סוף הטקסט</div></div>
+    <div class="gate" id="g2"><span class="d"></span><div>2. לענות נכון על 3 מתוך 4 בבדיקה</div></div>
+  </div>
+
+  <div class="card">
+    <h2 class="sec">📖 מה זה בעצם?</h2>
+    <div class="rc">
+      <button id="pl" onclick="toggleRead()">▶ הַקְרֵא לי</button>
+      <span class="sp">קצב: <b onclick="setSp(330,this)">איטי</b><b class="on" onclick="setSp(240,this)">רגיל</b><b onclick="setSp(165,this)">מהיר</b></span>
+      <span class="pg" id="pg">0%</span>
+    </div>
+    <div class="prose" id="tx"></div>
+  </div>
+
+  <div class="card" id="subsCard" style="display:none;">
+    <h2 class="sec">📑 תתי-הסעיפים של המושג</h2>
+    <div class="subs" id="subs"></div>
+  </div>
+
+  <div class="card">
+    <h2 class="sec">🔑 ההגדרה מהאגרון</h2>
+    <p class="note">זו ההגדרה הרשמית, נטענת ישירות מאגרון המושגים.</p>
+    <div class="def" id="def">טוען…</div>
+  </div>
+
+  <div class="card">
+    <h2 class="sec">💡 דוגמאות</h2>
+    <div id="exs"></div>
+  </div>
+
+  <div class="card">
+    <h2 class="sec">🧠 בדיקה מהירה</h2>
+    <p class="note">ארבע שאלות יישומיות. צריך 3 נכונות כדי לפתוח את המטלה.</p>
+    <div id="qs"></div>
+    <div class="res" id="qres"></div>
+  </div>
+
+  <div class="card task" id="taskCard">
+    <div id="tLocked"><div class="lk">🔒</div><h2 style="color:var(--soft);margin:6px 0;">המטלה נעולה</h2>
+      <p class="note" id="tRem">נשאר: הקראה, בדיקה</p></div>
+    <div id="tOpen" style="display:none;">
+      <div class="lk">🎉</div><h2 style="color:var(--ok);margin:6px 0;">המטלה פתוחה</h2>
+      <p class="note">ענו והגישו — התשובה נשלחת ישירות למורה.</p>
+      <input class="fld" id="sName" placeholder="שם מלא">
+      <div style="text-align:right;font-weight:800;margin-bottom:6px;" id="tQ">—</div>
+      <textarea class="fld" id="sAns" placeholder="כתבו כאן…" oninput="checkUse()"></textarea>
+      <div style="text-align:right;font-size:.9rem;font-weight:800;color:var(--a);margin-bottom:10px;" id="useHint"></div>
+      <button class="btn dis" id="sendBtn" onclick="submitTask()">שליחה למורה ←</button>
+      <div id="sent"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ================= מושגי זירה 2 ================= */
+const CONCEPTS={
+ global:{name:'גלובליזציה',slug:'glvblyztzyh',term:'גלובליזציה',key:'גלובליזציה',
+  tag:'העולם נפתח — אבל לא לכולם באותה מידה',
+  text:'גלובליזציה היא תהליך שבו אנשים, סחורות, הון, מידע ורעיונות עוברים בחופשיות בין מדינות, עד שגבולות מדינת הלאום מאבדים מכוחם. לאמצעי התקשורת — ובראשם הטלוויזיה הבינלאומית והאינטרנט — תפקיד מרכזי בתהליך, משום שהם מעבירים תכנים ללא תלות בטריטוריה. אלא שהתנועה אינה שקולה: כוחות חזקים גוברים על חלשים, ותוצרי תרבות ממדינות עשירות מעצבים את התרבות והזהות במדינות אחרות. הגלובליזציה מעניקה חופש, ובאותה נשימה פוגעת בחופש של החלשים.',
+  ex:['סדרה אמריקאית שנצפית באותו שבוע בעשרות מדינות — <b>תוכן שזורם בלי קשר לגבולות</b>.','מתבגר ישראלי שמכיר טרנד רשת לפני שהוא מגיע לתקשורת המקומית — <b>מידע שנע מהר מהמדינה</b>.'],
+  qs:[
+   {q:'מהו המאפיין המרכזי של תהליכי גלובליזציה?',o:['מעבר חופשי של אנשים, הון ורעיונות בין מדינות','חיזוק הגבולות והריבונות של מדינת הלאום','צמצום מכוון של הקשרים בין תרבויות','העברת סמכויות מהתקשורת אל הממשלה']},
+   {q:'מדוע אומרים שהתנועה בגלובליזציה אינה שקולה?',o:['תרבויות חזקות משפיעות יותר מן החלשות מהן','כל המדינות משפיעות זו על זו במידה זהה','רק מדינות קטנות מייצאות תכנים לעולם','התנועה נעצרת בגבול של כל מדינה']},
+   {q:'מה תפקיד אמצעי התקשורת בתהליך?',o:['הם מעבירים תכנים ללא תלות בטריטוריה לאומית','הם מגבילים את התכנים לגבולות המדינה בלבד','הם מחליפים את מערכת החינוך הממלכתית','אין להם תפקיד של ממש בתהליך']},
+   {q:'כיצד הגלובליזציה משפיעה על מעמד מדינת הלאום?',o:['היא מכרסמת בכוחה ובשליטתה על התכנים','היא מחזקת את שליטתה על גבולותיה','היא מגדילה את הכנסותיה ממיסים','אין לה כל השפעה על מעמדה']}],
+  task:'תארו תוכן שצרכתם השבוע שמקורו מחוץ לישראל. כיצד הוא הגיע אליכם, ומה הוא מלמד על תהליכי גלובליזציה?'},
+
+ local:{name:'לוקליזציה',slug:'lvklyztzyh',term:'לוקליזציה',key:'לוקליזציה',
+  tag:'התנועה ההפוכה — לחזור אל המקומי',
+  text:'לוקליזציה היא המגמה ההפוכה לגלובליזציה: העדפה של תכנים, ערכים ומוצרים מקומיים, וחיזוק מודע של הזהות והתרבות של המקום. היתרון שלה הוא שהמקומיים עצמם מעצבים זהות אותנטית ומקורית, ולא מקבלים אותה מוכנה ממקום אחר. החיסרון הוא הסתגרות: ניתוק משאר העולם והיעדר העשרה ממקורות נוספים. בפועל שתי המגמות מתקיימות יחד, ולעיתים דווקא עוצמת הגלובליזציה היא שמעוררת תגובת נגד לוקאלית.',
+  ex:['דרישה לשדר יותר מוזיקה ישראלית ברדיו — <b>העדפה מודעת של תוצרת מקומית</b>.','סדרה שנכתבת עבור הקהל הישראלי בלבד — <b>עיצוב זהות בידי המקומיים</b>.'],
+  qs:[
+   {q:'מהי לוקליזציה?',o:['העדפה וחיזוק של תכנים וזהות מקומיים','אימוץ מלא של תכנים מיובאים מחו״ל','מכירת תכנים מקומיים לשווקים גדולים','ביטול ההבדלים בין תרבויות שונות']},
+   {q:'מהו היתרון המרכזי שלה?',o:['המקומיים מעצבים זהות אותנטית ומקורית','היא מוזילה את עלות ההפקה של תכנים','היא מגדילה את החשיפה בשווקים זרים','היא מבטלת את הצורך ברגולציה']},
+   {q:'מהו החיסרון המרכזי שלה?',o:['הסתגרות וניתוק מהעשרה של מקורות אחרים','אובדן מוחלט של הזהות המקומית והייחודית','תלות גוברת בתאגידי תקשורת זרים וגדולים','היעלמות מוחלטת של התכנים המקומיים']},
+   {q:'מה הקשר בין שתי המגמות?',o:['הן מתקיימות יחד, והגלובלי מעורר תגובה לוקאלית','הן אינן יכולות להתקיים זו לצד זו באותה חברה','הלוקליזציה תמיד קודמת בזמן לגלובליזציה','אין ביניהן קשר של ממש בשום מקרה']}],
+  task:'תנו דוגמה לתוכן ישראלי מובהק שאתם צורכים. מה הוא מוסיף לכם שתוכן מיובא אינו נותן?'},
+
+ glocal:{name:'גלוקליזציה',slug:'glvklyztzyh',term:'גלוקליזציה',key:'גלוקליזציה',
+  tag:'פורמט מהעולם, טעם מהבית',
+  text:'גלוקליזציה היא שילוב בין הגלובלי למקומי: תוכן או פורמט שנולד במקום אחד עובר התאמה לתרבות שקולטת אותו. כך נשמר המבנה הבינלאומי, אבל השמות, הדמויות, השפה והמתחים החברתיים הם מקומיים. השאלה החשובה היא שאלת המינון: האם המקומי מעניק גוון משלו לגלובלי, או שהגלובלי הוא זה שמעצב מחדש את המקומי ומשאיר לו רק קישוט חיצוני. התשובה משתנה ממקרה למקרה, ולכן זהו מושג שדורש בדיקה ולא הכללה.',
+  ex:['פורמט ריאליטי בינלאומי בגרסה ישראלית שמדגישה מתחים מקומיים — <b>מבנה גלובלי בתוכן לוקאלי</b>.','רשת מזון עולמית שמוסיפה מנה מקומית לתפריט — <b>התאמה של הגלובלי לטעם המקום</b>.'],
+  qs:[
+   {q:'מהי גלוקליזציה?',o:['התאמה מקומית של תוכן או פורמט גלובלי','דחייה מוחלטת של כל תוכן מיובא','ייצוא תכנים מקומיים ללא כל שינוי','העתקה מדויקת של הפורמט המקורי']},
+   {q:'מהי שאלת המינון במושג הזה?',o:['האם המקומי צובע את הגלובלי או להפך','כמה פרקים יופקו בכל עונה של התוכנית','כמה כסף עולה רכישת הזכויות לפורמט','באיזו שעה ישודר התוכן בערוץ']},
+   {q:'מה נשמר בדרך כלל בגרסה המקומית?',o:['המבנה והפורמט הבינלאומי של התוכנית','השפה והשמות של הגרסה המקורית','הדמויות והשחקנים מהמדינה המייצאת','המתחים החברתיים של מדינת המקור']},
+   {q:'מדוע המושג דורש בדיקה בכל מקרה לגופו?',o:['מאזן הכוחות בין הגלובלי למקומי משתנה','הפורמטים זהים לחלוטין בכל המדינות','מדובר במושג שאין לו ביטוי במציאות','הבדיקה נוגעת רק לתחום הכלכלי']}],
+  task:'בחרו תוכנית ישראלית המבוססת על פורמט בינלאומי. מה בה מקומי באמת, ומה נשאר גלובלי?'},
+
+ imperial:{name:'אימפריאליזם תרבותי',slug:'aympryalyzm-trbvty',term:'אימפריאליזם תרבותי',key:'אימפריאליזם',
+  tag:'כיבוש בלי צבא — בכלים של תרבות',
+  text:'המושג נשען על האימפריאליזם ההיסטורי, שבו מעצמות אירופה כבשו מדינות כדי להשיג שווקים ומשאבים. אימפריאליזם תרבותי מתאר מצב דומה, אך הכלים בו הם כלים של תרבות: מדינה חזקה מפיצה את תוצריה התרבותיים ברחבי העולם, ובכך מעצבת זהות ותרבות במקומות רחוקים כך שיידמו לשלה. התוצאה היא רווח כלכלי לצד השפעה עמוקה. הביקורת המרכזית היא שתרבויות חלשות מאבדות את קולן המקורי ונעשות תלויות בתכנים שמיוצרים במקום אחר.',
+  ex:['סרטי הוליווד השולטים בבתי הקולנוע במדינות רבות — <b>השתלטות תרבותית בלי כוח צבאי</b>.','ילדים ברחבי העולם המכירים דמויות זרות יותר מדמויות מקומיות — <b>עיצוב זהות מרחוק</b>.'],
+  qs:[
+   {q:'מהו אימפריאליזם תרבותי?',o:['השתלטות תרבותית של מדינה חזקה על חלשות ממנה','כיבוש צבאי של שטח לצורך השגת משאבים','שיתוף פעולה שוויוני בין תרבויות שונות','הגנה משפטית על יצירות תרבות מקומיות']},
+   {q:'מהם הכלים שבהם הוא פועל?',o:['תוצרי תרבות כמו קולנוע, מוזיקה וטלוויזיה','כוח צבאי והשתלטות על שטחי קרקע','הסכמים בין ממשלות על גבולות מדיניים','הגבלות מכס על סחורות מיובאות']},
+   {q:'מהי הביקורת המרכזית על התופעה?',o:['תרבויות חלשות מאבדות את קולן ונעשות תלויות','התכנים המיובאים יקרים מדי עבור הצרכן הפשוט','אין די תכנים זמינים לקהל הרחב במדינה','הצפייה בהם דורשת ידע מוקדם רב מדי']},
+   {q:'מה מרוויחה המדינה המפיצה?',o:['רווח כלכלי לצד השפעה תרבותית עמוקה','שליטה ישירה במערכת החינוך במדינה הקולטת','הכרה משפטית בגבולותיה מצד מדינות אחרות','ירידה בעלויות ההפקה של תכניה']}],
+  task:'תנו דוגמה לתוכן זר שהשפיע על הטעם או על ההרגלים שלכם. מה בדיוק הוא שינה?'},
+
+ american:{name:'אמריקניזציה',slug:'amryknyztzyh',term:'אמריקניזציה',key:'אמריקניזציה',
+  tag:'כשמודל אחד הופך לברירת המחדל של כולם',
+  text:'אמריקניזציה היא מקרה מובהק של אימפריאליזם תרבותי: הדומיננטיות של ארצות הברית בייצור תרבות הביאה לכך שערכיה ומוצריה זוכים לבולטות ומשמשים מודל לחיקוי. מדובר בערכים כמו אינדיבידואליות ומודל השוק החופשי, במוצרי צריכה מזוהים ובמעמדה של השפה האנגלית. תאגידי התקשורת הענקיים חיפשו שווקים חדשים והקימו שלוחות במדינות אחרות, וכך התכנים האמריקאיים הפכו לתשתית שעליה נבנה הטעם המקומי. הקהל אינו רק מכיר אותם — הוא מעצב לפיהם את ציפיותיו.',
+  ex:['אימוץ פורמטים אמריקאיים בעברית — <b>המודל האמריקאי כברירת מחדל של הפקה</b>.','שימוש שגור באנגלית בשיח היומיומי — <b>סימן מובהק לאמריקניזציה</b>.'],
+  qs:[
+   {q:'מהי אמריקניזציה?',o:['הפיכת ערכים ומוצרים אמריקאיים למודל לחיקוי','העברת אזרחות אמריקאית לתושבי מדינות אחרות','ייצוא תכנים ישראליים לשוק האמריקאי','הגבלת שידורם של תכנים אמריקאיים']},
+   {q:'איזה ערך נחשב מזוהה עם התהליך?',o:['אינדיבידואליות ומודל השוק החופשי','העדפת הקהילה על פני היחיד','הגבלת התחרות הכלכלית החופשית','חיזוק הריבונות של מדינת הלאום']},
+   {q:'מה תרם להתפשטות התהליך?',o:['תאגידי תקשורת שהקימו שלוחות במדינות רבות','ירידה בהיקף ייצור התכנים בארצות הברית','חוקים שאסרו על ייבוא תכנים לישראל','היעדר ביקוש לתכנים זרים בעולם']},
+   {q:'כיצד התהליך משפיע על הקהל המקומי?',o:['הוא מעצב את טעמו ואת ציפיותיו מן התוכן','הוא מונע ממנו לצרוך תכנים מקומיים','הוא מחייב אותו לצפות בשפה האנגלית','אין לו השפעה על הרגלי הצפייה']}],
+  task:'זהו שלושה סימנים של אמריקניזציה בסביבה היומיומית שלכם. מה הם מלמדים על מה שנחשב "רגיל"?'},
+
+ determin:{name:'דטרמיניזם טכנולוגי',slug:'dtrmynyzm-tknvlvgy',term:'דטרמיניזם טכנולוגי',key:'דטרמיניזם',
+  tag:'"המדיום הוא המסר" — הכלי חשוב מהתוכן',
+  text:'דטרמיניזם טכנולוגי היא הגישה שלפיה הטכנולוגיה התקשורתית היא הגורם המרכזי שקובע את פני החברה. מרשל מקלוהן ניסח זאת בסלוגן "המדיום הוא המסר": לא התוכן העובר בערוץ הוא המשמעותי, אלא הערוץ עצמו. חברה שמתקשרת במדיום אחד תפתח חיים חברתיים, פוליטיים וכלכליים שונים מחברה שמתקשרת במדיום אחר. הגישה עוזרת להסביר שינויים גדולים, אך גם נמתחת עליה ביקורת: היא עלולה להתעלם מן האדם ומן החברה כמעצבים פעילים של הטכנולוגיה.',
+  ex:['המעבר מדפוס לשידור אלקטרוני ששינה את אופן ההתארגנות החברתית — <b>המדיום מעצב את החברה</b>.','הסמארטפון ששינה מתי, איפה ואיך צורכים תוכן — <b>הכלי משנה את ההרגלים</b>.'],
+  qs:[
+   {q:'מהי טענת הדטרמיניזם הטכנולוגי?',o:['הטכנולוגיה התקשורתית קובעת את פני החברה','החברה קובעת לחלוטין את התפתחות הטכנולוגיה','התוכן חשוב הרבה יותר מן הערוץ שבו עובר','לטכנולוגיה אין השפעה על חיי היומיום']},
+   {q:'מה משמעות הסלוגן "המדיום הוא המסר"?',o:['הערוץ עצמו משמעותי יותר מן התוכן שעובר בו','המסר הוא החלק היחיד שראוי לבחון בתהליך','המדיום והמסר הם למעשה בדיוק אותו דבר','המסר הוא שקובע איזה מדיום ייבחר בסוף']},
+   {q:'מי ניסח את הסלוגן?',o:['מרשל מקלוהן','הרולד לאסוול','ג׳ון פיסק','סטיוארט הול']},
+   {q:'מהי הביקורת המרכזית על הגישה?',o:['היא מתעלמת מן האדם והחברה כמעצבים פעילים','היא מייחסת חשיבות רבה מדי לתוכן המשודר','היא אינה מסוגלת להסביר שינויים היסטוריים','היא עוסקת רק בטכנולוגיות של ימינו']}],
+  task:'בחרו מכשיר או פלטפורמה שנכנסו לחייכם בשנים האחרונות. מה הם שינו מעבר לתוכן שהם מעבירים?'},
+
+ hybrid:{name:'זהות היברידית',slug:'zhvt-hybrydyt',term:'זהות היברידית',key:'היברידית',
+  tag:'לא זה ולא זה — אלא משהו שלישי',
+  text:'היברידי הוא דבר המורכב מיסודות שונים זה מזה. זהות היברידית נוצרת כשמרכיבי זהות ממקורות שונים מתחברים ויוצרים זהות חדשה, שאינה זהה לאף אחת מן הזהויות שמרכיבות אותה. צריכה של תקשורת גלובלית מאיצה תהליך כזה: מתגבשת שפה שמערבת עברית ואנגלית, מצוינים מועדים משתי תרבויות, ומאומצים דפוסי לבוש וערכים משני העולמות. חשוב להבין שהזהות אינה נתונה וקבועה — היא דינמית, מורכבת משכבות רבות ומשתנה לאורך החיים, ובגיל הנעורים היא בשלב מכריע של גיבוש.',
+  subs:['זהות כתהליך דינמי','שכבות זהות','חִברות דרך תקשורת גלובלית'],
+  ex:['שיח יומיומי שמשלב עברית ואנגלית באופן טבעי — <b>זהות לשונית מעורבת</b>.','ציון מועדים ישראליים ואמריקאיים באותה שנה — <b>שתי תרבויות בזהות אחת</b>.'],
+  qs:[
+   {q:'מהי זהות היברידית?',o:['זהות חדשה שנוצרת מחיבור מרכיבים ממקורות שונים','זהות שנשארת זהה לחלוטין לאורך כל חיי האדם','זהות שמורכבת ממקור תרבותי יחיד ובלעדי','זהות שנקבעת אך ורק על פי מקום הלידה']},
+   {q:'מה מאפיין את הזהות לפי הזירה?',o:['היא דינמית, רב-שכבתית ומשתנה עם הזמן','היא נקבעת בלידה ואינה משתנה לעולם','היא מורכבת משכבה אחת ברורה ויציבה','היא תלויה אך ורק בהחלטה מודעת']},
+   {q:'כיצד תקשורת גלובלית משפיעה על גיבוש הזהות?',o:['היא מכניסה מרכיבים תרבותיים ממקורות נוספים','היא מונעת כל אפשרות לחשיפה לתרבויות אחרות','היא מבטלת לחלוטין את הזהות הלאומית','אין לה כל השפעה על תהליכי גיבוש זהות']},
+   {q:'מדוע גיל הנעורים מודגש בהקשר זה?',o:['זהו שלב מכריע בגיבוש הזהות של האדם','בגיל זה הזהות כבר נקבעה באופן סופי','בגיל זה אין חשיפה לתקשורת גלובלית','הגיל אינו רלוונטי לתהליכי גיבוש זהות']}],
+  task:'זהו שני מרכיבים בזהות שלכם שמגיעים ממקורות תרבותיים שונים. כיצד הם חיים יחד?'},
+
+ village:{name:'כפר גלובלי',slug:'kpr-glvbly',term:'כפר גלובלי',key:'כפר',
+  tag:'שני מושגים סותרים שהתחברו למושג אחד',
+  text:'"כפר גלובלי" הוא צירוף של שני מושגים סותרים: כפר הוא מקום קטן ואינטימי שבו כולם מכירים זה את זה, וגלובלי הוא הגדול והלא-מוכר. מרשל מקלוהן טבע את הביטוי בסוף שנות החמישים ביחס לתקשורת האלקטרונית: בעוד תרבות הדפוס עודדה חלוקה לקבוצות נפרדות, הרדיו והטלוויזיה אפשרו לאנשים מגילים ומתרבויות שונות לצרוך את אותם תכנים בעת ובעונה אחת. התרבות הדיגיטלית מקצינה את התהליך — לכל אדם מכשיר נייד עם גישה לכל המידע, בכל מקום ובכל רגע.',
+  ex:['אירוע ספורט בינלאומי שנצפה בו-זמנית בכל היבשות — <b>חוויה משותפת של קהל עולמי</b>.','טרנד ברשת שמגיע לכל מדינה תוך ימים — <b>העולם מתנהג ככפר אחד</b>.'],
+  qs:[
+   {q:'מדוע הצירוף "כפר גלובלי" נחשב סותר?',o:['הכפר קטן ומוכר והגלובלי גדול ולא מוכר','הכפר טכנולוגי והגלובלי מסורתי באופיו','שני החלקים מתייחסים לאותה תופעה בדיוק','הצירוף אינו סותר אלא מתאר מקום ממשי']},
+   {q:'לאיזו טכנולוגיה התייחס מקלוהן במקור?',o:['לתקשורת האלקטרונית כמו רדיו וטלוויזיה','לרשתות החברתיות ולאפליקציות הנייד','לעיתונות הכתובה ולתרבות הדפוס','למכתבים ולשירותי הדואר הבינלאומיים']},
+   {q:'מה ההבדל בין תרבות הדפוס לתקשורת האלקטרונית?',o:['הדפוס עודד חלוקה לקבוצות והאלקטרוני איחד קהלים','הדפוס איחד את הקהלים והאלקטרוני פיצל אותם','שתי הטכנולוגיות פעלו על הקהל באותו אופן','הדפוס היה מהיר בהרבה מהתקשורת האלקטרונית']},
+   {q:'כיצד התרבות הדיגיטלית משפיעה על התופעה?',o:['היא מקצינה אותה באמצעות גישה ניידת ומיידית','היא מחלישה אותה ומחזירה גבולות בין קהלים','היא מבטלת את הצורך במושג הכפר הגלובלי','אין לה השפעה על התהליך שתיאר מקלוהן']}],
+  task:'תארו אירוע שבו הרגשתם חלק מקהל עולמי ולא רק מקומי. מה יצר את התחושה הזו?'},
+
+ center:{name:'מרכז ופריפריה',slug:'tyavryyt-mrkz-vprypryh',term:'מרכז ופריפריה',key:'מרכז',
+  tag:'מי מייצר את התכנים ומי בעיקר צורך אותם',
+  text:'תיאוריית מרכז ופריפריה מתארת את מפת הכוח בזרימת התכנים בעולם. מדינות חזקות ומרכזיות, ובראשן ארצות הברית, מייצרות תכנים ומפיצות אותם אל הפריפריה. הזרימה אינה חד-כיוונית לחלוטין — המרכז אכן שואב מן הפריפריה תכנים ומאפיינים — אך עיקר התנועה היא מן המרכז החוצה, והפריפריה בעיקר צורכת. התוצאה היא תלות: הפריפריה מתרגלת לתכנים של המרכז, ומעצבת לפיהם את הטעם, את סדר היום ואף את התכנים שהיא עצמה מייצרת.',
+  ex:['מדינה קטנה שרוב התכנים בערוציה נרכשו מחו״ל — <b>פריפריה שצורכת מן המרכז</b>.','פורמט שנולד במדינה קטנה ונרכש בידי רשת גדולה — <b>המרכז שואב מן הפריפריה</b>.'],
+  qs:[
+   {q:'מה מתארת תיאוריית מרכז ופריפריה?',o:['את מפת הכוח בזרימת התכנים בין מדינות','את חלוקת השטח הגיאוגרפי בתוך מדינה','את מבנה הבעלות על ערוץ טלוויזיה יחיד','את סדר השידורים בלוח המשדרים']},
+   {q:'מהו הכיוון העיקרי של זרימת התכנים?',o:['מן המרכז אל הפריפריה שצורכת אותם','מן הפריפריה אל המרכז שקולט אותם','זרימה שווה ומאוזנת בין שני הצדדים','אין זרימה של ממש בין המדינות']},
+   {q:'האם המרכז שואב מן הפריפריה?',o:['כן, אך זה חלק קטן מן התנועה הכוללת','לא, הזרימה חד-כיוונית לחלוטין','כן, וזהו עיקר התנועה בין השניים','השאלה אינה נבחנת במסגרת התיאוריה']},
+   {q:'מהי ההשלכה המרכזית של המבנה הזה?',o:['תלות של הפריפריה בתכנים ובטעם של המרכז','חיזוק העצמאות התרבותית של הפריפריה','היעלמות התכנים המיוצרים במרכז','איזון מלא בין התרבויות השונות']}],
+  task:'בדקו את לוח השידורים או את דף הבית של שירות סטרימינג. כמה מן התכנים הבולטים הופקו בישראל?'},
+
+ hegemony:{name:'הגמוניה תרבותית',slug:'hgmvnyh-aydyavlvgythgmvnyh-trbvtyt',term:'הגמוניה אידיאולוגית/הגמוניה תרבותית',key:'הגמוניה',
+  tag:'שליטה שלא מרגישים בה — כי היא נראית טבעית',
+  text:'הגמוניה היא שליטה של קבוצה או תפיסה אחת בחברה, אך לא באמצעות כפייה גלויה אלא באמצעות הסכמה. התפיסה השלטת נעשית מובנת מאליה עד שהיא נראית טבעית ולא נתונה לוויכוח, וכך היא משמרת את מעמדם של החזקים. בזירת הגלובליזציה המושג מסביר מדוע התכנים והערכים המערביים, ובעיקר האמריקאיים, נתפסים כברירת המחדל ולא כבחירה אחת מני רבות. הגישה הביקורתית מבקשת לחשוף בדיוק את זה: להראות שמה שנראה טבעי הוא למעשה תוצאה של יחסי כוח.',
+  ex:['הנחה שסדרה אמריקאית היא "רגילה" וסדרה מאסיה היא "מיוחדת" — <b>ברירת מחדל תרבותית</b>.','אנגלית כשפת ברירת המחדל של האינטרנט — <b>שליטה שנתפסת כמובנת מאליה</b>.'],
+  qs:[
+   {q:'כיצד פועלת הגמוניה?',o:['באמצעות הסכמה שהופכת את התפיסה למובנת מאליה','באמצעות כפייה גלויה וכוח משטרתי ישיר ונראה','באמצעות חקיקה מפורשת בבתי המחוקקים','באמצעות הגבלה כלכלית על צריכת תכנים זרים']},
+   {q:'מה מאפיין תפיסה הגמונית?',o:['היא נראית טבעית ואינה נתונה לוויכוח','היא מוצגת בגלוי כבחירה אחת מני רבות','היא נתונה לביקורת מתמדת בשיח הציבורי','היא משתנה מדי כמה חודשים בהתאם לקהל']},
+   {q:'כיצד המושג מסביר את הגלובליזציה?',o:['הערכים המערביים נתפסים כברירת המחדל','הערכים המערביים נתפסים כזרים וחריגים','כל התרבויות נתפסות כשוות ערך בדיוק','התכנים המקומיים שולטים בשיח העולמי']},
+   {q:'מה מבקשת הגישה הביקורתית לעשות?',o:['לחשוף שמה שנראה טבעי נובע מיחסי כוח','להוכיח שאין כלל יחסי כוח בין תרבויות','לקבוע איזו תרבות ראויה יותר מן האחרות','לתאר את התכנים בלי לשאול שאלות']}],
+  task:'חשבו על משהו בתרבות שנראה לכם "פשוט רגיל". מי הרוויח מכך שהוא נתפס כך?'},
+
+ yitzugim:{name:'ייצוגים',slug:'yytzvg',term:'ייצוג',key:'ייצוג',
+  tag:'התקשורת לא מראה את המציאות — היא בוחרת ממנה',
+  text:'ייצוג הוא האופן שבו התקשורת מציגה קבוצה, מקום או תופעה. הייצוג לעולם אינו שיקוף נאמן של המציאות אלא בחירה: מה ייכנס לפריים, מה יישאר בחוץ, מי ידבר ומי יתואר בידי אחרים. בהקשר של גלובליזציה השאלה חדה במיוחד — כאשר תכנים ממדינה אחת מגיעים לכל העולם, הם גם מייצאים את הייצוגים שלהם, ומעצבים כיצד תרבויות רחוקות נתפסות בעיני הצופים. ייצוג חוזר ונשנה הופך עם הזמן לתמונה שנתפסת כאמת.',
+  ex:['מדינה שמופיעה בסרטים זרים רק בהקשר של סכסוך — <b>ייצוג צר שנעשה לתמונה שלמה</b>.','דמות מקומית שמוצגת דרך מבט של יוצר זר — <b>מי מספר את הסיפור קובע כיצד הוא נראה</b>.'],
+  qs:[
+   {q:'מהו ייצוג בתקשורת?',o:['האופן שבו קבוצה או תופעה מוצגות במסך','שיקוף מדויק ומלא של המציאות כפי שהיא','מספר האנשים שצופים בתוכן מסוים','הבעלות המשפטית על התוכן המשודר']},
+   {q:'מדוע ייצוג אינו שיקוף נאמן?',o:['הוא תמיד תוצאה של בחירה מה להראות','הוא נקבע במקרה ובלי מעורבות של אדם','הוא מבוסס על נתונים סטטיסטיים בלבד','הוא זהה בכל אמצעי התקשורת בעולם']},
+   {q:'מה הקשר בין ייצוג לגלובליזציה?',o:['תכנים שמופצים לעולם מייצאים גם את ייצוגיהם','הגלובליזציה מבטלת לחלוטין את הצורך בייצוגים','ייצוגים נוצרים אך ורק בתקשורת מקומית','אין שום קשר בין שני התחומים הללו']},
+   {q:'מה קורה כשייצוג חוזר על עצמו שוב ושוב?',o:['הוא נתפס בהדרגה כתמונה אמיתית ומלאה','הוא מאבד מכוחו ומפסיק להשפיע','הוא מוחלף אוטומטית בייצוג מדויק יותר','הוא נעלם מן השיח הציבורי לחלוטין']}],
+  task:'בחרו קבוצה או מדינה שאתם מכירים בעיקר מן המסך. איזה ייצוג חוזר אצלכם, ומה הוא משאיר בחוץ?'},
+
+ hbnaya:{name:'הבניית המציאות',slug:'hbnyyh-chbrtyt-shl-hmtzyavt',term:'הבנייה חברתית של המציאות',key:'הבניה',
+  tag:'רוב מה שאנחנו "יודעים" על העולם הגיע מהמסך',
+  text:'הבנייה חברתית של המציאות היא התפיסה שלפיה התמונה שיש לנו על העולם אינה מגיעה מהתנסות ישירה אלא נבנית בעיקר מן התקשורת. את רוב המקומות, האירועים והקבוצות שאנו סבורים שאנו מכירים לא פגשנו מעולם — הכרנו אותם דרך מסך. לכן הבחירות של אמצעי התקשורת אינן טכניות: הן מייצרות את המציאות שבתוכה אנו חושבים. בעידן הגלובלי המשמעות מתחדדת, כי חלק ניכר מן התמונה נבנה בידי גורמים מחוץ למדינה, שהאינטרסים והנקודת מבט שלהם אינם בהכרח שלנו.',
+  ex:['תחושת היכרות עם עיר שמעולם לא ביקרנו בה — <b>מציאות שנבנתה מתוך תכנים</b>.','דעה על אירוע רחוק שהתגבשה מכמה סרטונים — <b>התקשורת כמקור הידע היחיד</b>.'],
+  qs:[
+   {q:'מהי הבנייה חברתית של המציאות?',o:['תמונת העולם שלנו נבנית בעיקר מן התקשורת','תמונת העולם שלנו נבנית מהתנסות ישירה בלבד','זהו תהליך של בניית אולפני שידור חדשים','זוהי שיטה למדידת אמינות של מקורות מידע']},
+   {q:'מדוע הבחירות של התקשורת אינן טכניות בלבד?',o:['הן מייצרות את המציאות שבתוכה אנו חושבים','הן נוגעות רק לאיכות הצילום והעריכה','הן נקבעות באופן אקראי בכל מהדורה','הן משפיעות רק על אורך הכתבה המשודרת']},
+   {q:'מה מחדד את המושג בעידן הגלובלי?',o:['חלק גדול מן התמונה נבנה בידי גורמים מחו״ל','התקשורת המקומית היא המקור היחיד למידע','ההתנסות הישירה החליפה את התקשורת','המושג אינו רלוונטי לתקופה הנוכחית']},
+   {q:'מה נובע מכך לגבי צריכת תכנים?',o:['כדאי לשאול מי בנה את התמונה ומה האינטרס שלו','אפשר להסתמך על כל מקור מידע באופן זהה','עדיף להימנע לחלוטין מכל צריכת תקשורת','אין שום דרך להעריך את מקור התכנים']}],
+  task:'בחרו מקום או נושא שאתם מכירים רק מן המסך. מי בנה עבורכם את התמונה, ומה ייתכן שחסר בה?'}
+};
+
+
+/* ================= אתחול ================= */
+const P=new URLSearchParams(location.search);
+const KEY=P.get('c')||'', CODE=P.get('code')||'', CLS=P.get('class')||'';
+const C=CONCEPTS[KEY]||CONCEPTS.global;
+const TOPIC='zira2_mushag_'+(CONCEPTS[KEY]?KEY:'global');
+
+const SUP="https://eubgzfkkovxgijhrmnif.supabase.co",
+      SKEY="sb_publishable_vJ768fOwYWiDWeYsBBR45g_4NM4s55p",
+      AGRON="https://ranibz.github.io/hakol/agron/index.html";
+let db=null;
+try{ firebase.initializeApp({apiKey:"AIzaSyCCHvn_ulmiyM56DuslNzNC0Ge6a8i2vhY",authDomain:"tests-fd938.firebaseapp.com",
+  databaseURL:"https://tests-fd938-default-rtdb.europe-west1.firebasedatabase.app",projectId:"tests-fd938"});
+  db=firebase.database(); }catch(e){}
+
+document.title='מיני-שיעור · '+C.name;
+document.getElementById('cName').textContent=C.name;
+document.getElementById('cTag').textContent=C.tag;
+document.getElementById('tQ').textContent=C.task;
+document.getElementById('exs').innerHTML=C.ex.map(e=>`<div class="ex">${e}</div>`).join('');
+if(C.subs){document.getElementById('subsCard').style.display='block';
+ document.getElementById('subs').innerHTML=C.subs.map(s=>`<span>• ${s}</span>`).join('');}
+document.getElementById('useHint').innerHTML=`💡 חובה להשתמש במילה "<b>${C.key}</b>" בתשובה, ולכתוב לפחות 40 תווים`;
+
+(async()=>{
+  const box=document.getElementById('def');
+  const col=C.slug?'slug':'term', val=C.slug||C.term;
+  try{
+    const r=await fetch(SUP+'/rest/v1/concepts?select=definition_html&limit=1&'+col+'=eq.'+encodeURIComponent(val),{headers:{apikey:SKEY}});
+    const d=await r.json();
+    box.innerHTML=(d[0]&&d[0].definition_html)?d[0].definition_html:
+      `<p>הפירוש המלא זמין באגרון.</p><p><a href="${AGRON}" target="_blank" style="color:var(--a);font-weight:800;">פתחו את האגרון ←</a></p>`;
+  }catch(e){ box.innerHTML=`<a href="${AGRON}" target="_blank" style="color:var(--a);font-weight:800;">פתחו את האגרון ←</a>`; }
+})();
+
+/* ================= הקראה ================= */
+let words=[],ri=0,rt=null,rp=false,rsp=240,readDone=false;
+document.getElementById('tx').innerHTML=C.text.split(' ').map((w,i)=>`<span class="w" id="w${i}">${w}</span>`).join(' ');
+words=[...document.querySelectorAll('#tx .w')];
+function setSp(ms,el){rsp=ms;document.querySelectorAll('.rc .sp b').forEach(b=>b.classList.remove('on'));el.classList.add('on');}
+function toggleRead(){rp?pauseR():playR();}
+function playR(){ if(ri>=words.length){words.forEach(w=>w.classList.remove('hi'));ri=0;} rp=true;document.getElementById('pl').textContent='⏸ השהיה';stepR();}
+function pauseR(){rp=false;clearTimeout(rt);document.getElementById('pl').textContent='▶ הַקְרֵא לי';}
+function stepR(){
+  if(!rp)return;
+  if(ri>=words.length){ rp=false; words[words.length-1].classList.remove('hi');
+    document.getElementById('pl').textContent='✓ ההקראה הושלמה'; readDone=true; upd(); return; }
+  if(ri>0)words[ri-1].classList.remove('hi');
+  words[ri].classList.add('hi'); words[ri].scrollIntoView({block:'nearest'});
+  document.getElementById('pg').textContent=Math.round((ri+1)/words.length*100)+'%';
+  const L=words[ri].textContent.length; ri++; rt=setTimeout(stepR,rsp*(L>7?1.35:1));
+}
+
+/* ================= בדיקה ================= */
+function shuf(it){const a=it.o.map((o,i)=>({o,ok:i===0}));for(let i=a.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[a[i],a[j]]=[a[j],a[i]];}
+  return{q:it.q,o:a.map(x=>x.o),c:a.findIndex(x=>x.ok)};}
+
+/* ===== חוזה מעקב אחיד (v1) ===== */
+const TRACK={items:[],stages:[]};
+function trackMeta(){
+  const t=String(TOPIC||'');
+  const type=t.indexOf('masa')===0?'masa':(t.indexOf('_mushag_')>-1?'mushag':'summary');
+  const zone=(t.match(/^zira([0-9]+|al)/)||[])[1]||'';
+  return {schema:1,type:type,topic:t,zone:zone,
+          concept:(typeof KEY!=='undefined'?KEY:''),page:location.pathname.split('/').pop()};
+}
+
+const QS=C.qs.map(shuf); let qScore=0,qDone=0,qPass=false;
+document.getElementById('qs').innerHTML=QS.map((it,i)=>
+  `<div class="q" id="q${i}"><div class="qq">${i+1}. ${it.q}</div>`+
+  it.o.map((o,k)=>`<button class="opt" onclick="pick(${i},${k},this)">${o}</button>`).join('')+`</div>`).join('');
+function pick(i,k,btn){
+  const p=btn.parentNode; if(p.dataset.d)return; p.dataset.d='1';
+  p.querySelectorAll('.opt').forEach(b=>b.disabled=true);
+  const ok=k===QS[i].c; if(ok)qScore++;
+  TRACK.items.push({q:QS[i].q,ok:ok,tries:1});
+  btn.classList.add(ok?'ok':'no');
+  if(!ok)p.querySelectorAll('.opt')[QS[i].c].classList.add('ok');
+  qDone++;
+  if(qDone===QS.length){
+    const r=document.getElementById('qres'); r.style.display='block';
+    qPass=qScore>=3;
+    r.style.background=qPass?'#f2fbf6':'#fdf2f4'; r.style.color=qPass?'#0f7a4d':'#9f1239';
+    r.textContent=qPass?`מצוין! ${qScore}/4 — עברתם 🎉`:`${qScore}/4. חזרו לטקסט ולהגדרה ונסו שוב.`;
+    if(!qPass)setTimeout(resetQ,2600);
+    upd();
+  }
+}
+function resetQ(){ qScore=0;qDone=0;qPass=false;document.getElementById('qres').style.display='none';
+  document.querySelectorAll('#qs .q').forEach(d=>{delete d.dataset.d;
+    d.querySelectorAll('.opt').forEach(b=>{b.disabled=false;b.classList.remove('ok','no');});}); upd(); }
+
+/* ================= שערים ================= */
+function upd(){
+  document.getElementById('g1').classList.toggle('ok',readDone);
+  document.getElementById('g2').classList.toggle('ok',qPass);
+  const all=readDone&&qPass;
+  document.getElementById('tLocked').style.display=all?'none':'block';
+  document.getElementById('tOpen').style.display=all?'block':'none';
+  if(!all){const r=[];if(!readDone)r.push('הקראה');if(!qPass)r.push('בדיקה');
+    document.getElementById('tRem').textContent='נשאר: '+r.join(', ');}
+}
+upd();
+
+/* ================= מטלה ================= */
+function checkUse(){
+  const t=document.getElementById('sAns').value;
+  const ok=t.includes(C.key)&&t.trim().length>=40;
+  document.getElementById('sendBtn').classList.toggle('dis',!ok);
+  document.getElementById('useHint').innerHTML=ok?'✅ מצוין — המושג מופיע בתשובה':
+    `💡 חובה להשתמש במילה "<b>${C.key}</b>" בתשובה, ולכתוב לפחות 40 תווים`;
+}
+
+/* ===== שליחה ל-Supabase ===== */
+async function sbSend(row){
+  const r=await fetch(SUP+'/rest/v1/lms_submissions',{method:'POST',
+    headers:{apikey:SKEY,Authorization:'Bearer '+SKEY,'Content-Type':'application/json'},
+    body:JSON.stringify([row])});
+  if(!r.ok)throw new Error(r.status+' '+(await r.text()).slice(0,180));
+  return true;
+}
+/* קוד הכיתה הוא מזהה המורה — התאמה ללא תלות באותיות גדולות/קטנות */
+async function sbTeacher(code){
+  if(!code)return '';
+  try{
+    const r=await fetch(SUP+'/rest/v1/lms_teachers?select=id&id=ilike.'+encodeURIComponent(code),
+      {headers:{apikey:SKEY,Authorization:'Bearer '+SKEY}});
+    const j=await r.json();
+    return (j&&j[0]&&j[0].id)||code;
+  }catch(e){ return code; }
+}
+function sbRow(o){
+  const m=o.meta||{};
+  return {teacher_id:o.tid||null,student_name:o.name,class_name:o.cls||null,class_code:o.code||null,
+    topic:o.topic,lesson_type:m.type||null,zone:m.zone||null,concept:m.concept||null,page:m.page||null,
+    score_auto:(o.score&&typeof o.score.auto==='number')?o.score.auto:null,
+    score_max:(o.score&&typeof o.score.autoMax==='number')?o.score.autoMax:null,
+    skipped:!!m.skipped,stages:o.stages||[],items:o.items||[],answers:o.answers||{},
+    submitted_at:new Date().toISOString()};
+}
+
+function submitTask(){
+  if(document.getElementById('sendBtn').classList.contains('dis'))return;
+  const name=document.getElementById('sName').value.trim();
+  const ans=document.getElementById('sAns').value.trim();
+  if(!name){alert('נא למלא שם מלא.');return;}
+  const s=document.getElementById('sent'); s.style.display='block';
+  if(!db){s.style.background='#fdf2f4';s.style.color='#9f1239';s.textContent='אין חיבור לשרת.';return;}
+  s.style.background='#fffaeb';s.style.color='#b45309';s.textContent='שולח…';
+  const code=(CODE||'').toLowerCase();
+  sbTeacher(code).then(tid=>sbSend(sbRow({
+      tid:tid,name:name,cls:CLS,code:code,topic:TOPIC,meta:trackMeta(),
+      score:{auto:qScore,autoMax:QS.length},
+      stages:[{name:'הקראה',done:!!readDone}].concat(TRACK.stages),items:TRACK.items,
+      answers:{'מושג':C.name,'שאלת המטלה':C.task,'תשובת התלמיד':ans,
+        'הקראה':readDone?'הושלמה':'לא הושלמה','בדיקת הבנה':qScore+'/4'}})))
+   .then(()=>{s.style.background='#f2fbf6';s.style.color='#0f7a4d';s.textContent='✅ נשלח למורה בהצלחה!';
+     ['sName','sAns','sendBtn'].forEach(i=>document.getElementById(i).disabled=true);})
+   .catch(e=>{s.style.background='#fdf2f4';s.style.color='#9f1239';s.textContent='שגיאה: '+(e.message||e);});
+}
+
+/* ================= כניסת מורה ================= */
+document.getElementById('lgConcept').innerHTML=Object.entries(CONCEPTS)
+  .map(([k,v])=>`<option value="${k}"${k===KEY?' selected':''}>${v.name}</option>`).join('');
+function grant(){document.getElementById('loginGate').style.display='none';}
+
+function tPhoneNorm(s){
+  let p=String(s||'').replace(/\D/g,'');
+  p=p.replace(/^00+/,''); if(p.indexOf('972')===0)p=p.slice(3);
+  p=p.replace(/^0+/,''); return p?('0'+p):'';
+}
+
+function teacherEnter(){
+  const ph=document.getElementById('lgPhone').value.trim(),
+        pw=document.getElementById('lgPass').value.trim(),
+        kl=document.getElementById('lgClass').value.trim(),
+        cn=document.getElementById('lgConcept').value,
+        er=document.getElementById('lerr');
+  er.style.display='none';
+  if(!ph||!pw){er.textContent='נא למלא טלפון וסיסמה.';er.style.display='block';return;}
+  if(!kl){er.textContent='נא למלא שם כיתה.';er.style.display='block';return;}
+  
+  er.textContent='מתחבר…';er.style.display='block';
+  fetch(SUP+'/rest/v1/lms_teachers?select=id,name,password,status&phone=eq.'+encodeURIComponent(tPhoneNorm(ph)),{headers:{apikey:SKEY,Authorization:'Bearer '+SKEY}})
+   .then(r=>r.json()).then(rows=>{
+    const t=(rows||[]).find(x=>x.password===pw&&x.status==='approved');
+    let fk='',nm='';
+    if(t){fk=t.id;nm=(t.name||'').trim();}
+    if(!fk){er.textContent='טלפון/סיסמה שגויים או שאינך מאושר.';er.style.display='block';return;}
+    const code=fk;
+      window.__TID__=fk; setTimeout(loadAsgClasses,60);
+    const url=location.href.split('?')[0]+'?c='+encodeURIComponent(cn)+'&code='+encodeURIComponent(code)+'&class='+encodeURIComponent(kl);
+    document.getElementById('tbUrl').value=url;
+    document.getElementById('tbName').textContent=nm||'מורה';
+    document.getElementById('tbClass').textContent=kl;
+    document.getElementById('tban').style.display='block';
+    grant();
+    if(cn!==KEY) location.href=url.replace(/&code=[^&]*&class=[^&]*/,'')+'&preview=1';
+  }).catch(e=>{er.textContent='שגיאה: '+(e.message||e);er.style.display='block';});
+}
+function copyTb(){const u=document.getElementById('tbUrl');u.select();
+  navigator.clipboard.writeText(u.value).then(()=>{const o=document.getElementById('tbOk');
+    o.style.display='inline';setTimeout(()=>o.style.display='none',2000);});}
+if(CODE||P.get('preview'))grant();
+
+/* ===== בחירת שם מרשימת הכיתה ===== */
+(async function rosterPicker(){
+  try{
+    const _code=(typeof CLASSCODE!=='undefined'?CLASSCODE:(typeof CODE!=='undefined'?CODE:''))||'';
+    const _cls=(typeof CLASSNAME!=='undefined'?CLASSNAME:(typeof CLS!=='undefined'?CLS:''))||'';
+    if(!_code||!_cls)return;
+    const r=await fetch(SUP+'/rest/v1/lms_classes?select=students&teacher_id=ilike.'+
+      encodeURIComponent(_code)+'&name=eq.'+encodeURIComponent(_cls),
+      {headers:{apikey:SKEY,Authorization:'Bearer '+SKEY}});
+    const j=await r.json();
+    const list=(((j&&j[0])||{}).students||[]).map(s=>String(s||'').replace(/\s+/g,' ').trim()).filter(Boolean);
+    if(!list.length)return;
+    const el=document.getElementById('sName'); if(!el||el.tagName==='SELECT')return;
+    const sel=document.createElement('select');
+    sel.id='sName'; sel.className=el.className;
+    sel.style.cssText=el.style.cssText;
+    sel.innerHTML='<option value="">— בחרו את שמכם מרשימת הכיתה —</option>'+
+      list.map(n=>'<option>'+n.replace(/</g,'&lt;')+'</option>').join('');
+    const KEYLS='me_'+_code+'_'+_cls;
+    const saved=localStorage.getItem(KEYLS);
+    if(saved&&list.indexOf(saved)>-1)sel.value=saved;
+    sel.addEventListener('change',()=>{ if(sel.value)localStorage.setItem(KEYLS,sel.value);
+      if(typeof checkUse==='function')checkUse(); });
+    el.parentNode.replaceChild(sel,el);
+  }catch(e){}
+})();
+
+
+/* ===== רשימת הכיתות של המורה בכניסה מהשיעור ===== */
+(function classPicker(){
+  const ph=document.getElementById('lgPhone'), cl=document.getElementById('lgClass');
+  if(!ph||!cl)return;
+  let loadedFor='';
+  async function fill(){
+    const p=tPhoneNorm(ph.value);
+    if(!p||p===loadedFor)return;
+    loadedFor=p;
+    try{
+      const tr=await fetch(SUP+'/rest/v1/lms_teachers?select=id&phone=eq.'+encodeURIComponent(p),
+        {headers:{apikey:SKEY,Authorization:'Bearer '+SKEY}});
+      const tj=await tr.json();
+      if(!tj||!tj[0])return;
+      const cr=await fetch(SUP+'/rest/v1/lms_classes?select=name&teacher_id=eq.'+
+        encodeURIComponent(tj[0].id)+'&order=name.asc',
+        {headers:{apikey:SKEY,Authorization:'Bearer '+SKEY}});
+      const list=(await cr.json()||[]).map(x=>x.name).filter(Boolean);
+      if(!list.length)return;
+      const cur=document.getElementById('lgClass');
+      if(!cur||cur.tagName==='SELECT')return;
+      const sel=document.createElement('select');
+      sel.id='lgClass'; sel.className=cur.className; sel.style.cssText=cur.style.cssText;
+      sel.innerHTML='<option value="">— בחרו כיתה —</option>'+
+        list.map(n=>'<option>'+String(n).replace(/</g,'&lt;')+'</option>').join('')+
+        '<option value="__free">כיתה אחרת — הקלדה חופשית</option>';
+      sel.addEventListener('change',function(){
+        if(sel.value!=='__free')return;
+        const inp=document.createElement('input');
+        inp.id='lgClass'; inp.className=cur.className; inp.placeholder="שם הכיתה (למשל י'3)";
+        sel.parentNode.replaceChild(inp,sel); inp.focus();
+      });
+      cur.parentNode.replaceChild(sel,cur);
+    }catch(e){}
+  }
+  ph.addEventListener('blur',fill);
+  ph.addEventListener('change',fill);
+})();
+
+</script>
+</body>
+</html>
