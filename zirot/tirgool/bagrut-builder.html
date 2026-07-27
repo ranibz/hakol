@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- zirot/tirgool/bagrut-builder.html · v1.1.0 · 2026-07-27 · תיקון: hakolbakaf מוגש מ-GitHub Pages ואין בו פונקציות שרת — קריאת ה-AI הופנתה לכתובת המלאה של אתר ה-Netlify מאותו ריפו (PATCH) · בונה מבחנים במבנה בגרות: המורה בוחר זירות ומושגים, והמנוע מייצר 14 שאלות בשלושה פרקים עם פריסת ניקוד חוקית (23/23 בפרק א׳ עם דילמה של 11, 12 בפרק ב׳, 6 בפרק ג׳) ומחוון מלא לכל סעיף. קטע הגירוי לכל שאלה — הדבקת קטע אמיתי או הפקת קטע תרגול ב-AI. שמירה ל-bagrut_exams (MAJOR) -->
+<!-- zirot/tirgool/bagrut-builder.html · v1.2.0 · בדיקת זמינות ה-AI מדווחת עכשיו את סיבת הכישלון המדויקת (404 מול CORS מול שגיאת שרת) בלחיצה על התגית · 2026-07-27 · תיקון: hakolbakaf מוגש מ-GitHub Pages ואין בו פונקציות שרת — קריאת ה-AI הופנתה לכתובת המלאה של אתר ה-Netlify מאותו ריפו (PATCH) · בונה מבחנים במבנה בגרות: המורה בוחר זירות ומושגים, והמנוע מייצר 14 שאלות בשלושה פרקים עם פריסת ניקוד חוקית (23/23 בפרק א׳ עם דילמה של 11, 12 בפרק ב׳, 6 בפרק ג׳) ומחוון מלא לכל סעיף. קטע הגירוי לכל שאלה — הדבקת קטע אמיתי או הפקת קטע תרגול ב-AI. שמירה ל-bagrut_exams (MAJOR) -->
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
@@ -276,15 +276,31 @@ async function doLogin(){
   }catch(err){e.innerHTML='<div class="err">שגיאה: '+esc(err.message)+'</div>';}
 }
 /* בדיקה חד־פעמית אם פונקציית ה-AI חיה באתר הזה */
+let AIWHY='';
 async function checkAI(){
-  try{const r=await fetch(FN,{method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({action:'ping'})});
-      AIOK=r.status!==404;}catch(e){AIOK=false;}
-  const b=el('aiState'); if(b)b.innerHTML=aiBadge();
+  AIWHY='';
+  try{
+    const r=await fetch(FN,{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({action:'ping'})});
+    if(r.status===404){AIOK=false;AIWHY='404 — הפונקציה לא נמצאה בכתובת '+FN+
+      '\n\nכלומר Netlify לא פרס את bagrut-ai.js. בדקו בלשונית Deploys של האתר שהבנייה האחרונה הסתיימה ב-Published, ולא נכשלה.';return;}
+    if(!r.ok){AIOK=false;AIWHY='השרת החזיר '+r.status+'.\n'+(await r.text()).slice(0,200);return;}
+    const j=await r.json().catch(()=>null);
+    if(j&&j.ok){AIOK=true;return;}
+    AIOK=false;AIWHY='הפונקציה ענתה, אך לא בפורמט הצפוי: '+JSON.stringify(j).slice(0,200);
+  }catch(e){
+    AIOK=false;
+    AIWHY='הדפדפן חסם את הבקשה לפני שהיא הגיעה לשרת.\n\nזה כמעט תמיד CORS או שהכתובת אינה קיימת.\n\n'+
+      'בדיקה ידנית: פתחו בלשונית חדשה\n'+FN+'\n\n'+
+      'אם חוזר {"error":"Method not allowed"} — הפונקציה חיה והבעיה היא CORS.\n'+
+      'אם חוזר 404 — הפונקציה לא נפרסה.\n\n'+
+      'פירוט: '+(e&&e.message||e);
+  }
 }
+function whyAI(){ if(AIWHY)alert(AIWHY); else if(AIOK)alert('הפונקציה עונה כרגיל.\n\n'+FN); }
 const aiBadge=()=>AIOK===null?'<span class="pill w">בודק זמינות AI…</span>'
-  :(AIOK?'<span class="pill g">AI זמין</span>'
-        :'<span class="pill r" title="ודאו ש-bagrut-ai.js הועלה ל-netlify/functions/ באתר ה-Netlify">AI לא זמין — ניסוח ידני בלבד</span>');
+  :(AIOK?'<span class="pill g" style="cursor:pointer" onclick="whyAI()">AI זמין</span>'
+        :'<span class="pill r" style="cursor:pointer" onclick="whyAI()">AI לא זמין — לחצו לפרטים</span>');
 
 /* ---------- שלב 1: זירות ומושגים ---------- */
 function step1(){
