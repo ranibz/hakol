@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- eshi/shioor/teacher-central.html · v5.3.0 · 2026-07-27 · נוסף מועד הגשה למטלה: קביעה בשליחת מטלה ועריכה בלשונית המטלות, אפשרות "לסגור אוטומטית במועד", סימון הגשות שאחרו ומונה איחורים, וכפתור כיבוי/הפעלה למטלה. דורש שתי עמודות חדשות: due_at, due_block (MINOR) · לשונית "📥 מטלות": בחירת מטלה, מי הגיש ומי לא, ולחיצה לבדיקה ולמתן ציון (MINOR) · תיקון: searchStudent פנה ל-search במקום ל-search-input (PATCH) -->
+<!-- eshi/shioor/teacher-central.html · v5.3.0 · 2026-07-27 · נוסף מועד הגשה למטלה: קביעה בשליחת מטלה ועריכה בלשונית המטלות, אפשרות "לסגור אוטומטית במועד", סימון הגשות שאחרו ומונה איחורים, וכפתור כיבוי/הפעלה למטלה. דורש שתי עמודות חדשות: due_at, due_block (MINOR) · שליחה חוזרת של מטלה קיימת שומרת על המועד שכבר נקבע במקום למחוק אותו, והשדות נטענים מראש מהמטלה הקיימת (PATCH) · לשונית "📥 מטלות": בחירת מטלה, מי הגיש ומי לא, ולחיצה לבדיקה ולמתן ציון (MINOR) · תיקון: searchStudent פנה ל-search במקום ל-search-input (PATCH) -->
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
@@ -768,7 +768,8 @@ function renderSend(){
           <input type="checkbox" id="sndDueBlk" style="width:auto;">
           לסגור את המטלה אוטומטית</label>
         <div style="font-size:11.5px;color:#8a86a0;margin-top:3px;">
-          בלי סימון — התלמיד עדיין יוכל להגיש, וההגשה תסומן כאיחור.</div></div>
+          בלי סימון — התלמיד עדיין יוכל להגיש, וההגשה תסומן כאיחור.</div>
+        <div id="sndDueHint" style="font-size:11.5px;color:#8a5a08;margin-top:3px;font-weight:700;"></div></div>
     </div>
     <div class="link-box">
       <span class="send-lbl">הקישור לשליחה</span>
@@ -791,6 +792,7 @@ function onLessonPick(){
 function buildLink(){
   const i=+document.getElementById('sndLesson').value, c=CATALOG[i];
   const cls=document.getElementById('sndClass').value||'';
+  syncDueFields(c,cls);
   const code=String(teacherID||'').toLowerCase();
   if(code)db.ref('teacher_codes/'+code+'_'+teacherID).set(teacherID);
   let u=SITE+LESSON_BASE+c.f+'?code='+encodeURIComponent(code)+'&class='+encodeURIComponent(cls);
@@ -799,6 +801,18 @@ function buildLink(){
     if(k)u+='&c='+encodeURIComponent(k);
   }
   document.getElementById('sndUrl').value=u;
+}
+/* אם למטלה הזו כבר נקבע מועד — להציג אותו בשדות במקום שדות ריקים */
+function syncDueFields(c,cls){
+  const dueEl=document.getElementById('sndDue'), blkEl=document.getElementById('sndDueBlk');
+  if(!dueEl)return;
+  const k=(c.kind==='concept')?((document.getElementById('sndConcept')||{}).value||''):'';
+  const topic=c.dyn?(c.topic+k):c.topic;
+  const prev=myAsg.find(x=>x.class_name===cls&&x.topic===topic);
+  const hint=document.getElementById('sndDueHint');
+  dueEl.value=prev?toLocalInput(prev.due_at):'';
+  if(blkEl)blkEl.checked=!!(prev&&prev.due_block);
+  if(hint)hint.textContent=prev?'המטלה כבר נשלחה לכיתה הזו — עריכה כאן תעדכן אותה.':'';
 }
 function copyLink(){
   const el=document.getElementById('sndUrl'); el.select();
@@ -815,10 +829,15 @@ function saveAssignment(done){
   const k=(c.kind==='concept')?(document.getElementById('sndConcept').value||''):'';
   const topic=c.dyn?(c.topic+k):c.topic;
   const dueEl=document.getElementById('sndDue'), blkEl=document.getElementById('sndDueBlk');
+  /* השמירה היא upsert על השורה כולה. אם המטלה כבר קיימת עם מועד והשדה כאן ריק —
+     שומרים על המועד הקיים במקום למחוק אותו בשקט. */
+  const prev=myAsg.find(x=>x.class_name===cls&&x.topic===topic);
+  const dueVal=fromLocalInput(dueEl?dueEl.value:'');
   const row={teacher_id:teacherID,class_name:cls,topic:topic,page:c.f,
              concept:k||null,title:asgTitle({page:c.f,concept:k}),
              link:document.getElementById('sndUrl').value,active:true,
-             due_at:fromLocalInput(dueEl?dueEl.value:''),due_block:!!(blkEl&&blkEl.checked)};
+             due_at:dueVal||(prev?prev.due_at||null:null),
+             due_block:dueVal?!!(blkEl&&blkEl.checked):(prev?!!prev.due_block:false)};
   sb('lms_assignments?on_conflict=teacher_id,class_name,topic','POST',[row],
      {Prefer:'resolution=merge-duplicates'})
     .then(()=>{loadAsg();done&&done('✅ הועתק — והמטלה נרשמה ללוח הכיתה');})
