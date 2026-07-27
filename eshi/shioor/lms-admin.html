@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- eshi/shioor/lms-admin.html · v2.0.0 · 2026-07-25 · קונסולת ניהול: מורים, כל הכיתות, חיפוש תלמיד חוצה-מורים, הגשות אחרונות ואבחון תקלות (יתומות, כיתות לא תואמות, שמות שאינם ברשימה) -->
+<!-- eshi/shioor/lms-admin.html · v2.1.0 · 2026-07-27 · נוספה לשונית "סטטיסטיקות": מורים מובילים, קבצים פופולריים, פילוח לפי זירה וסוג שיעור, מושגים מבוקשים, שיעורים קשים, פעילות לפי יום ולפי שעה, כיתות מובילות ומורים רדומים. בורר טווח 7/30/הכל. שאילתת ההגשות מושכת כעת גם lesson_type, zone, concept ו-page, והתקרה הועלתה ל-20000 עם התראה כשהיא נוגעת (MINOR) -->
 <html lang="he" dir="rtl">
 <head>
 <meta charset="utf-8">
@@ -51,6 +51,24 @@ tr:hover td{background:#fbfaff}
 .diag.okd{border-color:var(--ok);background:var(--okw)}
 .diag b{display:block;margin-bottom:3px}
 .mono{font-family:ui-monospace,monospace;font-size:.8rem;direction:ltr;text-align:right;color:var(--soft)}
+.seg{display:inline-flex;gap:4px;background:#fff;border:2px solid var(--line);border-radius:20px;padding:3px}
+.seg button{background:none;border:0;border-radius:16px;padding:5px 14px;font-family:inherit;font-weight:900;
+  font-size:.82rem;color:var(--soft);cursor:pointer}
+.seg button.on{background:var(--v);color:#fff}
+.h3{font-family:'Secular One',sans-serif;font-size:1.02rem;margin:2px 0 9px;color:var(--vd)}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:12px}
+.blk{border:1px solid var(--line);border-radius:14px;padding:14px 16px;background:#fff}
+.trk{background:var(--line);border-radius:6px;height:9px;overflow:hidden;min-width:60px}
+.trk i{display:block;height:100%;background:var(--v);border-radius:6px}
+.trk.g i{background:var(--ok)} .trk.r i{background:var(--bad)} .trk.y i{background:var(--warn)}
+.spark{display:flex;align-items:flex-end;gap:3px;height:74px;margin:6px 0 4px}
+.spark div{flex:1;background:var(--v);border-radius:3px 3px 0 0;min-height:2px;position:relative}
+.spark div:hover{background:var(--vd)}
+.sparkx{display:flex;gap:3px;font-size:.6rem;color:var(--soft);text-align:center}
+.sparkx span{flex:1;overflow:hidden;white-space:nowrap}
+.note{background:var(--warnw);color:#a85f08;border-radius:10px;padding:9px 13px;font-size:.85rem;
+  font-weight:700;margin-bottom:11px}
+.rank{display:inline-block;width:20px;font-weight:900;color:var(--soft)}
 </style>
 </head>
 <body>
@@ -84,7 +102,8 @@ const norm=s=>String(s||'').replace(/\s+/g,' ').trim();
 const dt=s=>{if(!s)return '—';const d=new Date(s);
   return d.toLocaleDateString('he-IL')+' '+d.toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'});};
 
-let TE=[], CL=[], AS=[], SU=[], tab='teachers', q='', me=null;
+const SU_CAP=20000;
+let TE=[], CL=[], AS=[], SU=[], tab='teachers', q='', per=30, me=null;
 const tName=id=>{const t=TE.find(x=>x.id===id);return t?(t.name||t.phone||id):null;};
 
 async function login(){
@@ -108,7 +127,7 @@ async function load(){
       sb('lms_teachers?select=*&order=created_at.desc'),
       sb('lms_classes?select=*&order=updated_at.desc'),
       sb('lms_assignments?select=*&order=created_at.desc'),
-      sb('lms_submissions?select=id,teacher_id,student_name,student_key,class_name,topic,score_auto,score_max,skipped,grade,submitted_at&order=submitted_at.desc&limit=3000')
+      sb('lms_submissions?select=id,teacher_id,student_name,student_key,class_name,topic,lesson_type,zone,concept,page,score_auto,score_max,skipped,grade,submitted_at&order=submitted_at.desc&limit='+SU_CAP)
     ]);
     TE=r[0]||[]; CL=r[1]||[]; AS=r[2]||[]; SU=r[3]||[];
   }catch(e){document.getElementById('app').innerHTML='<div class="card err">'+esc(e.message)+'</div>';return;}
@@ -148,9 +167,10 @@ function render(){
     '<button class="tab '+(tab==='classes'?'on':'')+'" onclick="setTab(\'classes\')">🏫 כיתות <span class="n">'+CL.length+'</span></button>'+
     '<button class="tab '+(tab==='student'?'on':'')+'" onclick="setTab(\'student\')">🔎 חיפוש תלמיד</button>'+
     '<button class="tab '+(tab==='subs'?'on':'')+'" onclick="setTab(\'subs\')">📥 הגשות <span class="n">'+SU.length+'</span></button>'+
+    '<button class="tab '+(tab==='stats'?'on':'')+'" onclick="setTab(\'stats\')">📊 סטטיסטיקות</button>'+
     '<button class="tab '+(tab==='diag'?'on':'')+'" onclick="setTab(\'diag\')">🩺 אבחון <span class="n">'+issues+'</span></button></div>'+
    '<div class="card" id="pane"></div>';
-  ({teachers:paneTeachers,classes:paneClasses,student:paneStudent,subs:paneSubs,diag:paneDiag}[tab])();
+  ({teachers:paneTeachers,classes:paneClasses,student:paneStudent,subs:paneSubs,stats:paneStats,diag:paneDiag}[tab])();
 }
 
 function paneTeachers(){
@@ -258,6 +278,249 @@ function paneDiag(){
     box('תלמידים שאינם ברשימת הכיתה', d.notInRoster,
         'הכיתה קיימת, אך שם התלמיד אינו ברשימה — לרוב הקלדה חופשית לפני שהוגדרה רשימה. <b>לא יופיע כשורה בלוח הכיתה</b>.');
 }
+/* ===================== סטטיסטיקות ===================== */
+function setPer(v){per=v;render();}
+
+/* שם ידידותי לזירה */
+const ZNAME={'1':'להבין ולפרש','2':'גלובליזציה','3':'חדשות וצילום','4':'הומור וסאטירה',
+ '5':'תרבות דיגיטלית','6':'ריאליטי','7':'הגדרות ותכנים','8':'תקשורת וספורט','9':'פרסום','al':'זירת העל'};
+const LTNAME={mushag:'מיני-שיעור למושג',summary:'סיכום זירה',masa:'מסע מושג'};
+
+/* פילוח topic כשהעמודות הייעודיות ריקות (הגשות ישנות) */
+function subMeta(s){
+  const t=String(s.topic||'');
+  let zone=s.zone, type=s.lesson_type, concept=s.concept;
+  if(!zone||!type){
+    const m=t.match(/^zira(al|[0-9]+)_/);
+    if(!zone) zone=m?m[1]:(t.indexOf('masa')===0?'':'');
+    if(!type) type=t.indexOf('masa')===0?'masa':(t.indexOf('_mushag_')>-1?'mushag':(m?'summary':''));
+    if(!concept&&type==='mushag'){const c=t.split('_mushag_')[1];concept=c||'';}
+    if(!concept&&type==='masa') concept=t.slice(5)||'';
+  }
+  /* הגשות ישנות ללא עמודת page — גוזרים את שם הקובץ מה-topic כדי שלא יתפצלו לשתי שורות */
+  let page=s.page||'';
+  if(!page&&t){
+    const mm=t.match(/^(zira(?:al|[0-9]+))_mushag_/);
+    if(mm) page=mm[1]+'-mushag.html';
+    else if(t.indexOf('masa')===0) page='masa-mushag.html';
+    else{
+      const ms=t.match(/^(zira(?:al|[0-9]+))_(.+)$/);
+      if(ms) page=ms[1]+'-1-'+ms[2]+'.html';
+    }
+  }
+  return {zone:zone||'',type:type||'',concept:concept||'',
+          page:page, label:page||t||'—'};
+}
+/* אחוז ההצלחה האוטומטי של הגשה, או null אם אין ניקוד */
+function pct(s){
+  if(s.score_auto==null||!s.score_max) return null;
+  return Math.round(s.score_auto/s.score_max*100);
+}
+function inPer(s){
+  if(per==='all') return true;
+  if(!s.submitted_at) return false;
+  return (Date.now()-new Date(s.submitted_at).getTime())<=per*864e5;
+}
+/* טבלת דירוג גנרית */
+function rankTable(head,rows,empty){
+  if(!rows.length) return '<div class="empty">'+(empty||'אין נתונים בטווח שנבחר')+'</div>';
+  return '<div class="scroll" style="max-height:none"><table><thead><tr>'+
+    head.map(h=>'<th>'+h+'</th>').join('')+'</tr></thead><tbody>'+
+    rows.map((r,i)=>'<tr><td><span class="rank">'+(i+1)+'</span>'+r[0]+'</td>'+
+      r.slice(1).map(c=>'<td>'+c+'</td>').join('')+'</tr>').join('')+
+    '</tbody></table></div>';
+}
+function trk(v,max,cls){
+  const w=max>0?Math.round(v/max*100):0;
+  return '<div class="trk '+(cls||'')+'"><i style="width:'+w+'%"></i></div>';
+}
+function avgPill(list){
+  const v=list.map(pct).filter(x=>x!=null);
+  if(!v.length) return '<span class="pill p-off">—</span>';
+  const a=Math.round(v.reduce((x,y)=>x+y,0)/v.length);
+  const c=a>=75?'p-ok':(a>=55?'p-wait':'p-bad');
+  return '<span class="pill '+c+'">'+a+'%</span>';
+}
+
+function paneStats(){
+  const S=SU.filter(inPer);
+  const capped=SU.length>=SU_CAP;
+
+  /* ---- מדדים כלליים ---- */
+  const uStud=new Set(S.map(s=>norm(s.student_name)+'|'+norm(s.class_name))).size;
+  const uTeach=new Set(S.map(s=>s.teacher_id).filter(Boolean)).size;
+  const uClass=new Set(S.map(s=>s.teacher_id+'|'+norm(s.class_name)).filter(k=>k.indexOf('|')>0)).size;
+  const scored=S.map(pct).filter(x=>x!=null);
+  const avg=scored.length?Math.round(scored.reduce((a,b)=>a+b,0)/scored.length):null;
+  const skips=S.filter(s=>s.skipped).length;
+  const ungraded=S.filter(s=>s.grade==null).length;
+
+  /* ---- מורים מובילים ---- */
+  const byT={};
+  S.forEach(s=>{const k=s.teacher_id||'—';(byT[k]=byT[k]||[]).push(s);});
+  const teachers=Object.keys(byT).map(function(id){
+    const arr=byT[id];
+    return {id:id,name:tName(id),n:arr.length,arr:arr,
+      stud:new Set(arr.map(s=>norm(s.student_name)+'|'+norm(s.class_name))).size,
+      cls:new Set(arr.map(s=>norm(s.class_name))).size,
+      pages:new Set(arr.map(s=>subMeta(s).label)).size,
+      ung:arr.filter(s=>s.grade==null).length,
+      last:arr.reduce((m,s)=>{const d=new Date(s.submitted_at).getTime();return d>m?d:m;},0)};
+  }).sort((a,b)=>b.n-a.n);
+  const tMax=teachers.length?teachers[0].n:0;
+  const tRows=teachers.slice(0,15).map(t=>[
+    '<b>'+(t.name?esc(t.name):'<span class="pill p-bad">מורה לא נמצא</span>')+'</b>',
+    '<b>'+t.n+'</b> '+trk(t.n,tMax),
+    t.stud, t.cls, t.pages, avgPill(t.arr),
+    t.ung?'<span class="pill p-wait">'+t.ung+'</span>':'<span class="pill p-ok">0</span>',
+    '<span class="mono">'+(t.last?dt(new Date(t.last).toISOString()):'—')+'</span>']);
+
+  /* ---- קבצים פופולריים ---- */
+  const byP={};
+  S.forEach(s=>{const k=subMeta(s).label;(byP[k]=byP[k]||[]).push(s);});
+  const pages=Object.keys(byP).map(function(k){
+    const arr=byP[k], m=subMeta(arr[0]);
+    return {k:k,n:arr.length,arr:arr,meta:m,
+      stud:new Set(arr.map(s=>norm(s.student_name)+'|'+norm(s.class_name))).size,
+      teach:new Set(arr.map(s=>s.teacher_id)).size,
+      skip:arr.filter(s=>s.skipped).length};
+  }).sort((a,b)=>b.n-a.n);
+  const pMax=pages.length?pages[0].n:0;
+  const pRows=pages.slice(0,20).map(p=>[
+    '<b class="mono">'+esc(p.k)+'</b>',
+    '<span class="pill p-v">'+(LTNAME[p.meta.type]||p.meta.type||'—')+'</span>',
+    p.meta.zone?esc(ZNAME[p.meta.zone]||p.meta.zone):'—',
+    '<b>'+p.n+'</b> '+trk(p.n,pMax),
+    p.stud, p.teach, avgPill(p.arr),
+    p.skip?'<span class="pill p-bad">'+p.skip+'</span>':'0']);
+
+  /* ---- פילוח לפי זירה ---- */
+  const byZ={};
+  S.forEach(s=>{const z=subMeta(s).zone||'—';byZ[z]=(byZ[z]||0)+1;});
+  const zArr=Object.keys(byZ).map(z=>({z:z,n:byZ[z]})).sort((a,b)=>b.n-a.n);
+  const zMax=zArr.length?zArr[0].n:0;
+  const zHtml=zArr.map(x=>'<div style="display:flex;align-items:center;gap:9px;margin-bottom:6px;">'+
+    '<div style="min-width:118px;font-weight:800;font-size:.85rem;">'+
+      (x.z==='—'?'ללא זירה':esc(ZNAME[x.z]||('זירה '+x.z)))+'</div>'+
+    '<div style="flex:1">'+trk(x.n,zMax)+'</div>'+
+    '<div style="min-width:38px;text-align:left;font-weight:900;font-size:.85rem;">'+x.n+'</div></div>').join('')
+    ||'<div class="empty">אין נתונים</div>';
+
+  /* ---- פילוח לפי סוג שיעור ---- */
+  const byLT={};
+  S.forEach(s=>{const t=subMeta(s).type||'—';byLT[t]=(byLT[t]||0)+1;});
+  const ltArr=Object.keys(byLT).map(t=>({t:t,n:byLT[t]})).sort((a,b)=>b.n-a.n);
+  const ltMax=ltArr.length?ltArr[0].n:0;
+  const ltHtml=ltArr.map(x=>'<div style="display:flex;align-items:center;gap:9px;margin-bottom:6px;">'+
+    '<div style="min-width:118px;font-weight:800;font-size:.85rem;">'+esc(LTNAME[x.t]||x.t)+'</div>'+
+    '<div style="flex:1">'+trk(x.n,ltMax,'g')+'</div>'+
+    '<div style="min-width:38px;text-align:left;font-weight:900;font-size:.85rem;">'+x.n+'</div></div>').join('')
+    ||'<div class="empty">אין נתונים</div>';
+
+  /* ---- מושגים מבוקשים ---- */
+  const byC={};
+  S.forEach(s=>{const c=subMeta(s).concept;if(c)(byC[c]=byC[c]||[]).push(s);});
+  const cArr=Object.keys(byC).map(c=>({c:c,n:byC[c].length,arr:byC[c]})).sort((a,b)=>b.n-a.n);
+  const cRows=cArr.slice(0,12).map(x=>['<b class="mono">'+esc(x.c)+'</b>',x.n,avgPill(x.arr)]);
+
+  /* ---- שיעורים קשים: ממוצע נמוך, לפחות 5 הגשות מנוקדות ---- */
+  const hard=pages.map(function(p){
+    const v=p.arr.map(pct).filter(x=>x!=null);
+    return {k:p.k,n:v.length,avg:v.length?Math.round(v.reduce((a,b)=>a+b,0)/v.length):null};
+  }).filter(x=>x.n>=5&&x.avg!=null).sort((a,b)=>a.avg-b.avg);
+  const hRows=hard.slice(0,10).map(x=>['<b class="mono">'+esc(x.k)+'</b>',x.n,
+    '<span class="pill '+(x.avg>=75?'p-ok':x.avg>=55?'p-wait':'p-bad')+'">'+x.avg+'%</span>',
+    trk(x.avg,100,x.avg>=75?'g':x.avg>=55?'y':'r')]);
+
+  /* ---- פעילות ב-14 הימים האחרונים ---- */
+  const days=[],dayCnt={};
+  SU.forEach(s=>{if(!s.submitted_at)return;const d=new Date(s.submitted_at);
+    const k=d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate();dayCnt[k]=(dayCnt[k]||0)+1;});
+  for(let i=13;i>=0;i--){const d=new Date(Date.now()-i*864e5);
+    const k=d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate();
+    days.push({lbl:d.getDate()+'/'+(d.getMonth()+1),n:dayCnt[k]||0});}
+  const dMax=Math.max(1,...days.map(x=>x.n));
+  const dHtml='<div class="spark">'+days.map(x=>'<div style="height:'+Math.round(x.n/dMax*100)+
+    '%" title="'+x.lbl+' — '+x.n+' הגשות"></div>').join('')+'</div>'+
+    '<div class="sparkx">'+days.map(x=>'<span>'+x.lbl+'</span>').join('')+'</div>';
+
+  /* ---- פעילות לפי שעה ---- */
+  const hrs=new Array(24).fill(0);
+  S.forEach(s=>{if(!s.submitted_at)return;hrs[new Date(s.submitted_at).getHours()]++;});
+  const hMax=Math.max(1,...hrs);
+  const hHtml='<div class="spark">'+hrs.map((n,h)=>'<div style="height:'+Math.round(n/hMax*100)+
+    '%" title="'+h+':00 — '+n+' הגשות"></div>').join('')+'</div>'+
+    '<div class="sparkx">'+hrs.map((n,h)=>'<span>'+(h%3===0?h:'')+'</span>').join('')+'</div>';
+
+  /* ---- כיתות מובילות ---- */
+  const byCl={};
+  S.forEach(s=>{const k=(s.teacher_id||'—')+'|'+norm(s.class_name||'—');(byCl[k]=byCl[k]||[]).push(s);});
+  const clArr=Object.keys(byCl).map(function(k){
+    const arr=byCl[k],p=k.split('|');
+    return {name:p[1],tn:tName(p[0]),n:arr.length,arr:arr,
+      stud:new Set(arr.map(s=>norm(s.student_name))).size,
+      pages:new Set(arr.map(s=>subMeta(s).label)).size};
+  }).sort((a,b)=>b.n-a.n);
+  const clMax=clArr.length?clArr[0].n:0;
+  const clRows=clArr.slice(0,12).map(c=>['<b>'+esc(c.name)+'</b>',
+    c.tn?esc(c.tn):'<span class="pill p-bad">לא נמצא</span>',
+    '<b>'+c.n+'</b> '+trk(c.n,clMax), c.stud, c.pages, avgPill(c.arr)]);
+
+  /* ---- מורים רדומים: מאושרים ללא הגשות מעולם ---- */
+  const active=new Set(SU.map(s=>s.teacher_id));
+  const dormant=TE.filter(t=>t.status==='approved'&&!active.has(t.id));
+
+  /* ---- הרכבה ---- */
+  document.getElementById('pane').innerHTML=
+   (capped?'<div class="note">⚠ נטענו '+SU.length+' ההגשות האחרונות בלבד (התקרה). ייתכן שהנתונים הישנים חסרים.</div>':'')+
+   '<div class="bar"><b>טווח:</b> <span class="seg">'+
+     '<button class="'+(per===7?'on':'')+'" onclick="setPer(7)">7 ימים</button>'+
+     '<button class="'+(per===30?'on':'')+'" onclick="setPer(30)">30 ימים</button>'+
+     '<button class="'+(per==='all'?'on':'')+'" onclick="setPer(\'all\')">הכל</button></span>'+
+     '<span class="pill p-off">'+S.length+' הגשות בטווח</span></div>'+
+   '<div class="kpis">'+
+    '<div class="kpi"><b>'+S.length+'</b><span>הגשות</span></div>'+
+    '<div class="kpi"><b>'+uStud+'</b><span>תלמידים</span></div>'+
+    '<div class="kpi"><b>'+uTeach+'</b><span>מורים פעילים</span></div>'+
+    '<div class="kpi"><b>'+uClass+'</b><span>כיתות פעילות</span></div>'+
+    '<div class="kpi '+(avg==null?'':avg>=75?'g':avg>=55?'y':'r')+'"><b>'+(avg==null?'—':avg+'%')+'</b><span>ממוצע אוטומטי</span></div>'+
+    '<div class="kpi '+(skips?'r':'g')+'"><b>'+skips+'</b><span>דילגו על שלב</span></div>'+
+    '<div class="kpi '+(ungraded?'y':'g')+'"><b>'+ungraded+'</b><span>ממתינות לבדיקה</span></div></div>'+
+
+   '<div class="blk" style="margin-bottom:12px"><div class="h3">👑 מורים מובילים</div>'+
+    rankTable(['מורה','הגשות','תלמידים','כיתות','קבצים','ממוצע','לא נבדקו','פעילות אחרונה'],tRows)+'</div>'+
+
+   '<div class="blk" style="margin-bottom:12px"><div class="h3">🔥 הקבצים הפופולריים</div>'+
+    rankTable(['קובץ','סוג','זירה','הגשות','תלמידים','מורים','ממוצע','דילוגים'],pRows)+'</div>'+
+
+   '<div class="grid2" style="margin-bottom:12px">'+
+    '<div class="blk"><div class="h3">🗺️ פילוח לפי זירה</div>'+zHtml+'</div>'+
+    '<div class="blk"><div class="h3">🧩 פילוח לפי סוג שיעור</div>'+ltHtml+'</div></div>'+
+
+   '<div class="grid2" style="margin-bottom:12px">'+
+    '<div class="blk"><div class="h3">📅 פעילות ב-14 הימים האחרונים</div>'+dHtml+
+      '<p class="sub" style="margin:8px 0 0;font-size:.8rem;">כל ההגשות, ללא תלות בבורר הטווח.</p></div>'+
+    '<div class="blk"><div class="h3">🕐 פעילות לפי שעה</div>'+hHtml+
+      '<p class="sub" style="margin:8px 0 0;font-size:.8rem;">שעות הלימודים מול עבודה מהבית.</p></div></div>'+
+
+   '<div class="grid2" style="margin-bottom:12px">'+
+    '<div class="blk"><div class="h3">💡 המושגים המבוקשים</div>'+
+      rankTable(['מושג','הגשות','ממוצע'],cRows,'אין הגשות של מיני-שיעורים בטווח')+'</div>'+
+    '<div class="blk"><div class="h3">🧗 השיעורים הקשים</div>'+
+      rankTable(['קובץ','מנוקדות','ממוצע',''],hRows,'צריך לפחות 5 הגשות מנוקדות לקובץ')+'</div></div>'+
+
+   '<div class="blk" style="margin-bottom:12px"><div class="h3">🏫 הכיתות הפעילות</div>'+
+    rankTable(['כיתה','מורה','הגשות','תלמידים','קבצים','ממוצע'],clRows)+'</div>'+
+
+   '<div class="blk"><div class="h3">😴 מורים רדומים — מאושרים ללא הגשות מעולם ('+dormant.length+')</div>'+
+    (dormant.length
+      ? '<div class="scroll" style="max-height:230px"><table><thead><tr><th>שם</th><th>בית ספר</th><th>טלפון</th><th>כיתות שהגדיר</th><th>נרשם</th></tr></thead><tbody>'+
+        dormant.map(t=>'<tr><td><b>'+esc(t.name||'—')+'</b></td><td>'+esc(t.school||'—')+'</td>'+
+          '<td class="mono">'+esc(t.phone||'—')+'</td><td>'+CL.filter(c=>c.teacher_id===t.id).length+'</td>'+
+          '<td class="mono">'+dt(t.created_at)+'</td></tr>').join('')+'</tbody></table></div>'
+      : '<div class="empty">כל המורים המאושרים פעילים</div>')+'</div>';
+}
+
 document.addEventListener('keydown',function(e){if(e.key==='Enter'&&document.getElementById('login'))login();});
 </script>
 </body>
