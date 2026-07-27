@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- zirot/tirgool/zira7-1-hagdarot.html · v5.0.0 · 2026-07-25 · הושלם למצב שאר השיעורים: הגשה וכניסת מורה מול Supabase, בחירת שם התלמיד ובחירת כיתה מרשימה, וכפתור הדילוג מוגבל לכניסה ישירה בלבד (MAJOR) -->
+<!-- zirot/tirgool/zira7-1-hagdarot.html · v5.1.0 · 2026-07-25 · הושלם למצב שאר השיעורים: הגשה וכניסת מורה מול Supabase, בחירת שם התלמיד ובחירת כיתה מרשימה, וכפתור הדילוג מוגבל לכניסה ישירה בלבד (MAJOR) · כפתור "העבר לכיתה": בחירת כיתה מהרשימה ורישום המטלה בלוח הכיתה (MINOR) -->
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
@@ -7,7 +7,49 @@
 <title>זירה 7 · שלב 6.1 — קליפ מוזיקלי מול סרטון רשת</title>
 <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700;900&family=Heebo:wght@400;500;700&display=swap" rel="stylesheet">
 <!-- Firebase (מערכת השיעורים האינטראקטיביים · tests-fd938) -->
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js">
+/* ===== העברת המטלה לכיתה ===== */
+window.__TID__=window.__TID__||'';
+async function loadAsgClasses(){
+  const box=document.getElementById('asgBox'), sel=document.getElementById('asgClass');
+  if(!box||!sel||!window.__TID__)return;
+  try{
+    const r=await fetch(SUP+'/rest/v1/lms_classes?select=name&teacher_id=eq.'+
+      encodeURIComponent(window.__TID__)+'&order=name.asc',
+      {headers:{apikey:SKEY,Authorization:'Bearer '+SKEY}});
+    const list=(await r.json()||[]).map(x=>x.name).filter(Boolean);
+    if(!list.length)return;
+    sel.innerHTML=list.map(n=>'<option>'+String(n).replace(/</g,'&lt;')+'</option>').join('');
+    const cur=(typeof CLASSNAME!=='undefined'?CLASSNAME:(typeof CLS!=='undefined'?CLS:''))||'';
+    if(cur&&list.indexOf(cur)>-1)sel.value=cur;
+    box.style.display='flex';
+  }catch(e){}
+}
+async function assignToClass(){
+  const sel=document.getElementById('asgClass'), msg=document.getElementById('asgMsg');
+  const cls=sel?sel.value:'';
+  if(!cls){msg.textContent='בחרו כיתה';msg.style.color='#fde68a';return;}
+  msg.style.color='#fff'; msg.textContent='מעביר…';
+  const page=location.pathname.split('/').pop();
+  const key=(typeof KEY!=='undefined'&&KEY)?KEY:null;
+  const title=(typeof C!=='undefined'&&C&&C.name)?C.name:document.title;
+  const url=location.href.split('?')[0]+'?code='+encodeURIComponent(window.__TID__)+
+            '&class='+encodeURIComponent(cls)+(key?('&c='+encodeURIComponent(key)):'');
+  try{
+    const r=await fetch(SUP+'/rest/v1/lms_assignments?on_conflict=teacher_id,class_name,topic',
+      {method:'POST',headers:{apikey:SKEY,Authorization:'Bearer '+SKEY,
+        'Content-Type':'application/json',Prefer:'resolution=merge-duplicates'},
+      body:JSON.stringify([{teacher_id:window.__TID__,class_name:cls,topic:TOPIC,page:page,
+        concept:key,title:title,link:url,active:true}])});
+    if(!r.ok)throw new Error((await r.text()).slice(0,140));
+    msg.style.color='#bbf7d0';
+    msg.textContent='✅ הועבר לכיתה '+cls+' — התלמידים יראו אותה באזור האישי';
+  }catch(e){ msg.style.color='#fecaca'; msg.textContent='שגיאה: '+e.message; }
+}
+
+
+if(typeof CLASSCODE!=='undefined'&&CLASSCODE){window.__TID__=CLASSCODE;}
+</script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <style>
     :root { --clip:#7c3aed; --sfv:#db2777; --ink:#2b2b3a; --ok:#16a34a; --no:#e11d48; }
@@ -228,6 +270,14 @@
     @media (max-width:600px){ .float-prog{ bottom:10px; left:10px; padding:11px 13px; min-width:auto; }
         .float-prog .fp{ width:36px; height:36px; font-size:1.15rem; } .float-prog .fp-lbl{ font-size:.9rem; } }
     @media (max-width:600px){ .cmp-row{ grid-template-columns:1fr; } header.hero h1{ font-size:1.6rem; } .card{ padding:20px; } .concepts,.views{ grid-template-columns:1fr; } }
+
+.asg-box{margin-top:10px;padding-top:10px;border-top:1px dashed rgba(0,0,0,.15);
+  display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+.asg-box select{padding:8px 11px;border-radius:9px;border:1px solid #ccc;font-family:inherit;font-size:.88rem;min-width:170px;}
+.asg-box button{background:#16a34a;color:#fff;border:0;border-radius:9px;padding:8px 16px;
+  font-family:inherit;font-weight:900;font-size:.88rem;cursor:pointer;}
+.asg-box button:hover{background:#0f7a4d;}
+.asg-box .m{font-size:.85rem;font-weight:800;}
 </style>
 </head>
 <body>
@@ -247,6 +297,7 @@
             <input id="tbUrl" readonly>
             <button onclick="copyTb()">📋 העתק</button>
             <span id="tbCopied" style="display:none;">הועתק! ✓</span>
+            <div class="asg-box" id="asgBox" style="display:none;"><span style="font-weight:800;font-size:.88rem;">🎯 העברה לכיתה:</span><select id="asgClass"></select><button onclick="assignToClass()">העבר לכיתה</button><span class="m" id="asgMsg"></span></div>
         </div>
 
         <ol class="tp-steps">
@@ -760,6 +811,7 @@
       if(t){fk=t.id;nm=(t.name||'').trim();}
       if(!fk){er.textContent='טלפון/סיסמה שגויים או שאינך מאושר.';er.style.display='block';return;}
       const code=fk;
+      window.__TID__=fk; setTimeout(loadAsgClasses,60);
             const url = location.href.split('?')[0] + '?code=' + encodeURIComponent(code) + '&class=' + encodeURIComponent(klass);
             document.getElementById('tbUrl').value = url;
             document.getElementById('tbClass').textContent = klass;

@@ -1,12 +1,54 @@
 <!DOCTYPE html>
-<!-- zirot/tirgool/zira1-mushag.html · v2.2.0 · 2026-07-24 · מיני-שיעור למושג בודד מזירה 1. המושג נבחר לפי ?c= · לפי MAFRAT-ZIRA.md · רצועת קרדיט ולוגו בראש הדף (MINOR) · שלב ב: נוסף חוזה מעקב אחיד להגשה — meta, score, stages, items (MINOR) · המעבר ל-Supabase הושלם: הגשות וכניסת מורה מול lms_* במקום Firebase (MAJOR) · התלמיד בוחר את שמו מרשימת הכיתה במקום להקליד (MINOR) · בכניסת המורה מהשיעור: בחירת כיתה מרשימת הכיתות שהוגדרו (MINOR) -->
+<!-- zirot/tirgool/zira1-mushag.html · v2.3.0 · 2026-07-24 · מיני-שיעור למושג בודד מזירה 1. המושג נבחר לפי ?c= · לפי MAFRAT-ZIRA.md · רצועת קרדיט ולוגו בראש הדף (MINOR) · שלב ב: נוסף חוזה מעקב אחיד להגשה — meta, score, stages, items (MINOR) · המעבר ל-Supabase הושלם: הגשות וכניסת מורה מול lms_* במקום Firebase (MAJOR) · התלמיד בוחר את שמו מרשימת הכיתה במקום להקליד (MINOR) · בכניסת המורה מהשיעור: בחירת כיתה מרשימת הכיתות שהוגדרו (MINOR) · כפתור "העבר לכיתה": בחירת כיתה מהרשימה ורישום המטלה בלוח הכיתה (MINOR) -->
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>מיני-שיעור · מושג מזירה 1</title>
 <link href="https://fonts.googleapis.com/css2?family=Secular+One&family=Assistant:wght@400;600;800&display=swap" rel="stylesheet">
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js">
+/* ===== העברת המטלה לכיתה ===== */
+window.__TID__=window.__TID__||'';
+async function loadAsgClasses(){
+  const box=document.getElementById('asgBox'), sel=document.getElementById('asgClass');
+  if(!box||!sel||!window.__TID__)return;
+  try{
+    const r=await fetch(SUP+'/rest/v1/lms_classes?select=name&teacher_id=eq.'+
+      encodeURIComponent(window.__TID__)+'&order=name.asc',
+      {headers:{apikey:SKEY,Authorization:'Bearer '+SKEY}});
+    const list=(await r.json()||[]).map(x=>x.name).filter(Boolean);
+    if(!list.length)return;
+    sel.innerHTML=list.map(n=>'<option>'+String(n).replace(/</g,'&lt;')+'</option>').join('');
+    const cur=(typeof CLASSNAME!=='undefined'?CLASSNAME:(typeof CLS!=='undefined'?CLS:''))||'';
+    if(cur&&list.indexOf(cur)>-1)sel.value=cur;
+    box.style.display='flex';
+  }catch(e){}
+}
+async function assignToClass(){
+  const sel=document.getElementById('asgClass'), msg=document.getElementById('asgMsg');
+  const cls=sel?sel.value:'';
+  if(!cls){msg.textContent='בחרו כיתה';msg.style.color='#fde68a';return;}
+  msg.style.color='#fff'; msg.textContent='מעביר…';
+  const page=location.pathname.split('/').pop();
+  const key=(typeof KEY!=='undefined'&&KEY)?KEY:null;
+  const title=(typeof C!=='undefined'&&C&&C.name)?C.name:document.title;
+  const url=location.href.split('?')[0]+'?code='+encodeURIComponent(window.__TID__)+
+            '&class='+encodeURIComponent(cls)+(key?('&c='+encodeURIComponent(key)):'');
+  try{
+    const r=await fetch(SUP+'/rest/v1/lms_assignments?on_conflict=teacher_id,class_name,topic',
+      {method:'POST',headers:{apikey:SKEY,Authorization:'Bearer '+SKEY,
+        'Content-Type':'application/json',Prefer:'resolution=merge-duplicates'},
+      body:JSON.stringify([{teacher_id:window.__TID__,class_name:cls,topic:TOPIC,page:page,
+        concept:key,title:title,link:url,active:true}])});
+    if(!r.ok)throw new Error((await r.text()).slice(0,140));
+    msg.style.color='#bbf7d0';
+    msg.textContent='✅ הועבר לכיתה '+cls+' — התלמידים יראו אותה באזור האישי';
+  }catch(e){ msg.style.color='#fecaca'; msg.textContent='שגיאה: '+e.message; }
+}
+
+if(typeof CLASSCODE!=='undefined'&&CLASSCODE){window.__TID__=CLASSCODE;}
+else if(typeof CODE!=='undefined'&&CODE){window.__TID__=CODE;}
+</script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <style>
 :root{--a:#6366f1;--b:#0891b2;--ink:#2a1f52;--soft:#6b6392;--bg:#f6f7ff;--ok:#12b76a;--no:#e11d48;}
@@ -79,6 +121,14 @@ textarea.fld{min-height:110px;resize:vertical;}
 .tbanner input{flex:1 1 220px;padding:9px 12px;border:2px solid #eaeaf7;border-radius:10px;direction:ltr;font-size:.82rem;}
 .tbanner button{background:var(--a);color:#fff;border:none;border-radius:20px;padding:8px 16px;font-family:'Secular One',sans-serif;cursor:pointer;}
 @media(max-width:600px){.card{padding:20px;}}
+
+.asg-box{margin-top:10px;padding-top:10px;border-top:1px dashed rgba(255,255,255,.35);
+  display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+.asg-box select{padding:8px 11px;border-radius:9px;border:0;font-family:inherit;font-size:.88rem;min-width:170px;}
+.asg-box button{background:#16a34a;color:#fff;border:0;border-radius:9px;padding:8px 16px;
+  font-family:inherit;font-weight:900;font-size:.88rem;cursor:pointer;}
+.asg-box button:hover{background:#0f7a4d;}
+.asg-box .m{font-size:.85rem;font-weight:800;}
 </style>
 <style>
 .rbz{background:#fff;border-bottom:1px solid #eae5f7;}
@@ -135,6 +185,7 @@ textarea.fld{min-height:110px;resize:vertical;}
   <div class="tbanner" id="tban">
     <div class="t1">📤 היי <span id="tbName">מורה</span> — הקישור לכיתה <b id="tbClass">—</b>:</div>
     <div class="row"><input id="tbUrl" readonly><button onclick="copyTb()">📋 העתק</button><span id="tbOk" style="display:none;color:#0f7a4d;font-weight:800;">הועתק ✓</span></div>
+    <div class="asg-box" id="asgBox" style="display:none;"><span style="font-weight:800;font-size:.88rem;">🎯 העברה לכיתה:</span><select id="asgClass"></select><button onclick="assignToClass()">העבר לכיתה</button><span class="m" id="asgMsg"></span></div>
   </div>
 
   <header class="hero">
@@ -505,6 +556,7 @@ function teacherEnter(){
     if(t){fk=t.id;nm=(t.name||'').trim();}
     if(!fk){er.textContent='טלפון/סיסמה שגויים או שאינך מאושר.';er.style.display='block';return;}
     const code=fk;
+      window.__TID__=fk; setTimeout(loadAsgClasses,60);
     const url=location.href.split('?')[0]+'?c='+encodeURIComponent(cn)+'&code='+encodeURIComponent(code)+'&class='+encodeURIComponent(kl);
     document.getElementById('tbUrl').value=url;
     document.getElementById('tbName').textContent=nm||'מורה';
