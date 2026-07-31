@@ -1,4 +1,4 @@
-/* ===== paste-guard.js · v1.0.0 · 2026-07-27 =====
+/* ===== paste-guard.js · v2.1.0 · 2026-07-27 =====
    שומר על כתיבה עצמאית בשדות הפתוחים.
 
    מה מותר:  העתקה מהקטע שבדף אל התשובה · גזור־הדבק בתוך התשובה עצמה
@@ -11,7 +11,14 @@
    הקובץ מתקין את עצמו על כל שדות הכתיבה, כולל כאלה שנוצרים אחר כך.
 
    דיווח: מספר הניסיונות נשלח אוטומטית עם ההגשה, תחת answers._paste
-   שינוי הודעה או כיבוי: ראו PG_CONFIG למטה.
+   בנוסף (v2.0.0): בודק עצמאות כתיבה. התלמיד יכול ללחוץ "בדיקת התשובה" בכל עת,
+   ובהגשה מתבצעת בדיקה אוטומטית. תשובה מעל הסף חוסמת הגשה עד לתיקון.
+
+   כלל בטיחות: תקלה טכנית לעולם אינה חוסמת הגשה. חוסמים רק על תוצאה אמיתית מעל הסף.
+   וכשהבדיקה אינה זמינה (אין רשת / הפונקציה נפלה) — במקום לעבור בשקט, מוצגת לתלמיד
+   רשימת בדיקה עצמית לפני השליחה. אישור אחד וההגשה ממשיכה.
+
+   שינוי הודעה, סף או כיבוי: ראו PG_CONFIG למטה.
 */
 (function(){
   'use strict';
@@ -22,6 +29,10 @@
   var MSG      = CFG.msg||'כאן כותבים במילים שלכם. אפשר לצטט מהקטע שבדף, אבל לא להדביק טקסט מבחוץ.';
   var SHOW_ME  = CFG.showStudentCount!==false;   /* התלמיד רואה את המונה שלו */
   var MEMORY   = 8;                              /* כמה העתקות אחרונות לזכור */
+  var CHECK_ON = CFG.check!==false;              /* בודק עצמאות הכתיבה */
+  var LIMIT    = typeof CFG.threshold==='number'?CFG.threshold:40;  /* אחוז מרבי מותר */
+  var MINW     = CFG.minWords||25;               /* מתחת לזה לא בודקים */
+  var API      = CFG.api||'https://lamedproject.netlify.app/.netlify/functions/bagrut-ai';
 
   var blocked=0, allowed=0, recent=[];
   window.__PASTE_GUARD__={get blocked(){return blocked;},get allowed(){return allowed;}};
@@ -137,28 +148,251 @@
      את המונה לכל שורה שנשלחת ל-lms_submissions. כל תקלה — ממשיכים כרגיל. */
   var _fetch=window.fetch;
   if(typeof _fetch==='function'){
-    window.fetch=function(u,o){
+    window.fetch=async function(u,o){
+      var isSub=false, body=null;
       try{
         var url=(typeof u==='string')?u:(u&&u.url)||'';
-        if(o&&o.body&&String(o.method||'').toUpperCase()==='POST'&&url.indexOf('lms_submissions')>-1){
-          var body=JSON.parse(o.body);
-          var rows=Array.isArray(body)?body:[body];
-          var touched=false;
-          rows.forEach(function(r){
-            if(r&&typeof r==='object'){
-              if(!r.answers||typeof r.answers!=='object')r.answers={};
-              r.answers._paste={blocked:blocked,allowed:allowed};
-              touched=true;
-            }
-          });
-          if(touched){
-            var o2={};for(var k in o)o2[k]=o[k];
-            o2.body=JSON.stringify(body);
-            return _fetch.call(window,u,o2);
+        isSub = !!(o&&o.body&&String(o.method||'').toUpperCase()==='POST'&&url.indexOf('lms_submissions')>-1);
+        if(isSub)body=JSON.parse(o.body);
+      }catch(err){isSub=false;}
+      if(!isSub)return _fetch.call(window,u,o);
+
+      /* שער: בדיקה אוטומטית לפני שההגשה יוצאת.
+         כל תקלה כאן נבלעת ומאפשרת הגשה — לעולם לא חוסמים בגלל באג. */
+      if(CHECK_ON&&typeof window.__PG_GATE__==='function'){
+        var bad=0;
+        try{ bad=await window.__PG_GATE__(); }catch(e){ bad=0; }
+        if(bad<0){
+          var e1=new Error('ההגשה בוטלה. השלימו את מה שחסר ונסו שוב.');
+          e1.__pg=true; throw e1;
+        }
+        if(bad>0){
+          var e2=new Error('יש '+bad+' תשובות שלא עברו את בדיקת העצמאות. תקנו לפי ההנחיות שמתחת לכל תשובה ונסו שוב.');
+          e2.__pg=true;
+          throw e2;
+        }
+      }
+      try{
+        var rows=Array.isArray(body)?body:[body];
+        var touched=false;
+        rows.forEach(function(r){
+          if(r&&typeof r==='object'){
+            if(!r.answers||typeof r.answers!=='object')r.answers={};
+            r.answers._paste={blocked:blocked,allowed:allowed};
+            var chk=[];
+            for(var k in results){ if(results[k]&&!results[k].skip)
+              chk.push({pct:results[k].pct,verdict:results[k].verdict,pass:!!results[k].pass}); }
+            if(chk.length)r.answers._check=chk;
+            touched=true;
           }
+        });
+        if(touched){
+          var o2={};for(var k2 in o)o2[k2]=o[k2];
+          o2.body=JSON.stringify(body);
+          return _fetch.call(window,u,o2);
         }
       }catch(err){}
       return _fetch.call(window,u,o);
     };
   }
+
+  /* ================= בודק עצמאות הכתיבה ================= */
+  if(!CHECK_ON)return;
+
+  var results={};        /* מפתח: טביעת הטקסט -> תוצאה */
+  var busy=false;
+  function fp(t){var x=norm(t);var h=0;for(var i=0;i<x.length;i++){h=(h*31+x.charCodeAt(i))|0;}return x.length+'_'+h;}
+  function wc(t){var x=norm(t);return x?x.split(' ').length:0;}
+
+  function ccss(){
+    if(document.getElementById('pgCss2'))return;
+    var st=document.createElement('style');st.id='pgCss2';
+    st.textContent=
+     '.pg-bar{display:flex;gap:7px;align-items:center;margin-top:6px;flex-wrap:wrap}'+
+     '.pg-btn{background:#eef1fb;color:#1e40af;border:0;border-radius:9px;padding:6px 14px;'+
+       'font-family:inherit;font-weight:800;font-size:.79rem;cursor:pointer}'+
+     '.pg-btn:hover{background:#dde4f7}.pg-btn:disabled{opacity:.5;cursor:default}'+
+     '.pg-res{border-radius:12px;padding:12px 14px;margin-top:7px;font-size:.85rem;line-height:1.65;'+
+       'border:1px solid #e4e5f0;background:#fff}'+
+     '.pg-res.ok{border-color:#bfe8d2;background:#f4fbf7}'+
+     '.pg-res.no{border-color:#f6cfcb;background:#fdf6f5}'+
+     '.pg-hd{display:flex;gap:9px;align-items:center;margin-bottom:7px;flex-wrap:wrap}'+
+     '.pg-pct{font-family:inherit;font-weight:800;font-size:1.15rem;border-radius:9px;padding:2px 12px}'+
+     '.pg-pct.ok{background:#e7f7ee;color:#0f7a4d}.pg-pct.no{background:#fdecea;color:#9f1239}'+
+     '.pg-vd{font-weight:800}'+
+     '.pg-res h5{margin:9px 0 3px;font-size:.82rem;font-weight:800;color:#4b5170}'+
+     '.pg-res ul{margin:0;padding-inline-start:19px}.pg-res li{margin-bottom:3px}'+
+     '.pg-q{color:#6a6f8a;font-size:.82rem}'+
+     '.pg-fix{background:#fdf3e2;border-radius:9px;padding:8px 12px;margin-top:7px}'+
+     '.pg-fix h5{color:#8a5a08;margin-top:0}'+
+     '.pg-sp{display:inline-block;width:13px;height:13px;border:2px solid #cfd4e8;'+
+       'border-top-color:#1e40af;border-radius:50%;animation:pgSpin .7s linear infinite;vertical-align:-2px}'+
+     '@keyframes pgSpin{to{transform:rotate(360deg)}}'+
+     '.pg-ov{position:fixed;inset:0;background:rgba(20,22,40,.55);z-index:99999;display:flex;'+
+       'align-items:center;justify-content:center;padding:18px;animation:pgIn .18s ease-out}'+
+     '.pg-md{background:#fff;border-radius:18px;max-width:520px;width:100%;padding:24px 26px;'+
+       'font-family:inherit;max-height:88vh;overflow:auto;box-shadow:0 20px 50px rgba(0,0,0,.3);'+
+       'direction:rtl;text-align:right}'+
+     '.pg-md h3{margin:0 0 5px;font-size:1.2rem;color:#1f2340}'+
+     '.pg-md .lead{color:#6a6f8a;font-size:.88rem;margin:0 0 15px}'+
+     '.pg-ck{display:flex;gap:10px;align-items:flex-start;background:#fafbff;border-radius:11px;'+
+       'padding:11px 13px;margin-bottom:8px;font-size:.9rem;line-height:1.6}'+
+     '.pg-ck i{font-style:normal;font-size:1.1rem;line-height:1.3}'+
+     '.pg-md .acts{display:flex;gap:9px;margin-top:16px;flex-wrap:wrap}'+
+     '.pg-md button{flex:1;min-width:130px;border:0;border-radius:11px;padding:12px 16px;'+
+       'font-family:inherit;font-weight:800;font-size:.92rem;cursor:pointer}'+
+     '.pg-md .yes{background:#12b76a;color:#fff}.pg-md .no{background:#f1f2f8;color:#1f2340}';
+    (document.head||document.documentElement).appendChild(st);
+  }
+
+  function esc(t){return String(t==null?'':t).replace(/[&<>"]/g,function(c){
+    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+
+  /* ההקשר של השדה: השאלה שמעליו, לשיפור דיוק הבדיקה */
+  function contextOf(ta){
+    try{
+      var n=ta.parentNode,txt='';
+      for(var d=0;d<3&&n;d++){
+        txt=norm(n.innerText||n.textContent||'');
+        if(txt.length>40)break;
+        n=n.parentNode;
+      }
+      return txt.replace(norm(ta.value),'').slice(0,600);
+    }catch(e){return '';}
+  }
+
+  async function runCheck(ta){
+    var t=ta.value||'';
+    if(wc(t)<MINW)return {skip:true,why:'צריך לפחות '+MINW+' מילים כדי לבדוק.'};
+    var k=fp(t);
+    if(results[k])return results[k];
+    var r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({action:'check',text:t,question:contextOf(ta)})});
+    if(!r.ok)throw new Error('שרת '+r.status);
+    var j=await r.json();
+    if(j.error)throw new Error(j.error);
+    j.pass=(Number(j.pct)||0)<LIMIT;
+    results[k]=j;
+    return j;
+  }
+
+  function resBox(ta){
+    var b=ta.__pgRes;
+    if(b&&b.parentNode)return b;
+    b=document.createElement('div');b.className='pg-res';ta.__pgRes=b;
+    var bar=ta.__pgBar;
+    if(bar&&bar.parentNode)bar.parentNode.insertBefore(b,bar.nextSibling);
+    return b;
+  }
+  function paint(ta,j){
+    ccss();
+    var b=resBox(ta);
+    if(j.skip){b.className='pg-res';b.innerHTML='<span class="pg-q">'+esc(j.why)+'</span>';return;}
+    var ok=j.pass;
+    b.className='pg-res '+(ok?'ok':'no');
+    var h='<div class="pg-hd"><span class="pg-pct '+(ok?'ok':'no')+'">'+j.pct+'%</span>'+
+      '<span class="pg-vd">'+esc(j.verdict)+'</span>'+
+      '<span class="pg-q">'+(ok?'עומד בדרישה (מתחת ל-'+LIMIT+'%)':'מעל '+LIMIT+'% — יש לתקן לפני הגשה')+'</span></div>';
+    if(j.summary)h+='<div>'+esc(j.summary)+'</div>';
+    if(j.ai_signs&&j.ai_signs.length){
+      h+='<h5>מה שנראה לא עצמאי</h5><ul>'+j.ai_signs.map(function(x){
+        return '<li>'+esc(x.sign||x)+(x.quote?' <span class="pg-q">— "'+esc(x.quote)+'"</span>':'')+'</li>';}).join('')+'</ul>';
+    }
+    if(j.human_signs&&j.human_signs.length){
+      h+='<h5>מה שנשמע כמוכם</h5><ul>'+j.human_signs.map(function(x){return '<li>'+esc(x)+'</li>';}).join('')+'</ul>';
+    }
+    if(j.fixes&&j.fixes.length){
+      h+='<div class="pg-fix"><h5>מה לעשות עכשיו</h5><ul>'+
+        j.fixes.map(function(x){return '<li>'+esc(x)+'</li>';}).join('')+'</ul></div>';
+    }
+    if(j.questions&&j.questions.length){
+      h+='<h5>שאלות שהמורה עשוי לשאול</h5><ul class="pg-q">'+
+        j.questions.map(function(x){return '<li>'+esc(x)+'</li>';}).join('')+'</ul>';
+    }
+    b.innerHTML=h;
+  }
+
+  function attach(ta){
+    if(ta.__pgBar||ta.hasAttribute&&ta.hasAttribute('data-pg-nocheck'))return;
+    ccss();
+    var bar=document.createElement('div');bar.className='pg-bar';
+    var btn=document.createElement('button');btn.type='button';btn.className='pg-btn';
+    btn.textContent='🔍 בדיקת התשובה';
+    btn.onclick=function(){
+      if(busy)return;
+      busy=true;btn.disabled=true;btn.innerHTML='<span class="pg-sp"></span> בודק…';
+      runCheck(ta).then(function(j){paint(ta,j);})
+        .catch(function(e){ccss();resBox(ta).className='pg-res';
+          resBox(ta).innerHTML='<span class="pg-q">הבדיקה לא זמינה כרגע ('+esc(e.message)+'). אפשר להגיש כרגיל.</span>';})
+        .then(function(){busy=false;btn.disabled=false;btn.textContent='🔍 בדיקת התשובה';});
+    };
+    bar.appendChild(btn);
+    ta.__pgBar=bar;
+    if(ta.parentNode)ta.parentNode.insertBefore(bar,(ta.__pgNote&&ta.__pgNote.parentNode?ta.__pgNote:ta).nextSibling);
+  }
+  function scan(){
+    try{
+      var list=document.querySelectorAll('textarea');
+      for(var i=0;i<list.length;i++)attach(list[i]);
+    }catch(e){}
+  }
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',scan);
+  else scan();
+  try{ new MutationObserver(scan).observe(document.body||document.documentElement,{childList:true,subtree:true}); }catch(e){}
+
+  /* ---------- רשימת בדיקה עצמית כשהבדיקה אינה זמינה ---------- */
+  var SELF = CFG.selfCheck || [
+    'נתתי בתשובה <b>דוגמה</b> — ורצוי דוגמה מהעולם שלי: משהו שראיתי, שקרה לי או שאני צורך.',
+    'הסברתי <b>למה הדוגמה רלוונטית</b> ואיך היא מתחברת למה שכתבתי, ולא רק הזכרתי אותה.',
+    'לתשובה יש <b>מבנה</b> — פתיחה שמציגה את הרעיון, גוף עם דוגמאות ממחישות, וסיום שסוגר אותו.'
+  ];
+  function selfCheckModal(){
+    ccss();
+    return new Promise(function(done){
+      var ov=document.createElement('div');ov.className='pg-ov';
+      ov.innerHTML='<div class="pg-md">'+
+        '<h3>רגע לפני ששולחים</h3>'+
+        '<p class="lead">הבדיקה האוטומטית אינה זמינה כרגע, אז נעבור על זה בעצמנו. ' +
+        'קראו את התשובות שלכם ובדקו:</p>'+
+        SELF.map(function(t){return '<div class="pg-ck"><i>☐</i><span>'+t+'</span></div>';}).join('')+
+        '<div class="acts">'+
+          '<button class="no" data-a="0">חזרה לעריכה</button>'+
+          '<button class="yes" data-a="1">בדקתי — שלחו</button>'+
+        '</div></div>';
+      function pick(v){ try{ov.parentNode&&ov.parentNode.removeChild(ov);}catch(e){} done(v); }
+      ov.addEventListener('click',function(e){
+        var b=e.target&&e.target.getAttribute&&e.target.getAttribute('data-a');
+        if(b!==null&&b!==undefined)pick(b==='1');
+        else if(e.target===ov)pick(false);
+      });
+      (document.body||document.documentElement).appendChild(ov);
+    });
+  }
+
+  /* ---------- שער ההגשה ---------- */
+  window.__PG_GATE__=async function(){
+    var tas=[],list=document.querySelectorAll('textarea');
+    for(var i=0;i<list.length;i++){ if(wc(list[i].value)>=MINW)tas.push(list[i]); }
+    var failed=[], offline=0;
+    for(var j=0;j<tas.length;j++){
+      var ta=tas[j],k=fp(ta.value),r=results[k];
+      if(!r){
+        try{ r=await runCheck(ta); }
+        catch(e){ offline++; continue; }   /* תקלה טכנית — לא חוסמים */
+      }
+      if(r&&!r.skip&&!r.pass){ paint(ta,r); failed.push(ta); }
+    }
+    if(failed.length){
+      try{ failed[0].scrollIntoView({behavior:'smooth',block:'center'}); }catch(e){}
+      return failed.length;
+    }
+    /* הבדיקה לא רצה על חלק מהתשובות — בדיקה עצמית לפני שליחה */
+    if(offline>0&&tas.length){
+      var ok=true;
+      try{ ok=await selfCheckModal(); }catch(e){ ok=true; }
+      if(!ok)return -1;          /* התלמיד בחר לחזור לעריכה */
+    }
+    return 0;
+  };
 })();
+
