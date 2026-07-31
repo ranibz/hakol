@@ -1,4 +1,4 @@
-/* ===== paste-guard.js · v2.1.0 · 2026-07-27 =====
+/* ===== paste-guard.js · v2.1.1 · 2026-07-27 =====
    שומר על כתיבה עצמאית בשדות הפתוחים.
 
    מה מותר:  העתקה מהקטע שבדף אל התשובה · גזור־הדבק בתוך התשובה עצמה
@@ -268,8 +268,10 @@
     if(results[k])return results[k];
     var r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({action:'check',text:t,question:contextOf(ta)})});
-    if(!r.ok)throw new Error('שרת '+r.status);
-    var j=await r.json();
+    var j=null;
+    try{ j=await r.json(); }catch(e){ j=null; }
+    if(!r.ok)throw new Error((j&&j.error)?j.error:('שרת '+r.status));
+    if(!j)throw new Error('תשובה ריקה מהשרת');
     if(j.error)throw new Error(j.error);
     j.pass=(Number(j.pct)||0)<LIMIT;
     results[k]=j;
