@@ -1,6 +1,6 @@
 // netlify/functions/bagrut-ai.js
 // שכבת ה-AI של בונה המבחנים: הפקת קטע גירוי והתאמת ניסוחים לקטע.
-// גרסה: 1.0.0 | 2026-07-27
+// גרסה: 1.1.0 | 2026-07-27 | נוספה פעולת check — בדיקת עצמאות כתיבה עם משוב מעצב
 // מבנה זהה ל-mavchan-ai.js: action-based, מפתח מ-process.env.GEMINI_API_KEY
 
 exports.handler = async function (event) {
@@ -20,7 +20,7 @@ exports.handler = async function (event) {
 
   // ping — הבונה משתמש בזה כדי לדעת אם הפונקציה נפרסה באתר הזה
   if (body.action === 'ping')
-    return { statusCode: 200, headers, body: JSON.stringify({ ok: true, version: '1.0.0' }) };
+    return { statusCode: 200, headers, body: JSON.stringify({ ok: true, version: '1.1.0' }) };
 
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey)
@@ -77,6 +77,54 @@ ${parts.map((p, i) => `${i}. [${p.pts} נק׳] מושגים: ${(p.concepts || []
 החזר בדיוק:
 {"parts":[{"i":0,"q":"הניסוח החדש"}, ...]}`;
 
+  } else if (body.action === 'check') {
+    // בדיקת עצמאות הכתיבה. ההיגיון והכיול לקוחים מהפרומפט שעבד ב-tiklamed:
+    // שימוש במושגים מקצועיים אינו סימן ל-AI, והתיקון נדרש מהתלמיד ולא מנוסח עבורו.
+    const text = String(body.text || '').slice(0, 8000);
+    if (text.trim().split(/\s+/).length < 25)
+      return { statusCode: 400, headers, body: JSON.stringify({ error: 'הטקסט קצר מדי לבדיקה' }) };
+    const ctxq = String(body.question || '').replace(/<[^>]+>/g, '').slice(0, 600);
+    const cons = Array.isArray(body.concepts) ? body.concepts.filter(Boolean).slice(0, 8) : [];
+
+    prompt = `אתה בודק עצמאות כתיבה של תלמיד תקשורת וחברה בתיכון בישראל.
+
+הקשר מכריע — קרא לפני שאתה מנתח:
+התלמיד **חייב** להשתמש במושגים מקצועיים מתחום התקשורת (מסגור, הבניית מציאות, ספירלת השתיקה, סדר יום, דנוטציה, קונוטציה, סטריאוטיפ, אושיית רשת וכדומה).
+שימוש במושגים אלה הוא **דרישת המטלה ואינו סימן לכתיבת AI**. אדרבה — תלמיד שאינו משתמש בהם חשוד יותר.
+כמו כן, עברית תקנית וכתיבה מסודרת אינן כשלעצמן סימן ל-AI.
+
+התמקד בסימנים האמיתיים:
+- סגנון אחיד מדי לאורך כל הטקסט
+- היעדר מוחלט של קול אישי, דעה או התלבטות
+- מבנה משפטים "מושלם" מדי שאינו נשמע כמו תלמיד תיכון
+- היעדר דוגמאות קונקרטיות מהחיים, מהכיתה או מהתקשורת שהתלמיד צורך
+- חזרתיות וניסוחים כלליים שמתאימים לכל נושא
+- פסקאות ממוסגרות מדי, בנויות כמו תשובת מודל
+
+${ctxq ? 'השאלה שעליה התלמיד ענה:\n' + ctxq + '\n' : ''}${cons.length ? 'מושגים שהמטלה דרשה לשלב: ' + cons.join(', ') + '\n' : ''}
+הטקסט של התלמיד:
+"""
+${text}
+"""
+
+החזר JSON בלבד, בלי טקסט לפני או אחרי ובלי סימוני קוד:
+{
+ "pct": מספר בין 0 ל-100 — ההסתברות שהטקסט נכתב או נערך על ידי AI,
+ "verdict": אחד מ: "סביר אנושי" | "שילוב" | "סביר AI" | "כמעט בוודאות AI",
+ "summary": "משפט אחד על הרושם הכללי",
+ "ai_signs": [{"sign":"הסימן שזיהית","quote":"ציטוט קצר מהטקסט"}],
+ "human_signs": ["סימנים שמרמזים שהטקסט אכן של התלמיד"],
+ "questions": ["חמש שאלות ספציפיות לטקסט הזה שמורה יכול לשאול כדי לבחון הבנה"],
+ "fixes": ["הנחיות תיקון"]
+}
+
+כללים לשדה fixes:
+- **אל תנסח את התיקון עבור התלמיד.** דרוש ממנו לעשות, אל תכתוב במקומו.
+- מעל 30% — לכל סימן AI, דרוש לכתוב את הקטע מחדש במילים שלו, ולהוסיף דוגמה אישית ממשית ולהסביר איך היא מתקשרת.
+- מעל 50% — דרוש לכתוב את הפסקה מחדש מהזיכרון בלי להסתכל על מקור.
+- מתחת ל-30% — fixes יכול להיות מערך ריק.
+- ai_signs ריק אם באמת אין. אל תמציא סימנים כדי למלא.`;
+
   } else {
     return { statusCode: 400, headers, body: JSON.stringify({ error: 'Invalid action' }) };
   }
@@ -106,6 +154,13 @@ ${parts.map((p, i) => `${i}. [${p.pts} נק׳] מושגים: ${(p.concepts || []
 
     // הגנה: אם המודל בכל זאת הכניס מקור מומצא — מסירים את השורה
     if (out.text) out.text = String(out.text).replace(/\(?\s*מעובד על פי[^)]*\)?/g, '').trim();
+    if (body.action === 'check') {
+      out.pct = Math.max(0, Math.min(100, Math.round(Number(out.pct) || 0)));
+      ['ai_signs', 'human_signs', 'questions', 'fixes'].forEach(function (k) {
+        if (!Array.isArray(out[k])) out[k] = [];
+      });
+      out.verdict = String(out.verdict || '').trim() || (out.pct < 30 ? 'סביר אנושי' : out.pct < 60 ? 'שילוב' : 'סביר AI');
+    }
 
     return { statusCode: 200, headers, body: JSON.stringify(out) };
   } catch (e) {
