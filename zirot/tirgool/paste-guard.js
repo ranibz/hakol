@@ -1,4 +1,4 @@
-/* ===== paste-guard.js · v2.7.1 · 2026-07-31 =====
+/* ===== paste-guard.js · v2.8.0 · 2026-07-31 =====
    שומר על כתיבה עצמאית בשדות הפתוחים.
 
    מה מותר:  העתקה מהקטע שבדף אל התשובה · גזור־הדבק בתוך התשובה עצמה
@@ -24,6 +24,9 @@
    בנוסף (v2.4.0): מצב מפתח. כפתורי הפיתוח בדפים (class="dev" / "dev-skip")
    מוסתרים מכולם כברירת מחדל. להפעלה במכשיר שלכם — הוסיפו פעם אחת ?dev=1 לכתובת;
    ההגדרה נשמרת במכשיר. לכיבוי — ?dev=0.
+
+   בנוסף (v2.8.0): הסיסמה חלה גם על talmid.html — גם בבחירה ראשונה וגם
+   בכניסה אוטומטית של תלמיד שנזכר במכשיר.
 
    בנוסף (v2.7.0): סיסמת תלמיד. אחרי בחירת השם מרשימת הכיתה נדרשת סיסמה.
    ברירת המחדל לכולם 1234, וכל תלמיד יכול לשנות לעצמו. דורש את הטבלה lms_student_pw.
@@ -452,6 +455,7 @@
             '<p class="lead" style="margin:9px 0 0;font-size:.83rem">אם לא שיניתם סיסמה, היא <b>'+esc(DEF)+'</b>.</p>'+
             '<div id="pgPwErr"></div>'+
             '<div class="acts">'+
+              (onCancel?'<button class="no" data-a="cancel">לא אני</button>':'')+
               '<button class="no" data-a="chg">שינוי סיסמה</button>'+
               '<button class="yes" data-a="go">כניסה ←</button>'+
             '</div>'
@@ -481,6 +485,7 @@
       ov.addEventListener('click',async function(e){
         var a=e.target&&e.target.getAttribute&&e.target.getAttribute('data-a');
         if(!a){ return; }
+        if(a==='cancel'){ close(); onCancel&&onCancel(); return; }
         if(a==='chg'){ mode='change'; draw(); return; }
         if(a==='back'){ mode='login'; draw(); return; }
         if(a==='go'){
@@ -511,14 +516,43 @@
     }
 
     function hook(){
+      /* מסלול השיעורים: בחירת שם מרשימה */
       var el=document.getElementById('sName');
-      if(!el||el.tagName!=='SELECT'||el.__pgPw)return;
-      el.__pgPw=1;
-      el.addEventListener('change',function(){
-        var v=norm(el.value);
-        if(!v||verified(v))return;
-        ask(v,null,function(){});
-      });
+      if(el&&el.tagName==='SELECT'&&!el.__pgPw){
+        el.__pgPw=1;
+        el.addEventListener('change',function(){
+          var v=norm(el.value);
+          if(!v||verified(v))return;
+          ask(v,null,function(){ el.value=''; });
+        });
+      }
+      /* מסלול האזור האישי (talmid.html): כפתור "כניסה" אחרי בחירה ברשימה */
+      if(typeof window.pick==='function'&&!window.pick.__pgPw){
+        var _pick=window.pick;
+        var wrapped=function(){
+          var sel=document.getElementById('who');
+          var v=norm(sel?sel.value:'');
+          if(!v||verified(v))return _pick.apply(this,arguments);
+          ask(v,function(){ _pick(); },function(){ if(sel)sel.value=''; });
+        };
+        wrapped.__pgPw=1;
+        window.pick=wrapped;
+      }
+      /* אותו קובץ, אבל תלמיד שנזכר במכשיר ונכנס בלי לבחור */
+      if(typeof window.showTasks==='function'&&!window.showTasks.__pgPw){
+        var _show=window.showTasks;
+        var wrap2=function(){
+          var nm='';
+          try{ nm=norm(typeof me!=='undefined'?me:''); }catch(e){ nm=''; }
+          if(!nm||verified(nm))return _show.apply(this,arguments);
+          ask(nm,function(){ _show(); },function(){
+            try{ if(typeof switchMe==='function')switchMe(); }catch(e){}
+          });
+          return undefined;
+        };
+        wrap2.__pgPw=1;
+        window.showTasks=wrap2;
+      }
     }
     if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',hook);
     else hook();
