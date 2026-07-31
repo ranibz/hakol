@@ -1,6 +1,6 @@
 // netlify/functions/bagrut-ai.js
 // שכבת ה-AI של בונה המבחנים: הפקת קטע גירוי והתאמת ניסוחים לקטע.
-// גרסה: 1.1.0 | 2026-07-27 | נוספה פעולת check — בדיקת עצמאות כתיבה עם משוב מעצב
+// גרסה: 1.2.0 | 2026-07-27 | תיקון: מכסת הטוקנים הועלתה ל-8192 (2.5-flash גורע טוקני חשיבה מאותה מכסה), ושגיאות מדווחות במדויק במקום '500' סתמי
 // מבנה זהה ל-mavchan-ai.js: action-based, מפתח מ-process.env.GEMINI_API_KEY
 
 exports.handler = async function (event) {
@@ -20,7 +20,7 @@ exports.handler = async function (event) {
 
   // ping — הבונה משתמש בזה כדי לדעת אם הפונקציה נפרסה באתר הזה
   if (body.action === 'ping')
-    return { statusCode: 200, headers, body: JSON.stringify({ ok: true, version: '1.1.0' }) };
+    return { statusCode: 200, headers, body: JSON.stringify({ ok: true, version: '1.2.0' }) };
 
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey)
@@ -136,7 +136,11 @@ ${text}
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.75, maxOutputTokens: 2048, responseMimeType: 'application/json' }
+        generationConfig: {
+          temperature: 0.75,
+          maxOutputTokens: 8192,          // 2.5-flash גורע טוקני חשיבה מאותה מכסה
+          responseMimeType: 'application/json'
+        }
       })
     });
     if (!res.ok) {
@@ -144,13 +148,36 @@ ${text}
       return { statusCode: 500, headers, body: JSON.stringify({ error: 'Gemini ' + res.status + ' ' + t.slice(0, 200) }) };
     }
     const data = await res.json();
+    const cand = (data.candidates && data.candidates[0]) || null;
+    const why = cand && cand.finishReason;
     let txt = '';
-    try { txt = data.candidates[0].content.parts[0].text; }
-    catch (e) { return { statusCode: 500, headers, body: JSON.stringify({ error: 'תשובה ריקה מהמודל' }) }; }
+    try { txt = cand.content.parts.map(function (p) { return p.text || ''; }).join(''); }
+    catch (e) { txt = ''; }
+    if (!txt) {
+      const blocked = data.promptFeedback && data.promptFeedback.blockReason;
+      return {
+        statusCode: 500, headers, body: JSON.stringify({
+          error: blocked ? ('הבקשה נחסמה על ידי המודל (' + blocked + ')')
+            : why === 'MAX_TOKENS' ? 'התשובה נקטעה — חריגה ממכסת הטוקנים'
+              : ('תשובה ריקה מהמודל' + (why ? ' (' + why + ')' : ''))
+        })
+      };
+    }
 
     let out;
-    try { out = JSON.parse(String(txt).replace(/```json|```/g, '').trim()); }
-    catch (e) { return { statusCode: 500, headers, body: JSON.stringify({ error: 'תשובת המודל אינה JSON תקין' }) }; }
+    const raw = String(txt).replace(/```json|```/g, '').trim();
+    try { out = JSON.parse(raw); }
+    catch (e) {
+      // לפעמים חוזר טקסט עוטף — מנסים לחלץ את האובייקט
+      const a = raw.indexOf('{'), b = raw.lastIndexOf('}');
+      if (a > -1 && b > a) { try { out = JSON.parse(raw.slice(a, b + 1)); } catch (e2) { out = null; } }
+      if (!out) return {
+        statusCode: 500, headers, body: JSON.stringify({
+          error: (why === 'MAX_TOKENS' ? 'התשובה נקטעה באמצע — ' : '') +
+            'תשובת המודל אינה JSON תקין', sample: raw.slice(0, 160)
+        })
+      };
+    }
 
     // הגנה: אם המודל בכל זאת הכניס מקור מומצא — מסירים את השורה
     if (out.text) out.text = String(out.text).replace(/\(?\s*מעובד על פי[^)]*\)?/g, '').trim();
