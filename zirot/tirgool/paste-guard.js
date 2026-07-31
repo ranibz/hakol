@@ -1,4 +1,4 @@
-/* ===== paste-guard.js · v2.5.0 · 2026-07-27 =====
+/* ===== paste-guard.js · v2.6.0 · 2026-07-31 =====
    שומר על כתיבה עצמאית בשדות הפתוחים.
 
    מה מותר:  העתקה מהקטע שבדף אל התשובה · גזור־הדבק בתוך התשובה עצמה
@@ -24,6 +24,9 @@
    בנוסף (v2.4.0): מצב מפתח. כפתורי הפיתוח בדפים (class="dev" / "dev-skip")
    מוסתרים מכולם כברירת מחדל. להפעלה במכשיר שלכם — הוסיפו פעם אחת ?dev=1 לכתובת;
    ההגדרה נשמרת במכשיר. לכיבוי — ?dev=0.
+
+   בנוסף (v2.6.0): מורה בלי כיתות מקבלת חלון מפורש שמפנה אותה ליצירת כיתה,
+   והשלמה אוטומטית של הדפדפן מנוטרלת בשדה הכיתה כדי שלא תציע כיתות של מורה אחרת.
 
    בנוסף (v2.5.0): תיקון בורר הכיתה בכניסת המורה. הקוד בקבצים בונה את הרשימה פעם
    אחת בלבד, ולכן החלפת טלפון השאירה את הכיתות של המורה הקודמת. כאן הרשימה נבנית
@@ -251,6 +254,7 @@
     try{ KEYA=(typeof SKEY!=='undefined'&&SKEY)||''; }catch(e){}
     if(!SUPA||!KEYA)return;                      /* לא דף עם כניסת מורה */
 
+    var TCH=CFG.teacherHome||'/eshi/shioor/teacher-central.html';
     function nrm(v){var p=String(v||'').replace(/\D/g,'').replace(/^00+/,'');
       if(p.indexOf('972')===0)p=p.slice(3);p=p.replace(/^0+/,'');return p?('0'+p):'';}
     function get(q){ return fetch(SUPA+'/rest/v1/'+q,
@@ -276,9 +280,56 @@
       var el=document.createElement(tag);
       el.id='lgClass'; el.className=cur.className||'';
       try{ el.style.cssText=cur.style.cssText||''; }catch(e){}
-      if(tag==='input'){ el.placeholder="שם הכיתה (למשל י'3)"; }
+      if(tag==='input'){
+        el.placeholder="שם הכיתה (למשל י'3)";
+        /* הדפדפן זוכר ערכים לפי שם השדה ומציע כיתות של מורה אחרת.
+           שם אקראי + autocomplete מנטרלים את זה בפועל. */
+        el.setAttribute('autocomplete','off');
+        el.setAttribute('name','cls_'+Math.random().toString(36).slice(2,9));
+        el.setAttribute('autocorrect','off');
+        el.setAttribute('spellcheck','false');
+      }
       cur.parentNode.replaceChild(el,cur);
       return el;
+    }
+    /* גם השדה המקורי שבדף — לפני שהוחלף */
+    function killAutofill(){
+      var f=document.getElementById('lgClass');
+      if(!f||f.__pgAf)return;
+      f.__pgAf=1;
+      try{
+        f.setAttribute('autocomplete','off');
+        f.setAttribute('name','cls_'+Math.random().toString(36).slice(2,9));
+      }catch(e){}
+    }
+
+    /* חלון מפורש למורה בלי כיתות */
+    var warned=false;
+    function noClassModal(name){
+      if(warned)return; warned=true;
+      ccss();
+      var ov=document.createElement('div'); ov.className='pg-ov';
+      ov.innerHTML='<div class="pg-md">'+
+        '<h3>עדיין אין לכם כיתה</h3>'+
+        '<p class="lead">'+esc(name||'')+', כדי להשתמש בשיעור מול כיתה צריך קודם ליצור אותה '+
+        'ולהזין את רשימת התלמידים.</p>'+
+        '<div class="pg-ck"><i>1</i><span>היכנסו ל<b>סביבת המורה</b> וצרו כיתה חדשה.</span></div>'+
+        '<div class="pg-ck"><i>2</i><span>הדביקו את שמות התלמידים — שם בכל שורה.</span></div>'+
+        '<div class="pg-ck"><i>3</i><span>חזרו לכאן, והכיתה תופיע ברשימה.</span></div>'+
+        '<p class="lead" style="margin:12px 0 0">בלי כיתה אפשר לשלוח קישור, אבל <b>לא תדעו מי הגיש ומי לא</b> — '+
+        'התלמידים לא יוכלו לבחור את שמם מרשימה.</p>'+
+        '<div class="acts">'+
+          '<button class="no" data-a="0">המשך בלי כיתה</button>'+
+          '<button class="yes" data-a="1">ליצירת כיתה ←</button>'+
+        '</div></div>';
+      ov.addEventListener('click',function(e){
+        var a=e.target&&e.target.getAttribute&&e.target.getAttribute('data-a');
+        if(a===null||a===undefined){ if(e.target===ov)close(); return; }
+        close();
+        if(a==='1'){ try{ window.open(TCH,'_blank'); }catch(err){ location.href=TCH; } }
+      });
+      function close(){ try{ ov.parentNode&&ov.parentNode.removeChild(ov); }catch(e){} }
+      (document.body||document.documentElement).appendChild(ov);
     }
 
     var last=null, busy=false;
@@ -296,10 +347,13 @@
         if(!list.length){
           var inp=swap('input');
           if(inp)inp.value='';
-          note('עדיין לא יצרתם כיתה. אפשר להקליד כאן שם כיתה, אבל כדי לראות מי הגיש ומי לא — '+
-               'צרו קודם כיתה עם רשימת התלמידים ב<b>סביבת המורה</b>.',true);
+          note('⚠ עדיין לא יצרתם כיתה. אפשר להקליד שם כיתה ולהמשיך, אבל <b>לא תדעו מי הגיש ומי לא</b>. '+
+               '<a href="'+TCH+'" target="_blank" style="color:inherit;font-weight:800;text-decoration:underline">'+
+               'ליצירת כיתה בסביבת המורה ←</a>',true);
+          noClassModal(t[0].name);
           return;
         }
+        warned=false;
         var sel=swap('select'); if(!sel)return;
         sel.innerHTML='<option value="">— בחרו כיתה —</option>'+
           list.map(function(n){return '<option>'+esc(n)+'</option>';}).join('')+
@@ -315,6 +369,7 @@
     }
 
     function bind(){
+      killAutofill();
       var ph=document.getElementById('lgPhone');
       if(!ph||ph.__pgCls)return;
       ph.__pgCls=1;
