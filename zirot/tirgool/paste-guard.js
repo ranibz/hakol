@@ -1,4 +1,4 @@
-/* ===== paste-guard.js · v2.3.0 · 2026-07-27 =====
+/* ===== paste-guard.js · v2.4.0 · 2026-07-27 =====
    שומר על כתיבה עצמאית בשדות הפתוחים.
 
    מה מותר:  העתקה מהקטע שבדף אל התשובה · גזור־הדבק בתוך התשובה עצמה
@@ -21,11 +21,49 @@
    וכשהבדיקה אינה זמינה (אין רשת / הפונקציה נפלה) — במקום לעבור בשקט, מוצגת לתלמיד
    רשימת בדיקה עצמית לפני השליחה. אישור אחד וההגשה ממשיכה.
 
+   בנוסף (v2.4.0): מצב מפתח. כפתורי הפיתוח בדפים (class="dev" / "dev-skip")
+   מוסתרים מכולם כברירת מחדל. להפעלה במכשיר שלכם — הוסיפו פעם אחת ?dev=1 לכתובת;
+   ההגדרה נשמרת במכשיר. לכיבוי — ?dev=0.
+
    שינוי הודעה, סף או כיבוי: ראו PG_CONFIG למטה.
 */
 (function(){
   'use strict';
   if(window.__PASTE_GUARD__)return;
+
+  /* ---------- מצב מפתח ----------
+     רץ ראשון בכוונה: מזריק את ה-CSS לפני שהדפדפן מספיק לצייר את הכפתור. */
+  var DEVKEY='pg_dev';
+  (function(){
+    try{
+      var q=String(location.search||'');
+      var m=/[?&]dev=([01])/.exec(q);
+      if(m){
+        if(m[1]==='1')localStorage.setItem(DEVKEY,'1');
+        else localStorage.removeItem(DEVKEY);
+      }
+    }catch(e){}
+    var on=false;
+    try{ on=localStorage.getItem(DEVKEY)==='1'; }catch(e){}
+    var st=document.createElement('style');
+    st.id='pgDev';
+    st.textContent = on
+      ? '.pg-devtag{position:fixed;top:12px;right:12px;z-index:99997;background:#111827;color:#fff;'+
+        'border-radius:20px;padding:4px 13px;font:700 11px/1.6 system-ui,sans-serif;opacity:.85}'
+      : '.dev,.dev-skip{display:none!important}';
+    (document.head||document.documentElement).appendChild(st);
+    if(on){
+      var tag=function(){
+        try{
+          if(document.getElementById('pgDevTag'))return;
+          var d=document.createElement('div');d.id='pgDevTag';d.className='pg-devtag';
+          d.textContent='מצב מפתח';d.title='כיבוי: הוסיפו ?dev=0 לכתובת';
+          (document.body||document.documentElement).appendChild(d);
+        }catch(e){}
+      };
+      if(document.body)tag(); else document.addEventListener('DOMContentLoaded',tag);
+    }
+  })();
 
   var CFG=window.PG_CONFIG||{};
   var ON       = CFG.enabled!==false;
