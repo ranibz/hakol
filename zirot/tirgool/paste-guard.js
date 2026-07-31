@@ -1,4 +1,4 @@
-/* ===== paste-guard.js · v2.2.0 · 2026-07-27 =====
+/* ===== paste-guard.js · v2.3.0 · 2026-07-27 =====
    שומר על כתיבה עצמאית בשדות הפתוחים.
 
    מה מותר:  העתקה מהקטע שבדף אל התשובה · גזור־הדבק בתוך התשובה עצמה
@@ -245,12 +245,67 @@
      '.pg-md .acts{display:flex;gap:9px;margin-top:16px;flex-wrap:wrap}'+
      '.pg-md button{flex:1;min-width:130px;border:0;border-radius:11px;padding:12px 16px;'+
        'font-family:inherit;font-weight:800;font-size:.92rem;cursor:pointer}'+
-     '.pg-md .yes{background:#12b76a;color:#fff}.pg-md .no{background:#f1f2f8;color:#1f2340}';
+     '.pg-md .yes{background:#12b76a;color:#fff}.pg-md .no{background:#f1f2f8;color:#1f2340}'+
+     '.pg-prog{display:flex;gap:8px;align-items:center;background:#eef1fb;border-radius:10px;'+
+       'padding:8px 12px;margin-top:6px;font-size:.82rem;font-weight:700;color:#1e40af}'+
+     '.pg-steps{display:flex;gap:4px;margin-inline-start:auto}'+
+     '.pg-steps i{width:6px;height:6px;border-radius:50%;background:#c3cdea;display:block}'+
+     '.pg-steps i.on{background:#1e40af}'+
+     '.pg-toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);z-index:99998;'+
+       'background:#1f2340;color:#fff;border-radius:13px;padding:11px 20px;font-family:inherit;'+
+       'font-weight:700;font-size:.88rem;box-shadow:0 10px 30px rgba(0,0,0,.28);display:flex;gap:10px;align-items:center}'+
+     '.pg-miss{background:#fdf3e2;border-radius:9px;padding:8px 12px;margin-top:6px;font-size:.83rem;color:#8a5a08}'+
+     '.pg-miss b{font-weight:800}';
     (document.head||document.documentElement).appendChild(st);
   }
 
   function esc(t){return String(t==null?'':t).replace(/[&<>"]/g,function(c){
     return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+
+  /* ---------- בדיקות מקומיות, בלי שרת ----------
+     קוראות את מה שכבר קיים בדף: רשימת המושגים שהמטלה דורשת. */
+  function conceptsNear(ta){
+    try{
+      var n=ta.parentNode;
+      for(var d=0;d<4&&n;d++){
+        var box=n.querySelector&&n.querySelector('.con');
+        if(box){
+          var out=[],bs=box.querySelectorAll('b');
+          for(var i=0;i<bs.length;i++){var t=norm(bs[i].textContent);if(t)out.push(t);}
+          if(out.length)return out;
+        }
+        n=n.parentNode;
+      }
+    }catch(e){}
+    return [];
+  }
+  /* התאמה סלחנית: מתעלמת מו' החיבור, מה' הידיעה ומריבוי */
+  function loose(t){return norm(t).replace(/["'׳״]/g,'').replace(/^[והבלכמש]/,'');}
+  function usedConcepts(txt,list){
+    var body=loose(txt),hit=[];
+    list.forEach(function(c){
+      var k=loose(c);
+      if(!k)return;
+      if(body.indexOf(k)>-1){hit.push(c);return;}
+      var stem=k.length>6?k.slice(0,k.length-2):k;   /* ייצוג / ייצוגים */
+      if(stem.length>4&&body.indexOf(stem)>-1)hit.push(c);
+    });
+    return hit;
+  }
+  function localCheck(ta){
+    var list=conceptsNear(ta);
+    if(!list.length)return null;
+    var hit=usedConcepts(ta.value||'',list);
+    return {list:list,hit:hit,miss:list.filter(function(c){return hit.indexOf(c)<0;})};
+  }
+  function localHtml(lc){
+    if(!lc)return '';
+    if(lc.hit.length)
+      return '<div class="pg-miss" style="background:#f2f7f4;color:#0f7a4d">נמצאו בתשובה: <b>'+
+        lc.hit.map(esc).join('، ')+'</b></div>';
+    return '<div class="pg-miss">המטלה מציעה לשלב מושגים מקצועיים, ולא זיהיתי אף אחד מהם בתשובה: <b>'+
+      lc.list.map(esc).join(' · ')+'</b></div>';
+  }
 
   /* ההקשר של השדה: השאלה שמעליו, לשיפור דיוק הבדיקה */
   function contextOf(ta){
@@ -265,18 +320,45 @@
     }catch(e){return '';}
   }
 
+  var STEPS=['שולח את התשובה לבדיקה…','בוחן את עצמאות הכתיבה…','בודק אם התשובה עונה על השאלה…','מנסח המלצות לתיקון…'];
+  function progress(ta,onto){
+    ccss();
+    var box=onto||resBox(ta);
+    var i=0;
+    function draw(){
+      box.className='pg-res';
+      box.innerHTML='<div class="pg-prog"><span class="pg-sp"></span><span>'+STEPS[i]+'</span>'+
+        '<span class="pg-steps">'+STEPS.map(function(_,k){return '<i class="'+(k<=i?'on':'')+'"></i>';}).join('')+
+        '</span></div>';
+    }
+    draw();
+    var t=setInterval(function(){ if(i<STEPS.length-1){i++;draw();} },1500);
+    return function(){ clearInterval(t); };
+  }
+
   async function runCheck(ta){
     var t=ta.value||'';
     if(wc(t)<MINW)return {skip:true,why:'צריך לפחות '+MINW+' מילים כדי לבדוק.'};
     var k=fp(t);
     if(results[k])return results[k];
-    var r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({action:'check',text:t,question:contextOf(ta)})});
-    var j=null;
-    try{ j=await r.json(); }catch(e){ j=null; }
-    if(!r.ok)throw new Error((j&&j.error)?j.error:('שרת '+r.status));
+    /* עומס בכיתה שלמה מייצר 429/503 — מנסים שוב עם המתנה גדלה */
+    var r=null,j=null,last='';
+    for(var att=0;att<3;att++){
+      if(att)await new Promise(function(res){setTimeout(res,700*att*att);});
+      try{
+        r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({action:'check',text:t,question:contextOf(ta)})});
+      }catch(e){ last=e.message||'אין קשר לשרת'; r=null; continue; }
+      try{ j=await r.json(); }catch(e){ j=null; }
+      if(r.ok)break;
+      last=(j&&j.error)?j.error:('שרת '+r.status);
+      if(r.status!==429&&r.status!==503&&r.status!==500)break;
+      j=null;
+    }
+    if(!r||!r.ok)throw new Error(last||'הבדיקה נכשלה');
     if(!j)throw new Error('תשובה ריקה מהשרת');
     if(j.error)throw new Error(j.error);
+    j.local=localCheck(ta);
     var tk=(typeof j.task==='number')?j.task:-1;
     j.okAi   = (Number(j.pct)||0)<LIMIT;
     j.okTask = (tk<0) || (tk>=TASKMIN);   /* אין שאלה בהקשר — לא שופטים מענה */
@@ -314,6 +396,7 @@
       h+='<h5>מה שנדרש בשאלה וחסר בתשובה</h5><ul>'+
         j.missing.map(function(x){return '<li>'+esc(x)+'</li>';}).join('')+'</ul>';
     }
+    if(j.local)h+=localHtml(j.local);
     if(j.ai_signs&&j.ai_signs.length){
       h+='<h5>מה שנראה לא עצמאי</h5><ul>'+j.ai_signs.map(function(x){
         return '<li>'+esc(x.sign||x)+(x.quote?' <span class="pg-q">— "'+esc(x.quote)+'"</span>':'')+'</li>';}).join('')+'</ul>';
@@ -340,10 +423,14 @@
     btn.textContent='🔍 בדיקת התשובה';
     btn.onclick=function(){
       if(busy)return;
-      busy=true;btn.disabled=true;btn.innerHTML='<span class="pg-sp"></span> בודק…';
-      runCheck(ta).then(function(j){paint(ta,j);})
-        .catch(function(e){ccss();resBox(ta).className='pg-res';
-          resBox(ta).innerHTML='<span class="pg-q">הבדיקה לא זמינה כרגע ('+esc(e.message)+'). אפשר להגיש כרגיל.</span>';})
+      busy=true;btn.disabled=true;btn.textContent='בודק…';
+      var stop=progress(ta);
+      runCheck(ta).then(function(j){stop();paint(ta,j);})
+        .catch(function(e){stop();ccss();
+          var lc=localCheck(ta);
+          resBox(ta).className='pg-res';
+          resBox(ta).innerHTML='<span class="pg-q">הבדיקה המלאה לא זמינה כרגע ('+esc(e.message)+'). '+
+            'אפשר להגיש, אבל כדאי לעבור על התשובה בעצמכם.</span>'+localHtml(lc);})
         .then(function(){busy=false;btn.disabled=false;btn.textContent='🔍 בדיקת התשובה';});
     };
     bar.appendChild(btn);
@@ -394,14 +481,32 @@
     var tas=[],list=document.querySelectorAll('textarea');
     for(var i=0;i<list.length;i++){ if(wc(list[i].value)>=MINW)tas.push(list[i]); }
     var failed=[], offline=0;
+    var toast=null;
+    function say(msg){
+      try{
+        ccss();
+        if(!toast){toast=document.createElement('div');toast.className='pg-toast';
+          (document.body||document.documentElement).appendChild(toast);}
+        toast.innerHTML='<span class="pg-sp"></span><span>'+msg+'</span>';
+      }catch(e){}
+    }
+    function hush(){ try{ toast&&toast.parentNode&&toast.parentNode.removeChild(toast); }catch(e){} toast=null; }
+
     for(var j=0;j<tas.length;j++){
       var ta=tas[j],k=fp(ta.value),r=results[k];
       if(!r){
-        try{ r=await runCheck(ta); }
-        catch(e){ offline++; continue; }   /* תקלה טכנית — לא חוסמים */
+        say('בודק תשובה '+(j+1)+' מתוך '+tas.length+'…');
+        var stop=progress(ta);
+        try{ r=await runCheck(ta); stop(); }
+        catch(e){ stop(); offline++;
+          try{ resBox(ta).className='pg-res';
+               resBox(ta).innerHTML='<span class="pg-q">הבדיקה לא זמינה ('+esc(e.message)+')</span>'+
+                 localHtml(localCheck(ta)); }catch(e2){}
+          continue; }
       }
       if(r&&!r.skip&&!r.pass){ paint(ta,r); failed.push(ta); }
     }
+    hush();
     if(failed.length){
       try{ failed[0].scrollIntoView({behavior:'smooth',block:'center'}); }catch(e){}
       return failed.length;
