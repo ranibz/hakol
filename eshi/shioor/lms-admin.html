@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- eshi/shioor/lms-admin.html · v2.1.0 · 2026-07-27 · נוספה לשונית "סטטיסטיקות": מורים מובילים, קבצים פופולריים, פילוח לפי זירה וסוג שיעור, מושגים מבוקשים, שיעורים קשים, פעילות לפי יום ולפי שעה, כיתות מובילות ומורים רדומים. בורר טווח 7/30/הכל. שאילתת ההגשות מושכת כעת גם lesson_type, zone, concept ו-page, והתקרה הועלתה ל-20000 עם התראה כשהיא נוגעת (MINOR) -->
+<!-- eshi/shioor/lms-admin.html · v2.2.0 · נוספה עמודת סיסמה מוסתרת עם חשיפה של 15 שניות, ואיפוס סיסמה למורה ששכחה (MINOR) · 2026-07-27 · נוספה לשונית "סטטיסטיקות": מורים מובילים, קבצים פופולריים, פילוח לפי זירה וסוג שיעור, מושגים מבוקשים, שיעורים קשים, פעילות לפי יום ולפי שעה, כיתות מובילות ומורים רדומים. בורר טווח 7/30/הכל. שאילתת ההגשות מושכת כעת גם lesson_type, zone, concept ו-page, והתקרה הועלתה ל-20000 עם התראה כשהיא נוגעת (MINOR) -->
 <html lang="he" dir="rtl">
 <head>
 <meta charset="utf-8">
@@ -51,6 +51,11 @@ tr:hover td{background:#fbfaff}
 .diag.okd{border-color:var(--ok);background:var(--okw)}
 .diag b{display:block;margin-bottom:3px}
 .mono{font-family:ui-monospace,monospace;font-size:.8rem;direction:ltr;text-align:right;color:var(--soft)}
+.pw{display:flex;gap:6px;align-items:center;justify-content:flex-end}
+.pw code{font-family:ui-monospace,monospace;font-size:.82rem;direction:ltr;letter-spacing:1px;
+  background:#f4f3fa;border-radius:6px;padding:2px 9px;min-width:74px;text-align:center;color:var(--ink)}
+.pw button{background:none;border:0;cursor:pointer;font-size:.95rem;padding:0 2px;opacity:.55}
+.pw button:hover{opacity:1}
 .seg{display:inline-flex;gap:4px;background:#fff;border:2px solid var(--line);border-radius:20px;padding:3px}
 .seg button{background:none;border:0;border-radius:16px;padding:5px 14px;font-family:inherit;font-weight:900;
   font-size:.82rem;color:var(--soft);cursor:pointer}
@@ -181,19 +186,66 @@ function paneTeachers(){
     const pill=t.status==='approved'?'<span class="pill p-ok">מאושר</span>'
       :t.status==='pending'?'<span class="pill p-wait">ממתין</span>'
       :'<span class="pill p-off">'+esc(t.status)+'</span>';
-    const acts=t.status==='approved'
+    const acts=(t.status==='approved'
       ? '<button class="btn bad sm" onclick="setStatus(\''+t.id+'\',\'suspended\')">השעיה</button>'
       : '<button class="btn ok sm" onclick="setStatus(\''+t.id+'\',\'approved\')">אישור</button>'+
-        '<button class="btn bad sm" onclick="setStatus(\''+t.id+'\',\'rejected\')">דחייה</button>';
+        '<button class="btn bad sm" onclick="setStatus(\''+t.id+'\',\'rejected\')">דחייה</button>')+
+      '<button class="btn sm" onclick="resetPw(\''+t.id+'\')">איפוס סיסמה</button>';
+    const pwCell=(t.password&&String(t.password).length)
+      ? '<div class="pw"><code id="pw_'+t.id+'">••••••</code>'+
+        '<button title="הצגה" onclick="togPw(\''+t.id+'\',this)">👁</button></div>'
+      : '<span class="pill p-bad">אין סיסמה</span>';
     return '<tr><td><b>'+esc(t.name||'—')+'</b>'+(t.is_admin?' <span class="pill p-v">מנהל</span>':'')+'</td>'+
       '<td>'+esc(t.school||'—')+'</td><td class="mono">'+esc(t.phone||'—')+'</td>'+
+      '<td>'+pwCell+'</td>'+
       '<td>'+nc+'</td><td>'+ns+'</td><td>'+pill+'</td><td><div class="acts">'+acts+'</div></td></tr>';
   }).join('');
   document.getElementById('pane').innerHTML=
     '<div class="bar"><input placeholder="חיפוש שם, טלפון או בית ספר" value="'+esc(q)+'" oninput="setQ(this.value)"></div>'+
-    '<div class="scroll"><table><thead><tr><th>שם</th><th>בית ספר</th><th>טלפון</th><th>כיתות</th><th>הגשות</th><th>סטטוס</th><th>פעולות</th></tr></thead><tbody>'+
-    rows+'</tbody></table></div><div id="msg" style="margin-top:9px;font-weight:700;font-size:.88rem;"></div>';
+    '<div class="scroll"><table><thead><tr><th>שם</th><th>בית ספר</th><th>טלפון</th><th>סיסמה</th><th>כיתות</th><th>הגשות</th><th>סטטוס</th><th>פעולות</th></tr></thead><tbody>'+
+    rows+'</tbody></table></div><div id="msg" style="margin-top:9px;font-weight:700;font-size:.88rem;"></div>'+
+    '<p class="sub" style="margin-top:10px;font-size:.82rem;">הסיסמאות מוסתרות. לחיצה על 👁 מציגה שורה אחת בלבד, וההצגה נסגרת לבד אחרי 15 שניות. '+
+    'למורה ששכחה — עדיף <b>איפוס</b> על פני הצגה.</p>';
 }
+
+/* הצגה נקודתית, עם סגירה אוטומטית אחרי 15 שניות */
+const pwTimers={};
+function togPw(id,btn){
+  const el=document.getElementById('pw_'+id); if(!el)return;
+  const t=TE.find(x=>x.id===id); if(!t)return;
+  if(el.dataset.on==='1'){
+    el.textContent='••••••'; el.dataset.on=''; btn.textContent='👁';
+    clearTimeout(pwTimers[id]); return;
+  }
+  el.textContent=t.password||''; el.dataset.on='1'; btn.textContent='🙈';
+  clearTimeout(pwTimers[id]);
+  pwTimers[id]=setTimeout(function(){
+    if(el&&el.dataset.on==='1'){el.textContent='••••••';el.dataset.on='';btn.textContent='👁';}
+  },15000);
+}
+
+/* איפוס: המנהל קובע סיסמה חדשה ומוסר אותה למורה */
+async function resetPw(id){
+  const t=TE.find(x=>x.id===id); if(!t)return;
+  const suggested='tk'+Math.floor(Math.random()*9000+1000);
+  const pw=prompt('סיסמה חדשה עבור '+(t.name||'המורה')+':\n\nאפשר לאשר את ההצעה או להקליד אחרת.',suggested);
+  if(pw===null)return;
+  const val=String(pw).trim();
+  if(val.length<4){alert('סיסמה חייבת להיות באורך 4 תווים לפחות.');return;}
+  const m=document.getElementById('msg');
+  if(m){m.style.color='var(--soft)';m.textContent='מאפס…';}
+  try{
+    await sb('lms_teachers?id=eq.'+encodeURIComponent(id),'PATCH',{password:val});
+    t.password=val;
+    render();
+    const m2=document.getElementById('msg');
+    if(m2){m2.style.color='var(--ok)';m2.textContent='✅ הסיסמה של '+(t.name||'המורה')+' אופסה ל: '+val+' — מסרו לה אותה.';}
+  }catch(e){
+    const m2=document.getElementById('msg');
+    if(m2){m2.style.color='var(--bad)';m2.textContent='האיפוס נכשל: '+e.message.slice(0,140);}
+  }
+}
+
 async function setStatus(id,st){
   try{ await sb('lms_teachers?id=eq.'+encodeURIComponent(id),'PATCH',{status:st});
     const t=TE.find(x=>x.id===id); if(t)t.status=st; render();
