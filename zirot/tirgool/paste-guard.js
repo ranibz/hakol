@@ -1,4 +1,4 @@
-/* ===== paste-guard.js · v2.6.0 · 2026-07-31 =====
+/* ===== paste-guard.js · v2.7.1 · 2026-07-31 =====
    שומר על כתיבה עצמאית בשדות הפתוחים.
 
    מה מותר:  העתקה מהקטע שבדף אל התשובה · גזור־הדבק בתוך התשובה עצמה
@@ -24,6 +24,10 @@
    בנוסף (v2.4.0): מצב מפתח. כפתורי הפיתוח בדפים (class="dev" / "dev-skip")
    מוסתרים מכולם כברירת מחדל. להפעלה במכשיר שלכם — הוסיפו פעם אחת ?dev=1 לכתובת;
    ההגדרה נשמרת במכשיר. לכיבוי — ?dev=0.
+
+   בנוסף (v2.7.0): סיסמת תלמיד. אחרי בחירת השם מרשימת הכיתה נדרשת סיסמה.
+   ברירת המחדל לכולם 1234, וכל תלמיד יכול לשנות לעצמו. דורש את הטבלה lms_student_pw.
+   כיבוי: PG_CONFIG.studentPw=false · שינוי ברירת המחדל: PG_CONFIG.defaultPw
 
    בנוסף (v2.6.0): מורה בלי כיתות מקבלת חלון מפורש שמפנה אותה ליצירת כיתה,
    והשלמה אוטומטית של הדפדפן מנוטרלת בשדה הכיתה כדי שלא תציע כיתות של מורה אחרת.
@@ -248,7 +252,7 @@
   /* ================= בורר הכיתה בכניסת המורה =================
      מתקן שני ליקויים בקוד שבקבצים: הרשימה לא נבנתה מחדש בהחלפת טלפון,
      ומורה בלי כיתות לא קיבלה שום חיווי. */
-  (function(){
+  try{(function(){
     var SUPA='', KEYA='';
     try{ SUPA=(typeof SUP!=='undefined'&&SUP)||''; }catch(e){}
     try{ KEYA=(typeof SKEY!=='undefined'&&SKEY)||''; }catch(e){}
@@ -379,7 +383,147 @@
     if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bind);
     else bind();
     try{ new MutationObserver(bind).observe(document.body||document.documentElement,{childList:true,subtree:true}); }catch(e){}
-  })();
+  })();}catch(e){if(window.console)console.warn("paste-guard: מודול נכשל ודולג",e);}
+
+
+  /* ================= סיסמת תלמיד =================
+     התלמיד בוחר את שמו מרשימת הכיתה ואז מזין סיסמה.
+     ברירת המחדל לכולם היא 1234, וכל תלמיד יכול לשנות אותה לעצמו.
+     נשמר בטבלה lms_student_pw כערך מעורבל — לא כטקסט גלוי. */
+  try{(function(){
+    if(CFG.studentPw===false)return;
+    var SUPB='',KEYB='';
+    try{ SUPB=(typeof SUP!=='undefined'&&SUP)||''; }catch(e){}
+    try{ KEYB=(typeof SKEY!=='undefined'&&SKEY)||''; }catch(e){}
+    if(!SUPB||!KEYB)return;
+
+    var DEF=CFG.defaultPw||'1234';
+    var TID='',CLS='';
+    try{ var P=new URLSearchParams(location.search||''); TID=P.get('code')||''; CLS=P.get('class')||''; }
+    catch(e){
+      var q=String(location.search||'');
+      var a=/[?&]code=([^&]*)/.exec(q), b=/[?&]class=([^&]*)/.exec(q);
+      TID=a?decodeURIComponent(a[1]):''; CLS=b?decodeURIComponent(b[1]):'';
+    }
+    if(!TID||!CLS)return;                 /* לא מסלול תלמיד */
+
+    function api(q,m,b,x){
+      return fetch(SUPB+'/rest/v1/'+q,{method:m||'GET',
+        headers:Object.assign({apikey:KEYB,Authorization:'Bearer '+KEYB,'Content-Type':'application/json'},x||{}),
+        body:b?JSON.stringify(b):undefined})
+        .then(function(r){ if(!r.ok)return r.text().then(function(t){throw new Error(r.status+' '+t.slice(0,120));});
+          return r.text().then(function(t){return t?JSON.parse(t):[];}); });
+    }
+    /* ערבול קל: מונע קריאה של סיסמאות דרך ה-API. אינו הצפנה. */
+    function mix(pw,key){
+      var s=String(pw)+'|'+String(key), h1=5381, h2=52711;
+      for(var i=0;i<s.length;i++){ var c=s.charCodeAt(i); h1=((h1*33)^c)>>>0; h2=((h2*39)^c)>>>0; }
+      return h1.toString(36)+h2.toString(36);
+    }
+    var okKey=function(name){ return 'pgstu_'+TID+'_'+CLS+'_'+norm(name); };
+    function verified(name){ try{ return sessionStorage.getItem(okKey(name))==='1'; }catch(e){ return false; } }
+    function markOk(name){ try{ sessionStorage.setItem(okKey(name),'1'); }catch(e){} }
+
+    function row(name){
+      return api('lms_student_pw?select=pw&teacher_id=eq.'+encodeURIComponent(TID)+
+        '&class_name=eq.'+encodeURIComponent(CLS)+
+        '&student_key=eq.'+encodeURIComponent(norm(name)))
+        .then(function(r){ return (r&&r[0])?r[0]:null; })
+        .catch(function(){ return null; });
+    }
+    function save(name,pw){
+      return api('lms_student_pw?on_conflict=teacher_id,class_name,student_key','POST',
+        [{teacher_id:TID,class_name:CLS,student_key:norm(name),pw:mix(pw,norm(name)),
+          updated_at:new Date().toISOString()}],
+        {Prefer:'resolution=merge-duplicates'});
+    }
+
+    function ask(name,onOk,onCancel){
+      ccss();
+      var ov=document.createElement('div'); ov.className='pg-ov';
+      var mode='login';
+      function draw(){
+        ov.innerHTML='<div class="pg-md">'+(mode==='login'
+          ? '<h3>שלום '+esc(name)+'</h3>'+
+            '<p class="lead">הזינו סיסמה כדי להמשיך.</p>'+
+            '<input id="pgPw" type="password" inputmode="numeric" placeholder="סיסמה" '+
+              'style="width:100%;font-family:inherit;font-size:1.05rem;border:1px solid #d5d7e4;'+
+              'border-radius:10px;padding:11px 13px;text-align:center;letter-spacing:3px">'+
+            '<p class="lead" style="margin:9px 0 0;font-size:.83rem">אם לא שיניתם סיסמה, היא <b>'+esc(DEF)+'</b>.</p>'+
+            '<div id="pgPwErr"></div>'+
+            '<div class="acts">'+
+              '<button class="no" data-a="chg">שינוי סיסמה</button>'+
+              '<button class="yes" data-a="go">כניסה ←</button>'+
+            '</div>'
+          : '<h3>שינוי סיסמה</h3>'+
+            '<p class="lead">'+esc(name)+', בחרו סיסמה חדשה. זכרו אותה — בלעדיה לא תוכלו להיכנס.</p>'+
+            '<input id="pgOld" type="password" placeholder="הסיסמה הנוכחית" '+
+              'style="width:100%;font-family:inherit;border:1px solid #d5d7e4;border-radius:10px;padding:10px 13px;margin-bottom:8px">'+
+            '<input id="pgNew" type="password" placeholder="סיסמה חדשה (4 תווים לפחות)" '+
+              'style="width:100%;font-family:inherit;border:1px solid #d5d7e4;border-radius:10px;padding:10px 13px;margin-bottom:8px">'+
+            '<input id="pgNew2" type="password" placeholder="שוב, לוודא" '+
+              'style="width:100%;font-family:inherit;border:1px solid #d5d7e4;border-radius:10px;padding:10px 13px">'+
+            '<div id="pgPwErr"></div>'+
+            '<div class="acts">'+
+              '<button class="no" data-a="back">חזרה</button>'+
+              '<button class="yes" data-a="savepw">שמירה ←</button>'+
+            '</div>')+'</div>';
+        var f=document.getElementById(mode==='login'?'pgPw':'pgOld');
+        if(f)try{f.focus();}catch(e){}
+      }
+      function err(m){
+        var e=document.getElementById('pgPwErr');
+        if(e)e.innerHTML='<div style="background:#fdecea;color:#9f1239;border-radius:9px;padding:8px 12px;'+
+          'margin-top:9px;font-size:.86rem;font-weight:700">'+esc(m)+'</div>';
+      }
+      function close(){ try{ov.parentNode&&ov.parentNode.removeChild(ov);}catch(e){} }
+
+      ov.addEventListener('click',async function(e){
+        var a=e.target&&e.target.getAttribute&&e.target.getAttribute('data-a');
+        if(!a){ return; }
+        if(a==='chg'){ mode='change'; draw(); return; }
+        if(a==='back'){ mode='login'; draw(); return; }
+        if(a==='go'){
+          var pw=(document.getElementById('pgPw')||{}).value||'';
+          if(!pw){ err('נא להזין סיסמה.'); return; }
+          var r=await row(name);
+          var want=r?r.pw:mix(DEF,norm(name));
+          if(mix(pw,norm(name))!==want){ err('סיסמה שגויה. אם לא שיניתם — נסו '+DEF+'.'); return; }
+          markOk(name); close(); onOk&&onOk(); return;
+        }
+        if(a==='savepw'){
+          var o=(document.getElementById('pgOld')||{}).value||'';
+          var n1=(document.getElementById('pgNew')||{}).value||'';
+          var n2=(document.getElementById('pgNew2')||{}).value||'';
+          var r2=await row(name);
+          var want2=r2?r2.pw:mix(DEF,norm(name));
+          if(mix(o,norm(name))!==want2){ err('הסיסמה הנוכחית שגויה.'); return; }
+          if(n1.length<4){ err('הסיסמה החדשה חייבת להיות באורך 4 תווים לפחות.'); return; }
+          if(n1!==n2){ err('שתי הסיסמאות אינן זהות.'); return; }
+          try{ await save(name,n1); }catch(e2){ err('השמירה נכשלה: '+e2.message.slice(0,90)); return; }
+          markOk(name); close(); onOk&&onOk(); return;
+        }
+      });
+      ov.addEventListener('keydown',function(e){ if(e.key==='Enter'){
+        var b=ov.querySelector('.yes'); if(b)b.click(); } });
+      (document.body||document.documentElement).appendChild(ov);
+      draw();
+    }
+
+    function hook(){
+      var el=document.getElementById('sName');
+      if(!el||el.tagName!=='SELECT'||el.__pgPw)return;
+      el.__pgPw=1;
+      el.addEventListener('change',function(){
+        var v=norm(el.value);
+        if(!v||verified(v))return;
+        ask(v,null,function(){});
+      });
+    }
+    if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',hook);
+    else hook();
+    try{ new MutationObserver(hook).observe(document.body||document.documentElement,{childList:true,subtree:true}); }catch(e){}
+  })();}catch(e){if(window.console)console.warn("paste-guard: מודול נכשל ודולג",e);}
 
   /* ================= בודק עצמאות הכתיבה ================= */
   if(!CHECK_ON)return;
