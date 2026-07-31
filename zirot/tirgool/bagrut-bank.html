@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<!-- zirot/tirgool/bagrut-bank.html · v1.0.0 · 2026-07-31 · הרכבת מבחן ממאגר שאלות בגרות אמיתיות. המבנה הוא מבנה הבגרות: שלושה פרקים עם מכסת שאלות לכל אחד. המורה מסנן לפי מושג, זירה, מועד ופרק, בוחר שאלות, והמערכת מרכיבה מבחן ושומרת אותו ב-bagrut_exams להרצה ב-bagrut-run. ללא מחוונים בשלב זה (MAJOR) -->
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>מאגר שאלות בגרות · הרכבת מבחן</title>
+<link href="https://fonts.googleapis.com/css2?family=Secular+One&family=Assistant:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+:root{--a:#1e40af;--b:#7c3aed;--ink:#1f2340;--soft:#6a6f8a;--bg:#f7f6fc;--line:#e7e4f3;
+  --ok:#12b76a;--no:#dc2626;--warn:#c98a12;--card:#fbfaff}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:'Assistant',sans-serif;font-size:16px;line-height:1.6}
+h1,h2,h3,.disp{font-family:'Secular One',sans-serif;font-weight:400}
+.wrap{max-width:1180px;margin:0 auto;padding:16px 15px 70px}
+.mid{max-width:460px;margin:60px auto;padding:0 15px}
+.card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:17px 19px;margin-bottom:13px}
+.h2{font-size:1.12rem;margin:0 0 4px;color:var(--b)}
+.sub{color:var(--soft);font-size:.86rem}
+label{display:block;font-weight:800;font-size:.82rem;margin-bottom:4px}
+input,select{font-family:inherit;font-size:.94rem;border:1px solid #d8d5e8;border-radius:10px;padding:9px 11px;width:100%}
+.btn{background:var(--b);color:#fff;border:0;border-radius:10px;padding:10px 19px;font-family:inherit;
+  font-weight:800;font-size:.9rem;cursor:pointer}
+.btn:hover{filter:brightness(.93)} .btn.g{background:#f0eefa;color:var(--ink)} .btn.ok{background:var(--ok)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.mini{background:#f0eefa;color:var(--b);border:0;border-radius:8px;padding:4px 11px;font-family:inherit;
+  font-weight:800;font-size:.78rem;cursor:pointer}
+.err{background:#fdecea;color:#9f1239;border-radius:10px;padding:10px 13px;font-weight:700;font-size:.88rem}
+.pill{display:inline-block;border-radius:20px;padding:2px 11px;font-size:.76rem;font-weight:800;
+  background:#f0eefa;color:var(--b);margin:2px 3px 2px 0}
+.pill.y{background:#fdf3e2;color:#8a5a08} .pill.g{background:#e7f7ee;color:#0f7a4d}
+.pill.r{background:#fdecea;color:#9f1239}
+.grid{display:grid;grid-template-columns:300px 1fr;gap:14px;align-items:start}
+@media(max-width:900px){.grid{grid-template-columns:1fr}}
+.q{border:1px solid var(--line);border-radius:13px;padding:12px 14px;margin-bottom:10px;background:#fff}
+.q.on{border-color:var(--b);background:#fbfaff;box-shadow:0 4px 14px rgba(124,58,237,.1)}
+.qh{display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin-bottom:6px}
+.qn{background:var(--a);color:#fff;border-radius:8px;padding:2px 10px;font-family:'Secular One',sans-serif;font-size:.86rem}
+.qt{font-weight:800;font-size:.92rem;flex:1}
+.src{background:#f6f7ff;border-inline-start:3px solid var(--line);border-radius:0 9px 9px 0;
+  padding:8px 11px;margin:7px 0;font-size:.83rem;color:var(--soft);max-height:76px;overflow:auto}
+.part{font-size:.86rem;margin:4px 0;padding-inline-start:6px}
+.part b{color:var(--b)}
+.slot{border:2px dashed #d5cff0;border-radius:12px;padding:10px 13px;margin-bottom:9px;background:#fff}
+.slot.full{border-style:solid;border-color:var(--ok);background:#f7fdfa}
+.slot h4{margin:0 0 4px;font-size:.95rem}
+.chosen{font-size:.84rem;margin:3px 0;display:flex;gap:7px;align-items:center}
+.chosen span{flex:1}
+.bar{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:2px solid var(--line);
+  padding:10px 0;box-shadow:0 -3px 14px rgba(0,0,0,.05);z-index:20}
+.barin{max-width:1180px;margin:0 auto;padding:0 15px;display:flex;gap:11px;align-items:center;flex-wrap:wrap}
+.tot{font-family:'Secular One',sans-serif;font-size:1.15rem}
+.tot.ok{color:var(--ok)} .tot.no{color:var(--no)}
+</style>
+</head>
+<body><div id="app"><div class="mid"><div class="card">טוען…</div></div></div>
+<script src="bank-data.js"></script>
+<script>
+const SUP="https://eubgzfkkovxgijhrmnif.supabase.co",
+      SKEY="sb_publishable_vJ768fOwYWiDWeYsBBR45g_4NM4s55p";
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const el=id=>document.getElementById(id);
+async function sb(q,m,b,x){
+  const r=await fetch(SUP+'/rest/v1/'+q,{method:m||'GET',
+    headers:Object.assign({apikey:SKEY,Authorization:'Bearer '+SKEY,'Content-Type':'application/json'},x||{}),
+    body:b?JSON.stringify(b):undefined});
+  if(!r.ok)throw new Error(r.status+' '+(await r.text()).slice(0,150));
+  const t=await r.text(); return t?JSON.parse(t):[];
+}
+const nrm=v=>{let p=String(v||'').replace(/\D/g,'').replace(/^00+/,'');
+  if(p.indexOf('972')===0)p=p.slice(3);p=p.replace(/^0+/,'');return p?('0'+p):'';};
+
+/* מבנה היעד — ניתן לשינוי */
+const LAYOUT={
+  A:{title:'פרק ראשון',need:2,pts:46,note:'שתי שאלות · 23 נק׳ כל אחת'},
+  B:{title:'פרק שני',  need:3,pts:36,note:'שלוש שאלות · 12 נק׳ כל אחת'},
+  C:{title:'פרק שלישי',need:3,pts:18,note:'שלוש שאלות · 6 נק׳ כל אחת'}
+};
+let TID='',TNAME='',SEL={},F={c:'',z:'',y:'',s:''};
+
+function login(){
+  el('app').innerHTML=`<div class="mid"><h1 style="text-align:center;font-size:1.9rem;margin:0 0 4px">מאגר שאלות בגרות</h1>
+    <p class="sub" style="text-align:center;margin:0 0 20px">הרכיבו מבחן משאלות שהיו בבגרויות קודמות</p>
+    <div class="card">
+      <div style="font-weight:800;margin-bottom:10px">כניסת מורה</div>
+      <input id="ph" type="tel" dir="ltr" style="text-align:right;margin-bottom:8px" placeholder="טלפון">
+      <input id="pw" type="password" style="margin-bottom:11px" placeholder="סיסמה">
+      <button class="btn" onclick="doLogin()">כניסה ←</button>
+      <div id="e" style="margin-top:9px"></div>
+    </div></div>`;
+}
+async function doLogin(){
+  const p=nrm(el('ph').value), w=el('pw').value, e=el('e');
+  e.innerHTML='';
+  if(!p||!w){e.innerHTML='<div class="err">נא למלא טלפון וסיסמה.</div>';return;}
+  try{
+    const r=await sb('lms_teachers?select=id,name,password,status&phone=eq.'+encodeURIComponent(p));
+    const t=(r||[]).find(x=>x.password===w&&x.status==='approved');
+    if(!t){e.innerHTML='<div class="err">טלפון/סיסמה שגויים או שאינך מאושר.</div>';return;}
+    TID=t.id;TNAME=(t.name||'').trim();render();
+  }catch(err){e.innerHTML='<div class="err">שגיאה: '+esc(err.message)+'</div>';}
+}
+
+const allConcepts=()=>[...new Set(BANK.flatMap(q=>q.concepts))].sort((a,b)=>a.localeCompare(b,'he'));
+const allYears=()=>[...new Set(BANK.map(q=>q.moed))];
+function filtered(){
+  return BANK.filter(q=>
+    (!F.c||q.concepts.some(c=>c.indexOf(F.c)>-1)) &&
+    (!F.y||q.moed===F.y) &&
+    (!F.s||q.sec===F.s));
+}
+function count(sec){ return Object.values(SEL).filter(q=>q.slot===sec).length; }
+function ptsOf(sec){ return Object.values(SEL).filter(q=>q.slot===sec).reduce((a,q)=>a+(q.pts||0),0); }
+function total(){ return Object.values(SEL).reduce((a,q)=>a+(q.pts||0),0); }
+
+function toggle(id){
+  if(SEL[id]){ delete SEL[id]; render(); return; }
+  const q=BANK.find(x=>x.id===id); if(!q)return;
+  const slot=q.sec||'B';
+  if(count(slot)>=LAYOUT[slot].need){
+    alert('ב'+LAYOUT[slot].title+' כבר נבחרו '+LAYOUT[slot].need+' שאלות.\nהסירו אחת כדי להוסיף אחרת.');
+    return;
+  }
+  SEL[id]=Object.assign({},q,{slot});
+  render();
+}
+function setF(k,v){ F[k]=v; render(); }
+
+function render(){
+  el('app').innerHTML=`<div class="wrap">
+    <div class="card" style="display:flex;gap:11px;align-items:center;flex-wrap:wrap">
+      <h1 style="margin:0;font-family:'Secular One',sans-serif;font-size:1.5rem;flex:1">מאגר שאלות בגרות</h1>
+      <span class="sub">${esc(TNAME)}</span>
+      <span class="pill">${BANK.length} שאלות · ${allYears().length} מועדים</span>
+    </div>
+    <div class="grid">
+      <div>
+        <div class="card">
+          <div class="h2">סינון</div>
+          <label style="margin-top:8px">מושג</label>
+          <select onchange="setF('c',this.value)">
+            <option value="">— כל המושגים —</option>
+            ${allConcepts().map(c=>`<option${F.c===c?' selected':''}>${esc(c)}</option>`).join('')}
+          </select>
+          <label style="margin-top:9px">מועד</label>
+          <select onchange="setF('y',this.value)">
+            <option value="">— כל המועדים —</option>
+            ${allYears().map(y=>`<option${F.y===y?' selected':''}>${esc(y)}</option>`).join('')}
+          </select>
+          <label style="margin-top:9px">פרק</label>
+          <select onchange="setF('s',this.value)">
+            <option value="">— כל הפרקים —</option>
+            ${Object.entries(LAYOUT).map(([k,v])=>`<option value="${k}"${F.s===k?' selected':''}>${esc(v.title)}</option>`).join('')}
+          </select>
+          ${(F.c||F.y||F.s)?`<button class="mini" style="margin-top:10px" onclick="F={c:'',y:'',s:''};render()">ניקוי סינון</button>`:''}
+        </div>
+        <div class="card">
+          <div class="h2">המבחן שלכם</div>
+          ${Object.entries(LAYOUT).map(([k,v])=>{
+            const n=count(k), full=n===v.need;
+            return `<div class="slot ${full?'full':''}">
+              <h4>${esc(v.title)} <span class="pill ${full?'g':'y'}">${n}/${v.need}</span></h4>
+              <div class="sub">${esc(v.note)}</div>
+              ${Object.values(SEL).filter(q=>q.slot===k).map(q=>`
+                <div class="chosen"><span>${esc(q.moed)} · שאלה ${q.n}</span>
+                  <span class="pill">${q.pts} נק׳</span>
+                  <button class="mini" onclick="toggle('${q.id}')">הסרה</button></div>`).join('')
+                || '<div class="sub" style="margin-top:5px">עדיין לא נבחרו שאלות</div>'}
+            </div>`;
+          }).join('')}
+        </div>
+      </div>
+      <div>
+        <p class="sub" style="margin:0 0 8px">${filtered().length} שאלות תואמות${F.c?' למושג "'+esc(F.c)+'"':''}</p>
+        <div id="list">${filtered().map(qCard).join('')||'<div class="card sub">אין שאלות שתואמות לסינון.</div>'}</div>
+      </div>
+    </div>
+  </div>
+  <div class="bar"><div class="barin">
+    <span class="tot ${total()===100?'ok':'no'}">${total()} נק׳</span>
+    <span class="sub">מתוך 100</span>
+    <span class="sub" style="margin-inline-start:auto" id="msg"></span>
+    <button class="btn ok" id="save" onclick="save()" ${Object.keys(SEL).length?'':'disabled'}>שמירה ופרסום ←</button>
+  </div></div>`;
+}
+function qCard(q){
+  const on=!!SEL[q.id];
+  return `<div class="q ${on?'on':''}">
+    <div class="qh">
+      <span class="qn">${esc(q.moed)} · ${q.n}</span>
+      <span class="qt">${q.pts} נק׳ · ${q.parts.length} סעיפים</span>
+      <button class="mini" onclick="toggle('${q.id}')">${on?'✓ נבחרה — הסרה':'＋ הוספה'}</button>
+    </div>
+    ${q.src?`<div class="src">${esc(q.src)}</div>`:''}
+    ${q.parts.map(p=>`<div class="part">${p.k?'<b>'+esc(p.k)+'.</b> ':''}${esc(p.q).slice(0,240)}
+      <span class="sub">(${p.pts} נק׳)</span></div>`).join('')}
+    <div style="margin-top:6px">${q.concepts.map(c=>'<span class="pill">'+esc(c)+'</span>').join('')}</div>
+  </div>`;
+}
+
+async function save(){
+  const m=el('msg');
+  const miss=Object.entries(LAYOUT).filter(([k,v])=>count(k)!==v.need);
+  if(miss.length){
+    m.style.color='#9f1239';
+    m.textContent='חסרות שאלות ב'+miss.map(([k,v])=>v.title).join(', ');
+    return;
+  }
+  m.style.color='#6a6f8a'; m.textContent='שומר…';
+  /* בניית מפרט בפורמט של bagrut-run */
+  const questions={}, sections=[];
+  Object.entries(LAYOUT).forEach(([k,v])=>{
+    const keys=[];
+    Object.values(SEL).filter(q=>q.slot===k).forEach((q,i)=>{
+      const key='b'+k+i;
+      keys.push(key);
+      questions[key]={n:Object.keys(questions).length+1,pts:q.pts,
+        title:q.moed+' · שאלה '+q.n,
+        src:q.src?{t:esc(q.src),fake:false}:null,
+        parts:q.parts.map(p=>({k:p.k,pts:p.pts,q:esc(p.q),concepts:q.concepts,stim:!!q.src,
+          rubric:[{k:'תשובה מלאה',pct:100}]}))};
+    });
+    sections.push({id:k,title:v.title,pts:v.pts,
+      note:'ענו על <b>כל</b> השאלות בפרק זה.',
+      groups:[{pick:keys.length,from:keys,label:v.title}]});
+  });
+  const spec={title:'מבחן ממאגר הבגרויות',source:'bank',sections,questions,
+    concepts:[...new Set(Object.values(SEL).flatMap(q=>q.concepts))],minutes:180};
+  const id='ex_'+Date.now().toString(36);
+  try{
+    await sb('bagrut_exams','POST',[{id,teacher_id:TID,title:spec.title,spec,status:'published'}]);
+    const url=location.href.split('?')[0].replace(/[^/]*$/,'bagrut-run.html')+'?exam='+id+'&code='+encodeURIComponent(TID);
+    m.style.color='#0f7a4d';
+    m.innerHTML='✅ פורסם — <input readonly value="'+esc(url)+'" onclick="this.select()" style="width:300px;padding:4px 8px;font-size:.78rem">';
+  }catch(e){ m.style.color='#9f1239'; m.textContent='השמירה נכשלה: '+e.message.slice(0,120); }
+}
+login();
+</script>
+</body>
+</html>
