@@ -1,4 +1,4 @@
-/* ===== paste-guard.js · v2.4.0 · 2026-07-27 =====
+/* ===== paste-guard.js · v2.5.0 · 2026-07-27 =====
    שומר על כתיבה עצמאית בשדות הפתוחים.
 
    מה מותר:  העתקה מהקטע שבדף אל התשובה · גזור־הדבק בתוך התשובה עצמה
@@ -24,6 +24,10 @@
    בנוסף (v2.4.0): מצב מפתח. כפתורי הפיתוח בדפים (class="dev" / "dev-skip")
    מוסתרים מכולם כברירת מחדל. להפעלה במכשיר שלכם — הוסיפו פעם אחת ?dev=1 לכתובת;
    ההגדרה נשמרת במכשיר. לכיבוי — ?dev=0.
+
+   בנוסף (v2.5.0): תיקון בורר הכיתה בכניסת המורה. הקוד בקבצים בונה את הרשימה פעם
+   אחת בלבד, ולכן החלפת טלפון השאירה את הכיתות של המורה הקודמת. כאן הרשימה נבנית
+   מחדש בכל שינוי טלפון, ומורה בלי כיתות מקבלת הודעה מפורשת במקום שדה ריק.
 
    שינוי הודעה, סף או כיבוי: ראו PG_CONFIG למטה.
 */
@@ -237,6 +241,90 @@
       return _fetch.call(window,u,o);
     };
   }
+
+  /* ================= בורר הכיתה בכניסת המורה =================
+     מתקן שני ליקויים בקוד שבקבצים: הרשימה לא נבנתה מחדש בהחלפת טלפון,
+     ומורה בלי כיתות לא קיבלה שום חיווי. */
+  (function(){
+    var SUPA='', KEYA='';
+    try{ SUPA=(typeof SUP!=='undefined'&&SUP)||''; }catch(e){}
+    try{ KEYA=(typeof SKEY!=='undefined'&&SKEY)||''; }catch(e){}
+    if(!SUPA||!KEYA)return;                      /* לא דף עם כניסת מורה */
+
+    function nrm(v){var p=String(v||'').replace(/\D/g,'').replace(/^00+/,'');
+      if(p.indexOf('972')===0)p=p.slice(3);p=p.replace(/^0+/,'');return p?('0'+p):'';}
+    function get(q){ return fetch(SUPA+'/rest/v1/'+q,
+      {headers:{apikey:KEYA,Authorization:'Bearer '+KEYA}}).then(function(r){return r.json();}); }
+
+    function note(msg,bad){
+      var n=document.getElementById('pgClsNote');
+      if(!msg){ if(n&&n.parentNode)n.parentNode.removeChild(n); return; }
+      if(!n){
+        var f=document.getElementById('lgClass'); if(!f||!f.parentNode)return;
+        n=document.createElement('div'); n.id='pgClsNote';
+        n.style.cssText='font-size:.82rem;font-weight:700;border-radius:9px;padding:8px 12px;margin-top:6px;line-height:1.55';
+        f.parentNode.insertBefore(n,f.nextSibling);
+      }
+      n.style.background=bad?'#fdf3e2':'#f2f7f4';
+      n.style.color=bad?'#8a5a08':'#0f7a4d';
+      n.innerHTML=msg;
+    }
+
+    /* מחליף את שדה הכיתה בשדה חדש, ושומר על העיצוב הקיים */
+    function swap(tag){
+      var cur=document.getElementById('lgClass'); if(!cur)return null;
+      var el=document.createElement(tag);
+      el.id='lgClass'; el.className=cur.className||'';
+      try{ el.style.cssText=cur.style.cssText||''; }catch(e){}
+      if(tag==='input'){ el.placeholder="שם הכיתה (למשל י'3)"; }
+      cur.parentNode.replaceChild(el,cur);
+      return el;
+    }
+
+    var last=null, busy=false;
+    async function refresh(){
+      var ph=document.getElementById('lgPhone'); if(!ph)return;
+      var p=nrm(ph.value);
+      if(p===last||busy)return;
+      last=p; busy=true;
+      try{
+        if(!p){ note(''); return; }
+        var t=await get('lms_teachers?select=id,name&phone=eq.'+encodeURIComponent(p));
+        if(!t||!t[0]){ note('לא נמצא מורה עם הטלפון הזה.',true); return; }
+        var c=await get('lms_classes?select=name&teacher_id=eq.'+encodeURIComponent(t[0].id)+'&order=name.asc');
+        var list=(c||[]).map(function(x){return x.name;}).filter(Boolean);
+        if(!list.length){
+          var inp=swap('input');
+          if(inp)inp.value='';
+          note('עדיין לא יצרתם כיתה. אפשר להקליד כאן שם כיתה, אבל כדי לראות מי הגיש ומי לא — '+
+               'צרו קודם כיתה עם רשימת התלמידים ב<b>סביבת המורה</b>.',true);
+          return;
+        }
+        var sel=swap('select'); if(!sel)return;
+        sel.innerHTML='<option value="">— בחרו כיתה —</option>'+
+          list.map(function(n){return '<option>'+esc(n)+'</option>';}).join('')+
+          '<option value="__free">כיתה אחרת — הקלדה חופשית</option>';
+        sel.addEventListener('change',function(){
+          if(sel.value!=='__free')return;
+          var inp2=swap('input'); if(inp2){inp2.value='';inp2.focus();}
+          note('');
+        });
+        note('נמצאו '+list.length+' כיתות עבור '+esc(t[0].name||'המורה')+'.',false);
+      }catch(e){ note(''); }
+      finally{ busy=false; }
+    }
+
+    function bind(){
+      var ph=document.getElementById('lgPhone');
+      if(!ph||ph.__pgCls)return;
+      ph.__pgCls=1;
+      ph.addEventListener('blur',refresh);
+      ph.addEventListener('change',refresh);
+    }
+    if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',bind);
+    else bind();
+    try{ new MutationObserver(bind).observe(document.body||document.documentElement,{childList:true,subtree:true}); }catch(e){}
+  })();
 
   /* ================= בודק עצמאות הכתיבה ================= */
   if(!CHECK_ON)return;
