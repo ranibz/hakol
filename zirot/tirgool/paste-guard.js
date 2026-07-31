@@ -1,4 +1,4 @@
-/* ===== paste-guard.js · v2.8.0 · 2026-07-31 =====
+/* ===== paste-guard.js · v2.9.1 · 2026-07-31 =====
    שומר על כתיבה עצמאית בשדות הפתוחים.
 
    מה מותר:  העתקה מהקטע שבדף אל התשובה · גזור־הדבק בתוך התשובה עצמה
@@ -24,6 +24,12 @@
    בנוסף (v2.4.0): מצב מפתח. כפתורי הפיתוח בדפים (class="dev" / "dev-skip")
    מוסתרים מכולם כברירת מחדל. להפעלה במכשיר שלכם — הוסיפו פעם אחת ?dev=1 לכתובת;
    ההגדרה נשמרת במכשיר. לכיבוי — ?dev=0.
+
+   בנוסף (v2.9.0): זיהוי הכיתה והמורה לא תלוי עוד רק בפרמטרים שבכתובת — אם הדף
+   כבר יודע אותם (CODE/CLS), משתמשים בהם. חסרה כיתה? עדיין דורשים סיסמה.
+   לאבחון: הקלידו בקונסולה __PG_STUPW__
+   רשת ביטחון: אם הדף כבר הציג תוכן לתלמיד לפני שהגארד הספיק להיטען, הסיסמה
+   תידרש בכל זאת והתוכן יוסתר עד לאימות.
 
    בנוסף (v2.8.0): הסיסמה חלה גם על talmid.html — גם בבחירה ראשונה וגם
    בכניסה אוטומטית של תלמיד שנזכר במכשיר.
@@ -401,14 +407,18 @@
     if(!SUPB||!KEYB)return;
 
     var DEF=CFG.defaultPw||'1234';
-    var TID='',CLS='';
-    try{ var P=new URLSearchParams(location.search||''); TID=P.get('code')||''; CLS=P.get('class')||''; }
+    var TID='',KLS='';
+    try{ var P=new URLSearchParams(location.search||''); TID=P.get('code')||''; KLS=P.get('class')||''; }
     catch(e){
       var q=String(location.search||'');
       var a=/[?&]code=([^&]*)/.exec(q), b=/[?&]class=([^&]*)/.exec(q);
-      TID=a?decodeURIComponent(a[1]):''; CLS=b?decodeURIComponent(b[1]):'';
+      TID=a?decodeURIComponent(a[1]):''; KLS=b?decodeURIComponent(b[1]):'';
     }
-    if(!TID||!CLS)return;                 /* לא מסלול תלמיד */
+    /* אם הדף עצמו כבר יודע — עדיף עליו מאשר על הכתובת */
+    try{ if(!TID&&typeof CODE!=='undefined'&&CODE)TID=CODE; }catch(e){}
+    try{ if(!KLS&&typeof CLS!=='undefined'&&CLS)KLS=CLS; }catch(e){}
+    window.__PG_STUPW__={teacher:TID,cls:KLS,active:!!TID};
+    if(!TID)return;                       /* בלי מורה אין מה לזהות */
 
     function api(q,m,b,x){
       return fetch(SUPB+'/rest/v1/'+q,{method:m||'GET',
@@ -423,20 +433,20 @@
       for(var i=0;i<s.length;i++){ var c=s.charCodeAt(i); h1=((h1*33)^c)>>>0; h2=((h2*39)^c)>>>0; }
       return h1.toString(36)+h2.toString(36);
     }
-    var okKey=function(name){ return 'pgstu_'+TID+'_'+CLS+'_'+norm(name); };
+    var okKey=function(name){ return 'pgstu_'+TID+'_'+KLS+'_'+norm(name); };
     function verified(name){ try{ return sessionStorage.getItem(okKey(name))==='1'; }catch(e){ return false; } }
     function markOk(name){ try{ sessionStorage.setItem(okKey(name),'1'); }catch(e){} }
 
     function row(name){
       return api('lms_student_pw?select=pw&teacher_id=eq.'+encodeURIComponent(TID)+
-        '&class_name=eq.'+encodeURIComponent(CLS)+
+        '&class_name=eq.'+encodeURIComponent(KLS)+
         '&student_key=eq.'+encodeURIComponent(norm(name)))
         .then(function(r){ return (r&&r[0])?r[0]:null; })
         .catch(function(){ return null; });
     }
     function save(name,pw){
       return api('lms_student_pw?on_conflict=teacher_id,class_name,student_key','POST',
-        [{teacher_id:TID,class_name:CLS,student_key:norm(name),pw:mix(pw,norm(name)),
+        [{teacher_id:TID,class_name:KLS,student_key:norm(name),pw:mix(pw,norm(name)),
           updated_at:new Date().toISOString()}],
         {Prefer:'resolution=merge-duplicates'});
     }
@@ -515,7 +525,27 @@
       draw();
     }
 
+    var asking=false;
+    /* מסתיר את התוכן כל עוד לא אומת, כדי שלא ייקרא מאחורי החלון */
+    function veil(on){
+      var app=document.getElementById('app');
+      if(!app)return;
+      try{ app.style.filter=on?'blur(7px)':''; app.style.pointerEvents=on?'none':''; }catch(e){}
+    }
+    /* אם הדף כבר זיהה תלמיד — בלי קשר לאיזה מסלול הביא אותו לשם */
+    function guardCurrent(){
+      if(asking)return;
+      var nm='';
+      try{ nm=norm(typeof me!=='undefined'?me:''); }catch(e){ return; }
+      if(!nm||verified(nm))return;
+      asking=true; veil(true);
+      ask(nm,function(){ asking=false; veil(false); },
+             function(){ asking=false; veil(false);
+               try{ if(typeof switchMe==='function')switchMe(); }catch(e){} });
+    }
+
     function hook(){
+      guardCurrent();
       /* מסלול השיעורים: בחירת שם מרשימה */
       var el=document.getElementById('sName');
       if(el&&el.tagName==='SELECT'&&!el.__pgPw){
@@ -557,6 +587,11 @@
     if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',hook);
     else hook();
     try{ new MutationObserver(hook).observe(document.body||document.documentElement,{childList:true,subtree:true}); }catch(e){}
+    /* גיבוי לזמן טעינה: בודק שוב במשך 20 שניות למקרה שהדף סיים לפני הגארד */
+    var ticks=0, iv=setInterval(function(){
+      ticks++; try{ hook(); }catch(e){}
+      if(ticks>40)clearInterval(iv);
+    },500);
   })();}catch(e){if(window.console)console.warn("paste-guard: מודול נכשל ודולג",e);}
 
   /* ================= בודק עצמאות הכתיבה ================= */
