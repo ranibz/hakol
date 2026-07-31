@@ -1,4 +1,4 @@
-/* ===== paste-guard.js · v2.1.1 · 2026-07-27 =====
+/* ===== paste-guard.js · v2.2.0 · 2026-07-27 =====
    שומר על כתיבה עצמאית בשדות הפתוחים.
 
    מה מותר:  העתקה מהקטע שבדף אל התשובה · גזור־הדבק בתוך התשובה עצמה
@@ -11,7 +11,10 @@
    הקובץ מתקין את עצמו על כל שדות הכתיבה, כולל כאלה שנוצרים אחר כך.
 
    דיווח: מספר הניסיונות נשלח אוטומטית עם ההגשה, תחת answers._paste
-   בנוסף (v2.0.0): בודק עצמאות כתיבה. התלמיד יכול ללחוץ "בדיקת התשובה" בכל עת,
+   בנוסף (v2.2.0): הבדיקה דו-ממדית — עצמאות הכתיבה **וגם** מענה למטלה.
+   תשובה עצמאית לגמרי שאינה עונה על השאלה נחסמת גם היא.
+
+   בודק עצמאות כתיבה. התלמיד יכול ללחוץ "בדיקת התשובה" בכל עת,
    ובהגשה מתבצעת בדיקה אוטומטית. תשובה מעל הסף חוסמת הגשה עד לתיקון.
 
    כלל בטיחות: תקלה טכנית לעולם אינה חוסמת הגשה. חוסמים רק על תוצאה אמיתית מעל הסף.
@@ -30,7 +33,8 @@
   var SHOW_ME  = CFG.showStudentCount!==false;   /* התלמיד רואה את המונה שלו */
   var MEMORY   = 8;                              /* כמה העתקות אחרונות לזכור */
   var CHECK_ON = CFG.check!==false;              /* בודק עצמאות הכתיבה */
-  var LIMIT    = typeof CFG.threshold==='number'?CFG.threshold:40;  /* אחוז מרבי מותר */
+  var LIMIT    = typeof CFG.threshold==='number'?CFG.threshold:40;  /* אחוז AI מרבי מותר */
+  var TASKMIN  = typeof CFG.taskMin==='number'?CFG.taskMin:55;      /* מענה מזערי למטלה */
   var MINW     = CFG.minWords||25;               /* מתחת לזה לא בודקים */
   var API      = CFG.api||'https://lamedproject.netlify.app/.netlify/functions/bagrut-ai';
 
@@ -167,7 +171,7 @@
           e1.__pg=true; throw e1;
         }
         if(bad>0){
-          var e2=new Error('יש '+bad+' תשובות שלא עברו את בדיקת העצמאות. תקנו לפי ההנחיות שמתחת לכל תשובה ונסו שוב.');
+          var e2=new Error('יש '+bad+' תשובות שלא עברו את הבדיקה — בעצמאות הכתיבה או במענה על השאלה. תקנו לפי ההנחיות שמתחת לכל תשובה ונסו שוב.');
           e2.__pg=true;
           throw e2;
         }
@@ -273,7 +277,10 @@
     if(!r.ok)throw new Error((j&&j.error)?j.error:('שרת '+r.status));
     if(!j)throw new Error('תשובה ריקה מהשרת');
     if(j.error)throw new Error(j.error);
-    j.pass=(Number(j.pct)||0)<LIMIT;
+    var tk=(typeof j.task==='number')?j.task:-1;
+    j.okAi   = (Number(j.pct)||0)<LIMIT;
+    j.okTask = (tk<0) || (tk>=TASKMIN);   /* אין שאלה בהקשר — לא שופטים מענה */
+    j.pass   = j.okAi && j.okTask;
     results[k]=j;
     return j;
   }
@@ -290,12 +297,23 @@
     ccss();
     var b=resBox(ta);
     if(j.skip){b.className='pg-res';b.innerHTML='<span class="pg-q">'+esc(j.why)+'</span>';return;}
-    var ok=j.pass;
+    var ok=j.pass, hasTask=(typeof j.task==='number'&&j.task>=0);
     b.className='pg-res '+(ok?'ok':'no');
-    var h='<div class="pg-hd"><span class="pg-pct '+(ok?'ok':'no')+'">'+j.pct+'%</span>'+
+    var h='<div class="pg-hd">'+
+      '<span class="pg-pct '+(j.okAi?'ok':'no')+'">'+j.pct+'%</span>'+
       '<span class="pg-vd">'+esc(j.verdict)+'</span>'+
-      '<span class="pg-q">'+(ok?'עומד בדרישה (מתחת ל-'+LIMIT+'%)':'מעל '+LIMIT+'% — יש לתקן לפני הגשה')+'</span></div>';
+      '<span class="pg-q">'+(j.okAi?'עצמאות תקינה':'מעל '+LIMIT+'% — נראה לא עצמאי')+'</span></div>';
+    if(hasTask){
+      h+='<div class="pg-hd" style="margin-top:-2px">'+
+        '<span class="pg-pct '+(j.okTask?'ok':'no')+'">'+j.task+'%</span>'+
+        '<span class="pg-vd">'+esc(j.task_verdict||'')+'</span>'+
+        '<span class="pg-q">'+(j.okTask?'עונה על השאלה':'מתחת ל-'+TASKMIN+'% — התשובה אינה עונה על מה שנשאל')+'</span></div>';
+    }
     if(j.summary)h+='<div>'+esc(j.summary)+'</div>';
+    if(j.missing&&j.missing.length){
+      h+='<h5>מה שנדרש בשאלה וחסר בתשובה</h5><ul>'+
+        j.missing.map(function(x){return '<li>'+esc(x)+'</li>';}).join('')+'</ul>';
+    }
     if(j.ai_signs&&j.ai_signs.length){
       h+='<h5>מה שנראה לא עצמאי</h5><ul>'+j.ai_signs.map(function(x){
         return '<li>'+esc(x.sign||x)+(x.quote?' <span class="pg-q">— "'+esc(x.quote)+'"</span>':'')+'</li>';}).join('')+'</ul>';
