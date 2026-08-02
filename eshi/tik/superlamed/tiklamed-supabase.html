@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- tiklamed-supabase.html · v1.14.0 · 2026-08-02 · ניהול כיתות: מגדירים כיתה פעם אחת בלשונית "כיתות", ומשם היא נבחרת מרשימה בהוספת תלמיד ובשיוך למורה, עם אפשרות הקלדה ידנית. הכיתות עברו לטבלה ייעודית tik_classes (במקום tik_settings, שהיא טבלת שורה־אחת ולכן השמירה נכשלה). תיקון: שם הכיתה בסנכרון כולל עכשיו את שם המורה, אחרת שתי קבוצות של אותו מסלול בשכבה אחת התמזגו וכל מורה ראה גם את תלמידי חברו. שיוך כיתה לתלמיד בודד עבר מהקלדה ידנית לחלון עם רשימת הכיתות. נוסף סנכרון ממערכת קבוצות הלימוד (tiksh_* בפרויקט matalot): כל קבוצה הופכת לכיתה, המורים מותאמים לפי שם, ושום דבר לא נמחק. נוסף שיוך תלמידים קיימים לכיתה — בודד או מרוכז לפי סימון בטבלה. תוקן באג קריטי — סינון תלמידי המורה קרא s.cls במקום s.class ולכן החזיר תמיד ריק, וההשוואה שונתה מ-includes להתאמה מדויקת (MINOR) -->
+<!-- tiklamed-supabase.html · v1.14.1 · 2026-08-02 · ניהול כיתות: מגדירים כיתה פעם אחת בלשונית "כיתות", ומשם היא נבחרת מרשימה בהוספת תלמיד ובשיוך למורה, עם אפשרות הקלדה ידנית. תיקון: הוספת כיתה הציגה "נוספה" גם כשהשמירה נכשלה, כי catch ריק בלע את השגיאה — עכשיו מאשרים רק אם הכיתה חזרה מהשרת, וכל כשל מדווח. הכיתות עברו לטבלה ייעודית tik_classes (במקום tik_settings, שהיא טבלת שורה־אחת ולכן השמירה נכשלה). תיקון: שם הכיתה בסנכרון כולל עכשיו את שם המורה, אחרת שתי קבוצות של אותו מסלול בשכבה אחת התמזגו וכל מורה ראה גם את תלמידי חברו. שיוך כיתה לתלמיד בודד עבר מהקלדה ידנית לחלון עם רשימת הכיתות. נוסף סנכרון ממערכת קבוצות הלימוד (tiksh_* בפרויקט matalot): כל קבוצה הופכת לכיתה, המורים מותאמים לפי שם, ושום דבר לא נמחק. נוסף שיוך תלמידים קיימים לכיתה — בודד או מרוכז לפי סימון בטבלה. תוקן באג קריטי — סינון תלמידי המורה קרא s.cls במקום s.class ולכן החזיר תמיד ריק, וההשוואה שונתה מ-includes להתאמה מדויקת (MINOR) -->
 <!-- גרסה: 1.8.0 | תאריך: 2026-05-31 | פרומפט בודק AI מעודכן לזרימה דו-שלבית: (1) אחרי שהתלמיד מדביק את הפרומפט, הבודק עונה "קיבלתי את ההנחיות. אנא הדבק עכשיו את הטקסט" ומחכה. (2) רק אחרי שהתלמיד מדביק את הטקסט, הבודק מנתח לפי 7 הסעיפים. (3) בסוף הניתוח שואל "האם יש טקסט נוסף?" כדי לאפשר בדיקות חוזרות באותה שיחה. ההוראות במודאל עודכנו בהתאם. -->
 <!-- גרסה: 1.7.0 | תאריך: 2026-05-28 | חסימת הדבקה מוחלטת: הוסרה אפשרות המילוט בסיסמה. -->
 <html lang="he" dir="rtl">
@@ -373,14 +373,21 @@ async function saveClassList(list){
   const want = [...new Set(list.map(normClass).filter(Boolean))];
   const have = CLASS_LIST.map(normClass);
   const toAdd = want.filter(c => !have.includes(c));
+  const errors = [];
   for (const name of toAdd){
     try{
       await supabase('tik_classes',
         { method:'POST', prefer:'resolution=merge-duplicates,return=minimal',
           body: JSON.stringify({ name }) });
-    }catch(e){ /* קיימת כבר — לא מפריע */ }
+    }catch(e){
+      /* כפילות היא מצב תקין; כל שגיאה אחרת חייבת להגיע למשתמש */
+      const msg = String(e && e.message || e);
+      if (!/duplicate|already exists|23505/i.test(msg)) errors.push(name + ': ' + msg);
+    }
   }
-  return loadClassList();
+  await loadClassList();
+  if (errors.length) throw new Error(errors.join(' | '));
+  return CLASS_LIST;
 }
 async function deleteClassRow(name){
   await supabase('tik_classes?name=eq.' + encodeURIComponent(normClass(name)),
@@ -460,10 +467,16 @@ async function addClass(){
   if(CLASS_LIST.some(c=>sameClass(c,name))){alert('הכיתה כבר קיימת');return;}
   try{
     await saveClassList(CLASS_LIST.concat([name]));
-    inp.value='';
     await refreshClassPickers();
-    alert('✅ הכיתה נוספה');
-  }catch(e){alert('שגיאה בשמירה');}
+    /* מאשרים רק אם הכיתה באמת חזרה מהשרת */
+    if (CLASS_LIST.some(c=>sameClass(c,name))){
+      inp.value='';
+      alert('✅ הכיתה "'+name+'" נוספה');
+    } else {
+      alert('הכיתה לא נשמרה. ייתכן ש-RLS חוסם כתיבה לטבלה tik_classes.\n\n'+
+            'פתרון: הרצת SQL ליצירת policy, או בדיקה שהטבלה קיימת בפרויקט lamed.');
+    }
+  }catch(e){ alert('שגיאה בשמירה:\n'+(e.message||e)); }
 }
 async function removeClass(name){
   const used=(window.__allStudentsCache||[]).filter(s=>sameClass(s.class,name)).length;
