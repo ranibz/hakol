@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- agron/edit.html · v1.0.0 · 2026-08-02 · עורך האגרון: בחירת מושג מרשימה ועריכת ההגדרה, או הוספת מושג חדש. כותב לטבלה concepts ב-Supabase matalot, ולכן כל שינוי מופיע מיד בכל השיעורים שמושכים משם. כניסת מורה מול lms_teachers (MAJOR) -->
+<!-- agron/edit.html · v1.1.0 · 2026-08-02 · עורך האגרון: בחירת מושג מרשימה ועריכת ההגדרה, או הוספת מושג חדש. כותב לטבלה concepts ב-Supabase matalot, ולכן כל שינוי מופיע מיד בכל השיעורים שמושכים משם. נוסף ממיר מוורד: מדביקים טקסט רגיל והוא הופך ל-HTML במבנה האגרון — כותרת, רשימות עם הדגשה, קופסת דוגמאות וטבלאות. הגישה למנהל המערכת בלבד (MAJOR) -->
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
@@ -73,6 +73,10 @@ async function sb(q,m,b,x){
 const phone=v=>{let p=String(v||'').replace(/\D/g,'').replace(/^00+/,'');
   if(p.indexOf('972')===0)p=p.slice(3);p=p.replace(/^0+/,'');return p?('0'+p):'';};
 
+/* כל המושגים מצביעים לאותו עמוד אגרון */
+const AGRON_URL='https://ranibz.github.io/hakol/agron/index.html';
+/* מנהל המערכת — הטלפון היחיד שרשאי להיכנס לעורך */
+const ADMIN_PHONE='0523482792';
 let ME='', ALL=[], CUR=null, DIRTY=false, q='';
 
 /* ---------- כניסה ---------- */
@@ -81,6 +85,9 @@ function login(){
     <h1 style="text-align:center;font-size:1.8rem;margin:0 0 4px">📖 עורך האגרון</h1>
     <p class="sub" style="text-align:center;margin:0 0 20px">
       שינוי כאן מופיע מיד בכל השיעורים</p>
+    <div style="background:#fdf3e2;color:#8a5a08;border-radius:11px;padding:11px 14px;
+      font-size:.86rem;font-weight:700;margin-bottom:14px;text-align:center">
+      🔒 מנהל המערכת בלבד</div>
     <div class="card">
       <div style="font-weight:800;margin-bottom:10px">כניסת מורה</div>
       <input id="ph" type="tel" dir="ltr" style="text-align:right;margin-bottom:8px" placeholder="טלפון">
@@ -95,9 +102,14 @@ async function doLogin(){
   e.innerHTML='';
   if(!p||!w){e.innerHTML='<div class="err">נא למלא טלפון וסיסמה.</div>';return;}
   try{
-    const r=await sb('lms_teachers?select=id,name,password,status&phone=eq.'+encodeURIComponent(p));
+    /* העורך משנה תוכן שמופיע בכל השיעורים בבת אחת, ולכן הגישה מוגבלת
+       למנהל המערכת בלבד — לא לכל מורה מאושר. */
+    if(p!==ADMIN_PHONE){
+      e.innerHTML='<div class="err">העורך פתוח למנהל המערכת בלבד.</div>'; return;
+    }
+    const r=await sb('lms_teachers?select=id,name,password,status,is_admin&phone=eq.'+encodeURIComponent(p));
     const t=(r||[]).find(x=>x.password===w&&x.status==='approved');
-    if(!t){e.innerHTML='<div class="err">טלפון/סיסמה שגויים או שאינך מאושר.</div>';return;}
+    if(!t){e.innerHTML='<div class="err">טלפון או סיסמה שגויים.</div>';return;}
     ME=(t.name||'').trim();
     await loadAll();
   }catch(err){e.innerHTML='<div class="err">שגיאה: '+esc(err.message)+'</div>';}
@@ -148,7 +160,7 @@ function pick(slug){
 }
 function newConcept(){
   if(DIRTY&&!confirm('יש שינויים שלא נשמרו. להמשיך?'))return;
-  CUR={__new:true,slug:'',term:'',zone:'',definition_html:'<p></p>',agron_url:''};
+  CUR={__new:true,slug:'',term:'',zone:'',definition_html:'<p></p>',agron_url:AGRON_URL};
   DIRTY=false; render();
 }
 
@@ -165,8 +177,8 @@ function editor(){
     <div class="two">
       <div><label>שם המושג</label>
         <input id="fTerm" value="${esc(CUR.term)}" oninput="onEdit()"></div>
-      <div><label>זירה</label>
-        <input id="fZone" value="${esc(CUR.zone||'')}" oninput="onEdit()" placeholder="למשל: זירה 5"></div>
+      <div><label>זירה <span class="sub" style="font-weight:400">· מספר בלבד</span></label>
+        <input id="fZone" value="${esc(CUR.zone||'')}" oninput="onEdit()" placeholder="1–9 או al"></div>
     </div>
     <div style="margin-top:10px">
       <label>מזהה (slug)</label>
@@ -188,6 +200,8 @@ function editor(){
         <button class="mini" onclick="wrapTag('p')">פסקה</button>
         <button class="mini" onclick="wrapTag('b')">מודגש</button>
         <button class="mini" onclick="insList()">רשימה</button>
+        <button class="mini" style="background:#e8f0fe;color:#1a56c4" onclick="openImport()">📋 הדבקה מוורד</button>
+        <button class="mini" onclick="insTemplate()">תבנית ריקה</button>
       </div>
     </div>
     <div style="display:flex;gap:9px;margin-top:15px;flex-wrap:wrap">
@@ -199,6 +213,99 @@ function editor(){
     </div>
   </div>`;
 }
+/* ===== המרת טקסט מוורד ל-HTML של האגרון =====
+   כללי הזיהוי: "הגדרה לתלמיד:" → כותרת · שורה עם "כותרת: תוכן" → פריט רשימה
+   עם הדגשה · "דוגמאות:" → קופסת דוגמאות · שורות עם טאבים → טבלה. */
+/* ממיר טקסט וורד ל-HTML של האגרון */
+function wordToHtml(raw){
+  const esc=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+  const bold=t=>{ const m=/^([^:]{2,45}):\s*(.+)$/.exec(t);
+    return m ? '<strong>'+esc(m[1])+':</strong> '+esc(m[2]) : esc(t); };
+  const lines=String(raw||'').replace(/\r/g,'').split('\n').map(l=>l.replace(/\t/g,'\t').trimEnd());
+  const out=[]; let i=0;
+  const isTableRow=l=>l.includes('\t');
+  while(i<lines.length){
+    let l=lines[i].trim();
+    if(!l){ i++; continue; }
+    /* כותרת פותחת */
+    if(/^הגדרה לתלמיד:?$/.test(l)){ out.push('<span class="section-title">הגדרה לתלמיד:</span>'); i++; continue; }
+    /* קופסת דוגמאות */
+    if(/^דוגמ(ה|אות):/.test(l)){
+      const label=/^דוגמאות:/.test(l)?'דוגמאות:':'דוגמה:';
+      let body=l.replace(/^דוגמ(ה|אות):\s*/,'');
+      i++;
+      /* הקופסה נעצרת גם לפני כותרת קצרה שאחריה טבלה, כדי שלא תיבלע */
+      while(i<lines.length){
+        const t=lines[i].trim();
+        if(!t || isTableRow(lines[i]) || /^דוגמ(ה|אות):/.test(t)) break;
+        if(t.length<40 && lines[i+1] && isTableRow(lines[i+1])) break;
+        body+=(body?'<br>':'')+t; i++;
+      }
+      out.push('<div class="example-box">\n  <strong>'+label+'</strong><br>\n  '+esc(body).replace(/&lt;br&gt;/g,'<br>')+'\n</div>');
+      continue;
+    }
+    /* טבלה — שורות עם טאבים */
+    if(isTableRow(lines[i])){
+      const rows=[];
+      while(i<lines.length && isTableRow(lines[i])){ rows.push(lines[i].split('\t').map(c=>c.trim())); i++; }
+      const head=rows.shift();
+      out.push('<div class="table-wrapper">\n  <table>\n    <thead>\n      <tr>'+
+        head.map(c=>'<th>'+esc(c)+'</th>').join('')+'</tr>\n    </thead>\n    <tbody>\n'+
+        rows.map(r=>'      <tr>'+r.map(c=>'<td>'+esc(c)+'</td>').join('')+'</tr>').join('\n')+
+        '\n    </tbody>\n  </table>\n</div>');
+      continue;
+    }
+    /* רשימה — שורות שמתחילות במקף/בולט, או רצף שורות עם "כותרת:" */
+    if(/^[-–—•*]\s+/.test(l) || /^[^:]{2,45}:\s*\S/.test(l)){
+      const items=[];
+      while(i<lines.length){
+        const t=lines[i].trim();
+        if(!t || isTableRow(lines[i]) || /^דוגמ(ה|אות):/.test(t)) break;
+        if(!/^[-–—•*]\s+/.test(t) && !/^[^:]{2,45}:\s*\S/.test(t)) break;
+        items.push(bold(t.replace(/^[-–—•*]\s+/,''))); i++;
+      }
+      if(items.length){ out.push('<ul>\n'+items.map(x=>'  <li>'+x+'</li>').join('\n')+'\n</ul>'); continue; }
+    }
+    /* כותרת משנה קצרה בלי נקודתיים — פסקה מודגשת */
+    if(l.length<40 && !/[.!?]$/.test(l) && lines[i+1] && isTableRow(lines[i+1])){
+      out.push('<p><strong>'+esc(l)+'</strong></p>'); i++; continue;
+    }
+    out.push('<p>'+esc(l)+'</p>'); i++;
+  }
+  return out.join('\n');
+}
+
+function openImport(){
+  const ov=document.createElement('div');
+  ov.id='impOv';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(20,30,20,.55);display:flex;'+
+    'align-items:center;justify-content:center;padding:16px;z-index:9999';
+  ov.innerHTML=`<div style="background:#fff;border-radius:17px;max-width:760px;width:100%;
+      padding:21px 23px;max-height:90vh;overflow:auto">
+    <h3 style="margin:0 0 3px;font-size:1.18rem">הדבקה מוורד</h3>
+    <p class="sub" style="margin:0 0 13px">הדביקו את הטקסט כמו שהוא. הטבלה תישמר אם תעתיקו אותה מוורד.</p>
+    <textarea id="impTxt" style="min-height:210px" placeholder="הגדרה לתלמיד:&#10;הטקסט שלכם…&#10;דוגמאות:&#10;…"></textarea>
+    <div style="display:flex;gap:8px;margin-top:11px;flex-wrap:wrap">
+      <button class="btn" onclick="doImport()">המרה והצבה ←</button>
+      <button class="btn g" onclick="closeImport()">ביטול</button>
+      <span class="sub" style="align-self:center">אפשר לערוך את ה-HTML אחרי ההמרה</span>
+    </div>
+    <div id="impPrev" style="margin-top:13px"></div>
+  </div>`;
+  ov.addEventListener('click',e=>{if(e.target===ov)closeImport();});
+  document.body.appendChild(ov);
+  setTimeout(()=>{const t=document.getElementById('impTxt');if(t)t.focus();},50);
+}
+function closeImport(){const o=document.getElementById('impOv');if(o)o.remove();}
+function doImport(){
+  const raw=document.getElementById('impTxt').value;
+  if(!raw.trim()){ alert('אין טקסט להמרה'); return; }
+  const html=wordToHtml(raw);
+  el('fDef').value=html;
+  closeImport();
+  onEdit();
+}
+
 function bindPreview(){ const t=el('fDef'), p=el('prev'); if(t&&p)p.innerHTML=t.value; }
 function onEdit(){ DIRTY=true; bindPreview(); const m=el('msg'); if(m)m.textContent=''; }
 function wrapTag(tag){
@@ -206,6 +313,20 @@ function wrapTag(tag){
   const sel=t.value.slice(s,e)||'טקסט';
   t.value=t.value.slice(0,s)+'<'+tag+'>'+sel+'</'+tag+'>'+t.value.slice(e);
   onEdit(); t.focus();
+}
+function insTemplate(){
+  if(el('fDef').value.trim() && !confirm('להחליף את התוכן הקיים בתבנית ריקה?'))return;
+  el('fDef').value=
+`<span class="section-title">הגדרה לתלמיד:</span>
+<p>ההגדרה כאן.</p>
+<ul>
+  <li><strong>מונח:</strong> הסבר</li>
+</ul>
+<div class="example-box">
+  <strong>דוגמאות:</strong><br>
+  דוגמה ראשונה, דוגמה שנייה
+</div>`;
+  onEdit();
 }
 function insList(){
   const t=el('fDef');
@@ -241,7 +362,8 @@ async function save(){
   m.style.color='#6a6f8a'; m.textContent='שומר…';
   el('saveBtn').disabled=true;
   try{
-    const row={slug,term,zone:zone||null,definition_html:def,updated_at:new Date().toISOString()};
+    const row={slug,term,zone:zone||null,definition_html:def,
+               agron_url:CUR.agron_url||AGRON_URL,updated_at:new Date().toISOString()};
     if(isNew) await sb('concepts','POST',[row]);
     else      await sb('concepts?slug=eq.'+encodeURIComponent(CUR.slug),'PATCH',
                        {term,zone:zone||null,definition_html:def,updated_at:row.updated_at});
