@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- tiklamed-supabase.html · v1.11.0 · 2026-08-02 · ניהול כיתות: מגדירים כיתה פעם אחת בלשונית "כיתות", ומשם היא נבחרת מרשימה בהוספת תלמיד ובשיוך למורה, עם אפשרות הקלדה ידנית. נוסף סנכרון ממערכת קבוצות הלימוד (tiksh_* בפרויקט matalot): כל קבוצה הופכת לכיתה, המורים מותאמים לפי שם, ושום דבר לא נמחק. נוסף שיוך תלמידים קיימים לכיתה — בודד או מרוכז לפי סימון בטבלה. תוקן באג קריטי — סינון תלמידי המורה קרא s.cls במקום s.class ולכן החזיר תמיד ריק, וההשוואה שונתה מ-includes להתאמה מדויקת (MINOR) -->
+<!-- tiklamed-supabase.html · v1.14.0 · 2026-08-02 · ניהול כיתות: מגדירים כיתה פעם אחת בלשונית "כיתות", ומשם היא נבחרת מרשימה בהוספת תלמיד ובשיוך למורה, עם אפשרות הקלדה ידנית. הכיתות עברו לטבלה ייעודית tik_classes (במקום tik_settings, שהיא טבלת שורה־אחת ולכן השמירה נכשלה). תיקון: שם הכיתה בסנכרון כולל עכשיו את שם המורה, אחרת שתי קבוצות של אותו מסלול בשכבה אחת התמזגו וכל מורה ראה גם את תלמידי חברו. שיוך כיתה לתלמיד בודד עבר מהקלדה ידנית לחלון עם רשימת הכיתות. נוסף סנכרון ממערכת קבוצות הלימוד (tiksh_* בפרויקט matalot): כל קבוצה הופכת לכיתה, המורים מותאמים לפי שם, ושום דבר לא נמחק. נוסף שיוך תלמידים קיימים לכיתה — בודד או מרוכז לפי סימון בטבלה. תוקן באג קריטי — סינון תלמידי המורה קרא s.cls במקום s.class ולכן החזיר תמיד ריק, וההשוואה שונתה מ-includes להתאמה מדויקת (MINOR) -->
 <!-- גרסה: 1.8.0 | תאריך: 2026-05-31 | פרומפט בודק AI מעודכן לזרימה דו-שלבית: (1) אחרי שהתלמיד מדביק את הפרומפט, הבודק עונה "קיבלתי את ההנחיות. אנא הדבק עכשיו את הטקסט" ומחכה. (2) רק אחרי שהתלמיד מדביק את הטקסט, הבודק מנתח לפי 7 הסעיפים. (3) בסוף הניתוח שואל "האם יש טקסט נוסף?" כדי לאפשר בדיקות חוזרות באותה שיחה. ההוראות במודאל עודכנו בהתאם. -->
 <!-- גרסה: 1.7.0 | תאריך: 2026-05-28 | חסימת הדבקה מוחלטת: הוסרה אפשרות המילוט בסיסמה. -->
 <html lang="he" dir="rtl">
@@ -353,9 +353,9 @@ let CLASS_LIST = [];
 async function loadClassList(){
   let saved = [];
   try{
-    const r = await supabase('tik_settings?key=eq.classes');
-    if (r && r[0] && r[0].value) saved = JSON.parse(r[0].value);
-  }catch(e){}
+    const r = await supabase('tik_classes?select=name&order=name.asc');
+    saved = (r || []).map(x => x.name);
+  }catch(e){ /* אם הטבלה חסרה — נסתפק בכיתות שכבר בשימוש */ }
   let used = [];
   try{
     const st = await sbGetAllStudents();
@@ -367,14 +367,24 @@ async function loadClassList(){
     .sort((a,b)=>a.localeCompare(b,'he'));
   return CLASS_LIST;
 }
+/* כל כיתה היא שורה ב-tik_classes. השם הוא המפתח הראשי, ולכן
+   הוספה חוזרת של אותה כיתה לא תיצור כפילות. */
 async function saveClassList(list){
-  const value = JSON.stringify([...new Set(list.map(normClass).filter(Boolean))]);
-  const ex = await supabase('tik_settings?key=eq.classes');
-  if (ex && ex.length) await supabase('tik_settings?key=eq.classes',
-    { method:'PATCH', body: JSON.stringify({ value }) });
-  else await supabase('tik_settings',
-    { method:'POST', body: JSON.stringify({ key:'classes', value }) });
+  const want = [...new Set(list.map(normClass).filter(Boolean))];
+  const have = CLASS_LIST.map(normClass);
+  const toAdd = want.filter(c => !have.includes(c));
+  for (const name of toAdd){
+    try{
+      await supabase('tik_classes',
+        { method:'POST', prefer:'resolution=merge-duplicates,return=minimal',
+          body: JSON.stringify({ name }) });
+    }catch(e){ /* קיימת כבר — לא מפריע */ }
+  }
   return loadClassList();
+}
+async function deleteClassRow(name){
+  await supabase('tik_classes?name=eq.' + encodeURIComponent(normClass(name)),
+    { method:'DELETE', prefer:'return=minimal' });
 }
 function classPicker(id, current){
   const opts = CLASS_LIST.map(c =>
@@ -460,9 +470,9 @@ async function removeClass(name){
   if(used && !confirm('לכיתה "'+name+'" משויכים '+used+' תלמידים.\nההסרה מוחקת רק את הכיתה מהרשימה — התלמידים יישארו.\nלהמשיך?'))return;
   if(!used && !confirm('להסיר את הכיתה "'+name+'" מהרשימה?'))return;
   try{
-    await saveClassList(CLASS_LIST.filter(c=>!sameClass(c,name)));
+    await deleteClassRow(name);
     await refreshClassPickers();
-  }catch(e){alert('שגיאה');}
+  }catch(e){alert('שגיאה במחיקה');}
 }
 
 /* ===== סנכרון ממערכת קבוצות הלימוד (tiksh_*) =====
@@ -497,8 +507,12 @@ function matchTeacher(tikshName, teachers){
   return { none:true };
 }
 /* שם הכיתה שייווצר מקבוצה */
+/* שם הכיתה כולל את המורה — אחרת שתי קבוצות של אותו מסלול בשכבה אחת
+   (למשל למ"ד יב של רני ושל ליאור) היו מתמזגות לכיתה אחת, וכל מורה היה
+   רואה גם את תלמידי חברו. */
 const groupClassName = g =>
-  [g.grade, g.track, g.level ? g.level+' יח״ל' : ''].filter(Boolean).join(' · ');
+  [g.grade, g.track, g.level ? g.level+' יח״ל' : '', nrmName(g.teacher_name)]
+    .filter(Boolean).join(' · ');
 
 let SYNC_PLAN = null;
 async function buildSyncPlan(){
@@ -651,25 +665,52 @@ async function setStudentClass(id, cls){
   await supabase('gmar_students?id=eq.'+encodeURIComponent(id),
     { method:'PATCH', body: JSON.stringify({ class: cls }) });
 }
-/* שיוך תלמיד בודד */
+/* שיוך תלמיד בודד — חלון עם רשימת הכיתות, לא הקלדה */
+let ASSIGN_ID=null;
 async function assignOne(id){
   await loadClassList();
-  const all = await sbGetAllStudents();
-  const st = all.find(x=>String(x.id)===String(id));
+  const all=await sbGetAllStudents();
+  const st=all.find(x=>String(x.id)===String(id));
   if(!st){alert('התלמיד לא נמצא');return;}
-  const list = CLASS_LIST.length ? CLASS_LIST.join('\n') : '(עדיין אין כיתות מוגדרות)';
-  const cur = normClass(st.class);
-  const val = prompt('שיוך כיתה — '+st.name+
-    '\n\nכיתות קיימות:\n'+list+'\n\nהקלידו שם כיתה (ריק = הסרת שיוך):', cur);
-  if(val===null) return;
-  const cls = normClass(val);
+  ASSIGN_ID=id;
+  const cur=normClass(st.class);
+  const ov=document.createElement('div');
+  ov.id='assignOv';
+  ov.style.cssText='position:fixed;inset:0;background:rgba(20,18,45,.55);display:flex;'+
+    'align-items:center;justify-content:center;padding:16px;z-index:9999';
+  ov.innerHTML=`<div style="background:#fff;border-radius:17px;max-width:420px;width:100%;padding:22px 24px;
+      max-height:86vh;overflow:auto" onclick="event.stopPropagation()">
+    <h3 style="margin:0 0 3px;font-size:1.15rem">🏫 שיוך כיתה</h3>
+    <p style="color:#888;font-size:.88rem;margin:0 0 14px">${esc(st.name)}${cur?' · כיתה נוכחית: '+esc(cur):' · ללא כיתה'}</p>
+    <div id="assignList" style="display:flex;flex-direction:column;gap:6px;max-height:280px;overflow:auto">
+      ${CLASS_LIST.length ? CLASS_LIST.map(c=>`
+        <button onclick="pickAssign('${esc(c)}')" style="text-align:right;background:${sameClass(c,cur)?'#eef1fb':'#fafafa'};
+          border:2px solid ${sameClass(c,cur)?'#4c6ef5':'#eee'};border-radius:11px;padding:11px 14px;
+          font-family:inherit;font-size:.95rem;font-weight:${sameClass(c,cur)?'800':'400'};cursor:pointer">
+          ${esc(c)}${sameClass(c,cur)?' ✓':''}</button>`).join('')
+        : '<p style="color:#aaa;font-size:.9rem">עדיין לא הוגדרו כיתות. צרו כיתה בלשונית 🏫 כיתות.</p>'}
+    </div>
+    <div style="display:flex;gap:8px;margin-top:15px">
+      <button onclick="closeAssign()" style="flex:1;background:#f1f1f4;border:0;border-radius:11px;
+        padding:11px;font-family:inherit;font-weight:800;cursor:pointer">ביטול</button>
+      ${cur?`<button onclick="pickAssign('')" style="flex:1;background:#fdecea;color:#c0392b;border:0;
+        border-radius:11px;padding:11px;font-family:inherit;font-weight:800;cursor:pointer">הסרת שיוך</button>`:''}
+    </div>
+  </div>`;
+  ov.addEventListener('click',e=>{if(e.target===ov)closeAssign();});
+  document.body.appendChild(ov);
+}
+function closeAssign(){const o=document.getElementById('assignOv');if(o)o.remove();ASSIGN_ID=null;}
+async function pickAssign(cls){
+  const id=ASSIGN_ID; if(!id)return;
+  closeAssign();
   try{
-    await setStudentClass(id, cls);
-    if(cls && !CLASS_LIST.some(c=>sameClass(c,cls))) await saveClassList(CLASS_LIST.concat([cls]));
+    await setStudentClass(id, normClass(cls));
     await loadStudentsTable();
     await refreshClassPickers();
   }catch(e){ alert('שגיאה בשמירה'); }
 }
+
 /* שיוך מרוכז למסומנים */
 async function assignBulk(){
   const msg=document.getElementById('bulkMsg');
