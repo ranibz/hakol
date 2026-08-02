@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<!-- galil/nochehut.html · v1.0.0 · 2026-08-02 · הקראת נוכחות למגמת תקשורת. המורה בוחר את שמו כפי שהוא רשום בקבוצות הלימוד, מקבל את קבוצותיו, ומסמן נוכח/חסר. הנתונים נשלפים מ-tiksh_* ונשמרים ב-tiksh_attendance (Supabase matalot). הקראה חוזרת באותו יום מעדכנת ולא מכפילה (MAJOR) -->
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>הקראת נוכחות · מגמת תקשורת</title>
+<link href="https://fonts.googleapis.com/css2?family=Secular+One&family=Assistant:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+:root{--iyuni:#7c3aed;--maasi:#0d9488;--ink:#1f2340;--soft:#6a6f8a;--bg:#f7f6fc;--line:#e7e4f3;
+  --ok:#12b76a;--no:#dc2626;--late:#c98a12}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:'Assistant',sans-serif;
+  font-size:17px;line-height:1.6;padding-bottom:96px}
+h1,h2,h3{font-family:'Secular One',sans-serif;font-weight:400}
+.top{background:linear-gradient(135deg,#4c1d95,#0f766e);color:#fff;padding:14px 0;position:sticky;top:0;z-index:30}
+.topin{max-width:820px;margin:0 auto;padding:0 15px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.topin a{color:#fff;text-decoration:none;font-size:1.2rem;opacity:.85}
+.topin h1{font-size:1.3rem;margin:0}
+.topin .sb{opacity:.85;font-size:.85rem}
+.wrap{max-width:820px;margin:0 auto;padding:16px 15px}
+.card{background:#fff;border:1px solid var(--line);border-radius:17px;padding:19px 21px;margin-bottom:14px}
+label{display:block;font-weight:800;font-size:.85rem;margin-bottom:5px}
+select,input{font-family:inherit;font-size:1rem;border:1px solid #d8d5e8;border-radius:11px;
+  padding:11px 13px;width:100%;background:#fff;color:var(--ink)}
+.btn{background:var(--iyuni);color:#fff;border:0;border-radius:12px;padding:12px 24px;
+  font-family:inherit;font-weight:800;font-size:.95rem;cursor:pointer}
+.btn:hover{filter:brightness(.93)}
+.btn.g{background:#f0eefa;color:var(--ink)} .btn.ok{background:var(--ok)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.grp{background:#fff;border:2px solid var(--line);border-radius:15px;padding:14px 16px;margin-bottom:10px;
+  cursor:pointer;display:flex;gap:12px;align-items:center;text-align:right;width:100%;font-family:inherit}
+.grp:hover{border-color:var(--iyuni)}
+.grp.iy{border-inline-start:6px solid var(--iyuni)} .grp.ma{border-inline-start:6px solid var(--maasi)}
+.grp .x{flex:1}
+.grp b{display:block;font-family:'Secular One',sans-serif;font-weight:400;font-size:1.1rem}
+.grp span{color:var(--soft);font-size:.85rem}
+.grp .n{background:#f1effb;color:var(--iyuni);border-radius:20px;padding:3px 13px;font-weight:800;font-size:.85rem}
+.grp.ma .n{background:#e6f6f4;color:var(--maasi)}
+.done{background:#e7f7ee;color:#0f7a4d;border-radius:20px;padding:2px 11px;font-size:.75rem;font-weight:800}
+/* רשימת ההקראה */
+.s{display:flex;gap:11px;align-items:center;background:#fff;border:2px solid var(--line);
+  border-radius:14px;padding:13px 15px;margin-bottom:8px}
+.s.p{border-color:#bfe8d2;background:#f7fdfa}
+.s.a{border-color:#f6cfcb;background:#fdf6f5}
+.s .num{width:30px;height:30px;flex-shrink:0;border-radius:50%;background:#f2f0fb;color:var(--soft);
+  display:flex;align-items:center;justify-content:center;font-weight:800;font-size:.82rem}
+.s .nm{flex:1;font-size:1.12rem;font-weight:700}
+.s button{border:0;border-radius:11px;padding:9px 17px;font-family:inherit;font-weight:800;
+  font-size:.88rem;cursor:pointer;background:#f1f1f6;color:var(--soft)}
+.s .yes.on{background:var(--ok);color:#fff} .s .no.on{background:var(--no);color:#fff}
+.bar{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:2px solid var(--line);
+  padding:11px 0;box-shadow:0 -3px 14px rgba(0,0,0,.06);z-index:40}
+.barin{max-width:820px;margin:0 auto;padding:0 15px;display:flex;gap:11px;align-items:center;flex-wrap:wrap}
+.cnt{font-family:'Secular One',sans-serif;font-size:1.05rem}
+.cnt i{font-style:normal;font-weight:800} .cnt .p{color:var(--ok)} .cnt .a{color:var(--no)}
+.msg{font-weight:700;font-size:.88rem;margin-inline-start:auto}
+.err{background:#fdecea;color:#9f1239;border-radius:11px;padding:12px 15px;font-weight:700;font-size:.9rem}
+.empty{color:var(--soft);text-align:center;padding:26px;font-size:.94rem}
+@media(max-width:600px){.s .nm{font-size:1rem}.wrap{padding:12px 11px}}
+@media print{.top,.bar,.s button{display:none}.s{break-inside:avoid}}
+</style>
+</head>
+<body>
+<div class="top"><div class="topin">
+  <a href="index.html" title="חזרה">→</a>
+  <h1>📋 הקראת נוכחות</h1>
+  <span class="sb">מגמת תקשורת · גליל מערבי</span>
+  <span class="sb" id="today" style="margin-inline-start:auto"></span>
+</div></div>
+
+<div class="wrap"><div id="app"><div class="empty">טוען…</div></div></div>
+<div class="bar" id="bar" style="display:none"><div class="barin">
+  <span class="cnt">נוכחים <i class="p" id="cP">0</i> · חסרים <i class="a" id="cA">0</i>
+    <span style="color:var(--soft);font-size:.85rem" id="cT"></span></span>
+  <span class="msg" id="msg"></span>
+  <button class="btn g" onclick="allPresent()">סמן הכל נוכח</button>
+  <button class="btn ok" id="saveBtn" onclick="save()">שמירה</button>
+</div></div>
+
+<script>
+const SUP="https://eubgzfkkovxgijhrmnif.supabase.co",
+      KEY="sb_publishable_vJ768fOwYWiDWeYsBBR45g_4NM4s55p";
+const el=id=>document.getElementById(id);
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+async function sb(q,m,b,x){
+  const r=await fetch(SUP+'/rest/v1/'+q,{method:m||'GET',
+    headers:Object.assign({apikey:KEY,Authorization:'Bearer '+KEY,'Content-Type':'application/json'},x||{}),
+    body:b?JSON.stringify(b):undefined});
+  if(!r.ok)throw new Error(r.status+' '+(await r.text()).slice(0,160));
+  const t=await r.text(); return t?JSON.parse(t):[];
+}
+const today=()=>new Date().toISOString().slice(0,10);
+const heDate=()=>new Date().toLocaleDateString('he-IL',{weekday:'long',day:'numeric',month:'long'});
+/* שם הקבוצה — בדיוק כפי שרשום בקבוצות הלימוד */
+const gName=g=>[g.track||'קבוצה', g.level?g.level+' יח״ל':''].filter(Boolean).join(' · ');
+const sName=s=>s.full_name||'';
+
+let TEACHER='', GROUPS=[], GROUP=null, ROSTER=[], MARK={}, DONE={};
+
+async function boot(){
+  try{
+    const gs=await sb('tiksh_groups?select=*&order=grade,subject,track');
+    GROUPS=gs||[];
+    if(!GROUPS.length){ el('app').innerHTML='<div class="err">לא נמצאו קבוצות לימוד.</div>'; return; }
+    el('today').textContent=heDate();
+    pickTeacher();
+  }catch(e){
+    el('app').innerHTML='<div class="err">שגיאת טעינה: '+esc(e.message)+
+      '<br><span style="font-weight:400">ייתכן ש-RLS חוסם קריאה לטבלאות tiksh_.</span></div>';
+  }
+}
+function pickTeacher(){
+  /* שמות המורים בדיוק כפי שהם בקבוצות — "אוריין א" ו"אוריין ב" נשארים נפרדים */
+  const names=[...new Set(GROUPS.map(g=>(g.teacher_name||'').trim()).filter(Boolean))]
+    .sort((a,b)=>a.localeCompare(b,'he'));
+  el('bar').style.display='none';
+  el('app').innerHTML=`<div class="card">
+    <h2 style="margin:0 0 3px;font-size:1.25rem">מי מקריא?</h2>
+    <p style="color:var(--soft);font-size:.9rem;margin:0 0 14px">בחרו את שמכם כדי לראות את קבוצותיכם.</p>
+    <label>שם המורה</label>
+    <select id="tSel"><option value="">— בחרו —</option>
+      ${names.map(n=>`<option>${esc(n)}</option>`).join('')}</select>
+    <button class="btn" style="margin-top:13px" onclick="chooseTeacher()">המשך ←</button>
+  </div>`;
+}
+async function chooseTeacher(){
+  const v=el('tSel').value.trim();
+  if(!v){ alert('בחרו שם'); return; }
+  TEACHER=v;
+  const mine=GROUPS.filter(g=>(g.teacher_name||'').trim()===v);
+  /* אילו קבוצות כבר נלקחו היום */
+  DONE={};
+  try{
+    const ids=mine.map(g=>g.id).join(',');
+    if(ids){
+      const a=await sb('tiksh_attendance?select=group_id&taken_on=eq.'+today()+'&group_id=in.('+ids+')');
+      (a||[]).forEach(r=>DONE[r.group_id]=true);
+    }
+  }catch(e){}
+  el('app').innerHTML=`<div class="card">
+    <h2 style="margin:0 0 3px;font-size:1.25rem">שלום ${esc(TEACHER)}</h2>
+    <p style="color:var(--soft);font-size:.9rem;margin:0 0 14px">
+      ${mine.length} קבוצות · בחרו קבוצה להקראה</p>
+    ${mine.map(g=>`<button class="grp ${g.subject==='עיוני'?'iy':'ma'}" onclick="openGroup('${g.id}')">
+      <span class="x"><b>${esc(gName(g))}</b>
+        <span>שכבה ${esc(g.grade)} · ${esc(g.subject)}${DONE[g.id]?' ':''}</span></span>
+      ${DONE[g.id]?'<span class="done">✓ נלקחה היום</span>':''}
+    </button>`).join('')}
+    <button class="btn g" style="margin-top:8px" onclick="pickTeacher()">← החלפת מורה</button>
+  </div>`;
+}
+async function openGroup(gid){
+  GROUP=GROUPS.find(g=>String(g.id)===String(gid));
+  el('app').innerHTML='<div class="empty">טוען רשימה…</div>';
+  try{
+    const enr=await sb('tiksh_enrollments?select=student_id&group_id=eq.'+encodeURIComponent(gid));
+    const ids=(enr||[]).map(e=>e.student_id);
+    if(!ids.length){ el('app').innerHTML='<div class="empty">אין תלמידים בקבוצה זו.</div>'; return; }
+    const st=await sb('tiksh_students?select=*&id=in.('+ids.join(',')+')');
+    ROSTER=(st||[]).sort((a,b)=>sName(a).localeCompare(sName(b),'he'));
+    /* אם כבר נלקחה היום — טוענים את הסימונים */
+    MARK={};
+    try{
+      const prev=await sb('tiksh_attendance?select=student_id,present&taken_on=eq.'+today()+
+        '&group_id=eq.'+encodeURIComponent(gid));
+      (prev||[]).forEach(r=>MARK[r.student_id]=!!r.present);
+    }catch(e){}
+    render();
+  }catch(e){ el('app').innerHTML='<div class="err">שגיאה: '+esc(e.message)+'</div>'; }
+}
+function render(){
+  el('bar').style.display='block';
+  el('app').innerHTML=`<div class="card" style="padding:14px 17px;margin-bottom:11px">
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <div style="flex:1">
+          <b style="font-family:'Secular One',sans-serif;font-weight:400;font-size:1.2rem">${esc(gName(GROUP))}</b>
+          <div style="color:var(--soft);font-size:.86rem">שכבה ${esc(GROUP.grade)} · ${esc(GROUP.subject)} ·
+            ${esc(TEACHER)} · ${ROSTER.length} תלמידים</div>
+        </div>
+        <button class="btn g" onclick="chooseTeacher()">← לקבוצות</button>
+      </div></div>
+    ${ROSTER.map((s,i)=>{
+      const m=MARK[s.id];
+      return `<div class="s ${m===true?'p':m===false?'a':''}" id="row_${s.id}">
+        <span class="num">${i+1}</span>
+        <span class="nm">${esc(sName(s))}</span>
+        <button class="yes ${m===true?'on':''}" onclick="mark('${s.id}',true)">נוכח</button>
+        <button class="no ${m===false?'on':''}" onclick="mark('${s.id}',false)">חסר</button>
+      </div>`;
+    }).join('')}`;
+  count();
+}
+function mark(id,val){
+  MARK[id]= MARK[id]===val ? undefined : val;
+  const row=el('row_'+id); if(!row)return;
+  row.className='s '+(MARK[id]===true?'p':MARK[id]===false?'a':'');
+  row.querySelector('.yes').className='yes '+(MARK[id]===true?'on':'');
+  row.querySelector('.no').className='no '+(MARK[id]===false?'on':'');
+  count();
+}
+function allPresent(){ ROSTER.forEach(s=>MARK[s.id]=true); render(); }
+function count(){
+  const p=ROSTER.filter(s=>MARK[s.id]===true).length;
+  const a=ROSTER.filter(s=>MARK[s.id]===false).length;
+  el('cP').textContent=p; el('cA').textContent=a;
+  el('cT').textContent='· טרם סומנו '+(ROSTER.length-p-a);
+}
+async function save(){
+  const marked=ROSTER.filter(s=>MARK[s.id]!==undefined);
+  const m=el('msg');
+  if(!marked.length){ m.style.color='#9f1239'; m.textContent='לא סומן אף תלמיד.'; return; }
+  const left=ROSTER.length-marked.length;
+  if(left && !confirm(left+' תלמידים טרם סומנו.\nלשמור בכל זאת?')) return;
+  m.style.color='#6a6f8a'; m.textContent='שומר…';
+  el('saveBtn').disabled=true;
+  try{
+    const rows=marked.map(s=>({group_id:GROUP.id,student_id:s.id,taken_on:today(),present:MARK[s.id]}));
+    await sb('tiksh_attendance?on_conflict=group_id,student_id,taken_on','POST',rows,
+      {Prefer:'resolution=merge-duplicates'});
+    m.style.color='#0f7a4d';
+    m.textContent='✅ נשמר · '+marked.filter(s=>MARK[s.id]).length+' נוכחים';
+    DONE[GROUP.id]=true;
+  }catch(e){
+    m.style.color='#9f1239';
+    m.textContent='השמירה נכשלה: '+e.message.slice(0,90);
+  }
+  el('saveBtn').disabled=false;
+}
+boot();
+</script>
+</body>
+</html>

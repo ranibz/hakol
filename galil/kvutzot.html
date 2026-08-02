@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- galil/kvutzot.html · v2.3.0 · 2026-08-02 · ניהול קבוצות מגמת תקשורת, בית חינוך גליל מערבי. הועבר לתיקייה galil/ ונוסף קישור חזרה לדף המגמה. מחובר ל-tiksh_* ב-Supabase matalot (eubgzfkkovxgijhrmnif) (MINOR) -->
+<!-- galil/kvutzot.html · v2.4.0 · 2026-08-02 · ניהול קבוצות מגמת תקשורת, בית חינוך גליל מערבי. שדה המורה הפך לבורר מרשימת המורים הקיימים, עם אפשרות להוסיף חדש במפורש — כדי שלא ייווצרו וריאציות שם כמו "רני" מול "רני בן זאב". הועבר לתיקייה galil/ ונוסף קישור חזרה לדף המגמה. מחובר ל-tiksh_* ב-Supabase matalot (eubgzfkkovxgijhrmnif) (MINOR) -->
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
@@ -117,8 +117,44 @@ const sTz=s=>s.id_number||'';
 const nrm=s=>String(s||'').replace(/\s+/g,' ').trim();
 
 /* ---------- טעינה ---------- */
+/* רשימת המורים נאספת מכל השכבות — כדי שהבורר יציג את כולם
+   גם כשמסתכלים על שכבה אחת. מונע וריאציות שם כמו "רני" מול "רני בן זאב". */
+let TEACHERS=[];
+async function loadTeachers(){
+  try{
+    const r=await sb('tiksh_groups?select=teacher_name');
+    TEACHERS=[...new Set((r||[]).map(x=>nrm(x.teacher_name)).filter(Boolean))]
+      .sort((a,b)=>a.localeCompare(b,'he'));
+  }catch(e){ TEACHERS=[]; }
+  return TEACHERS;
+}
+function teacherPicker(id,current){
+  const cur=nrm(current);
+  const known=TEACHERS.some(t=>t===cur);
+  return `<select id="${id}" onchange="onTeacherPick('${id}')">
+      <option value="">— בחרו מורה —</option>
+      ${TEACHERS.map(t=>`<option${t===cur?' selected':''}>${esc(t)}</option>`).join('')}
+      <option value="__new"${cur&&!known?' selected':''}>＋ מורה חדש…</option>
+    </select>
+    <input type="text" id="${id}_new" placeholder="שם מלא של המורה"
+      style="margin-top:7px;display:${cur&&!known?'block':'none'}" value="${cur&&!known?esc(cur):''}">`;
+}
+function onTeacherPick(id){
+  const sel=document.getElementById(id), nw=document.getElementById(id+'_new');
+  if(!sel||!nw)return;
+  const on=sel.value==='__new';
+  nw.style.display=on?'block':'none';
+  if(on)nw.focus();
+}
+function teacherValue(id){
+  const sel=document.getElementById(id), nw=document.getElementById(id+'_new');
+  if(sel&&sel.value==='__new')return nrm(nw?nw.value:'');
+  return nrm(sel?sel.value:'');
+}
+
 async function loadAll(){
   el('app').innerHTML='<div class="empty">טוען…</div>';
+  await loadTeachers();
   const [g,s]=await Promise.all([
     sb.from('tiksh_groups').select('*').eq('grade',currentGrade).order('subject').order('track'),
     sb.from('tiksh_students').select('*').eq('grade',currentGrade).order('full_name')
@@ -286,14 +322,15 @@ function newGroup(){
     <label>מסלול</label><input id="ngTrack" placeholder='למשל: למ"ד · מדיה · אולפן · וידאוקאסט'>
     <label>יחידות לימוד</label>
     <select id="ngLevel"><option value="5">5 יח״ל</option><option value="3">3 יח״ל</option></select>
-    <label>מורה</label><input id="ngTeacher" placeholder="שם המורה">
+    <label>מורה</label>${teacherPicker('ngTeacher','')}
     <div class="acts"><button class="btn w" onclick="close()">ביטול</button>
       <button class="btn ok" onclick="doNewGroup()">יצירה ←</button></div>`);
 }
 async function doNewGroup(){
-  const track=nrm(el('ngTrack').value), teacher=nrm(el('ngTeacher').value),
+  const track=nrm(el('ngTrack').value), teacher=teacherValue('ngTeacher'),
         subject=el('ngSubj').value, level=+el('ngLevel').value;
   if(track.length<2){ toast('נא להזין מסלול','no'); return; }
+  if(teacher.length<2){ toast('נא לבחור מורה','no'); return; }
   try{
     const r=await sb.from('tiksh_groups')
       .insert({track,level,teacher_name:teacher||null,subject,grade:currentGrade});
@@ -309,13 +346,14 @@ function renameGroup(gid){
     <label>יחידות לימוד</label>
     <select id="egLevel"><option value="5"${g.level==5?' selected':''}>5 יח״ל</option>
       <option value="3"${g.level==3?' selected':''}>3 יח״ל</option></select>
-    <label>מורה</label><input id="egTeacher" value="${esc(g.teacher_name||'')}">
+    <label>מורה</label>${teacherPicker('egTeacher',g.teacher_name||'')}
     <div class="acts"><button class="btn w" onclick="close()">ביטול</button>
       <button class="btn ok" onclick="doRename('${gid}')">שמירה ←</button></div>`);
 }
 async function doRename(gid){
-  const track=nrm(el('egTrack').value), teacher=nrm(el('egTeacher').value), level=+el('egLevel').value;
+  const track=nrm(el('egTrack').value), teacher=teacherValue('egTeacher'), level=+el('egLevel').value;
   if(track.length<2){ toast('נא להזין מסלול','no'); return; }
+  if(teacher.length<2){ toast('נא לבחור מורה','no'); return; }
   try{
     const r=await sb.from('tiksh_groups')
       .update({track,level,teacher_name:teacher||null}).eq('id',gid);
