@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- agron/edit.html · v1.2.1 · 2026-08-02 · עורך האגרון: בחירת מושג מרשימה ועריכת ההגדרה, או הוספת מושג חדש. כותב לטבלה concepts ב-Supabase matalot, ולכן כל שינוי מופיע מיד בכל השיעורים שמושכים משם. תיקון: שמירה שנחסמה על ידי RLS הציגה "נשמר" כי Supabase מחזיר 200 עם גוף ריק — עכשיו נדרשת החזרת השורה ואימות שהערך תואם. התצוגה המקדימה משתמשת עכשיו ב-CSS האמיתי של האגרון — טבלאות, קופסאות דוגמאות וכותרות נראות בדיוק כפי שהתלמיד יראה, וגם בחלון ההדבקה יש תצוגה מקדימה חיה. נוסף ממיר מוורד: מדביקים טקסט רגיל והוא הופך ל-HTML במבנה האגרון — כותרת, רשימות עם הדגשה, קופסת דוגמאות וטבלאות. הגישה למנהל המערכת בלבד (MAJOR) -->
+<!-- agron/edit.html · v1.3.0 · 2026-08-02 · עורך האגרון: בחירת מושג מרשימה ועריכת ההגדרה, או הוספת מושג חדש. כותב לטבלה concepts ב-Supabase matalot, ולכן כל שינוי מופיע מיד בכל השיעורים שמושכים משם. תיקון: שמירה שנחסמה על ידי RLS הציגה "נשמר" כי Supabase מחזיר 200 עם גוף ריק — עכשיו נדרשת החזרת השורה ואימות שהערך תואם. התצוגה המקדימה משתמשת עכשיו ב-CSS האמיתי של האגרון — טבלאות, קופסאות דוגמאות וכותרות נראות בדיוק כפי שהתלמיד יראה, וגם בחלון ההדבקה יש תצוגה מקדימה חיה. נוסף ממיר מוורד: מדביקים טקסט רגיל והוא הופך ל-HTML במבנה האגרון — כותרת, רשימות עם הדגשה, קופסת דוגמאות וטבלאות. הגישה למנהל המערכת בלבד. v1.3.0: תיקון הריבועים ליד הבולטים — תווי הבולט של וורד (Private Use U+F0xx, •, o, ▪) מנוקים מכל טקסט; הטבלאות, קופסאות הדוגמאות והכותרות מקבלות עיצוב מוטמע (inline style) ולכן נראות זהה בכל שיעור שמושך את ההגדרה, גם בלי CSS בדף המארח; נוסף כפתור "ניקוי ועיצוב" לתיקון מושגים ישנים, וניקוי אוטומטי בשמירה (MINOR) -->
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
@@ -147,6 +147,7 @@ function render(){
     <h1>📖 עורך האגרון</h1>
     <span class="sb">${esc(ME)}</span>
     <span class="pill" style="background:rgba(255,255,255,.18);color:#fff">${ALL.length} מושגים</span>
+    <span class="pill" style="background:rgba(255,255,255,.18);color:#fff">v1.3.0</span>
     <span class="sb" style="margin-inline-start:auto">שינוי מופיע מיד בכל השיעורים</span>
   </div></div>
   <div class="wrap"><div class="grid">
@@ -214,6 +215,8 @@ function editor(){
         <button class="mini" onclick="wrapTag('b')">מודגש</button>
         <button class="mini" onclick="insList()">רשימה</button>
         <button class="mini" style="background:#e8f0fe;color:#1a56c4" onclick="openImport()">📋 הדבקה מוורד</button>
+        <button class="mini" style="background:#fdf3e2;color:#8a5a08" onclick="fixNow()"
+          title="מסיר ריבועים של וורד ומחזיר עיצוב לטבלאות">🧹 ניקוי ועיצוב</button>
         <button class="mini" onclick="insTemplate()">תבנית ריקה</button>
       </div>
     </div>
@@ -226,6 +229,70 @@ function editor(){
     </div>
   </div>`;
 }
+/* ===== עיצוב מוטמע =====
+   ההגדרה נשלפת מ-Supabase לתוך עשרות דפי שיעור שונים, שלכל אחד CSS משלו.
+   לכן הטבלאות/הקופסאות/הכותרות נושאות style מוטמע — כך הן נראות זהה בכל מקום
+   ולא תלויות בכך שלדף המארח יש .table-wrapper או .example-box. */
+const ST={
+  title:'font-weight:700;color:#2c3e50;display:block;margin:15px 0 5px;text-decoration:underline',
+  box:'background:#e8f5e9;padding:14px 16px;border-radius:8px;margin:14px 0;border-right:4px solid #4caf50',
+  wrap:'overflow-x:auto;margin:12px 0;border:1px solid #d9e2d9;border-radius:8px',
+  table:'width:100%;border-collapse:collapse;min-width:320px',
+  th:'background:#e8f0e8;color:#2c3e50;font-weight:700;text-align:right;padding:9px 11px;'+
+     'border-bottom:2px solid #c7d6c7',
+  td:'padding:9px 11px;border-bottom:1px solid #ececec;vertical-align:top;text-align:right',
+  ul:'margin:0 0 12px;padding-inline-start:22px',
+  li:'margin-bottom:5px'
+};
+/* תווי בולט שוורד מדביק: Private Use של גופן Symbol/Wingdings, ועוד וריאציות */
+const BULLET_CHARS='\\uF000-\\uF0FF\\u2022\\u00B7\\u25AA\\u25AB\\u25CF\\u25CB\\u25E6\\u2023\\u2043\\u2219\\u25A0\\u25A1\\u274F\\uFFFD';
+const RE_BULLET=new RegExp('['+BULLET_CHARS+']','g');
+const RE_LEAD  =new RegExp('^[\\s\\t]*(?:['+BULLET_CHARS+'\\-\\u2013\\u2014*]|o(?=[\\t ]))[\\s\\t]*');
+/* ניקוי תו-אחר-תו: בולטים, רווח קשיח, וסימני כיווניות נסתרים */
+const cleanText=s=>String(s==null?'':s)
+  .replace(/\u00A0/g,' ')
+  .replace(/[\u200B-\u200F\u202A-\u202E\u2060\uFEFF]/g,'')
+  .replace(RE_BULLET,'');
+
+/* מנקה ומעצב HTML קיים — עובד על ה-DOM ולא ברגקס, כדי לא לשבור תגיות */
+function beautify(html){
+  const d=document.createElement('div');
+  d.innerHTML=String(html||'');
+  /* 1 · ניקוי תווי הבולט מכל צומת טקסט */
+  const walker=document.createTreeWalker(d,NodeFilter.SHOW_TEXT,null,false);
+  const nodes=[]; while(walker.nextNode()) nodes.push(walker.currentNode);
+  nodes.forEach(n=>{ n.nodeValue=cleanText(n.nodeValue); });
+  /* 2 · שאריות רווח/טאב בתחילת פריט */
+  d.querySelectorAll('li,p,td,th').forEach(n=>{
+    const f=n.firstChild;
+    if(f&&f.nodeType===3) f.nodeValue=f.nodeValue.replace(/^[\s\t]+/,'');
+  });
+  /* 3 · עיצוב מוטמע */
+  d.querySelectorAll('.section-title').forEach(n=>n.setAttribute('style',ST.title));
+  d.querySelectorAll('.example-box').forEach(n=>n.setAttribute('style',ST.box));
+  d.querySelectorAll('ul,ol').forEach(n=>n.setAttribute('style',ST.ul));
+  d.querySelectorAll('li').forEach(n=>n.setAttribute('style',ST.li));
+  d.querySelectorAll('table').forEach(t=>{
+    t.setAttribute('style',ST.table);
+    t.querySelectorAll('th').forEach(c=>c.setAttribute('style',ST.th));
+    t.querySelectorAll('td').forEach(c=>c.setAttribute('style',ST.td));
+    /* אם אין עוטף — יוצרים אחד, כדי שהטבלה תגלול במסך צר */
+    const p=t.parentElement;
+    if(p&&p.classList&&p.classList.contains('table-wrapper')) p.setAttribute('style',ST.wrap);
+    else{
+      const wr=document.createElement('div');
+      wr.className='table-wrapper'; wr.setAttribute('style',ST.wrap);
+      t.parentNode.insertBefore(wr,t); wr.appendChild(t);
+    }
+  });
+  return d.innerHTML.trim();
+}
+function fixNow(){
+  const t=el('fDef'); if(!t)return;
+  t.value=beautify(t.value); onEdit();
+  const m=el('msg'); if(m){ m.style.color='#0f7a4d'; m.textContent='🧹 נוקה ועוצב — לחצו שמירה'; }
+}
+
 /* ===== המרת טקסט מוורד ל-HTML של האגרון =====
    כללי הזיהוי: "הגדרה לתלמיד:" → כותרת · שורה עם "כותרת: תוכן" → פריט רשימה
    עם הדגשה · "דוגמאות:" → קופסת דוגמאות · שורות עם טאבים → טבלה. */
@@ -234,14 +301,23 @@ function wordToHtml(raw){
   const esc=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
   const bold=t=>{ const m=/^([^:]{2,45}):\s*(.+)$/.exec(t);
     return m ? '<strong>'+esc(m[1])+':</strong> '+esc(m[2]) : esc(t); };
-  const lines=String(raw||'').replace(/\r/g,'').split('\n').map(l=>l.replace(/\t/g,'\t').trimEnd());
+  /* כל שורה עוברת נרמול לפני הזיהוי: סימן הבולט של וורד (ריבוע/גליף Symbol)
+     מוחלף במקף רגיל, כדי שזיהוי הרשימה ימשיך לעבוד — והטאב שאחריו נעלם,
+     אחרת השורה נחשבת בטעות לשורת טבלה. שאר התווים המוזרים מנוקים. */
+  const normLine=l=>{
+    const m=RE_LEAD.exec(l);
+    if(m) return '- '+cleanText(l.slice(m[0].length)).replace(/^[\s\t]+/,'').trimEnd();
+    return cleanText(l).trimEnd();   /* טאבים נשמרים — הם מסמני הטבלה */
+  };
+  const lines=String(raw||'').replace(/\r/g,'').split('\n').map(normLine);
   const out=[]; let i=0;
   const isTableRow=l=>l.includes('\t');
   while(i<lines.length){
     let l=lines[i].trim();
     if(!l){ i++; continue; }
     /* כותרת פותחת */
-    if(/^הגדרה לתלמיד:?$/.test(l)){ out.push('<span class="section-title">הגדרה לתלמיד:</span>'); i++; continue; }
+    if(/^הגדרה לתלמיד:?$/.test(l)){
+      out.push('<span class="section-title" style="'+ST.title+'">הגדרה לתלמיד:</span>'); i++; continue; }
     /* קופסת דוגמאות */
     if(/^דוגמ(ה|אות):/.test(l)){
       const label=/^דוגמאות:/.test(l)?'דוגמאות:':'דוגמה:';
@@ -254,7 +330,8 @@ function wordToHtml(raw){
         if(t.length<40 && lines[i+1] && isTableRow(lines[i+1])) break;
         body+=(body?'<br>':'')+t; i++;
       }
-      out.push('<div class="example-box">\n  <strong>'+label+'</strong><br>\n  '+esc(body).replace(/&lt;br&gt;/g,'<br>')+'\n</div>');
+      out.push('<div class="example-box" style="'+ST.box+'">\n  <strong>'+label+'</strong><br>\n  '+
+        esc(body).replace(/&lt;br&gt;/g,'<br>')+'\n</div>');
       continue;
     }
     /* טבלה — שורות עם טאבים */
@@ -262,9 +339,10 @@ function wordToHtml(raw){
       const rows=[];
       while(i<lines.length && isTableRow(lines[i])){ rows.push(lines[i].split('\t').map(c=>c.trim())); i++; }
       const head=rows.shift();
-      out.push('<div class="table-wrapper">\n  <table>\n    <thead>\n      <tr>'+
-        head.map(c=>'<th>'+esc(c)+'</th>').join('')+'</tr>\n    </thead>\n    <tbody>\n'+
-        rows.map(r=>'      <tr>'+r.map(c=>'<td>'+esc(c)+'</td>').join('')+'</tr>').join('\n')+
+      out.push('<div class="table-wrapper" style="'+ST.wrap+'">\n  <table style="'+ST.table+'">\n'+
+        '    <thead>\n      <tr>'+
+        head.map(c=>'<th style="'+ST.th+'">'+esc(c)+'</th>').join('')+'</tr>\n    </thead>\n    <tbody>\n'+
+        rows.map(r=>'      <tr>'+r.map(c=>'<td style="'+ST.td+'">'+esc(c)+'</td>').join('')+'</tr>').join('\n')+
         '\n    </tbody>\n  </table>\n</div>');
       continue;
     }
@@ -277,7 +355,8 @@ function wordToHtml(raw){
         if(!/^[-–—•*]\s+/.test(t) && !/^[^:]{2,45}:\s*\S/.test(t)) break;
         items.push(bold(t.replace(/^[-–—•*]\s+/,''))); i++;
       }
-      if(items.length){ out.push('<ul>\n'+items.map(x=>'  <li>'+x+'</li>').join('\n')+'\n</ul>'); continue; }
+      if(items.length){ out.push('<ul style="'+ST.ul+'">\n'+
+        items.map(x=>'  <li style="'+ST.li+'">'+x+'</li>').join('\n')+'\n</ul>'); continue; }
     }
     /* כותרת משנה קצרה בלי נקודתיים — פסקה מודגשת */
     if(l.length<40 && !/[.!?]$/.test(l) && lines[i+1] && isTableRow(lines[i+1])){
@@ -316,13 +395,13 @@ function closeImport(){const o=document.getElementById('impOv');if(o)o.remove();
 function livePreview(){
   const t=document.getElementById('impTxt'), p=document.getElementById('impPrev');
   if(!t||!p)return;
-  p.innerHTML = t.value.trim() ? wordToHtml(t.value)
+  p.innerHTML = t.value.trim() ? beautify(wordToHtml(t.value))
     : '<span class="sub">הדביקו טקסט כדי לראות תצוגה מקדימה…</span>';
 }
 function doImport(){
   const raw=document.getElementById('impTxt').value;
   if(!raw.trim()){ alert('אין טקסט להמרה'); return; }
-  const html=wordToHtml(raw);
+  const html=beautify(wordToHtml(raw));
   el('fDef').value=html;
   closeImport();
   onEdit();
@@ -339,12 +418,12 @@ function wrapTag(tag){
 function insTemplate(){
   if(el('fDef').value.trim() && !confirm('להחליף את התוכן הקיים בתבנית ריקה?'))return;
   el('fDef').value=
-`<span class="section-title">הגדרה לתלמיד:</span>
+`<span class="section-title" style="${ST.title}">הגדרה לתלמיד:</span>
 <p>ההגדרה כאן.</p>
-<ul>
-  <li><strong>מונח:</strong> הסבר</li>
+<ul style="${ST.ul}">
+  <li style="${ST.li}"><strong>מונח:</strong> הסבר</li>
 </ul>
-<div class="example-box">
+<div class="example-box" style="${ST.box}">
   <strong>דוגמאות:</strong><br>
   דוגמה ראשונה, דוגמה שנייה
 </div>`;
@@ -373,9 +452,12 @@ function autoSlug(term){
 }
 async function save(){
   const m=el('msg');
-  const term=nrm(el('fTerm').value), zone=nrm(el('fZone').value), def=el('fDef').value.trim();
+  const term=nrm(el('fTerm').value), zone=nrm(el('fZone').value);
+  let def=el('fDef').value.trim();
   if(term.length<2){ m.style.color='#9f1239'; m.textContent='נא להזין שם מושג.'; return; }
   if(!def){ m.style.color='#9f1239'; m.textContent='ההגדרה ריקה.'; return; }
+  /* ניקוי ועיצוב אוטומטי בכל שמירה — כך שגם מושגים ישנים מתוקנים בעצם השמירה */
+  def=beautify(def); el('fDef').value=def; bindPreview();
   let slug=nrm(el('fSlug').value)||autoSlug(term);
   const isNew=!!CUR.__new;
   if(isNew && ALL.some(c=>c.slug===slug)){
