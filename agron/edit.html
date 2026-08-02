@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- agron/edit.html · v1.1.0 · 2026-08-02 · עורך האגרון: בחירת מושג מרשימה ועריכת ההגדרה, או הוספת מושג חדש. כותב לטבלה concepts ב-Supabase matalot, ולכן כל שינוי מופיע מיד בכל השיעורים שמושכים משם. נוסף ממיר מוורד: מדביקים טקסט רגיל והוא הופך ל-HTML במבנה האגרון — כותרת, רשימות עם הדגשה, קופסת דוגמאות וטבלאות. הגישה למנהל המערכת בלבד (MAJOR) -->
+<!-- agron/edit.html · v1.2.1 · 2026-08-02 · עורך האגרון: בחירת מושג מרשימה ועריכת ההגדרה, או הוספת מושג חדש. כותב לטבלה concepts ב-Supabase matalot, ולכן כל שינוי מופיע מיד בכל השיעורים שמושכים משם. תיקון: שמירה שנחסמה על ידי RLS הציגה "נשמר" כי Supabase מחזיר 200 עם גוף ריק — עכשיו נדרשת החזרת השורה ואימות שהערך תואם. התצוגה המקדימה משתמשת עכשיו ב-CSS האמיתי של האגרון — טבלאות, קופסאות דוגמאות וכותרות נראות בדיוק כפי שהתלמיד יראה, וגם בחלון ההדבקה יש תצוגה מקדימה חיה. נוסף ממיר מוורד: מדביקים טקסט רגיל והוא הופך ל-HTML במבנה האגרון — כותרת, רשימות עם הדגשה, קופסת דוגמאות וטבלאות. הגישה למנהל המערכת בלבד (MAJOR) -->
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
@@ -42,9 +42,22 @@ textarea:focus,input:focus,select:focus{outline:2px solid var(--a);border-color:
 .it small{display:block;color:var(--soft);font-size:.75rem;font-weight:400}
 .two{display:grid;grid-template-columns:1fr 1fr;gap:13px}
 @media(max-width:760px){.two{grid-template-columns:1fr}}
-.prev{background:#fff;border:1px solid var(--line);border-radius:11px;padding:13px 15px;min-height:220px;
-  max-height:340px;overflow:auto;font-size:.95rem;line-height:1.75}
-.prev p{margin:0 0 9px} .prev ul,.prev ol{margin:0 0 9px;padding-inline-start:20px}
+.prev{background:#fff;border:1px solid var(--line);border-radius:11px;padding:15px 17px;min-height:220px;
+  max-height:420px;overflow:auto;font-size:.95rem;line-height:1.7;color:#333}
+/* ↓ הועתק מהאגרון עצמו, כדי שהתצוגה המקדימה תהיה זהה למה שהתלמיד רואה */
+.prev p{margin:0 0 10px}
+.prev ul,.prev ol{margin:0 0 12px;padding-inline-start:22px}
+.prev li{margin-bottom:5px}
+.prev .section-title{font-weight:bold;color:#2c3e50;margin-top:15px;margin-bottom:5px;
+  display:block;text-decoration:underline}
+.prev .section-title:first-child{margin-top:0}
+.prev .example-box{background-color:#e8f5e9;padding:15px;border-radius:8px;margin:15px 0;
+  border-right:4px solid #4caf50;font-size:.95rem}
+.prev .table-wrapper{overflow-x:auto;margin-top:10px;margin-bottom:15px;border:1px solid #ddd;border-radius:5px}
+.prev table{width:100%;border-collapse:collapse;min-width:340px;font-size:.9rem}
+.prev th{background-color:#e0e0e0;font-weight:bold;text-align:right;padding:8px;border-bottom:2px solid #ccc}
+.prev td{border-bottom:1px solid #eee;padding:8px;vertical-align:top}
+.prev strong{color:#2c3e50}
 .pill{display:inline-block;border-radius:20px;padding:2px 11px;font-size:.76rem;font-weight:800;
   background:#eef3ee;color:var(--a)}
 .pill.w{background:#fdf3e2;color:#8a5a08} .pill.r{background:#fdecea;color:#9f1239}
@@ -192,7 +205,7 @@ function editor(){
       <div class="two">
         <textarea id="fDef" oninput="onEdit()">${esc(CUR.definition_html||'')}</textarea>
         <div>
-          <div class="sub" style="margin-bottom:5px">תצוגה מקדימה</div>
+          <div class="sub" style="margin-bottom:5px">תצוגה מקדימה · כפי שיראה התלמיד</div>
           <div class="prev" id="prev"></div>
         </div>
       </div>
@@ -284,19 +297,28 @@ function openImport(){
       padding:21px 23px;max-height:90vh;overflow:auto">
     <h3 style="margin:0 0 3px;font-size:1.18rem">הדבקה מוורד</h3>
     <p class="sub" style="margin:0 0 13px">הדביקו את הטקסט כמו שהוא. הטבלה תישמר אם תעתיקו אותה מוורד.</p>
-    <textarea id="impTxt" style="min-height:210px" placeholder="הגדרה לתלמיד:&#10;הטקסט שלכם…&#10;דוגמאות:&#10;…"></textarea>
+    <textarea id="impTxt" style="min-height:180px" oninput="livePreview()"
+      placeholder="הגדרה לתלמיד:&#10;הטקסט שלכם…&#10;דוגמאות:&#10;…"></textarea>
     <div style="display:flex;gap:8px;margin-top:11px;flex-wrap:wrap">
       <button class="btn" onclick="doImport()">המרה והצבה ←</button>
       <button class="btn g" onclick="closeImport()">ביטול</button>
       <span class="sub" style="align-self:center">אפשר לערוך את ה-HTML אחרי ההמרה</span>
     </div>
-    <div id="impPrev" style="margin-top:13px"></div>
+    <div class="sub" style="margin-top:13px;margin-bottom:5px">תצוגה מקדימה של התוצאה</div>
+    <div class="prev" id="impPrev" style="min-height:110px;max-height:260px">
+      <span class="sub">הדביקו טקסט כדי לראות תצוגה מקדימה…</span></div>
   </div>`;
   ov.addEventListener('click',e=>{if(e.target===ov)closeImport();});
   document.body.appendChild(ov);
   setTimeout(()=>{const t=document.getElementById('impTxt');if(t)t.focus();},50);
 }
 function closeImport(){const o=document.getElementById('impOv');if(o)o.remove();}
+function livePreview(){
+  const t=document.getElementById('impTxt'), p=document.getElementById('impPrev');
+  if(!t||!p)return;
+  p.innerHTML = t.value.trim() ? wordToHtml(t.value)
+    : '<span class="sub">הדביקו טקסט כדי לראות תצוגה מקדימה…</span>';
+}
 function doImport(){
   const raw=document.getElementById('impTxt').value;
   if(!raw.trim()){ alert('אין טקסט להמרה'); return; }
@@ -364,17 +386,30 @@ async function save(){
   try{
     const row={slug,term,zone:zone||null,definition_html:def,
                agron_url:CUR.agron_url||AGRON_URL,updated_at:new Date().toISOString()};
-    if(isNew) await sb('concepts','POST',[row]);
-    else      await sb('concepts?slug=eq.'+encodeURIComponent(CUR.slug),'PATCH',
-                       {term,zone:zone||null,definition_html:def,updated_at:row.updated_at});
+    /* Prefer:return=representation — מחזיר את השורה שנשמרה בפועל.
+       בלעדיו RLS שחוסם כתיבה מחזיר 200 עם גוף ריק, וזה נראה כמו הצלחה. */
+    let saved;
+    if(isNew) saved = await sb('concepts','POST',[row],{Prefer:'return=representation'});
+    else      saved = await sb('concepts?slug=eq.'+encodeURIComponent(CUR.slug),'PATCH',
+                       {term,zone:zone||null,definition_html:def,updated_at:row.updated_at},
+                       {Prefer:'return=representation'});
+    if(!saved || !saved.length){
+      throw new Error('לא נשמרה אף שורה. סביר ש-RLS חוסם כתיבה לטבלה concepts — '+
+        'צריך policy ל-UPDATE ול-INSERT.');
+    }
+    /* אימות סופי: לוודא שמה שחזר הוא באמת מה ששלחנו */
+    if(String(saved[0].definition_html).trim() !== def){
+      throw new Error('השמירה לא נקלטה — הערך במסד שונה ממה שנשלח.');
+    }
     DIRTY=false;
     ALL=await sb('concepts?select=*&order=term.asc');
     CUR=ALL.find(c=>c.slug===slug)||null;
     render();
     const m2=el('msg'); if(m2){ m2.style.color='#0f7a4d'; m2.textContent='✅ נשמר — מופיע כבר בשיעורים'; }
   }catch(e){
-    m.style.color='#9f1239'; m.textContent='השמירה נכשלה: '+e.message.slice(0,110);
+    m.style.color='#9f1239'; m.textContent='⚠ ' + String(e.message||e).slice(0,170);
     el('saveBtn').disabled=false;
+    DIRTY=true;   /* לא מאבדים את מה שנכתב */
   }
 }
 async function del(){
