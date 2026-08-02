@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- tiklamed-supabase.html · v1.14.1 · 2026-08-02 · ניהול כיתות: מגדירים כיתה פעם אחת בלשונית "כיתות", ומשם היא נבחרת מרשימה בהוספת תלמיד ובשיוך למורה, עם אפשרות הקלדה ידנית. תיקון: הוספת כיתה הציגה "נוספה" גם כשהשמירה נכשלה, כי catch ריק בלע את השגיאה — עכשיו מאשרים רק אם הכיתה חזרה מהשרת, וכל כשל מדווח. הכיתות עברו לטבלה ייעודית tik_classes (במקום tik_settings, שהיא טבלת שורה־אחת ולכן השמירה נכשלה). תיקון: שם הכיתה בסנכרון כולל עכשיו את שם המורה, אחרת שתי קבוצות של אותו מסלול בשכבה אחת התמזגו וכל מורה ראה גם את תלמידי חברו. שיוך כיתה לתלמיד בודד עבר מהקלדה ידנית לחלון עם רשימת הכיתות. נוסף סנכרון ממערכת קבוצות הלימוד (tiksh_* בפרויקט matalot): כל קבוצה הופכת לכיתה, המורים מותאמים לפי שם, ושום דבר לא נמחק. נוסף שיוך תלמידים קיימים לכיתה — בודד או מרוכז לפי סימון בטבלה. תוקן באג קריטי — סינון תלמידי המורה קרא s.cls במקום s.class ולכן החזיר תמיד ריק, וההשוואה שונתה מ-includes להתאמה מדויקת (MINOR) -->
+<!-- tiklamed-supabase.html · v1.15.0 · 2026-08-02 · תיקון שורש: שם עמודת הכיתה ב-gmar_students הוא cls ולא class. גרסאות קודמות כתבו class ולכן שיוך הכיתה מעולם לא נשמר, והמורה ראה אפס תלמידים. כל הקריאות והכתיבות הועברו ל-cls, כולל ייבוא אקסל. בנוסף: לשונית כיתות (tik_classes), שיוך תלמידים בודד ומרוכז, וסנכרון ממערכת קבוצות הלימוד (tiksh_* בפרויקט matalot) שבו שם הכיתה כולל את המורה (MINOR) -->
 <!-- גרסה: 1.8.0 | תאריך: 2026-05-31 | פרומפט בודק AI מעודכן לזרימה דו-שלבית: (1) אחרי שהתלמיד מדביק את הפרומפט, הבודק עונה "קיבלתי את ההנחיות. אנא הדבק עכשיו את הטקסט" ומחכה. (2) רק אחרי שהתלמיד מדביק את הטקסט, הבודק מנתח לפי 7 הסעיפים. (3) בסוף הניתוח שואל "האם יש טקסט נוסף?" כדי לאפשר בדיקות חוזרות באותה שיחה. ההוראות במודאל עודכנו בהתאם. -->
 <!-- גרסה: 1.7.0 | תאריך: 2026-05-28 | חסימת הדבקה מוחלטת: הוסרה אפשרות המילוט בסיסמה. -->
 <html lang="he" dir="rtl">
@@ -359,7 +359,7 @@ async function loadClassList(){
   let used = [];
   try{
     const st = await sbGetAllStudents();
-    used = st.map(x => normClass(x.class)).filter(Boolean);
+    used = st.map(x => normClass(x.cls)).filter(Boolean);
     const tc = await sbGetAllTeachers();
     (tc||[]).forEach(t => (t.classes||[]).forEach(c => used.push(normClass(c))));
   }catch(e){}
@@ -450,7 +450,7 @@ async function refreshClassPickers(){
 function renderClassAdmin(){
   const box=document.getElementById('classListBox'); if(!box)return;
   const counts={};
-  (window.__allStudentsCache||[]).forEach(s=>{const c=normClass(s.class); if(c)counts[c]=(counts[c]||0)+1;});
+  (window.__allStudentsCache||[]).forEach(s=>{const c=normClass(s.cls); if(c)counts[c]=(counts[c]||0)+1;});
   box.innerHTML = CLASS_LIST.length ? CLASS_LIST.map(c=>`
     <div style="display:flex;gap:9px;align-items:center;background:#f7f6fc;border-radius:11px;
       padding:9px 13px;margin-bottom:7px">
@@ -479,7 +479,7 @@ async function addClass(){
   }catch(e){ alert('שגיאה בשמירה:\n'+(e.message||e)); }
 }
 async function removeClass(name){
-  const used=(window.__allStudentsCache||[]).filter(s=>sameClass(s.class,name)).length;
+  const used=(window.__allStudentsCache||[]).filter(s=>sameClass(s.cls,name)).length;
   if(used && !confirm('לכיתה "'+name+'" משויכים '+used+' תלמידים.\nההסרה מוחקת רק את הכיתה מהרשימה — התלמידים יישארו.\nלהמשיך?'))return;
   if(!used && !confirm('להסיר את הכיתה "'+name+'" מהרשימה?'))return;
   try{
@@ -561,7 +561,7 @@ async function buildSyncPlan(){
     const cls = p.classes[0] || '';
     return { ...p, cls, exists: !!ex,
       changed: !!ex && nrmName(ex.class) !== nrmName(cls),
-      oldClass: ex ? ex.class : null };
+      oldClass: ex ? ex.cls : null };
   });
 
   const classes = [...new Set(groups.map(groupClassName))];
@@ -642,7 +642,7 @@ async function syncApply(){
     await saveClassList([...new Set(CLASS_LIST.concat(SYNC_PLAN.classes))]);
     for(const s of SYNC_PLAN.students){
       try{
-        if(!s.exists){ await sbSetStudent({ id:s.key, name:s.name, class:s.cls }); a++; }
+        if(!s.exists){ await sbSetStudent({ id:s.key, name:s.name, cls:s.cls }); a++; }
         else if(s.changed){ await setStudentClass(s.key, s.cls); b++; }
       }catch(e){ err++; }
     }
@@ -676,7 +676,7 @@ function selectedStudentIds(){
 }
 async function setStudentClass(id, cls){
   await supabase('gmar_students?id=eq.'+encodeURIComponent(id),
-    { method:'PATCH', body: JSON.stringify({ class: cls }) });
+    { method:'PATCH', body: JSON.stringify({ cls: cls }) });
 }
 /* שיוך תלמיד בודד — חלון עם רשימת הכיתות, לא הקלדה */
 let ASSIGN_ID=null;
@@ -686,7 +686,7 @@ async function assignOne(id){
   const st=all.find(x=>String(x.id)===String(id));
   if(!st){alert('התלמיד לא נמצא');return;}
   ASSIGN_ID=id;
-  const cur=normClass(st.class);
+  const cur=normClass(st.cls);
   const ov=document.createElement('div');
   ov.id='assignOv';
   ov.style.cssText='position:fixed;inset:0;background:rgba(20,18,45,.55);display:flex;'+
@@ -1434,10 +1434,10 @@ async function loadTeacherClassView(){
   try{
     const allStudents = await sbGetAllStudents();
     teacherAllStudents = allStudents.filter(s =>
-      teacherClasses.some(c => sameClass(s.class, c))
+      teacherClasses.some(c => sameClass(s.cls, c))
     );
     if(!teacherAllStudents.length){gr.innerHTML='<p style="color:#aaa;padding:20px;">אין תלמידים.</p>';return;}
-    const cm={};teacherAllStudents.forEach(s=>{const c=normClass(s.class)||'ללא כיתה';if(!cm[c])cm[c]=[];cm[c].push(s);});
+    const cm={};teacherAllStudents.forEach(s=>{const c=normClass(s.cls)||'ללא כיתה';if(!cm[c])cm[c]=[];cm[c].push(s);});
     gr.innerHTML='';const cols=['#667eea','#00b894','#e17055','#e84393','#0984e3'];
     Object.keys(cm).sort().forEach((cls,ci)=>{
       const sts=cm[cls],col=cols[ci%cols.length],card=document.createElement('div');card.className='class-card';card.style.borderRightColor=col;
@@ -1579,7 +1579,7 @@ async function loadStudentsTable(){
       const data = await sbGetStudentData(s.id);
       const p = calcProgress(data);
       const tr = document.createElement('tr');
-      tr.innerHTML=`<td><input type="checkbox" class="stChk" value="${esc(s.id)}" style="margin-inline-end:6px">${esc(s.id)}</td><td>${esc(s.name)}</td><td>${s.class?esc(s.class):'<span style="color:#e17055;font-weight:700">— ללא כיתה —</span>'}</td><td><div style="display:flex;align-items:center;gap:8px"><div style="flex:1;background:#f0f0f0;height:8px;border-radius:5px;overflow:hidden"><div style="width:${p}%;height:100%;background:linear-gradient(90deg,#667eea,#764ba2);border-radius:5px"></div></div><span style="font-weight:700;font-size:0.85rem">${p}%</span></div></td><td><button class="btn-admin" style="background:#eef1fb;color:#4c6ef5" onclick="assignOne('${s.id}')">🏫 כיתה</button>
+      tr.innerHTML=`<td><input type="checkbox" class="stChk" value="${esc(s.id)}" style="margin-inline-end:6px">${esc(s.id)}</td><td>${esc(s.name)}</td><td>${s.cls?esc(s.cls):'<span style="color:#e17055;font-weight:700">— ללא כיתה —</span>'}</td><td><div style="display:flex;align-items:center;gap:8px"><div style="flex:1;background:#f0f0f0;height:8px;border-radius:5px;overflow:hidden"><div style="width:${p}%;height:100%;background:linear-gradient(90deg,#667eea,#764ba2);border-radius:5px"></div></div><span style="font-weight:700;font-size:0.85rem">${p}%</span></div></td><td><button class="btn-admin" style="background:#eef1fb;color:#4c6ef5" onclick="assignOne('${s.id}')">🏫 כיתה</button>
       <button class="btn-admin btn-danger" onclick="deleteStudent('${s.id}')">מחק</button></td>`;
       tb.appendChild(tr);
     });
@@ -1631,7 +1631,7 @@ async function addStudent(){
             :normClass(document.getElementById('newStudentClass').value);
   if(!id||!name||!cls){alert('מלא את כל השדות');return;}
   try{
-    await sbSetStudent({id, name, class: cls});
+    await sbSetStudent({id, name, cls: cls});
     alert('✅ נוסף!');
     ['newStudentId','newStudentName'].forEach(i=>{const e=document.getElementById(i);if(e)e.value='';});
     const cs=document.getElementById('newStudentClassSel'); if(cs)cs.value='';
@@ -1682,8 +1682,8 @@ async function refreshClassAdmin(){
 let excelData=[];
 function loadSheetJS(cb){if(window.XLSX){cb();return;}const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';s.onload=cb;document.head.appendChild(s);}
 function handleExcelUpload(inp){const f=inp.files[0];if(!f)return;loadSheetJS(()=>{const r=new FileReader();r.onload=function(e){const wb=XLSX.read(e.target.result,{type:'binary'});const ws=wb.Sheets[wb.SheetNames[0]];const rows=XLSX.utils.sheet_to_json(ws,{header:1});excelData=[];const hdr=rows[0]?rows[0].map(h=>String(h).trim()):[];let ic=hdr.findIndex(h=>h.includes('תז')||h.includes('זהות')),nc=hdr.findIndex(h=>h.includes('שם')),cc=hdr.findIndex(h=>h.includes('כיתה'));if(ic===-1)ic=0;if(nc===-1)nc=1;if(cc===-1)cc=2;
-    for(let i=1;i<rows.length;i++){const row=rows[i];if(!row||!row.length)continue;const id=String(row[ic]||'').trim(),nm=String(row[nc]||'').trim(),cl=String(row[cc]||'').trim();if(id&&nm)excelData.push({id,name:nm,class:cl});}showExcelPreview();};r.readAsBinaryString(f);});}
-function showExcelPreview(){document.getElementById('excelPreview').style.display='block';document.getElementById('excelSummary').textContent=`✅ ${excelData.length} תלמידים`;let h='<table style="width:100%;border-collapse:collapse;font-size:0.9rem"><thead><tr style="background:#e0f0ff"><th style="padding:8px">תז</th><th style="padding:8px">שם</th><th style="padding:8px">כיתה</th></tr></thead><tbody>';excelData.slice(0,10).forEach(s=>{h+=`<tr><td style="padding:7px">${esc(s.id)}</td><td style="padding:7px">${esc(s.name)}</td><td style="padding:7px">${esc(s.class)}</td></tr>`;});if(excelData.length>10)h+=`<tr><td colspan=3 style="padding:8px;text-align:center;color:#888">...ועוד ${excelData.length-10}</td></tr>`;h+='</tbody></table>';document.getElementById('excelTable').innerHTML=h;}
+    for(let i=1;i<rows.length;i++){const row=rows[i];if(!row||!row.length)continue;const id=String(row[ic]||'').trim(),nm=String(row[nc]||'').trim(),cl=String(row[cc]||'').trim();if(id&&nm)excelData.push({id,name:nm,cls:cl});}showExcelPreview();};r.readAsBinaryString(f);});}
+function showExcelPreview(){document.getElementById('excelPreview').style.display='block';document.getElementById('excelSummary').textContent=`✅ ${excelData.length} תלמידים`;let h='<table style="width:100%;border-collapse:collapse;font-size:0.9rem"><thead><tr style="background:#e0f0ff"><th style="padding:8px">תז</th><th style="padding:8px">שם</th><th style="padding:8px">כיתה</th></tr></thead><tbody>';excelData.slice(0,10).forEach(s=>{h+=`<tr><td style="padding:7px">${esc(s.id)}</td><td style="padding:7px">${esc(s.name)}</td><td style="padding:7px">${esc(s.cls)}</td></tr>`;});if(excelData.length>10)h+=`<tr><td colspan=3 style="padding:8px;text-align:center;color:#888">...ועוד ${excelData.length-10}</td></tr>`;h+='</tbody></table>';document.getElementById('excelTable').innerHTML=h;}
 async function importAllStudents(){
   if(!excelData.length)return;
   // בדיקת כפילויות
@@ -1695,7 +1695,7 @@ async function importAllStudents(){
   try{
     // ייבוא כל התלמידים
     for(const s of excelData) {
-      await sbSetStudent({id: s.id, name: s.name, class: s.class});
+      await sbSetStudent({id: s.id, name: s.name, cls: s.cls});
     }
     alert(`✅ יובאו ${excelData.length} תלמידים!`);
     document.getElementById('excelPreview').style.display='none';
