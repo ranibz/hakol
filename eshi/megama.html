@@ -1,4 +1,15 @@
 <!DOCTYPE html>
+<!-- megama.html · v1.3.0 · 2026-08-03 · נוסף כרטיס "מערכת מטלות · כניסת מורה" עם שער כניסה.
+     האימות מול lms_teachers בפרויקט matalot — אותה טבלה ואותו נרמול טלפון שבהם משתמש
+     teacher-central.html, כדי שלא ייווצר מקור אמת שני. מורה מאושר (status=approved) מועבר
+     לקטלוג מערכי השיעור. שימו לב: זהו שער נוחות ולא אבטחה — כתובת היעד גלויה בקוד המקור.
+     v1.2.0: המורה מועבר לקטלוג עם ?code=<מזהה> כך שדפי השיעור לא ידרשו כניסה נוספת
+     (הם כבר עושים grant() כשיש code בכתובת). נוסף כרטיס "משימות · כניסת תלמידים":
+     התלמיד בוחר מורה וכיתה מתוך lms_classes ומועבר עם code+class — התוצאה זהה
+     לקישור שהמורה מייצר ומשתף, רק בלי להעתיק אותו.
+     v1.3.0: יעד התלמיד תוקן ל-talmid.html (האזור האישי) במקום קטלוג הזירות — שם התלמיד
+     רואה את המטלות שהוקצו לכיתה, מה הגיש, ציון ומשוב. talmid.html מקבל code+class
+     ולכן אותו בורר כיתה משרת אותו ללא שינוי (PATCH) -->
 <html lang="he" dir="rtl">
 <head>
     <meta charset="UTF-8">
@@ -20,6 +31,8 @@
             --c5: #e84393; /* ורוד פוקסיה - אגרון מושגים */
             --c6: #d35400; /* כתום כהה/אדום - זירות הלימוד */
             --c7: #e74c3c; /* אדום - וידאוקאסט */
+            --c9: #2d3436; /* אפור כהה - כניסת מורה */
+            --c10: #0abde3; /* תכלת - כניסת תלמידים */
         }
 
         body {
@@ -136,6 +149,57 @@
         .card-8 { border-top-color: #00cec9; }
         .card-8 .card-icon { color: #00cec9; }
 
+        .card-9 { border-top-color: var(--c9); }
+        .card-9 .card-icon { color: var(--c9); }
+        .card-9 .card-title, .card-10 .card-title { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+        .card-10 { border-top-color: var(--c10); }
+        .card-10 .card-icon { color: var(--c10); }
+        .modal-box select {
+            width: 100%; box-sizing: border-box; font-family: 'Rubik', sans-serif;
+            font-size: 1rem; padding: 13px 15px; margin-bottom: 11px;
+            border: 2px solid #e3e8ef; border-radius: 12px; background: #fafbfc;
+        }
+        .lock-badge {
+            font-size: .78rem; font-weight: 500; color: #fff; background: var(--c9);
+            border-radius: 20px; padding: 3px 12px; letter-spacing: .2px;
+        }
+
+        /* חלון הכניסה */
+        .modal-back {
+            position: fixed; inset: 0; background: rgba(20,25,40,.62);
+            display: none; align-items: center; justify-content: center;
+            padding: 20px; z-index: 999; backdrop-filter: blur(3px);
+        }
+        .modal-back.on { display: flex; }
+        .modal-box {
+            background: #fff; border-radius: 20px; padding: 34px 30px;
+            width: 100%; max-width: 400px; text-align: center;
+            box-shadow: 0 18px 50px rgba(0,0,0,.25);
+            animation: fadeInUp .3s ease-out;
+        }
+        .modal-box h3 { margin: 0 0 4px; font-size: 1.45rem; font-weight: 900; }
+        .modal-box .sub { color: #777; font-size: .92rem; margin: 0 0 20px; }
+        .modal-box input {
+            width: 100%; box-sizing: border-box; font-family: 'Rubik', sans-serif;
+            font-size: 1rem; padding: 13px 15px; margin-bottom: 11px;
+            border: 2px solid #e3e8ef; border-radius: 12px; background: #fafbfc;
+        }
+        .modal-box input:focus { outline: none; border-color: var(--c1); background: #fff; }
+        .btn-go {
+            width: 100%; padding: 14px; border: none; border-radius: 12px; cursor: pointer;
+            font-family: 'Rubik', sans-serif; font-size: 1.05rem; font-weight: 700;
+            background: var(--c9); color: #fff; margin-top: 5px;
+        }
+        .btn-go:hover { background: #000; }
+        .btn-go:disabled { opacity: .6; cursor: default; }
+        .btn-cancel {
+            width: 100%; padding: 11px; border: none; background: none; cursor: pointer;
+            font-family: 'Rubik', sans-serif; font-size: .93rem; color: #888; margin-top: 6px;
+        }
+        .modal-msg { font-size: .9rem; margin-top: 12px; min-height: 20px; font-weight: 500; }
+        .modal-note { font-size: .82rem; color: #999; margin-top: 14px; line-height: 1.6; }
+        .modal-note a { color: var(--c1); }
+
         /* אנימציות כניסה */
         @keyframes fadeInDown {
             from { opacity: 0; transform: translateY(-30px); }
@@ -197,11 +261,200 @@
             <h2 class="card-title">תיק הפקה<br>וידאוקאסט</h2>
         </a>
 
+        <a href="#" onclick="openStudent(event)" class="menu-card card-10">
+            <i class="fa-solid fa-users-rectangle card-icon"></i>
+            <h2 class="card-title">המטלות שלי<br>אזור אישי לתלמיד
+                <span class="lock-badge" style="background:var(--c10)">בחירת כיתה</span>
+            </h2>
+        </a>
+
+        <a href="#" onclick="openLogin(event)" class="menu-card card-9">
+            <i class="fa-solid fa-user-shield card-icon"></i>
+            <h2 class="card-title">מערכת מטלות<br>כניסת מורה
+                <span class="lock-badge">🔒 נדרשת כניסה</span>
+            </h2>
+        </a>
+
         <a href="https://lamedproject.netlify.app/eshi/exposure/index.html" class="menu-card card-8">
             <i class="fa-solid fa-camera card-icon"></i>
             <h2 class="card-title">הפקות</h2>
         </a>
     </div>
+
+    <div class="modal-back" id="loginBack">
+      <div class="modal-box">
+        <h3>🔒 כניסת מורה</h3>
+        <p class="sub">מערכת מטלות ומערכי שיעור</p>
+        <input type="tel" id="inpPhone" placeholder="טלפון — 050-0000000" dir="ltr"
+               style="text-align:right" autocomplete="tel">
+        <input type="password" id="inpPass" placeholder="סיסמה" autocomplete="current-password">
+        <button class="btn-go" id="btnGo" onclick="doLogin()">כניסה ←</button>
+        <button class="btn-cancel" onclick="closeLogin()">ביטול</button>
+        <div class="modal-msg" id="loginMsg"></div>
+        <p class="modal-note">
+          הכניסה בטלפון ובסיסמה שאיתם נרשמתם.<br>
+          אין לכם חשבון עדיין?
+          <a href="https://hakolbakaf.co.il/eshi/teacher-register.html" target="_blank">הרשמה למערכת</a>
+        </p>
+      </div>
+    </div>
+
+    <div class="modal-back" id="stuBack">
+      <div class="modal-box">
+        <h3>🎓 האזור האישי שלי</h3>
+        <p class="sub">בחרו מורה וכיתה כדי לראות את המטלות</p>
+        <select id="selTeacher" onchange="fillClasses()">
+          <option value="">— בחרו מורה —</option>
+        </select>
+        <select id="selClass" disabled>
+          <option value="">— בחרו כיתה —</option>
+        </select>
+        <button class="btn-go" id="btnStu" style="background:var(--c10)" onclick="goStudent()">כניסה ←</button>
+        <button class="btn-cancel" onclick="closeStudent()">ביטול</button>
+        <div class="modal-msg" id="stuMsg"></div>
+        <p class="modal-note">לא מוצאים את הכיתה? בקשו מהמורה את קישור הכיתה.</p>
+      </div>
+    </div>
+
+<script>
+/* ===== שער כניסת מורה =====
+   האימות מול lms_teachers בפרויקט matalot — בדיוק כמו ב-teacher-central.html,
+   כדי שמורה שנרשם פעם אחת ייכנס לכל המערכות באותם פרטים.
+   שער נוחות בלבד: כתובת היעד גלויה בקוד המקור וניתן להגיע אליה ישירות. */
+const SUP  = "https://eubgzfkkovxgijhrmnif.supabase.co";
+const SKEY = "sb_publishable_vJ768fOwYWiDWeYsBBR45g_4NM4s55p";
+const TARGET  = "https://hakolbakaf.co.il/zirot/tirgool/index.html";   /* מורה — קטלוג הזירות */
+const TARGET_S = "https://hakolbakaf.co.il/zirot/tirgool/talmid.html";  /* תלמיד — האזור האישי */
+
+/* נרמול טלפון ישראלי — 054…, 972-54… ו-+97254… מתכנסים לאותו מספר */
+function normPhone(s){
+  let p = String(s||'').replace(/\D/g,'').replace(/^00+/,'');
+  if(p.indexOf('972') === 0) p = p.slice(3);
+  p = p.replace(/^0+/,'');
+  return p ? ('0'+p) : '';
+}
+function openLogin(e){
+  if(e) e.preventDefault();
+  /* מורה שכבר נכנס בטאב הזה לא נשאל שוב */
+  const seen = sessionStorage.getItem('megamaCode');
+  if(seen){ location.href = TARGET + '?code=' + encodeURIComponent(seen); return; }
+  document.getElementById('loginBack').classList.add('on');
+  setTimeout(()=>document.getElementById('inpPhone').focus(), 60);
+}
+function closeLogin(){
+  document.getElementById('loginBack').classList.remove('on');
+  document.getElementById('loginMsg').textContent = '';
+  document.getElementById('inpPass').value = '';
+}
+async function doLogin(){
+  const phone = document.getElementById('inpPhone').value.trim();
+  const pass  = document.getElementById('inpPass').value.trim();
+  const msg   = document.getElementById('loginMsg');
+  const btn   = document.getElementById('btnGo');
+  if(!phone || !pass){ msg.style.color='#e74c3c'; msg.textContent='נא למלא טלפון וסיסמה'; return; }
+  btn.disabled = true; msg.style.color = '#777'; msg.textContent = 'מתחבר…';
+  try{
+    const r = await fetch(SUP + '/rest/v1/lms_teachers?select=*&phone=eq.' +
+      encodeURIComponent(normPhone(phone)),
+      { headers:{ apikey:SKEY, Authorization:'Bearer '+SKEY } });
+    if(!r.ok) throw new Error(r.status);
+    const rows = await r.json();
+    const t = (rows||[]).find(x => x.password === pass && x.status === 'approved');
+    if(!t){
+      /* הפרדה בין "לא מאושר" ל"פרטים שגויים" — כדי שמורה שממתין לאישור יבין */
+      const waiting = (rows||[]).some(x => x.password === pass && x.status !== 'approved');
+      msg.style.color = '#e74c3c';
+      msg.textContent = waiting ? 'החשבון עדיין ממתין לאישור מנהל'
+                                : 'טלפון או סיסמה שגויים';
+      btn.disabled = false; return;
+    }
+    sessionStorage.setItem('megamaTeacher', t.name || '');
+    sessionStorage.setItem('megamaCode', t.id);
+    msg.style.color = '#00b894';
+    msg.textContent = 'שלום ' + (t.name || 'מורה') + ' — מעביר…';
+    /* המזהה נוסע בכתובת: הקטלוג יעביר אותו לכל שיעור, ושם לא תידרש כניסה נוספת */
+    setTimeout(()=>{ location.href = TARGET + '?code=' + encodeURIComponent(t.id); }, 550);
+  }catch(err){
+    msg.style.color = '#e74c3c';
+    msg.textContent = 'שגיאת תקשורת. נסו שוב.';
+    btn.disabled = false;
+  }
+}
+/* ===== כניסת תלמידים =====
+   התלמיד בוחר מורה וכיתה, ומועבר לקטלוג עם אותם code ו-class שהמורה מייצר
+   בקישור שהוא משתף. כלומר התוצאה זהה בדיוק לקישור שקיבל מהמורה — רק בלי
+   להעתיק ולהדביק אותו. */
+let CLASSES = [], TEACHERS = {};
+async function openStudent(e){
+  if(e) e.preventDefault();
+  document.getElementById('stuBack').classList.add('on');
+  const msg = document.getElementById('stuMsg');
+  if(CLASSES.length) return;
+  msg.style.color = '#777'; msg.textContent = 'טוען כיתות…';
+  try{
+    const hdr = { apikey:SKEY, Authorization:'Bearer '+SKEY };
+    /* select מפורש ולא * — אין סיבה שדף ציבורי ימשוך סיסמאות מורים */
+    const [rc, rt] = await Promise.all([
+      fetch(SUP + '/rest/v1/lms_classes?select=teacher_id,name&order=name.asc', { headers:hdr }),
+      fetch(SUP + '/rest/v1/lms_teachers?select=id,name&status=eq.approved', { headers:hdr })
+    ]);
+    if(!rc.ok || !rt.ok) throw new Error('load');
+    CLASSES = await rc.json();
+    (await rt.json()).forEach(t => { TEACHERS[String(t.id)] = t.name || 'מורה'; });
+    const withClasses = [...new Set(CLASSES.map(c => String(c.teacher_id)))]
+      .filter(id => TEACHERS[id])
+      .sort((a,b) => TEACHERS[a].localeCompare(TEACHERS[b],'he'));
+    const sel = document.getElementById('selTeacher');
+    withClasses.forEach(id => {
+      const o = document.createElement('option');
+      o.value = id; o.textContent = TEACHERS[id];
+      sel.appendChild(o);
+    });
+    msg.textContent = withClasses.length ? '' : 'עדיין לא נוצרו כיתות במערכת';
+  }catch(err){
+    msg.style.color = '#e74c3c'; msg.textContent = 'שגיאת תקשורת. נסו שוב.';
+  }
+}
+function fillClasses(){
+  const tid = document.getElementById('selTeacher').value;
+  const sel = document.getElementById('selClass');
+  sel.innerHTML = '<option value="">— בחרו כיתה —</option>';
+  sel.disabled = !tid;
+  CLASSES.filter(c => String(c.teacher_id) === tid).forEach(c => {
+    const o = document.createElement('option');
+    o.value = c.name; o.textContent = c.name;
+    sel.appendChild(o);
+  });
+}
+function goStudent(){
+  const tid = document.getElementById('selTeacher').value;
+  const cls = document.getElementById('selClass').value;
+  const msg = document.getElementById('stuMsg');
+  if(!tid || !cls){ msg.style.color='#e74c3c'; msg.textContent='בחרו מורה וכיתה'; return; }
+  msg.style.color = '#00b894'; msg.textContent = 'מעביר…';
+  /* talmid.html מצפה בדיוק ל-code ו-class, ומציג את המטלות שהוקצו לכיתה */
+  location.href = TARGET_S + '?code=' + encodeURIComponent(tid) +
+                  '&class=' + encodeURIComponent(cls);
+}
+function closeStudent(){
+  document.getElementById('stuBack').classList.remove('on');
+  document.getElementById('stuMsg').textContent = '';
+}
+document.getElementById('stuBack').addEventListener('click', e => {
+  if(e.target.id === 'stuBack') closeStudent();
+});
+
+document.addEventListener('keydown', e => {
+  if(document.getElementById('stuBack').classList.contains('on') && e.key === 'Escape')
+    closeStudent();
+  if(!document.getElementById('loginBack').classList.contains('on')) return;
+  if(e.key === 'Enter') doLogin();
+  if(e.key === 'Escape') closeLogin();
+});
+document.getElementById('loginBack').addEventListener('click', e => {
+  if(e.target.id === 'loginBack') closeLogin();
+});
+</script>
 
 </body>
 </html>
