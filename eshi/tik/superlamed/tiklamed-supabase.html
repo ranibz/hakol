@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- tiklamed-supabase.html · v1.16.0 · 2026-08-02 · נוסף בורר כיתה בטבלת התלמידים. הסינון היה על כל טקסט השורה ולכן "יב" תפס גם ת״ז ושמות — עכשיו החיפוש על ת״ז ושם בלבד, והכיתה בהתאמה מדויקת. תיקון שורש: שם עמודת הכיתה ב-gmar_students הוא cls ולא class. גרסאות קודמות כתבו class ולכן שיוך הכיתה מעולם לא נשמר, והמורה ראה אפס תלמידים. כל הקריאות והכתיבות הועברו ל-cls, כולל ייבוא אקסל. בנוסף: לשונית כיתות (tik_classes), שיוך תלמידים בודד ומרוכז, וסנכרון ממערכת קבוצות הלימוד (tiksh_* בפרויקט matalot) שבו שם הכיתה כולל את המורה (MINOR) -->
+<!-- tiklamed-supabase.html · v1.17.1 · 2026-08-03 · שכתוב מסך הניהול בלבד — אין שינוי במבנה המסד. לשונית כיתות חדשה: כרטיס לכל כיתה עם המורים ומספר התלמידים, פתיחת כיתה חדשה, שיוך מורים לכיתה (נשמר במערך classes של המורה כמו קודם), שינוי שם ומחיקת כיתה, והוספת תלמידים בשלוש דרכים — הדבקה מאקסל/וורד, קובץ אקסל והקלדה ידנית — דרך מנתח אחד שמזהה את רצף הספרות כת״ז ואת השאר כשם. הסרת תלמיד בודד או מרוכז והעברה בין כיתות. לשונית מורים מציגה כיתות ומספר תלמידים לכל מורה עם עריכת כיתות בסימון. תיקוני שורש: sbSetStudent כתב student.class שאינו קיים ולכן הוספה ידנית לא שמרה כיתה; loadOverview קיבץ לפי s.class והציג undefined; טבלת המורים הציגה t.username בעוד העמודה היא id. הוסר הסנכרון מ-tiksh_* שיצר מזהי tiksh_N מזויפים v1.17.1: שמות כיתות מכילים גרשיים (למ"ד), ופונקציית esc של הקובץ אינה מקודדת גרשיים — לכן onclick="openClass('יא · למ"ד…')" נחתך והכיתות הישנות לא נפתחו בלחיצה. שמות כיתות מועברים עכשיו לפי אינדקס ולא כמחרוזת בתוך תכונת HTML, ונוספה escA לכל ערך שנכנס לתכונה (PATCH) -->
 <!-- גרסה: 1.8.0 | תאריך: 2026-05-31 | פרומפט בודק AI מעודכן לזרימה דו-שלבית: (1) אחרי שהתלמיד מדביק את הפרומפט, הבודק עונה "קיבלתי את ההנחיות. אנא הדבק עכשיו את הטקסט" ומחכה. (2) רק אחרי שהתלמיד מדביק את הטקסט, הבודק מנתח לפי 7 הסעיפים. (3) בסוף הניתוח שואל "האם יש טקסט נוסף?" כדי לאפשר בדיקות חוזרות באותה שיחה. ההוראות במודאל עודכנו בהתאם. -->
 <!-- גרסה: 1.7.0 | תאריך: 2026-05-28 | חסימת הדבקה מוחלטת: הוסרה אפשרות המילוט בסיסמה. -->
 <html lang="he" dir="rtl">
@@ -261,77 +261,43 @@ textarea{resize:none;min-height:60px;line-height:1.6;overflow-y:hidden;transitio
   <div class="topbar"><div><div class="topbar-title">תקשורת וחברה – למ"ד</div><div class="topbar-user">⚙️ ניהול</div></div><button class="btn-logout" onclick="logout()">יציאה</button></div>
   <div class="admin-container">
     <div class="admin-tabs">
-      <button class="admin-tab-btn active" onclick="switchAdminTab('students',this)">👥 תלמידים</button>
+      <button class="admin-tab-btn active" onclick="switchAdminTab('classes',this)">🏫 כיתות</button>
       <button class="admin-tab-btn" onclick="switchAdminTab('teachers',this)">👩‍🏫 מורים</button>
-      <button class="admin-tab-btn" onclick="switchAdminTab('classes',this)">🏫 כיתות</button>
-      <button class="admin-tab-btn" onclick="switchAdminTab('sync',this)">🔄 סנכרון</button>
       <button class="admin-tab-btn" onclick="switchAdminTab('overview',this)">📊 סקירה</button>
     </div>
-    <div id="adminStudents" class="admin-panel active">
+    <div id="adminClasses" class="admin-panel active">
       <div class="admin-card" style="border-inline-start:5px solid #4c6ef5">
-        <h2>🏫 שיוך תלמידים לכיתה</h2>
-        <p style="color:#888;font-size:.88rem;margin:0 0 12px">
-          סמנו תלמידים בטבלה שלמטה, בחרו כיתה, ולחצו שיוך. אפשר גם לשייך תלמיד בודד
-          בכפתור 🏫 שבשורה שלו.</p>
-        <div style="display:flex;gap:9px;align-items:flex-start;flex-wrap:wrap">
-          <div style="flex:1;min-width:180px" id="bulkClassWrap"></div>
-          <button class="btn-admin btn-primary" onclick="assignBulk()">שיוך המסומנים ←</button>
+        <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <h2 style="margin:0">🏫 הכיתות</h2>
+          <span id="orphanNote" style="font-size:.87rem"></span>
         </div>
-        <div id="bulkMsg" style="margin-top:9px;font-weight:700;font-size:.9rem"></div>
+        <p style="color:#888;font-size:.88rem;margin:6px 0 13px">
+          לחצו על כיתה כדי לשייך לה מורים ולנהל את רשימת התלמידים.</p>
+        <div id="classCards" style="display:flex;gap:10px;flex-wrap:wrap"></div>
+        <div style="margin-top:14px">
+          <button class="btn-admin btn-primary" onclick="newClassDialog()">＋ כיתה חדשה</button>
+        </div>
       </div>
-      <div class="admin-card"><h2>📤 ייבוא Excel</h2><p style="color:#666;margin-top:-10px;">עמודות: תז | שם | כיתה</p><div class="excel-drop" onclick="document.getElementById('excelFile').click()"><span class="material-icons-round" style="font-size:40px;color:#aaa;display:block;margin-bottom:10px;">upload_file</span><div style="font-weight:700;color:#555;">בחר קובץ</div></div><input type="file" id="excelFile" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleExcelUpload(this)"><div id="excelPreview" style="display:none"><div style="background:#f0f9ff;border:2px solid #00b894;border-radius:12px;padding:15px;margin-bottom:15px;"><div style="font-weight:700;color:#00b894;margin-bottom:10px;" id="excelSummary"></div><div class="excel-preview" id="excelTable"></div></div><button class="btn-admin btn-primary" onclick="importAllStudents()" style="width:100%;padding:14px;">✅ ייבוא</button></div></div>
-      <div class="admin-card"><h2>➕ הוספה ידנית</h2><div class="admin-form"><input type="text" id="newStudentId" placeholder="ת.ז."><input type="text" id="newStudentName" placeholder="שם מלא"><div id="newStudentClassWrap"><input type="text" id="newStudentClass" placeholder="כיתה"></div><button class="btn-admin btn-primary" onclick="addStudent()">הוספה</button></div></div>
-      <div class="admin-card"><h2>📋 תלמידים</h2><div style="display:flex;gap:9px;flex-wrap:wrap;margin-bottom:15px">
-  <input type="text" id="searchStudent" placeholder="חיפוש לפי שם או ת״ז..." onkeyup="filterStudents()"
-    style="flex:1;min-width:190px;padding:10px 15px;border:2px solid #eee;border-radius:10px;font-family:inherit;">
-  <select id="filterClass" onchange="filterStudents()"
-    style="min-width:210px;padding:10px 15px;border:2px solid #eee;border-radius:10px;font-family:inherit;">
-    <option value="">— כל הכיתות —</option>
-  </select>
-  <span id="filterCount" style="align-self:center;color:#888;font-size:.88rem;font-weight:700"></span>
-</div><div style="overflow-x:auto;"><table class="admin-table"><thead><tr><th><input type="checkbox" id="stChkAll" onclick="toggleAllStudents(this)" style="margin-inline-end:6px">תז</th><th>שם</th><th>כיתה</th><th>%</th><th>פעולות</th></tr></thead><tbody id="studentsTableBody"></tbody></table></div></div>
+      <div id="classEditor"></div>
+      <input type="file" id="excelFile" accept=".xlsx,.xls,.csv" style="display:none"
+        onchange="handleExcelUpload(this)">
     </div>
     <div id="adminTeachers" class="admin-panel">
-      <div class="admin-card"><h2>➕ הוספת מורה</h2><div class="admin-form"><input type="text" id="newTeacherUsername" placeholder="שם משתמש"><input type="password" id="newTeacherPassword" placeholder="סיסמה"><input type="text" id="newTeacherName" placeholder="שם מלא"><div id="newTeacherClassesWrap"><input type="text" id="newTeacherClasses" placeholder="כיתות (מופרדות בפסיק)"></div><button class="btn-admin btn-primary" onclick="addTeacher()">הוספה</button></div></div>
-      <div class="admin-card"><h2>📋 מורים</h2><table class="admin-table"><thead><tr><th>שם משתמש</th><th>שם מלא</th><th>כיתות</th><th>פעולות</th></tr></thead><tbody id="teachersTableBody"></tbody></table></div>
-    </div>
-    <div id="adminClasses" class="admin-panel">
-      <div class="admin-card"><h2>➕ כיתה חדשה</h2>
+      <div class="admin-card"><h2>➕ הוספת מורה</h2>
+        <p style="color:#888;font-size:.88rem;margin:-6px 0 12px">
+          תעודת הזהות היא גם שם המשתמש של המורה בכניסה.</p>
         <div class="admin-form">
-          <input type="text" id="newClassName" placeholder="שם הכיתה (למשל: יב1)">
-          <button class="btn-admin btn-primary" onclick="addClass()">יצירה</button>
+          <input type="text" id="newTeacherUsername" placeholder="ת״ז המורה">
+          <input type="text" id="newTeacherName" placeholder="שם מלא">
+          <input type="password" id="newTeacherPassword" placeholder="סיסמה">
+          <button class="btn-admin btn-primary" onclick="addTeacher()">הוספה</button>
         </div>
-        <p style="color:#888;font-size:.86rem;margin:10px 0 0">
-          הכיתות שתגדירו כאן יופיעו כרשימה לבחירה בהוספת תלמיד ובשיוך כיתות למורה,
-          במקום הקלדה חופשית. מורה יראה תלמיד רק אם שם הכיתה זהה בדיוק.</p>
       </div>
-      <div class="admin-card"><h2>🏫 הכיתות</h2><div id="classListBox"></div></div>
+      <div class="admin-card"><h2>📋 מורים</h2>
+        <table class="admin-table"><thead><tr>
+          <th>ת״ז</th><th>שם מלא</th><th>כיתות</th><th>תלמידים</th><th></th>
+        </tr></thead><tbody id="teachersTableBody"></tbody></table></div>
     </div>
-
-    <div id="adminSync" class="admin-panel">
-      <div class="admin-card" style="border-inline-start:5px solid #0d9488">
-        <h2>🔄 סנכרון מקבוצות הלימוד</h2>
-        <p style="color:#888;font-size:.9rem;margin:0 0 12px;line-height:1.6">
-          מושך את התלמידים והשיוכים ממערכת <b>קבוצות הלימוד</b> של מגמת תקשורת.
-          כל קבוצה הופכת לכיתה, וכל מורה מקבל את הכיתות שלו.
-          <b>שום דבר לא נמחק</b> — רק נוסף ומעודכן. תוכלו לראות תצוגה מקדימה לפני שמאשרים.</p>
-        <div style="display:flex;gap:9px;align-items:center;flex-wrap:wrap">
-          <select id="syncGrade" style="max-width:170px">
-            <option value="">כל השכבות</option>
-            <option value="י">שכבה י</option><option value="יא">שכבה יא</option><option value="יב">שכבה יב</option>
-          </select>
-          <select id="syncSubject" style="max-width:200px">
-            <option value="">שני המקצועות</option>
-            <option value="עיוני">עיוני — תקשורת וחברה</option>
-            <option value="מעשי">מעשי — הפקות</option>
-          </select>
-          <button class="btn-admin" style="background:#e6f6f4;color:#0d9488" onclick="syncPreview()">👁 תצוגה מקדימה</button>
-          <button class="btn-admin btn-primary" id="syncApplyBtn" onclick="syncApply()" disabled>✅ ביצוע הסנכרון</button>
-        </div>
-        <div id="syncOut" style="margin-top:15px"></div>
-      </div>
-    </div>
-
     <div id="adminOverview" class="admin-panel">
       <div class="dashboard-grid"><div class="stat-card" style="border-color:#667eea;"><span class="stat-icon">👥</span><div class="stat-number" id="adminTotalStudents" style="color:#667eea;">0</div><div class="stat-label">תלמידים</div></div><div class="stat-card" style="border-color:#00b894;"><span class="stat-icon">✅</span><div class="stat-number" id="adminAvgProgress" style="color:#00b894;">0%</div><div class="stat-label">ממוצע</div></div><div class="stat-card" style="border-color:#fd79a8;"><span class="stat-icon">👩‍🏫</span><div class="stat-number" id="adminTotalTeachers" style="color:#fd79a8;">0</div><div class="stat-label">מורים</div></div></div>
       <div class="admin-card"><h2>📊 לפי כיתות</h2><div id="classesOverview"></div></div>
@@ -353,404 +319,449 @@ async function sbGetStudent(id) {
 }
 
 // Get all students
-/* ===== ניהול כיתות =====
-   השוואה מדויקת אחרי נרמול (במקום includes, שגרם ל"יב1" לתפוס גם "יב10"). */
+/* ===== ניהול כיתות ומורים =====
+   עובד על המבנה הקיים בלבד: gmar_students (id, name, cls),
+   teachers (id, name, pass, classes[]) ו-tik_classes (name).
+   השיוך של מורה לכיתה נשמר במערך classes של המורה, כפי שהיה תמיד. */
 const normClass = c => String(c||'').replace(/\s+/g,' ').trim();
 const sameClass = (a,b) => normClass(a) !== '' && normClass(a) === normClass(b);
-let CLASS_LIST = [];
+const el2 = id => document.getElementById(id);
+/* esc של הקובץ אינו מקודד גרשיים, ושמות הכיתות מכילים אותם (למ"ד).
+   ערך שנכנס לתוך תכונת HTML חייב לעבור כאן, אחרת התכונה נחתכת. */
+const escA = s => esc(s).replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+/* שמות כיתות מועברים לפי אינדקס ולא כמחרוזת בתוך onclick — בטוח מכל תו */
+function openClassIdx(i){ openClass(CLASS_LIST[i]); }
+
+let CLASS_LIST = [], ALL_STUDENTS = [], ALL_TEACHERS = [], CUR_CLASS = null, PROG = {};
+
 async function loadClassList(){
   let saved = [];
   try{
     const r = await supabase('tik_classes?select=name&order=name.asc');
     saved = (r || []).map(x => x.name);
   }catch(e){ /* אם הטבלה חסרה — נסתפק בכיתות שכבר בשימוש */ }
-  let used = [];
-  try{
-    const st = await sbGetAllStudents();
-    used = st.map(x => normClass(x.cls)).filter(Boolean);
-    const tc = await sbGetAllTeachers();
-    (tc||[]).forEach(t => (t.classes||[]).forEach(c => used.push(normClass(c))));
-  }catch(e){}
+  const used = ALL_STUDENTS.map(x => normClass(x.cls)).filter(Boolean);
+  ALL_TEACHERS.forEach(t => (t.classes||[]).forEach(c => used.push(normClass(c))));
   CLASS_LIST = [...new Set(saved.map(normClass).concat(used))].filter(Boolean)
     .sort((a,b)=>a.localeCompare(b,'he'));
   return CLASS_LIST;
 }
-/* כל כיתה היא שורה ב-tik_classes. השם הוא המפתח הראשי, ולכן
-   הוספה חוזרת של אותה כיתה לא תיצור כפילות. */
-async function saveClassList(list){
-  const want = [...new Set(list.map(normClass).filter(Boolean))];
-  const have = CLASS_LIST.map(normClass);
-  const toAdd = want.filter(c => !have.includes(c));
-  const errors = [];
-  for (const name of toAdd){
-    try{
-      await supabase('tik_classes',
-        { method:'POST', prefer:'resolution=merge-duplicates,return=minimal',
-          body: JSON.stringify({ name }) });
-    }catch(e){
-      /* כפילות היא מצב תקין; כל שגיאה אחרת חייבת להגיע למשתמש */
-      const msg = String(e && e.message || e);
-      if (!/duplicate|already exists|23505/i.test(msg)) errors.push(name + ': ' + msg);
-    }
-  }
-  await loadClassList();
-  if (errors.length) throw new Error(errors.join(' | '));
-  return CLASS_LIST;
+async function saveClassRow(name){
+  await supabase('tik_classes',
+    { method:'POST', prefer:'resolution=merge-duplicates,return=minimal',
+      body: JSON.stringify({ name: normClass(name) }) });
 }
 async function deleteClassRow(name){
   await supabase('tik_classes?name=eq.' + encodeURIComponent(normClass(name)),
     { method:'DELETE', prefer:'return=minimal' });
 }
-function classPicker(id, current){
-  const opts = CLASS_LIST.map(c =>
-    `<option value="${esc(c)}"${sameClass(c,current)?' selected':''}>${esc(c)}</option>`).join('');
-  return `<select id="${id}" onchange="onClassPick('${id}')" style="width:100%">
-      <option value="">— בחרו כיתה —</option>${opts}
-      <option value="__manual">✎ הקלדה ידנית…</option>
-    </select>
-    <input type="text" id="${id}_manual" placeholder="שם כיתה חדש" style="display:none;width:100%">`;
-}
-function onClassPick(id){
-  const sel=document.getElementById(id), man=document.getElementById(id+'_manual');
-  if(!sel||!man)return;
-  const on = sel.value === '__manual';
-  man.style.display = on ? 'block' : 'none';
-  if(on) man.focus();
-}
-function classValue(id){
-  const sel=document.getElementById(id), man=document.getElementById(id+'_manual');
-  if(sel && sel.value === '__manual') return normClass(man?man.value:'');
-  return normClass(sel?sel.value:'');
-}
-/* תיבות סימון לכיתות המורה */
-function classChecks(id, current){
-  const cur=(current||[]).map(normClass);
-  return `<div id="${id}" style="display:flex;flex-wrap:wrap;gap:7px;max-height:150px;overflow:auto;
-      border:2px solid #eee;border-radius:10px;padding:9px">
-      ${CLASS_LIST.length ? CLASS_LIST.map(c=>`
-        <label style="display:flex;gap:5px;align-items:center;background:#f7f6fc;border-radius:18px;
-          padding:4px 12px;font-size:.88rem;cursor:pointer">
-          <input type="checkbox" value="${esc(c)}"${cur.includes(normClass(c))?' checked':''}>
-          ${esc(c)}</label>`).join('')
-        : '<span style="color:#aaa;font-size:.88rem">אין כיתות מוגדרות — צרו כיתה בלשונית הכיתות</span>'}
-    </div>
-    <input type="text" id="${id}Extra" placeholder="כיתות נוספות, מופרדות בפסיק" style="width:100%">`;
-}
-function classChecksValue(id){
-  const box=document.getElementById(id);
-  const picked=box?[...box.querySelectorAll('input:checked')].map(x=>x.value):[];
-  const ex=document.getElementById(id+'Extra');
-  const extra=ex?String(ex.value||'').split(',').map(normClass):[];
-  return [...new Set(picked.concat(extra).map(normClass).filter(Boolean))];
-}
-async function refreshClassPickers(){
+
+/* ---------- טעינה מרכזית ---------- */
+async function refreshAdmin(){
+  ALL_STUDENTS = await sbGetAllStudents();
+  ALL_TEACHERS = await sbGetAllTeachers();
   await loadClassList();
-  const sw=document.getElementById('newStudentClassWrap');
-  if(sw) sw.innerHTML = classPicker('newStudentClassSel','');
-  const bw=document.getElementById('bulkClassWrap');
-  if(bw) bw.innerHTML = classPicker('bulkClassSel','');
-  const tw=document.getElementById('newTeacherClassesWrap');
-  if(tw) tw.innerHTML = classChecks('newTeacherClassesBox',[]);
-  const cl=document.getElementById('classListBox');
-  if(cl) renderClassAdmin();
-  fillClassFilter();
-}
-/* לשונית ניהול הכיתות */
-function renderClassAdmin(){
-  const box=document.getElementById('classListBox'); if(!box)return;
-  const counts={};
-  (window.__allStudentsCache||[]).forEach(s=>{const c=normClass(s.cls); if(c)counts[c]=(counts[c]||0)+1;});
-  box.innerHTML = CLASS_LIST.length ? CLASS_LIST.map(c=>`
-    <div style="display:flex;gap:9px;align-items:center;background:#f7f6fc;border-radius:11px;
-      padding:9px 13px;margin-bottom:7px">
-      <b style="flex:1">${esc(c)}</b>
-      <span style="color:#888;font-size:.85rem">${counts[c]||0} תלמידים</span>
-      <button class="btn-admin" style="background:#fdecea;color:#c0392b;padding:4px 12px;font-size:.8rem"
-        onclick="removeClass('${esc(c)}')">הסרה</button>
-    </div>`).join('') : '<p style="color:#aaa">עדיין לא הוגדרו כיתות.</p>';
-}
-async function addClass(){
-  const inp=document.getElementById('newClassName');
-  const name=normClass(inp.value);
-  if(name.length<1){alert('הזינו שם כיתה');return;}
-  if(CLASS_LIST.some(c=>sameClass(c,name))){alert('הכיתה כבר קיימת');return;}
-  try{
-    await saveClassList(CLASS_LIST.concat([name]));
-    await refreshClassPickers();
-    /* מאשרים רק אם הכיתה באמת חזרה מהשרת */
-    if (CLASS_LIST.some(c=>sameClass(c,name))){
-      inp.value='';
-      alert('✅ הכיתה "'+name+'" נוספה');
-    } else {
-      alert('הכיתה לא נשמרה. ייתכן ש-RLS חוסם כתיבה לטבלה tik_classes.\n\n'+
-            'פתרון: הרצת SQL ליצירת policy, או בדיקה שהטבלה קיימת בפרויקט lamed.');
-    }
-  }catch(e){ alert('שגיאה בשמירה:\n'+(e.message||e)); }
-}
-async function removeClass(name){
-  const used=(window.__allStudentsCache||[]).filter(s=>sameClass(s.cls,name)).length;
-  if(used && !confirm('לכיתה "'+name+'" משויכים '+used+' תלמידים.\nההסרה מוחקת רק את הכיתה מהרשימה — התלמידים יישארו.\nלהמשיך?'))return;
-  if(!used && !confirm('להסיר את הכיתה "'+name+'" מהרשימה?'))return;
-  try{
-    await deleteClassRow(name);
-    await refreshClassPickers();
-  }catch(e){alert('שגיאה במחיקה');}
-}
-
-/* ===== סנכרון ממערכת קבוצות הלימוד (tiksh_*) =====
-   מקור האמת לתלמידים ולשיוכים הוא galil/kvutzot.html.
-   כאן רק מושכים משם: קבוצה → כיתה, ומורה מקבל את כיתותיו.
-   ההתאמה בין teacher_name (שם פרטי) לשם המלא בתיק היא לפי שם, ולכן
-   מקרה דו־משמעי נעצר ומוצג להכרעה ידנית במקום לנחש. */
-/* קבוצות הלימוד יושבות בפרויקט Supabase אחר (matalot), לא באותו פרויקט של התיק (lamed).
-   לכן כתובת ומפתח נפרדים — שניהם ציבוריים, לקריאה בלבד. */
-const TIKSH_URL = 'https://eubgzfkkovxgijhrmnif.supabase.co';
-const TIKSH_KEY = 'sb_publishable_vJ768fOwYWiDWeYsBBR45g_4NM4s55p';
-async function tiksh(path){
-  const r = await fetch(TIKSH_URL + '/rest/v1/' + path,
-    { headers: { apikey: TIKSH_KEY, Authorization: 'Bearer ' + TIKSH_KEY } });
-  if(!r.ok) throw new Error('tiksh ' + r.status);
-  const t = await r.text();
-  return t ? JSON.parse(t) : [];
-}
-const nrmName = s => String(s||'').replace(/\s+/g,' ').trim();
-const firstName = s => nrmName(s).split(' ')[0];
-function matchTeacher(tikshName, teachers){
-  const t = nrmName(tikshName);
-  if(!t) return { none:true };
-  let hit = teachers.filter(x => nrmName(x.name) === t);
-  if(hit.length === 1) return { t:hit[0], how:'שם מלא' };
-  hit = teachers.filter(x => firstName(x.name) === firstName(t));
-  if(hit.length === 1) return { t:hit[0], how:'שם פרטי' };
-  if(hit.length > 1)  return { amb:hit };
-  hit = teachers.filter(x => nrmName(x.name).includes(t) || t.includes(firstName(x.name)));
-  if(hit.length === 1) return { t:hit[0], how:'התאמה חלקית' };
-  if(hit.length > 1)  return { amb:hit };
-  return { none:true };
-}
-/* שם הכיתה שייווצר מקבוצה */
-/* שם הכיתה כולל את המורה — אחרת שתי קבוצות של אותו מסלול בשכבה אחת
-   (למשל למ"ד יב של רני ושל ליאור) היו מתמזגות לכיתה אחת, וכל מורה היה
-   רואה גם את תלמידי חברו. */
-const groupClassName = g =>
-  [g.grade, g.track, g.level ? g.level+' יח״ל' : '', nrmName(g.teacher_name)]
-    .filter(Boolean).join(' · ');
-
-let SYNC_PLAN = null;
-async function buildSyncPlan(){
-  const grade = document.getElementById('syncGrade').value;
-  const subj  = document.getElementById('syncSubject').value;
-  let q = 'tiksh_groups?select=*';
-  if(grade) q += '&grade=eq.' + encodeURIComponent(grade);
-  if(subj)  q += '&subject=eq.' + encodeURIComponent(subj);
-  const groups = await tiksh(q);
-  if(!groups.length) return { groups:[], students:[], classes:[], teachers:[], warn:'לא נמצאו קבוצות בסינון הזה.' };
-  const ids = groups.map(g => g.id).join(',');
-  const enr = await tiksh('tiksh_enrollments?select=*&group_id=in.(' + ids + ')');
-  const sids = [...new Set(enr.map(e => e.student_id))];
-  const stu = sids.length ? await tiksh('tiksh_students?select=*&id=in.(' + sids.join(',') + ')') : [];
-  const byId = {}; stu.forEach(x => byId[x.id] = x);
-
-  const existing = await sbGetAllStudents();
-  const exById = {}; existing.forEach(x => exById[String(x.id)] = x);
-  const teachers = await sbGetAllTeachers();
-
-  /* לכל תלמיד — הכיתה שתיווצר לו. תלמיד בשתי קבוצות (עיוני+מעשי) יקבל את שתיהן. */
-  const plan = {};
-  enr.forEach(e => {
-    const g = groups.find(x => String(x.id) === String(e.group_id));
-    const st = byId[e.student_id];
-    if(!g || !st) return;
-    const key = String(st.id_number || ('tiksh_' + st.id));
-    if(!plan[key]) plan[key] = { key, name: st.full_name, tz: st.id_number, classes: [] };
-    plan[key].classes.push(groupClassName(g));
-  });
-  const students = Object.values(plan).map(p => {
-    const ex = exById[p.key];
-    const cls = p.classes[0] || '';
-    return { ...p, cls, exists: !!ex,
-      changed: !!ex && nrmName(ex.class) !== nrmName(cls),
-      oldClass: ex ? ex.cls : null };
-  });
-
-  const classes = [...new Set(groups.map(groupClassName))];
-  const tmap = groups.reduce((a,g) => {
-    const n = nrmName(g.teacher_name); if(!n) return a;
-    (a[n] = a[n] || new Set()).add(groupClassName(g)); return a;
-  }, {});
-  const teacherPlan = Object.entries(tmap).map(([n, set]) => {
-    const m = matchTeacher(n, teachers);
-    return { tikshName:n, classes:[...set], match:m };
-  });
-  return { groups, students, classes, teachers:teacherPlan };
-}
-async function syncPreview(){
-  const out = document.getElementById('syncOut');
-  out.innerHTML = '<p style="color:#888">טוען מקבוצות הלימוד…</p>';
-  try{
-    SYNC_PLAN = await buildSyncPlan();
-    if(SYNC_PLAN.warn){ out.innerHTML = '<p style="color:#c0392b">'+SYNC_PLAN.warn+'</p>';
-      document.getElementById('syncApplyBtn').disabled = true; return; }
-    const nNew = SYNC_PLAN.students.filter(s=>!s.exists).length;
-    const nUpd = SYNC_PLAN.students.filter(s=>s.exists && s.changed).length;
-    const nSame= SYNC_PLAN.students.length - nNew - nUpd;
-    const okT  = SYNC_PLAN.teachers.filter(t=>t.match.t).length;
-    const badT = SYNC_PLAN.teachers.filter(t=>!t.match.t);
-    out.innerHTML = `
-      <div style="display:flex;gap:9px;flex-wrap:wrap;margin-bottom:13px">
-        ${[[SYNC_PLAN.groups.length,'קבוצות','#4c6ef5'],[SYNC_PLAN.classes.length,'כיתות','#0d9488'],
-           [nNew,'תלמידים חדשים','#12b76a'],[nUpd,'עדכון כיתה','#e17055'],[nSame,'ללא שינוי','#888']]
-          .map(([n,l,c])=>`<div style="background:#fff;border:1px solid #eee;border-radius:12px;padding:9px 16px;text-align:center">
-            <b style="display:block;font-size:1.3rem;color:${c}">${n}</b>
-            <span style="font-size:.76rem;color:#888">${l}</span></div>`).join('')}
-      </div>
-      <h3 style="margin:0 0 7px;font-size:1rem">🏫 הכיתות שייווצרו</h3>
-      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px">
-        ${SYNC_PLAN.classes.map(c=>`<span style="background:#e6f6f4;color:#0d9488;border-radius:18px;
-          padding:3px 12px;font-size:.83rem;font-weight:700">${esc(c)}</span>`).join('')}
-      </div>
-      <h3 style="margin:0 0 7px;font-size:1rem">👩‍🏫 התאמת מורים</h3>
-      ${SYNC_PLAN.teachers.map(t=>{
-        const m=t.match;
-        const st = m.t ? `<span style="color:#0f7a4d;font-weight:700">→ ${esc(m.t.name)}</span>
-                          <span style="color:#888;font-size:.8rem">(${m.how})</span>`
-                : m.amb ? `<span style="color:#c0392b;font-weight:700">⚠ יותר מהתאמה אחת: ${m.amb.map(x=>esc(x.name)).join(', ')} — דלג</span>`
-                : `<span style="color:#e17055;font-weight:700">✗ לא נמצא בתיק — דלג</span>`;
-        return `<div style="background:#fafafa;border-radius:10px;padding:9px 13px;margin-bottom:6px;font-size:.9rem">
-          <b>${esc(t.tikshName)}</b> ${st}
-          <div style="color:#888;font-size:.8rem;margin-top:3px">${t.classes.map(esc).join(' · ')}</div></div>`;
-      }).join('')}
-      ${badT.length?`<p style="color:#e17055;font-size:.86rem;margin-top:8px">
-        ${badT.length} מורים לא יעודכנו. אפשר להוסיף אותם בלשונית מורים ולסנכרן שוב.</p>`:''}
-      <h3 style="margin:14px 0 7px;font-size:1rem">👥 תלמידים</h3>
-      <div style="max-height:230px;overflow:auto;border:1px solid #eee;border-radius:11px">
-        <table class="admin-table" style="margin:0"><thead><tr><th>שם</th><th>ת״ז</th><th>כיתה</th><th>מצב</th></tr></thead><tbody>
-        ${SYNC_PLAN.students.map(s=>`<tr>
-          <td>${esc(s.name)}</td><td>${esc(s.tz||'—')}</td><td>${esc(s.cls)}</td>
-          <td>${!s.exists?'<span style="color:#12b76a;font-weight:700">חדש</span>'
-             : s.changed?`<span style="color:#e17055;font-weight:700">${esc(s.oldClass||'ריק')} → ${esc(s.cls)}</span>`
-             : '<span style="color:#aaa">ללא שינוי</span>'}</td></tr>`).join('')}
-        </tbody></table></div>`;
-    document.getElementById('syncApplyBtn').disabled = false;
-  }catch(e){
-    out.innerHTML = '<p style="color:#c0392b">שגיאה: '+esc(e.message||e)+'</p>';
-    document.getElementById('syncApplyBtn').disabled = true;
+  renderClassCards();
+  renderTeachers();
+  if(CUR_CLASS){
+    if(CLASS_LIST.some(c=>sameClass(c,CUR_CLASS))) renderClassEditor(CUR_CLASS);
+    else { CUR_CLASS=null; const e=el2('classEditor'); if(e)e.innerHTML=''; }
   }
 }
-async function syncApply(){
-  if(!SYNC_PLAN){ alert('הריצו קודם תצוגה מקדימה'); return; }
-  const nNew = SYNC_PLAN.students.filter(s=>!s.exists).length;
-  const nUpd = SYNC_PLAN.students.filter(s=>s.exists&&s.changed).length;
-  const okT  = SYNC_PLAN.teachers.filter(t=>t.match.t).length;
-  if(!confirm('לבצע סנכרון?\n\n'+nNew+' תלמידים חדשים\n'+nUpd+' עדכוני כיתה\n'+
-              okT+' מורים יקבלו כיתות\n\nשום תלמיד לא יימחק.')) return;
-  const out=document.getElementById('syncOut');
-  out.innerHTML='<p style="color:#888">מסנכרן…</p>';
-  let a=0,b=0,c=0,err=0;
-  try{
-    await saveClassList([...new Set(CLASS_LIST.concat(SYNC_PLAN.classes))]);
-    for(const s of SYNC_PLAN.students){
-      try{
-        if(!s.exists){ await sbSetStudent({ id:s.key, name:s.name, cls:s.cls }); a++; }
-        else if(s.changed){ await setStudentClass(s.key, s.cls); b++; }
-      }catch(e){ err++; }
-    }
-    for(const t of SYNC_PLAN.teachers){
-      if(!t.match.t) continue;
-      try{
-        const cur = Array.isArray(t.match.t.classes) ? t.match.t.classes : [];
-        const merged = [...new Set(cur.concat(t.classes).map(nrmName).filter(Boolean))];
-        await supabase('teachers?id=eq.'+encodeURIComponent(t.match.t.id||t.match.t.username),
-          { method:'PATCH', body: JSON.stringify({ classes: merged }) });
-        c++;
-      }catch(e){ err++; }
-    }
-    out.innerHTML = '<div style="background:#f4fbf7;border:1px solid #bfe8d2;border-radius:12px;padding:14px;font-weight:700;color:#0f7a4d">'+
-      '✅ הסנכרון הושלם<br><span style="font-weight:400;color:#555">'+
-      a+' תלמידים נוספו · '+b+' עודכנו · '+c+' מורים קיבלו כיתות'+
-      (err?' · <span style="color:#c0392b">'+err+' שגיאות</span>':'')+'</span></div>';
-    document.getElementById('syncApplyBtn').disabled = true;
-    await loadStudentsTable(); await loadTeachersTable(); await refreshClassPickers();
-  }catch(e){ out.innerHTML='<p style="color:#c0392b">שגיאה: '+esc(e.message||e)+'</p>'; }
+const studentsOf  = cls => ALL_STUDENTS.filter(s => sameClass(s.cls, cls))
+                             .sort((a,b)=>String(a.name).localeCompare(String(b.name),'he'));
+const teachersOf  = cls => ALL_TEACHERS.filter(t => (t.classes||[]).some(c=>sameClass(c,cls)));
+
+/* ---------- כרטיסי כיתות ---------- */
+function renderClassCards(){
+  const box = el2('classCards'); if(!box) return;
+  const cols = ['#4c6ef5','#00b894','#e17055','#e84393','#8e44ad','#0984e3'];
+  box.innerHTML = CLASS_LIST.length ? CLASS_LIST.map((c,i)=>{
+    const col = cols[i%cols.length], on = sameClass(CUR_CLASS,c);
+    const ts = teachersOf(c).map(t=>t.name);
+    return `<button onclick="openClassIdx(${i})"
+      style="text-align:right;background:${on?'#f4f6ff':'#fff'};border:2px solid ${on?col:'#eee'};
+      border-radius:14px;padding:13px 16px;cursor:pointer;font-family:inherit;min-width:185px">
+      <div style="font-weight:900;font-size:1.05rem;color:${col}">${esc(c)}</div>
+      <div style="color:#666;font-size:.85rem;margin-top:3px">
+        👩‍🏫 ${ts.length?esc(ts.join(', ')):'<span style="color:#e17055">ללא מורה</span>'}</div>
+      <div style="color:#999;font-size:.82rem;margin-top:3px">${studentsOf(c).length} תלמידים</div>
+    </button>`;
+  }).join('') : '<p style="color:#aaa">עדיין לא הוגדרו כיתות.</p>';
+  const orphan = ALL_STUDENTS.filter(s=>!normClass(s.cls)).length;
+  const o = el2('orphanNote');
+  if(o) o.innerHTML = orphan
+    ? `<span style="color:#e17055;font-weight:700">${orphan} תלמידים ללא כיתה</span>
+       <button class="btn-admin" style="padding:3px 11px;font-size:.8rem;margin-inline-start:7px"
+         onclick="openClass('')">הצגה</button>` : '';
+}
+function openClass(cls){
+  CUR_CLASS = normClass(cls);
+  renderClassCards();
+  renderClassEditor(CUR_CLASS);
+  const ed = el2('classEditor'); if(ed) ed.scrollIntoView({behavior:'smooth',block:'start'});
 }
 
-/* ===== שיוך תלמידים קיימים לכיתה ===== */
-function toggleAllStudents(box){
-  document.querySelectorAll('#studentsTableBody .stChk').forEach(c=>{
-    if(c.closest('tr').style.display !== 'none') c.checked = box.checked;
+/* ---------- מסך הכיתה ---------- */
+function renderClassEditor(cls){
+  const box = el2('classEditor'); if(!box) return;
+  const sts = cls ? studentsOf(cls) : ALL_STUDENTS.filter(s=>!normClass(s.cls));
+  const ts  = cls ? teachersOf(cls) : [];
+  box.innerHTML = `<div class="admin-card" style="border-inline-start:5px solid #4c6ef5">
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+      <h2 style="margin:0">${cls?esc(cls):'תלמידים ללא כיתה'}</h2>
+      <span style="color:#888;font-size:.88rem">${sts.length} תלמידים</span>
+    </div>
+    ${cls?`<div style="background:#fafbff;border-radius:11px;padding:11px 14px;margin:12px 0">
+      <div style="font-weight:800;font-size:.87rem;margin-bottom:6px">👩‍🏫 המורים של הכיתה</div>
+      <div style="display:flex;gap:7px;flex-wrap:wrap;align-items:center">
+        ${ts.length?ts.map(t=>`<span style="background:#eef1fb;color:#4c6ef5;border-radius:18px;
+          padding:3px 12px;font-size:.85rem;font-weight:700">${esc(t.name)}</span>`).join('')
+          :'<span style="color:#e17055;font-size:.87rem">לא שויך מורה</span>'}
+        <button class="btn-admin" style="padding:4px 12px;font-size:.81rem"
+          onclick="openTeacherAssign()">✏ שיוך מורים</button>
+      </div></div>`:''}
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin:12px 0">
+      ${cls?`<button class="btn-admin btn-primary" onclick="openAddDialog()">＋ הוספת תלמידים</button>
+      <button class="btn-admin" onclick="renameClass()">✏ שינוי שם</button>
+      <button class="btn-admin" style="background:#fdecea;color:#c0392b"
+        onclick="dropClass()">🗑 מחיקת כיתה</button>`:''}
+    </div>
+    <div style="background:#fafbff;border-radius:11px;padding:9px 13px;margin-bottom:11px;
+      display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <label style="font-size:.86rem;font-weight:700;display:flex;gap:5px;align-items:center">
+        <input type="checkbox" id="clsAll" onclick="toggleAllInClass(this)"> סמן הכל</label>
+      <button class="btn-admin" style="padding:5px 13px;font-size:.82rem" onclick="moveSelected()">↔ העברה לכיתה…</button>
+      <button class="btn-admin" style="padding:5px 13px;font-size:.82rem;background:#fdecea;color:#c0392b"
+        onclick="removeSelected()">🗑 הסרת מסומנים</button>
+    </div>
+    <div style="overflow-x:auto">
+      <table class="admin-table"><thead><tr>
+        <th></th><th>ת״ז</th><th>שם</th><th>התקדמות</th><th></th>
+      </tr></thead><tbody>
+      ${sts.length ? sts.map(s=>`<tr>
+        <td><input type="checkbox" class="clsChk" value="${esc(s.id)}"></td>
+        <td dir="ltr" style="text-align:right;font-family:ui-monospace,monospace">${esc(s.id)}</td>
+        <td>${esc(s.name)}</td>
+        <td id="pg-${esc(s.id)}" style="color:#aaa">…</td>
+        <td><button class="btn-admin btn-danger" style="padding:4px 11px;font-size:.8rem"
+          onclick="removeOne('${esc(s.id)}')">הסרה</button></td>
+      </tr>`).join('') :
+      '<tr><td colspan="5" style="color:#aaa;padding:18px">אין תלמידים בכיתה.</td></tr>'}
+      </tbody></table>
+    </div></div>`;
+  /* ההתקדמות נטענת אחרי הציור כדי שהטבלה תופיע מיד */
+  sts.forEach(async s=>{
+    try{
+      const p = PROG[s.id] != null ? PROG[s.id] : calcProgress(await sbGetStudentData(s.id));
+      PROG[s.id] = p;
+      const c = el2('pg-'+s.id); if(!c) return;
+      const col = p===100?'#00b894':p>0?'#f39c12':'#e74c3c';
+      c.innerHTML = `<span style="font-weight:800;color:${col}">${p}%</span>`;
+    }catch(e){}
   });
 }
-function selectedStudentIds(){
-  return [...document.querySelectorAll('#studentsTableBody .stChk:checked')].map(c=>c.value);
-}
-async function setStudentClass(id, cls){
-  await supabase('gmar_students?id=eq.'+encodeURIComponent(id),
-    { method:'PATCH', body: JSON.stringify({ cls: cls }) });
-}
-/* שיוך תלמיד בודד — חלון עם רשימת הכיתות, לא הקלדה */
-let ASSIGN_ID=null;
-async function assignOne(id){
-  await loadClassList();
-  const all=await sbGetAllStudents();
-  const st=all.find(x=>String(x.id)===String(id));
-  if(!st){alert('התלמיד לא נמצא');return;}
-  ASSIGN_ID=id;
-  const cur=normClass(st.cls);
-  const ov=document.createElement('div');
-  ov.id='assignOv';
+const selectedInClass = () => [...document.querySelectorAll('.clsChk:checked')].map(c=>c.value);
+function toggleAllInClass(box){ document.querySelectorAll('.clsChk').forEach(c=>c.checked=box.checked); }
+
+/* ---------- חלון כללי ---------- */
+function modal(html,w){
+  closeModal();
+  const ov=document.createElement('div'); ov.id='admOv';
   ov.style.cssText='position:fixed;inset:0;background:rgba(20,18,45,.55);display:flex;'+
     'align-items:center;justify-content:center;padding:16px;z-index:9999';
-  ov.innerHTML=`<div style="background:#fff;border-radius:17px;max-width:420px;width:100%;padding:22px 24px;
-      max-height:86vh;overflow:auto" onclick="event.stopPropagation()">
-    <h3 style="margin:0 0 3px;font-size:1.15rem">🏫 שיוך כיתה</h3>
-    <p style="color:#888;font-size:.88rem;margin:0 0 14px">${esc(st.name)}${cur?' · כיתה נוכחית: '+esc(cur):' · ללא כיתה'}</p>
-    <div id="assignList" style="display:flex;flex-direction:column;gap:6px;max-height:280px;overflow:auto">
-      ${CLASS_LIST.length ? CLASS_LIST.map(c=>`
-        <button onclick="pickAssign('${esc(c)}')" style="text-align:right;background:${sameClass(c,cur)?'#eef1fb':'#fafafa'};
-          border:2px solid ${sameClass(c,cur)?'#4c6ef5':'#eee'};border-radius:11px;padding:11px 14px;
-          font-family:inherit;font-size:.95rem;font-weight:${sameClass(c,cur)?'800':'400'};cursor:pointer">
-          ${esc(c)}${sameClass(c,cur)?' ✓':''}</button>`).join('')
-        : '<p style="color:#aaa;font-size:.9rem">עדיין לא הוגדרו כיתות. צרו כיתה בלשונית 🏫 כיתות.</p>'}
-    </div>
-    <div style="display:flex;gap:8px;margin-top:15px">
-      <button onclick="closeAssign()" style="flex:1;background:#f1f1f4;border:0;border-radius:11px;
-        padding:11px;font-family:inherit;font-weight:800;cursor:pointer">ביטול</button>
-      ${cur?`<button onclick="pickAssign('')" style="flex:1;background:#fdecea;color:#c0392b;border:0;
-        border-radius:11px;padding:11px;font-family:inherit;font-weight:800;cursor:pointer">הסרת שיוך</button>`:''}
-    </div>
-  </div>`;
-  ov.addEventListener('click',e=>{if(e.target===ov)closeAssign();});
+  ov.innerHTML=`<div style="background:#fff;border-radius:17px;max-width:${w||520}px;width:100%;
+    padding:22px 24px;max-height:88vh;overflow:auto" onclick="event.stopPropagation()">${html}</div>`;
+  ov.addEventListener('click',e=>{if(e.target===ov)closeModal();});
   document.body.appendChild(ov);
 }
-function closeAssign(){const o=document.getElementById('assignOv');if(o)o.remove();ASSIGN_ID=null;}
-async function pickAssign(cls){
-  const id=ASSIGN_ID; if(!id)return;
-  closeAssign();
-  try{
-    await setStudentClass(id, normClass(cls));
-    await loadStudentsTable();
-    await refreshClassPickers();
-  }catch(e){ alert('שגיאה בשמירה'); }
+function closeModal(){ const o=el2('admOv'); if(o)o.remove(); }
+const classOptions = sel => CLASS_LIST.map((c,i)=>
+  `<option value="${i}"${sameClass(c,sel)?' selected':''}>${esc(c)}</option>`).join('');
+
+/* ---------- כיתה חדשה ---------- */
+function newClassDialog(){
+  modal(`<h3 style="margin:0 0 12px;font-size:1.15rem">🏫 כיתה חדשה</h3>
+    <input type="text" id="ncName" placeholder="שם הכיתה, למשל: י למד" style="width:100%;margin-bottom:14px">
+    <div style="font-weight:800;font-size:.85rem;margin-bottom:6px">מורים (אפשר לדלג ולשייך אחר כך)</div>
+    <div style="max-height:170px;overflow:auto;border:2px solid #eee;border-radius:11px;padding:9px;margin-bottom:16px">
+      ${ALL_TEACHERS.length?ALL_TEACHERS.map(t=>`
+        <label style="display:flex;gap:7px;align-items:center;padding:5px 3px;cursor:pointer">
+          <input type="checkbox" class="ncT" value="${escA(t.id)}"> ${esc(t.name)}</label>`).join('')
+        :'<span style="color:#aaa;font-size:.87rem">אין מורים במערכת</span>'}
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn-admin btn-primary" style="flex:1" onclick="createClass()">יצירה</button>
+      <button class="btn-admin" onclick="closeModal()">ביטול</button>
+    </div>`);
+  setTimeout(()=>{const i=el2('ncName'); if(i)i.focus();},50);
+}
+async function createClass(){
+  const name = normClass(el2('ncName').value);
+  if(!name){ alert('הזינו שם כיתה'); return; }
+  if(CLASS_LIST.some(c=>sameClass(c,name))){ alert('הכיתה כבר קיימת'); return; }
+  const tids = [...document.querySelectorAll('.ncT:checked')].map(x=>x.value);
+  closeModal();
+  try{ await saveClassRow(name); }
+  catch(e){ alert('הכיתה לא נשמרה ב-tik_classes: '+(e.message||e)); }
+  for(const tid of tids) await setTeacherClasses(tid, name, true);
+  await refreshAdmin();
+  openClass(name);
+}
+async function renameClass(){
+  const old = CUR_CLASS;
+  const name = normClass(prompt('שם חדש לכיתה:', old) || '');
+  if(!name || sameClass(name,old)) return;
+  const sts = studentsOf(old);
+  if(!confirm('לשנות את שם הכיתה ל־"'+name+'"?\n'+sts.length+' תלמידים יעברו איתה.')) return;
+  try{ await saveClassRow(name); }catch(e){}
+  for(const s of sts) await setStudentClass(s.id, name);
+  for(const t of teachersOf(old)){
+    await setTeacherClasses(t.id, old, false);
+    await setTeacherClasses(t.id, name, true);
+  }
+  try{ await deleteClassRow(old); }catch(e){}
+  CUR_CLASS = name;
+  await refreshAdmin();
+}
+async function dropClass(){
+  const sts = studentsOf(CUR_CLASS);
+  if(sts.length && !confirm('בכיתה "'+CUR_CLASS+'" יש '+sts.length+' תלמידים.\n'+
+      'הם יישארו במערכת ללא כיתה, והתיקים שלהם לא ייגעו.\nלמחוק את הכיתה?')) return;
+  if(!sts.length && !confirm('למחוק את הכיתה "'+CUR_CLASS+'"?')) return;
+  for(const t of teachersOf(CUR_CLASS)) await setTeacherClasses(t.id, CUR_CLASS, false);
+  try{ await deleteClassRow(CUR_CLASS); }catch(e){}
+  CUR_CLASS = null;
+  const e2=el2('classEditor'); if(e2)e2.innerHTML='';
+  await refreshAdmin();
 }
 
-/* שיוך מרוכז למסומנים */
-async function assignBulk(){
-  const msg=document.getElementById('bulkMsg');
-  const ids=selectedStudentIds();
-  if(!ids.length){ msg.style.color='#c0392b'; msg.textContent='לא סומנו תלמידים.'; return; }
-  const cls=classValue('bulkClassSel');
-  if(!cls){ msg.style.color='#c0392b'; msg.textContent='בחרו כיתה.'; return; }
-  msg.style.color='#888'; msg.textContent='משייך '+ids.length+' תלמידים…';
-  let ok=0, fail=0;
-  for(const id of ids){
-    try{ await setStudentClass(id, cls); ok++; }catch(e){ fail++; }
+/* ---------- שיוך מורים לכיתה ---------- */
+function openTeacherAssign(){
+  const cur = teachersOf(CUR_CLASS).map(t=>String(t.id));
+  modal(`<h3 style="margin:0 0 4px;font-size:1.15rem">👩‍🏫 שיוך מורים</h3>
+    <p style="color:#888;font-size:.88rem;margin:0 0 13px">לכיתה <b>${esc(CUR_CLASS)}</b></p>
+    <div style="max-height:230px;overflow:auto;border:2px solid #eee;border-radius:11px;padding:9px;margin-bottom:16px">
+      ${ALL_TEACHERS.length?ALL_TEACHERS.map(t=>`
+        <label style="display:flex;gap:7px;align-items:center;padding:6px 3px;cursor:pointer">
+          <input type="checkbox" class="taT" value="${escA(t.id)}"${cur.includes(String(t.id))?' checked':''}>
+          ${esc(t.name)}</label>`).join('')
+        :'<span style="color:#aaa;font-size:.87rem">אין מורים. הוסיפו בלשונית 👩‍🏫 מורים.</span>'}
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn-admin btn-primary" style="flex:1" onclick="saveTeacherAssign()">שמירה</button>
+      <button class="btn-admin" onclick="closeModal()">ביטול</button>
+    </div>`);
+}
+async function saveTeacherAssign(){
+  const picked = [...document.querySelectorAll('.taT:checked')].map(x=>String(x.value));
+  const cls = CUR_CLASS;
+  closeModal();
+  for(const t of ALL_TEACHERS){
+    const want = picked.includes(String(t.id));
+    const has  = (t.classes||[]).some(c=>sameClass(c,cls));
+    if(want !== has) await setTeacherClasses(t.id, cls, want);
   }
-  if(!CLASS_LIST.some(c=>sameClass(c,cls))){ try{ await saveClassList(CLASS_LIST.concat([cls])); }catch(e){} }
-  msg.style.color = fail ? '#c0392b' : '#0f7a4d';
-  msg.textContent = '✅ שויכו '+ok+' תלמידים לכיתה '+cls + (fail?(' · '+fail+' נכשלו'):'');
-  const all=document.getElementById('stChkAll'); if(all) all.checked=false;
-  await loadStudentsTable();
-  await refreshClassPickers();
+  await refreshAdmin();
+}
+/* מוסיף או מסיר כיתה אחת ממערך ה-classes של מורה */
+async function setTeacherClasses(tid, cls, add){
+  const t = ALL_TEACHERS.find(x=>String(x.id)===String(tid)); if(!t) return;
+  const cur = Array.isArray(t.classes) ? t.classes.map(normClass) : [];
+  const next = add ? [...new Set(cur.concat([normClass(cls)]))]
+                   : cur.filter(c=>!sameClass(c,cls));
+  await supabase('teachers?id=eq.'+encodeURIComponent(tid),
+    { method:'PATCH', body: JSON.stringify({ classes: next }) });
+  t.classes = next;
+}
+
+/* ---------- הוספת תלמידים: שלוש דרכים ---------- */
+let ADD_TO=null, PARSED=[];
+function openAddDialog(){
+  if(!CUR_CLASS){ alert('בחרו כיתה תחילה'); return; }
+  ADD_TO = CUR_CLASS; PARSED = [];
+  modal(`<h3 style="margin:0 0 3px;font-size:1.15rem">＋ הוספת תלמידים</h3>
+    <p style="color:#888;font-size:.88rem;margin:0 0 14px">לכיתה <b>${esc(CUR_CLASS)}</b></p>
+    <div style="display:flex;gap:6px;margin-bottom:13px;flex-wrap:wrap">
+      ${[['paste','📋 הדבקה'],['excel','📤 אקסל'],['manual','⌨ ידני']].map(([k,l])=>
+        `<button class="btn-admin" id="mt-${k}" onclick="addMode('${k}')"
+          style="padding:6px 15px;font-size:.85rem">${l}</button>`).join('')}
+    </div>
+    <div id="mPaste">
+      <p style="color:#888;font-size:.85rem;margin:0 0 7px">
+        הדביקו מאקסל או מוורד. כל שורה = תלמיד. רצף הספרות יזוהה כת״ז והשאר כשם,
+        בלי קשר לסדר העמודות.</p>
+      <textarea id="pasteBox" oninput="pastePreview()" style="width:100%;min-height:150px;
+        font-family:ui-monospace,monospace;font-size:.9rem"
+        placeholder="334304391&#9;אלוף יקוטי רוני"></textarea>
+      <div id="pasteOut" style="margin-top:10px;font-size:.88rem"></div>
+    </div>
+    <div id="mExcel" style="display:none">
+      <div class="excel-drop" style="padding:22px;text-align:center;cursor:pointer"
+        onclick="document.getElementById('excelFile').click()">
+        <div style="font-weight:700;color:#555">בחרו קובץ אקסל</div>
+        <div style="color:#999;font-size:.83rem;margin-top:4px">עמודות: ת״ז · שם</div></div>
+      <div id="excelOut" style="margin-top:10px;font-size:.88rem"></div>
+    </div>
+    <div id="mManual" style="display:none">
+      <input type="text" id="mnId" placeholder="ת״ז" style="width:100%;margin-bottom:7px">
+      <input type="text" id="mnName" placeholder="שם מלא" style="width:100%;margin-bottom:10px">
+      <button class="btn-admin btn-primary" onclick="addManualOne()">הוספה</button>
+      <div id="manualOut" style="margin-top:9px;font-size:.88rem"></div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:16px;border-top:1px solid #eee;padding-top:14px">
+      <button class="btn-admin btn-primary" style="flex:1" id="addGo" onclick="commitAdd()">שמירה ←</button>
+      <button class="btn-admin" onclick="closeModal();refreshAdmin()">סגירה</button>
+    </div>`, 600);
+  addMode('paste');
+}
+function addMode(m){
+  ['paste','excel','manual'].forEach(k=>{
+    const p=el2('m'+k[0].toUpperCase()+k.slice(1)); if(p)p.style.display = k===m?'block':'none';
+    const b=el2('mt-'+k); if(b){ b.style.background = k===m?'#4c6ef5':''; b.style.color = k===m?'#fff':''; }
+  });
+  const go=el2('addGo'); if(go) go.style.display = m==='manual' ? 'none' : 'block';
+}
+/* זיהוי ת״ז: רצף הספרות הארוך ביותר בשורה. שאר הטקסט הוא השם. */
+function parseRows(raw){
+  const out=[], bad=[];
+  String(raw||'').split('\n').forEach(line=>{
+    const l = line.replace(/\u00A0/g,' ').trim();
+    if(!l) return;
+    const nums = l.match(/\d[\d\-]{6,}/g) || [];
+    const tz = (nums.sort((a,b)=>b.length-a.length)[0]||'').replace(/\D/g,'');
+    const name = l.replace(/\d[\d\-]{6,}/g,'').replace(/[\t,;|]+/g,' ').replace(/\s+/g,' ').trim();
+    if(!tz || !name){ bad.push(l); return; }
+    out.push({ id:tz, name });
+  });
+  return { rows:out, bad };
+}
+function previewBox(rows, bad){
+  const dup = rows.filter(r => ALL_STUDENTS.some(s=>String(s.id)===r.id));
+  return `<div style="background:#f7f9ff;border-radius:10px;padding:11px 13px">
+      <b style="color:#0f7a4d">${rows.length} תלמידים זוהו</b>
+      ${dup.length?`<span style="color:#e17055;margin-inline-start:9px">${dup.length} כבר קיימים — יעודכנו</span>`:''}
+      ${bad && bad.length?`<div style="color:#c0392b;margin-top:6px">${bad.length} שורות לא זוהו: ${esc(bad.slice(0,3).join(' | '))}</div>`:''}
+      <div style="max-height:130px;overflow:auto;margin-top:8px;font-size:.85rem;color:#555">
+        ${rows.slice(0,25).map(r=>`<div>${esc(r.id)} · ${esc(r.name)}</div>`).join('')}
+        ${rows.length>25?`<div style="color:#999">…ועוד ${rows.length-25}</div>`:''}
+      </div></div>`;
+}
+function pastePreview(){
+  const { rows, bad } = parseRows(el2('pasteBox').value);
+  PARSED = rows;
+  el2('pasteOut').innerHTML = (!rows.length && !bad.length) ? '' : previewBox(rows, bad);
+}
+async function addManualOne(){
+  const id=String(el2('mnId').value||'').replace(/\D/g,''), name=normClass(el2('mnName').value);
+  const out=el2('manualOut');
+  if(!id||!name){ out.innerHTML='<span style="color:#c0392b">מלאו ת״ז ושם</span>'; return; }
+  try{
+    await sbSetStudent({ id, name, cls: ADD_TO });
+    out.innerHTML='<span style="color:#0f7a4d">✅ '+esc(name)+' נוסף</span>';
+    el2('mnId').value=''; el2('mnName').value=''; el2('mnId').focus();
+    await refreshAdmin();
+  }catch(e){ out.innerHTML='<span style="color:#c0392b">שגיאה: '+esc(e.message||e)+'</span>'; }
+}
+async function commitAdd(){
+  if(!PARSED.length){ alert('אין תלמידים להוספה'); return; }
+  const go=el2('addGo'); go.disabled=true; go.textContent='שומר…';
+  let ok=0, fail=0;
+  for(const r of PARSED){
+    try{ await sbSetStudent({ id:r.id, name:r.name, cls: ADD_TO }); ok++; }catch(e){ fail++; }
+  }
+  closeModal();
+  await refreshAdmin();
+  openClass(ADD_TO);
+  alert('✅ '+ok+' תלמידים נשמרו' + (fail?('\n⚠ '+fail+' נכשלו'):''));
+  PARSED=[];
+}
+
+/* ---------- העברה והסרה ---------- */
+async function setStudentClass(id, cls){
+  await supabase('gmar_students?id=eq.'+encodeURIComponent(id),
+    { method:'PATCH', body: JSON.stringify({ cls: normClass(cls) }) });
+}
+let MOVE_IDS=[];
+function moveSelected(){
+  const ids = selectedInClass();
+  if(!ids.length){ alert('לא סומנו תלמידים'); return; }
+  MOVE_IDS = ids;
+  modal(`<h3 style="margin:0 0 13px;font-size:1.15rem">↔ העברת ${ids.length} תלמידים</h3>
+    <select id="mvClass" style="width:100%;margin-bottom:16px">
+      <option value="">— ללא כיתה —</option>${classOptions('')}</select>
+    <div style="display:flex;gap:8px">
+      <button class="btn-admin btn-primary" style="flex:1" onclick="doMove()">העברה</button>
+      <button class="btn-admin" onclick="closeModal()">ביטול</button>
+    </div>`);
+}
+async function doMove(){
+  const v = el2('mvClass').value;
+  const cls = v === '' ? '' : normClass(CLASS_LIST[Number(v)] || '');
+  closeModal();
+  for(const id of MOVE_IDS){ try{ await setStudentClass(id, cls); }catch(e){} }
+  MOVE_IDS = [];
+  await refreshAdmin();
+}
+async function removeOne(id){
+  const s = ALL_STUDENTS.find(x=>String(x.id)===String(id));
+  if(!confirm('להסיר את '+(s?s.name:id)+' מהמערכת?\n\n'+
+    'התיק הדיגיטלי שלו נשאר שמור ויחזור אם יתווסף שוב עם אותה ת״ז.')) return;
+  await sbDeleteStudent(id);
+  await refreshAdmin();
+}
+async function removeSelected(){
+  const ids = selectedInClass();
+  if(!ids.length){ alert('לא סומנו תלמידים'); return; }
+  if(!confirm('להסיר '+ids.length+' תלמידים?\n\nהתיקים שלהם יישארו שמורים.')) return;
+  for(const id of ids){ try{ await sbDeleteStudent(id); }catch(e){} }
+  await refreshAdmin();
+}
+
+/* ---------- מורים ---------- */
+function renderTeachers(){
+  const tb = el2('teachersTableBody'); if(!tb) return;
+  tb.innerHTML = ALL_TEACHERS.map(t=>{
+    const cs = (t.classes||[]).map(normClass).filter(Boolean);
+    const n  = ALL_STUDENTS.filter(s=>cs.some(c=>sameClass(c,s.cls))).length;
+    return `<tr>
+      <td dir="ltr" style="text-align:right;font-family:ui-monospace,monospace">${esc(t.id)}</td>
+      <td>${esc(t.name)}</td>
+      <td>${cs.length?cs.map(esc).join(' · '):'<span style="color:#e17055">— ללא כיתה —</span>'}</td>
+      <td>${n}</td>
+      <td><button class="btn-admin" style="padding:4px 11px;font-size:.8rem"
+            onclick="openTeacherClasses('${escA(t.id)}')">🏫 כיתות</button>
+          <button class="btn-admin btn-danger" style="padding:4px 11px;font-size:.8rem"
+            onclick="deleteTeacher('${escA(t.id)}')">מחק</button></td></tr>`;
+  }).join('') || '<tr><td colspan="5" style="color:#aaa;padding:16px">אין מורים.</td></tr>';
+  const c = el2('adminTotalTeachers'); if(c) c.textContent = ALL_TEACHERS.length;
+}
+function openTeacherClasses(tid){
+  const t = ALL_TEACHERS.find(x=>String(x.id)===String(tid)); if(!t) return;
+  const cur = (t.classes||[]).map(normClass);
+  modal(`<h3 style="margin:0 0 4px;font-size:1.15rem">🏫 הכיתות של ${esc(t.name)}</h3>
+    <p style="color:#888;font-size:.88rem;margin:0 0 13px">המורה יראה את התלמידים של הכיתות המסומנות.</p>
+    <div style="max-height:230px;overflow:auto;border:2px solid #eee;border-radius:11px;padding:9px;margin-bottom:16px">
+      ${CLASS_LIST.length?CLASS_LIST.map((c,i)=>`
+        <label style="display:flex;gap:7px;align-items:center;padding:6px 3px;cursor:pointer">
+          <input type="checkbox" class="tcC" value="${i}"${cur.some(x=>sameClass(x,c))?' checked':''}>
+          ${esc(c)} <span style="color:#aaa;font-size:.83rem">(${studentsOf(c).length})</span></label>`).join('')
+        :'<span style="color:#aaa;font-size:.87rem">אין כיתות. צרו כיתה בלשונית 🏫 כיתות.</span>'}
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="btn-admin btn-primary" style="flex:1" onclick="saveTeacherClasses('${escA(tid)}')">שמירה</button>
+      <button class="btn-admin" onclick="closeModal()">ביטול</button>
+    </div>`);
+}
+async function saveTeacherClasses(tid){
+  const picked = [...document.querySelectorAll('.tcC:checked')]
+                   .map(x=>CLASS_LIST[Number(x.value)]).filter(Boolean).map(normClass);
+  closeModal();
+  try{
+    await supabase('teachers?id=eq.'+encodeURIComponent(tid),
+      { method:'PATCH', body: JSON.stringify({ classes: picked }) });
+  }catch(e){ alert('שגיאה בשמירה: '+(e.message||e)); }
+  await refreshAdmin();
 }
 
 async function sbGetAllStudents() {
@@ -758,17 +769,18 @@ async function sbGetAllStudents() {
 }
 
 // Set/update student
+/* השדה הוא cls. גרסאות קודמות כתבו student.class שאינו קיים,
+   ולכן הוספת תלמיד ידנית מעולם לא שמרה את הכיתה. */
 async function sbSetStudent(student) {
+    const body = { name: student.name, cls: normClass(student.cls || '') };
     const existing = await sbGetStudent(student.id);
     if (existing) {
         await supabase('gmar_students?id=eq.' + encodeURIComponent(student.id), {
-            method: 'PATCH',
-            body: JSON.stringify({ name: student.name, cls: student.class })
+            method: 'PATCH', body: JSON.stringify(body)
         });
     } else {
         await supabase('gmar_students', {
-            method: 'POST',
-            body: JSON.stringify({ id: student.id, name: student.name, cls: student.class })
+            method: 'POST', body: JSON.stringify(Object.assign({ id: student.id }, body))
         });
     }
 }
@@ -1575,176 +1587,99 @@ function closeTikModal(){document.getElementById('tikModal').style.display='none
 // ==================================================================
 // ADMIN
 // ==================================================================
-function loadAdminData(){loadStudentsTable();loadTeachersTable();loadOverview();refreshClassAdmin();}
+function loadAdminData(){ refreshAdmin().then(loadOverview); }
 
-async function loadStudentsTable(){
-  try{
-    const students = await sbGetAllStudents();
-    const tb=document.getElementById('studentsTableBody');
-    tb.innerHTML='';
-    let cnt=0;
-    const proms = students.map(async s => {
-      cnt++;
-      const data = await sbGetStudentData(s.id);
-      const p = calcProgress(data);
-      const tr = document.createElement('tr');
-      tr.innerHTML=`<td><input type="checkbox" class="stChk" value="${esc(s.id)}" style="margin-inline-end:6px">${esc(s.id)}</td><td>${esc(s.name)}</td><td>${s.cls?esc(s.cls):'<span style="color:#e17055;font-weight:700">— ללא כיתה —</span>'}</td><td><div style="display:flex;align-items:center;gap:8px"><div style="flex:1;background:#f0f0f0;height:8px;border-radius:5px;overflow:hidden"><div style="width:${p}%;height:100%;background:linear-gradient(90deg,#667eea,#764ba2);border-radius:5px"></div></div><span style="font-weight:700;font-size:0.85rem">${p}%</span></div></td><td><button class="btn-admin" style="background:#eef1fb;color:#4c6ef5" onclick="assignOne('${s.id}')">🏫 כיתה</button>
-      <button class="btn-admin btn-danger" onclick="deleteStudent('${s.id}')">מחק</button></td>`;
-      tb.appendChild(tr);
-    });
-    await Promise.all(proms);
-    document.getElementById('adminTotalStudents').textContent=cnt;
-  }catch(e){console.error(e);}}
-
-async function loadTeachersTable(){
-  try{
-    const teachers = await sbGetAllTeachers();
-    const tb=document.getElementById('teachersTableBody');
-    tb.innerHTML='';
-    let cnt=0;
-    teachers.forEach(t=>{
-      cnt++;
-      const cls=Array.isArray(t.classes)?t.classes.join(', '):t.classes||'—';
-      const tr=document.createElement('tr');
-      tr.innerHTML=`<td>${esc(t.username)}</td><td>${esc(t.name)}</td><td>${esc(cls)}</td><td><button class="btn-admin btn-danger" onclick="deleteTeacher('${t.username}')">מחק</button></td>`;
-      tb.appendChild(tr);
-    });
-    document.getElementById('adminTotalTeachers').textContent=cnt;
-  }catch(e){console.error(e);}}
-
+/* סקירה לפי כיתה. גרסאות קודמות קיבצו לפי s.class שאינו קיים בטבלה,
+   ולכן כל התלמידים נפלו לקבוצה אחת בשם undefined. */
 async function loadOverview(){
   try{
-    const students = await sbGetAllStudents();
-    const cls={};
-    const proms = students.map(async s => {
-      if(!cls[s.class]) cls[s.class]={students:[],progs:[]};
-      cls[s.class].students.push(s.name);
-      const data = await sbGetStudentData(s.id);
-      cls[s.class].progs.push(calcProgress(data));
-    });
-    await Promise.all(proms);
+    const students = ALL_STUDENTS.length ? ALL_STUDENTS : await sbGetAllStudents();
+    const g = {};
+    await Promise.all(students.map(async s=>{
+      const k = normClass(s.cls) || 'ללא כיתה';
+      if(!g[k]) g[k] = { progs:[], n:0 };
+      g[k].n++;
+      const p = PROG[s.id] != null ? PROG[s.id] : calcProgress(await sbGetStudentData(s.id));
+      PROG[s.id] = p; g[k].progs.push(p);
+    }));
     let h='';
-    Object.keys(cls).sort().forEach(c=>{
-      const avg=cls[c].progs.length?Math.round(cls[c].progs.reduce((a,b)=>a+b,0)/cls[c].progs.length):0;
-      h+=`<div style="background:#f8f9ff;border-radius:12px;padding:15px;margin-bottom:12px;border-right:4px solid #667eea"><div style="display:flex;justify-content:space-between"><div><strong>${esc(c)}</strong> – ${cls[c].students.length} תלמידים</div><span style="font-weight:900;color:#667eea">${avg}%</span></div><div style="background:#e0e0e0;height:8px;border-radius:5px;overflow:hidden;margin-top:8px"><div style="width:${avg}%;height:100%;background:linear-gradient(90deg,#667eea,#764ba2);border-radius:5px"></div></div></div>`;
+    Object.keys(g).sort((a,b)=>a.localeCompare(b,'he')).forEach(k=>{
+      const c = g[k];
+      const avg = c.progs.length ? Math.round(c.progs.reduce((a,b)=>a+b,0)/c.progs.length) : 0;
+      const ts = teachersOf(k).map(t=>t.name).join(', ');
+      h+=`<div style="background:#f8f9ff;border-radius:12px;padding:15px;margin-bottom:12px;border-right:4px solid #667eea">
+        <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap">
+          <div><strong>${esc(k)}</strong>
+            <span style="color:#888;font-size:.87rem"> · ${c.n} תלמידים${ts?' · '+esc(ts):''}</span></div>
+          <span style="font-weight:900;color:#667eea">${avg}%</span></div>
+        <div style="background:#e0e0e0;height:8px;border-radius:5px;overflow:hidden;margin-top:8px">
+          <div style="width:${avg}%;height:100%;background:linear-gradient(90deg,#667eea,#764ba2);border-radius:5px"></div>
+        </div></div>`;
     });
-    document.getElementById('classesOverview').innerHTML=h||'<p style="color:#888">אין נתונים</p>';
-    const allP=Object.values(cls).flatMap(c=>c.progs);
-    const avg=allP.length?Math.round(allP.reduce((a,b)=>a+b,0)/allP.length):0;
-    document.getElementById('adminAvgProgress').textContent=avg+'%';
+    document.getElementById('classesOverview').innerHTML = h || '<p style="color:#888">אין נתונים</p>';
+    const allP = Object.values(g).flatMap(c=>c.progs);
+    const avg = allP.length ? Math.round(allP.reduce((a,b)=>a+b,0)/allP.length) : 0;
+    document.getElementById('adminAvgProgress').textContent = avg+'%';
+    document.getElementById('adminTotalStudents').textContent = students.length;
   }catch(e){console.error(e);}}
 
-async function addStudent(){
-  const id=document.getElementById('newStudentId').value.trim(),name=document.getElementById('newStudentName').value.trim();
-  const cls=document.getElementById('newStudentClassSel')?classValue('newStudentClassSel')
-            :normClass(document.getElementById('newStudentClass').value);
-  if(!id||!name||!cls){alert('מלא את כל השדות');return;}
-  try{
-    await sbSetStudent({id, name, cls: cls});
-    alert('✅ נוסף!');
-    ['newStudentId','newStudentName'].forEach(i=>{const e=document.getElementById(i);if(e)e.value='';});
-    const cs=document.getElementById('newStudentClassSel'); if(cs)cs.value='';
-    const cm=document.getElementById('newStudentClassSel_manual'); if(cm){cm.value='';cm.style.display='none';}
-    if(!CLASS_LIST.some(c=>sameClass(c,cls))) await saveClassList(CLASS_LIST.concat([cls]));
-    await refreshClassPickers();
-    loadStudentsTable();
-  }catch(e){alert('שגיאה');}
-}
-
 async function addTeacher(){
-  const u=document.getElementById('newTeacherUsername').value.trim(),p=document.getElementById('newTeacherPassword').value.trim(),n=document.getElementById('newTeacherName').value.trim();
-  if(!u||!p||!n){alert('מלאו שם משתמש, סיסמה ושם');return;}
-  const classes = document.getElementById('newTeacherClassesBox')
-    ? classChecksValue('newTeacherClassesBox')
-    : String(document.getElementById('newTeacherClasses').value||'').split(',').map(normClass).filter(Boolean);
-  if(!classes.length){alert('בחרו לפחות כיתה אחת');return;}
+  const id = String(document.getElementById('newTeacherUsername').value||'').replace(/\D/g,'');
+  const p  = document.getElementById('newTeacherPassword').value.trim();
+  const n  = normClass(document.getElementById('newTeacherName').value);
+  if(!id||!p||!n){ alert('מלאו ת״ז, שם וסיסמה'); return; }
   try{
-    await sbSetTeacher({username:u, password:p, name:n, classes});
-    alert('✅ נוסף!');
-    ['newTeacherUsername','newTeacherPassword','newTeacherName','newTeacherClasses'].forEach(i=>document.getElementById(i).value='');
-    loadTeachersTable();
-  }catch(e){alert('שגיאה');}
+    await sbSetTeacher({ id, password:p, name:n, classes:[] });
+    alert('✅ המורה נוסף. עכשיו אפשר לשייך לו כיתות.');
+    ['newTeacherUsername','newTeacherPassword','newTeacherName']
+      .forEach(i=>document.getElementById(i).value='');
+    await refreshAdmin();
+  }catch(e){ alert('שגיאה: '+(e.message||e)); }
+}
+async function deleteTeacher(id){
+  const t = ALL_TEACHERS.find(x=>String(x.id)===String(id));
+  if(!confirm('למחוק את '+(t?t.name:id)+'?\n\nהתלמידים והתיקים שלהם לא ייגעו.')) return;
+  try{ await sbDeleteTeacher(id); await refreshAdmin(); }catch(e){ alert('שגיאה'); }
 }
 
-async function deleteStudent(id){
-  if(!confirm('למחוק?'))return;
-  try{await sbDeleteStudent(id);loadStudentsTable();}catch(e){console.error(e);}
+function switchAdminTab(tab,btn){
+  document.querySelectorAll('.admin-panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.admin-tab-btn').forEach(b=>b.classList.remove('active'));
+  const p = document.getElementById('admin'+tab[0].toUpperCase()+tab.slice(1));
+  if(p) p.classList.add('active');
+  if(btn) btn.classList.add('active');
+  if(tab==='overview') loadOverview();
+  if(tab==='teachers'||tab==='classes') refreshAdmin();
 }
 
-async function deleteTeacher(username){
-  if(!confirm('למחוק?'))return;
-  try{await sbDeleteTeacher(username);loadTeachersTable();}catch(e){console.error(e);}
+/* ===== ייבוא אקסל — מוזן לאותו מנתח של ההדבקה ===== */
+function loadSheetJS(cb){
+  if(window.XLSX){cb();return;}
+  const s=document.createElement('script');
+  s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+  s.onload=cb; document.head.appendChild(s);
 }
-
-/* סינון לפי עמודות: החיפוש על ת״ז ושם בלבד, והכיתה בהתאמה מדויקת.
-   קודם הושווה tr.textContent כולו, ולכן "יב" תפס גם ת״ז ושמות. */
-function filterStudents(){
-  const q = (document.getElementById('searchStudent').value||'').toLowerCase().trim();
-  const csel = document.getElementById('filterClass');
-  const cls = csel ? normClass(csel.value) : '';
-  let shown = 0, total = 0;
-  document.querySelectorAll('#studentsTableBody tr').forEach(tr => {
-    const td = tr.querySelectorAll('td');
-    if (td.length < 3) return;
-    total++;
-    const id   = (td[0].textContent||'').toLowerCase();
-    const name = (td[1].textContent||'').toLowerCase();
-    const rowC = normClass(td[2].textContent||'').replace('— ללא כיתה —','');
-    const okQ = !q || id.includes(q) || name.includes(q);
-    const okC = !cls || (cls === '__none' ? !rowC : sameClass(rowC, cls));
-    const show = okQ && okC;
-    tr.style.display = show ? '' : 'none';
-    if (show) shown++;
+function handleExcelUpload(inp){
+  const f=inp.files[0]; if(!f) return;
+  const out=document.getElementById('excelOut');
+  if(out) out.innerHTML='<span style="color:#888">קורא…</span>';
+  loadSheetJS(()=>{
+    const r=new FileReader();
+    r.onload=function(e){
+      try{
+        const wb=XLSX.read(e.target.result,{type:'binary'});
+        const ws=wb.Sheets[wb.SheetNames[0]];
+        const rows=XLSX.utils.sheet_to_json(ws,{header:1});
+        const text=rows.map(x=>(x||[]).join('\t')).join('\n');
+        const parsed=parseRows(text);
+        PARSED=parsed.rows;
+        if(out) out.innerHTML = PARSED.length ? previewBox(PARSED, parsed.bad)
+          : '<span style="color:#c0392b">לא זוהו שורות עם ת״ז ושם</span>';
+      }catch(err){ if(out) out.innerHTML='<span style="color:#c0392b">שגיאה בקריאת הקובץ</span>'; }
+    };
+    r.readAsBinaryString(f);
   });
-  const fc = document.getElementById('filterCount');
-  if (fc) fc.textContent = (shown === total) ? (total + ' תלמידים')
-        : (shown + ' מתוך ' + total);
-  const all = document.getElementById('stChkAll'); if (all) all.checked = false;
-}
-/* ממלא את בורר הכיתה מהרשימה, ומוסיף אפשרות "ללא כיתה" */
-function fillClassFilter(){
-  const sel = document.getElementById('filterClass');
-  if (!sel) return;
-  const cur = sel.value;
-  sel.innerHTML = '<option value="">— כל הכיתות —</option>' +
-    '<option value="__none">— ללא כיתה —</option>' +
-    CLASS_LIST.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
-  if (cur) sel.value = cur;
-}
-function switchAdminTab(tab,btn){document.querySelectorAll('.admin-panel').forEach(p=>p.classList.remove('active'));document.querySelectorAll('.admin-tab-btn').forEach(b=>b.classList.remove('active'));document.getElementById('admin'+tab[0].toUpperCase()+tab.slice(1)).classList.add('active');if(btn)btn.classList.add('active');if(tab==='overview')loadOverview();
-  if(tab==='classes')refreshClassAdmin();
-  if(tab==='sync')document.getElementById('syncOut').innerHTML='<p style="color:#aaa">בחרו סינון ולחצו תצוגה מקדימה.</p>';}
-async function refreshClassAdmin(){
-  try{ window.__allStudentsCache = await sbGetAllStudents(); }catch(e){ window.__allStudentsCache=[]; }
-  await refreshClassPickers();
-}
-
-// ==================================================================
-// EXCEL IMPORT — תיקון: בדיקת כפילויות
-// ==================================================================
-let excelData=[];
-function loadSheetJS(cb){if(window.XLSX){cb();return;}const s=document.createElement('script');s.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';s.onload=cb;document.head.appendChild(s);}
-function handleExcelUpload(inp){const f=inp.files[0];if(!f)return;loadSheetJS(()=>{const r=new FileReader();r.onload=function(e){const wb=XLSX.read(e.target.result,{type:'binary'});const ws=wb.Sheets[wb.SheetNames[0]];const rows=XLSX.utils.sheet_to_json(ws,{header:1});excelData=[];const hdr=rows[0]?rows[0].map(h=>String(h).trim()):[];let ic=hdr.findIndex(h=>h.includes('תז')||h.includes('זהות')),nc=hdr.findIndex(h=>h.includes('שם')),cc=hdr.findIndex(h=>h.includes('כיתה'));if(ic===-1)ic=0;if(nc===-1)nc=1;if(cc===-1)cc=2;
-    for(let i=1;i<rows.length;i++){const row=rows[i];if(!row||!row.length)continue;const id=String(row[ic]||'').trim(),nm=String(row[nc]||'').trim(),cl=String(row[cc]||'').trim();if(id&&nm)excelData.push({id,name:nm,cls:cl});}showExcelPreview();};r.readAsBinaryString(f);});}
-function showExcelPreview(){document.getElementById('excelPreview').style.display='block';document.getElementById('excelSummary').textContent=`✅ ${excelData.length} תלמידים`;let h='<table style="width:100%;border-collapse:collapse;font-size:0.9rem"><thead><tr style="background:#e0f0ff"><th style="padding:8px">תז</th><th style="padding:8px">שם</th><th style="padding:8px">כיתה</th></tr></thead><tbody>';excelData.slice(0,10).forEach(s=>{h+=`<tr><td style="padding:7px">${esc(s.id)}</td><td style="padding:7px">${esc(s.name)}</td><td style="padding:7px">${esc(s.cls)}</td></tr>`;});if(excelData.length>10)h+=`<tr><td colspan=3 style="padding:8px;text-align:center;color:#888">...ועוד ${excelData.length-10}</td></tr>`;h+='</tbody></table>';document.getElementById('excelTable').innerHTML=h;}
-async function importAllStudents(){
-  if(!excelData.length)return;
-  // בדיקת כפילויות
-  const existing = await sbGetAllStudents();
-  const existingIds = existing.map(s => s.id);
-  const dupes = excelData.filter(s => existingIds.includes(s.id));
-  if(dupes.length>0 && !confirm(`⚠️ ${dupes.length} תלמידים כבר קיימים ויידרסו. להמשיך?`)) return;
-  
-  try{
-    // ייבוא כל התלמידים
-    for(const s of excelData) {
-      await sbSetStudent({id: s.id, name: s.name, cls: s.cls});
-    }
-    alert(`✅ יובאו ${excelData.length} תלמידים!`);
-    document.getElementById('excelPreview').style.display='none';
-    excelData=[];
-    loadStudentsTable();
-  }catch(e){alert('שגיאה: '+e.message);}
+  inp.value='';
 }
 
 // ==================================================================
