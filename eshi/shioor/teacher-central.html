@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- eshi/shioor/teacher-central.html · v5.3.0 · 2026-07-27 · נוסף מועד הגשה למטלה: קביעה בשליחת מטלה ועריכה בלשונית המטלות, אפשרות "לסגור אוטומטית במועד", סימון הגשות שאחרו ומונה איחורים, וכפתור כיבוי/הפעלה למטלה. דורש שתי עמודות חדשות: due_at, due_block (MINOR) · שליחה חוזרת של מטלה קיימת שומרת על המועד שכבר נקבע במקום למחוק אותו, והשדות נטענים מראש מהמטלה הקיימת (PATCH) · לשונית "📥 מטלות": בחירת מטלה, מי הגיש ומי לא, ולחיצה לבדיקה ולמתן ציון (MINOR) · תיקון: searchStudent פנה ל-search במקום ל-search-input (PATCH) -->
+<!-- eshi/shioor/teacher-central.html · v5.7.0 · 2026-07-27 · נוסף מועד הגשה למטלה: קביעה בשליחת מטלה ועריכה בלשונית המטלות, אפשרות "לסגור אוטומטית במועד", סימון הגשות שאחרו ומונה איחורים, וכפתור כיבוי/הפעלה למטלה. דורש שתי עמודות חדשות: due_at, due_block (MINOR) · שליחה חוזרת של מטלה קיימת שומרת על המועד שכבר נקבע במקום למחוק אותו, והשדות נטענים מראש מהמטלה הקיימת (PATCH) · לשונית "📥 מטלות": בחירת מטלה, מי הגיש ומי לא, ולחיצה לבדיקה ולמתן ציון (MINOR) · תיקון: searchStudent פנה ל-search במקום ל-search-input (PATCH)  v5.4.0: לשונית "מבחנים" — יצירת מבחן לכיתה או לתלמידים נבחרים מתוך רשימת הכיתה, שאלות אמריקאיות/כן-לא/פתוחות עם ניקוד ותשובה צפויה, יצירה אוטומטית עם AI דרך lamed-ai-functions (action generate_test) — אותה פונקציה של המערכת הישנה, בלי שינוי בשרת. מצב לייב עם התחלה/סיום ומסך מעקב שמתרענן כל 5 שניות ומציג מי הגיש, ציון ומספר יציאות מהמסך. מבנה השאלה זהה למערכת הישנה (type/question/options/correct_answer/expected_answer/points) והתשובות במפתח q_<index>. דורש טבלאות lms_exams ו-lms_exam_attempts. v5.5.0: מסך הבית שונה מרשימת הגשות שטוחה לתצוגת כיתות — כרטיס צבעוני לכל כיתה עם אחוז השלמה, מספר מטלות, הגשות וממוצע. לחיצה פותחת מסך כיתה עם פירוט מטלה-מטלה: מי הגיש ובאיזה ציון, מי לא הגיש, ממוצע לכל מטלה, וטבלת תלמידים ממוינת כך שמי שפיגר מופיע ראשון. לחיצה על שם תלמיד שהגיש פותחת את הבדיקה המהירה. כל התצוגות הישנות נשארו בסרגל. v5.6.0: תיקון — כרטיסי הכיתות נבנו לפני ש-myAsg נטען ולכן הציגו "0 מטלות"; נוסף ציור חוזר בסיום loadAsg. בראש מסך הכיתה נוסף הקישור הקבוע לאזור האישי של הכיתה (talmid.html עם code+class), עם הסבר שכל מטלה חדשה מופיעה בו מיד ואין צורך לשלוח קישור בכל פעם, וכפתורי העתקה ופתיחה. v5.7.0: נוסף מיפוי כיסוי במסך הכיתה — אקורדיון לכל זירה ובתוכו כל המושגים שלה מתוך CATALOG, כשכל מושג נצבע לפי מצבו: אפור שלא נשלח, כחול שנשלח, כתום שחלק הגישו, ירוק שכולם הגישו, ומחוק אם המטלה כובתה. כותרת הזירה מציגה כמה מתוך כמה נשלחו ופס התקדמות, כך שהמורה רואה במבט אחד על אילו זירות ומושגים עבד עם הכיתה (MINOR) -->
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
@@ -242,6 +242,102 @@ table.mtx th.nm{background:#faf9ff;}
 .prow{cursor:pointer;}
 .prow:hover td{background:#faf8ff;}
 .pill-s{display:inline-block;font-size:11px;font-weight:900;border-radius:20px;padding:2px 8px;}
+/* ===== מסך הבית — כרטיסי כיתות ===== */
+.hc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(265px,1fr));gap:18px;padding:4px}
+.hc{position:relative;overflow:hidden;text-align:right;cursor:pointer;font-family:inherit;
+  border:none;border-radius:20px;padding:22px 22px 20px;color:#fff;
+  background:linear-gradient(140deg,var(--c1),var(--c2));
+  box-shadow:0 8px 22px rgba(15,23,42,.16);
+  transition:transform .28s cubic-bezier(.25,.8,.25,1),box-shadow .28s}
+.hc:hover{transform:translateY(-6px);box-shadow:0 18px 36px rgba(15,23,42,.26)}
+.hc::after{content:'';position:absolute;inset:auto -30px -55px auto;width:150px;height:150px;
+  border-radius:50%;background:rgba(255,255,255,.10)}
+.hc-top{display:flex;align-items:baseline;gap:9px;flex-wrap:wrap;margin-bottom:14px;position:relative;z-index:1}
+.hc-name{font-size:1.28rem;font-weight:800;letter-spacing:-.4px}
+.hc-n{font-size:.82rem;opacity:.85}
+.hc-bar{height:8px;border-radius:6px;background:rgba(255,255,255,.28);overflow:hidden;position:relative;z-index:1}
+.hc-bar i{display:block;height:100%;background:#fff;border-radius:6px;transition:width .6s ease}
+.hc-pct{font-size:.82rem;opacity:.9;margin:7px 0 13px;position:relative;z-index:1}
+.hc-stats{display:flex;gap:16px;position:relative;z-index:1}
+.hc-stats span{display:flex;flex-direction:column;font-size:.74rem;opacity:.88;line-height:1.35}
+.hc-stats b{font-size:1.32rem;font-weight:800;opacity:1}
+.hc-warn{margin-top:12px;font-size:.79rem;font-weight:700;background:rgba(0,0,0,.20);
+  border-radius:20px;padding:4px 12px;display:inline-block;position:relative;z-index:1}
+/* ===== מסך כיתה ===== */
+.hcls{padding:2px}
+.hcls-head{display:flex;align-items:center;gap:13px;flex-wrap:wrap;margin-bottom:18px}
+.hcls-head h2{margin:0;font-size:1.5rem}
+.hcls-kpi{display:flex;gap:19px;flex-wrap:wrap;margin-inline-start:auto}
+.hcls-kpi span{display:flex;flex-direction:column;font-size:.75rem;color:#64748b;line-height:1.3}
+.hcls-kpi b{font-size:1.3rem;color:#0f172a;font-weight:800}
+.hcls-kpi .warn b{color:#ef4444}
+.hasg{background:#fff;border:1px solid #e8ecf3;border-radius:16px;margin-bottom:11px;overflow:hidden}
+.hasg-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:15px 19px;cursor:pointer;
+  transition:background .2s}
+.hasg-head:hover{background:#f8fafc}
+.hasg-t{font-weight:700;font-size:1.02rem}
+.hasg-pill{border-radius:20px;padding:3px 13px;font-weight:800;font-size:.86rem}
+.hasg-avg{font-size:.83rem;color:#64748b}
+.hasg-bar{flex:1;min-width:80px;height:7px;border-radius:5px;background:#eef2f7;overflow:hidden}
+.hasg-bar i{display:block;height:100%;border-radius:5px;transition:width .5s ease}
+.hasg-chev{color:#94a3b8;transition:transform .3s ease;font-size:1.15rem}
+.hasg-body{max-height:0;overflow:hidden;transition:max-height .4s cubic-bezier(.4,0,.2,1)}
+.hasg-cols{display:grid;grid-template-columns:1fr 1fr;gap:22px;padding:4px 19px 17px}
+.hasg-cols h4{margin:0 0 9px;font-size:.92rem}
+.hrow{display:flex;justify-content:space-between;gap:9px;padding:7px 11px;border-radius:9px;
+  background:#f8fafc;margin-bottom:5px;font-size:.92rem;cursor:pointer;transition:background .18s}
+.hrow:hover{background:#eef2f7}
+.hrow.miss{cursor:default;background:#fef2f2;color:#991b1b}
+.hrow.miss:hover{background:#fef2f2}
+.hempty{color:#94a3b8;font-size:.87rem;margin:4px 0 0}
+.hstu{margin-top:22px}
+.hstu h3{font-size:1.1rem;margin:0 0 11px}
+@media(max-width:700px){
+  .hc-grid{grid-template-columns:1fr}
+  .hasg-cols{grid-template-columns:1fr;gap:14px}
+  .hcls-kpi{margin-inline-start:0;gap:14px}
+}
+
+.hlink{background:linear-gradient(135deg,#eef2ff,#f5f3ff);border:2px solid #c7d2fe;
+  border-radius:16px;padding:17px 20px;margin-bottom:18px}
+.hlink-t{font-weight:800;font-size:1.05rem;color:#4338ca;margin-bottom:4px}
+.hlink-s{margin:0 0 11px;font-size:.89rem;color:#475569;line-height:1.6}
+.hlink-s b{color:#4338ca}
+.hlink-row{display:flex;gap:8px;flex-wrap:wrap}
+.hlink-row input{flex:1;min-width:210px;font-family:ui-monospace,monospace;font-size:.82rem;
+  padding:10px 13px;border:1px solid #c7d2fe;border-radius:10px;background:#fff;color:#334155;direction:ltr;text-align:left}
+.hlink-b{border:none;border-radius:10px;padding:10px 17px;cursor:pointer;font-family:inherit;
+  font-weight:700;font-size:.88rem;background:#4f46e5;color:#fff;text-decoration:none;display:inline-flex;align-items:center}
+.hlink-b:hover{background:#4338ca}
+.hlink-b.ghost{background:#fff;color:#4338ca;border:1px solid #c7d2fe}
+.hlink-b.ghost:hover{background:#eef2ff}
+.hlink-msg{display:inline-block;margin-top:8px;font-size:.85rem;color:#059669;font-weight:700}
+
+/* ===== מיפוי כיסוי ===== */
+.zwrap{margin-top:24px}
+.zwrap-head{display:flex;align-items:center;gap:13px;flex-wrap:wrap;margin-bottom:12px}
+.zwrap-head h3{margin:0;font-size:1.1rem}
+.zlegend{display:flex;gap:6px;flex-wrap:wrap}
+.zlegend i{font-style:normal;font-size:.72rem;padding:2px 9px}
+.zsum{margin-inline-start:auto;font-size:.83rem;color:#64748b}
+.zcov{background:#fff;border:1px solid #e8ecf3;border-radius:14px;margin-bottom:9px;overflow:hidden}
+.zcov-head{display:flex;align-items:center;gap:11px;padding:12px 17px;cursor:pointer;transition:background .2s}
+.zcov-head:hover{background:#f8fafc}
+.zcov-dot{width:11px;height:11px;border-radius:50%;flex:0 0 auto}
+.zcov-t{font-weight:700;font-size:.98rem}
+.zcov-n{font-weight:800;font-size:.86rem}
+.zcov-bar{flex:1;min-width:60px;height:6px;border-radius:4px;background:#eef2f7;overflow:hidden}
+.zcov-bar i{display:block;height:100%;border-radius:4px;transition:width .5s ease}
+.zcov-chev{color:#94a3b8;transition:transform .3s ease}
+.zcov-body{max-height:0;overflow:hidden;transition:max-height .4s cubic-bezier(.4,0,.2,1)}
+.zcov-chips{display:flex;flex-wrap:wrap;gap:7px;padding:4px 17px 15px}
+.chip{display:inline-flex;align-items:center;gap:6px;border-radius:20px;padding:5px 13px;
+  font-size:.84rem;background:#f1f5f9;color:#94a3b8;border:1px solid #e2e8f0}
+.chip b{font-size:.76rem;opacity:.9}
+.chip.sent{background:#eef2ff;color:#4338ca;border-color:#c7d2fe;font-weight:600}
+.chip.part{background:#fef3c7;color:#92400e;border-color:#fde68a;font-weight:600}
+.chip.done{background:#dcfce7;color:#166534;border-color:#bbf7d0;font-weight:700}
+.chip.off{background:#f8fafc;color:#cbd5e1;border-color:#e2e8f0;text-decoration:line-through}
 </style>
 </head>
 <body>
@@ -306,13 +402,15 @@ table.mtx th.nm{background:#faf9ff;}
       <option value="na">⚪ ללא נתוני מעורבות</option>
     </select>
     <div class="view-toggle">
-      <button class="vbtn active" id="vbtn-grouped" onclick="setView('grouped')">לפי נושא</button>
+      <button class="vbtn active" id="vbtn-home" onclick="setView('home')">🏫 לפי כיתות</button>
+      <button class="vbtn" id="vbtn-grouped" onclick="setView('grouped')">לפי נושא</button>
       <button class="vbtn" id="vbtn-flat" onclick="setView('flat')">טבלה</button>
       <button class="vbtn" id="vbtn-insights" onclick="setView('insights')">📊 תובנות</button>
       <button class="vbtn" id="vbtn-board" onclick="setView('board')">📋 לוח כיתה</button>
         <button class="vbtn" id="vbtn-asg" onclick="setView('asg')">📥 מטלות</button>
       <button class="vbtn" id="vbtn-classes" onclick="setView('classes')">🏫 כיתות</button>
       <button class="vbtn" id="vbtn-send" onclick="setView('send')">📤 שליחת מטלה</button>
+      <button class="vbtn" id="vbtn-exams" onclick="setView('exams')">🧪 מבחנים</button>
     </div>
     <div class="cnt" id="cnt">0 הגשות</div>
     <button class="btn-csv" onclick="startQuickReview()">⚡ בדיקה מהירה</button>
@@ -384,7 +482,7 @@ function fromRow(r){
    כי השיעורים עדיין קוראים אותו משם. יוסר כשהשיעורים יעברו. */
 const FC={apiKey:"AIzaSyCCHvn_ulmiyM56DuslNzNC0Ge6a8i2vhY",authDomain:"tests-fd938.firebaseapp.com",databaseURL:"https://tests-fd938-default-rtdb.europe-west1.firebasedatabase.app",projectId:"tests-fd938"};
 let db=null; try{firebase.initializeApp(FC);db=firebase.database();}catch(e){}
-let teacherID='',teacherName='',allData=[],currentView='grouped';
+let teacherID='',teacherName='',allData=[],currentView='home';
 let qrList=[],qrIdx=0;
 
 /* ===== רמזור מעורבות ===== */
@@ -855,7 +953,9 @@ function loadAllData(){
       fillClassFilter();
       onClassChange();
       loadClasses(()=>{fillClassFilter();onClassChange();});
-      loadAsg();
+      /* מסך הבית נשען על myAsg — צריך ציור חוזר אחרי שהמטלות חוזרות,
+         אחרת כל הכיתות מציגות "0 מטלות" בטעינה הראשונה */
+      loadAsg(()=>{ if(currentView==='home') renderHome(); });
     })
     .catch(e=>{document.getElementById('content').innerHTML=
       '<div class="msg-box"><p>שגיאה בטעינת הנתונים</p><span>'+escH(e.message)+'</span></div>';});
@@ -909,6 +1009,8 @@ function applyFilter(){
   const f=getFiltered();
   document.getElementById('cnt').textContent=f.length+' הגשות';
   updateStats(f);
+  if(currentView==='home'){ renderHome(); return; }
+  if(currentView==='exams'){ EXAMS.length?renderExams():loadExams(renderExams); return; }
   if(currentView==='board')renderBoard();
   else if(currentView==='asg')renderAsg();
   else if(currentView==='classes')renderClasses();
@@ -920,7 +1022,8 @@ function applyFilter(){
 
 function setView(v){
   currentView=v;
-  ['grouped','flat','insights','board','asg','classes','send'].forEach(k=>{
+  if(v!=='home') homeClass='';
+  ['home','grouped','flat','insights','board','asg','classes','send','exams'].forEach(k=>{
     const b=document.getElementById('vbtn-'+k); if(b)b.classList.toggle('active',v===k);});
   applyFilter();
 }
@@ -1411,6 +1514,705 @@ function exportCSV(){
 function escH(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 
 document.getElementById('inp-pass').addEventListener('keyup',e=>{if(e.key==='Enter')doLogin();});
+
+/* =================== מבחנים =================== *
+ * שומר ב-lms_exams / lms_exam_attempts. מבנה השאלה זהה למערכת הישנה
+ * (type/question/options/correct_answer/expected_answer/points) כדי שפונקציית
+ * ה-AI הקיימת תמשיך לעבוד בלי שינוי, וכדי שמבחנים ישנים יהיו קריאים.
+ * התשובות נשמרות במפתח q_<index> — אותו חוזה בדיוק.                        */
+const EXAM_AI_URL = 'https://lamed-ai-functions.netlify.app/.netlify/functions/mavchan-ai';
+let EXAMS = [], EX_Q = [], EX_EDIT = null, EX_OPEN = null, EX_TIMER = null;
+
+const qid = () => 'q' + Math.random().toString(36).slice(2, 8);
+const examsOf = () => EXAMS.filter(e => String(e.teacher_id) === String(teacherID));
+
+function loadExams(cb){
+  if(!teacherID){ cb && cb(); return; }
+  sb('lms_exams?select=*&teacher_id=eq.' + encodeURIComponent(teacherID) + '&order=created_at.desc')
+    .then(rows => { EXAMS = rows || []; cb && cb(); })
+    .catch(e => { console.error(e); EXAMS = []; cb && cb(); });
+}
+
+/* ---------- מסך ראשי ---------- */
+function renderExams(){
+  const el = document.getElementById('content');
+  if(EX_OPEN){ renderExamBoard(); return; }
+  const list = examsOf();
+  el.innerHTML = `
+  <div class="cls-wrap">
+    <div class="cls-pane">
+      <div style="display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin-bottom:12px">
+        <h3 style="margin:0">🧪 מבחנים</h3>
+        <span class="cnt">${list.length}</span>
+        <button class="btn-csv" style="margin-inline-start:auto" onclick="examNew()">➕ מבחן חדש</button>
+        <button class="btn-csv" onclick="examNewAI()">🤖 יצירה עם AI</button>
+      </div>
+      <div id="examList">${list.length ? list.map(examCard).join('') :
+        '<div class="msg-box"><p>עדיין אין מבחנים. צרו אחד — ידנית או עם AI.</p></div>'}</div>
+    </div>
+    <div class="cls-pane" id="examForm" style="display:none"></div>
+  </div>`;
+}
+function examCard(e){
+  const n = (e.questions || []).filter(q => q.type !== 'label').length;
+  const who = (e.specific_students || []).length
+    ? (e.specific_students.length + ' תלמידים נבחרים') : 'כל הכיתה';
+  const live = e.is_live
+    ? (e.live_started_at && !e.live_ended_at
+        ? '<span class="pill" style="background:#fee2e2;color:#991b1b">🔴 לייב פעיל</span>'
+        : '<span class="pill" style="background:#fef3c7;color:#92400e">⏱ לייב</span>')
+    : '';
+  return `<div style="border:1px solid #e5e7eb;border-radius:12px;padding:12px 14px;margin-bottom:9px;
+    background:${e.active===false?'#fafafa':'#fff'}">
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <strong>${escH(e.title)}</strong>
+      ${live}
+      ${e.active===false?'<span class="pill" style="background:#eee;color:#666">כבוי</span>':''}
+      <span style="color:#888;font-size:.85rem">${escH(e.class_name)} · ${n} שאלות · ${who}</span>
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:9px">
+      <button class="btn-csv" onclick="examOpen('${e.id}')">📊 מעקב</button>
+      <button class="btn-csv" onclick="examEdit('${e.id}')">✏ עריכה</button>
+      <button class="btn-csv" onclick="examDup('${e.id}')">📋 שכפול</button>
+      ${e.is_live ? (e.live_started_at && !e.live_ended_at
+        ? `<button class="btn-csv" style="background:#fee2e2;color:#991b1b" onclick="examLive('${e.id}',0)">⏹ סיים לייב</button>`
+        : `<button class="btn-csv" style="background:#dcfce7;color:#166534" onclick="examLive('${e.id}',1)">▶ התחל לייב</button>`) : ''}
+      <button class="btn-csv" onclick="examToggle('${e.id}')">${e.active===false?'הפעל':'כבה'}</button>
+      <button class="btn-csv" style="background:#fee2e2;color:#991b1b" onclick="examDel('${e.id}')">מחק</button>
+    </div>
+  </div>`;
+}
+
+/* ---------- טופס ---------- */
+function examNew(){ EX_EDIT = null; EX_Q = []; showExamForm(); }
+function examEdit(id){
+  const e = EXAMS.find(x => String(x.id) === String(id)); if(!e) return;
+  EX_EDIT = e;
+  EX_Q = (e.questions || []).map(q => Object.assign({ _qid: qid() }, q));
+  showExamForm(e);
+}
+function examDup(id){
+  const e = EXAMS.find(x => String(x.id) === String(id)); if(!e) return;
+  EX_EDIT = null;
+  EX_Q = (e.questions || []).map(q => Object.assign({ _qid: qid() }, q));
+  showExamForm(Object.assign({}, e, { title: e.title + ' (עותק)' }));
+}
+function showExamForm(e){
+  e = e || {};
+  const box = document.getElementById('examForm');
+  const cls = classList();
+  box.style.display = 'block';
+  box.innerHTML = `
+    <h3 style="margin:0 0 11px">${EX_EDIT ? '✏ עריכת מבחן' : '➕ מבחן חדש'}</h3>
+    <label>כותרת</label>
+    <input id="exTitle" value="${escH(e.title || '')}">
+    <label>כיתה</label>
+    <select id="exClass" onchange="examRoster()">
+      ${cls.map(([k,c]) => `<option value="${escH(c.name)}"${c.name===e.class_name?' selected':''}
+        >${escH(c.name)}</option>`).join('')}
+    </select>
+    <label>הנחיות</label>
+    <textarea id="exDesc" rows="2">${escH(e.description || '')}</textarea>
+    <div style="display:flex;gap:9px;flex-wrap:wrap">
+      <div style="flex:1;min-width:120px"><label>זמן (דקות)</label>
+        <input type="number" id="exTime" value="${e.time_limit_minutes || 30}"></div>
+      <div style="flex:1;min-width:120px"><label>ניסיונות</label>
+        <input type="number" id="exTries" value="${e.max_attempts || 1}"></div>
+      <div style="flex:1;min-width:150px"><label>מועד אחרון</label>
+        <input type="datetime-local" id="exDue"
+          value="${e.due_at ? new Date(e.due_at).toISOString().slice(0,16) : ''}"></div>
+    </div>
+    <label style="display:flex;gap:7px;align-items:center;margin-top:9px">
+      <input type="checkbox" id="exAuto" ${e.auto_grade_open===false?'':'checked'}>
+      בדיקה אוטומטית גם לשאלות פתוחות</label>
+    <label style="display:flex;gap:7px;align-items:center">
+      <input type="checkbox" id="exBlock" ${e.due_block?'checked':''}>
+      לנעול אחרי המועד</label>
+    <label style="display:flex;gap:7px;align-items:center">
+      <input type="checkbox" id="exLive" onchange="examLiveBox()" ${e.is_live?'checked':''}>
+      מבחן לייב — כל הכיתה במקביל</label>
+    <div id="exLiveWrap" style="display:${e.is_live?'block':'none'}">
+      <label>משך הלייב (דקות)</label>
+      <input type="number" id="exLiveDur" value="${e.live_duration_minutes || e.time_limit_minutes || 30}">
+    </div>
+    <label style="display:flex;gap:7px;align-items:center;margin-top:9px">
+      <input type="checkbox" id="exSpec" onchange="examRoster()"
+        ${(e.specific_students||[]).length?'checked':''}>
+      רק לתלמידים נבחרים</label>
+    <div id="exRoster" style="display:none;max-height:170px;overflow:auto;border:1px solid #eee;
+      border-radius:10px;padding:8px;margin-bottom:9px"></div>
+
+    <div style="border-top:1px dashed #ddd;margin-top:12px;padding-top:11px">
+      <div style="display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
+        <strong>שאלות</strong><span class="cnt" id="exQCnt">0</span>
+        <button class="btn-csv" onclick="exAdd('choice')">+ אמריקאית</button>
+        <button class="btn-csv" onclick="exAdd('text')">+ פתוחה</button>
+        <button class="btn-csv" onclick="exAdd('yesno')">+ כן/לא</button>
+      </div>
+      <div id="exQList"></div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:13px">
+      <button class="btn-csv" style="background:#166534;color:#fff" onclick="examSave()">💾 שמירה</button>
+      <button class="btn-csv" onclick="examCancel()">ביטול</button>
+      <span id="exMsg" style="align-self:center;font-size:.88rem"></span>
+    </div>`;
+  const sp = document.getElementById('exSpec');
+  if((e.specific_students||[]).length) sp.checked = true;
+  examRoster(e.specific_students || []);
+  exRender();
+}
+function examLiveBox(){
+  document.getElementById('exLiveWrap').style.display =
+    document.getElementById('exLive').checked ? 'block' : 'none';
+}
+function examRoster(pre){
+  const on = document.getElementById('exSpec').checked;
+  const box = document.getElementById('exRoster');
+  box.style.display = on ? 'block' : 'none';
+  if(!on){ box.innerHTML = ''; return; }
+  const name = document.getElementById('exClass').value;
+  const ent = classList().find(([k,c]) => c.name === name);
+  const roster = ent ? (ent[1].students || []) : [];
+  const sel = Array.isArray(pre) ? pre : [];
+  box.innerHTML = roster.length ? roster.map(s => {
+    const n = typeof s === 'string' ? s : (s.name || '');
+    return `<label style="display:flex;gap:7px;align-items:center;padding:3px 2px">
+      <input type="checkbox" class="exStu" value="${escH(n)}"${sel.indexOf(n)>-1?' checked':''}>
+      ${escH(n)}</label>`;
+  }).join('') : '<span style="color:#999;font-size:.87rem">אין תלמידים ברשימת הכיתה</span>';
+}
+
+/* ---------- עורך השאלות ---------- */
+function exAdd(type){
+  EX_Q.push({ _qid: qid(), type, question: '',
+    options: type === 'choice' ? ['', '', '', ''] : undefined,
+    correct_answer: type === 'yesno' ? 'כן' : '',
+    expected_answer: type === 'text' ? '' : undefined,
+    points: type === 'text' ? 10 : 5 });
+  exRender();
+}
+function exDel(i){ EX_Q.splice(i, 1); exRender(); }
+function exMove(i, d){
+  const j = i + d; if(j < 0 || j >= EX_Q.length) return;
+  const t = EX_Q[i]; EX_Q[i] = EX_Q[j]; EX_Q[j] = t; exRender();
+}
+function exSet(i, k, v){ EX_Q[i][k] = v; }
+function exOpt(i, j, v){ EX_Q[i].options[j] = v; }
+function exAddOpt(i){ EX_Q[i].options.push(''); exRender(); }
+function exRender(){
+  const box = document.getElementById('exQList'); if(!box) return;
+  document.getElementById('exQCnt').textContent = EX_Q.length;
+  box.innerHTML = EX_Q.map((q, i) => {
+    const lbl = q.type === 'choice' ? 'אמריקאית' : q.type === 'yesno' ? 'כן/לא' : 'פתוחה';
+    let body = '';
+    if(q.type === 'choice'){
+      body = (q.options || []).map((o, j) =>
+        `<div style="display:flex;gap:6px;align-items:center;margin-bottom:4px">
+          <input type="radio" name="cor${i}" ${q.correct_answer===o&&o?'checked':''}
+            onclick="exSet(${i},'correct_answer',EX_Q[${i}].options[${j}])">
+          <input value="${escH(o)}" placeholder="אפשרות ${j+1}"
+            oninput="exOpt(${i},${j},this.value)"></div>`).join('') +
+        `<button class="btn-csv" onclick="exAddOpt(${i})">+ אפשרות</button>`;
+    } else if(q.type === 'yesno'){
+      body = `<select onchange="exSet(${i},'correct_answer',this.value)">
+        <option ${q.correct_answer==='כן'?'selected':''}>כן</option>
+        <option ${q.correct_answer==='לא'?'selected':''}>לא</option></select>`;
+    } else {
+      body = `<label style="font-size:.82rem">תשובה צפויה — ה-AI ישווה אליה</label>
+        <textarea rows="2" oninput="exSet(${i},'expected_answer',this.value)"
+          >${escH(q.expected_answer || '')}</textarea>`;
+    }
+    return `<div style="border:1px solid #e5e7eb;border-radius:10px;padding:10px;margin-bottom:8px">
+      <div style="display:flex;gap:7px;align-items:center;margin-bottom:6px">
+        <span class="pill">${i+1} · ${lbl}</span>
+        <input type="number" value="${q.points||1}" style="width:70px"
+          oninput="exSet(${i},'points',Number(this.value))" title="ניקוד">
+        <span style="margin-inline-start:auto">
+          <button class="btn-csv" onclick="exMove(${i},-1)">↑</button>
+          <button class="btn-csv" onclick="exMove(${i},1)">↓</button>
+          <button class="btn-csv" style="background:#fee2e2;color:#991b1b"
+            onclick="exDel(${i})">✕</button></span>
+      </div>
+      <textarea rows="2" placeholder="נוסח השאלה"
+        oninput="exSet(${i},'question',this.value)">${escH(q.question || '')}</textarea>
+      ${body}</div>`;
+  }).join('');
+}
+
+/* ---------- שמירה ---------- */
+function examCancel(){
+  EX_EDIT = null; EX_Q = [];
+  const b = document.getElementById('examForm'); if(b){ b.style.display = 'none'; b.innerHTML = ''; }
+}
+async function examSave(){
+  const msg = document.getElementById('exMsg');
+  const title = document.getElementById('exTitle').value.trim();
+  const cls = document.getElementById('exClass').value;
+  if(!title){ msg.style.color = '#991b1b'; msg.textContent = 'חסרה כותרת'; return; }
+  if(!cls){ msg.style.color = '#991b1b'; msg.textContent = 'בחרו כיתה'; return; }
+  const real = EX_Q.filter(q => (q.question || '').trim());
+  if(!real.length){ msg.style.color = '#991b1b'; msg.textContent = 'הוסיפו לפחות שאלה אחת'; return; }
+  const spec = document.getElementById('exSpec').checked
+    ? [...document.querySelectorAll('.exStu:checked')].map(x => x.value) : [];
+  const live = document.getElementById('exLive').checked;
+  const due = document.getElementById('exDue').value;
+  const body = {
+    teacher_id: teacherID, class_name: cls, title: title,
+    description: document.getElementById('exDesc').value.trim(),
+    questions: real.map(q => { const c = Object.assign({}, q); delete c._qid; return c; }),
+    time_limit_minutes: Number(document.getElementById('exTime').value) || null,
+    max_attempts: Number(document.getElementById('exTries').value) || 1,
+    auto_grade_open: document.getElementById('exAuto').checked,
+    due_block: document.getElementById('exBlock').checked,
+    due_at: due ? new Date(due).toISOString() : null,
+    specific_students: spec,
+    is_live: live,
+    live_duration_minutes: live ? (Number(document.getElementById('exLiveDur').value) || null) : null,
+    active: true
+  };
+  msg.style.color = '#666'; msg.textContent = 'שומר…';
+  try{
+    if(EX_EDIT) await sb('lms_exams?id=eq.' + EX_EDIT.id, 'PATCH', body);
+    else        await sb('lms_exams', 'POST', body);
+    examCancel();
+    loadExams(renderExams);
+  }catch(err){ msg.style.color = '#991b1b'; msg.textContent = 'שגיאה: ' + (err.message || err); }
+}
+async function examToggle(id){
+  const e = EXAMS.find(x => String(x.id) === String(id)); if(!e) return;
+  await sb('lms_exams?id=eq.' + id, 'PATCH', { active: e.active === false });
+  loadExams(renderExams);
+}
+async function examDel(id){
+  const e = EXAMS.find(x => String(x.id) === String(id)); if(!e) return;
+  if(!confirm('למחוק את "' + e.title + '"?\n\nהגשות התלמידים למבחן הזה יישארו במסד אך יתייתמו.')) return;
+  await sb('lms_exams?id=eq.' + id, 'DELETE');
+  loadExams(renderExams);
+}
+async function examLive(id, on){
+  const p = on ? { live_started_at: new Date().toISOString(), live_ended_at: null }
+               : { live_ended_at: new Date().toISOString() };
+  await sb('lms_exams?id=eq.' + id, 'PATCH', p);
+  loadExams(renderExams);
+}
+
+/* ---------- יצירה עם AI ---------- */
+function examNewAI(){
+  EX_EDIT = null; EX_Q = [];
+  const box = document.getElementById('examForm');
+  box.style.display = 'block';
+  box.innerHTML = `
+    <h3 style="margin:0 0 4px">🤖 יצירת מבחן עם AI</h3>
+    <p style="color:#888;font-size:.87rem;margin:0 0 11px">
+      תארו את הנושא או הדביקו קטע. ה-AI יחזיר שאלות שתוכלו לערוך לפני השמירה.</p>
+    <label>נושא או טקסט מקור</label>
+    <textarea id="aiSrc" rows="6" placeholder="לדוגמה: תקשורת המונים — מוען, נמען, מסר, ערוץ…"></textarea>
+    <div style="display:flex;gap:9px;flex-wrap:wrap">
+      <div style="flex:1;min-width:110px"><label>אמריקאיות</label>
+        <input type="number" id="aiCh" value="6"></div>
+      <div style="flex:1;min-width:110px"><label>פתוחות</label>
+        <input type="number" id="aiOp" value="2"></div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button class="btn-csv" style="background:#4c1d95;color:#fff" id="aiGo" onclick="examAIGo()">🤖 צור שאלות</button>
+      <button class="btn-csv" onclick="examCancel()">ביטול</button>
+    </div>
+    <div id="aiMsg" style="margin-top:11px;font-size:.9rem"></div>`;
+}
+async function examAIGo(){
+  const src = document.getElementById('aiSrc').value.trim();
+  const nc = Number(document.getElementById('aiCh').value) || 0;
+  const no = Number(document.getElementById('aiOp').value) || 0;
+  const msg = document.getElementById('aiMsg'), btn = document.getElementById('aiGo');
+  if(src.length < 20){ msg.style.color = '#991b1b'; msg.textContent = 'תארו את הנושא — לפחות 20 תווים'; return; }
+  if(nc + no === 0){ msg.style.color = '#991b1b'; msg.textContent = 'לפחות שאלה אחת'; return; }
+  btn.disabled = true;
+  msg.style.color = '#666'; msg.textContent = '🤖 יוצר שאלות… זה לוקח 10–30 שניות';
+  try{
+    const r = await fetch(EXAM_AI_URL, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'generate_test', topic: src, num_choice: nc, num_open: no })
+    });
+    const d = await r.json();
+    if(d.error) throw new Error(d.error);
+    if(!d.questions || !d.questions.length) throw new Error('לא הוחזרו שאלות. נסו לפרט יותר.');
+    EX_Q = d.questions.map(q => Object.assign({ _qid: qid() }, q,
+      { points: q.points || (q.type === 'text' ? 10 : 5) }));
+    showExamForm({ title: 'מבחן — ' + src.slice(0, 40),
+      description: 'נוצר עם AI מתוך: ' + src.slice(0, 120) });
+    const m2 = document.getElementById('exMsg');
+    if(m2){ m2.style.color = '#166534'; m2.textContent = '✅ נוצרו ' + EX_Q.length + ' שאלות — ערכו ושמרו'; }
+  }catch(err){
+    msg.style.color = '#991b1b'; msg.textContent = '❌ ' + (err.message || err);
+    btn.disabled = false;
+  }
+}
+
+/* ---------- מעקב ולייב ---------- */
+function examOpen(id){ EX_OPEN = id; renderExams(); }
+function examBack(){
+  EX_OPEN = null;
+  if(EX_TIMER){ clearInterval(EX_TIMER); EX_TIMER = null; }
+  renderExams();
+}
+async function renderExamBoard(){
+  const e = EXAMS.find(x => String(x.id) === String(EX_OPEN));
+  if(!e){ examBack(); return; }
+  const el = document.getElementById('content');
+  el.innerHTML = `<div class="cls-wrap"><div class="cls-pane">
+    <div style="display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin-bottom:11px">
+      <button class="btn-csv" onclick="examBack()">← חזרה</button>
+      <h3 style="margin:0">${escH(e.title)}</h3>
+      <span style="color:#888;font-size:.87rem">${escH(e.class_name)}</span>
+      ${e.is_live && e.live_started_at && !e.live_ended_at
+        ? '<span class="pill" style="background:#fee2e2;color:#991b1b">🔴 לייב פעיל — מתרענן כל 5 שניות</span>' : ''}
+    </div>
+    <div id="exBoardBody"><p style="color:#888">טוען…</p></div></div></div>`;
+  await examBoardLoad();
+  if(EX_TIMER) clearInterval(EX_TIMER);
+  if(e.is_live && e.live_started_at && !e.live_ended_at)
+    EX_TIMER = setInterval(examBoardLoad, 5000);
+}
+async function examBoardLoad(){
+  const e = EXAMS.find(x => String(x.id) === String(EX_OPEN)); if(!e) return;
+  const box = document.getElementById('exBoardBody'); if(!box) return;
+  let rows = [];
+  try{ rows = await sb('lms_exam_attempts?select=*&exam_id=eq.' + e.id + '&order=started_at.desc'); }
+  catch(err){ box.innerHTML = '<p style="color:#991b1b">שגיאת טעינה</p>'; return; }
+  const ent = classList().find(([k, c]) => c.name === e.class_name);
+  let roster = ent ? (ent[1].students || []).map(s => typeof s === 'string' ? s : (s.name || '')) : [];
+  if((e.specific_students || []).length) roster = e.specific_students.slice();
+  const by = {};
+  (rows || []).forEach(a => { if(!by[a.student_name] ||
+    new Date(a.started_at) > new Date(by[a.student_name].started_at)) by[a.student_name] = a; });
+  const done = Object.values(by).filter(a => a.submitted_at);
+  const avg = done.length ? Math.round(done.reduce((s, a) =>
+    s + (a.max_score ? (Number(a.score || 0) / Number(a.max_score)) * 100 : 0), 0) / done.length) : 0;
+  box.innerHTML = `
+    <div style="display:flex;gap:9px;flex-wrap:wrap;margin-bottom:11px">
+      <span class="pill">${roster.length} תלמידים</span>
+      <span class="pill" style="background:#dcfce7;color:#166534">${done.length} הגישו</span>
+      <span class="pill" style="background:#fef3c7;color:#92400e">${
+        Object.keys(by).length - done.length} באמצע</span>
+      <span class="pill">ממוצע ${avg}</span>
+    </div>
+    <div class="table-wrap"><table><thead><tr>
+      <th>תלמיד</th><th>סטטוס</th><th>ציון</th><th>יציאות מהמסך</th><th>הוגש</th>
+    </tr></thead><tbody>
+    ${roster.map(n => {
+      const a = by[n];
+      const st = !a ? '<span style="color:#999">טרם התחיל</span>'
+        : a.submitted_at ? '<span style="color:#166534;font-weight:700">✅ הגיש</span>'
+        : '<span style="color:#92400e;font-weight:700">✍ באמצע</span>';
+      const sc = a && a.submitted_at && a.max_score
+        ? Math.round(Number(a.score || 0) / Number(a.max_score) * 100) : '—';
+      return `<tr><td>${escH(n)}</td><td>${st}</td><td><b>${sc}</b></td>
+        <td>${a ? (a.tab_switches || 0) : '—'}</td>
+        <td>${a && a.submitted_at ? new Date(a.submitted_at).toLocaleString('he-IL') : '—'}</td></tr>`;
+    }).join('')}
+    </tbody></table></div>`;
+}
+
+
+/* ================= מסך הבית — כיתות =================
+   ברירת המחדל הישנה הייתה רשימת הגשות שטוחה לפי נושא, שדרשה מהמורה
+   לפענח מה קורה. כאן הכניסה היא לפי כיתה: כרטיס לכל כיתה עם התמונה
+   המלאה, ולחיצה פותחת פירוט מטלה־מטלה — מי הגיש, מי לא, וממוצעים. */
+let homeClass = '';
+const HOME_COLORS = [
+  ['#6366f1','#818cf8'], ['#0ea5e9','#38bdf8'], ['#10b981','#34d399'],
+  ['#f59e0b','#fbbf24'], ['#ec4899','#f472b6'], ['#8b5cf6','#a78bfa'],
+  ['#ef4444','#f87171'], ['#14b8a6','#2dd4bf']
+];
+
+/* ציון מספרי מתוך הגשה — ידני קודם, אחרת אוטומטי באחוזים */
+function subGrade(d){
+  if(d && d.feedback && d.feedback.grade != null && d.feedback.grade !== '')
+    return Number(d.feedback.grade);
+  if(d && d.score && d.score.autoMax)
+    return Math.round(Number(d.score.auto||0) / Number(d.score.autoMax) * 100);
+  return null;
+}
+/* סיכום כיתה אחת: מטלות, הגשות, ממוצע ואחוז השלמה */
+function classSummary(name){
+  const roster = rosterByName(name) || [];
+  const asg = myAsg.filter(a => normName(a.class_name) === normName(name) && a.active !== false);
+  let slots = 0, done = 0; const grades = [];
+  asg.forEach(a => {
+    const st = asgStats(a);
+    slots += st.roster.length;
+    done  += st.done.length;
+    st.roster.forEach(s => {
+      const d = st.idx[normName(s)];
+      const g = subGrade(d);
+      if(g != null) grades.push(g);
+    });
+  });
+  const subs = allData.filter(d => normName(d.student && d.student.class) === normName(name));
+  return {
+    name: name, roster: roster, asg: asg, subs: subs.length,
+    pct: slots ? Math.round(done / slots * 100) : 0,
+    done: done, slots: slots,
+    avg: grades.length ? Math.round(grades.reduce((a,b)=>a+b,0) / grades.length) : null,
+    missing: slots - done
+  };
+}
+
+/* ---------- מסך הבית ---------- */
+function renderHome(){
+  const el = document.getElementById('content');
+  if(homeClass){ renderHomeClass(); return; }
+  const list = classList();
+  if(!list.length){
+    el.innerHTML = `<div class="msg-box"><p>עדיין אין כיתות</p>
+      <span>צרו כיתה בלשונית 🏫 כיתות, הדביקו את שמות התלמידים, ומכאן תראו את כל התמונה.</span></div>`;
+    return;
+  }
+  const cards = list.map(([k,v], i) => {
+    const s = classSummary(v.name);
+    const c = HOME_COLORS[i % HOME_COLORS.length];
+    const late = s.missing;
+    return `<button class="hc" onclick="openHomeClass('${escH(v.name)}')"
+      style="--c1:${c[0]};--c2:${c[1]}">
+      <div class="hc-top">
+        <span class="hc-name">${escH(v.name || 'ללא שם')}</span>
+        <span class="hc-n">${s.roster.length} תלמידים</span>
+      </div>
+      <div class="hc-bar"><i style="width:${s.pct}%"></i></div>
+      <div class="hc-pct">${s.pct}% מהמטלות הוגשו</div>
+      <div class="hc-stats">
+        <span><b>${s.asg.length}</b>מטלות</span>
+        <span><b>${s.subs}</b>הגשות</span>
+        <span><b>${s.avg != null ? s.avg : '—'}</b>ממוצע</span>
+      </div>
+      ${late > 0 ? `<div class="hc-warn">⚠ ${late} הגשות חסרות</div>` : ''}
+    </button>`;
+  }).join('');
+  el.innerHTML = `<div class="hc-grid">${cards}</div>`;
+}
+/* קישור קבוע לאזור האישי של הכיתה — code+class, בדיוק כמו כל קישור מטלה,
+   אלא שהוא מוביל לרשימה עצמה ולכן אינו מתיישן */
+function classPortal(name){
+  return 'https://hakolbakaf.co.il/zirot/tirgool/talmid.html?code=' +
+         encodeURIComponent(teacherID) + '&class=' + encodeURIComponent(name);
+}
+function copyPortalLink(){
+  const i = document.getElementById('hlinkIn'), m = document.getElementById('hlinkMsg');
+  if(!i) return;
+  i.select(); i.setSelectionRange(0, 99999);
+  const done = () => { if(m){ m.textContent = '✅ הקישור הועתק'; setTimeout(()=>m.textContent='', 2500); } };
+  if(navigator.clipboard) navigator.clipboard.writeText(i.value).then(done).catch(()=>{document.execCommand('copy');done();});
+  else { document.execCommand('copy'); done(); }
+}
+function openHomeClass(n){ homeClass = n; renderHome(); }
+function homeBack(){ homeClass = ''; renderHome(); }
+
+/* ---------- מסך כיתה ---------- */
+function renderHomeClass(){
+  const el = document.getElementById('content');
+  const s = classSummary(homeClass);
+  const asg = s.asg.slice().sort((x,y) =>
+    (Date.parse(y.created_at||0)||0) - (Date.parse(x.created_at||0)||0));
+
+  /* טבלת תלמידים: כמה הגיש מתוך כמה, וממוצע אישי */
+  const perStudent = s.roster.map(name => {
+    let d = 0; const g = [];
+    asg.forEach(a => {
+      const sub = asgStats(a).idx[normName(name)];
+      if(sub){ d++; const v = subGrade(sub); if(v != null) g.push(v); }
+    });
+    return { name: name, done: d, avg: g.length ? Math.round(g.reduce((x,y)=>x+y,0)/g.length) : null };
+  }).sort((a,b) => a.done - b.done || String(a.name).localeCompare(String(b.name),'he'));
+
+  el.innerHTML = `
+  <div class="hcls">
+    <div class="hcls-head">
+      <button class="btn-csv" onclick="homeBack()">← כל הכיתות</button>
+      <h2>🏫 ${escH(homeClass)}</h2>
+      <div class="hcls-kpi">
+        <span><b>${s.roster.length}</b>תלמידים</span>
+        <span><b>${asg.length}</b>מטלות</span>
+        <span><b>${s.pct}%</b>הושלמו</span>
+        <span><b>${s.avg != null ? s.avg : '—'}</b>ממוצע</span>
+        ${s.missing ? `<span class="warn"><b>${s.missing}</b>חסרות</span>` : ''}
+      </div>
+    </div>
+
+    <div class="hlink">
+      <div class="hlink-t">🔗 הקישור הקבוע של הכיתה</div>
+      <p class="hlink-s">שלחו אותו פעם אחת בתחילת השנה — או תלו אותו בכיתה.
+        <b>כל מטלה שתשלחו תופיע בו מיד</b>, בלי לשלוח קישור חדש בכל פעם.</p>
+      <div class="hlink-row">
+        <input id="hlinkIn" readonly value="${escH(classPortal(homeClass))}">
+        <button class="hlink-b" onclick="copyPortalLink()">📋 העתקה</button>
+        <a class="hlink-b ghost" href="${escH(classPortal(homeClass))}" target="_blank">👁 פתיחה</a>
+      </div>
+      <span id="hlinkMsg" class="hlink-msg"></span>
+    </div>
+
+    ${asg.length ? asg.map((a, i) => {
+      const st = asgStats(a);
+      const tot = st.roster.length;
+      const n = st.done.length;
+      const pc = tot ? Math.round(n / tot * 100) : 0;
+      const gs = st.roster.map(x => subGrade(st.idx[normName(x)])).filter(v => v != null);
+      const avg = gs.length ? Math.round(gs.reduce((x,y)=>x+y,0)/gs.length) : null;
+      const col = pc === 100 ? '#10b981' : pc >= 50 ? '#f59e0b' : '#ef4444';
+      return `<div class="hasg">
+        <div class="hasg-head" onclick="toggleAsg(${i})">
+          <span class="hasg-t">${escH(a.title || a.topic || 'מטלה')}</span>
+          <span class="hasg-pill" style="background:${col}1f;color:${col}">${n}/${tot}</span>
+          ${avg != null ? `<span class="hasg-avg">ממוצע ${avg}</span>` : ''}
+          <span class="hasg-bar"><i style="width:${pc}%;background:${col}"></i></span>
+          <span class="hasg-chev" id="chev-${i}">⌄</span>
+        </div>
+        <div class="hasg-body" id="asgb-${i}">
+          <div class="hasg-cols">
+            <div>
+              <h4 style="color:#10b981">✅ הגישו · ${n}</h4>
+              ${n ? st.done.map(nm => {
+                const d = st.idx[normName(nm)];
+                const g = subGrade(d);
+                return `<div class="hrow" onclick="asgReview('${escH(asgKeyOf(a))}','${escH(normName(nm))}')">
+                  <span>${escH(nm)}</span>
+                  <b style="color:${g != null ? '#10b981' : '#94a3b8'}">${g != null ? g : 'ללא ציון'}</b>
+                </div>`;
+              }).join('') : '<p class="hempty">אף אחד עדיין</p>'}
+            </div>
+            <div>
+              <h4 style="color:#ef4444">✕ לא הגישו · ${st.missing.length}</h4>
+              ${st.missing.length ? st.missing.map(nm =>
+                `<div class="hrow miss"><span>${escH(nm)}</span></div>`).join('')
+                : '<p class="hempty">כולם הגישו 🎉</p>'}
+            </div>
+          </div>
+          ${st.extra.length ? `<p class="hempty">⚠ ${st.extra.length} הגשות משמות שאינם ברשימת הכיתה</p>` : ''}
+        </div>
+      </div>`;
+    }).join('') : '<div class="msg-box"><p>לא הוקצו מטלות לכיתה הזו</p><span>שלחו מטלה מלשונית 📤 שליחת מטלה.</span></div>'}
+
+    ${renderCoverage(homeClass)}
+
+    <div class="hstu">
+      <h3>👥 לפי תלמיד</h3>
+      <div class="table-wrap"><table><thead><tr>
+        <th>תלמיד</th><th>הוגשו</th><th>התקדמות</th><th>ממוצע</th>
+      </tr></thead><tbody>
+      ${perStudent.map(p => {
+        const pc = asg.length ? Math.round(p.done / asg.length * 100) : 0;
+        const col = pc === 100 ? '#10b981' : pc >= 50 ? '#f59e0b' : '#ef4444';
+        return `<tr><td>${escH(p.name)}</td>
+          <td>${p.done}/${asg.length}</td>
+          <td><span class="hasg-bar" style="width:120px;display:inline-block">
+            <i style="width:${pc}%;background:${col}"></i></span></td>
+          <td><b>${p.avg != null ? p.avg : '—'}</b></td></tr>`;
+      }).join('')}
+      </tbody></table></div>
+    </div>
+  </div>`;
+}
+function toggleAsg(i){
+  const b = document.getElementById('asgb-' + i), c = document.getElementById('chev-' + i);
+  if(!b) return;
+  const open = b.style.maxHeight && b.style.maxHeight !== '0px';
+  b.style.maxHeight = open ? '0px' : (b.scrollHeight + 30) + 'px';
+  if(c) c.style.transform = open ? '' : 'rotate(180deg)';
+}
+
+
+/* ================= מיפוי כיסוי — זירות ומושגים =================
+   הקטלוג מחזיק לכל קובץ את רשימת המושגים שלו. כאן מצליבים אותו מול
+   המטלות שנשלחו לכיתה (lms_assignments) ומול ההגשות בפועל, כדי שהמורה
+   יראה בבירור על מה עבד, מה נשלח ועדיין לא הוגש, ומה טרם נגע בו. */
+const ZONE_LABEL = {
+  masa:'מסע מושג · חוצה זירות', ziraal:'זירת העל',
+  zira1:'זירה 1 · להבין ולפרש את המציאות', zira2:'זירה 2 · גלובליזציה',
+  zira3:'זירה 3 · חדשות וצילום עיתונאי', zira4:'זירה 4 · הומור וסאטירה',
+  zira5:'זירה 5 · תקשורת דיגיטלית', zira6:'זירה 6 · ריאליטי',
+  zira7:'זירה 7 · הגדרות ומושגי יסוד', zira8:'זירה 8 · ספורט',
+  zira9:'זירה 9 · פרסום ושיווק'
+};
+const ZONE_ORDER = ['zira1','zira2','zira3','zira4','zira5','zira6','zira7','zira8','zira9','ziraal','masa'];
+const zoneOf = f => {
+  const m = String(f||'').match(/^(masa|ziraal|zira\d+)/);
+  return m ? m[1] : 'other';
+};
+
+/* מה נשלח לכיתה ומה הוגש בפועל */
+function coverageOf(className){
+  const sent = {};
+  myAsg.filter(a => normName(a.class_name) === normName(className))
+       .forEach(a => {
+    const key = (a.page || '') + '|' + (a.concept || '');
+    const st = asgStats(a);
+    sent[key] = { asg:a, done:st.done.length, total:st.roster.length, off:a.active===false };
+  });
+  return sent;
+}
+function renderCoverage(className){
+  const sent = coverageOf(className);
+  const byZone = {};
+  CATALOG.forEach(c => {
+    const z = zoneOf(c.f);
+    if(!byZone[z]) byZone[z] = { lessons:[], concepts:[] };
+    if(c.kind === 'concept' && c.c) c.c.forEach(k =>
+      byZone[z].concepts.push({ page:c.f, k:k.k, n:k.n }));
+    else byZone[z].lessons.push({ page:c.f, t:c.t });
+  });
+  const zones = ZONE_ORDER.filter(z => byZone[z]);
+  const html = zones.map((z, i) => {
+    const g = byZone[z];
+    const items = g.lessons.map(l => ({ label:'📘 ' + l.t, key:l.page + '|' }))
+      .concat(g.concepts.map(c => ({ label:c.n, key:c.page + '|' + c.k })));
+    const used = items.filter(x => sent[x.key]).length;
+    const pc = items.length ? Math.round(used / items.length * 100) : 0;
+    const col = used === 0 ? '#cbd5e1' : pc === 100 ? '#10b981' : '#6366f1';
+    return `<div class="zcov">
+      <div class="zcov-head" onclick="toggleZone(${i})">
+        <span class="zcov-dot" style="background:${col}"></span>
+        <span class="zcov-t">${escH(ZONE_LABEL[z] || z)}</span>
+        <span class="zcov-n" style="color:${col}">${used}/${items.length}</span>
+        <span class="zcov-bar"><i style="width:${pc}%;background:${col}"></i></span>
+        <span class="zcov-chev" id="zchev-${i}">⌄</span>
+      </div>
+      <div class="zcov-body" id="zbody-${i}">
+        <div class="zcov-chips">
+          ${items.map(x => {
+            const s = sent[x.key];
+            if(!s) return `<span class="chip">${escH(x.label)}</span>`;
+            const full = s.total && s.done === s.total;
+            const cls = s.off ? 'chip off' : full ? 'chip done' : s.done ? 'chip part' : 'chip sent';
+            const tip = s.off ? 'כבויה' : s.done + ' מתוך ' + s.total + ' הגישו';
+            return `<span class="${cls}" title="${escH(tip)}">${escH(x.label)}
+              <b>${s.done}/${s.total}</b></span>`;
+          }).join('')}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+  const totItems = Object.keys(sent).length;
+  return `<div class="zwrap">
+    <div class="zwrap-head">
+      <h3>🗺️ מיפוי כיסוי — זירות ומושגים</h3>
+      <span class="zlegend">
+        <i class="chip" style="pointer-events:none">לא נשלח</i>
+        <i class="chip sent" style="pointer-events:none">נשלח</i>
+        <i class="chip part" style="pointer-events:none">בהגשה</i>
+        <i class="chip done" style="pointer-events:none">כולם הגישו</i>
+      </span>
+      <span class="zsum">${totItems} פריטים נשלחו לכיתה</span>
+    </div>
+    ${html}
+  </div>`;
+}
+function toggleZone(i){
+  const b = document.getElementById('zbody-' + i), c = document.getElementById('zchev-' + i);
+  if(!b) return;
+  const open = b.style.maxHeight && b.style.maxHeight !== '0px';
+  b.style.maxHeight = open ? '0px' : (b.scrollHeight + 24) + 'px';
+  if(c) c.style.transform = open ? '' : 'rotate(180deg)';
+}
+
 </script>
 </body>
 </html>
