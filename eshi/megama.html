@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- megama.html · v1.3.0 · 2026-08-03 · נוסף כרטיס "מערכת מטלות · כניסת מורה" עם שער כניסה.
+<!-- megama.html · v1.5.0 · 2026-08-03 · נוסף כרטיס "מערכת מטלות · כניסת מורה" עם שער כניסה.
      האימות מול lms_teachers בפרויקט matalot — אותה טבלה ואותו נרמול טלפון שבהם משתמש
      teacher-central.html, כדי שלא ייווצר מקור אמת שני. מורה מאושר (status=approved) מועבר
      לקטלוג מערכי השיעור. שימו לב: זהו שער נוחות ולא אבטחה — כתובת היעד גלויה בקוד המקור.
@@ -9,7 +9,14 @@
      לקישור שהמורה מייצר ומשתף, רק בלי להעתיק אותו.
      v1.3.0: יעד התלמיד תוקן ל-talmid.html (האזור האישי) במקום קטלוג הזירות — שם התלמיד
      רואה את המטלות שהוקצו לכיתה, מה הגיש, ציון ומשוב. talmid.html מקבל code+class
-     ולכן אותו בורר כיתה משרת אותו ללא שינוי (PATCH) -->
+     ולכן אותו בורר כיתה משרת אותו ללא שינוי.
+     v1.4.0: בורר התלמידים הציג את כל 93 המורים במסד, כולל בתי ספר אחרים בארץ. עמודת school
+     ריקה אצל 92 מהם ולכן אי אפשר לסנן לפיה — הוגדרה רשימת OUR_TEACHERS מפורשת, והסינון מבוצע
+     בשאילתה עצמה (teacher_id=in.) כך שנתוני בתי ספר אחרים אינם מגיעים לדפדפן. כיתות הדגמה
+     ובדיקה מוסתרות מהתלמידים.
+     v1.5.0: הוסרו שני כרטיסים — "מערכת מטלות לתלמיד" (matalot-supabase, המערכת הישנה שהוחלפה
+     ב-talmid.html) ו"מערכי שיעור" (קישור יחסי ל-kishoorim/ שאינו קיים בנתיב הזה). נותרו שמונה
+     כרטיסים (PATCH) -->
 <html lang="he" dir="rtl">
 <head>
     <meta charset="UTF-8">
@@ -236,16 +243,6 @@
             <h2 class="card-title">תיק עבודת גמר<br>פרוייקט למ"ד</h2>
         </a>
 
-        <a href="https://lamedproject.netlify.app/eshi/matalot/matalot-supabase.html" class="menu-card card-3">
-            <i class="fa-solid fa-clipboard-list card-icon"></i>
-            <h2 class="card-title">מערכת מטלות<br>לתלמיד</h2>
-        </a>
-
-        <a href="kishoorim/matalot/shioor/index.html" class="menu-card card-4">
-            <i class="fa-solid fa-person-chalkboard card-icon"></i>
-            <h2 class="card-title">מערכי שיעור</h2>
-        </a>
-
         <a href="https://hakolbakaf.co.il/agron/index.html" class="menu-card card-5">
             <i class="fa-solid fa-book-open card-icon"></i>
             <h2 class="card-title">אגרון מושגים</h2>
@@ -380,6 +377,18 @@ async function doLogin(){
     btn.disabled = false;
   }
 }
+/* ===== המורים של בית הספר =====
+   עמודת school ב-lms_teachers ריקה אצל 92 מתוך 93 המורים, ולכן אי אפשר
+   לסנן לפיה. עד שתתמלא — הרשימה מפורשת. כשמורה מצטרף למגמה, מוסיפים
+   כאן שורה אחת עם המזהה שלו מ-lms_teachers. */
+const OUR_TEACHERS = [
+  '-OmvKR-JvG0o6e4RuD2k',   // רני בן זאב
+  '-Oo4Ft_RKqXnW2E6AEZZ',   // ליאור דואק
+  '-OoJeP-wq_Aoo__90WO3'    // אוריין מלכא
+];
+/* כיתות שלא יוצגו לתלמידים — הדגמות והרצות ניסיון */
+const HIDE_CLASS = /הדגמ|דמו|בדיקה|טסט|test/i;
+
 /* ===== כניסת תלמידים =====
    התלמיד בוחר מורה וכיתה, ומועבר לקטלוג עם אותם code ו-class שהמורה מייצר
    בקישור שהוא משתף. כלומר התוצאה זהה בדיוק לקישור שקיבל מהמורה — רק בלי
@@ -394,12 +403,17 @@ async function openStudent(e){
   try{
     const hdr = { apikey:SKEY, Authorization:'Bearer '+SKEY };
     /* select מפורש ולא * — אין סיבה שדף ציבורי ימשוך סיסמאות מורים */
+    /* השאילתה מוגבלת מראש למורי בית הספר — כך שרשימת הכיתות של
+       בתי ספר אחרים אינה מגיעה לדפדפן כלל, ולא רק מוסתרת בו */
+    const inList = '(' + OUR_TEACHERS.map(encodeURIComponent).join(',') + ')';
     const [rc, rt] = await Promise.all([
-      fetch(SUP + '/rest/v1/lms_classes?select=teacher_id,name&order=name.asc', { headers:hdr }),
-      fetch(SUP + '/rest/v1/lms_teachers?select=id,name&status=eq.approved', { headers:hdr })
+      fetch(SUP + '/rest/v1/lms_classes?select=teacher_id,name&teacher_id=in.' + inList +
+            '&order=name.asc', { headers:hdr }),
+      fetch(SUP + '/rest/v1/lms_teachers?select=id,name&status=eq.approved&id=in.' + inList,
+            { headers:hdr })
     ]);
     if(!rc.ok || !rt.ok) throw new Error('load');
-    CLASSES = await rc.json();
+    CLASSES = (await rc.json()).filter(c => !HIDE_CLASS.test(c.name || ''));
     (await rt.json()).forEach(t => { TEACHERS[String(t.id)] = t.name || 'מורה'; });
     const withClasses = [...new Set(CLASSES.map(c => String(c.teacher_id)))]
       .filter(id => TEACHERS[id])
