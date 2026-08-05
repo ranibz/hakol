@@ -1,9 +1,12 @@
 <!DOCTYPE html>
-<!-- kolnoa/hafakot/prod-lesson.html · v1.0.0 · 2026-08-04 · מציג שיעורי טכנולוגיות הפקה.
+<!-- kolnoa/hafakot/prod-lesson.html · v1.1.0 · 2026-08-04 · מציג שיעורי טכנולוגיות הפקה.
      קובץ אחד לכל 48 המושגים — התוכן נשלף מ-prod_lessons לפי ?t=topic&c=concept, בניגוד
      לזירות שבהן כל שיעור הוא קובץ נפרד. ארבעה שלבים ברצף: צפייה, תיאוריה, תרגול ומטלה,
      כשהמטלה נפתחת רק אחרי שהתרגול נענה — אותו עיקרון של הזירות. ההגשה נשמרת
-     ל-prod_answers ומזוהה לפי שם התלמיד וכיתתו מהכתובת (MAJOR) -->
+     ל-prod_answers ומזוהה לפי שם התלמיד וכיתתו מהכתובת.
+     v1.1.0: נוסף קדם-שיעור. מושג יכול להצביע על מושג אחר שמניח אותו (מהירות תריס מניחה
+     קצב פריימים), ואז מוצגת בראש השיעור שורת המלצה עם קישור. המלצה ולא נעילה, כי בהפקה
+     אמיתית לפעמים מלמדים בסדר אחר. קדם-שיעור שטרם נכתב מסומן ככזה ואינו מקושר (MINOR) -->
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
@@ -74,6 +77,12 @@ textarea{min-height:90px;resize:vertical;line-height:1.7}
 .linkrow input{flex:1}
 .done-box{background:#f0fdf4;border:2px solid #86efac;border-radius:14px;padding:18px;text-align:center}
 @media(max-width:600px){.hero h1{font-size:1.5rem}.wrap{padding:14px}.card{padding:17px 16px}}
+.pre{background:#fffbeb;border:2px solid #fcd34d;border-radius:14px;padding:13px 17px;
+  margin-bottom:16px;display:flex;align-items:center;gap:11px;flex-wrap:wrap;font-size:.94rem}
+.pre .ic{font-size:1.3rem}
+.pre b{color:#92400e}
+.pre .btn{margin-inline-start:auto;background:#f59e0b}
+.pre .btn:hover{background:#d97706}
 </style>
 </head>
 <body>
@@ -115,6 +124,7 @@ let L=null, ME='', ANS=null, PICKED={}, CHECKED=false, IMGS=[], LBi=0;
     if(!r.length){ fail('השיעור לא נמצא.'); return; }
     L=r[0];
     IMGS=(L.media||[]).filter(m=>m.type==='image');
+    if(L.prereq) await loadPrereq();
     ME=localStorage.getItem('prodStudent:'+CLS)||'';
     if(ME&&CLS) await loadAnswer();
     if(!ME&&CLS){ await pickName(); return; }
@@ -124,6 +134,33 @@ let L=null, ME='', ANS=null, PICKED={}, CHECKED=false, IMGS=[], LBi=0;
 function fail(m){
   el('app').innerHTML=`<div class="wrap"><div class="card">
     <h2>⚠ ${esc(m)}</h2><p class="sub">בקשו מהמורה את הקישור המעודכן.</p></div></div>`;
+}
+/* קדם-שיעור — המלצה ולא נעילה. יש רצפים שבהם מושג אחד מניח את השני
+   (מהירות תריס מניחה קצב פריימים), אבל בהפקה אמיתית לפעמים מלמדים אחרת. */
+let PRE=null;
+async function loadPrereq(){
+  try{
+    const r=await sb('prod_lessons?select=topic_key,concept_key,concept_name,theory_html'+
+      '&topic_key=eq.'+encodeURIComponent(L.topic_key)+
+      '&concept_key=eq.'+encodeURIComponent(L.prereq)+'&limit=1');
+    if(!r.length){
+      const r2=await sb('prod_lessons?select=topic_key,concept_key,concept_name,theory_html'+
+        '&concept_key=eq.'+encodeURIComponent(L.prereq)+'&subject=eq.tech&limit=1');
+      PRE=r2[0]||null;
+    } else PRE=r[0];
+  }catch(e){}
+}
+function preLink(){
+  if(!PRE) return '';
+  const u='?t='+encodeURIComponent(PRE.topic_key)+'&c='+encodeURIComponent(PRE.concept_key)+
+    (CODE?'&code='+encodeURIComponent(CODE):'')+(CLS?'&class='+encodeURIComponent(CLS):'');
+  const empty=!nrm(String(PRE.theory_html||'').replace(/<[^>]+>/g,''));
+  return `<div class="pre">
+    <span class="ic">💡</span>
+    <span>מומלץ ללמוד קודם: <b>${esc(PRE.concept_name)}</b>${
+      empty?' <span style="opacity:.7">(טרם נכתב)</span>':''}</span>
+    ${empty?'':`<a class="btn s" href="${escA(u)}">מעבר ←</a>`}
+  </div>`;
 }
 async function loadAnswer(){
   try{
@@ -200,6 +237,8 @@ function render(){
       <div class="step ${practiceDone()?'done':(hasPr?'on':'lock')}">3 · תרגול</div>
       <div class="step ${taskDone()?'done':(practiceDone()||!hasPr?'on':'lock')}">4 · מטלה</div>
     </div>
+
+    ${preLink()}
 
     ${vid?`<div class="card"><h2>🎥 צפייה</h2>
       <div class="video"><iframe src="${escA(vid.url)}" allowfullscreen
