@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<!-- kolnoa/hafakot/prod-edit.html · v1.0.0 · 2026-08-04 · עורך שיעורי טכנולוגיות הפקה.
+     התוכן יושב ב-prod_lessons ולא בקבצים, ולכן תיקון נעשה במקום אחד ומופיע בכל מקום —
+     בניגוד לזירות, שבהן כל שיעור הוא קובץ נפרד. לכל מושג: תיאוריה, דוגמה, סימולטור,
+     שאלות תרגול ומטלה. ההדבקה מוורד עוברת דרך אותו ממיר של עורך האגרון (MAJOR) -->
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>עורך שיעורים · טכנולוגיות הפקה</title>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;600;700;900&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0f172a;--pane:#fff;--ink:#1e293b;--sub:#64748b;--acc:#0ea5e9;--acc2:#0284c7;
+      --ok:#10b981;--warn:#f59e0b;--bad:#ef4444;--line:#e2e8f0}
+*{box-sizing:border-box}
+body{margin:0;font-family:'Heebo',sans-serif;background:#f1f5f9;color:var(--ink)}
+header{background:linear-gradient(135deg,#0f172a,#1e3a5f);color:#fff;padding:14px 22px;
+  display:flex;align-items:center;gap:13px;flex-wrap:wrap;position:sticky;top:0;z-index:20}
+header h1{margin:0;font-size:1.2rem;font-weight:900}
+.pill{background:rgba(255,255,255,.16);border-radius:20px;padding:3px 13px;font-size:.8rem;font-weight:700}
+.wrap{max-width:1500px;margin:0 auto;padding:18px 20px}
+.grid{display:grid;grid-template-columns:320px 1fr;gap:18px;align-items:start}
+.card{background:var(--pane);border-radius:16px;padding:17px 19px;box-shadow:0 2px 12px rgba(15,23,42,.07)}
+label{display:block;font-weight:700;font-size:.83rem;margin:12px 0 5px;color:var(--sub)}
+input,select,textarea{width:100%;font-family:inherit;font-size:.95rem;padding:10px 12px;
+  border:1px solid var(--line);border-radius:10px;background:#fff;color:var(--ink)}
+input[type=radio],input[type=checkbox]{width:17px;height:17px;padding:0;border:0;flex:0 0 auto;
+  accent-color:var(--acc);cursor:pointer}
+textarea{min-height:150px;line-height:1.7;font-family:ui-monospace,'Heebo',monospace;font-size:.9rem;resize:vertical}
+.btn{border:none;border-radius:10px;padding:10px 17px;cursor:pointer;font-family:inherit;
+  font-weight:700;font-size:.9rem;background:#eef2f7;color:var(--ink)}
+.btn:hover{background:#e2e8f0}
+.btn.p{background:var(--acc);color:#fff}.btn.p:hover{background:var(--acc2)}
+.btn.g{background:var(--ok);color:#fff}
+.btn.d{background:#fee2e2;color:#991b1b}
+.btn.s{padding:5px 12px;font-size:.82rem}
+/* רשימת הנושאים */
+.topic{border:1px solid var(--line);border-radius:12px;margin-bottom:8px;overflow:hidden;background:#fff}
+.topic-h{display:flex;align-items:center;gap:9px;padding:11px 13px;cursor:pointer}
+.topic-h:hover{background:#f8fafc}
+.topic-h b{flex:1;font-size:.93rem}
+.topic-n{font-size:.78rem;font-weight:800;border-radius:20px;padding:2px 9px}
+.topic-b{max-height:0;overflow:hidden;transition:max-height .35s cubic-bezier(.4,0,.2,1)}
+.cn{display:flex;align-items:center;gap:8px;padding:8px 13px;cursor:pointer;font-size:.89rem;
+  border-top:1px solid #f1f5f9}
+.cn:hover{background:#f8fafc}
+.cn.on{background:#e0f2fe;font-weight:700}
+.dot{width:9px;height:9px;border-radius:50%;flex:0 0 auto;background:#cbd5e1}
+.dot.full{background:var(--ok)}.dot.part{background:var(--warn)}
+/* טפסים */
+.row{display:flex;gap:9px;flex-wrap:wrap;align-items:center}
+.q{border:1px solid var(--line);border-radius:11px;padding:11px;margin-bottom:9px;background:#fafbfc}
+.msg{font-size:.87rem;font-weight:600;min-height:20px;margin-top:8px}
+.prev{border:1px solid var(--line);border-radius:11px;padding:14px 16px;background:#fff;
+  max-height:340px;overflow:auto;line-height:1.75}
+.tabs{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:13px}
+.tab{border:none;border-radius:10px;padding:7px 15px;cursor:pointer;font-family:inherit;
+  font-weight:700;font-size:.87rem;background:#eef2f7;color:var(--sub)}
+.tab.on{background:var(--acc);color:#fff}
+.hint{color:var(--sub);font-size:.84rem;line-height:1.6;margin:0 0 9px}
+.login{max-width:380px;margin:70px auto;text-align:center}
+@media(max-width:900px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<div id="app"></div>
+
+<script>
+const SUP='https://eubgzfkkovxgijhrmnif.supabase.co';
+const KEY='sb_publishable_vJ768fOwYWiDWeYsBBR45g_4NM4s55p';
+const HDR={apikey:KEY,Authorization:'Bearer '+KEY,'Content-Type':'application/json'};
+async function sb(path,method,body,extra){
+  const r=await fetch(SUP+'/rest/v1/'+path,{method:method||'GET',
+    headers:Object.assign({},HDR,extra||{}),body:body?JSON.stringify(body):undefined});
+  if(!r.ok)throw new Error(r.status+' '+(await r.text()).slice(0,200));
+  const t=await r.text(); return t?JSON.parse(t):[];
+}
+const el=id=>document.getElementById(id);
+const esc=s=>{const d=document.createElement('div');d.textContent=s==null?'':s;return d.innerHTML;};
+const escA=s=>esc(s).replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+const nrm=s=>String(s||'').replace(/\s+/g,' ').trim();
+function tPhone(s){let p=String(s||'').replace(/\D/g,'').replace(/^00+/,'');
+  if(p.indexOf('972')===0)p=p.slice(3);p=p.replace(/^0+/,'');return p?('0'+p):'';}
+
+let ME='', LESSONS=[], CUR=null, DIRTY=false, OPEN=-1, TAB='theory';
+
+/* ===== כניסה ===== */
+function loginScreen(){
+  el('app').innerHTML=`<div class="login card">
+    <h2 style="margin:0 0 4px">🔧 עורך שיעורים</h2>
+    <p class="hint">טכנולוגיות הפקה</p>
+    <input id="lp" type="tel" placeholder="טלפון" dir="ltr" style="text-align:right">
+    <input id="lw" type="password" placeholder="סיסמה" style="margin-top:9px">
+    <button class="btn p" style="width:100%;margin-top:12px" onclick="doLogin()">כניסה</button>
+    <div class="msg" id="lm"></div></div>`;
+  el('lw').addEventListener('keyup',e=>{if(e.key==='Enter')doLogin();});
+}
+async function doLogin(){
+  const p=el('lp').value, w=el('lw').value, m=el('lm');
+  if(!p||!w){m.style.color='#991b1b';m.textContent='מלאו טלפון וסיסמה';return;}
+  m.style.color='#64748b';m.textContent='מתחבר…';
+  try{
+    const r=await sb('lms_teachers?select=id,name,password,status&phone=eq.'+encodeURIComponent(tPhone(p)));
+    const t=(r||[]).find(x=>x.password===w&&x.status==='approved');
+    if(!t){m.style.color='#991b1b';m.textContent='פרטים שגויים או חשבון שאינו מאושר';return;}
+    ME=t.name||'מורה';
+    await loadAll();
+  }catch(e){m.style.color='#991b1b';m.textContent='שגיאה: '+e.message;}
+}
+
+/* ===== טעינה ===== */
+async function loadAll(){
+  LESSONS=await sb('prod_lessons?select=*&subject=eq.tech&order=topic_key.asc,ord.asc');
+  render();
+}
+const topics=()=>{
+  const m={};
+  LESSONS.forEach(l=>{(m[l.topic_key]=m[l.topic_key]||{key:l.topic_key,name:l.topic_name,items:[]}).items.push(l);});
+  return Object.values(m);
+};
+/* שיעור נחשב מלא כשיש תיאוריה וגם מטלה */
+const state=l=>{
+  const th=!!nrm(String(l.theory_html||'').replace(/<[^>]+>/g,''));
+  const tk=!!(l.task&&nrm(l.task.text));
+  return th&&tk?'full':(th||tk)?'part':'';
+};
+
+/* ===== מסך ===== */
+function render(){
+  const ts=topics();
+  const done=LESSONS.filter(l=>state(l)==='full').length;
+  el('app').innerHTML=`
+  <header>
+    <h1>🔧 עורך שיעורים</h1>
+    <span class="pill">טכנולוגיות הפקה</span>
+    <span class="pill">${done}/${LESSONS.length} מוכנים</span>
+    <span style="margin-inline-start:auto;font-size:.86rem">${esc(ME)}</span>
+  </header>
+  <div class="wrap"><div class="grid">
+    <div class="card">
+      <p class="hint">בחרו מושג מהרשימה. ירוק = תיאוריה ומטלה קיימות, כתום = חלקי.</p>
+      ${ts.map((t,i)=>{
+        const f=t.items.filter(x=>state(x)==='full').length;
+        const col=f===t.items.length?'var(--ok)':f?'var(--warn)':'#cbd5e1';
+        return `<div class="topic">
+          <div class="topic-h" onclick="tog(${i})">
+            <span class="dot ${f===t.items.length?'full':f?'part':''}"></span>
+            <b>${esc(t.name)}</b>
+            <span class="topic-n" style="background:${col}22;color:${col}">${f}/${t.items.length}</span>
+          </div>
+          <div class="topic-b" id="tb-${i}" style="max-height:${OPEN===i?'900px':'0'}">
+            ${t.items.map(l=>`<div class="cn ${CUR&&CUR.id===l.id?'on':''}"
+              onclick="pick('${l.id}')">
+              <span class="dot ${state(l)}"></span>${esc(l.concept_name)}</div>`).join('')}
+          </div></div>`;
+      }).join('')}
+    </div>
+    <div id="pane">${CUR?editor():
+      '<div class="card"><p class="hint" style="text-align:center;padding:40px 0">בחרו מושג כדי להתחיל לכתוב.</p></div>'}</div>
+  </div></div>`;
+  if(CUR)bindPrev();
+}
+function tog(i){ OPEN=OPEN===i?-1:i; render(); }
+function pick(id){
+  if(DIRTY&&!confirm('יש שינויים שלא נשמרו. לעבור למושג אחר?'))return;
+  CUR=LESSONS.find(l=>String(l.id)===String(id))||null; DIRTY=false; TAB='theory'; render();
+}
+
+/* ===== העורך ===== */
+function editor(){
+  const l=CUR;
+  const pr=Array.isArray(l.practice)?l.practice:[];
+  const tk=l.task||{};
+  return `<div class="card">
+    <div class="row" style="margin-bottom:5px">
+      <h2 style="margin:0;font-size:1.25rem">${esc(l.concept_name)}</h2>
+      <span class="pill" style="background:#e0f2fe;color:#0369a1">${esc(l.topic_name)}</span>
+      ${l.sim_type?`<span class="pill" style="background:#f0fdf4;color:#166534">🎛️ סימולטור ${esc(l.sim_type)}</span>`:''}
+      <span style="margin-inline-start:auto;font-size:.8rem;color:var(--sub)">
+        ${l.updated_at?'עודכן '+new Date(l.updated_at).toLocaleDateString('he-IL'):'טרם נכתב'}</span>
+    </div>
+    <div class="tabs">
+      ${[['theory','📖 תיאוריה'],['example','🔍 דוגמה'],['practice','✅ תרגול'],['task','🎯 מטלה']]
+        .map(([k,n])=>`<button class="tab ${TAB===k?'on':''}" onclick="setTab('${k}')">${n}</button>`).join('')}
+    </div>
+
+    <div id="tTheory" style="display:${TAB==='theory'?'block':'none'}">
+      <p class="hint">מה זה ולמה זה חשוב. אפשר להדביק ישירות מוורד — הטקסט יומר אוטומטית.</p>
+      <textarea id="fTheory" oninput="onEdit()">${esc(l.theory_html||'')}</textarea>
+      <div class="row" style="margin-top:8px">
+        <button class="btn s" onclick="conv('fTheory')">📋 המרה מוורד</button>
+        <button class="btn s" onclick="bindPrev()">👁 רענון תצוגה</button>
+      </div>
+      <label>תצוגה מקדימה</label><div class="prev" id="pvTheory"></div>
+    </div>
+
+    <div id="tExample" style="display:${TAB==='example'?'block':'none'}">
+      <p class="hint">דוגמה חזותית או השוואה — למשל אותה תמונה בשני צמצמים.</p>
+      <textarea id="fExample" oninput="onEdit()">${esc(l.example_html||'')}</textarea>
+      <div class="row" style="margin-top:8px">
+        <button class="btn s" onclick="conv('fExample')">📋 המרה מוורד</button>
+        <button class="btn s" onclick="bindPrev()">👁 רענון תצוגה</button>
+      </div>
+      <label>תצוגה מקדימה</label><div class="prev" id="pvExample"></div>
+    </div>
+
+    <div id="tPractice" style="display:${TAB==='practice'?'block':'none'}">
+      <p class="hint">שאלות בדיקת הבנה. נבדקות אוטומטית, ופותחות את המטלה.</p>
+      <div id="qList"></div>
+      <div class="row">
+        <button class="btn s" onclick="qAdd('choice')">+ אמריקאית</button>
+        <button class="btn s" onclick="qAdd('text')">+ פתוחה</button>
+      </div>
+    </div>
+
+    <div id="tTask" style="display:${TAB==='task'?'block':'none'}">
+      <p class="hint">מה התלמיד צריך לעשות בפועל — בהפקות זה בדרך כלל לצלם ולהעלות.</p>
+      <label>הנחיות המטלה</label>
+      <textarea id="fTask" style="min-height:110px" oninput="onEdit()">${esc(tk.text||'')}</textarea>
+      <label>סוג ההגשה</label>
+      <select id="fTaskType" onchange="onEdit()">
+        <option value="links"${tk.type==='links'?' selected':''}>קישורים לתמונות או סרטונים</option>
+        <option value="text"${tk.type==='text'?' selected':''}>טקסט בלבד</option>
+        <option value="both"${(!tk.type||tk.type==='both')?' selected':''}>טקסט וגם קישורים</option>
+      </select>
+      <label>כמה קבצים נדרשים</label>
+      <input type="number" id="fTaskN" value="${tk.n||1}" min="0" max="10" oninput="onEdit()">
+    </div>
+
+    <div class="row" style="margin-top:16px;border-top:1px solid var(--line);padding-top:14px">
+      <button class="btn g" onclick="save()">💾 שמירה</button>
+      <button class="btn" onclick="revert()">ביטול שינויים</button>
+      <span class="msg" id="msg"></span>
+    </div>
+  </div>`;
+}
+function setTab(t){ TAB=t; render(); }
+function onEdit(){ DIRTY=true; }
+function conv(id){
+  const t=el(id); if(!t)return;
+  const s=t.value.trim(); if(!s)return;
+  t.value = /<(p|ul|ol|li|div|span|table|strong|h[1-6])\b/i.test(s) ? beautify(s) : beautify(wordToHtml(s));
+  DIRTY=true; bindPrev();
+}
+function bindPrev(){
+  ['Theory','Example'].forEach(k=>{
+    const f=el('f'+k), p=el('pv'+k);
+    if(f&&p) p.innerHTML = f.value.trim() || '<span style="color:#94a3b8">ריק</span>';
+  });
+  qRender();
+}
+
+/* ---------- שאלות תרגול ---------- */
+let QS=[];
+function qSync(){ if(CUR) QS = Array.isArray(CUR.practice)? JSON.parse(JSON.stringify(CUR.practice)) : []; }
+function qAdd(type){
+  QS.push({type,question:'',options:type==='choice'?['','','']:undefined,
+           correct_answer:'',points:type==='text'?10:5});
+  DIRTY=true; qRender();
+}
+function qDel(i){ QS.splice(i,1); DIRTY=true; qRender(); }
+function qSet(i,k,v){ QS[i][k]=v; DIRTY=true; }
+function qOpt(i,j,v){ QS[i].options[j]=v; DIRTY=true; }
+function qAddOpt(i){ QS[i].options.push(''); DIRTY=true; qRender(); }
+function qRender(){
+  const box=el('qList'); if(!box)return;
+  box.innerHTML = QS.length ? QS.map((q,i)=>{
+    const body = q.type==='choice'
+      ? (q.options||[]).map((o,j)=>`<div class="row" style="margin-bottom:4px">
+          <input type="radio" name="c${i}" ${q.correct_answer===o&&o?'checked':''}
+            onclick="qSet(${i},'correct_answer',QS[${i}].options[${j}])">
+          <input value="${escA(o)}" placeholder="אפשרות ${j+1}" oninput="qOpt(${i},${j},this.value)"></div>`).join('')
+        + `<button class="btn s" onclick="qAddOpt(${i})">+ אפשרות</button>`
+      : `<label style="margin-top:4px">תשובה צפויה</label>
+         <textarea style="min-height:60px" oninput="qSet(${i},'expected_answer',this.value)"
+           >${esc(q.expected_answer||'')}</textarea>`;
+    return `<div class="q">
+      <div class="row" style="margin-bottom:6px">
+        <span class="pill" style="background:#e0f2fe;color:#0369a1">${i+1} · ${q.type==='choice'?'אמריקאית':'פתוחה'}</span>
+        <input type="number" value="${q.points||1}" style="width:75px" title="ניקוד"
+          oninput="qSet(${i},'points',Number(this.value))">
+        <button class="btn s d" style="margin-inline-start:auto" onclick="qDel(${i})">✕</button>
+      </div>
+      <textarea style="min-height:56px" placeholder="נוסח השאלה"
+        oninput="qSet(${i},'question',this.value)">${esc(q.question||'')}</textarea>
+      ${body}</div>`;
+  }).join('') : '<p class="hint">אין עדיין שאלות.</p>';
+}
+
+/* ---------- שמירה ---------- */
+async function save(){
+  const m=el('msg'); if(!CUR)return;
+  const body={
+    theory_html: el('fTheory')?el('fTheory').value.trim():CUR.theory_html,
+    example_html: el('fExample')?el('fExample').value.trim():CUR.example_html,
+    practice: QS.filter(q=>nrm(q.question)),
+    task: {
+      text: el('fTask')?el('fTask').value.trim():'',
+      type: el('fTaskType')?el('fTaskType').value:'both',
+      n: el('fTaskN')?Number(el('fTaskN').value)||0:1
+    },
+    updated_at:new Date().toISOString()
+  };
+  m.style.color='#64748b'; m.textContent='שומר…';
+  try{
+    const r=await sb('prod_lessons?id=eq.'+CUR.id,'PATCH',body,{Prefer:'return=representation'});
+    if(!r||!r.length)throw new Error('לא נשמר');
+    Object.assign(CUR,r[0]);
+    const i=LESSONS.findIndex(x=>String(x.id)===String(CUR.id));
+    if(i>-1)LESSONS[i]=CUR;
+    DIRTY=false; render();
+    const m2=el('msg'); if(m2){m2.style.color='#059669';m2.textContent='✅ נשמר';}
+  }catch(e){ m.style.color='#991b1b'; m.textContent='שגיאה: '+e.message; }
+}
+function revert(){
+  if(!confirm('לבטל את השינויים ולחזור למה שנשמר?'))return;
+  DIRTY=false; render();
+}
+window.addEventListener('beforeunload',e=>{ if(DIRTY){e.preventDefault();e.returnValue='';} });
+
+/* ===== ממיר וורד — זהה לזה של עורך האגרון ===== */
+/* ===== עיצוב מוטמע =====
+   ההגדרה נשלפת מ-Supabase לתוך עשרות דפי שיעור שונים, שלכל אחד CSS משלו.
+   לכן הטבלאות/הקופסאות/הכותרות נושאות style מוטמע — כך הן נראות זהה בכל מקום
+   ולא תלויות בכך שלדף המארח יש .table-wrapper או .example-box. */
+const ST={
+  title:'font-weight:700;color:#2c3e50;display:block;margin:15px 0 5px;text-decoration:underline',
+  box:'background:#e8f5e9;padding:14px 16px;border-radius:8px;margin:14px 0;border-right:4px solid #4caf50',
+  wrap:'overflow-x:auto;margin:12px 0;border:1px solid #d9e2d9;border-radius:8px',
+  table:'width:100%;border-collapse:collapse;min-width:320px',
+  th:'background:#e8f0e8;color:#2c3e50;font-weight:700;text-align:right;padding:9px 11px;'+
+     'border-bottom:2px solid #c7d6c7',
+  td:'padding:9px 11px;border-bottom:1px solid #ececec;vertical-align:top;text-align:right',
+  ul:'margin:0 0 12px;padding-inline-start:22px',
+  li:'margin-bottom:5px',
+  lead:'color:#1b4332'   /* המילה המובילה בפריט — כהה יותר משאר השורה */
+};
+/* תווי בולט שוורד מדביק: Private Use של גופן Symbol/Wingdings, ועוד וריאציות */
+const BULLET_CHARS='\\uF000-\\uF0FF\\u2022\\u00B7\\u25AA\\u25AB\\u25CF\\u25CB\\u25E6\\u2023\\u2043\\u2219\\u25A0\\u25A1\\u274F\\uFFFD';
+const RE_BULLET=new RegExp('['+BULLET_CHARS+']','g');
+const RE_LEAD  =new RegExp('^[\\s\\t]*(?:['+BULLET_CHARS+'\\-\\u2013\\u2014*]|o(?=[\\t ]))[\\s\\t]*');
+/* ניקוי תו-אחר-תו: בולטים, רווח קשיח, וסימני כיווניות נסתרים */
+const cleanText=s=>String(s==null?'':s)
+  .replace(/\u00A0/g,' ')
+  .replace(/[\u200B-\u200F\u202A-\u202E\u2060\uFEFF]/g,'')
+  .replace(RE_BULLET,'');
+
+/* מנקה ומעצב HTML קיים — עובד על ה-DOM ולא ברגקס, כדי לא לשבור תגיות */
+function beautify(html){
+  const d=document.createElement('div');
+  d.innerHTML=String(html||'');
+  /* 0 · פסקאות שהתחילו בתו בולט של וורד — מסמנים לפני הניקוי, כדי שנוכל
+     להפוך אותן לרשימה אמיתית ולא להשאיר שורות בודדות עם ריבוע */
+  const RE_LEADBUL=new RegExp('^[\\s\\t]*['+BULLET_CHARS+']');
+  d.querySelectorAll('p').forEach(p=>{ if(RE_LEADBUL.test(p.textContent)) p.setAttribute('data-bul','1'); });
+  /* 1 · ניקוי תווי הבולט מכל צומת טקסט */
+  const walker=document.createTreeWalker(d,NodeFilter.SHOW_TEXT,null,false);
+  const nodes=[]; while(walker.nextNode()) nodes.push(walker.currentNode);
+  nodes.forEach(n=>{ n.nodeValue=cleanText(n.nodeValue); });
+  /* 2 · שאריות רווח/טאב בתחילת פריט */
+  d.querySelectorAll('li,p,td,th').forEach(n=>{
+    const f=n.firstChild;
+    if(f&&f.nodeType===3) f.nodeValue=f.nodeValue.replace(/^[\s\t]+/,'');
+  });
+  /* 3 · איחוד פסקאות מסומנות לרשימה אחת */
+  let seed=d.querySelector('p[data-bul]');
+  while(seed){
+    const ul=document.createElement('ul');
+    seed.parentNode.insertBefore(ul,seed);
+    let n=seed;
+    while(n && n.tagName==='P' && n.hasAttribute('data-bul')){
+      const next=n.nextElementSibling;
+      const li=document.createElement('li');
+      li.innerHTML=n.innerHTML;
+      n.remove(); ul.appendChild(li);
+      n=next;
+    }
+    seed=d.querySelector('p[data-bul]');
+  }
+  /* 4 · הדגשת המילה המובילה בפריט שאין בו הדגשה */
+  d.querySelectorAll('li').forEach(li=>{
+    if(li.querySelector('strong,b')) return;
+    const t=li.textContent.trim(); if(!t) return;
+    let m=/^([^:]{2,45}):\s*(.+)$/.exec(t);
+    if(m){ li.innerHTML='<strong>'+esc(m[1])+':</strong> '+esc(m[2]); return; }
+    m=/^(.{2,45}?)\s+[-–—]\s+(.+)$/.exec(t);
+    if(m){ li.innerHTML='<strong>'+esc(m[1])+'</strong> – '+esc(m[2]); return; }
+    if(t.split(/\s+/).length<=3) li.innerHTML='<strong>'+esc(t)+'</strong>';
+  });
+  /* 5 · עיצוב מוטמע */
+  d.querySelectorAll('.section-title').forEach(n=>n.setAttribute('style',ST.title));
+  d.querySelectorAll('.example-box').forEach(n=>n.setAttribute('style',ST.box));
+  d.querySelectorAll('ul,ol').forEach(n=>n.setAttribute('style',ST.ul));
+  d.querySelectorAll('li').forEach(n=>n.setAttribute('style',ST.li));
+  d.querySelectorAll('li strong,li b').forEach(n=>n.setAttribute('style',ST.lead));
+  d.querySelectorAll('table').forEach(t=>{
+    t.setAttribute('style',ST.table);
+    t.querySelectorAll('th').forEach(c=>c.setAttribute('style',ST.th));
+    t.querySelectorAll('td').forEach(c=>c.setAttribute('style',ST.td));
+    /* אם אין עוטף — יוצרים אחד, כדי שהטבלה תגלול במסך צר */
+    const p=t.parentElement;
+    if(p&&p.classList&&p.classList.contains('table-wrapper')) p.setAttribute('style',ST.wrap);
+    else{
+      const wr=document.createElement('div');
+      wr.className='table-wrapper'; wr.setAttribute('style',ST.wrap);
+      t.parentNode.insertBefore(wr,t); wr.appendChild(t);
+    }
+  });
+  return d.innerHTML.trim();
+}
+
+/* ===== המרת טקסט מוורד ל-HTML של האגרון =====
+   כללי הזיהוי: "הגדרה לתלמיד:" → כותרת · שורה עם "כותרת: תוכן" → פריט רשימה
+   עם הדגשה · "דוגמאות:" → קופסת דוגמאות · שורות עם טאבים → טבלה. */
+/* ממיר טקסט וורד ל-HTML של האגרון */
+function wordToHtml(raw){
+  const esc=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+  /* המילה שפותחת את הפריט מודגשת וכהה יותר — גם כשהמפריד הוא מקף ולא נקודתיים,
+     וגם כשהפריט הוא מונח בודד בלי הסבר. */
+  const lead=t=>'<strong style="'+ST.lead+'">'+esc(t)+'</strong>';
+  const bold=t=>{
+    let m=/^([^:]{2,45}):\s*(.+)$/.exec(t);
+    if(m) return lead(m[1]+':')+' '+esc(m[2]);
+    m=/^(.{2,45}?)\s+[-–—]\s+(.+)$/.exec(t);
+    if(m) return lead(m[1])+' – '+esc(m[2]);
+    if(t.split(/\s+/).length<=3) return lead(t);
+    return esc(t);
+  };
+  /* כל שורה עוברת נרמול לפני הזיהוי: סימן הבולט של וורד (ריבוע/גליף Symbol)
+     מוחלף במקף רגיל, כדי שזיהוי הרשימה ימשיך לעבוד — והטאב שאחריו נעלם,
+     אחרת השורה נחשבת בטעות לשורת טבלה. שאר התווים המוזרים מנוקים. */
+  const normLine=l=>{
+    const m=RE_LEAD.exec(l);
+    if(m) return '- '+cleanText(l.slice(m[0].length)).replace(/^[\s\t]+/,'').trimEnd();
+    return cleanText(l).trimEnd();   /* טאבים נשמרים — הם מסמני הטבלה */
+  };
+  const lines=String(raw||'').replace(/\r/g,'').split('\n').map(normLine);
+  const out=[]; let i=0;
+  const isTableRow=l=>l.includes('\t');
+  while(i<lines.length){
+    let l=lines[i].trim();
+    if(!l){ i++; continue; }
+    /* כותרת פותחת */
+    if(/^הגדרה לתלמיד:?$/.test(l)){
+      out.push('<span class="section-title" style="'+ST.title+'">הגדרה לתלמיד:</span>'); i++; continue; }
+    /* קופסת דוגמאות */
+    if(/^דוגמ(ה|אות):/.test(l)){
+      const label=/^דוגמאות:/.test(l)?'דוגמאות:':'דוגמה:';
+      let body=l.replace(/^דוגמ(ה|אות):\s*/,'');
+      i++;
+      /* הקופסה נעצרת גם לפני כותרת קצרה שאחריה טבלה, כדי שלא תיבלע */
+      while(i<lines.length){
+        const t=lines[i].trim();
+        if(!t || isTableRow(lines[i]) || /^דוגמ(ה|אות):/.test(t)) break;
+        if(t.length<40 && lines[i+1] && isTableRow(lines[i+1])) break;
+        body+=(body?'<br>':'')+t; i++;
+      }
+      out.push('<div class="example-box" style="'+ST.box+'">\n  <strong>'+label+'</strong><br>\n  '+
+        esc(body).replace(/&lt;br&gt;/g,'<br>')+'\n</div>');
+      continue;
+    }
+    /* טבלה — שורות עם טאבים */
+    if(isTableRow(lines[i])){
+      const rows=[];
+      while(i<lines.length && isTableRow(lines[i])){ rows.push(lines[i].split('\t').map(c=>c.trim())); i++; }
+      const head=rows.shift();
+      out.push('<div class="table-wrapper" style="'+ST.wrap+'">\n  <table style="'+ST.table+'">\n'+
+        '    <thead>\n      <tr>'+
+        head.map(c=>'<th style="'+ST.th+'">'+esc(c)+'</th>').join('')+'</tr>\n    </thead>\n    <tbody>\n'+
+        rows.map(r=>'      <tr>'+r.map(c=>'<td style="'+ST.td+'">'+esc(c)+'</td>').join('')+'</tr>').join('\n')+
+        '\n    </tbody>\n  </table>\n</div>');
+      continue;
+    }
+    /* רשימה — שורות שמתחילות במקף/בולט, או רצף שורות עם "כותרת:" */
+    if(/^[-–—•*]\s+/.test(l) || /^[^:]{2,45}:\s*\S/.test(l)){
+      const items=[];
+      while(i<lines.length){
+        const t=lines[i].trim();
+        if(!t || isTableRow(lines[i]) || /^דוגמ(ה|אות):/.test(t)) break;
+        if(!/^[-–—•*]\s+/.test(t) && !/^[^:]{2,45}:\s*\S/.test(t)) break;
+        items.push(bold(t.replace(/^[-–—•*]\s+/,''))); i++;
+      }
+      if(items.length){ out.push('<ul style="'+ST.ul+'">\n'+
+        items.map(x=>'  <li style="'+ST.li+'">'+x+'</li>').join('\n')+'\n</ul>'); continue; }
+    }
+    /* כותרת משנה קצרה בלי נקודתיים — פסקה מודגשת */
+    if(l.length<40 && !/[.!?]$/.test(l) && lines[i+1] && isTableRow(lines[i+1])){
+      out.push('<p><strong>'+esc(l)+'</strong></p>'); i++; continue;
+    }
+    out.push('<p>'+esc(l)+'</p>'); i++;
+  }
+  return out.join('\n');
+}
+
+/* qSync חייב לרוץ אחרי כל בחירת מושג */
+const _render=render;
+render=function(){ if(CUR&&!DIRTY)qSync(); _render(); };
+
+loginScreen();
+</script>
+</body>
+</html>
