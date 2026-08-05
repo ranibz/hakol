@@ -1,12 +1,14 @@
 <!DOCTYPE html>
-<!-- kolnoa/hafakot/prod-lesson.html · v1.1.0 · 2026-08-04 · מציג שיעורי טכנולוגיות הפקה.
+<!-- kolnoa/hafakot/prod-lesson.html · v1.2.0 · 2026-08-04 · מציג שיעורי טכנולוגיות הפקה.
      קובץ אחד לכל 48 המושגים — התוכן נשלף מ-prod_lessons לפי ?t=topic&c=concept, בניגוד
      לזירות שבהן כל שיעור הוא קובץ נפרד. ארבעה שלבים ברצף: צפייה, תיאוריה, תרגול ומטלה,
      כשהמטלה נפתחת רק אחרי שהתרגול נענה — אותו עיקרון של הזירות. ההגשה נשמרת
      ל-prod_answers ומזוהה לפי שם התלמיד וכיתתו מהכתובת.
      v1.1.0: נוסף קדם-שיעור. מושג יכול להצביע על מושג אחר שמניח אותו (מהירות תריס מניחה
      קצב פריימים), ואז מוצגת בראש השיעור שורת המלצה עם קישור. המלצה ולא נעילה, כי בהפקה
-     אמיתית לפעמים מלמדים בסדר אחר. קדם-שיעור שטרם נכתב מסומן ככזה ואינו מקושר (MINOR) -->
+     אמיתית לפעמים מלמדים בסדר אחר. קדם-שיעור שטרם נכתב מסומן ככזה ואינו מקושר.
+     v1.2.0: תמיכה בסרטוני mp4 מקומיים לצד Vimeo — קובץ מנוגן ב-video ולא ב-iframe, לפי
+     provider או לפי סיומת הקובץ. כמו כן מוצגים כל הסרטונים ב-media ולא רק הראשון (MINOR) -->
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
@@ -83,6 +85,7 @@ textarea{min-height:90px;resize:vertical;line-height:1.7}
 .pre b{color:#92400e}
 .pre .btn{margin-inline-start:auto;background:#f59e0b}
 .pre .btn:hover{background:#d97706}
+.vid{width:100%;border-radius:14px;background:#000;display:block;margin-bottom:6px}
 </style>
 </head>
 <body>
@@ -220,7 +223,7 @@ const practiceDone=()=>CHECKED||(ANS&&ANS.practice_answers&&Object.keys(ANS.prac
 const taskDone=()=>!!(ANS&&(nrm(ANS.task_answer)||(ANS.task_links||[]).length));
 
 function render(){
-  const vid=(L.media||[]).find(m=>m.type==='video');
+  const vids=(L.media||[]).filter(m=>m.type==='video');
   const hasPr=PR().length>0;
   el('app').innerHTML=`
   <div class="hero"><div class="in">
@@ -232,7 +235,7 @@ function render(){
   </div></div>
   <div class="wrap">
     <div class="steps">
-      <div class="step ${vid||IMGS.length?'done':'lock'}">1 · צפייה</div>
+      <div class="step ${vids.length||IMGS.length?'done':'lock'}">1 · צפייה</div>
       <div class="step ${L.theory_html?'done':'lock'}">2 · תיאוריה</div>
       <div class="step ${practiceDone()?'done':(hasPr?'on':'lock')}">3 · תרגול</div>
       <div class="step ${taskDone()?'done':(practiceDone()||!hasPr?'on':'lock')}">4 · מטלה</div>
@@ -240,9 +243,8 @@ function render(){
 
     ${preLink()}
 
-    ${vid?`<div class="card"><h2>🎥 צפייה</h2>
-      <div class="video"><iframe src="${escA(vid.url)}" allowfullscreen
-        allow="autoplay; fullscreen; picture-in-picture" title="${escA(vid.title||'')}"></iframe></div>
+    ${vids.length?`<div class="card"><h2>🎥 צפייה</h2>
+      ${vids.map(v=>videoHtml(v)).join('')}
     </div>`:''}
 
     ${L.theory_html?`<div class="card"><h2>📖 תיאוריה</h2>${L.theory_html}</div>`:''}
@@ -268,6 +270,18 @@ function render(){
           המטלה תיפתח אחרי שתענו על שאלות בדיקת ההבנה.</div>`}
     </div>
   </div>`;
+}
+/* קובץ mp4 מנוגן ב-<video>; Vimeo/YouTube ב-iframe. הבחנה לפי provider
+   או לפי סיומת, כדי שסרטון שנוצר במקום לא יחייב העלאה לשירות חיצוני. */
+function videoHtml(v){
+  const local = v.provider==='file' || /\.(mp4|webm|ogg|mov)(\?|$)/i.test(v.url||'');
+  const cap = v.title?`<p class="sub" style="margin:7px 0 0">${esc(v.title)}</p>`:'';
+  if(local) return `<video class="vid" controls playsinline preload="metadata"
+      ${v.poster?`poster="${escA(v.poster)}"`:''}>
+      <source src="${escA(v.url)}" type="video/mp4">
+      הדפדפן אינו תומך בניגון וידאו.</video>${cap}`;
+  return `<div class="video"><iframe src="${escA(v.url)}" allowfullscreen
+    allow="autoplay; fullscreen; picture-in-picture" title="${escA(v.title||'')}"></iframe></div>${cap}`;
 }
 function qHtml(q,i){
   const sel=PICKED['q'+i];
