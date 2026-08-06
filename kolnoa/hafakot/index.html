@@ -1,11 +1,18 @@
 <!DOCTYPE html>
-<!-- kolnoa/hafakot/index.html · v1.1.0 · 2026-08-05 · שער כניסה לטכנולוגיות הפקה.
+<!-- kolnoa/hafakot/index.html · v1.3.0 · 2026-08-05 · שער כניסה לטכנולוגיות הפקה.
      שלוש דלתות: תלמיד לאזור האישי שלו (talmid.html עם code+class, אותו זרם מטלות של
      תקשורת וחברה), מורה לכתיבת שיעורים או למעקב, ומאגר השיעורים לעיון חופשי.
      בורר הכיתות מוגבל למורי בית הספר, כי עמודת school ב-lms_teachers ריקה.
      v1.1.0: נוספה דלת ניהול — בניית כיתות, שיוך מורה, בחירת מקצוע ורשימת תלמידים בהדבקה.
      ההרשאה לפי מזהה ברשימת ADMINS ולא לפי סיסמה משותפת, כדי שלא יידרש להחליף סיסמה
-     כשמורה עוזב (MINOR) -->
+     כשמורה עוזב.
+     v1.2.0: כיתות הלמידה נשענות על קבוצות השיבוץ ב-tiksh_groups במקום על הקלדת שמות.
+     בחירת קבוצה בטופס טוענת את התלמידים מ-tiksh_enrollments וממלאת שם ומקצוע כברירת מחדל;
+     lms_classes.group_id שומר את הקישור, וקבוצה שכבר משויכת אינה מוצעת שוב. שדה students
+     ממשיך להישמר כגיבוי עד שכל המסכים יעברו לשליפה חיה.
+     v1.3.0: הסינון עבר מרשימת מזהי מורים קשיחה לסמל מוסד — כל בית ספר רואה את המורים,
+     הכיתות והשיבוץ שלו בלבד, ומורה חדש נכנס בלי לעדכן קובץ. נוסף שער סמל מוסד דרך
+     school-gate.js לכל כניסת מורה (MINOR) -->
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
@@ -107,6 +114,7 @@ textarea{width:100%;font-family:inherit;font-size:.95rem;padding:12px 14px;margi
   <div class="box" id="box"></div>
 </div>
 
+<script src="school-gate.js"></script>
 <script>
 const SUP='https://eubgzfkkovxgijhrmnif.supabase.co';
 const KEY='sb_publishable_vJ768fOwYWiDWeYsBBR45g_4NM4s55p';
@@ -183,7 +191,6 @@ function openTeacher(){
 /* ---------- ניהול ----------
    הרשאת ניהול ניתנת לפי מזהה ולא לפי סיסמה משותפת, כדי שלא יידרש
    לשנות סיסמה כשמורה עוזב. מנהל יכול לבנות כיתה לכל מורה בבית הספר. */
-const ADMINS=['-OmvKR-JvG0o6e4RuD2k'];
 let ADM=null, ACLS=[];
 function openAdmin(){
   if(ADM){ admHome(); return; }
@@ -206,22 +213,42 @@ async function admLogin(){
       encodeURIComponent(tPhone(el('ap').value)));
     const t=(r||[]).find(x=>x.password===el('aw').value&&x.status==='approved');
     if(!t){ m.style.color='#dc2626'; m.textContent='פרטים שגויים'; return; }
-    if(ADMINS.indexOf(String(t.id))<0){ m.style.color='#dc2626';
+    const t2=await requireSchool(t);
+    if(!t2){ m.style.color='#dc2626'; m.textContent='נדרש סמל מוסד כדי להמשיך'; return; }
+    if(!isAdmin(t2)){ m.style.color='#dc2626';
       m.textContent='אין הרשאת ניהול לחשבון הזה'; return; }
-    ADM=t; await admLoad(); admHome();
+    ADM=t2; await admLoad(); admHome();
   }catch(e){ m.style.color='#dc2626'; m.textContent='שגיאת תקשורת'; }
 }
+let GROUPS=[], GCOUNT={};
 async function admLoad(){
-  const inl='('+OUR.map(encodeURIComponent).join(',')+')';
-  const [c,t]=await Promise.all([
-    sb('lms_classes?select=*&teacher_id=in.'+inl+'&order=name.asc'),
-    sb('lms_teachers?select=id,name&status=eq.approved&id=in.'+inl)]);
-  ACLS=c||[]; (t||[]).forEach(x=>TEACHERS[String(x.id)]=x.name||'מורה');
+  /* הסינון לפי סמל מוסד ולא לפי רשימת מזהים קשיחה — כך שכל בית ספר
+     רואה את עצמו בלבד, ומורה חדש נכנס בלי לעדכן קובץ */
+  const sid=ADM.school_id;
+  const t=await sb('lms_teachers?select=id,name&status=eq.approved&school_id=eq.'+
+    encodeURIComponent(sid));
+  const ids=(t||[]).map(x=>String(x.id));
+  (t||[]).forEach(x=>TEACHERS[String(x.id)]=x.name||'מורה');
+  const inl='('+ids.map(encodeURIComponent).join(',')+')';
+  const [c,g,e]=await Promise.all([
+    ids.length?sb('lms_classes?select=*&teacher_id=in.'+inl+'&order=name.asc'):[],
+    sb('tiksh_groups?select=id,grade,subject,track,teacher_name,teacher_id,school_id'+
+       '&school_id=eq.'+encodeURIComponent(sid)+'&order=grade.asc'),
+    sb('tiksh_enrollments?select=group_id')]);
+  ACLS=c||[];
+  GROUPS=(g||[]).filter(x=>x.teacher_id&&ids.indexOf(String(x.teacher_id))>-1);
+  GCOUNT={}; (e||[]).forEach(x=>{GCOUNT[x.group_id]=(GCOUNT[x.group_id]||0)+1;});
+  SCHOOL_TEACHERS=ids;
 }
+let SCHOOL_TEACHERS=[];
+/* שם הקבוצה חייב לכלול שכבה, מקצוע, מסלול ומורה — אף צירוף קצר יותר
+   אינו ייחודי: יש שתי קבוצות "מדיה" ביא ושתי "למ\"ד" ביב. */
+const gLabel=g=>`${g.grade} · ${g.subject} · ${g.track} · ${TEACHERS[g.teacher_id]||g.teacher_name}`;
+const gUsed=id=>ACLS.some(c=>String(c.group_id)===String(id));
 const SUBJ={tikshoret:{n:'תקשורת וחברה',ic:'📡',c:'#0ea5e9'},tech:{n:'טכנולוגיות הפקה',ic:'🔧',c:'#f59e0b'}};
 function admHome(){
   show(`<h3>⚙️ ניהול כיתות</h3>
-    <p class="s">${esc(ADM.name)} · ${ACLS.length} כיתות</p>
+    <p class="s">${esc(ADM.school_name||'')} · ${esc(ADM.name)} · ${ACLS.length} כיתות</p>
     <div style="text-align:right;max-height:46vh;overflow:auto">
       ${ACLS.length?ACLS.map((c,i)=>{
         const s=SUBJ[c.subject||'tikshoret']||SUBJ.tikshoret;
@@ -229,6 +256,8 @@ function admHome(){
           <b>${esc(c.name)}</b>
           <span class="tag" style="background:${s.c}1f;color:${s.c}">${s.ic} ${esc(s.n)}</span>
           <span style="color:var(--sub);font-size:.83rem">${(c.students||[]).length} תלמידים</span>
+          ${c.group_id?'<span class="tag" style="background:#dcfce7;color:#166534">🔗 מהשיבוץ</span>'
+            :'<span class="tag" style="background:#fef3c7;color:#92400e">ידני</span>'}
           <button class="mini" onclick="admEdit(${i})">✏</button>
         </div>`;}).join('')
       :'<p class="s">עדיין אין כיתות</p>'}
@@ -237,31 +266,63 @@ function admHome(){
     <button class="x" onclick="closeOv()">סגירה</button>`);
 }
 function admForm(c,idx){
-  const tOpts=OUR.filter(i=>TEACHERS[i]).map(i=>
-    `<option value="${escA(i)}"${c.teacher_id===i?' selected':''}>${esc(TEACHERS[i])}</option>`).join('');
   const sOpts=Object.entries(SUBJ).map(([k,v])=>
     `<option value="${k}"${(c.subject||'tikshoret')===k?' selected':''}>${v.ic} ${esc(v.n)}</option>`).join('');
+  /* קבוצה שכבר משויכת לכיתה אחרת אינה מוצעת שוב — כך לא נוצרות
+     שתי כיתות למידה על אותה קבוצת שיבוץ */
+  const gOpts=GROUPS.filter(g=>!gUsed(g.id)||String(g.id)===String(c.group_id))
+    .map(g=>`<option value="${g.id}"${String(c.group_id)===String(g.id)?' selected':''}
+      >${esc(gLabel(g))} · ${GCOUNT[g.id]||0} תלמידים</option>`).join('');
   show(`<h3>${idx==null?'＋ כיתה חדשה':'✏ עריכת כיתה'}</h3>
-    <p class="s">שם הכיתה, המורה, המקצוע ורשימת התלמידים</p>
-    <input id="cName" placeholder="שם הכיתה — למשל: הפקות יא" value="${escA(c.name||'')}">
-    <select id="cTeacher">${tOpts}</select>
+    <p class="s">הכיתה נשענת על קבוצת שיבוץ — התלמידים נשלפים ממנה חיים</p>
+    <p class="s" style="margin:0 0 4px;text-align:right;font-weight:700">קבוצת השיבוץ</p>
+    <select id="cGroup" onchange="onGroupPick()">
+      <option value="">— בחרו קבוצה —</option>${gOpts}</select>
+    <p class="s" style="margin:0 0 4px;text-align:right;font-weight:700">שם הכיתה כפי שיוצג</p>
+    <input id="cName" placeholder="למשל: הפקות יא" value="${escA(c.name||'')}">
+    <p class="s" style="margin:0 0 4px;text-align:right;font-weight:700">מקצוע — קובע אילו שיעורים אפשר לשלוח</p>
     <select id="cSubject">${sOpts}</select>
-    <p class="s" style="margin:6px 0 4px;text-align:right">רשימת התלמידים — שם בכל שורה</p>
-    <textarea id="cStud" placeholder="דנה כהן&#10;יוסי לוי">${
-      esc(((c.students||[]).map(s=>typeof s==='string'?s:(s.name||''))).join('\n'))}</textarea>
+    <div id="gInfo" style="text-align:right;font-size:.87rem;color:var(--sub);margin-bottom:10px"></div>
     <button class="btn w" onclick="admSave(${idx==null?'null':idx})">שמירה</button>
     ${idx==null?'':`<button class="btn r" style="margin-top:8px" onclick="admDel(${idx})">מחיקת הכיתה</button>`}
     <button class="x" onclick="admHome()">חזרה</button>
     <div class="msg" id="m"></div>`);
+  onGroupPick(true);
+}
+/* בחירת קבוצה ממלאת שם ומקצוע כברירת מחדל, וטוענת את שמות התלמידים */
+async function onGroupPick(first){
+  const id=el('cGroup').value, info=el('gInfo');
+  if(!id){ info.textContent=''; return; }
+  const g=GROUPS.find(x=>String(x.id)===String(id));
+  if(!first){
+    el('cName').value = g.track + ' ' + g.grade;
+    el('cSubject').value = g.subject==='מעשי' ? 'tech' : 'tikshoret';
+  }
+  info.textContent='טוען תלמידים…';
+  try{
+    const e=await sb('tiksh_enrollments?select=student_id&group_id=eq.'+encodeURIComponent(id));
+    const ids=(e||[]).map(x=>x.student_id);
+    if(!ids.length){ info.textContent='⚠ אין תלמידים משובצים לקבוצה'; return; }
+    const s=await sb('tiksh_students?select=id,full_name&id=in.('+ids.join(',')+')');
+    const names=(s||[]).map(x=>x.full_name).filter(Boolean).sort((a,b)=>a.localeCompare(b,'he'));
+    info.innerHTML='<b>'+names.length+' תלמידים:</b> '+esc(names.join(' · '));
+    info.dataset.names=JSON.stringify(names);
+  }catch(err){ info.textContent='שגיאה בטעינת התלמידים'; }
 }
 function admNew(){ admForm({teacher_id:OUR[0],subject:'tech'},null); }
 function admEdit(i){ admForm(ACLS[i],i); }
 async function admSave(idx){
   const m=el('m');
-  const name=el('cName').value.trim();
+  const name=el('cName').value.trim(), gid=el('cGroup').value;
+  if(!gid){ m.style.color='#dc2626'; m.textContent='בחרו קבוצת שיבוץ'; return; }
   if(!name){ m.style.color='#dc2626'; m.textContent='הזינו שם כיתה'; return; }
-  const body={ teacher_id:el('cTeacher').value, name:name, subject:el('cSubject').value,
-    students:el('cStud').value.split('\n').map(s=>s.trim()).filter(Boolean) };
+  const g=GROUPS.find(x=>String(x.id)===String(gid));
+  let names=[];
+  try{ names=JSON.parse(el('gInfo').dataset.names||'[]'); }catch(e){}
+  /* students נשמר גם כגיבוי — כדי שמסכים שעדיין קוראים אותו
+     ימשיכו לעבוד עד שיעברו לשליפה חיה לפי group_id */
+  const body={ teacher_id:g.teacher_id, name:name, subject:el('cSubject').value,
+    group_id:Number(gid), students:names };
   m.style.color='#64748b'; m.textContent='שומר…';
   try{
     const url=SUP+'/rest/v1/lms_classes'+(idx==null?'':'?id=eq.'+encodeURIComponent(ACLS[idx].id));

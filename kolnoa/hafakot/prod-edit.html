@@ -1,8 +1,13 @@
 <!DOCTYPE html>
-<!-- kolnoa/hafakot/prod-edit.html · v1.0.0 · 2026-08-04 · עורך שיעורי טכנולוגיות הפקה.
+<!-- kolnoa/hafakot/prod-edit.html · v1.2.0 · 2026-08-04 · עורך שיעורי טכנולוגיות הפקה.
      התוכן יושב ב-prod_lessons ולא בקבצים, ולכן תיקון נעשה במקום אחד ומופיע בכל מקום —
      בניגוד לזירות, שבהן כל שיעור הוא קובץ נפרד. לכל מושג: תיאוריה, דוגמה, סימולטור,
-     שאלות תרגול ומטלה. ההדבקה מוורד עוברת דרך אותו ממיר של עורך האגרון (MAJOR) -->
+     שאלות תרגול ומטלה. ההדבקה מוורד עוברת דרך אותו ממיר של עורך האגרון.
+     v1.1.0: נוסף בורר קדם־שיעור בלשונית התיאוריה — מושג יכול להצביע על מושג אחר שמניח
+     אותו, והמציג יראה שורת המלצה עם קישור. דורש עמודה: alter table prod_lessons add
+     column prereq text.
+     v1.2.0: נוסף שער סמל מוסד — מורה שטרם שייך את עצמו לבית ספר נחסם עד שימלא.
+     המנגנון במודול משותף school-gate.js (MINOR) -->
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
@@ -66,6 +71,7 @@ textarea{min-height:150px;line-height:1.7;font-family:ui-monospace,'Heebo',monos
 
 <div id="app"></div>
 
+<script src="school-gate.js"></script>
 <script>
 const SUP='https://eubgzfkkovxgijhrmnif.supabase.co';
 const KEY='sb_publishable_vJ768fOwYWiDWeYsBBR45g_4NM4s55p';
@@ -83,7 +89,7 @@ const nrm=s=>String(s||'').replace(/\s+/g,' ').trim();
 function tPhone(s){let p=String(s||'').replace(/\D/g,'').replace(/^00+/,'');
   if(p.indexOf('972')===0)p=p.slice(3);p=p.replace(/^0+/,'');return p?('0'+p):'';}
 
-let ME='', LESSONS=[], CUR=null, DIRTY=false, OPEN=-1, TAB='theory';
+let ME='', TEACHER=null, LESSONS=[], CUR=null, DIRTY=false, OPEN=-1, TAB='theory';
 
 /* ===== כניסה ===== */
 function loginScreen(){
@@ -104,7 +110,10 @@ async function doLogin(){
     const r=await sb('lms_teachers?select=id,name,password,status&phone=eq.'+encodeURIComponent(tPhone(p)));
     const t=(r||[]).find(x=>x.password===w&&x.status==='approved');
     if(!t){m.style.color='#991b1b';m.textContent='פרטים שגויים או חשבון שאינו מאושר';return;}
-    ME=t.name||'מורה';
+    /* כל מסך שדורש כניסת מורה מוודא סמל מוסד לפני שממשיך */
+    const t2=await requireSchool(t);
+    if(!t2){ m.style.color='#991b1b'; m.textContent='נדרש סמל מוסד כדי להמשיך'; return; }
+    ME=t2.name||'מורה'; TEACHER=t2;
     await loadAll();
   }catch(e){m.style.color='#991b1b';m.textContent='שגיאה: '+e.message;}
 }
@@ -186,6 +195,14 @@ function editor(){
     </div>
 
     <div id="tTheory" style="display:${TAB==='theory'?'block':'none'}">
+      <label>קדם־שיעור — מומלץ ללמוד קודם (לא חובה)</label>
+      <select id="fPrereq" onchange="onEdit()">
+        <option value="">— ללא —</option>
+        ${LESSONS.filter(x=>x.id!==l.id).map(x=>`<option value="${escA(x.concept_key)}"${
+          l.prereq===x.concept_key?' selected':''}>${esc(x.topic_name)} · ${esc(x.concept_name)}</option>`).join('')}
+      </select>
+      <p class="hint" style="margin-top:6px">התלמיד יראה שורת המלצה עם קישור — לא נעילה.</p>
+      <label>תיאוריה</label>
       <p class="hint">מה זה ולמה זה חשוב. אפשר להדביק ישירות מוורד — הטקסט יומר אוטומטית.</p>
       <textarea id="fTheory" oninput="onEdit()">${esc(l.theory_html||'')}</textarea>
       <div class="row" style="margin-top:8px">
@@ -292,6 +309,7 @@ function qRender(){
 async function save(){
   const m=el('msg'); if(!CUR)return;
   const body={
+    prereq: el('fPrereq')?(el('fPrereq').value||null):CUR.prereq,
     theory_html: el('fTheory')?el('fTheory').value.trim():CUR.theory_html,
     example_html: el('fExample')?el('fExample').value.trim():CUR.example_html,
     practice: QS.filter(q=>nrm(q.question)),
