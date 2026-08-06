@@ -1,8 +1,11 @@
 <!DOCTYPE html>
-<!-- kolnoa/hafakot/index.html · v1.0.0 · 2026-08-05 · שער כניסה לטכנולוגיות הפקה.
+<!-- kolnoa/hafakot/index.html · v1.1.0 · 2026-08-05 · שער כניסה לטכנולוגיות הפקה.
      שלוש דלתות: תלמיד לאזור האישי שלו (talmid.html עם code+class, אותו זרם מטלות של
      תקשורת וחברה), מורה לכתיבת שיעורים או למעקב, ומאגר השיעורים לעיון חופשי.
-     בורר הכיתות מוגבל למורי בית הספר, כי עמודת school ב-lms_teachers ריקה (MAJOR) -->
+     בורר הכיתות מוגבל למורי בית הספר, כי עמודת school ב-lms_teachers ריקה.
+     v1.1.0: נוספה דלת ניהול — בניית כיתות, שיוך מורה, בחירת מקצוע ורשימת תלמידים בהדבקה.
+     ההרשאה לפי מזהה ברשימת ADMINS ולא לפי סיסמה משותפת, כדי שלא יידרש להחליף סיסמה
+     כשמורה עוזב (MINOR) -->
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
@@ -29,7 +32,7 @@ header p{margin:0;font-size:1.08rem;opacity:.75}
 .door .di{font-size:3rem;margin-bottom:12px}
 .door h2{margin:0 0 7px;font-size:1.45rem;font-weight:800}
 .door p{margin:0;color:var(--sub);font-size:.97rem;line-height:1.5}
-.d2{border-top-color:#8b5cf6}.d3{border-top-color:#10b981}
+.d2{border-top-color:#8b5cf6}.d3{border-top-color:#10b981}.d4{border-top-color:#f59e0b}
 footer{margin-top:auto;padding-top:34px;color:rgba(255,255,255,.55);font-size:.9rem;text-align:center}
 footer a{color:rgba(255,255,255,.8)}
 /* חלון */
@@ -47,6 +50,16 @@ input:focus,select:focus{outline:none;border-color:var(--acc);background:#fff}
   font-weight:700;font-size:1rem;background:var(--acc);color:#fff;margin-top:4px}
 .btn:hover{background:var(--acc2)}
 .btn.v{background:#8b5cf6}.btn.v:hover{background:#7c3aed}
+.btn.w{background:#f59e0b}.btn.w:hover{background:#d97706}
+.btn.r{background:#fee2e2;color:#991b1b}
+.crow{display:flex;gap:8px;align-items:center;padding:9px 11px;border:1px solid var(--line);
+  border-radius:11px;margin-bottom:7px;text-align:right;font-size:.92rem}
+.crow b{flex:1}
+.tag{font-size:.72rem;font-weight:700;border-radius:20px;padding:2px 9px}
+.mini{border:none;border-radius:9px;padding:5px 11px;cursor:pointer;font-family:inherit;
+  font-weight:700;font-size:.8rem;background:#f1f5f9;color:var(--ink)}
+textarea{width:100%;font-family:inherit;font-size:.95rem;padding:12px 14px;margin-bottom:10px;
+  border:2px solid var(--line);border-radius:12px;background:#fafbfc;min-height:130px;resize:vertical}
 .btn.ghost{background:#f1f5f9;color:var(--ink)}
 .x{width:100%;border:none;background:none;cursor:pointer;font-family:inherit;
   color:var(--sub);font-size:.92rem;padding:9px;margin-top:5px}
@@ -73,6 +86,11 @@ input:focus,select:focus{outline:none;border-color:var(--acc);background:#fff}
     <div class="di">👨‍🏫</div>
     <h2>מורים</h2>
     <p>כתיבת שיעורים, שליחת מטלות לכיתה ומעקב אחר ההגשות</p>
+  </button>
+  <button class="door d4" onclick="openAdmin()">
+    <div class="di">⚙️</div>
+    <h2>ניהול</h2>
+    <p>בניית כיתות, רשימות תלמידים ושיוך מורים</p>
   </button>
   <button class="door d3" onclick="openCatalog()">
     <div class="di">📚</div>
@@ -160,6 +178,108 @@ function openTeacher(){
       onclick="location.href='../../eshi/shioor/teacher-central.html'">📊 שליחת מטלות ומעקב</button>
     <button class="x" onclick="closeOv()">ביטול</button>
     <p class="note">בשני המסכים הכניסה בטלפון ובסיסמה שאיתם נרשמתם.</p>`);
+}
+
+/* ---------- ניהול ----------
+   הרשאת ניהול ניתנת לפי מזהה ולא לפי סיסמה משותפת, כדי שלא יידרש
+   לשנות סיסמה כשמורה עוזב. מנהל יכול לבנות כיתה לכל מורה בבית הספר. */
+const ADMINS=['-OmvKR-JvG0o6e4RuD2k'];
+let ADM=null, ACLS=[];
+function openAdmin(){
+  if(ADM){ admHome(); return; }
+  show(`<h3>⚙️ ניהול</h3>
+    <p class="s">כניסה בטלפון ובסיסמה</p>
+    <input id="ap" type="tel" placeholder="טלפון" dir="ltr" style="text-align:right">
+    <input id="aw" type="password" placeholder="סיסמה">
+    <button class="btn w" onclick="admLogin()">כניסה</button>
+    <button class="x" onclick="closeOv()">ביטול</button>
+    <div class="msg" id="m"></div>`);
+  el('aw').addEventListener('keyup',e=>{if(e.key==='Enter')admLogin();});
+}
+function tPhone(s){let p=String(s||'').replace(/\D/g,'').replace(/^00+/,'');
+  if(p.indexOf('972')===0)p=p.slice(3);p=p.replace(/^0+/,'');return p?('0'+p):'';}
+async function admLogin(){
+  const m=el('m');
+  m.style.color='#64748b'; m.textContent='מתחבר…';
+  try{
+    const r=await sb('lms_teachers?select=id,name,password,status&phone=eq.'+
+      encodeURIComponent(tPhone(el('ap').value)));
+    const t=(r||[]).find(x=>x.password===el('aw').value&&x.status==='approved');
+    if(!t){ m.style.color='#dc2626'; m.textContent='פרטים שגויים'; return; }
+    if(ADMINS.indexOf(String(t.id))<0){ m.style.color='#dc2626';
+      m.textContent='אין הרשאת ניהול לחשבון הזה'; return; }
+    ADM=t; await admLoad(); admHome();
+  }catch(e){ m.style.color='#dc2626'; m.textContent='שגיאת תקשורת'; }
+}
+async function admLoad(){
+  const inl='('+OUR.map(encodeURIComponent).join(',')+')';
+  const [c,t]=await Promise.all([
+    sb('lms_classes?select=*&teacher_id=in.'+inl+'&order=name.asc'),
+    sb('lms_teachers?select=id,name&status=eq.approved&id=in.'+inl)]);
+  ACLS=c||[]; (t||[]).forEach(x=>TEACHERS[String(x.id)]=x.name||'מורה');
+}
+const SUBJ={tikshoret:{n:'תקשורת וחברה',ic:'📡',c:'#0ea5e9'},tech:{n:'טכנולוגיות הפקה',ic:'🔧',c:'#f59e0b'}};
+function admHome(){
+  show(`<h3>⚙️ ניהול כיתות</h3>
+    <p class="s">${esc(ADM.name)} · ${ACLS.length} כיתות</p>
+    <div style="text-align:right;max-height:46vh;overflow:auto">
+      ${ACLS.length?ACLS.map((c,i)=>{
+        const s=SUBJ[c.subject||'tikshoret']||SUBJ.tikshoret;
+        return `<div class="crow">
+          <b>${esc(c.name)}</b>
+          <span class="tag" style="background:${s.c}1f;color:${s.c}">${s.ic} ${esc(s.n)}</span>
+          <span style="color:var(--sub);font-size:.83rem">${(c.students||[]).length} תלמידים</span>
+          <button class="mini" onclick="admEdit(${i})">✏</button>
+        </div>`;}).join('')
+      :'<p class="s">עדיין אין כיתות</p>'}
+    </div>
+    <button class="btn w" style="margin-top:12px" onclick="admNew()">＋ כיתה חדשה</button>
+    <button class="x" onclick="closeOv()">סגירה</button>`);
+}
+function admForm(c,idx){
+  const tOpts=OUR.filter(i=>TEACHERS[i]).map(i=>
+    `<option value="${escA(i)}"${c.teacher_id===i?' selected':''}>${esc(TEACHERS[i])}</option>`).join('');
+  const sOpts=Object.entries(SUBJ).map(([k,v])=>
+    `<option value="${k}"${(c.subject||'tikshoret')===k?' selected':''}>${v.ic} ${esc(v.n)}</option>`).join('');
+  show(`<h3>${idx==null?'＋ כיתה חדשה':'✏ עריכת כיתה'}</h3>
+    <p class="s">שם הכיתה, המורה, המקצוע ורשימת התלמידים</p>
+    <input id="cName" placeholder="שם הכיתה — למשל: הפקות יא" value="${escA(c.name||'')}">
+    <select id="cTeacher">${tOpts}</select>
+    <select id="cSubject">${sOpts}</select>
+    <p class="s" style="margin:6px 0 4px;text-align:right">רשימת התלמידים — שם בכל שורה</p>
+    <textarea id="cStud" placeholder="דנה כהן&#10;יוסי לוי">${
+      esc(((c.students||[]).map(s=>typeof s==='string'?s:(s.name||''))).join('\n'))}</textarea>
+    <button class="btn w" onclick="admSave(${idx==null?'null':idx})">שמירה</button>
+    ${idx==null?'':`<button class="btn r" style="margin-top:8px" onclick="admDel(${idx})">מחיקת הכיתה</button>`}
+    <button class="x" onclick="admHome()">חזרה</button>
+    <div class="msg" id="m"></div>`);
+}
+function admNew(){ admForm({teacher_id:OUR[0],subject:'tech'},null); }
+function admEdit(i){ admForm(ACLS[i],i); }
+async function admSave(idx){
+  const m=el('m');
+  const name=el('cName').value.trim();
+  if(!name){ m.style.color='#dc2626'; m.textContent='הזינו שם כיתה'; return; }
+  const body={ teacher_id:el('cTeacher').value, name:name, subject:el('cSubject').value,
+    students:el('cStud').value.split('\n').map(s=>s.trim()).filter(Boolean) };
+  m.style.color='#64748b'; m.textContent='שומר…';
+  try{
+    const url=SUP+'/rest/v1/lms_classes'+(idx==null?'':'?id=eq.'+encodeURIComponent(ACLS[idx].id));
+    const r=await fetch(url,{method:idx==null?'POST':'PATCH',
+      headers:Object.assign({'Content-Type':'application/json',Prefer:'return=representation'},HDR),
+      body:JSON.stringify(idx==null?[body]:body)});
+    if(!r.ok)throw new Error(await r.text());
+    await admLoad(); CLASSES=[]; admHome();
+  }catch(e){ m.style.color='#dc2626'; m.textContent='שגיאה: '+String(e.message).slice(0,90); }
+}
+async function admDel(idx){
+  const c=ACLS[idx];
+  if(!confirm('למחוק את הכיתה "'+c.name+'"?\n\nהמטלות וההגשות יישארו במסד.'))return;
+  try{
+    await fetch(SUP+'/rest/v1/lms_classes?id=eq.'+encodeURIComponent(c.id),
+      {method:'DELETE',headers:HDR});
+    await admLoad(); CLASSES=[]; admHome();
+  }catch(e){}
 }
 
 /* ---------- מאגר השיעורים ---------- */
