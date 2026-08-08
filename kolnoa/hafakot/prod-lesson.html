@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- kolnoa/hafakot/prod-lesson.html · v1.6.0 · 2026-08-04 · מציג שיעורי טכנולוגיות הפקה.
+<!-- kolnoa/hafakot/prod-lesson.html · v1.6.1 · 2026-08-04 · מציג שיעורי טכנולוגיות הפקה.
      קובץ אחד לכל 48 המושגים — התוכן נשלף מ-prod_lessons לפי ?t=topic&c=concept, בניגוד
      לזירות שבהן כל שיעור הוא קובץ נפרד. ארבעה שלבים ברצף: צפייה, תיאוריה, תרגול ומטלה,
      כשהמטלה נפתחת רק אחרי שהתרגול נענה — אותו עיקרון של הזירות. ההגשה נשמרת
@@ -26,7 +26,10 @@
      v1.6.0: התמונות מועלות ל-Supabase Storage במקום לדרייב אישי — לתלמידים אין מקום בדרייב,
      אין הרשאות מסודרות, והמורה מאבד את ההגשה אם התלמיד מוחק. התמונה מכווצת בדפדפן
      ל-1600px לפני ההעלאה (מ-4MB ל-300KB), עם תצוגה מקדימה והסרה. שדה קישור נשאר
-     לסרטונים ארוכים. דורש bucket בשם submissions עם מדיניות קריאה והעלאה (MINOR) -->
+     לסרטונים ארוכים. דורש bucket בשם submissions עם מדיניות קריאה והעלאה.
+     v1.6.1: נתיב הקובץ נבנה מ-slug באנגלית ולא מ-encodeURIComponent של שם הכיתה —
+     Storage דוחה תווי אחוז ותווים שאינם ASCII ומחזיר InvalidKey. שם בעברית מומר
+     ל-hash קצר ויציב (PATCH) -->
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
@@ -435,6 +438,15 @@ function compress(file){
   });
 }
 const rnd=()=>Math.random().toString(36).slice(2,10)+Date.now().toString(36);
+/* חתימה בטוחה לנתיב: אותיות, ספרות ומקף בלבד. מחרוזת עברית
+   מומרת ל-hash קצר כדי שהנתיב יישאר ייחודי ותקין. */
+function slug(s){
+  s=String(s||'');
+  const clean=s.replace(/[^a-zA-Z0-9_-]/g,'');
+  if(clean.length>=3) return clean.slice(0,40);
+  let hh=0; for(let i=0;i<s.length;i++){ hh=((hh<<5)-hh+s.charCodeAt(i))|0; }
+  return Math.abs(hh).toString(36);
+}
 
 async function pickFiles(inp){
   const files=[...inp.files]; inp.value='';
@@ -445,8 +457,10 @@ async function pickFiles(inp){
     renderThumbs();
     try{
       const blob=await compress(f);
-      const path=encodeURIComponent(CLS||'general')+'/'+encodeURIComponent(TOPIC_KEY())+
-                 '/'+rnd()+'.jpg';
+      /* Supabase Storage דוחה תווי אחוז ותווים שאינם ASCII בשמות נתיב,
+         ולכן שם הכיתה בעברית אינו יכול להופיע כאן. במקומו חתימה קצרה
+         שנגזרת ממנו — ייחודית, יציבה, וקריאה למכונה. */
+      const path = 'c'+slug(CLS)+'/'+slug(TOPIC_KEY())+'/'+rnd()+'.jpg';
       const r=await fetch(SUP+'/storage/v1/object/'+BUCKET+'/'+path,{
         method:'POST',
         headers:{apikey:KEY,Authorization:'Bearer '+KEY,'Content-Type':'image/jpeg'},
