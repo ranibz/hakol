@@ -1,8 +1,11 @@
 <!DOCTYPE html>
-<!-- kolnoa/hafakot/prod-send.html · v1.0.0 · 2026-08-06 · מסך שליחת מטלה לכיתת הפקות.
+<!-- kolnoa/hafakot/prod-send.html · v1.1.0 · 2026-08-06 · מסך שליחת מטלה לכיתת הפקות.
      במקום שני תפריטים נפתחים, כל תשעת הנושאים פרושים כאקורדיון ובתוכם המושגים כצ'יפים —
      לחיצה אחת שולחת. הנושאים נטענים מ-prod_lessons, ולכן מושג בלי תוכן מסומן ואינו נשלח
-     בטעות. topic של המטלה זהה למה שסביבת המורה בונה, כדי שהמעקב יזהה אותה (MAJOR) -->
+     בטעות. topic של המטלה זהה למה שסביבת המורה בונה, כדי שהמעקב יזהה אותה.
+     v1.1.0: due_block נשלח רק אם העמודה קיימת בטבלה — היא אינה קיימת בכל הסביבות ושליחתה
+     הפילה את הבקשה ב-PGRST204. בנוסף: הנושא הראשון שיש בו שיעורים מוכנים נפתח מעצמו,
+     נוסף תג "N מוכנים" לכל נושא, ונושא ללא תוכן מוצג עמום (MINOR) -->
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
@@ -87,7 +90,7 @@ function toast(t,ok){
   m.classList.add('on'); setTimeout(()=>m.classList.remove('on'),2600);
 }
 
-let ME=null, CLASSES=[], TOPICS=[], SENT={}, CUR='', OPEN=-1;
+let ME=null, CLASSES=[], TOPICS=[], SENT={}, CUR='', OPEN=-1, HAS_DUE_BLOCK=false;
 
 /* ===== כניסה ===== */
 (async function init(){
@@ -123,6 +126,8 @@ async function start(){
          '&subject=eq.tech&order=ord.asc')]);
     /* רק כיתות הפקה — לכיתת תקשורת אין מה לשלוח מכאן */
     CLASSES=(cl||[]).filter(c=>c.subject==='tech').map(c=>c.name);
+    /* בדיקה חד-פעמית אם העמודה קיימת, במקום להניח */
+    try{ await sb('lms_assignments?select=due_block&limit=1'); HAS_DUE_BLOCK=true; }catch(e){}
     const by={};
     (ls||[]).forEach(l=>{
       if(!by[l.topic_key]) by[l.topic_key]={key:l.topic_key,name:l.topic_name,items:[]};
@@ -131,6 +136,9 @@ async function start(){
     TOPICS=Object.values(by);
     CUR=CLASSES[0]||'';
     if(CUR) await loadSent();
+    /* הנושא הראשון שיש בו שיעורים מוכנים נפתח מעצמו — אחרת המורה
+       פותח תשעה אקורדיונים כדי לגלות איפה בכלל יש חומר */
+    OPEN=TOPICS.findIndex(t=>t.items.some(hasContent));
     render();
   }catch(e){
     el('app').innerHTML=`<div class="wrap"><div class="card"><p style="color:#991b1b">שגיאת טעינה: ${esc(e.message)}</p></div></div>`;
@@ -193,9 +201,12 @@ function render(){
       const n=t.items.filter(hasContent).length;
       const s=t.items.filter(x=>SENT[topicKey(t.key,x.concept_key)]).length;
       const col=s===t.items.length?'var(--ok)':s?'var(--warn)':'#cbd5e1';
-      return `<div class="topic ${OPEN===i?'open':''}" id="tp-${i}">
+      return `<div class="topic ${OPEN===i?'open':''}" id="tp-${i}"
+        style="${n?'':'opacity:.55'}">
         <div class="topic-h" onclick="tog(${i})">
           <b>${esc(t.name)}</b>
+          ${n?`<span class="cnt" style="background:#e0f2fe;color:#0369a1">${n} מוכנים</span>`
+             :`<span class="cnt" style="background:#f8fafc;color:#cbd5e1">טרם נכתב</span>`}
           <span class="cnt" style="background:${col}22;color:${col}">${s}/${t.items.length} נשלחו</span>
           <span class="bar"><i style="width:${Math.round(s/t.items.length*100)}%;background:${col}"></i></span>
           <span class="chev">⌄</span>
@@ -243,9 +254,11 @@ async function send(tk,ck,name){
          '&c='+encodeURIComponent(ck)+'&code='+encodeURIComponent(ME.id)+
          '&class='+encodeURIComponent(CUR),
     active:true,
-    due_at: due ? new Date(due).toISOString() : null,
-    due_block: due ? !!el('dueBlk').checked : false
+    due_at: due ? new Date(due).toISOString() : null
   };
+  /* due_block נשלח רק אם העמודה קיימת — היא אינה קיימת בכל הסביבות,
+     ושליחתה מפילה את הבקשה כולה ב-PGRST204 */
+  if(due && el('dueBlk').checked && HAS_DUE_BLOCK) row.due_block=true;
   try{
     await sb('lms_assignments?on_conflict=teacher_id,class_name,topic','POST',[row],
       {Prefer:'resolution=merge-duplicates,return=minimal'});
