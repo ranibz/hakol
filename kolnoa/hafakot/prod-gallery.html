@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<!-- kolnoa/hafakot/prod-gallery.html · v1.0.0 · 2026-08-06 · גלריית כיתה להקרנה.
+     מציגה את תוצרי המטלה של כל הכיתה כרשת, ולחיצה מגדילה למסך מלא עם חצים.
+     שם המצלם מוסתר כברירת מחדל — כדי שהדיון יתחיל מהתמונה ולא מהשם — ונחשף
+     בלחיצה או במתג. מיועדת להקרנה: רקע כהה, טיפוגרפיה גדולה, ניווט במקלדת (MAJOR) -->
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>גלריית כיתה · טכנולוגיות הפקה</title>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;600;700;900&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0b1220;--panel:#111c2f;--ink:#e2e8f0;--sub:#94a3b8;--acc:#38bdf8;--line:#1e293b}
+*{box-sizing:border-box}
+body{margin:0;font-family:'Heebo',sans-serif;background:var(--bg);color:var(--ink);min-height:100vh}
+header{background:rgba(17,28,47,.9);backdrop-filter:blur(8px);padding:13px 20px;
+  display:flex;align-items:center;gap:11px;flex-wrap:wrap;position:sticky;top:0;z-index:20;
+  border-bottom:1px solid var(--line)}
+header h1{margin:0;font-size:1.1rem;font-weight:900}
+select{font-family:inherit;font-size:.95rem;padding:8px 12px;border-radius:10px;
+  border:1px solid var(--line);background:#0f1a2b;color:var(--ink);max-width:260px}
+.pill{background:rgba(56,189,248,.15);color:var(--acc);border-radius:20px;
+  padding:3px 13px;font-size:.8rem;font-weight:700}
+.tgl{display:flex;align-items:center;gap:7px;font-size:.87rem;color:var(--sub);cursor:pointer}
+.tgl input{width:17px;height:17px;accent-color:var(--acc);cursor:pointer}
+.wrap{max-width:1500px;margin:0 auto;padding:20px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px}
+.cell{position:relative;border-radius:14px;overflow:hidden;background:#0f1a2b;
+  aspect-ratio:4/3;cursor:zoom-in;border:1px solid var(--line);
+  transition:transform .25s cubic-bezier(.25,.8,.25,1),box-shadow .25s,border-color .25s}
+.cell:hover{transform:translateY(-4px) scale(1.02);border-color:var(--acc);
+  box-shadow:0 14px 34px rgba(0,0,0,.5)}
+.cell img{width:100%;height:100%;object-fit:cover;display:block}
+.cell .who{position:absolute;inset:auto 0 0 0;background:linear-gradient(transparent,rgba(0,0,0,.85));
+  color:#fff;padding:22px 12px 9px;font-size:.88rem;font-weight:700;
+  opacity:0;transition:opacity .25s}
+.cell.named .who,.cell:hover .who{opacity:1}
+.cell .star{position:absolute;top:8px;right:8px;background:rgba(0,0,0,.55);border:none;
+  color:#fbbf24;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:1rem;
+  opacity:0;transition:opacity .2s}
+.cell:hover .star,.cell.picked .star{opacity:1}
+.cell.picked{border-color:#fbbf24;box-shadow:0 0 0 2px rgba(251,191,36,.3)}
+.empty{text-align:center;padding:70px 20px;color:var(--sub)}
+.empty .ic{font-size:3rem;display:block;margin-bottom:10px}
+/* מסך מלא */
+.lb{position:fixed;inset:0;background:rgba(3,7,18,.97);display:none;
+  align-items:center;justify-content:center;z-index:80}
+.lb.on{display:flex}
+.lb img{max-width:94vw;max-height:84vh;border-radius:10px;box-shadow:0 20px 60px rgba(0,0,0,.7)}
+.lb .cap{position:absolute;bottom:24px;left:0;right:0;text-align:center;color:#fff}
+.lb .cap b{font-size:1.4rem;font-weight:900;display:block}
+.lb .cap small{color:var(--sub);font-size:.95rem}
+.lb .cap .hidden-name{color:var(--sub);font-size:1rem;cursor:pointer;
+  border-bottom:1px dashed var(--sub);padding-bottom:2px}
+.lb .x{position:absolute;top:18px;left:22px;background:rgba(255,255,255,.13);color:#fff;
+  border:none;border-radius:50%;width:46px;height:46px;font-size:1.4rem;cursor:pointer}
+.lb .nav{position:absolute;top:50%;transform:translateY(-50%);background:rgba(255,255,255,.13);
+  color:#fff;border:none;border-radius:50%;width:56px;height:56px;font-size:1.9rem;cursor:pointer}
+.lb .nav:hover{background:rgba(255,255,255,.25)}
+.lb .prev{right:20px}.lb .next{left:20px}
+.lb .cnt{position:absolute;top:22px;right:24px;color:var(--sub);font-size:.95rem}
+.login{max-width:380px;margin:80px auto;background:var(--panel);border-radius:18px;
+  padding:30px 26px;text-align:center;border:1px solid var(--line)}
+.login input{width:100%;font-family:inherit;font-size:1rem;padding:12px 14px;margin-bottom:9px;
+  border:1px solid var(--line);border-radius:11px;background:#0f1a2b;color:var(--ink)}
+.btn{border:none;border-radius:11px;padding:12px 20px;cursor:pointer;font-family:inherit;
+  font-weight:700;font-size:.95rem;background:var(--acc);color:#062338}
+.hint{color:var(--sub);font-size:.88rem;line-height:1.6}
+@media(max-width:600px){.grid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}}
+</style>
+</head>
+<body>
+<div id="app"><div class="wrap"><p class="hint">טוען…</p></div></div>
+<div class="lb" id="lb" onclick="if(event.target.id==='lb')close_()">
+  <button class="x" onclick="close_()">✕</button>
+  <button class="nav prev" onclick="move(-1)">›</button>
+  <img id="lbImg" alt="">
+  <button class="nav next" onclick="move(1)">‹</button>
+  <span class="cnt" id="lbCnt"></span>
+  <div class="cap" id="lbCap"></div>
+</div>
+
+<script src="school-gate.js"></script>
+<script>
+const SUP='https://eubgzfkkovxgijhrmnif.supabase.co';
+const KEY='sb_publishable_vJ768fOwYWiDWeYsBBR45g_4NM4s55p';
+const HDR={apikey:KEY,Authorization:'Bearer '+KEY,'Content-Type':'application/json'};
+async function sb(p){
+  const r=await fetch(SUP+'/rest/v1/'+p,{headers:HDR});
+  if(!r.ok)throw new Error(r.status); return await r.json();
+}
+const el=id=>document.getElementById(id);
+const esc=s=>{const d=document.createElement('div');d.textContent=s==null?'':s;return d.innerHTML;};
+const escA=s=>esc(s).replace(/"/g,'&quot;');
+function tPhone(s){let p=String(s||'').replace(/\D/g,'').replace(/^00+/,'');
+  if(p.indexOf('972')===0)p=p.slice(3);p=p.replace(/^0+/,'');return p?('0'+p):'';}
+
+let ME=null, CLASSES=[], TASKS=[], CUR='', TASK='', ITEMS=[], IDX=0,
+    SHOWNAMES=false, PICKED={}, REVEALED={};
+
+/* ===== כניסה ===== */
+(async function init(){
+  ME=(typeof loadTeacherSession==='function')?loadTeacherSession():null;
+  if(ME) return start();
+  el('app').innerHTML=`<div class="wrap"><div class="login">
+    <div style="font-size:2.6rem">🖼️</div>
+    <h2 style="margin:6px 0 3px">גלריית כיתה</h2>
+    <p class="hint" style="margin-bottom:16px">להקרנה בכיתה</p>
+    <input id="lp" type="tel" placeholder="טלפון" dir="ltr" style="text-align:right">
+    <input id="lw" type="password" placeholder="סיסמה">
+    <button class="btn" style="width:100%;margin-top:8px" onclick="doLogin()">כניסה</button>
+    <p class="hint" id="lm" style="margin-top:10px"></p></div></div>`;
+  el('lw').addEventListener('keyup',e=>{if(e.key==='Enter')doLogin();});
+})();
+async function doLogin(){
+  const m=el('lm'); m.textContent='מתחבר…';
+  try{
+    const r=await sb('lms_teachers?select=*&phone=eq.'+encodeURIComponent(tPhone(el('lp').value)));
+    const t=(r||[]).find(x=>x.password===el('lw').value&&x.status==='approved');
+    if(!t){ m.style.color='#f87171'; m.textContent='פרטים שגויים'; return; }
+    const t2=await requireSchool(t);
+    if(!t2){ m.style.color='#f87171'; m.textContent='נדרש סמל מוסד'; return; }
+    saveTeacherSession(t2); ME=t2; start();
+  }catch(e){ m.style.color='#f87171'; m.textContent='שגיאת תקשורת'; }
+}
+
+/* ===== טעינה ===== */
+async function start(){
+  try{
+    const cl=await sb('lms_classes?select=name&teacher_id=eq.'+encodeURIComponent(ME.id)+'&order=name.asc');
+    CLASSES=(cl||[]).map(c=>c.name);
+    CUR=CLASSES[0]||'';
+    if(CUR) await loadTasks();
+    render();
+  }catch(e){ el('app').innerHTML='<div class="wrap"><p class="hint">שגיאת טעינה</p></div>'; }
+}
+async function loadTasks(){
+  const a=await sb('lms_assignments?select=topic,title&teacher_id='+
+    'eq.'+encodeURIComponent(ME.id)+'&class_name=eq.'+encodeURIComponent(CUR)+
+    '&active=eq.true&order=created_at.desc');
+  TASKS=a||[];
+  TASK=TASKS.length?TASKS[0].topic:'';
+  await loadItems();
+}
+/* אוספים את כל התמונות מתוך items של ההגשות למטלה */
+async function loadItems(){
+  ITEMS=[];
+  if(!TASK) return;
+  const s=await sb('lms_submissions?select=student_name,items,submitted_at&teacher_id='+
+    'eq.'+encodeURIComponent(ME.id)+'&class_name=eq.'+encodeURIComponent(CUR)+
+    '&topic=eq.'+encodeURIComponent(TASK));
+  const isImg=u=>/\.(jpg|jpeg|png|webp|gif)(\?|$)/i.test(u)||
+                 String(u).indexOf('/storage/v1/object/public/')>-1;
+  (s||[]).forEach(row=>{
+    (Array.isArray(row.items)?row.items:[]).forEach(it=>{
+      (Array.isArray(it.links)?it.links:[]).filter(isImg).forEach(u=>{
+        ITEMS.push({url:u, who:row.student_name||'', at:row.submitted_at, text:it.text||''});
+      });
+    });
+  });
+  /* ערבוב קל — כדי שסדר ההגשה לא ירמז מי צילם מה */
+  ITEMS.sort(()=>Math.random()-0.5);
+}
+
+/* ===== מסך ===== */
+function render(){
+  const tk=TASKS.find(t=>t.topic===TASK);
+  el('app').innerHTML=`
+  <header>
+    <h1>🖼️ גלריית כיתה</h1>
+    <select onchange="pickClass(this.value)">
+      ${CLASSES.map(n=>`<option value="${escA(n)}"${n===CUR?' selected':''}>${esc(n)}</option>`).join('')}
+    </select>
+    <select onchange="pickTask(this.value)">
+      ${TASKS.length?TASKS.map(t=>`<option value="${escA(t.topic)}"${
+        t.topic===TASK?' selected':''}>${esc(t.title||t.topic)}</option>`).join('')
+        :'<option>— אין מטלות —</option>'}
+    </select>
+    <span class="pill">${ITEMS.length} תמונות</span>
+    <label class="tgl" style="margin-inline-start:auto">
+      <input type="checkbox" ${SHOWNAMES?'checked':''} onchange="toggleNames(this.checked)">
+      הצגת שמות
+    </label>
+  </header>
+  <div class="wrap">
+    ${ITEMS.length?`<div class="grid">
+      ${ITEMS.map((it,i)=>`<div class="cell ${SHOWNAMES||REVEALED[i]?'named':''} ${PICKED[i]?'picked':''}"
+        onclick="open_(${i})">
+        <img src="${escA(it.url)}" loading="lazy" alt="">
+        <button class="star" onclick="event.stopPropagation();pick(${i})"
+          title="בחירת המורה">${PICKED[i]?'★':'☆'}</button>
+        <div class="who">${esc(it.who)}</div>
+      </div>`).join('')}
+    </div>`:`<div class="empty"><span class="ic">📭</span>
+      ${TASK?'עדיין לא הוגשו תמונות למטלה הזו':'בחרו מטלה'}
+    </div>`}
+  </div>`;
+}
+async function pickClass(v){ CUR=v; await loadTasks(); PICKED={}; REVEALED={}; render(); }
+async function pickTask(v){ TASK=v; await loadItems(); PICKED={}; REVEALED={}; render(); }
+function toggleNames(v){ SHOWNAMES=v; render(); if(el('lb').classList.contains('on'))cap(); }
+function pick(i){ PICKED[i]=!PICKED[i]; render(); }
+
+/* ===== מסך מלא ===== */
+function open_(i){ IDX=i; el('lb').classList.add('on'); show(); }
+function close_(){ el('lb').classList.remove('on'); }
+function move(d){ IDX=(IDX+d+ITEMS.length)%ITEMS.length; show(); }
+function show(){
+  el('lbImg').src=ITEMS[IDX].url;
+  el('lbCnt').textContent=(IDX+1)+' / '+ITEMS.length;
+  cap();
+}
+/* השם מוסתר כברירת מחדל — הדיון מתחיל מהתמונה, לא מהמצלם */
+function cap(){
+  const it=ITEMS[IDX];
+  const shown=SHOWNAMES||REVEALED[IDX];
+  el('lbCap').innerHTML = shown
+    ? `<b>${esc(it.who)}</b>${it.text?`<small>${esc(it.text.slice(0,120))}</small>`:''}`
+    : `<span class="hidden-name" onclick="reveal()">לחצו לחשיפת השם</span>`;
+}
+function reveal(){ REVEALED[IDX]=true; cap(); render(); }
+document.addEventListener('keydown',e=>{
+  if(!el('lb').classList.contains('on'))return;
+  if(e.key==='Escape')close_();
+  if(e.key==='ArrowRight')move(-1);
+  if(e.key==='ArrowLeft')move(1);
+  if(e.key===' '){ e.preventDefault(); reveal(); }
+});
+</script>
+</body>
+</html>
