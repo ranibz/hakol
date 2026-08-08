@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- kolnoa/hafakot/index.html · v1.4.0 · 2026-08-05 · שער כניסה לטכנולוגיות הפקה.
+<!-- kolnoa/hafakot/index.html · v1.5.0 · 2026-08-05 · שער כניסה לטכנולוגיות הפקה.
      שלוש דלתות: תלמיד לאזור האישי שלו (talmid.html עם code+class, אותו זרם מטלות של
      תקשורת וחברה), מורה לכתיבת שיעורים או למעקב, ומאגר השיעורים לעיון חופשי.
      בורר הכיתות מוגבל למורי בית הספר, כי עמודת school ב-lms_teachers ריקה.
@@ -16,7 +16,10 @@
      v1.4.0: הפרדה בין מאגר לתוכן כיתתי. עריכת מאגר השיעורים נחסמה למנהלי תוכן, כי הוא
      משותף לכל בתי הספר ושינוי של מורה אחד היה משנה את השיעור לכולם. נוסף מסלול
      "תוכן משלי" — משימה, מצגת, קישור או סרטון שמורה יוצר לכיתה שלו בלבד, בטבלה
-     נפרדת prod_custom (MINOR) -->
+     נפרדת prod_custom.
+     v1.5.0: סדר הכניסה התהפך — קודם מזדהים ורק אז מוצג התפריט, כך שמורה שאינו מנהל תוכן
+     אינו רואה כלל את עריכת המאגר במקום ללחוץ ולהיחסם. התפריט מציג את שם המורה,
+     בית הספר, ותג "מנהל תוכן" למי שהוא (MINOR) -->
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
@@ -182,33 +185,25 @@ function goStudent(){
 }
 
 /* ---------- מורים ---------- */
-function openTeacher(){
-  show(`<h3>👨‍🏫 כניסת מורים</h3>
-    <p class="s">לאן תרצו להגיע?</p>
+/* קודם מזדהים ורק אז רואים את התפריט — מורה שאינו מנהל תוכן
+   לא יראה כלל את עריכת המאגר, במקום ללחוץ ולהיחסם */
+async function openTeacher(){
+  if(!CT){ const t=await teacherLogin('כניסת מורים'); if(!t) return; CT=t; }
+  teacherMenu();
+}
+function teacherMenu(){
+  const admin=isAdmin(CT);
+  show(`<h3>👨‍🏫 שלום ${esc(CT.name)}</h3>
+    <p class="s">${esc(CT.school_name||'')}${admin?' · מנהל תוכן':''}</p>
     <button class="btn" style="background:#10b981" onclick="openCustom()">➕ תוכן משלי לכיתה</button>
     <button class="btn ghost" style="margin-top:9px"
       onclick="location.href='../../eshi/shioor/teacher-central.html'">📊 שליחת מטלות ומעקב</button>
-    <button class="btn v" style="margin-top:9px" onclick="gotoEditor()">✍ עריכת מאגר השיעורים</button>
-    <button class="x" onclick="closeOv()">ביטול</button>
+    ${admin?`<button class="btn v" style="margin-top:9px"
+      onclick="location.href='prod-edit.html'">✍ עריכת מאגר השיעורים</button>`:''}
+    <button class="x" onclick="closeOv()">סגירה</button>
     <p class="note">
-      <b>תוכן משלי</b> — משימה, מצגת או קישור לכיתה שלכם בלבד.<br>
-      <b>מאגר השיעורים</b> — 48 שיעורי הליבה, משותפים לכל בתי הספר ופתוחים
-      לעריכה למנהלי תוכן בלבד.</p>`);
-}
-/* המאגר משותף לכל בתי הספר, ולכן עריכתו שמורה למנהלי תוכן —
-   אחרת שינוי של מורה אחד היה משנה את השיעור לכולם */
-async function gotoEditor(){
-  const t=await teacherLogin('כניסה לעריכת המאגר');
-  if(!t) return;
-  if(!isAdmin(t)){
-    show(`<h3>🔒 עריכת המאגר</h3>
-      <p class="s">מאגר השיעורים משותף לכל בתי הספר, ולכן עריכתו שמורה למנהלי תוכן.</p>
-      <p class="s">רוצים ליצור משימה, מצגת או קישור לכיתה שלכם? השתמשו ב<b>תוכן משלי</b>.</p>
-      <button class="btn" style="background:#10b981" onclick="openCustom()">➕ תוכן משלי לכיתה</button>
-      <button class="x" onclick="closeOv()">סגירה</button>`);
-    return;
-  }
-  location.href='prod-edit.html';
+      <b>תוכן משלי</b> — משימה, מצגת או קישור לכיתה שלכם בלבד.
+      ${admin?'<br><b>מאגר השיעורים</b> — 48 שיעורי הליבה, משותפים לכל בתי הספר.':''}</p>`);
 }
 /* כניסת מורה משותפת לשתי הדלתות */
 function teacherLogin(title){
@@ -244,6 +239,7 @@ async function openCustom(){
   if(!CT){ const t=await teacherLogin('תוכן משלי'); if(!t)return; CT=t; }
   await customLoad(); customHome();
 }
+function backToMenu(){ teacherMenu(); }
 async function customLoad(){
   const [it,cl]=await Promise.all([
     sb('prod_custom?select=*&teacher_id=eq.'+encodeURIComponent(CT.id)+'&order=created_at.desc'),
@@ -265,7 +261,7 @@ function customHome(){
       :'<p class="s">עדיין לא יצרתם תוכן. התחילו כאן.</p>'}
     </div>
     <button class="btn" style="background:#10b981;margin-top:12px" onclick="customNew()">＋ פריט חדש</button>
-    <button class="x" onclick="closeOv()">סגירה</button>`);
+    <button class="x" onclick="backToMenu()">→ חזרה לתפריט</button>`);
 }
 function customForm(c,idx){
   show(`<h3>${idx==null?'＋ פריט חדש':'✏ עריכה'}</h3>
