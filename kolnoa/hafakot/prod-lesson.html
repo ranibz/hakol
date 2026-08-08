@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- kolnoa/hafakot/prod-lesson.html · v1.3.0 · 2026-08-04 · מציג שיעורי טכנולוגיות הפקה.
+<!-- kolnoa/hafakot/prod-lesson.html · v1.4.0 · 2026-08-04 · מציג שיעורי טכנולוגיות הפקה.
      קובץ אחד לכל 48 המושגים — התוכן נשלף מ-prod_lessons לפי ?t=topic&c=concept, בניגוד
      לזירות שבהן כל שיעור הוא קובץ נפרד. ארבעה שלבים ברצף: צפייה, תיאוריה, תרגול ומטלה,
      כשהמטלה נפתחת רק אחרי שהתרגול נענה — אותו עיקרון של הזירות. ההגשה נשמרת
@@ -11,7 +11,11 @@
      provider או לפי סיומת הקובץ. כמו כן מוצגים כל הסרטונים ב-media ולא רק הראשון.
      v1.3.0: המציג טוען גם תוכן כיתתי מ-prod_custom דרך ?t=custom&c=<id>, וממיר אותו למבנה
      של שיעור רגיל כך שכל המציג עובד ללא שינוי. קישורים שאינם וידאו מוצגים ככרטיסי
-     חומרים מצורפים (MINOR) -->
+     חומרים מצורפים.
+     v1.4.0: ההגשות עברו מ-prod_answers ל-lms_submissions — אותה טבלה של כל שאר המטלות,
+     ולכן הן מופיעות במסך המעקב של המורה בלי שינוי בסביבת המורה. topic זהה ל-topic של
+     המטלה ב-lms_assignments וזה מה שמקשר ביניהן; תשובות התרגול ב-answers והתוצר
+     ב-items. הגשות ישנות שנשמרו ב-prod_answers נשארות שם ואינן מוצגות (MAJOR) -->
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
@@ -190,12 +194,18 @@ function preLink(){
 }
 async function loadAnswer(){
   try{
-    const r=await sb('prod_answers?select=*&student_name=eq.'+encodeURIComponent(ME)+
+    const r=await sb('lms_submissions?select=*&student_name=eq.'+encodeURIComponent(ME)+
       '&class_name=eq.'+encodeURIComponent(CLS)+
-      '&topic_key=eq.'+encodeURIComponent(TOPIC)+
-      '&concept_key=eq.'+encodeURIComponent(CONCEPT)+'&limit=1');
-    ANS=r[0]||null;
-    if(ANS&&ANS.practice_answers){ PICKED=ANS.practice_answers; CHECKED=true; }
+      '&topic=eq.'+encodeURIComponent(TOPIC_KEY())+'&limit=1');
+    const s=r[0];
+    if(!s){ ANS=null; return; }
+    const it=(s.items&&s.items[0])||{};
+    ANS=Object.assign({}, s, {
+      practice_answers: s.answers||{},
+      task_answer: it.text||'', task_links: it.links||[],
+      grade: s.grade, feedback: s.feedback
+    });
+    if(Object.keys(ANS.practice_answers).length){ PICKED=ANS.practice_answers; CHECKED=true; }
   }catch(e){}
 }
 
@@ -394,16 +404,41 @@ async function submitTask(){
     render();
   }catch(e){ m.style.color='#991b1b'; m.textContent='שגיאה: '+e.message; }
 }
-/* שמירה — שורה אחת לכל תלמיד בכל מושג */
+/* שמירה — ל-lms_submissions, אותה טבלה של כל שאר המטלות.
+   כך ההגשה מופיעה במסך המעקב של המורה בלי שינוי שם. topic זהה
+   ל-topic של המטלה ב-lms_assignments, וזה מה שמקשר ביניהן. */
+/* אותו topic שסביבת המורה בונה למטלה: הקטלוג משתמש בקו תחתון
+   ('prod_exposure_') בעוד שם הקובץ במקף ('prod-exposure') */
+const TOPIC_KEY = () => TOPIC==='custom' ? ('custom_'+CONCEPT)
+  : (String(TOPIC).replace(/-/g,'_')+'_'+CONCEPT);
 async function upsert(patch){
   if(!ME||!CLS){ return; }
-  const body=Object.assign({
-    teacher_id:CODE, class_name:CLS, student_name:ME,
-    topic_key:TOPIC, concept_key:CONCEPT
-  }, patch);
-  const r=await sb('prod_answers?on_conflict=student_name,class_name,topic_key,concept_key',
-    'POST',[body],{Prefer:'resolution=merge-duplicates,return=representation'});
-  ANS=Object.assign(ANS||{},(r&&r[0])||body);
+  const cur = ANS || {};
+  const row = {
+    teacher_id: CODE, class_name: CLS, student_name: ME,
+    topic: TOPIC_KEY(), page: TOPIC==='custom' ? 'custom' : (TOPIC+'.html'),
+    concept: CONCEPT, lesson_type: TOPIC==='custom' ? 'custom' : 'concept',
+    answers: patch.practice_answers !== undefined ? patch.practice_answers
+             : (cur.answers || {}),
+    score_auto: patch.score_auto !== undefined ? patch.score_auto : (cur.score_auto ?? null),
+    score_max:  patch.score_max  !== undefined ? patch.score_max  : (cur.score_max  ?? null),
+    /* התוצר עצמו נשמר ב-items, שסביבת המורה כבר יודעת להציג */
+    items: patch.task_answer !== undefined || patch.task_links !== undefined
+      ? [{ type:'task',
+           text: patch.task_answer !== undefined ? patch.task_answer : (cur.task_answer||''),
+           links: patch.task_links !== undefined ? patch.task_links : (cur.task_links||[]) }]
+      : (cur.items || []),
+    submitted_at: patch.submitted_at || cur.submitted_at || new Date().toISOString()
+  };
+  const r = await sb('lms_submissions?on_conflict=student_name,class_name,topic',
+    'POST', [row], { Prefer:'resolution=merge-duplicates,return=representation' });
+  const saved = (r && r[0]) || row;
+  /* שמירה מקומית של המבנה הפנימי, כדי שהמסך ימשיך לעבוד כרגיל */
+  ANS = Object.assign({}, cur, saved, {
+    practice_answers: row.answers,
+    task_answer: (row.items[0] && row.items[0].text) || '',
+    task_links:  (row.items[0] && row.items[0].links) || []
+  });
 }
 
 /* ===== גלריה ===== */
