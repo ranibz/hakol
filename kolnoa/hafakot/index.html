@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- kolnoa/hafakot/index.html · v1.5.0 · 2026-08-05 · שער כניסה לטכנולוגיות הפקה.
+<!-- kolnoa/hafakot/index.html · v1.6.0 · 2026-08-05 · שער כניסה לטכנולוגיות הפקה.
      שלוש דלתות: תלמיד לאזור האישי שלו (talmid.html עם code+class, אותו זרם מטלות של
      תקשורת וחברה), מורה לכתיבת שיעורים או למעקב, ומאגר השיעורים לעיון חופשי.
      בורר הכיתות מוגבל למורי בית הספר, כי עמודת school ב-lms_teachers ריקה.
@@ -19,7 +19,11 @@
      נפרדת prod_custom.
      v1.5.0: סדר הכניסה התהפך — קודם מזדהים ורק אז מוצג התפריט, כך שמורה שאינו מנהל תוכן
      אינו רואה כלל את עריכת המאגר במקום ללחוץ ולהיחסם. התפריט מציג את שם המורה,
-     בית הספר, ותג "מנהל תוכן" למי שהוא (MINOR) -->
+     בית הספר, ותג "מנהל תוכן" למי שהוא.
+     v1.6.0: תיקון מהותי — פריט תוכן נשמר ב-prod_custom בלבד ולכן התלמידים לא ראו אותו כלל.
+     כל שמירה יוצרת עכשיו גם שורה ב-lms_assignments עם topic=custom_<id> ו-page=custom,
+     ומכאן האזור האישי, מועדי ההגשה והמעקב עובדים עליו כמו על כל מטלה. מחיקה מסירה גם
+     את שורת המטלה (MINOR) -->
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
@@ -310,12 +314,33 @@ async function customSave(idx){
       headers:Object.assign({'Content-Type':'application/json',Prefer:'return=representation'},HDR),
       body:JSON.stringify(idx==null?[body]:body)});
     if(!r.ok)throw new Error((await r.text()).slice(0,120));
+    const saved=(await r.json())[0] || CITEMS[idx];
+    /* התוכן חייב להיות גם מטלה, אחרת הכיתה לא רואה אותו:
+       האזור האישי, מועדי ההגשה והמעקב כולם נשענים על lms_assignments */
+    await upsertAssignment(saved);
     await customLoad(); customHome();
+    const m2=el('m'); if(m2){ m2.style.color='#059669'; m2.textContent='✅ נשמר והוקצה לכיתה'; }
   }catch(e){ m.style.color='#dc2626'; m.textContent='שגיאה: '+e.message; }
+}
+/* שורת מטלה מקבילה לכל פריט תוכן. topic ייחודי לפי המזהה,
+   ולכן on_conflict מעדכן ולא משכפל בעריכה חוזרת. */
+async function upsertAssignment(c){
+  const link='https://hakolbakaf.co.il/kolnoa/hafakot/prod-lesson.html?t=custom&c='+
+    encodeURIComponent(c.id)+'&code='+encodeURIComponent(c.teacher_id)+
+    '&class='+encodeURIComponent(c.class_name||'');
+  const row={ teacher_id:c.teacher_id, class_name:c.class_name, topic:'custom_'+c.id,
+    page:'custom', concept:c.id, title:c.title, link:link, active:c.active!==false };
+  await fetch(SUP+'/rest/v1/lms_assignments?on_conflict=teacher_id,class_name,topic',
+    { method:'POST',
+      headers:Object.assign({'Content-Type':'application/json',
+        Prefer:'resolution=merge-duplicates,return=minimal'},HDR),
+      body:JSON.stringify([row]) });
 }
 async function customDel(idx){
   const c=CITEMS[idx];
-  if(!confirm('למחוק את "'+c.title+'"?\n\nהגשות התלמידים יישארו במסד.'))return;
+  if(!confirm('למחוק את "'+c.title+'"?\n\nהמטלה תוסר מהכיתה. ההגשות יישארו במסד.'))return;
+  await fetch(SUP+'/rest/v1/lms_assignments?topic=eq.'+encodeURIComponent('custom_'+c.id),
+    {method:'DELETE',headers:HDR});
   await fetch(SUP+'/rest/v1/prod_custom?id=eq.'+encodeURIComponent(c.id),{method:'DELETE',headers:HDR});
   await customLoad(); customHome();
 }
