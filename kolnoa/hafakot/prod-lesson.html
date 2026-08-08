@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- kolnoa/hafakot/prod-lesson.html · v1.4.0 · 2026-08-04 · מציג שיעורי טכנולוגיות הפקה.
+<!-- kolnoa/hafakot/prod-lesson.html · v1.5.0 · 2026-08-04 · מציג שיעורי טכנולוגיות הפקה.
      קובץ אחד לכל 48 המושגים — התוכן נשלף מ-prod_lessons לפי ?t=topic&c=concept, בניגוד
      לזירות שבהן כל שיעור הוא קובץ נפרד. ארבעה שלבים ברצף: צפייה, תיאוריה, תרגול ומטלה,
      כשהמטלה נפתחת רק אחרי שהתרגול נענה — אותו עיקרון של הזירות. ההגשה נשמרת
@@ -15,7 +15,11 @@
      v1.4.0: ההגשות עברו מ-prod_answers ל-lms_submissions — אותה טבלה של כל שאר המטלות,
      ולכן הן מופיעות במסך המעקב של המורה בלי שינוי בסביבת המורה. topic זהה ל-topic של
      המטלה ב-lms_assignments וזה מה שמקשר ביניהן; תשובות התרגול ב-answers והתוצר
-     ב-items. הגשות ישנות שנשמרו ב-prod_answers נשארות שם ואינן מוצגות (MAJOR) -->
+     ב-items. הגשות ישנות שנשמרו ב-prod_answers נשארות שם ואינן מוצגות.
+     v1.5.0: לחיצה על "בדיקה" פותחת את המטלה מיד, לפני השמירה — קודם היא המתינה ל-upsert,
+     וכשהשמירה נכשלה (למשל בהיעדר אילוץ ייחודי) שום דבר לא קרה והתלמיד נתקע בלי הסבר.
+     כשל שמירה מוצג עכשיו כאזהרה ואינו חוסם. הציון מחושב מהאמריקאיות בלבד; שאלות פתוחות
+     נשמרות ואינן משפיעות על הפתיחה (PATCH) -->
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
@@ -377,17 +381,26 @@ function addLink(){
 function reopen(){ ANS.task_answer=''; ANS.task_links=[]; render(); }
 
 /* ===== תרגול ===== */
+/* הציון מחושב מהאמריקאיות בלבד. שאלות פתוחות נשמרות ואינן נבדקות
+   כאן, ולכן אינן יכולות למנוע את פתיחת המטלה.
+   המטלה נפתחת מיד — כשל שמירה הוא תקלה טכנית ואין סיבה שיחסום תלמיד. */
 async function checkPractice(){
   const qs=PR(); let auto=0,max=0;
   qs.forEach((q,i)=>{
     if(q.type==='choice'){ max+=q.points||1; if(PICKED['q'+i]===q.correct_answer)auto+=q.points||1; }
   });
   CHECKED=true;
-  await upsert({practice_answers:PICKED,score_auto:auto,score_max:max});
   render();
   const m=el('prMsg');
   if(m){ m.style.color=max&&auto===max?'#059669':'#0369a1';
-    m.textContent=max?('✅ '+auto+' מתוך '+max+' — המטלה נפתחה'):'✅ נשמר — המטלה נפתחה'; }
+    m.textContent=max?('✅ '+auto+' מתוך '+max+' — המטלה נפתחה'):'✅ המטלה נפתחה'; }
+  try{
+    await upsert({practice_answers:PICKED,score_auto:auto,score_max:max});
+  }catch(e){
+    const m2=el('prMsg');
+    if(m2){ m2.style.color='#b45309';
+      m2.textContent='⚠ התשובות לא נשמרו ('+String(e.message).slice(0,60)+') — המשיכו למטלה ודווחו למורה'; }
+  }
 }
 /* ===== מטלה ===== */
 async function submitTask(){
@@ -402,7 +415,10 @@ async function submitTask(){
   try{
     await upsert({task_answer:txt,task_links:links,submitted_at:new Date().toISOString()});
     render();
-  }catch(e){ m.style.color='#991b1b'; m.textContent='שגיאה: '+e.message; }
+  }catch(e){
+    m.style.color='#991b1b';
+    m.textContent='❌ ההגשה לא נשמרה: '+String(e.message).slice(0,90)+' — נסו שוב או דווחו למורה';
+  }
 }
 /* שמירה — ל-lms_submissions, אותה טבלה של כל שאר המטלות.
    כך ההגשה מופיעה במסך המעקב של המורה בלי שינוי שם. topic זהה
