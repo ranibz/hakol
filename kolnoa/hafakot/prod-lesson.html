@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- kolnoa/hafakot/prod-lesson.html · v1.5.1 · 2026-08-04 · מציג שיעורי טכנולוגיות הפקה.
+<!-- kolnoa/hafakot/prod-lesson.html · v1.6.0 · 2026-08-04 · מציג שיעורי טכנולוגיות הפקה.
      קובץ אחד לכל 48 המושגים — התוכן נשלף מ-prod_lessons לפי ?t=topic&c=concept, בניגוד
      לזירות שבהן כל שיעור הוא קובץ נפרד. ארבעה שלבים ברצף: צפייה, תיאוריה, תרגול ומטלה,
      כשהמטלה נפתחת רק אחרי שהתרגול נענה — אותו עיקרון של הזירות. ההגשה נשמרת
@@ -22,7 +22,11 @@
      נשמרות ואינן משפיעות על הפתיחה.
      v1.5.1: השמירה עברה מ-upsert לבדיקה-ואז-עדכון. ל-lms_submissions אין אילוץ ייחודי על
      (student_name, class_name, topic) בגלל כפילויות היסטוריות, ואינדקס חלקי אינו יכול לשמש
-     ל-ON CONFLICT — ולכן כל שמירה נכשלה ב-42P10. אין צורך בשינוי במסד (PATCH) -->
+     ל-ON CONFLICT — ולכן כל שמירה נכשלה ב-42P10. אין צורך בשינוי במסד.
+     v1.6.0: התמונות מועלות ל-Supabase Storage במקום לדרייב אישי — לתלמידים אין מקום בדרייב,
+     אין הרשאות מסודרות, והמורה מאבד את ההגשה אם התלמיד מוחק. התמונה מכווצת בדפדפן
+     ל-1600px לפני ההעלאה (מ-4MB ל-300KB), עם תצוגה מקדימה והסרה. שדה קישור נשאר
+     לסרטונים ארוכים. דורש bucket בשם submissions עם מדיניות קריאה והעלאה (MINOR) -->
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
@@ -99,6 +103,20 @@ textarea{min-height:90px;resize:vertical;line-height:1.7}
 .pre b{color:#92400e}
 .pre .btn{margin-inline-start:auto;background:#f59e0b}
 .pre .btn:hover{background:#d97706}
+.up{border:2px dashed var(--acc);border-radius:14px;padding:20px;text-align:center;
+  background:#f0f9ff;cursor:pointer;transition:background .2s;margin-bottom:10px}
+.up:hover{background:#e0f2fe}
+.up .ic{font-size:2.2rem;display:block;margin-bottom:5px}
+.up b{color:var(--acc2)}
+.up small{display:block;color:var(--sub);font-size:.83rem;margin-top:4px}
+.thumbs{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:9px;margin-bottom:10px}
+.th{position:relative;border-radius:11px;overflow:hidden;background:#e2e8f0;aspect-ratio:1}
+.th img{width:100%;height:100%;object-fit:cover;display:block}
+.th button{position:absolute;top:5px;left:5px;background:rgba(15,23,42,.75);color:#fff;
+  border:none;border-radius:50%;width:26px;height:26px;cursor:pointer;font-size:.85rem;line-height:1}
+.th .bar{position:absolute;inset:auto 0 0 0;height:4px;background:rgba(255,255,255,.4)}
+.th .bar i{display:block;height:100%;background:var(--acc);transition:width .3s}
+.orlink{margin:12px 0 6px;font-size:.87rem;color:var(--sub);text-align:center}
 .vid{width:100%;border-radius:14px;background:#000;display:block;margin-bottom:6px}
 </style>
 </head>
@@ -354,6 +372,11 @@ function taskHtml(){
   if(taskDone()) return `<div class="done-box">
     <div style="font-size:2rem">✅</div>
     <b>המטלה הוגשה</b>
+    ${links.length?`<div class="thumbs" style="margin:12px 0 0">${links.map(u=>
+      /^https?:\/\/.*(jpg|jpeg|png|webp)(\?|$)/i.test(u)||u.indexOf('/storage/v1/object/public/')>-1
+        ? `<a class="th" href="${escA(u)}" target="_blank"><img src="${escA(u)}" alt=""></a>`
+        : `<a class="th" href="${escA(u)}" target="_blank" style="display:flex;align-items:center;
+           justify-content:center;color:#0369a1;font-size:.8rem">🔗 קישור</a>`).join('')}</div>`:''}
     <p class="sub" style="margin:6px 0 0">${ANS.submitted_at?
       'נשלח '+new Date(ANS.submitted_at).toLocaleString('he-IL'):''}
       ${ANS.grade!=null?' · ציון '+ANS.grade:''}</p>
@@ -365,23 +388,99 @@ function taskHtml(){
       <label style="font-weight:700;font-size:.86rem;color:var(--sub)">התשובה שלכם</label>
       <textarea id="tAns"></textarea>`:''}
     ${(type==='links'||type==='both')?`
-      <label style="font-weight:700;font-size:.86rem;color:var(--sub);display:block;margin-top:11px">
-        קישורים לתמונות או סרטונים${n?' — נדרשים '+n:''}</label>
-      <div id="links">${Array.from({length:Math.max(n,1)},(_,i)=>`
+      <label style="font-weight:700;font-size:.86rem;color:var(--sub);display:block;margin-top:13px">
+        התמונות שלכם${n?' — נדרשות '+n:''}</label>
+      <div class="thumbs" id="thumbs"></div>
+      <div class="up" onclick="document.getElementById('picker').click()">
+        <span class="ic">📷</span>
+        <b>בחרו תמונה או צלמו</b>
+        <small>אפשר לבחור כמה בבת אחת · עד 8MB לתמונה</small>
+      </div>
+      <input type="file" id="picker" accept="image/*" multiple
+        style="display:none" onchange="pickFiles(this)">
+      <p class="orlink">או הדביקו קישור לסרטון (יוטיוב, דרייב)</p>
+      <div id="links">${Array.from({length:1},()=>`
         <div class="linkrow"><input type="url" class="lnk" dir="ltr"
-          placeholder="https://drive.google.com/…"></div>`).join('')}</div>
+          placeholder="https://youtu.be/…"></div>`).join('')}</div>
       <button class="btn s" onclick="addLink()">+ קישור נוסף</button>`:''}
     <div style="margin-top:14px">
       <button class="btn g" onclick="submitTask()">שליחת המטלה</button>
       <span class="msg" id="tMsg"></span>
     </div>`;
 }
+/* ===== העלאת תמונות =====
+   התמונות נשמרות ב-Supabase Storage ולא בדרייב אישי: לתלמידים אין מקום,
+   אין הרשאות מסודרות, והמורה מאבד את ההגשה אם התלמיד מוחק.
+   הכיווץ בדפדפן לפני ההעלאה מוריד תמונת טלפון מ-4MB ל-300KB — פי 12
+   יותר הגשות באותו נפח, ופי 12 פחות תעבורה. */
+const BUCKET='submissions';
+const MAXPX=1600, QUALITY=0.82, MAXMB=8;
+let UPLOADED=[];   /* {url, name} */
+
+function compress(file){
+  return new Promise((res,rej)=>{
+    const img=new Image(), fr=new FileReader();
+    fr.onload=()=>{ img.src=fr.result; };
+    fr.onerror=()=>rej(new Error('קריאת הקובץ נכשלה'));
+    img.onload=()=>{
+      let {width:w,height:h2}=img;
+      const sc=Math.min(1, MAXPX/Math.max(w,h2));
+      w=Math.round(w*sc); h2=Math.round(h2*sc);
+      const c=document.createElement('canvas'); c.width=w; c.height=h2;
+      c.getContext('2d').drawImage(img,0,0,w,h2);
+      c.toBlob(b=>b?res(b):rej(new Error('הכיווץ נכשל')),'image/jpeg',QUALITY);
+    };
+    img.onerror=()=>rej(new Error('הקובץ אינו תמונה תקינה'));
+    fr.readAsDataURL(file);
+  });
+}
+const rnd=()=>Math.random().toString(36).slice(2,10)+Date.now().toString(36);
+
+async function pickFiles(inp){
+  const files=[...inp.files]; inp.value='';
+  for(const f of files){
+    if(f.size > MAXMB*1024*1024){ alert('"'+f.name+'" גדולה מ-'+MAXMB+'MB'); continue; }
+    const idx=UPLOADED.length;
+    UPLOADED.push({url:'', name:f.name, pending:true, pct:0});
+    renderThumbs();
+    try{
+      const blob=await compress(f);
+      const path=encodeURIComponent(CLS||'general')+'/'+encodeURIComponent(TOPIC_KEY())+
+                 '/'+rnd()+'.jpg';
+      const r=await fetch(SUP+'/storage/v1/object/'+BUCKET+'/'+path,{
+        method:'POST',
+        headers:{apikey:KEY,Authorization:'Bearer '+KEY,'Content-Type':'image/jpeg'},
+        body:blob});
+      if(!r.ok) throw new Error((await r.text()).slice(0,90));
+      UPLOADED[idx]={url:SUP+'/storage/v1/object/public/'+BUCKET+'/'+path,
+                     name:f.name, pending:false};
+    }catch(e){
+      UPLOADED[idx]={url:'', name:f.name, pending:false, error:String(e.message).slice(0,60)};
+    }
+    renderThumbs();
+  }
+}
+function renderThumbs(){
+  const box=el('thumbs'); if(!box) return;
+  box.innerHTML=UPLOADED.map((u,i)=>{
+    if(u.pending) return `<div class="th" style="display:flex;align-items:center;
+      justify-content:center;color:#64748b;font-size:.8rem">מעלה…</div>`;
+    if(u.error) return `<div class="th" style="display:flex;align-items:center;
+      justify-content:center;background:#fee2e2;color:#991b1b;font-size:.75rem;padding:6px;
+      text-align:center">${esc(u.error)}
+      <button onclick="dropImg(${i})">✕</button></div>`;
+    return `<div class="th"><img src="${escA(u.url)}" alt="${escA(u.name)}">
+      <button onclick="dropImg(${i})" title="הסרה">✕</button></div>`;
+  }).join('');
+}
+function dropImg(i){ UPLOADED.splice(i,1); renderThumbs(); }
+
 function addLink(){
   const d=document.createElement('div'); d.className='linkrow';
   d.innerHTML='<input type="url" class="lnk" dir="ltr" placeholder="https://…">';
   el('links').appendChild(d);
 }
-function reopen(){ ANS.task_answer=''; ANS.task_links=[]; render(); }
+function reopen(){ ANS.task_answer=''; ANS.task_links=[]; UPLOADED=[]; render(); }
 
 /* ===== תרגול ===== */
 /* הציון מחושב מהאמריקאיות בלבד. שאלות פתוחות נשמרות ואינן נבדקות
@@ -409,10 +508,15 @@ async function checkPractice(){
 async function submitTask(){
   const m=el('tMsg');
   const txt=el('tAns')?el('tAns').value.trim():'';
-  const links=[...document.querySelectorAll('.lnk')].map(x=>x.value.trim()).filter(Boolean);
+  const typed=[...document.querySelectorAll('.lnk')].map(x=>x.value.trim()).filter(Boolean);
+  const imgs=UPLOADED.filter(u=>u.url).map(u=>u.url);
+  const links=imgs.concat(typed);
   const t=TK();
+  if(UPLOADED.some(u=>u.pending)){
+    m.style.color='#b45309'; m.textContent='המתינו לסיום העלאת התמונות'; return; }
   if((t.type==='links'||t.type==='both')&&(t.n||0)>links.length){
-    m.style.color='#991b1b'; m.textContent='נדרשים '+t.n+' קישורים'; return; }
+    m.style.color='#991b1b';
+    m.textContent='נדרשות '+t.n+' תמונות — הועלו '+links.length; return; }
   if(t.type!=='links'&&!txt){ m.style.color='#991b1b'; m.textContent='כתבו תשובה'; return; }
   m.style.color='#64748b'; m.textContent='שולח…';
   try{
