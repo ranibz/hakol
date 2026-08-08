@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<!-- kolnoa/hafakot/prod-send.html · v1.0.0 · 2026-08-06 · מסך שליחת מטלה לכיתת הפקות.
+     במקום שני תפריטים נפתחים, כל תשעת הנושאים פרושים כאקורדיון ובתוכם המושגים כצ'יפים —
+     לחיצה אחת שולחת. הנושאים נטענים מ-prod_lessons, ולכן מושג בלי תוכן מסומן ואינו נשלח
+     בטעות. topic של המטלה זהה למה שסביבת המורה בונה, כדי שהמעקב יזהה אותה (MAJOR) -->
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>שליחת מטלה · טכנולוגיות הפקה</title>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;600;700;900&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#0f172a;--sub:#64748b;--acc:#0ea5e9;--acc2:#0284c7;--ok:#10b981;
+      --warn:#f59e0b;--line:#e2e8f0}
+*{box-sizing:border-box}
+body{margin:0;font-family:'Heebo',sans-serif;background:#f1f5f9;color:var(--ink);line-height:1.7}
+header{background:linear-gradient(135deg,#0f172a,#0c4a6e);color:#fff;padding:16px 22px;
+  display:flex;align-items:center;gap:12px;flex-wrap:wrap;position:sticky;top:0;z-index:20}
+header h1{margin:0;font-size:1.2rem;font-weight:900}
+.pill{background:rgba(255,255,255,.16);border-radius:20px;padding:3px 13px;font-size:.8rem;font-weight:700}
+.wrap{max-width:1000px;margin:0 auto;padding:20px}
+.card{background:#fff;border-radius:16px;padding:18px 20px;margin-bottom:15px;
+  box-shadow:0 2px 12px rgba(15,23,42,.07)}
+label{display:block;font-weight:800;font-size:.85rem;color:var(--sub);margin-bottom:6px}
+select,input{width:100%;font-family:inherit;font-size:1rem;padding:11px 13px;
+  border:2px solid var(--line);border-radius:11px;background:#fafbfc}
+select:focus,input:focus{outline:none;border-color:var(--acc);background:#fff}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.btn{border:none;border-radius:11px;padding:11px 20px;cursor:pointer;font-family:inherit;
+  font-weight:700;font-size:.94rem;background:var(--acc);color:#fff}
+.btn:hover{background:var(--acc2)}
+.btn.s{padding:6px 14px;font-size:.84rem;background:#eef2f7;color:var(--ink)}
+/* נושאים */
+.topic{background:#fff;border:1px solid var(--line);border-radius:15px;margin-bottom:10px;overflow:hidden}
+.topic-h{display:flex;align-items:center;gap:11px;padding:14px 18px;cursor:pointer;transition:background .2s}
+.topic-h:hover{background:#f8fafc}
+.topic-h b{flex:1;font-size:1.02rem}
+.cnt{font-size:.79rem;font-weight:800;border-radius:20px;padding:2px 10px}
+.bar{flex:1;max-width:130px;height:6px;border-radius:4px;background:#eef2f7;overflow:hidden}
+.bar i{display:block;height:100%;border-radius:4px;transition:width .5s}
+.chev{color:#94a3b8;transition:transform .3s}
+.topic.open .chev{transform:rotate(180deg)}
+.body{max-height:0;overflow:hidden;transition:max-height .4s cubic-bezier(.4,0,.2,1)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;padding:4px 18px 16px}
+.chip{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line);
+  border-radius:22px;padding:7px 15px;font-size:.9rem;background:#f8fafc;cursor:pointer;
+  font-family:inherit;color:var(--ink);transition:all .18s}
+.chip:hover{background:#e0f2fe;border-color:#7dd3fc;transform:translateY(-1px)}
+.chip.sent{background:#dcfce7;border-color:#86efac;color:#166534;font-weight:700}
+.chip.empty{background:#fff;color:#cbd5e1;cursor:not-allowed;border-style:dashed}
+.chip.empty:hover{transform:none;background:#fff;border-color:var(--line)}
+.chip b{font-size:.76rem;opacity:.85}
+.legend{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:12px}
+.legend i{font-style:normal;font-size:.75rem;padding:3px 11px;border-radius:20px;border:1px solid var(--line)}
+.msg{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);background:#0f172a;color:#fff;
+  padding:13px 24px;border-radius:14px;font-weight:700;font-size:.94rem;z-index:60;
+  box-shadow:0 12px 30px rgba(0,0,0,.3);opacity:0;transition:opacity .3s;pointer-events:none}
+.msg.on{opacity:1}
+.login{max-width:390px;margin:70px auto;text-align:center}
+.hint{color:var(--sub);font-size:.87rem;line-height:1.6;margin:0 0 12px}
+@media(max-width:640px){.row{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div id="app"><div class="wrap"><div class="card"><p class="hint">טוען…</p></div></div></div>
+<div class="msg" id="toast"></div>
+
+<script src="school-gate.js"></script>
+<script>
+const SUP='https://eubgzfkkovxgijhrmnif.supabase.co';
+const KEY='sb_publishable_vJ768fOwYWiDWeYsBBR45g_4NM4s55p';
+const HDR={apikey:KEY,Authorization:'Bearer '+KEY,'Content-Type':'application/json'};
+async function sb(p,m,b,x){
+  const r=await fetch(SUP+'/rest/v1/'+p,{method:m||'GET',
+    headers:Object.assign({},HDR,x||{}),body:b?JSON.stringify(b):undefined});
+  if(!r.ok)throw new Error(r.status+' '+(await r.text()).slice(0,160));
+  const t=await r.text(); return t?JSON.parse(t):[];
+}
+const el=id=>document.getElementById(id);
+const esc=s=>{const d=document.createElement('div');d.textContent=s==null?'':s;return d.innerHTML;};
+const escA=s=>esc(s).replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+function tPhone(s){let p=String(s||'').replace(/\D/g,'').replace(/^00+/,'');
+  if(p.indexOf('972')===0)p=p.slice(3);p=p.replace(/^0+/,'');return p?('0'+p):'';}
+function toast(t,ok){
+  const m=el('toast'); m.textContent=t;
+  m.style.background=ok===false?'#991b1b':'#0f172a';
+  m.classList.add('on'); setTimeout(()=>m.classList.remove('on'),2600);
+}
+
+let ME=null, CLASSES=[], TOPICS=[], SENT={}, CUR='', OPEN=-1;
+
+/* ===== כניסה ===== */
+(async function init(){
+  ME = (typeof loadTeacherSession==='function') ? loadTeacherSession() : null;
+  if(ME) return start();
+  el('app').innerHTML=`<div class="wrap"><div class="card login">
+    <h2 style="margin:0 0 4px">📤 שליחת מטלה</h2>
+    <p class="hint">טכנולוגיות הפקה</p>
+    <input id="lp" type="tel" placeholder="טלפון" dir="ltr" style="text-align:right;margin-bottom:9px">
+    <input id="lw" type="password" placeholder="סיסמה">
+    <button class="btn" style="width:100%;margin-top:12px" onclick="doLogin()">כניסה</button>
+    <p class="hint" id="lm" style="margin-top:10px"></p></div></div>`;
+  el('lw').addEventListener('keyup',e=>{if(e.key==='Enter')doLogin();});
+})();
+async function doLogin(){
+  const m=el('lm'); m.style.color='#64748b'; m.textContent='מתחבר…';
+  try{
+    const r=await sb('lms_teachers?select=*&phone=eq.'+encodeURIComponent(tPhone(el('lp').value)));
+    const t=(r||[]).find(x=>x.password===el('lw').value&&x.status==='approved');
+    if(!t){ m.style.color='#dc2626'; m.textContent='פרטים שגויים'; return; }
+    const t2=await requireSchool(t);
+    if(!t2){ m.style.color='#dc2626'; m.textContent='נדרש סמל מוסד'; return; }
+    saveTeacherSession(t2); ME=t2; start();
+  }catch(e){ m.style.color='#dc2626'; m.textContent='שגיאת תקשורת'; }
+}
+
+/* ===== טעינה ===== */
+async function start(){
+  try{
+    const [cl,ls]=await Promise.all([
+      sb('lms_classes?select=name,subject&teacher_id=eq.'+encodeURIComponent(ME.id)+'&order=name.asc'),
+      sb('prod_lessons?select=topic_key,topic_name,concept_key,concept_name,ord,theory_html'+
+         '&subject=eq.tech&order=ord.asc')]);
+    /* רק כיתות הפקה — לכיתת תקשורת אין מה לשלוח מכאן */
+    CLASSES=(cl||[]).filter(c=>c.subject==='tech').map(c=>c.name);
+    const by={};
+    (ls||[]).forEach(l=>{
+      if(!by[l.topic_key]) by[l.topic_key]={key:l.topic_key,name:l.topic_name,items:[]};
+      by[l.topic_key].items.push(l);
+    });
+    TOPICS=Object.values(by);
+    CUR=CLASSES[0]||'';
+    if(CUR) await loadSent();
+    render();
+  }catch(e){
+    el('app').innerHTML=`<div class="wrap"><div class="card"><p style="color:#991b1b">שגיאת טעינה: ${esc(e.message)}</p></div></div>`;
+  }
+}
+/* אילו מושגים כבר נשלחו לכיתה — כדי לא לשלוח פעמיים בטעות */
+async function loadSent(){
+  SENT={};
+  try{
+    const r=await sb('lms_assignments?select=topic,active&teacher_id=eq.'+encodeURIComponent(ME.id)+
+      '&class_name=eq.'+encodeURIComponent(CUR));
+    (r||[]).forEach(a=>{ SENT[a.topic]=a.active!==false; });
+  }catch(e){}
+}
+/* topic זהה למה שסביבת המורה בונה: קו תחתון ולא מקף */
+const topicKey=(tk,ck)=>String(tk).replace(/-/g,'_')+'_'+ck;
+const hasContent=l=>!!String(l.theory_html||'').replace(/<[^>]+>/g,'').trim();
+
+/* ===== מסך ===== */
+function render(){
+  const ready=TOPICS.reduce((n,t)=>n+t.items.filter(hasContent).length,0);
+  el('app').innerHTML=`
+  <header>
+    <h1>📤 שליחת מטלה</h1>
+    <span class="pill">טכנולוגיות הפקה</span>
+    <span class="pill">${ready} שיעורים מוכנים</span>
+    <span style="margin-inline-start:auto;font-size:.86rem">👤 ${esc(ME.name||'')}</span>
+  </header>
+  <div class="wrap">
+    <div class="card">
+      <div class="row">
+        <div>
+          <label>כיתה</label>
+          <select id="clsSel" onchange="pickClass()">
+            ${CLASSES.length?CLASSES.map(n=>`<option value="${escA(n)}"${
+              n===CUR?' selected':''}>${esc(n)}</option>`).join('')
+              :'<option value="">— אין כיתות הפקה —</option>'}
+          </select>
+        </div>
+        <div>
+          <label>מועד הגשה אחרון (לא חובה)</label>
+          <input type="datetime-local" id="dueAt">
+        </div>
+      </div>
+      <label style="display:flex;align-items:center;gap:8px;margin-top:11px;font-weight:600;color:var(--ink)">
+        <input type="checkbox" id="dueBlk" style="width:17px;height:17px;padding:0;border:0">
+        לנעול את המטלה אחרי המועד
+      </label>
+      ${CLASSES.length?'':`<p class="hint" style="color:#991b1b;margin-top:10px">
+        אין לכם כיתה שהמקצוע שלה הוא טכנולוגיות הפקה. צרו אחת במסך הניהול.</p>`}
+    </div>
+
+    <div class="legend">
+      <i style="background:#f8fafc">לחצו כדי לשלוח</i>
+      <i style="background:#dcfce7;border-color:#86efac;color:#166534">כבר נשלח</i>
+      <i style="border-style:dashed;color:#cbd5e1">טרם נכתב</i>
+    </div>
+
+    ${TOPICS.map((t,i)=>{
+      const n=t.items.filter(hasContent).length;
+      const s=t.items.filter(x=>SENT[topicKey(t.key,x.concept_key)]).length;
+      const col=s===t.items.length?'var(--ok)':s?'var(--warn)':'#cbd5e1';
+      return `<div class="topic ${OPEN===i?'open':''}" id="tp-${i}">
+        <div class="topic-h" onclick="tog(${i})">
+          <b>${esc(t.name)}</b>
+          <span class="cnt" style="background:${col}22;color:${col}">${s}/${t.items.length} נשלחו</span>
+          <span class="bar"><i style="width:${Math.round(s/t.items.length*100)}%;background:${col}"></i></span>
+          <span class="chev">⌄</span>
+        </div>
+        <div class="body" id="bd-${i}" style="max-height:${OPEN===i?'600px':'0'}">
+          <div class="chips">
+            ${t.items.map(l=>{
+              const k=topicKey(t.key,l.concept_key);
+              if(!hasContent(l)) return `<span class="chip empty"
+                title="השיעור טרם נכתב">${esc(l.concept_name)}</span>`;
+              const sent=SENT[k];
+              return `<button class="chip ${sent?'sent':''}"
+                onclick="send('${escA(t.key)}','${escA(l.concept_key)}','${escA(l.concept_name)}')"
+                >${sent?'✓':'＋'} ${esc(l.concept_name)}</button>`;
+            }).join('')}
+          </div>
+        </div>
+      </div>`;
+    }).join('')}
+    <p class="hint" style="text-align:center;margin-top:18px">
+      <a href="index.html" style="color:var(--acc)">→ חזרה לשער</a>
+    </p>
+  </div>`;
+}
+function tog(i){
+  OPEN = OPEN===i ? -1 : i;
+  document.querySelectorAll('.topic').forEach((t,k)=>{
+    t.classList.toggle('open',k===OPEN);
+    const b=el('bd-'+k); if(b) b.style.maxHeight = k===OPEN ? (b.scrollHeight+30)+'px' : '0px';
+  });
+}
+async function pickClass(){
+  CUR=el('clsSel').value;
+  await loadSent(); render();
+}
+
+/* ===== שליחה ===== */
+async function send(tk,ck,name){
+  if(!CUR){ toast('בחרו כיתה',false); return; }
+  const due=el('dueAt').value;
+  const row={
+    teacher_id:ME.id, class_name:CUR,
+    topic:topicKey(tk,ck), page:tk+'.html', concept:ck, title:name,
+    link:'https://hakolbakaf.co.il/kolnoa/hafakot/prod-lesson.html?t='+encodeURIComponent(tk)+
+         '&c='+encodeURIComponent(ck)+'&code='+encodeURIComponent(ME.id)+
+         '&class='+encodeURIComponent(CUR),
+    active:true,
+    due_at: due ? new Date(due).toISOString() : null,
+    due_block: due ? !!el('dueBlk').checked : false
+  };
+  try{
+    await sb('lms_assignments?on_conflict=teacher_id,class_name,topic','POST',[row],
+      {Prefer:'resolution=merge-duplicates,return=minimal'});
+    SENT[row.topic]=true;
+    const keep=OPEN; render(); OPEN=keep;
+    document.querySelectorAll('.topic').forEach((t,k)=>{
+      t.classList.toggle('open',k===OPEN);
+      const b=el('bd-'+k); if(b) b.style.maxHeight = k===OPEN ? (b.scrollHeight+30)+'px' : '0px';
+    });
+    toast('✅ "'+name+'" נשלח ל'+CUR);
+  }catch(e){ toast('שגיאה: '+e.message, false); }
+}
+</script>
+</body>
+</html>
