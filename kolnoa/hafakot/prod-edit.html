@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- kolnoa/hafakot/prod-edit.html · v1.2.0 · 2026-08-04 · עורך שיעורי טכנולוגיות הפקה.
+<!-- kolnoa/hafakot/prod-edit.html · v1.3.0 · 2026-08-04 · עורך שיעורי טכנולוגיות הפקה.
      התוכן יושב ב-prod_lessons ולא בקבצים, ולכן תיקון נעשה במקום אחד ומופיע בכל מקום —
      בניגוד לזירות, שבהן כל שיעור הוא קובץ נפרד. לכל מושג: תיאוריה, דוגמה, סימולטור,
      שאלות תרגול ומטלה. ההדבקה מוורד עוברת דרך אותו ממיר של עורך האגרון.
@@ -7,7 +7,7 @@
      אותו, והמציג יראה שורת המלצה עם קישור. דורש עמודה: alter table prod_lessons add
      column prereq text.
      v1.2.0: נוסף שער סמל מוסד — מורה שטרם שייך את עצמו לבית ספר נחסם עד שימלא.
-     המנגנון במודול משותף school-gate.js (MINOR) -->
+     המנגנון במודול משותף school-gate.js. v1.3.0: מורה שכבר הזדהה בדף אחר אינו נשאל שוב, לפי sessionStorage המשותף (MINOR) -->
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
@@ -114,6 +114,7 @@ async function doLogin(){
     const t2=await requireSchool(t);
     if(!t2){ m.style.color='#991b1b'; m.textContent='נדרש סמל מוסד כדי להמשיך'; return; }
     ME=t2.name||'מורה'; TEACHER=t2;
+    if(typeof saveTeacherSession==='function')saveTeacherSession(t2);
     await loadAll();
   }catch(e){m.style.color='#991b1b';m.textContent='שגיאה: '+e.message;}
 }
@@ -515,7 +516,12 @@ function wordToHtml(raw){
 const _render=render;
 render=function(){ if(CUR&&!DIRTY)qSync(); _render(); };
 
-loginScreen();
+(function(){
+  /* דילוג על הכניסה למי שכבר הזדהה בדף אחר */
+  const s=(typeof loadTeacherSession==='function')?loadTeacherSession():null;
+  if(s && typeof isAdmin==='function' && isAdmin(s)){ ME=s.name||'מורה'; TEACHER=s; loadAll(); }
+  else loginScreen();
+})();
 </script>
 </body>
 </html>

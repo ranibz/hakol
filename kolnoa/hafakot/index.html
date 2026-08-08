@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- kolnoa/hafakot/index.html · v1.7.0 · 2026-08-05 · שער כניסה לטכנולוגיות הפקה.
+<!-- kolnoa/hafakot/index.html · v1.8.0 · 2026-08-05 · שער כניסה לטכנולוגיות הפקה.
      שלוש דלתות: תלמיד לאזור האישי שלו (talmid.html עם code+class, אותו זרם מטלות של
      תקשורת וחברה), מורה לכתיבת שיעורים או למעקב, ומאגר השיעורים לעיון חופשי.
      בורר הכיתות מוגבל למורי בית הספר, כי עמודת school ב-lms_teachers ריקה.
@@ -26,7 +26,10 @@
      את שורת המטלה.
      v1.7.0: "שליחת מטלות ומעקב" פוצל לשני כפתורים — סביבת המורה נפתחת בברירת מחדל על
      מסך המעקב, ולכן מורה שרצה לשלוח מטלה היה צריך לחפש את הלשונית. כל כפתור מעביר
-     ל-teacher-central עם ?view= שקובע באיזו לשונית להיפתח (MINOR) -->
+     ל-teacher-central עם ?view= שקובע באיזו לשונית להיפתח.
+     v1.8.0: הזיהוי נשמר ב-sessionStorage המשותף לכל הדפים בדומיין, ולכן מורה שעובר לסביבת
+     המורה או לעורך אינו נשאל שוב. תוקף שמונה שעות, נמחק בסגירת הדפדפן. נבחר על פני העברת
+     מזהה בכתובת, שנשאר בהיסטוריה ובסימניות. נוסף "יציאה מהחשבון" (MINOR) -->
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
@@ -195,6 +198,7 @@ function goStudent(){
 /* קודם מזדהים ורק אז רואים את התפריט — מורה שאינו מנהל תוכן
    לא יראה כלל את עריכת המאגר, במקום ללחוץ ולהיחסם */
 async function openTeacher(){
+  if(!CT) CT=loadTeacherSession();
   if(!CT){ const t=await teacherLogin('כניסת מורים'); if(!t) return; CT=t; }
   teacherMenu();
 }
@@ -209,7 +213,7 @@ function teacherMenu(){
       onclick="location.href='../../eshi/shioor/teacher-central.html?view=home'">📊 מעקב אחר ההגשות</button>
     ${admin?`<button class="btn v" style="margin-top:9px"
       onclick="location.href='prod-edit.html'">✍ עריכת מאגר השיעורים</button>`:''}
-    <button class="x" onclick="closeOv()">סגירה</button>
+    <button class="x" onclick="teacherLogout()">יציאה מהחשבון</button>
     <p class="note">
       <b>תוכן משלי</b> — משימה, מצגת או קישור לכיתה שלכם בלבד.
       ${admin?'<br><b>מאגר השיעורים</b> — 48 שיעורי הליבה, משותפים לכל בתי הספר.':''}</p>`);
@@ -232,6 +236,7 @@ function teacherLogin(title){
         if(!t){ m.style.color='#dc2626'; m.textContent='פרטים שגויים'; return; }
         const t2=await requireSchool(t);
         if(!t2){ m.style.color='#dc2626'; m.textContent='נדרש סמל מוסד'; return; }
+        saveTeacherSession(t2);   /* כדי שהמסכים האחרים לא ישאלו שוב */
         resolve(t2);
       }catch(e){ m.style.color='#dc2626'; m.textContent='שגיאת תקשורת'; }
     };
@@ -249,6 +254,7 @@ async function openCustom(){
   await customLoad(); customHome();
 }
 function backToMenu(){ teacherMenu(); }
+function teacherLogout(){ clearTeacherSession(); CT=null; CITEMS=[]; closeOv(); }
 async function customLoad(){
   const [it,cl]=await Promise.all([
     sb('prod_custom?select=*&teacher_id=eq.'+encodeURIComponent(CT.id)+'&order=created_at.desc'),
@@ -380,7 +386,7 @@ async function admLogin(){
     if(!t2){ m.style.color='#dc2626'; m.textContent='נדרש סמל מוסד כדי להמשיך'; return; }
     if(!isAdmin(t2)){ m.style.color='#dc2626';
       m.textContent='אין הרשאת ניהול לחשבון הזה'; return; }
-    ADM=t2; await admLoad(); admHome();
+    saveTeacherSession(t2); ADM=t2; await admLoad(); admHome();
   }catch(e){ m.style.color='#dc2626'; m.textContent='שגיאת תקשורת'; }
 }
 let GROUPS=[], GCOUNT={};

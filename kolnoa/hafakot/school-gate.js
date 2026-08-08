@@ -1,5 +1,5 @@
 /* ===================================================================
-   school-gate.js · v1.0.0 · 2026-08-05
+   school-gate.js · v1.1.0 · 2026-08-06
    שער סמל מוסד — מודול משותף לכל מסך שדורש כניסת מורה.
 
    הרקע: 91 מתוך 94 המורים במערכת נרשמו בלי שיוך לבית ספר, ולכן
@@ -117,6 +117,28 @@ global.requireSchool = async function(teacher){
   }catch(e){}
   return await ask(teacher);
 };
+/* ===== סשן משותף =====
+   כל מסך מנהל כניסה משלו, ולכן מורה שעובר מדף השער לסביבת המורה
+   נשאל שוב. sessionStorage משותף לכל הדפים באותו דומיין ונמחק
+   בסגירת הדפדפן — ולכן עדיף על העברת מזהה בכתובת, שנשאר
+   בהיסטוריה ובסימניות וניתן להעתקה. */
+const SKEY_SESSION = 'lmsTeacher';
+global.saveTeacherSession = t => {
+  try{ sessionStorage.setItem(SKEY_SESSION, JSON.stringify({
+    id:t.id, name:t.name, school_id:t.school_id, school_name:t.school_name,
+    at: Date.now() })); }catch(e){}
+};
+global.loadTeacherSession = () => {
+  try{
+    const s = JSON.parse(sessionStorage.getItem(SKEY_SESSION) || 'null');
+    if(!s || !s.id) return null;
+    /* תוקף של שמונה שעות — יום לימודים */
+    if(Date.now() - (s.at||0) > 8*60*60*1000){ sessionStorage.removeItem(SKEY_SESSION); return null; }
+    return s;
+  }catch(e){ return null; }
+};
+global.clearTeacherSession = () => { try{ sessionStorage.removeItem(SKEY_SESSION); }catch(e){} };
+
 global.isAdmin = t => !!t && ADMINS.indexOf(String(t.id)) > -1;
 global.SCHOOL_ADMINS = ADMINS;
 
