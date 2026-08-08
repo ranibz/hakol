@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- kolnoa/hafakot/prod-lesson.html · v1.2.0 · 2026-08-04 · מציג שיעורי טכנולוגיות הפקה.
+<!-- kolnoa/hafakot/prod-lesson.html · v1.3.0 · 2026-08-04 · מציג שיעורי טכנולוגיות הפקה.
      קובץ אחד לכל 48 המושגים — התוכן נשלף מ-prod_lessons לפי ?t=topic&c=concept, בניגוד
      לזירות שבהן כל שיעור הוא קובץ נפרד. ארבעה שלבים ברצף: צפייה, תיאוריה, תרגול ומטלה,
      כשהמטלה נפתחת רק אחרי שהתרגול נענה — אותו עיקרון של הזירות. ההגשה נשמרת
@@ -8,7 +8,10 @@
      קצב פריימים), ואז מוצגת בראש השיעור שורת המלצה עם קישור. המלצה ולא נעילה, כי בהפקה
      אמיתית לפעמים מלמדים בסדר אחר. קדם-שיעור שטרם נכתב מסומן ככזה ואינו מקושר.
      v1.2.0: תמיכה בסרטוני mp4 מקומיים לצד Vimeo — קובץ מנוגן ב-video ולא ב-iframe, לפי
-     provider או לפי סיומת הקובץ. כמו כן מוצגים כל הסרטונים ב-media ולא רק הראשון (MINOR) -->
+     provider או לפי סיומת הקובץ. כמו כן מוצגים כל הסרטונים ב-media ולא רק הראשון.
+     v1.3.0: המציג טוען גם תוכן כיתתי מ-prod_custom דרך ?t=custom&c=<id>, וממיר אותו למבנה
+     של שיעור רגיל כך שכל המציג עובד ללא שינוי. קישורים שאינם וידאו מוצגים ככרטיסי
+     חומרים מצורפים (MINOR) -->
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
@@ -116,12 +119,32 @@ const nrm=s=>String(s||'').replace(/\s+/g,' ').trim();
 const P=new URLSearchParams(location.search);
 const TOPIC=P.get('t')||'', CONCEPT=P.get('c')||'';
 const CODE=P.get('code')||'', CLS=P.get('class')||'';
-let L=null, ME='', ANS=null, PICKED={}, CHECKED=false, IMGS=[], LBi=0;
+let L=null, ME='', ANS=null, PICKED={}, CHECKED=false, IMGS=[], LBi=0, LINKS=[];
 
 /* ===== טעינה ===== */
 (async function init(){
   if(!TOPIC||!CONCEPT){ fail('כתובת חסרה — חסר נושא או מושג.'); return; }
   try{
+    /* תוכן כיתתי של מורה יושב בטבלה נפרדת ומזוהה ב-?t=custom.
+       הוא מומר כאן למבנה של שיעור רגיל, כדי שכל המציג יעבוד בלי שינוי. */
+    if(TOPIC==='custom'){
+      const c=await sb('prod_custom?select=*&id=eq.'+encodeURIComponent(CONCEPT)+'&limit=1');
+      if(!c.length||c[0].active===false){ fail('התוכן לא נמצא או הוסר.'); return; }
+      const x=c[0];
+      L={ topic_name:'תוכן כיתתי · '+(x.class_name||''), concept_name:x.title,
+          theory_html:x.body_html||'', example_html:'',
+          media:(x.links||[]).map(u=>/\.(mp4|webm|mov)(\?|$)/i.test(u)||/vimeo|youtu/i.test(u)
+            ? {type:'video',provider:/\.(mp4|webm|mov)(\?|$)/i.test(u)?'file':'embed',url:u}
+            : {type:'link',url:u}),
+          practice:[],
+          task: x.submit_mode==='none' ? {} :
+                { text:'הגישו כאן את התוצר.', type:x.submit_mode||'both', n:1 },
+          _custom:true };
+      IMGS=[]; LINKS=(x.links||[]).filter(u=>!/\.(mp4|webm|mov)(\?|$)/i.test(u)&&!/vimeo|youtu/i.test(u));
+      if(ME&&CLS) await loadAnswer();
+      if(!ME&&CLS){ await pickName(); return; }
+      render(); return;
+    }
     const r=await sb('prod_lessons?select=*&topic_key=eq.'+encodeURIComponent(TOPIC)+
                      '&concept_key=eq.'+encodeURIComponent(CONCEPT)+'&limit=1');
     if(!r.length){ fail('השיעור לא נמצא.'); return; }
@@ -247,7 +270,14 @@ function render(){
       ${vids.map(v=>videoHtml(v)).join('')}
     </div>`:''}
 
-    ${L.theory_html?`<div class="card"><h2>📖 תיאוריה</h2>${L.theory_html}</div>`:''}
+    ${L.theory_html?`<div class="card"><h2>${L._custom?'📝 ההנחיות':'📖 תיאוריה'}</h2>${L.theory_html}</div>`:''}
+
+    ${LINKS.length?`<div class="card"><h2>🔗 חומרים מצורפים</h2>
+      ${LINKS.map(u=>`<a href="${escA(u)}" target="_blank" rel="noopener"
+        style="display:block;padding:11px 14px;background:#f0f9ff;border:1px solid #bae6fd;
+        border-radius:11px;margin-bottom:7px;color:#0369a1;font-weight:600;text-decoration:none;
+        overflow-wrap:anywhere">${esc(u)}</a>`).join('')}
+    </div>`:''}
 
     ${IMGS.length?`<div class="card">
       <h2>🖼️ דוגמאות והמחשות</h2>

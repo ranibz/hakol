@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- kolnoa/hafakot/index.html · v1.3.0 · 2026-08-05 · שער כניסה לטכנולוגיות הפקה.
+<!-- kolnoa/hafakot/index.html · v1.4.0 · 2026-08-05 · שער כניסה לטכנולוגיות הפקה.
      שלוש דלתות: תלמיד לאזור האישי שלו (talmid.html עם code+class, אותו זרם מטלות של
      תקשורת וחברה), מורה לכתיבת שיעורים או למעקב, ומאגר השיעורים לעיון חופשי.
      בורר הכיתות מוגבל למורי בית הספר, כי עמודת school ב-lms_teachers ריקה.
@@ -12,7 +12,11 @@
      ממשיך להישמר כגיבוי עד שכל המסכים יעברו לשליפה חיה.
      v1.3.0: הסינון עבר מרשימת מזהי מורים קשיחה לסמל מוסד — כל בית ספר רואה את המורים,
      הכיתות והשיבוץ שלו בלבד, ומורה חדש נכנס בלי לעדכן קובץ. נוסף שער סמל מוסד דרך
-     school-gate.js לכל כניסת מורה (MINOR) -->
+     school-gate.js לכל כניסת מורה.
+     v1.4.0: הפרדה בין מאגר לתוכן כיתתי. עריכת מאגר השיעורים נחסמה למנהלי תוכן, כי הוא
+     משותף לכל בתי הספר ושינוי של מורה אחד היה משנה את השיעור לכולם. נוסף מסלול
+     "תוכן משלי" — משימה, מצגת, קישור או סרטון שמורה יוצר לכיתה שלו בלבד, בטבלה
+     נפרדת prod_custom (MINOR) -->
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
@@ -181,12 +185,147 @@ function goStudent(){
 function openTeacher(){
   show(`<h3>👨‍🏫 כניסת מורים</h3>
     <p class="s">לאן תרצו להגיע?</p>
-    <button class="btn v" onclick="location.href='prod-edit.html'">✍ כתיבת שיעורים</button>
+    <button class="btn" style="background:#10b981" onclick="openCustom()">➕ תוכן משלי לכיתה</button>
     <button class="btn ghost" style="margin-top:9px"
       onclick="location.href='../../eshi/shioor/teacher-central.html'">📊 שליחת מטלות ומעקב</button>
+    <button class="btn v" style="margin-top:9px" onclick="gotoEditor()">✍ עריכת מאגר השיעורים</button>
     <button class="x" onclick="closeOv()">ביטול</button>
-    <p class="note">בשני המסכים הכניסה בטלפון ובסיסמה שאיתם נרשמתם.</p>`);
+    <p class="note">
+      <b>תוכן משלי</b> — משימה, מצגת או קישור לכיתה שלכם בלבד.<br>
+      <b>מאגר השיעורים</b> — 48 שיעורי הליבה, משותפים לכל בתי הספר ופתוחים
+      לעריכה למנהלי תוכן בלבד.</p>`);
 }
+/* המאגר משותף לכל בתי הספר, ולכן עריכתו שמורה למנהלי תוכן —
+   אחרת שינוי של מורה אחד היה משנה את השיעור לכולם */
+async function gotoEditor(){
+  const t=await teacherLogin('כניסה לעריכת המאגר');
+  if(!t) return;
+  if(!isAdmin(t)){
+    show(`<h3>🔒 עריכת המאגר</h3>
+      <p class="s">מאגר השיעורים משותף לכל בתי הספר, ולכן עריכתו שמורה למנהלי תוכן.</p>
+      <p class="s">רוצים ליצור משימה, מצגת או קישור לכיתה שלכם? השתמשו ב<b>תוכן משלי</b>.</p>
+      <button class="btn" style="background:#10b981" onclick="openCustom()">➕ תוכן משלי לכיתה</button>
+      <button class="x" onclick="closeOv()">סגירה</button>`);
+    return;
+  }
+  location.href='prod-edit.html';
+}
+/* כניסת מורה משותפת לשתי הדלתות */
+function teacherLogin(title){
+  return new Promise(resolve=>{
+    show(`<h3>👨‍🏫 ${esc(title||'כניסת מורה')}</h3>
+      <p class="s">טלפון וסיסמה שאיתם נרשמתם</p>
+      <input id="tp" type="tel" placeholder="טלפון" dir="ltr" style="text-align:right">
+      <input id="tw" type="password" placeholder="סיסמה">
+      <button class="btn" id="tgo">כניסה</button>
+      <button class="x" onclick="closeOv()">ביטול</button>
+      <div class="msg" id="m"></div>`);
+    const go=async()=>{
+      const m=el('m'); m.style.color='#64748b'; m.textContent='מתחבר…';
+      try{
+        const r=await sb('lms_teachers?select=*&phone=eq.'+encodeURIComponent(tPhone(el('tp').value)));
+        const t=(r||[]).find(x=>x.password===el('tw').value&&x.status==='approved');
+        if(!t){ m.style.color='#dc2626'; m.textContent='פרטים שגויים'; return; }
+        const t2=await requireSchool(t);
+        if(!t2){ m.style.color='#dc2626'; m.textContent='נדרש סמל מוסד'; return; }
+        resolve(t2);
+      }catch(e){ m.style.color='#dc2626'; m.textContent='שגיאת תקשורת'; }
+    };
+    el('tgo').onclick=go;
+    el('tw').addEventListener('keyup',e=>{if(e.key==='Enter')go();});
+  });
+}
+
+/* ---------- תוכן כיתתי ---------- */
+let CT=null, CITEMS=[], CCLASSES=[];
+const KINDS={task:{n:'משימה',ic:'📝'},slides:{n:'מצגת',ic:'📊'},
+             link:{n:'קישור',ic:'🔗'},video:{n:'סרטון',ic:'🎥'}};
+async function openCustom(){
+  if(!CT){ const t=await teacherLogin('תוכן משלי'); if(!t)return; CT=t; }
+  await customLoad(); customHome();
+}
+async function customLoad(){
+  const [it,cl]=await Promise.all([
+    sb('prod_custom?select=*&teacher_id=eq.'+encodeURIComponent(CT.id)+'&order=created_at.desc'),
+    sb('lms_classes?select=name&teacher_id=eq.'+encodeURIComponent(CT.id)+'&order=name.asc')]);
+  CITEMS=it||[]; CCLASSES=(cl||[]).map(x=>x.name);
+}
+function customHome(){
+  show(`<h3>➕ תוכן משלי</h3>
+    <p class="s">${esc(CT.name)} · ${CITEMS.length} פריטים · נראים רק לכיתות שלכם</p>
+    <div style="text-align:right;max-height:44vh;overflow:auto">
+      ${CITEMS.length?CITEMS.map((c,i)=>{
+        const k=KINDS[c.kind]||KINDS.task;
+        return `<div class="crow">
+          <b>${k.ic} ${esc(c.title)}</b>
+          <span class="tag" style="background:#dcfce7;color:#166534">${esc(c.class_name||'ללא כיתה')}</span>
+          ${c.active===false?'<span class="tag" style="background:#f1f5f9;color:#94a3b8">כבוי</span>':''}
+          <button class="mini" onclick="customEdit(${i})">✏</button>
+        </div>`;}).join('')
+      :'<p class="s">עדיין לא יצרתם תוכן. התחילו כאן.</p>'}
+    </div>
+    <button class="btn" style="background:#10b981;margin-top:12px" onclick="customNew()">＋ פריט חדש</button>
+    <button class="x" onclick="closeOv()">סגירה</button>`);
+}
+function customForm(c,idx){
+  show(`<h3>${idx==null?'＋ פריט חדש':'✏ עריכה'}</h3>
+    <p class="s">התוכן יופיע לתלמידי הכיתה שתבחרו, ולהם בלבד</p>
+    <input id="ciTitle" placeholder="כותרת — למשל: משימת צילום לשיעור הבא" value="${escA(c.title||'')}">
+    <select id="ciKind">
+      ${Object.entries(KINDS).map(([k,v])=>`<option value="${k}"${
+        (c.kind||'task')===k?' selected':''}>${v.ic} ${esc(v.n)}</option>`).join('')}
+    </select>
+    <select id="ciClass">
+      <option value="">— בחרו כיתה —</option>
+      ${CCLASSES.map(n=>`<option value="${escA(n)}"${c.class_name===n?' selected':''}>${esc(n)}</option>`).join('')}
+    </select>
+    <p class="s" style="margin:4px 0;text-align:right">הנחיות או תוכן</p>
+    <textarea id="ciBody" placeholder="מה התלמידים צריכים לעשות או לקרוא?">${esc(c.body_html||'')}</textarea>
+    <p class="s" style="margin:4px 0;text-align:right">קישורים — אחד בכל שורה (מצגת, דרייב, יוטיוב)</p>
+    <textarea id="ciLinks" style="min-height:80px" dir="ltr" placeholder="https://docs.google.com/…">${
+      esc((c.links||[]).join('\n'))}</textarea>
+    <p class="s" style="margin:4px 0;text-align:right">מה התלמיד מגיש</p>
+    <select id="ciSubmit">
+      <option value="both"${(c.submit_mode||'both')==='both'?' selected':''}>טקסט וגם קישורים</option>
+      <option value="text"${c.submit_mode==='text'?' selected':''}>טקסט בלבד</option>
+      <option value="links"${c.submit_mode==='links'?' selected':''}>קישורים בלבד</option>
+      <option value="none"${c.submit_mode==='none'?' selected':''}>ללא הגשה — לצפייה בלבד</option>
+    </select>
+    <button class="btn" style="background:#10b981" onclick="customSave(${idx==null?'null':idx})">שמירה</button>
+    ${idx==null?'':`<button class="btn r" style="margin-top:8px" onclick="customDel(${idx})">מחיקה</button>`}
+    <button class="x" onclick="customHome()">חזרה</button>
+    <div class="msg" id="m"></div>`);
+}
+function customNew(){ customForm({},null); }
+function customEdit(i){ customForm(CITEMS[i],i); }
+async function customSave(idx){
+  const m=el('m');
+  const title=el('ciTitle').value.trim(), cls=el('ciClass').value;
+  if(!title){ m.style.color='#dc2626'; m.textContent='הזינו כותרת'; return; }
+  if(!cls){ m.style.color='#dc2626'; m.textContent='בחרו כיתה'; return; }
+  const body={ teacher_id:CT.id, school_id:CT.school_id||null, class_name:cls, title:title,
+    kind:el('ciKind').value, body_html:el('ciBody').value.trim(),
+    links:el('ciLinks').value.split('\n').map(s=>s.trim()).filter(Boolean),
+    submit_mode:el('ciSubmit').value, updated_at:new Date().toISOString() };
+  m.style.color='#64748b'; m.textContent='שומר…';
+  try{
+    const url=SUP+'/rest/v1/prod_custom'+(idx==null?'':'?id=eq.'+encodeURIComponent(CITEMS[idx].id));
+    const r=await fetch(url,{method:idx==null?'POST':'PATCH',
+      headers:Object.assign({'Content-Type':'application/json',Prefer:'return=representation'},HDR),
+      body:JSON.stringify(idx==null?[body]:body)});
+    if(!r.ok)throw new Error((await r.text()).slice(0,120));
+    await customLoad(); customHome();
+  }catch(e){ m.style.color='#dc2626'; m.textContent='שגיאה: '+e.message; }
+}
+async function customDel(idx){
+  const c=CITEMS[idx];
+  if(!confirm('למחוק את "'+c.title+'"?\n\nהגשות התלמידים יישארו במסד.'))return;
+  await fetch(SUP+'/rest/v1/prod_custom?id=eq.'+encodeURIComponent(c.id),{method:'DELETE',headers:HDR});
+  await customLoad(); customHome();
+}
+function tPhone(s){let p=String(s||'').replace(/\D/g,'').replace(/^00+/,'');
+  if(p.indexOf('972')===0)p=p.slice(3);p=p.replace(/^0+/,'');return p?('0'+p):'';}
+
 
 /* ---------- ניהול ----------
    הרשאת ניהול ניתנת לפי מזהה ולא לפי סיסמה משותפת, כדי שלא יידרש
@@ -203,8 +342,6 @@ function openAdmin(){
     <div class="msg" id="m"></div>`);
   el('aw').addEventListener('keyup',e=>{if(e.key==='Enter')admLogin();});
 }
-function tPhone(s){let p=String(s||'').replace(/\D/g,'').replace(/^00+/,'');
-  if(p.indexOf('972')===0)p=p.slice(3);p=p.replace(/^0+/,'');return p?('0'+p):'';}
 async function admLogin(){
   const m=el('m');
   m.style.color='#64748b'; m.textContent='מתחבר…';
