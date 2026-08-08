@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- kolnoa/hafakot/prod-lesson.html · v1.5.0 · 2026-08-04 · מציג שיעורי טכנולוגיות הפקה.
+<!-- kolnoa/hafakot/prod-lesson.html · v1.5.1 · 2026-08-04 · מציג שיעורי טכנולוגיות הפקה.
      קובץ אחד לכל 48 המושגים — התוכן נשלף מ-prod_lessons לפי ?t=topic&c=concept, בניגוד
      לזירות שבהן כל שיעור הוא קובץ נפרד. ארבעה שלבים ברצף: צפייה, תיאוריה, תרגול ומטלה,
      כשהמטלה נפתחת רק אחרי שהתרגול נענה — אותו עיקרון של הזירות. ההגשה נשמרת
@@ -19,7 +19,10 @@
      v1.5.0: לחיצה על "בדיקה" פותחת את המטלה מיד, לפני השמירה — קודם היא המתינה ל-upsert,
      וכשהשמירה נכשלה (למשל בהיעדר אילוץ ייחודי) שום דבר לא קרה והתלמיד נתקע בלי הסבר.
      כשל שמירה מוצג עכשיו כאזהרה ואינו חוסם. הציון מחושב מהאמריקאיות בלבד; שאלות פתוחות
-     נשמרות ואינן משפיעות על הפתיחה (PATCH) -->
+     נשמרות ואינן משפיעות על הפתיחה.
+     v1.5.1: השמירה עברה מ-upsert לבדיקה-ואז-עדכון. ל-lms_submissions אין אילוץ ייחודי על
+     (student_name, class_name, topic) בגלל כפילויות היסטוריות, ואינדקס חלקי אינו יכול לשמש
+     ל-ON CONFLICT — ולכן כל שמירה נכשלה ב-42P10. אין צורך בשינוי במסד (PATCH) -->
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
@@ -446,9 +449,22 @@ async function upsert(patch){
       : (cur.items || []),
     submitted_at: patch.submitted_at || cur.submitted_at || new Date().toISOString()
   };
-  const r = await sb('lms_submissions?on_conflict=student_name,class_name,topic',
-    'POST', [row], { Prefer:'resolution=merge-duplicates,return=representation' });
-  const saved = (r && r[0]) || row;
+  /* בלי upsert: ב-lms_submissions אין אילוץ ייחודי על השילוש הזה, ואילוץ
+     חלקי אינו יכול לשמש ל-ON CONFLICT. לכן בודקים ומעדכנים או מוסיפים —
+     בלי לגעת ב-443 ההגשות ההיסטוריות שיש בהן כפילויות. */
+  let saved;
+  const q = 'lms_submissions?select=id&student_name=eq.'+encodeURIComponent(ME)+
+            '&class_name=eq.'+encodeURIComponent(CLS)+
+            '&topic=eq.'+encodeURIComponent(TOPIC_KEY())+'&limit=1';
+  const ex = await sb(q);
+  if(ex && ex.length){
+    const r = await sb('lms_submissions?id=eq.'+encodeURIComponent(ex[0].id),
+      'PATCH', row, { Prefer:'return=representation' });
+    saved = (r && r[0]) || row;
+  }else{
+    const r = await sb('lms_submissions', 'POST', [row], { Prefer:'return=representation' });
+    saved = (r && r[0]) || row;
+  }
   /* שמירה מקומית של המבנה הפנימי, כדי שהמסך ימשיך לעבוד כרגיל */
   ANS = Object.assign({}, cur, saved, {
     practice_answers: row.answers,
