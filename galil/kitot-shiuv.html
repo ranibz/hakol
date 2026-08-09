@@ -1,5 +1,12 @@
 <!DOCTYPE html>
-<!-- galil/kitot-shiuv.html · v1.0.0 · 2026-08-09 · שאיבת כיתות מהשיבוץ — גליל מערבי בלבד.
+<!-- galil/kitot-shiuv.html · v1.1.0 · 2026-08-09 · שני תיקונים.
+     (1) ב-lms_classes קיים UNIQUE(teacher_id,name). שתי קבוצות של אותו מורה שמייצרות
+     אותו שם — למשל עיוני ומעשי באותו מסלול ושכבה — נכשלו בשאיבה השנייה. מעכשיו מזוהה
+     ההתנגשות מראש ונוספת סיומת מקצוע ("· תקשורת" / "· הפקות") לשתיהן. הסיומת נוספת
+     רק בהתנגשות, כדי ששמות של כיתות שכבר נוצרו לא ישתנו.
+     (2) בורר מורים: האדמין מעביר עבור כל צוות המגמה ולא רק עבור עצמו. הרשימה מסוננת
+     לפי school_id=260489 ומציגה רק מורים בעלי teacher_id. (MINOR)
+     v1.0.0 · שאיבת כיתות מהשיבוץ — גליל מערבי בלבד.
      המורה אינו בונה כיתות ידנית: הקבוצות שלו כבר קיימות ב-tiksh_groups, והכלי יוצר
      מהן רשומות מקבילות ב-lms_classes כדי שהמערכת הארצית תראה אותן ותעבוד כרגיל.
      כללי ההמרה נגזרו מהכיתה הקיימת "הפקות ב י ליאור דואק" (group_id=15) שנוצרה קודם:
@@ -100,54 +107,89 @@ async function sb(q,m,b,x){
   if(!r.ok)throw new Error(r.status+' '+(await r.text()).slice(0,160));
   const t=await r.text(); return t?JSON.parse(t):[];
 }
-/* שם הכיתה — בדיוק כפי שנוצר ב"הפקות ב י ליאור דואק": מסלול, שכבה, מורה */
-const cName=g=>[g.track,g.grade,g.teacher_name].filter(Boolean).join(' ');
+/* שם הכיתה — בדיוק כפי שנוצר ב"הפקות ב י ליאור דואק": מסלול, שכבה, מורה.
+   ב-lms_classes יש UNIQUE(teacher_id,name), ולכן שתי קבוצות של אותו מורה שמייצרות
+   אותו שם — למשל עיוני ומעשי באותו מסלול ושכבה — מתנגשות. במקרה כזה בלבד נוספת
+   סיומת מקצוע, כדי ששמות של כיתות קיימות לא ישתנו. */
+const SUBJ_HE={'עיוני':'תקשורת','מעשי':'הפקות'};
+const baseName=g=>[g.track,g.grade,g.teacher_name].filter(Boolean).join(' ');
+let DUP={};
+function cName(g){
+  const b=baseName(g);
+  return DUP[b] ? b+' · '+(SUBJ_HE[g.subject]||g.subject) : b;
+}
+/* מיפוי השמות שחוזרים יותר מפעם אחת אצל המורה הנוכחי */
+function markDups(){
+  const n={}; DUP={};
+  GROUPS.forEach(g=>{ const b=baseName(g); n[b]=(n[b]||0)+1; });
+  Object.keys(n).forEach(b=>{ if(n[b]>1) DUP[b]=true; });
+}
 const gLabel=g=>[g.track||'קבוצה', g.level?g.level+' יח״ל':''].filter(Boolean).join(' · ');
 
-let TEACHER='', TEACHER_ID='', GROUPS=[], EXIST={}, ROSTER={}, PICK={};
+let TEACHER='', TEACHER_ID='', GROUPS=[], EXIST={}, ROSTER={}, PICK={}, ALL=[], STAFF=[];
+/* סמל המוסד — הכלי משרת את גליל מערבי בלבד */
+const SCHOOL='260489';
 
 async function boot(){
   try{
-    const all=await sb('tiksh_groups?select=*&order=grade,subject,track');
+    ALL=(await sb('tiksh_groups?select=*&school_id=eq.'+SCHOOL+'&order=grade,subject,track'))||[];
+    /* צוות המגמה — רק מי שיש לו מזהה, כי בלעדיו אי אפשר ליצור רשומה ב-lms_classes */
+    const map={};
+    ALL.forEach(g=>{ const n=(g.teacher_name||'').trim();
+      if(n && g.teacher_id && !map[n]) map[n]=g.teacher_id; });
+    STAFF=Object.keys(map).sort((a,b)=>a.localeCompare(b,'he')).map(n=>({name:n,id:map[n]}));
     const code=new URLSearchParams(location.search).get('code');
-    if(code && (all||[]).some(g=>String(g.teacher_id||'')===String(code))){
-      TEACHER_ID=code;
-      TEACHER=((all.find(g=>String(g.teacher_id||'')===String(code))||{}).teacher_name||'').trim();
-      await loadMine(all);
-    } else pickTeacher(all);
+    const me=STAFF.find(t=>String(t.id)===String(code));
+    if(me){ TEACHER_ID=me.id; TEACHER=me.name; await loadMine(); }
+    else pickTeacher();
   }catch(e){ el('app').innerHTML='<div class="err">שגיאת טעינה: '+esc(e.message)+'</div>'; }
 }
 /* רק מורים עם teacher_id — בלי מזהה אי אפשר ליצור רשומה ב-lms_classes */
-function pickTeacher(all){
-  const map={};
-  (all||[]).forEach(g=>{ const n=(g.teacher_name||'').trim();
-    if(n && g.teacher_id && !map[n]) map[n]=g.teacher_id; });
-  const names=Object.keys(map).sort((a,b)=>a.localeCompare(b,'he'));
-  const missing=[...new Set((all||[]).filter(g=>!g.teacher_id)
+function missingStaff(){
+  return [...new Set(ALL.filter(g=>!g.teacher_id)
     .map(g=>(g.teacher_name||'').trim()).filter(Boolean))];
+}
+function staffSelect(id){
+  return '<select id="'+id+'"><option value="">— בחרו מורה —</option>'+
+    STAFF.map(t=>'<option value="'+esc(t.id)+'"'+
+      (String(t.id)===String(TEACHER_ID)?' selected':'')+'>'+esc(t.name)+'</option>').join('')+
+    '</select>';
+}
+function pickTeacher(){
+  const miss=missingStaff();
   el('bar').style.display='none';
-  el('app').innerHTML='<div class="card"><h2 style="margin:0 0 3px;font-size:1.25rem">מי אתם?</h2>'+
-    '<p class="hint">בחרו את שמכם כדי לראות את קבוצותיכם.</p>'+
-    '<label>שם המורה</label><select id="tSel"><option value="">— בחרו —</option>'+
-      names.map(n=>'<option value="'+esc(map[n])+'">'+esc(n)+'</option>').join('')+'</select>'+
+  el('app').innerHTML='<div class="card"><h2 style="margin:0 0 3px;font-size:1.25rem">בחירת מורה</h2>'+
+    '<p class="hint">מורי מגמת תקשורת בגליל מערבי. בחרו מורה כדי לראות את קבוצותיו.</p>'+
+    '<label>מורה</label>'+staffSelect('tSel')+
     '<button class="btn" style="margin-top:13px" onclick="chooseTeacher()">המשך ←</button>'+
-    (missing.length?'<div class="warn" style="margin-top:14px">⚠ '+esc(missing.join(', '))+
+    (miss.length?'<div class="warn" style="margin-top:14px">⚠ '+esc(miss.join(', '))+
       ' — אין מזהה מורה במערכת, ולכן לא ניתן ליצור עבורם כיתות. '+
       'הם צריכים להירשם ולהיות מאושרים, ואז למלא את teacher_id בקבוצות.</div>':'')+
     '</div>';
-  window.__ALL=all;
 }
 function chooseTeacher(){
   const s=el('tSel');
-  if(!s.value){ alert('בחרו שם'); return; }
+  if(!s.value){ alert('בחרו מורה'); return; }
   TEACHER_ID=s.value; TEACHER=s.options[s.selectedIndex].textContent;
-  loadMine(window.__ALL);
+  PICK={}; loadMine();
+}
+/* החלפת מורה מתוך המסך — האדמין מעביר עבור כל הצוות */
+function switchTeacher(){
+  const s=el('swSel');
+  if(!s.value || String(s.value)===String(TEACHER_ID))return;
+  TEACHER_ID=s.value; TEACHER=s.options[s.selectedIndex].textContent;
+  PICK={}; loadMine();
 }
 
-async function loadMine(all){
+async function loadMine(){
   el('app').innerHTML='<div class="empty">טוען קבוצות…</div>';
-  GROUPS=(all||[]).filter(g=>String(g.teacher_id||'')===String(TEACHER_ID));
-  if(!GROUPS.length){ el('app').innerHTML='<div class="empty">לא נמצאו קבוצות משויכות אליכם.</div>'; return; }
+  GROUPS=ALL.filter(g=>String(g.teacher_id||'')===String(TEACHER_ID));
+  markDups();
+  if(!GROUPS.length){
+    el('bar').style.display='none';
+    el('app').innerHTML='<div class="card"><label>מורה</label>'+staffSelect('swSel')+
+      '<button class="btn g" style="margin-top:11px" onclick="switchTeacher()">הצגה</button>'+
+      '<div class="empty">לא נמצאו קבוצות למורה זה.</div></div>'; return; }
   try{
     /* אילו כיתות כבר קיימות ומקושרות — רק של המורה הזה */
     EXIST={};
@@ -164,9 +206,14 @@ async function loadMine(all){
 }
 function render(){
   el('bar').style.display='block';
-  el('app').innerHTML='<div class="card"><h2 style="margin:0 0 3px;font-size:1.25rem">שלום '+esc(TEACHER)+'</h2>'+
-    '<p class="hint">הקבוצות שלכם מהשיבוץ. סמנו אילו להעביר למערכת המטלות — '+
+  el('app').innerHTML='<div class="card" style="padding:15px 21px 17px">'+
+    '<label>מורה מטופל</label>'+staffSelect('swSel')+
+    '<button class="btn g" style="margin-top:11px" onclick="switchTeacher()">הצגת קבוצותיו</button></div>'+
+    '<div class="card"><h2 style="margin:0 0 3px;font-size:1.25rem">'+esc(TEACHER)+'</h2>'+
+    '<p class="hint">הקבוצות מהשיבוץ. סמנו אילו להעביר למערכת המטלות — '+
     'השם, המקצוע ורשימת התלמידים ייבנו מהקבוצה. קבוצה שכבר הועברה תתעדכן ולא תיווצר פעמיים.</p>'+
+    (Object.keys(DUP).length?'<div class="warn">שתי קבוצות מייצרות אותו שם כיתה. '+
+      'מכיוון שהמערכת אינה מאפשרת שתי כיתות באותו שם לאותו מורה, נוספה להן סיומת מקצוע.</div>':'')+
     GROUPS.map(g=>{
       const n=(ROSTER[g.id]||[]).length, ex=EXIST[g.id], on=PICK[g.id];
       return '<button class="row '+(g.subject==='עיוני'?'iy':'ma')+(on?' on':'')+
@@ -178,7 +225,7 @@ function render(){
         (ex?'<span class="pill upd">עדכון</span>':'<span class="pill new">חדשה</span>')+
         '</button>';
     }).join('')+
-    '<div class="warn" style="margin-top:12px">הכלי כותב רק כיתות שלכם ורק כאלה שמקורן בקבוצה. '+
+    '<div class="warn" style="margin-top:12px">הכלי כותב רק כיתות של המורה הנבחר ורק כאלה שמקורן בקבוצה. '+
     'כיתות שיצרתם ידנית במערכת הארצית אינן מושפעות.</div></div>'+
     '<div id="out"></div>';
   count();
