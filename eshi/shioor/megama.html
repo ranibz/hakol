@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<!-- megama.html · v2.3.1 · 2026-08-09 · קישור ההרשמה הופנה מ-eshi/teacher-register.html
+     ל-eshi/shioor/teacher-register.html. הקובץ הישן היה גרסת Firebase שכתבה ל-teacher_requests
+     ולא ל-lms_teachers, ולכן מורים שנרשמו דרכו לא הגיעו למערכת (PATCH).
+     v2.3.0 · 2026-08-09 · כלי הניהול הופרדו לבלוק "מנהל מערכת" בתוך פאנל
+     המורה, שמוצג רק כאשר is_admin=true ב-lms_teachers. הבלוק כולל ניהול קבוצות הלימוד
+     (kvutzot) ושאיבת כיתות למורים (kitot-shiuv). מורה רגיל רואה רק זירות ונוכחות.
+     כמו שער הכניסה עצמו — נוחות ולא אבטחה, הכתובות גלויות בקוד המקור (MINOR).
+     v2.2.0 · 2026-08-09 · נוספה "שאיבת כיתות מהשיבוץ" לפאנל המורה —
+     כלי גליל מערבי שיוצר כיתות ב-lms_classes מתוך קבוצות הלימוד, כדי שהמורה לא יבנה
+     אותן ידנית כמו במסלול הארצי (MINOR).
+     v2.1.1 · 2026-08-09 · תיבת "כניסת מורה" הפכה לאקורדיון ברוחב התיבה.
+     קודם היה: כניסה מוצלחת -> הפניה אוטומטית לקטלוג הזירות. עכשיו: כניסה מוצלחת -> הפאנל
+     נפתח מתחת לתיבה עם שתי אפשרויות — "מערכת הזירות · שליחת מטלה" (כמו קודם) ו"בדיקת נוכחות"
+     (קישור ל-nochehut.html הקיים בריפו galil-maaravi, כדי לא ליצור מערכת נוכחות שנייה).
+     מזהה המורה נוסע ב-?code= לשני היעדים. נוסף "יציאה מהחשבון" שמנקה את sessionStorage.
+     v2.1.1: כתובת TARGET_N תוקנה ל-hakolbakaf.co.il/galil/nochehut.html (ריפו hakol, לא
+     galil-maaravi) אחרי אימות מול השרת. הכתובת הקודמת החזירה 404 (PATCH).
+     v2.0.1 · ברירת המחדל: כל שורות האקורדיון סגורות בטעינה (PATCH).
+     v2.0.0 · 2026-08-09 · המבנה שונה מרשת כרטיסים שטוחה לתפריט אקורדיון.
+     שני שערי הכניסה (מורה / תלמיד) הועלו לראש העמוד כשתי תיבות קבועות, מחוץ לאקורדיון —
+     הם הפעולה הנפוצה ביותר ולא צריכים קליק נוסף כדי להתגלות. שאר היעדים קובצו לשלוש
+     קטגוריות: "תקשורת וחברה" (זירות הלימוד, אגרון המושגים), "פרוייקט למ״ד" (תיק דיגיטלי,
+     תיק עבודת גמר) ו"הפקות". קישור ההפקות עודכן ל-hakolbakaf.netlify.app/kolnoa/hafakot/
+     במקום lamedproject/eshi/exposure/. כרטיס הווידאוקאסט הועבר לתוך "הפקות" — ראו הערה
+     בתשובה; אם אינו שייך לשם, מוחקים את בלוק <a> שמסומן בהערה VIDEOCAST.
+     כל לוגיקת ההתחברות (lms_teachers / lms_classes בפרויקט matalot) לא נגעה — אותן
+     שאילתות, אותו נרמול טלפון, אותם יעדים. MAJOR: מבנה העמוד הוחלף כולו. -->
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>מגמת תקשורת - תפריט ראשי</title>
+
+    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        :root {
+            --bg-gradient: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            --text-main: #2c3e50;
+            --card-bg: rgba(255, 255, 255, 0.95);
+            --c1: #0984e3; /* כחול - תיק דיגיטלי */
+            --c2: #6c5ce7; /* סגול - עבודת גמר / פרוייקט למ"ד */
+            --c4: #00b894; /* ירוק - בדיקת נוכחות */
+            --c5: #e84393; /* ורוד פוקסיה - אגרון מושגים */
+            --c6: #d35400; /* כתום כהה - זירות הלימוד / תקשורת וחברה */
+            --c7: #e74c3c; /* אדום - וידאוקאסט */
+            --c8: #00cec9; /* טורקיז - הפקות */
+            --c9: #2d3436; /* אפור כהה - כניסת מורה */
+            --c10: #0abde3; /* תכלת - כניסת תלמידים */
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            margin: 0;
+            padding: 45px 0 70px;
+            min-height: 100vh;
+            font-family: 'Rubik', sans-serif;
+            background: var(--bg-gradient);
+            background-attachment: fixed;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: var(--text-main);
+        }
+
+        /* ===== כותרת ===== */
+        .header {
+            text-align: center;
+            margin-bottom: 38px;
+            animation: fadeInDown 0.8s ease-out;
+        }
+        .header h1 {
+            font-size: 3.5rem;
+            font-weight: 900;
+            margin: 0;
+            background: linear-gradient(to right, #2c3e50, #0984e3);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            letter-spacing: -1px;
+        }
+        .header p {
+            font-size: 1.3rem;
+            color: #555;
+            margin-top: 5px;
+            font-weight: 500;
+        }
+
+        /* ===== מעטפת ראשית ===== */
+        .wrap {
+            width: 90%;
+            max-width: 900px;
+            animation: fadeInUp 0.8s ease-out;
+        }
+
+        /* ===== שתי תיבות הכניסה (מעל האקורדיון) ===== */
+        .quick-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            align-items: start;   /* פתיחת תיבת המורה לא מותחת את תיבת התלמיד */
+            gap: 18px;
+            margin-bottom: 30px;
+        }
+        .q-col { display: flex; flex-direction: column; }
+
+        /* ===== גוף האקורדיון של המורה — ברוחב התיבה ===== */
+        .t-body {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height .38s cubic-bezier(.4,0,.2,1);
+        }
+        .t-inner {
+            background: rgba(255,255,255,.7);
+            border: 2px solid rgba(45,52,54,.12);
+            border-top: none;
+            border-radius: 0 0 18px 18px;
+            margin: -14px 6px 0;
+            padding: 24px 16px 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .t-hello {
+            font-size: .88rem; color: #6b7a88; font-weight: 500;
+            padding-bottom: 4px;
+        }
+        .t-hello b { color: var(--text-main); font-weight: 700; }
+        .t-admin {
+            display: none; flex-direction: column; gap: 10px;
+            border-top: 1px dashed rgba(45,52,54,.18); margin-top: 4px; padding-top: 14px;
+        }
+        .t-admin.on { display: flex; }
+        .t-adm-h {
+            font-size: .78rem; font-weight: 700; color: var(--c9); letter-spacing: .3px;
+            display: flex; align-items: center; gap: 6px;
+        }
+        .t-out {
+            align-self: flex-start; background: none; border: none; cursor: pointer;
+            font-family: 'Rubik', sans-serif; font-size: .82rem; color: #9aa7b3;
+            padding: 4px 2px; text-decoration: underline;
+        }
+        .t-out:hover { color: var(--c7); }
+        .quick-card {
+            background: var(--card-bg);
+            border-radius: 18px;
+            padding: 26px 22px;
+            text-decoration: none;
+            color: var(--text-main);
+            box-shadow: 0 10px 22px rgba(0,0,0,0.07);
+            transition: transform .25s cubic-bezier(.25,.8,.25,1), box-shadow .25s ease;
+            border-top: 6px solid transparent;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            cursor: pointer;
+        }
+        .quick-card:hover {
+            transform: translateY(-6px);
+            box-shadow: 0 16px 34px rgba(0,0,0,0.13);
+        }
+        .quick-card > i {
+            font-size: 2.5rem;
+            flex-shrink: 0;
+            transition: transform .3s ease;
+        }
+        .quick-card:hover > i { transform: scale(1.1) rotate(-5deg); }
+        .q-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+        .q-title { font-size: 1.25rem; font-weight: 700; line-height: 1.25; }
+        .q-sub   { font-size: .95rem; color: #6b7a88; font-weight: 500; }
+        .q-badge {
+            display: inline-block; width: fit-content; margin-top: 6px;
+            font-size: .74rem; font-weight: 500; color: #fff;
+            border-radius: 20px; padding: 3px 11px; letter-spacing: .2px;
+        }
+        .q-teacher { border-top-color: var(--c9); }
+        .q-teacher > i { color: var(--c9); }
+        .q-teacher .q-badge { background: var(--c9); }
+        .q-student { border-top-color: var(--c10); }
+        .q-student > i { color: var(--c10); }
+        .q-student .q-badge { background: var(--c10); }
+
+        /* ===== אקורדיון ===== */
+        .acc-item {
+            background: var(--card-bg);
+            border-radius: 18px;
+            margin-bottom: 16px;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.06);
+            overflow: hidden;
+            border-right: 6px solid var(--acc, #ccc);
+        }
+        .acc-head {
+            width: 100%;
+            background: none;
+            border: none;
+            font-family: 'Rubik', sans-serif;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 24px 26px;
+            cursor: pointer;
+            text-align: right;
+            transition: background .2s ease;
+        }
+        .acc-head:hover { background: rgba(0,0,0,.025); }
+        .acc-head:focus-visible { outline: 3px solid var(--acc); outline-offset: -3px; }
+        .acc-head > i.acc-ico {
+            font-size: 1.9rem;
+            color: var(--acc);
+            flex-shrink: 0;
+            width: 38px;
+            text-align: center;
+        }
+        .acc-title { font-size: 1.5rem; font-weight: 700; flex: 1; }
+        .acc-count {
+            font-size: .8rem; font-weight: 500; color: #fff; background: var(--acc);
+            border-radius: 20px; padding: 3px 11px; opacity: .85;
+        }
+        .acc-chev {
+            font-size: 1.05rem; color: #9aa7b3;
+            transition: transform .3s ease;
+            flex-shrink: 0;
+        }
+        .acc-item.open .acc-chev { transform: rotate(180deg); }
+
+        .acc-body {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height .38s cubic-bezier(.4,0,.2,1);
+        }
+        .acc-inner {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+            gap: 14px;
+            padding: 4px 26px 26px;
+        }
+
+        /* כרטיס בתוך אקורדיון */
+        .sub-card {
+            background: #fff;
+            border: 2px solid #eef1f5;
+            border-radius: 14px;
+            padding: 18px 16px;
+            text-decoration: none;
+            color: var(--text-main);
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            transition: border-color .22s ease, transform .22s ease, box-shadow .22s ease;
+        }
+        .sub-card:hover {
+            border-color: var(--sc);
+            transform: translateY(-4px);
+            box-shadow: 0 10px 22px rgba(0,0,0,.09);
+        }
+        .sub-card > i {
+            font-size: 1.85rem;
+            color: var(--sc);
+            flex-shrink: 0;
+            width: 34px;
+            text-align: center;
+        }
+        .sub-card span { font-size: 1.05rem; font-weight: 500; line-height: 1.35; }
+
+        /* ===== חלונות הכניסה ===== */
+        .modal-back {
+            position: fixed; inset: 0; background: rgba(20,25,40,.62);
+            display: none; align-items: center; justify-content: center;
+            padding: 20px; z-index: 999; backdrop-filter: blur(3px);
+        }
+        .modal-back.on { display: flex; }
+        .modal-box {
+            background: #fff; border-radius: 20px; padding: 34px 30px;
+            width: 100%; max-width: 400px; text-align: center;
+            box-shadow: 0 18px 50px rgba(0,0,0,.25);
+            animation: fadeInUp .3s ease-out;
+        }
+        .modal-box h3 { margin: 0 0 4px; font-size: 1.45rem; font-weight: 900; }
+        .modal-box .sub { color: #777; font-size: .92rem; margin: 0 0 20px; }
+        .modal-box input, .modal-box select {
+            width: 100%; font-family: 'Rubik', sans-serif;
+            font-size: 1rem; padding: 13px 15px; margin-bottom: 11px;
+            border: 2px solid #e3e8ef; border-radius: 12px; background: #fafbfc;
+        }
+        .modal-box input:focus { outline: none; border-color: var(--c1); background: #fff; }
+        .btn-go {
+            width: 100%; padding: 14px; border: none; border-radius: 12px; cursor: pointer;
+            font-family: 'Rubik', sans-serif; font-size: 1.05rem; font-weight: 700;
+            background: var(--c9); color: #fff; margin-top: 5px;
+        }
+        .btn-go:hover { filter: brightness(.85); }
+        .btn-go:disabled { opacity: .6; cursor: default; }
+        .btn-cancel {
+            width: 100%; padding: 11px; border: none; background: none; cursor: pointer;
+            font-family: 'Rubik', sans-serif; font-size: .93rem; color: #888; margin-top: 6px;
+        }
+        .modal-msg { font-size: .9rem; margin-top: 12px; min-height: 20px; font-weight: 500; }
+        .modal-note { font-size: .82rem; color: #999; margin-top: 14px; line-height: 1.6; }
+        .modal-note a { color: var(--c1); }
+
+        /* ===== תג גרסה ===== */
+        .ver {
+            position: fixed; bottom: 12px; left: 14px; z-index: 50;
+            font-size: .72rem; font-weight: 500; color: #7c8b99;
+            background: rgba(255,255,255,.8); border: 1px solid rgba(0,0,0,.06);
+            border-radius: 20px; padding: 4px 12px; letter-spacing: .3px;
+        }
+
+        /* ===== אנימציות ===== */
+        @keyframes fadeInDown {
+            from { opacity: 0; transform: translateY(-30px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            * { animation: none !important; transition: none !important; }
+        }
+
+        /* ===== מובייל ===== */
+        @media (max-width: 768px) {
+            body { padding: 30px 0 60px; }
+            .header h1 { font-size: 2.4rem; }
+            .header p  { font-size: 1.1rem; }
+            .wrap { width: 92%; max-width: 460px; }
+            .quick-row { grid-template-columns: 1fr; }
+            .acc-head { padding: 20px 18px; gap: 12px; }
+            .acc-title { font-size: 1.25rem; }
+            .acc-count { display: none; }
+            .acc-inner { padding: 4px 18px 20px; grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>מגמת תקשורת</h1>
+        <p>פורטל יישומים ולמידה</p>
+    </div>
+
+    <div class="wrap">
+
+        <!-- ===== שתי תיבות הכניסה — מחוץ לאקורדיון, תמיד גלויות ===== -->
+        <div class="quick-row">
+            <div class="q-col">
+                <a href="#" onclick="openTeacher(event)" class="quick-card q-teacher" id="tCard">
+                    <i class="fa-solid fa-user-shield"></i>
+                    <div class="q-text">
+                        <span class="q-title">מערכת מטלות</span>
+                        <span class="q-sub">כניסת מורה</span>
+                        <span class="q-badge" id="tBadge">🔒 נדרשת כניסה</span>
+                    </div>
+                </a>
+                <div class="t-body" id="tBody">
+                    <div class="t-inner">
+                        <div class="t-hello">שלום, <b id="tName">מורה</b></div>
+                        <a href="#" class="sub-card" id="tZirot" style="--sc: var(--c6)">
+                            <i class="fa-solid fa-cubes"></i>
+                            <span>מערכת הזירות<br>שליחת מטלה</span>
+                        </a>
+                        <a href="#" class="sub-card" id="tNochehut" style="--sc: var(--c4)">
+                            <i class="fa-solid fa-clipboard-user"></i>
+                            <span>בדיקת נוכחות<br>הקראת שמות</span>
+                        </a>
+                        <div class="t-admin" id="tAdmin">
+                            <div class="t-adm-h"><i class="fa-solid fa-user-gear"></i> מנהל מערכת</div>
+                            <a href="#" class="sub-card" id="tKvutzot" style="--sc: var(--c9)">
+                                <i class="fa-solid fa-users-gear"></i>
+                                <span>ניהול קבוצות<br>הלימוד</span>
+                            </a>
+                            <a href="#" class="sub-card" id="tKitot" style="--sc: var(--c2)">
+                                <i class="fa-solid fa-school"></i>
+                                <span>שאיבת כיתות<br>למורים</span>
+                            </a>
+                        </div>
+                        <button class="t-out" onclick="logoutTeacher()">יציאה מהחשבון</button>
+                    </div>
+                </div>
+            </div>
+
+            <a href="#" onclick="openStudent(event)" class="quick-card q-student">
+                <i class="fa-solid fa-users-rectangle"></i>
+                <div class="q-text">
+                    <span class="q-title">המטלות שלי</span>
+                    <span class="q-sub">אזור אישי לתלמיד</span>
+                    <span class="q-badge">בחירת כיתה</span>
+                </div>
+            </a>
+        </div>
+
+        <!-- ===== אקורדיון ===== -->
+        <div class="accordion" id="acc">
+
+            <!-- 1 · תקשורת וחברה -->
+            <div class="acc-item" style="--acc: var(--c6)">
+                <button class="acc-head" onclick="toggleAcc(this)" aria-expanded="false">
+                    <i class="fa-solid fa-tower-broadcast acc-ico"></i>
+                    <span class="acc-title">תקשורת וחברה</span>
+                    <span class="acc-count">2</span>
+                    <i class="fa-solid fa-chevron-down acc-chev"></i>
+                </button>
+                <div class="acc-body">
+                    <div class="acc-inner">
+                        <a href="https://hakolbakaf.co.il/zirot/index.html" class="sub-card" style="--sc: var(--c6)">
+                            <i class="fa-solid fa-cubes"></i>
+                            <span>זירות הלימוד</span>
+                        </a>
+                        <a href="https://hakolbakaf.co.il/agron/index.html" class="sub-card" style="--sc: var(--c5)">
+                            <i class="fa-solid fa-book-open"></i>
+                            <span>אגרון המושגים</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2 · פרוייקט למ"ד -->
+            <div class="acc-item" style="--acc: var(--c2)">
+                <button class="acc-head" onclick="toggleAcc(this)" aria-expanded="false">
+                    <i class="fa-solid fa-folder-open acc-ico"></i>
+                    <span class="acc-title">פרוייקט למ"ד</span>
+                    <span class="acc-count">2</span>
+                    <i class="fa-solid fa-chevron-down acc-chev"></i>
+                </button>
+                <div class="acc-body">
+                    <div class="acc-inner">
+                        <a href="https://lamedproject.netlify.app/eshi/tik/superlamed/tiklamed-supabase.html" class="sub-card" style="--sc: var(--c1)">
+                            <i class="fa-solid fa-laptop-file"></i>
+                            <span>תיק דיגיטלי<br>פרוייקט למ"ד</span>
+                        </a>
+                        <a href="https://lamedproject.netlify.app/eshi/tik/superlamed/gmarlamed-supabase.html" class="sub-card" style="--sc: var(--c2)">
+                            <i class="fa-solid fa-graduation-cap"></i>
+                            <span>תיק עבודת גמר<br>פרוייקט למ"ד</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3 · הפקות -->
+            <div class="acc-item" style="--acc: var(--c8)">
+                <button class="acc-head" onclick="toggleAcc(this)" aria-expanded="false">
+                    <i class="fa-solid fa-clapperboard acc-ico"></i>
+                    <span class="acc-title">הפקות</span>
+                    <span class="acc-count">2</span>
+                    <i class="fa-solid fa-chevron-down acc-chev"></i>
+                </button>
+                <div class="acc-body">
+                    <div class="acc-inner">
+                        <a href="https://hakolbakaf.netlify.app/kolnoa/hafakot/" class="sub-card" style="--sc: var(--c8)">
+                            <i class="fa-solid fa-camera"></i>
+                            <span>הפקות</span>
+                        </a>
+                        <!-- VIDEOCAST · אם הווידאוקאסט אינו שייך לקטגוריה הזו — מוחקים את בלוק ה-<a> הבא
+                             ומעדכנים את acc-count מ-2 ל-1 בכותרת שמעל -->
+                        <a href="https://lamedproject.netlify.app/eshi/tik/superlamed/videocast-index.html" class="sub-card" style="--sc: var(--c7)">
+                            <i class="fa-solid fa-video"></i>
+                            <span>תיק הפקה<br>וידאוקאסט</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <div class="ver">megama v2.3.1</div>
+
+    <!-- ===== חלון כניסת מורה ===== -->
+    <div class="modal-back" id="loginBack">
+      <div class="modal-box">
+        <h3>🔒 כניסת מורה</h3>
+        <p class="sub">מערכת מטלות ומערכי שיעור</p>
+        <input type="tel" id="inpPhone" placeholder="טלפון — 050-0000000" dir="ltr"
+               style="text-align:right" autocomplete="tel">
+        <input type="password" id="inpPass" placeholder="סיסמה" autocomplete="current-password">
+        <button class="btn-go" id="btnGo" onclick="doLogin()">כניסה ←</button>
+        <button class="btn-cancel" onclick="closeLogin()">ביטול</button>
+        <div class="modal-msg" id="loginMsg"></div>
+        <p class="modal-note">
+          הכניסה בטלפון ובסיסמה שאיתם נרשמתם.<br>
+          אין לכם חשבון עדיין?
+          <a href="https://hakolbakaf.co.il/eshi/shioor/teacher-register.html" target="_blank">הרשמה למערכת</a>
+        </p>
+      </div>
+    </div>
+
+    <!-- ===== חלון כניסת תלמיד ===== -->
+    <div class="modal-back" id="stuBack">
+      <div class="modal-box">
+        <h3>🎓 האזור האישי שלי</h3>
+        <p class="sub">בחרו מורה וכיתה כדי לראות את המטלות</p>
+        <select id="selTeacher" onchange="fillClasses()">
+          <option value="">— בחרו מורה —</option>
+        </select>
+        <select id="selClass" disabled>
+          <option value="">— בחרו כיתה —</option>
+        </select>
+        <button class="btn-go" id="btnStu" style="background:var(--c10)" onclick="goStudent()">כניסה ←</button>
+        <button class="btn-cancel" onclick="closeStudent()">ביטול</button>
+        <div class="modal-msg" id="stuMsg"></div>
+        <p class="modal-note">לא מוצאים את הכיתה? בקשו מהמורה את קישור הכיתה.</p>
+      </div>
+    </div>
+
+<script>
+/* ===== אקורדיון =====
+   פתיחה אחת בכל רגע. הגובה נקבע מ-scrollHeight ולא מ-max-height קבוע,
+   כך שאפשר להוסיף כרטיסים לקטגוריה בלי לגעת ב-CSS. */
+function toggleAcc(btn){
+  const item = btn.closest('.acc-item');
+  const wasOpen = item.classList.contains('open');
+  document.querySelectorAll('.acc-item').forEach(it => {
+    it.classList.remove('open');
+    it.querySelector('.acc-head').setAttribute('aria-expanded','false');
+    it.querySelector('.acc-body').style.maxHeight = null;
+  });
+  if(!wasOpen){
+    item.classList.add('open');
+    btn.setAttribute('aria-expanded','true');
+    const body = item.querySelector('.acc-body');
+    body.style.maxHeight = body.scrollHeight + 'px';
+  }
+}
+/* ברירת המחדל — כל הקטגוריות סגורות */
+/* שינוי רוחב משנה את גובה הרשת — מרעננים את הגובה של הפתוח */
+window.addEventListener('resize', () => {
+  const open = document.querySelector('.acc-item.open .acc-body');
+  if(open){ open.style.maxHeight = 'none'; const h = open.scrollHeight; open.style.maxHeight = h + 'px'; }
+});
+
+/* ===== שער כניסת מורה =====
+   האימות מול lms_teachers בפרויקט matalot — בדיוק כמו ב-teacher-central.html,
+   כדי שמורה שנרשם פעם אחת ייכנס לכל המערכות באותם פרטים.
+   שער נוחות בלבד: כתובת היעד גלויה בקוד המקור וניתן להגיע אליה ישירות. */
+const SUP  = "https://eubgzfkkovxgijhrmnif.supabase.co";
+const SKEY = "sb_publishable_vJ768fOwYWiDWeYsBBR45g_4NM4s55p";
+const TARGET  = "https://hakolbakaf.co.il/zirot/tirgool/index.html";   /* מורה — קטלוג הזירות */
+const TARGET_S = "https://hakolbakaf.co.il/zirot/tirgool/talmid.html";  /* תלמיד — האזור האישי */
+/* nochehut.html — ריפו ranibz/hakol, תיקייה galil/ (אומת ב-09/08/2026, 200 OK) */
+const TARGET_N = "https://hakolbakaf.co.il/galil/nochehut.html"; /* מורה — בדיקת נוכחות */
+/* כלי ניהול — מוצגים רק למי שמסומן is_admin ב-lms_teachers.
+   שער נוחות, לא אבטחה: הכתובות גלויות בקוד המקור. */
+const TARGET_K = "https://hakolbakaf.co.il/galil/kitot-shiuv.html"; /* אדמין — שאיבת כיתות */
+const TARGET_G = "https://hakolbakaf.co.il/galil/kvutzot.html";     /* אדמין — ניהול קבוצות */
+
+/* נרמול טלפון ישראלי — 054…, 972-54… ו-+97254… מתכנסים לאותו מספר */
+function normPhone(s){
+  let p = String(s||'').replace(/\D/g,'').replace(/^00+/,'');
+  if(p.indexOf('972') === 0) p = p.slice(3);
+  p = p.replace(/^0+/,'');
+  return p ? ('0'+p) : '';
+}
+/* לחיצה על תיבת המורה: אם כבר מחובר בטאב הזה — פותח/סוגר את הפאנל,
+   אחרת מבקש פרטי כניסה, והפאנל נפתח מיד אחרי אימות מוצלח. */
+function openTeacher(e){
+  if(e) e.preventDefault();
+  const seen = sessionStorage.getItem('megamaCode');
+  if(seen){
+    const body = document.getElementById('tBody');
+    if(body.style.maxHeight){ body.style.maxHeight = null; }
+    else { showTeacherPanel(seen, sessionStorage.getItem('megamaTeacher')); }
+    return;
+  }
+  document.getElementById('loginBack').classList.add('on');
+  setTimeout(()=>document.getElementById('inpPhone').focus(), 60);
+}
+/* מזהה המורה נוסע בכתובת לשני היעדים — בדיוק כמו שהיה בהפניה הישירה,
+   כך שאף אחד מהם לא ידרוש כניסה נוספת */
+function showTeacherPanel(code, name, isAdmin){
+  const q = '?code=' + encodeURIComponent(code);
+  document.getElementById('tZirot').href    = TARGET  + q;
+  document.getElementById('tNochehut').href = TARGET_N + q;
+  /* בלוק הניהול נשאר מוסתר למורה רגיל */
+  const adm = isAdmin === undefined ? sessionStorage.getItem('megamaAdmin')==='1' : !!isAdmin;
+  document.getElementById('tAdmin').classList.toggle('on', adm);
+  if(adm){
+    document.getElementById('tKitot').href   = TARGET_K + q;
+    document.getElementById('tKvutzot').href = TARGET_G + q;
+  }
+  document.getElementById('tName').textContent = name || 'מורה';
+  document.getElementById('tBadge').textContent = '✓ מחובר';
+  document.getElementById('tBadge').style.background = '#00b894';
+  const body = document.getElementById('tBody');
+  body.style.maxHeight = body.scrollHeight + 'px';
+}
+function logoutTeacher(){
+  sessionStorage.removeItem('megamaCode');
+  sessionStorage.removeItem('megamaTeacher');
+  sessionStorage.removeItem('megamaAdmin');
+  document.getElementById('tAdmin').classList.remove('on');
+  document.getElementById('tBody').style.maxHeight = null;
+  document.getElementById('tBadge').textContent = '🔒 נדרשת כניסה';
+  document.getElementById('tBadge').style.background = '';
+}
+function closeLogin(){
+  document.getElementById('loginBack').classList.remove('on');
+  document.getElementById('loginMsg').textContent = '';
+  document.getElementById('inpPass').value = '';
+}
+async function doLogin(){
+  const phone = document.getElementById('inpPhone').value.trim();
+  const pass  = document.getElementById('inpPass').value.trim();
+  const msg   = document.getElementById('loginMsg');
+  const btn   = document.getElementById('btnGo');
+  if(!phone || !pass){ msg.style.color='#e74c3c'; msg.textContent='נא למלא טלפון וסיסמה'; return; }
+  btn.disabled = true; msg.style.color = '#777'; msg.textContent = 'מתחבר…';
+  try{
+    const r = await fetch(SUP + '/rest/v1/lms_teachers?select=*&phone=eq.' +
+      encodeURIComponent(normPhone(phone)),
+      { headers:{ apikey:SKEY, Authorization:'Bearer '+SKEY } });
+    if(!r.ok) throw new Error(r.status);
+    const rows = await r.json();
+    const t = (rows||[]).find(x => x.password === pass && x.status === 'approved');
+    if(!t){
+      /* הפרדה בין "לא מאושר" ל"פרטים שגויים" — כדי שמורה שממתין לאישור יבין */
+      const waiting = (rows||[]).some(x => x.password === pass && x.status !== 'approved');
+      msg.style.color = '#e74c3c';
+      msg.textContent = waiting ? 'החשבון עדיין ממתין לאישור מנהל'
+                                : 'טלפון או סיסמה שגויים';
+      btn.disabled = false; return;
+    }
+    sessionStorage.setItem('megamaTeacher', t.name || '');
+    sessionStorage.setItem('megamaCode', t.id);
+    sessionStorage.setItem('megamaAdmin', t.is_admin === true ? '1' : '0');
+    msg.style.color = '#00b894';
+    msg.textContent = 'שלום ' + (t.name || 'מורה');
+    /* אין יותר הפניה אוטומטית — נפתח פאנל עם שתי האפשרויות והמורה בוחר */
+    setTimeout(()=>{
+      closeLogin();
+      showTeacherPanel(t.id, t.name, t.is_admin === true);
+      document.getElementById('tCard').scrollIntoView({behavior:'smooth', block:'center'});
+    }, 450);
+  }catch(err){
+    msg.style.color = '#e74c3c';
+    msg.textContent = 'שגיאת תקשורת. נסו שוב.';
+    btn.disabled = false;
+  }
+}
+/* ===== המורים של בית הספר =====
+   עמודת school ב-lms_teachers ריקה אצל 92 מתוך 93 המורים, ולכן אי אפשר
+   לסנן לפיה. עד שתתמלא — הרשימה מפורשת. כשמורה מצטרף למגמה, מוסיפים
+   כאן שורה אחת עם המזהה שלו מ-lms_teachers. */
+const OUR_TEACHERS = [
+  '-OmvKR-JvG0o6e4RuD2k',   // רני בן זאב
+  '-Oo4Ft_RKqXnW2E6AEZZ',   // ליאור דואק
+  '-OoJeP-wq_Aoo__90WO3'    // אוריין מלכא
+];
+/* כיתות שלא יוצגו לתלמידים — הדגמות והרצות ניסיון */
+const HIDE_CLASS = /הדגמ|דמו|בדיקה|טסט|test/i;
+
+/* ===== כניסת תלמידים =====
+   התלמיד בוחר מורה וכיתה, ומועבר לקטלוג עם אותם code ו-class שהמורה מייצר
+   בקישור שהוא משתף. כלומר התוצאה זהה בדיוק לקישור שקיבל מהמורה — רק בלי
+   להעתיק ולהדביק אותו. */
+let CLASSES = [], TEACHERS = {};
+async function openStudent(e){
+  if(e) e.preventDefault();
+  document.getElementById('stuBack').classList.add('on');
+  const msg = document.getElementById('stuMsg');
+  if(CLASSES.length) return;
+  msg.style.color = '#777'; msg.textContent = 'טוען כיתות…';
+  try{
+    const hdr = { apikey:SKEY, Authorization:'Bearer '+SKEY };
+    /* select מפורש ולא * — אין סיבה שדף ציבורי ימשוך סיסמאות מורים */
+    /* השאילתה מוגבלת מראש למורי בית הספר — כך שרשימת הכיתות של
+       בתי ספר אחרים אינה מגיעה לדפדפן כלל, ולא רק מוסתרת בו */
+    const inList = '(' + OUR_TEACHERS.map(encodeURIComponent).join(',') + ')';
+    const [rc, rt] = await Promise.all([
+      fetch(SUP + '/rest/v1/lms_classes?select=teacher_id,name&teacher_id=in.' + inList +
+            '&order=name.asc', { headers:hdr }),
+      fetch(SUP + '/rest/v1/lms_teachers?select=id,name&status=eq.approved&id=in.' + inList,
+            { headers:hdr })
+    ]);
+    if(!rc.ok || !rt.ok) throw new Error('load');
+    CLASSES = (await rc.json()).filter(c => !HIDE_CLASS.test(c.name || ''));
+    (await rt.json()).forEach(t => { TEACHERS[String(t.id)] = t.name || 'מורה'; });
+    const withClasses = [...new Set(CLASSES.map(c => String(c.teacher_id)))]
+      .filter(id => TEACHERS[id])
+      .sort((a,b) => TEACHERS[a].localeCompare(TEACHERS[b],'he'));
+    const sel = document.getElementById('selTeacher');
+    withClasses.forEach(id => {
+      const o = document.createElement('option');
+      o.value = id; o.textContent = TEACHERS[id];
+      sel.appendChild(o);
+    });
+    msg.textContent = withClasses.length ? '' : 'עדיין לא נוצרו כיתות במערכת';
+  }catch(err){
+    msg.style.color = '#e74c3c'; msg.textContent = 'שגיאת תקשורת. נסו שוב.';
+  }
+}
+function fillClasses(){
+  const tid = document.getElementById('selTeacher').value;
+  const sel = document.getElementById('selClass');
+  sel.innerHTML = '<option value="">— בחרו כיתה —</option>';
+  sel.disabled = !tid;
+  CLASSES.filter(c => String(c.teacher_id) === tid).forEach(c => {
+    const o = document.createElement('option');
+    o.value = c.name; o.textContent = c.name;
+    sel.appendChild(o);
+  });
+}
+function goStudent(){
+  const tid = document.getElementById('selTeacher').value;
+  const cls = document.getElementById('selClass').value;
+  const msg = document.getElementById('stuMsg');
+  if(!tid || !cls){ msg.style.color='#e74c3c'; msg.textContent='בחרו מורה וכיתה'; return; }
+  msg.style.color = '#00b894'; msg.textContent = 'מעביר…';
+  /* talmid.html מצפה בדיוק ל-code ו-class, ומציג את המטלות שהוקצו לכיתה */
+  location.href = TARGET_S + '?code=' + encodeURIComponent(tid) +
+                  '&class=' + encodeURIComponent(cls);
+}
+function closeStudent(){
+  document.getElementById('stuBack').classList.remove('on');
+  document.getElementById('stuMsg').textContent = '';
+}
+document.getElementById('stuBack').addEventListener('click', e => {
+  if(e.target.id === 'stuBack') closeStudent();
+});
+
+document.addEventListener('keydown', e => {
+  if(document.getElementById('stuBack').classList.contains('on') && e.key === 'Escape')
+    closeStudent();
+  if(!document.getElementById('loginBack').classList.contains('on')) return;
+  if(e.key === 'Enter') doLogin();
+  if(e.key === 'Escape') closeLogin();
+});
+document.getElementById('loginBack').addEventListener('click', e => {
+  if(e.target.id === 'loginBack') closeLogin();
+});
+</script>
+
+</body>
+</html>

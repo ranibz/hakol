@@ -1,5 +1,14 @@
 <!DOCTYPE html>
-<!-- eshi/shioor/teacher-register.html · v2.0.0 · 2026-07-25 · הומר ל-Supabase (lms_teachers, status=pending); נרמול טלפון ישראלי ובדיקת הרשמה כפולה (MAJOR) -->
+<!-- eshi/shioor/teacher-register.html · v2.1.0 · 2026-08-09 · שדה "בית ספר" החופשי הוחלף
+     בסמל מוסד + שם בית ספר, והכתיבה עברה מהעמודה school לעמודות school_id ו-school_name.
+     הרקע: 92 מתוך 95 המורים במסד ללא בית ספר, ומי שכן מילא כתב טקסט חופשי ("א", "עירוני ג")
+     שאי אפשר לסנן לפיו. סמל המוסד הוא מזהה יציב, ובאותו פורמט שבו משתמשות טבלאות tiksh_.
+     הסמל מאומת כשש ספרות; אם הוא כבר מוכר במסד, שם בית הספר מתמלא אוטומטית מהרשומה
+     הקיימת — כדי שאותו מוסד לא ייכתב בכמה וריאציות.
+     העמודה school אינה נכתבת עוד. היא נשארת במסד לנתונים ישנים בלבד.
+     כותרת הכרטיס תוקנה: הקובץ משרת מורים מכל הארץ ולא רק גליל מערבי (MINOR).
+     v2.0.0 · 2026-07-25 · הומר ל-Supabase (lms_teachers, status=pending); נרמול טלפון
+     ישראלי ובדיקת הרשמה כפולה -->
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
@@ -48,12 +57,13 @@ body{background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;min
 <div class="card">
   <div class="card-head">
     <h1>רישום מורה</h1>
-    <p>גליל מערבי • שיעורי תקשורת ועיתונות</p>
+    <p>הכל בכף היד • שיעורי תקשורת ועיתונות</p>
   </div>
   <div class="card-body">
 
     <div class="info-note">
       הבקשה תועבר לאישור המנהל. לאחר האישור תוכלו להיכנס לסביבת המורה בכל המשימות הדיגיטליות.
+      את סמל המוסד תמצאו במזכירות בית הספר או באתר משרד החינוך.
     </div>
 
     <div class="field">
@@ -61,7 +71,14 @@ body{background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;min
       <input id="f-name" type="text" placeholder="שם ומשפחה" autocomplete="name">
     </div>
     <div class="field">
-      <label>בית ספר</label>
+      <label>סמל מוסד</label>
+      <input id="f-symbol" type="text" inputmode="numeric" maxlength="6"
+             placeholder="שש ספרות — למשל 260489" dir="ltr" style="text-align:right;"
+             oninput="lookupSchool()">
+      <div id="sym-hint" style="font-size:12px;color:var(--ink-light);margin-top:6px"></div>
+    </div>
+    <div class="field">
+      <label>שם בית הספר</label>
       <input id="f-school" type="text" placeholder="שם בית הספר" autocomplete="organization">
     </div>
     <div class="field">
@@ -108,9 +125,35 @@ async function sb(path,method,body,extra){
   const t=await r.text(); return t?JSON.parse(t):[];
 }
 
+/* סמל מוכר → שם בית הספר מתמלא לבד. מונע שאותו מוסד ייכתב בכמה וריאציות,
+   בדיוק הבעיה שנוצרה בשמות המורים. */
+let symTimer;
+function lookupSchool(){
+  const sym=document.getElementById('f-symbol').value.replace(/\D/g,'').slice(0,6);
+  document.getElementById('f-symbol').value=sym;
+  const hint=document.getElementById('sym-hint');
+  hint.textContent=''; hint.style.color='var(--ink-light)';
+  clearTimeout(symTimer);
+  if(sym.length!==6)return;
+  symTimer=setTimeout(async()=>{
+    try{
+      const r=await sb('lms_teachers?select=school_name&school_id=eq.'+encodeURIComponent(sym)+
+                       '&school_name=not.is.null&limit=1');
+      if(r&&r.length&&r[0].school_name){
+        document.getElementById('f-school').value=r[0].school_name;
+        hint.style.color='var(--green)';
+        hint.textContent='✓ '+r[0].school_name;
+      }else{
+        hint.textContent='מוסד חדש — הקלידו את שם בית הספר';
+      }
+    }catch(e){}
+  },400);
+}
+
 async function submitRequest(){
   const name=document.getElementById('f-name').value.trim();
   const school=document.getElementById('f-school').value.trim();
+  const symbol=document.getElementById('f-symbol').value.replace(/\D/g,'');
   const raw=document.getElementById('f-phone').value.trim();
   const phone=normPhone(raw);
   const pass=document.getElementById('f-pass').value;
@@ -119,8 +162,10 @@ async function submitRequest(){
   const btn=document.getElementById('sub-btn');
   msg.className='msg';msg.style.display='none';
 
-  if(!name||!school||!raw||!pass||!pass2){
+  if(!name||!school||!symbol||!raw||!pass||!pass2){
     msg.className='msg err';msg.textContent='יש למלא את כל השדות.';return;}
+  if(!/^[0-9]{6}$/.test(symbol)){
+    msg.className='msg err';msg.textContent='סמל המוסד חייב להיות בן שש ספרות.';return;}
   if(!/^0[0-9]{8,9}$/.test(phone)){
     msg.className='msg err';msg.textContent='מספר הטלפון אינו תקין. הקלידו מספר ישראלי, למשל 0501234567.';return;}
   if(pass.length<6){
@@ -146,8 +191,9 @@ async function submitRequest(){
     }
 
     btn.textContent='שולח...';
-    await sb('lms_teachers','POST',[{id:newId(),name:name,school:school,phone:phone,
-      password:pass,status:'pending',is_admin:false}]);
+    /* school_id לסינון, school_name לתצוגה. העמודה school הישנה אינה נכתבת עוד. */
+    await sb('lms_teachers','POST',[{id:newId(),name:name,school_id:symbol,school_name:school,
+      phone:phone,password:pass,status:'pending',is_admin:false}]);
 
     msg.className='msg ok';
     msg.innerHTML='✓ הבקשה נשלחה בהצלחה!<br><span style="font-weight:400;font-size:14px;">'+
