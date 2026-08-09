@@ -1,5 +1,11 @@
 <!DOCTYPE html>
-<!-- eshi/shioor/lms-admin.html · v2.3.0 · 2026-08-09 · עמודת "בית ספר" הציגה את העמודה
+<!-- eshi/shioor/lms-admin.html · v2.4.0 · 2026-08-09 · ניהול בקשות סמל מוסד. מאז
+     school-gate v2.0.0 המורה אינו כותב ישירות ל-school_id אלא ל-school_id_pending,
+     ונחסם עד אישור — זו נקודת המפגש שנועדה לתפוס להשתלמות את 91 המורים שהועברו
+     מ-Firebase כ-approved בלי שעברו אחת. נוסף מונה "בקשות סמל מוסד", ובעמודת בית
+     הספר מוצגת הבקשה הממתינה עם אישור/דחייה. דחייה משאירה את שם בית הספר בלי סמל,
+     וכך השער מזהה שהבקשה נדחתה ומבקש סמל מתוקן (MINOR).
+     v2.3.0 · 2026-08-09 · עמודת "בית ספר" הציגה את העמודה
      school, שנזנחה לטובת school_id ו-school_name. מעכשיו מוצג שם בית הספר ותחתיו סמל
      המוסד; מורה שנרשם לפני השינוי ויש לו רק school מוצג עם הערך הישן והסימון "ללא סמל",
      כדי שאפשר יהיה לזהות את מי צריך להשלים. החיפוש מכסה גם סמל ושם חדשים (MINOR).
@@ -161,12 +167,15 @@ function diagnostics(){
 
 function render(){
   const pend=TE.filter(t=>t.status==='pending').length;
+  /* בקשות סמל מוסד — מורה שמילא וממתין. הוא חסום עד האישור. */
+  const pendSch=TE.filter(t=>t.school_id_pending&&!t.school_id).length;
   const d=diagnostics();
   const issues=d.orphan.length+d.noClass.length+d.notInRoster.length;
   document.getElementById('app').innerHTML=
    '<div class="kpis">'+
     '<div class="kpi"><b>'+TE.length+'</b><span>מורים</span></div>'+
     '<div class="kpi y"><b>'+pend+'</b><span>ממתינים לאישור</span></div>'+
+    '<div class="kpi '+(pendSch?'y':'')+'"><b>'+pendSch+'</b><span>בקשות סמל מוסד</span></div>'+
     '<div class="kpi"><b>'+CL.length+'</b><span>כיתות</span></div>'+
     '<div class="kpi"><b>'+AS.length+'</b><span>מטלות שהוקצו</span></div>'+
     '<div class="kpi g"><b>'+SU.length+'</b><span>הגשות</span></div>'+
@@ -198,12 +207,21 @@ function paneTeachers(){
       '<button class="btn sm" onclick="resetPw(\''+t.id+'\')">איפוס סיסמה</button>';
     /* school_name/school_id הן העמודות הפעילות. school הישנה מוצגת רק למי
        שנרשם לפניהן, כדי שהערך שהזין לא ייעלם מהמסך. */
-    const schCell = t.school_name
-      ? esc(t.school_name)+(t.school_id?'<div class="mono" style="font-size:11px;opacity:.6">'+
-          esc(t.school_id)+'</div>':'')
-      : (t.school_id ? '<span class="mono">'+esc(t.school_id)+'</span>'
-                     : (t.school ? esc(t.school)+'<div style="font-size:11px;opacity:.6">ללא סמל</div>'
-                                 : '—'));
+    /* בקשה ממתינה גוברת על התצוגה הרגילה — זו הפעולה שדורשת ממך החלטה */
+    const schCell = (t.school_id_pending && !t.school_id)
+      ? '<div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:6px 9px">'+
+        '<b class="mono">'+esc(t.school_id_pending)+'</b>'+
+        '<div style="font-size:12px">'+esc(t.school_name_pending||'')+'</div>'+
+        '<div class="acts" style="margin-top:5px">'+
+          '<button class="btn ok sm" onclick="okSchool(\''+t.id+'\')">אישור</button>'+
+          '<button class="btn bad sm" onclick="noSchool(\''+t.id+'\')">דחייה</button>'+
+        '</div></div>'
+      : t.school_name
+        ? esc(t.school_name)+(t.school_id?'<div class="mono" style="font-size:11px;opacity:.6">'+
+            esc(t.school_id)+'</div>':'')
+        : (t.school_id ? '<span class="mono">'+esc(t.school_id)+'</span>'
+                       : (t.school ? esc(t.school)+'<div style="font-size:11px;opacity:.6">ללא סמל</div>'
+                                   : '—'));
     const pwCell=(t.password&&String(t.password).length)
       ? '<div class="pw"><code id="pw_'+t.id+'">••••••</code>'+
         '<button title="הצגה" onclick="togPw(\''+t.id+'\',this)">👁</button></div>'
@@ -257,6 +275,32 @@ async function resetPw(id){
     const m2=document.getElementById('msg');
     if(m2){m2.style.color='var(--bad)';m2.textContent='האיפוס נכשל: '+e.message.slice(0,140);}
   }
+}
+
+/* אישור סמל — הערכים עוברים מה-pending למקומם, והמורה משתחרר בכניסה הבאה */
+async function okSchool(id){
+  const t=TE.find(x=>x.id===id); if(!t)return;
+  try{
+    await sb('lms_teachers?id=eq.'+encodeURIComponent(id),'PATCH',
+      {school_id:t.school_id_pending, school_name:t.school_name_pending,
+       school_id_pending:null, school_name_pending:null});
+    t.school_id=t.school_id_pending; t.school_name=t.school_name_pending;
+    t.school_id_pending=null; t.school_name_pending=null; render();
+  }catch(e){ const m=document.getElementById('msg');
+    if(m){m.style.color='#9f1239';m.textContent='שגיאה: '+e.message;} }
+}
+/* דחייה — school_name נשמר בלי school_id, וכך school-gate מזהה שהבקשה נדחתה
+   ומציג למורה הודעה במקום מסך המתנה */
+async function noSchool(id){
+  const t=TE.find(x=>x.id===id); if(!t)return;
+  if(!confirm('לדחות את הבקשה? המורה יתבקש לשלוח סמל מתוקן.'))return;
+  try{
+    await sb('lms_teachers?id=eq.'+encodeURIComponent(id),'PATCH',
+      {school_name:t.school_name_pending, school_id_pending:null, school_name_pending:null});
+    t.school_name=t.school_name_pending;
+    t.school_id_pending=null; t.school_name_pending=null; render();
+  }catch(e){ const m=document.getElementById('msg');
+    if(m){m.style.color='#9f1239';m.textContent='שגיאה: '+e.message;} }
 }
 
 async function setStatus(id,st){
