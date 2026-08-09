@@ -1,5 +1,12 @@
 <!DOCTYPE html>
-<!-- galil/kvutzot.html · v2.4.0 · 2026-08-02 · ניהול קבוצות מגמת תקשורת, בית חינוך גליל מערבי. שדה המורה הפך לבורר מרשימת המורים הקיימים, עם אפשרות להוסיף חדש במפורש — כדי שלא ייווצרו וריאציות שם כמו "רני" מול "רני בן זאב". הועבר לתיקייה galil/ ונוסף קישור חזרה לדף המגמה. מחובר ל-tiksh_* ב-Supabase matalot (eubgzfkkovxgijhrmnif) (MINOR) -->
+<!-- galil/kvutzot.html · v2.5.0 · 2026-08-09 · שתי תקלות תוקנו.
+     (1) loadTeachers קרא ל-sb כפונקציה — אבל sb הוא לקוח Supabase, לא פונקציה. הקריאה
+     זרקה TypeError שנבלע ב-catch, ולכן רשימת המורים בבורר הייתה ריקה תמיד ונשארה רק
+     האפשרות "＋ מורה חדש…". זו הסיבה שווריאציות שם המשיכו להיווצר למרות v2.4.0.
+     (2) הקובץ לא כתב teacher_id כלל — רק teacher_name. מעכשיו הוא משייך את המזהה
+     מ-lms_teachers לפי השם, כך שהמורה מזוהה אוטומטית בהקראת הנוכחות ובשער הכניסה.
+     מורה שאינו רשום כמאושר מסומן באזהרה בבורר. (MINOR)
+     v2.4.0 · 2026-08-02 · ניהול קבוצות מגמת תקשורת, בית חינוך גליל מערבי. שדה המורה הפך לבורר מרשימת המורים הקיימים, עם אפשרות להוסיף חדש במפורש — כדי שלא ייווצרו וריאציות שם כמו "רני" מול "רני בן זאב". הועבר לתיקייה galil/ ונוסף קישור חזרה לדף המגמה. מחובר ל-tiksh_* ב-Supabase matalot (eubgzfkkovxgijhrmnif) (MINOR) -->
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
@@ -119,14 +126,38 @@ const nrm=s=>String(s||'').replace(/\s+/g,' ').trim();
 /* ---------- טעינה ---------- */
 /* רשימת המורים נאספת מכל השכבות — כדי שהבורר יציג את כולם
    גם כשמסתכלים על שכבה אחת. מונע וריאציות שם כמו "רני" מול "רני בן זאב". */
-let TEACHERS=[];
+let TEACHERS=[], TEACHER_ID={};
 async function loadTeachers(){
+  TEACHERS=[]; TEACHER_ID={};
   try{
-    const r=await sb('tiksh_groups?select=teacher_name');
-    TEACHERS=[...new Set((r||[]).map(x=>nrm(x.teacher_name)).filter(Boolean))]
-      .sort((a,b)=>a.localeCompare(b,'he'));
+    /* שתי מקורות: השמות שכבר בשימוש בקבוצות, והמזהים מ-lms_teachers.
+       lms_teachers מכיל מורים מבתי ספר אחרים, ולכן הוא משמש רק להתאמת
+       מזהה לשם — הבורר עצמו מציג את מורי המגמה בלבד. */
+    const [g,t]=await Promise.all([
+      sb.from('tiksh_groups').select('teacher_name,teacher_id'),
+      sb.from('lms_teachers').select('id,name').eq('status','approved')
+    ]);
+    if(g.error)throw g.error;
+    (t.data||[]).forEach(x=>{ const n=nrm(x.name); if(n) TEACHER_ID[n]=x.id; });
+    const names=new Set();
+    (g.data||[]).forEach(x=>{
+      const n=nrm(x.teacher_name); if(!n)return;
+      names.add(n);
+      if(x.teacher_id && !TEACHER_ID[n]) TEACHER_ID[n]=x.teacher_id;
+    });
+    TEACHERS=[...names].sort((a,b)=>a.localeCompare(b,'he'));
   }catch(e){ TEACHERS=[]; }
   return TEACHERS;
+}
+/* מורה בלי מזהה לא יזוהה אוטומטית בהקראת הנוכחות ובשער הכניסה —
+   מסמנים זאת בבורר במקום לגלות את זה רק אחר כך */
+function teacherWarn(id){
+  const n=teacherValue(id), w=document.getElementById(id+'_warn');
+  if(!w)return;
+  const bad = n.length>=2 && !TEACHER_ID[n];
+  w.style.display = bad?'block':'none';
+  w.textContent = bad?'⚠ '+n+' אינו רשום כמורה מאושר במערכת. הקבוצה תיווצר, אבל '+
+    'הוא לא יזוהה אוטומטית בהקראת הנוכחות ויצטרך לבחור את שמו ידנית.':'';
 }
 function teacherPicker(id,current){
   const cur=nrm(current);
@@ -136,8 +167,10 @@ function teacherPicker(id,current){
       ${TEACHERS.map(t=>`<option${t===cur?' selected':''}>${esc(t)}</option>`).join('')}
       <option value="__new"${cur&&!known?' selected':''}>＋ מורה חדש…</option>
     </select>
-    <input type="text" id="${id}_new" placeholder="שם מלא של המורה"
-      style="margin-top:7px;display:${cur&&!known?'block':'none'}" value="${cur&&!known?esc(cur):''}">`;
+    <input type="text" id="${id}_new" placeholder="שם מלא של המורה" oninput="teacherWarn('${id}')"
+      style="margin-top:7px;display:${cur&&!known?'block':'none'}" value="${cur&&!known?esc(cur):''}">
+    <div id="${id}_warn" style="display:none;margin-top:7px;font-size:.83rem;line-height:1.5;
+      background:#fff6e8;border:1px solid #f3dfbe;color:#8a5a00;border-radius:9px;padding:8px 11px"></div>`;
 }
 function onTeacherPick(id){
   const sel=document.getElementById(id), nw=document.getElementById(id+'_new');
@@ -145,6 +178,7 @@ function onTeacherPick(id){
   const on=sel.value==='__new';
   nw.style.display=on?'block':'none';
   if(on)nw.focus();
+  teacherWarn(id);
 }
 function teacherValue(id){
   const sel=document.getElementById(id), nw=document.getElementById(id+'_new');
@@ -333,7 +367,8 @@ async function doNewGroup(){
   if(teacher.length<2){ toast('נא לבחור מורה','no'); return; }
   try{
     const r=await sb.from('tiksh_groups')
-      .insert({track,level,teacher_name:teacher||null,subject,grade:currentGrade});
+      .insert({track,level,teacher_name:teacher||null,teacher_id:TEACHER_ID[teacher]||null,
+               subject,grade:currentGrade});
     if(r.error)throw r.error;
     close(); toast('נוצרה','ok'); await loadAll();
   }catch(err){ toast('שגיאה: '+(err.message||err),'no'); }
@@ -356,7 +391,8 @@ async function doRename(gid){
   if(teacher.length<2){ toast('נא לבחור מורה','no'); return; }
   try{
     const r=await sb.from('tiksh_groups')
-      .update({track,level,teacher_name:teacher||null}).eq('id',gid);
+      .update({track,level,teacher_name:teacher||null,
+               teacher_id:TEACHER_ID[teacher]||null}).eq('id',gid);
     if(r.error)throw r.error;
     close(); toast('נשמר','ok'); await loadAll();
   }catch(err){ toast('שגיאה: '+(err.message||err),'no'); }
