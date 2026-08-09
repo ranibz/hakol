@@ -1,5 +1,9 @@
 <!DOCTYPE html>
-<!-- eshi/shioor/lms-admin.html · v2.2.0 · נוספה עמודת סיסמה מוסתרת עם חשיפה של 15 שניות, ואיפוס סיסמה למורה ששכחה (MINOR) · 2026-07-27 · נוספה לשונית "סטטיסטיקות": מורים מובילים, קבצים פופולריים, פילוח לפי זירה וסוג שיעור, מושגים מבוקשים, שיעורים קשים, פעילות לפי יום ולפי שעה, כיתות מובילות ומורים רדומים. בורר טווח 7/30/הכל. שאילתת ההגשות מושכת כעת גם lesson_type, zone, concept ו-page, והתקרה הועלתה ל-20000 עם התראה כשהיא נוגעת (MINOR) -->
+<!-- eshi/shioor/lms-admin.html · v2.3.0 · 2026-08-09 · עמודת "בית ספר" הציגה את העמודה
+     school, שנזנחה לטובת school_id ו-school_name. מעכשיו מוצג שם בית הספר ותחתיו סמל
+     המוסד; מורה שנרשם לפני השינוי ויש לו רק school מוצג עם הערך הישן והסימון "ללא סמל",
+     כדי שאפשר יהיה לזהות את מי צריך להשלים. החיפוש מכסה גם סמל ושם חדשים (MINOR).
+     v2.2.0 · נוספה עמודת סיסמה מוסתרת עם חשיפה של 15 שניות, ואיפוס סיסמה למורה ששכחה (MINOR) · 2026-07-27 · נוספה לשונית "סטטיסטיקות": מורים מובילים, קבצים פופולריים, פילוח לפי זירה וסוג שיעור, מושגים מבוקשים, שיעורים קשים, פעילות לפי יום ולפי שעה, כיתות מובילות ומורים רדומים. בורר טווח 7/30/הכל. שאילתת ההגשות מושכת כעת גם lesson_type, zone, concept ו-page, והתקרה הועלתה ל-20000 עם התראה כשהיא נוגעת (MINOR) -->
 <html lang="he" dir="rtl">
 <head>
 <meta charset="utf-8">
@@ -179,7 +183,8 @@ function render(){
 }
 
 function paneTeachers(){
-  const list=TE.filter(t=>!q||((t.name||'')+' '+(t.phone||'')+' '+(t.school||'')).indexOf(q)>-1);
+  const list=TE.filter(t=>!q||((t.name||'')+' '+(t.phone||'')+' '+(t.school_name||'')+' '+
+    (t.school_id||'')+' '+(t.school||'')).indexOf(q)>-1);
   const rows=list.map(function(t){
     const nc=CL.filter(c=>c.teacher_id===t.id).length;
     const ns=SU.filter(s=>s.teacher_id===t.id).length;
@@ -191,17 +196,25 @@ function paneTeachers(){
       : '<button class="btn ok sm" onclick="setStatus(\''+t.id+'\',\'approved\')">אישור</button>'+
         '<button class="btn bad sm" onclick="setStatus(\''+t.id+'\',\'rejected\')">דחייה</button>')+
       '<button class="btn sm" onclick="resetPw(\''+t.id+'\')">איפוס סיסמה</button>';
+    /* school_name/school_id הן העמודות הפעילות. school הישנה מוצגת רק למי
+       שנרשם לפניהן, כדי שהערך שהזין לא ייעלם מהמסך. */
+    const schCell = t.school_name
+      ? esc(t.school_name)+(t.school_id?'<div class="mono" style="font-size:11px;opacity:.6">'+
+          esc(t.school_id)+'</div>':'')
+      : (t.school_id ? '<span class="mono">'+esc(t.school_id)+'</span>'
+                     : (t.school ? esc(t.school)+'<div style="font-size:11px;opacity:.6">ללא סמל</div>'
+                                 : '—'));
     const pwCell=(t.password&&String(t.password).length)
       ? '<div class="pw"><code id="pw_'+t.id+'">••••••</code>'+
         '<button title="הצגה" onclick="togPw(\''+t.id+'\',this)">👁</button></div>'
       : '<span class="pill p-bad">אין סיסמה</span>';
     return '<tr><td><b>'+esc(t.name||'—')+'</b>'+(t.is_admin?' <span class="pill p-v">מנהל</span>':'')+'</td>'+
-      '<td>'+esc(t.school||'—')+'</td><td class="mono">'+esc(t.phone||'—')+'</td>'+
+      '<td>'+schCell+'</td><td class="mono">'+esc(t.phone||'—')+'</td>'+
       '<td>'+pwCell+'</td>'+
       '<td>'+nc+'</td><td>'+ns+'</td><td>'+pill+'</td><td><div class="acts">'+acts+'</div></td></tr>';
   }).join('');
   document.getElementById('pane').innerHTML=
-    '<div class="bar"><input placeholder="חיפוש שם, טלפון או בית ספר" value="'+esc(q)+'" oninput="setQ(this.value)"></div>'+
+    '<div class="bar"><input placeholder="חיפוש שם, טלפון, בית ספר או סמל מוסד" value="'+esc(q)+'" oninput="setQ(this.value)"></div>'+
     '<div class="scroll"><table><thead><tr><th>שם</th><th>בית ספר</th><th>טלפון</th><th>סיסמה</th><th>כיתות</th><th>הגשות</th><th>סטטוס</th><th>פעולות</th></tr></thead><tbody>'+
     rows+'</tbody></table></div><div id="msg" style="margin-top:9px;font-weight:700;font-size:.88rem;"></div>'+
     '<p class="sub" style="margin-top:10px;font-size:.82rem;">הסיסמאות מוסתרות. לחיצה על 👁 מציגה שורה אחת בלבד, וההצגה נסגרת לבד אחרי 15 שניות. '+
@@ -567,7 +580,8 @@ function paneStats(){
    '<div class="blk"><div class="h3">😴 מורים רדומים — מאושרים ללא הגשות מעולם ('+dormant.length+')</div>'+
     (dormant.length
       ? '<div class="scroll" style="max-height:230px"><table><thead><tr><th>שם</th><th>בית ספר</th><th>טלפון</th><th>כיתות שהגדיר</th><th>נרשם</th></tr></thead><tbody>'+
-        dormant.map(t=>'<tr><td><b>'+esc(t.name||'—')+'</b></td><td>'+esc(t.school||'—')+'</td>'+
+        dormant.map(t=>'<tr><td><b>'+esc(t.name||'—')+'</b></td><td>'+
+          esc(t.school_name||t.school||'—')+'</td>'+
           '<td class="mono">'+esc(t.phone||'—')+'</td><td>'+CL.filter(c=>c.teacher_id===t.id).length+'</td>'+
           '<td class="mono">'+dt(t.created_at)+'</td></tr>').join('')+'</tbody></table></div>'
       : '<div class="empty">כל המורים המאושרים פעילים</div>')+'</div>';
