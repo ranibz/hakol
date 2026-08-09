@@ -1,5 +1,11 @@
 <!DOCTYPE html>
-<!-- megama.html · v2.0.1 · 2026-08-09 · ברירת המחדל: כל שורות האקורדיון סגורות בטעינה (PATCH).
+<!-- megama.html · v2.1.0 · 2026-08-09 · תיבת "כניסת מורה" הפכה לאקורדיון ברוחב התיבה.
+     קודם היה: כניסה מוצלחת -> הפניה אוטומטית לקטלוג הזירות. עכשיו: כניסה מוצלחת -> הפאנל
+     נפתח מתחת לתיבה עם שתי אפשרויות — "מערכת הזירות · שליחת מטלה" (כמו קודם) ו"בדיקת נוכחות"
+     (קישור ל-nochehut.html הקיים בריפו galil-maaravi, כדי לא ליצור מערכת נוכחות שנייה).
+     מזהה המורה נוסע ב-?code= לשני היעדים. נוסף "יציאה מהחשבון" שמנקה את sessionStorage.
+     ⚠ TARGET_N — כתובת nochehut טעונה אימות. MINOR (MAJOR רק אם הכתובת שגויה).
+     v2.0.1 · ברירת המחדל: כל שורות האקורדיון סגורות בטעינה (PATCH).
      v2.0.0 · 2026-08-09 · המבנה שונה מרשת כרטיסים שטוחה לתפריט אקורדיון.
      שני שערי הכניסה (מורה / תלמיד) הועלו לראש העמוד כשתי תיבות קבועות, מחוץ לאקורדיון —
      הם הפעולה הנפוצה ביותר ולא צריכים קליק נוסף כדי להתגלות. שאר היעדים קובצו לשלוש
@@ -25,6 +31,7 @@
             --card-bg: rgba(255, 255, 255, 0.95);
             --c1: #0984e3; /* כחול - תיק דיגיטלי */
             --c2: #6c5ce7; /* סגול - עבודת גמר / פרוייקט למ"ד */
+            --c4: #00b894; /* ירוק - בדיקת נוכחות */
             --c5: #e84393; /* ורוד פוקסיה - אגרון מושגים */
             --c6: #d35400; /* כתום כהה - זירות הלימוד / תקשורת וחברה */
             --c7: #e74c3c; /* אדום - וידאוקאסט */
@@ -82,9 +89,40 @@
         .quick-row {
             display: grid;
             grid-template-columns: 1fr 1fr;
+            align-items: start;   /* פתיחת תיבת המורה לא מותחת את תיבת התלמיד */
             gap: 18px;
             margin-bottom: 30px;
         }
+        .q-col { display: flex; flex-direction: column; }
+
+        /* ===== גוף האקורדיון של המורה — ברוחב התיבה ===== */
+        .t-body {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height .38s cubic-bezier(.4,0,.2,1);
+        }
+        .t-inner {
+            background: rgba(255,255,255,.7);
+            border: 2px solid rgba(45,52,54,.12);
+            border-top: none;
+            border-radius: 0 0 18px 18px;
+            margin: -14px 6px 0;
+            padding: 24px 16px 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .t-hello {
+            font-size: .88rem; color: #6b7a88; font-weight: 500;
+            padding-bottom: 4px;
+        }
+        .t-hello b { color: var(--text-main); font-weight: 700; }
+        .t-out {
+            align-self: flex-start; background: none; border: none; cursor: pointer;
+            font-family: 'Rubik', sans-serif; font-size: .82rem; color: #9aa7b3;
+            padding: 4px 2px; text-decoration: underline;
+        }
+        .t-out:hover { color: var(--c7); }
         .quick-card {
             background: var(--card-bg);
             border-radius: 18px;
@@ -289,14 +327,30 @@
 
         <!-- ===== שתי תיבות הכניסה — מחוץ לאקורדיון, תמיד גלויות ===== -->
         <div class="quick-row">
-            <a href="#" onclick="openLogin(event)" class="quick-card q-teacher">
-                <i class="fa-solid fa-user-shield"></i>
-                <div class="q-text">
-                    <span class="q-title">מערכת מטלות</span>
-                    <span class="q-sub">כניסת מורה</span>
-                    <span class="q-badge">🔒 נדרשת כניסה</span>
+            <div class="q-col">
+                <a href="#" onclick="openTeacher(event)" class="quick-card q-teacher" id="tCard">
+                    <i class="fa-solid fa-user-shield"></i>
+                    <div class="q-text">
+                        <span class="q-title">מערכת מטלות</span>
+                        <span class="q-sub">כניסת מורה</span>
+                        <span class="q-badge" id="tBadge">🔒 נדרשת כניסה</span>
+                    </div>
+                </a>
+                <div class="t-body" id="tBody">
+                    <div class="t-inner">
+                        <div class="t-hello">שלום, <b id="tName">מורה</b></div>
+                        <a href="#" class="sub-card" id="tZirot" style="--sc: var(--c6)">
+                            <i class="fa-solid fa-cubes"></i>
+                            <span>מערכת הזירות<br>שליחת מטלה</span>
+                        </a>
+                        <a href="#" class="sub-card" id="tNochehut" style="--sc: var(--c4)">
+                            <i class="fa-solid fa-clipboard-user"></i>
+                            <span>בדיקת נוכחות<br>הקראת שמות</span>
+                        </a>
+                        <button class="t-out" onclick="logoutTeacher()">יציאה מהחשבון</button>
+                    </div>
                 </div>
-            </a>
+            </div>
 
             <a href="#" onclick="openStudent(event)" class="quick-card q-student">
                 <i class="fa-solid fa-users-rectangle"></i>
@@ -382,7 +436,7 @@
         </div>
     </div>
 
-    <div class="ver">megama v2.0.1</div>
+    <div class="ver">megama v2.1.0</div>
 
     <!-- ===== חלון כניסת מורה ===== -->
     <div class="modal-back" id="loginBack">
@@ -455,6 +509,9 @@ const SUP  = "https://eubgzfkkovxgijhrmnif.supabase.co";
 const SKEY = "sb_publishable_vJ768fOwYWiDWeYsBBR45g_4NM4s55p";
 const TARGET  = "https://hakolbakaf.co.il/zirot/tirgool/index.html";   /* מורה — קטלוג הזירות */
 const TARGET_S = "https://hakolbakaf.co.il/zirot/tirgool/talmid.html";  /* תלמיד — האזור האישי */
+/* ⚠ לאמת את הכתובת — nochehut.html יושב בריפו galil-maaravi בתיקיית galil/.
+   אם הנתיב שונה, זו השורה היחידה שצריך לתקן. */
+const TARGET_N = "https://galilmaaravi.netlify.app/galil/nochehut.html"; /* מורה — בדיקת נוכחות */
 
 /* נרמול טלפון ישראלי — 054…, 972-54… ו-+97254… מתכנסים לאותו מספר */
 function normPhone(s){
@@ -463,13 +520,38 @@ function normPhone(s){
   p = p.replace(/^0+/,'');
   return p ? ('0'+p) : '';
 }
-function openLogin(e){
+/* לחיצה על תיבת המורה: אם כבר מחובר בטאב הזה — פותח/סוגר את הפאנל,
+   אחרת מבקש פרטי כניסה, והפאנל נפתח מיד אחרי אימות מוצלח. */
+function openTeacher(e){
   if(e) e.preventDefault();
-  /* מורה שכבר נכנס בטאב הזה לא נשאל שוב */
   const seen = sessionStorage.getItem('megamaCode');
-  if(seen){ location.href = TARGET + '?code=' + encodeURIComponent(seen); return; }
+  if(seen){
+    const body = document.getElementById('tBody');
+    if(body.style.maxHeight){ body.style.maxHeight = null; }
+    else { showTeacherPanel(seen, sessionStorage.getItem('megamaTeacher')); }
+    return;
+  }
   document.getElementById('loginBack').classList.add('on');
   setTimeout(()=>document.getElementById('inpPhone').focus(), 60);
+}
+/* מזהה המורה נוסע בכתובת לשני היעדים — בדיוק כמו שהיה בהפניה הישירה,
+   כך שאף אחד מהם לא ידרוש כניסה נוספת */
+function showTeacherPanel(code, name){
+  const q = '?code=' + encodeURIComponent(code);
+  document.getElementById('tZirot').href    = TARGET  + q;
+  document.getElementById('tNochehut').href = TARGET_N + q;
+  document.getElementById('tName').textContent = name || 'מורה';
+  document.getElementById('tBadge').textContent = '✓ מחובר';
+  document.getElementById('tBadge').style.background = '#00b894';
+  const body = document.getElementById('tBody');
+  body.style.maxHeight = body.scrollHeight + 'px';
+}
+function logoutTeacher(){
+  sessionStorage.removeItem('megamaCode');
+  sessionStorage.removeItem('megamaTeacher');
+  document.getElementById('tBody').style.maxHeight = null;
+  document.getElementById('tBadge').textContent = '🔒 נדרשת כניסה';
+  document.getElementById('tBadge').style.background = '';
 }
 function closeLogin(){
   document.getElementById('loginBack').classList.remove('on');
@@ -501,9 +583,13 @@ async function doLogin(){
     sessionStorage.setItem('megamaTeacher', t.name || '');
     sessionStorage.setItem('megamaCode', t.id);
     msg.style.color = '#00b894';
-    msg.textContent = 'שלום ' + (t.name || 'מורה') + ' — מעביר…';
-    /* המזהה נוסע בכתובת: הקטלוג יעביר אותו לכל שיעור, ושם לא תידרש כניסה נוספת */
-    setTimeout(()=>{ location.href = TARGET + '?code=' + encodeURIComponent(t.id); }, 550);
+    msg.textContent = 'שלום ' + (t.name || 'מורה');
+    /* אין יותר הפניה אוטומטית — נפתח פאנל עם שתי האפשרויות והמורה בוחר */
+    setTimeout(()=>{
+      closeLogin();
+      showTeacherPanel(t.id, t.name);
+      document.getElementById('tCard').scrollIntoView({behavior:'smooth', block:'center'});
+    }, 450);
   }catch(err){
     msg.style.color = '#e74c3c';
     msg.textContent = 'שגיאת תקשורת. נסו שוב.';
