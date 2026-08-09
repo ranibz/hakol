@@ -1,6 +1,17 @@
 /* ===================================================================
-   school-gate.js · v1.1.0 · 2026-08-06
+   school-gate.js · v2.0.0 · 2026-08-09
    שער סמל מוסד — מודול משותף לכל מסך שדורש כניסת מורה.
+
+   שינוי מ-v1.1.0:
+   · הסמל אינו נכנס עוד ישירות ל-school_id, אלא ל-school_id_pending וממתין
+     לאישור מנהל. הסיבה: 91 מהמורים הועברו מ-Firebase כ-approved בלי שעברו
+     השתלמות, ולכן status שלהם אינו מעיד שהם מוכרים. שער הסמל הוא נקודת
+     המפגש היחידה שנותרה כדי לתפוס אותם לפני שהם מתחילים לעבוד.
+   · הכפתור "לא עכשיו" הוסר — שער שאפשר לדלג עליו אינו שער.
+   · מורה שכבר שלח בקשה רואה מסך המתנה עם הסמל שביקש, ואינו ממלא שוב.
+   · מורה שבקשתו נדחתה רואה זאת ויכול לשלוח סמל מתוקן.
+
+   דורש שתי עמודות: school_id_pending, school_name_pending
 
    הרקע: 91 מתוך 94 המורים במערכת נרשמו בלי שיוך לבית ספר, ולכן
    אי אפשר להפריד בין בתי ספר בלי רשימות מזהים קשיחות בקוד.
@@ -9,8 +20,8 @@
 
    שימוש — אחרי שהמורה אומת מול lms_teachers:
      const t = await requireSchool(teacher);
-     if(!t) return;            // המורה בחר לא למלא — עוצרים
-     // מכאן t.school_id מובטח
+     if(!t) return;            // אין סמל מאושר — עוצרים
+     // מכאן t.school_id מובטח ומאושר
 
    הקובץ עצמאי ואינו תלוי בשום ספרייה.
    =================================================================== */
@@ -47,7 +58,12 @@ function css(){
   #sgBox .x{background:none;color:#94a3b8;font-size:.9rem;padding:9px;margin-top:2px}
   #sgBox .x:hover{background:none;color:#64748b}
   #sgMsg{font-size:.9rem;font-weight:600;min-height:21px;margin-top:9px}
-  #sgBox .note{font-size:.83rem;color:#94a3b8;margin-top:14px;line-height:1.6}`;
+  #sgBox .note{font-size:.83rem;color:#94a3b8;margin-top:14px;line-height:1.6}
+  #sgBox .wait{background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;border-radius:12px;
+    padding:13px 15px;font-size:.92rem;line-height:1.6;margin-bottom:6px}
+  #sgBox .wait b{font-size:1.1rem;letter-spacing:2px}
+  #sgBox .rej{background:#fef2f2;border:1px solid #fecaca;color:#991b1b;border-radius:12px;
+    padding:12px 15px;font-size:.9rem;line-height:1.6;margin-bottom:12px}`;
   document.head.appendChild(s);
 }
 
@@ -60,21 +76,22 @@ async function patch(id, body){
 }
 
 /* מציג את השער ומחזיר את המורה המעודכן, או null אם ויתר */
-function ask(teacher){
+function ask(teacher, rejected){
   css();
   return new Promise(resolve => {
     const ov=document.createElement('div'); ov.id='sgOv';
     ov.innerHTML=`<div id="sgBox">
       <div style="font-size:2.6rem">🏫</div>
       <h3>סמל מוסד</h3>
+      ${rejected?`<div class="rej">הבקשה הקודמת לא אושרה. אפשר לשלוח סמל מתוקן,
+        או לפנות למנהל המערכת.</div>`:''}
       <p class="s">שלום ${esc(teacher.name||'')},<br>
-        כדי להמשיך נדרש סמל המוסד של בית הספר שלכם.<br>
-        הוא מבדיל בין בתי הספר במערכת, כך שתראו רק את הכיתות שלכם.</p>
+        כדי להתחיל להשתמש במערכת נדרש סמל המוסד של בית הספר שלכם.<br>
+        הבקשה תועבר לאישור מנהל המערכת, שייצור אתכם קשר.</p>
       <input id="sgId" inputmode="numeric" maxlength="8" placeholder="סמל מוסד — 6 ספרות" dir="ltr"
         style="text-align:center;letter-spacing:3px;font-weight:700">
       <input id="sgName" placeholder="שם בית הספר">
-      <button id="sgGo">שמירה והמשך ←</button>
-      <button class="x" id="sgSkip">לא עכשיו</button>
+      <button id="sgGo">שליחה לאישור ←</button>
       <div id="sgMsg"></div>
       <p class="note">סמל המוסד מופיע בכל מסמך רשמי של בית הספר,
         ובאתר מוסדות חינוך של משרד החינוך.</p>
@@ -83,6 +100,21 @@ function ask(teacher){
     const $=id=>document.getElementById(id);
     $('sgId').focus();
 
+    /* סמל מוכר → שם בית הספר מתמלא לבד, כדי שאותו מוסד לא ייכתב בכמה וריאציות */
+    let lookT;
+    $('sgId').addEventListener('input',()=>{
+      const sid=$('sgId').value.replace(/\D/g,''); $('sgId').value=sid;
+      clearTimeout(lookT); if(sid.length<6) return;
+      lookT=setTimeout(async()=>{
+        try{
+          const r=await fetch(SUP+'/rest/v1/lms_teachers?select=school_name&school_id=eq.'+
+            encodeURIComponent(sid)+'&school_name=not.is.null&limit=1',{headers:HDR});
+          const d=await r.json();
+          if(d&&d[0]&&d[0].school_name&&!$('sgName').value) $('sgName').value=d[0].school_name;
+        }catch(e){}
+      },400);
+    });
+
     async function go(){
       const sid=$('sgId').value.replace(/\D/g,'');
       const nm=$('sgName').value.trim();
@@ -90,32 +122,60 @@ function ask(teacher){
       if(!/^\d{6,8}$/.test(sid)){ m.style.color='#dc2626';
         m.textContent='סמל מוסד הוא מספר בן 6 ספרות'; return; }
       if(nm.length<2){ m.style.color='#dc2626'; m.textContent='הזינו את שם בית הספר'; return; }
-      m.style.color='#64748b'; m.textContent='שומר…';
+      m.style.color='#64748b'; m.textContent='שולח…';
       try{
-        const r=await patch(teacher.id, { school_id:sid, school_name:nm });
+        /* ל-pending ולא ל-school_id — עד שהמנהל יאשר */
+        await patch(teacher.id, { school_id_pending:sid, school_name_pending:nm });
         ov.remove();
-        resolve(Object.assign({}, teacher, (r&&r[0])||{school_id:sid, school_name:nm}));
+        waiting(teacher, sid, nm, resolve);
       }catch(e){ m.style.color='#dc2626'; m.textContent='שגיאה: '+e.message; }
     }
     $('sgGo').onclick=go;
     $('sgId').addEventListener('keyup',e=>{ if(e.key==='Enter')$('sgName').focus(); });
     $('sgName').addEventListener('keyup',e=>{ if(e.key==='Enter')go(); });
-    $('sgSkip').onclick=()=>{ ov.remove(); resolve(null); };
   });
 }
 
+/* מסך המתנה — אין דרך להמשיך ממנו. זו הנקודה שבה המורה נתפס להשתלמות. */
+function waiting(teacher, sid, nm, resolve){
+  css();
+  const ov=document.createElement('div'); ov.id='sgOv';
+  ov.innerHTML=`<div id="sgBox">
+    <div style="font-size:2.6rem">⏳</div>
+    <h3>הבקשה ממתינה לאישור</h3>
+    <p class="s">שלום ${esc(teacher.name||'')},<br>
+      הבקשה שלכם התקבלה. מנהל המערכת ייצור אתכם קשר להדרכה קצרה,
+      ולאחריה תוכלו להיכנס למערכת.</p>
+    <div class="wait"><b>${esc(sid)}</b><br>${esc(nm)}</div>
+    <p class="note">כבר עברתם הדרכה? רעננו את הדף.</p>
+  </div>`;
+  document.body.appendChild(ov);
+  resolve(null);
+}
 /* הפונקציה הראשית. מחזירה את המורה עם school_id, או null */
 global.requireSchool = async function(teacher){
   if(!teacher || !teacher.id) return teacher || null;
-  if(teacher.school_id) return teacher;
-  /* ייתכן שהשדה קיים במסד אך לא נשלף בשאילתת הכניסה */
+  /* תמיד נשלף מהמסד — הסטטוס יכול היה להשתנות מאז הכניסה הקודמת */
+  let row = null;
   try{
-    const r=await fetch(SUP+'/rest/v1/lms_teachers?select=school_id,school_name&id=eq.'+
-      encodeURIComponent(teacher.id), { headers:HDR });
-    const d=await r.json();
-    if(d && d[0] && d[0].school_id) return Object.assign({}, teacher, d[0]);
-  }catch(e){}
-  return await ask(teacher);
+    const r=await fetch(SUP+'/rest/v1/lms_teachers?select=school_id,school_name,'+
+      'school_id_pending,school_name_pending&id=eq.'+encodeURIComponent(teacher.id),
+      { headers:HDR });
+    const d=await r.json(); row=(d&&d[0])||null;
+  }catch(e){
+    /* תקלת רשת לא אמורה לחסום מורה שכבר מאושר */
+    if(teacher.school_id) return teacher;
+  }
+  const sid = (row&&row.school_id) || teacher.school_id;
+  if(sid) return Object.assign({}, teacher, row||{});
+
+  /* בקשה שכבר נשלחה — מסך המתנה, בלי למלא שוב */
+  if(row && row.school_id_pending){
+    waiting(teacher, row.school_id_pending, row.school_name_pending||'', ()=>{});
+    return null;
+  }
+  /* school_name בלי school_id = בקשה שנדחתה והמנהל ניקה את הסמל */
+  return await ask(teacher, !!(row && row.school_name && !row.school_id));
 };
 /* ===== סשן משותף =====
    כל מסך מנהל כניסה משלו, ולכן מורה שעובר מדף השער לסביבת המורה
