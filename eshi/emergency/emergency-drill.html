@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- גרסה: v58 | תאריך: 2026-08-10 | איפוס יומי אוטומטי כרשת ביטחון: אם שכחו "סיום יום ושמירה בארכיון", בפתיחה הראשונה ביום למחרת המערכת מארכבת אוטומטית את נתוני היום הקודם (event_history) ומנקה daily_attendance/emergency_drill/class_status. מבוסס על app_state.last_active_date. תלמידים ודיווחי מחנכים נשמרים. -->
 <!-- גרסה: v57 | תאריך: 2026-08-10 | מסך "ניהול מערכת" מרוכז ומוגן בסיסמה: העלאות אקסל (מצבת+קבוצות) הועברו לשם; דיווחי מחנכים (טבלת student_issues) עם כפתור "דיווח בעיה" בקריאת שמות; הוספת תלמיד, מעבר כיתה, וסימון "עזב" כלא-פעיל (עמודת students.active). תלמידים לא-פעילים מסוננים אוטומטית מכל קריאות השמות. -->
 <!-- גרסה: v56 | תאריך: 2026-08-10 | הפרדה ויזואלית בין חט"ב לחט"ע (כותרות מפרידות), צבע לפי שכבה (חט"ב גוונים קרירים / חט"ע חמים), ואייקון חיה קבוע וייחודי לכל כיתה. מוחל במסכי בחירת כיתה (נוכחות+חירום), מסך ניהול חירום, וסיכום מנהלת. -->
 <!-- גרסה: v55 | תאריך: 2026-08-10 | עדכון מיפוי עמודות בקליטת מצבת תלמידים (Excel) למבנה תשפ"ז: כותרות בשורה 1 (נתונים משורה 2), טלפון בעמודה G (נייד הורה), יישוב בעמודה I. ת.ז/שם/שכבה/מקבילה ללא שינוי. -->
@@ -357,7 +358,7 @@
     <div class="header">
         <div style="text-align:center;">
             <h1>🚨 מערכת חירום - גליל מערבי</h1>
-            <span class="header-credit">פיתוח - רני בן זאב | v57</span>
+            <span class="header-credit">פיתוח - רני בן זאב | v58</span>
         </div>
         <div id="userInfo" style="display:none;">
             <button class="btn-logout" onclick="logout()">יציאה</button>
@@ -2953,6 +2954,82 @@ function handleExcelUpload(event) {
     reader.readAsArrayBuffer(file);
 }
 
+// ========== v58: איפוס יומי אוטומטי (רשת ביטחון אם שכחו "סיום יום") ==========
+// נבדק פעם אחת בטעינה: אם עבר יום מאז הפעילות האחרונה — מארכב ומנקה את נתוני היום הקודם.
+async function maybeAutoReset() {
+    try {
+        const today = new Date().toISOString().split('T')[0];
+        let last = null;
+        try {
+            const rows = await api('app_state?key=eq.last_active_date&select=value');
+            last = rows && rows[0] ? rows[0].value : null;
+        } catch (e) { console.warn('[auto-reset] app_state לא זמין (הרצת SQL?)', e); return; }
+
+        if (last && last < today) {
+            const hadEmg = Object.keys(emergencyStatus).length > 0;
+            const hadDaily = Object.keys(dailyAttendance).length > 0;
+            if (hadEmg || hadDaily) await autoArchiveAndReset(last);
+        }
+        // עדכון תאריך פעילות אחרון = היום (upsert לפי המפתח)
+        await api('app_state', { method: 'POST', prefer: 'resolution=merge-duplicates',
+            body: JSON.stringify({ key: 'last_active_date', value: today }) });
+    } catch (e) { console.warn('[auto-reset] נכשל', e); }
+}
+
+async function autoArchiveAndReset(dateStr) {
+    try {
+        // ---- ארכוב תרגיל חירום (אם היו נתונים) ----
+        if (Object.keys(emergencyStatus).length > 0) {
+            let present = 0, found = 0, foundPhone = 0, absentToday = 0, leftSchool = 0, missing = 0;
+            const details = { classes: {}, students: [] };
+            Object.entries(allStudents).forEach(([id, s]) => {
+                const status = emergencyStatus[id] || 'missing';
+                if (status === 'present') present++;
+                else if (status === 'found') found++;
+                else if (status === 'found_phone') foundPhone++;
+                else if (status === 'absent_today') absentToday++;
+                else if (status === 'left_school') leftSchool++;
+                else missing++;
+                details.students.push({ id, name: s.name, class: s.class, status });
+            });
+            await api('event_history', { method: 'POST', body: JSON.stringify({
+                event_date: dateStr, event_type: 'emergency_drill',
+                total_students: Object.keys(allStudents).length,
+                present_count: present + found + foundPhone,
+                absent_count: absentToday + leftSchool, released_count: leftSchool,
+                missing_count: missing, details
+            }) });
+        }
+        // ---- ארכוב נוכחות יומית (אם היו נתונים) ----
+        if (Object.keys(dailyAttendance).length > 0) {
+            let present = 0, absent = 0;
+            const details = { students: [] };
+            const releasedSet = new Set();
+            try {
+                const releases = await api(`student_releases?status=eq.released&released_at=gte.${dateStr}T00:00:00`);
+                (releases || []).forEach(r => releasedSet.add(r.student_id));
+            } catch (e) { /* אם אין טבלה — מדלגים */ }
+            Object.entries(allStudentsRaw).forEach(([id, s]) => {
+                const status = dailyAttendance[id] || 'absent';
+                if (status === 'present') present++; else absent++;
+                details.students.push({ id, name: s.name, class: s.class, status, released: releasedSet.has(id) });
+            });
+            await api('event_history', { method: 'POST', body: JSON.stringify({
+                event_date: dateStr, event_type: 'daily_attendance',
+                total_students: Object.keys(allStudentsRaw).length,
+                present_count: present, absent_count: absent,
+                released_count: releasedSet.size, missing_count: 0, details
+            }) });
+        }
+        // ---- ניקוי טבלאות היום (התלמידים ודיווחי המחנכים נשמרים) ----
+        await api('emergency_drill?student_id=neq.0', { method: 'DELETE' });
+        await api('class_status?class_name=neq.0', { method: 'DELETE' });
+        await api('daily_attendance?student_id=neq.0', { method: 'DELETE' });
+        emergencyStatus = {}; classPhase = {}; dailyAttendance = {};
+        console.log('[auto-reset] יום ' + dateStr + ' אורכב ונוקה אוטומטית ✓');
+    } catch (e) { console.warn('[auto-reset] ארכוב/ניקוי נכשל', e); }
+}
+
 // ========== v57: ניהול מערכת + דיווח בעיה ==========
 async function openSysAdmin() {
     const input = prompt('סיסמת ניהול:');
@@ -3792,6 +3869,7 @@ async function setStudyGroupStatus(id, status) {
 // אתחול - בדיקת פרמטר URL לקישור ישיר
 document.addEventListener('DOMContentLoaded', async () => {
     await loadData(); // תמיד טוען נתונים קודם
+    await maybeAutoReset(); // v58: איפוס יומי אוטומטי אם עבר יום (רשת ביטחון)
     
     const params = new URLSearchParams(window.location.search);
     const page = params.get('page');
