@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- גרסה: v9 | תאריך: 2026-08-10 | (1) במסך שחרור: תלמיד שכבר שוחרר היום נצבע כחול עם תווית "🚪 שוחרר HH:MM", ותלמיד בבקשת שחרור פתוחה נצבע כתום "⏳ בבקשת שחרור"; לחיצה על תלמיד כזה מבקשת אישור לפני בקשה נוספת. (2) הוסרו סיסמאות הכניסה למסכים (שחרור/שער/ניהול); superadmin נשאר מוגן. -->
 <!-- גרסה: v8 | תאריך: 2026-05-12 | תיקון: רישום אורח נכשל עם 400 כי טבלת guests דורשת עמודת name (NOT NULL). הקוד שולח עכשיו גם name וגם guest_name לאותו ערך. בנוסף, השגיאות בכל catch מוצגות במלואן במקום "שגיאה" כללי. -->
 <html lang="he" dir="rtl">
 <head>
@@ -146,6 +147,12 @@
         .student-item .info span { font-size: 0.85rem; opacity: 0.6; }
         .student-item .check { width: 24px; height: 24px; border: 2px solid var(--border); border-radius: 50%; }
         .student-item.selected .check { background: var(--success); border-color: var(--success); }
+        /* v9: סימון תלמידים ששוחררו / בבקשת שחרור במסך הכיתה */
+        .student-item.released { background: rgba(59, 130, 246, 0.10); border-color: var(--primary); opacity: 0.9; }
+        .student-item.pending { background: rgba(245, 158, 11, 0.12); border-color: #f59e0b; }
+        .stu-badge { display: inline-block; margin-top: 6px; font-size: 0.78rem; font-weight: 700; padding: 3px 9px; border-radius: 10px; }
+        .stu-badge.b-released { background: rgba(59, 130, 246, 0.22); color: var(--primary); }
+        .stu-badge.b-pending { background: rgba(245, 158, 11, 0.22); color: #b45309; }
         
         /* רשימת שחרורים */
         .release-item {
@@ -419,7 +426,7 @@
 </head>
 <body>
     <div class="header">
-        <span class="version">v8</span>
+        <span class="version">v9</span>
         <h1>🚪 מערכת שער</h1>
         <p>בית חינוך גליל מערבי</p>
     </div>
@@ -737,15 +744,16 @@ const SURL = 'https://skfriefqnoxfzmamcokd.supabase.co';
 const SKEY = 'sb_publishable_Qx7EDPbdyYE9iv7uMQBKhQ_Aeojd_Q0';
 
 const PASSWORDS = {
-    release: '123456',
-    gate: '1234',
+    release: null,
+    gate: null,
     guests: null,
-    admin: '123456',
+    admin: null,
     superadmin: 'Galil2025!'
 };
 
 let allStudents = {};
 let selectedStudent = null;
+let todayReleases = {}; // v9: studentId -> {status, at} עבור שחרורים/בקשות של היום
 let currentDeviceName = localStorage.getItem('gateSystem_deviceName') || 'לא מזוהה';
 
 async function api(path, opts = {}) {
@@ -787,8 +795,25 @@ async function loadStudents() {
         const students = await api('students?order=name');
         allStudents = {};
         (students || []).forEach(s => { allStudents[s.id] = s; });
+        await loadTodayReleases();
         renderClassGrid();
     } catch (e) { console.error(e); }
+}
+
+// v9: טעינת שחרורים/בקשות של היום -> מפה לפי תלמיד (released גובר על pending; מתעלם מ-cancelled)
+async function loadTodayReleases() {
+    todayReleases = {};
+    try {
+        const today = new Date().toISOString().split('T')[0];
+        const rows = await api(`student_releases?released_at=gte.${today}T00:00:00&order=released_at.desc`);
+        (rows || []).forEach(r => {
+            if (r.status !== 'pending' && r.status !== 'released') return; // דלג על cancelled וכד'
+            const cur = todayReleases[r.student_id];
+            if (!cur || (cur.status !== 'released' && r.status === 'released')) {
+                todayReleases[r.student_id] = { status: r.status, at: r.released_at };
+            }
+        });
+    } catch (e) { console.error('loadTodayReleases', e); }
 }
 
 function renderClassGrid() {
@@ -806,11 +831,13 @@ function renderClassGrid() {
     ).join('') || '<p style="opacity:0.5;">אין כיתות</p>';
 }
 
-function openClassModal(cls) {
+async function openClassModal(cls) {
     currentModalClass = cls;
     document.getElementById('modalClassTitle').textContent = 'כיתה ' + cls;
     document.getElementById('modalSearch').value = '';
     document.getElementById('studentModal').classList.add('active');
+    renderModalStudents();
+    await loadTodayReleases(); // רענון סטטוס שחרור עדכני
     renderModalStudents();
 }
 
@@ -837,18 +864,37 @@ function renderModalStudents() {
         return;
     }
     
-    list.innerHTML = students.map(s => `
-        <div class="student-item" onclick="selectStudentForRelease('${s.id}')">
+    list.innerHTML = students.map(s => {
+        const rel = todayReleases[s.id];
+        const stateClass = rel ? (rel.status === 'released' ? ' released' : ' pending') : '';
+        let badge = '';
+        if (rel) {
+            const t = rel.at ? new Date(rel.at).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' }) : '';
+            badge = rel.status === 'released'
+                ? `<span class="stu-badge b-released">🚪 שוחרר${t ? ' ' + t : ''}</span>`
+                : `<span class="stu-badge b-pending">⏳ בבקשת שחרור${t ? ' ' + t : ''}</span>`;
+        }
+        return `
+        <div class="student-item${stateClass}" onclick="selectStudentForRelease('${s.id}')">
             <div class="info">
                 <h4>${s.name}</h4>
                 <span>${s.class}</span>
+                ${badge}
             </div>
             <span class="material-icons-round" style="opacity:0.3;">chevron_left</span>
         </div>
-    `).join('');
+    `;
+    }).join('');
 }
 
 function selectStudentForRelease(id) {
+    const rel = todayReleases[id];
+    if (rel) {
+        const msg = rel.status === 'released'
+            ? 'התלמיד כבר שוחרר היום. לשלוח בקשת שחרור נוספת?'
+            : 'כבר קיימת בקשת שחרור לתלמיד היום. לשלוח שוב?';
+        if (!confirm(msg)) return;
+    }
     selectedStudent = id;
     closeStudentModal();
     document.getElementById('reasonModalTitle').textContent = allStudents[id].name;
@@ -878,6 +924,7 @@ async function selectReason(reason) {
         
         await logActivity('release_request', `בקשת שחרור: ${allStudents[selectedStudent].name} - ${reason}`);
         
+        todayReleases[selectedStudent] = { status: 'pending', at: new Date().toISOString() }; // v9: סימון מיידי
         closeReasonModal();
         toast('בקשת השחרור נשלחה!', 'success');
     } catch (e) {
