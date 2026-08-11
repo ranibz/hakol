@@ -1,5 +1,10 @@
 <!DOCTYPE html>
-<!-- גרסה: v62 | תאריך: 2026-08-11 | תוקנה קפיצת המסך בהקראת שמות. הסיבה לא הייתה
+<!-- גרסה: v63 | תאריך: 2026-08-11 | תוקנה קפיצה שנייה, שאינה קשורה ללחיצה: הכניסה
+     כמחנך מפעילה setInterval(loadData,5000), ו-loadData מסיים ב-renderCurrentScreen
+     שבנה את רשימת התלמידים מחדש (innerHTML=''). כל חמש שניות הגלילה התאפסה והמסך קפץ
+     גם בלי נגיעה. מעכשיו הרענון האוטומטי מסנכרן סימונים בלבד דרך syncAttendanceStudentTiles,
+     וציור מחדש נעשה רק אם מספר התלמידים בכיתה השתנה.
+     v62 | 2026-08-11 | תוקנה קפיצת המסך בלחיצה על שם. הסיבה לא הייתה
      רינדור מחדש אלא הגבול: .not-marked הוגדר עם border 2px ואילו .tapped עם border:none,
      כך שכל סימון הקטין את השורה ב-4 פיקסלים וכל השורות שמתחתיה זזו למעלה. מעכשיו הגבול
      קבוע בכל המצבים ורק צבעו משתנה, כך שהגובה אינו משתנה כלל. במקביל, העדכון הנקודתי
@@ -961,7 +966,10 @@ async function loadData() {
 
 function renderCurrentScreen() {
     if (currentEvent === 'attendance') {
-        if (activeClass) renderAttendanceClass();
+        /* מסך הקראת שמות בכיתה אינו מצויר מחדש מהרענון האוטומטי: הבנייה
+           מאפסת את הגלילה, ולכן המסך קפץ כל חמש שניות תוך כדי הקראה.
+           במקום זה מעדכנים את הסימונים בלבד, בלי לגעת במבנה הרשימה. */
+        if (activeClass) syncAttendanceStudentTiles();
         else renderAttendanceLobby();
     } else if (currentEvent === 'emergency') {
         if (activeClass) renderEmergencyClass();
@@ -2055,6 +2063,24 @@ function updateAttendanceStudentTile(id) {
     if (!row || row.classList.contains('left-school')) return;
     const isPresent = dailyAttendance[id] === 'present';
     row.className = 'student-tap' + (isPresent ? ' tapped' : ' not-marked');
+}
+
+/* סנכרון הסימונים בלבד — נקרא מהרענון האוטומטי כל חמש שניות.
+   אם תלמיד נוסף או הוסר במסד, המבנה השתנה ואז כן נדרש ציור מחדש. */
+function syncAttendanceStudentTiles() {
+    const list = document.getElementById('attendanceStudentList');
+    if (!list) { renderAttendanceClass(); return; }
+    const rows = list.querySelectorAll('.student-tap');
+    const expected = Object.entries(allStudents).filter(([,s]) => s.class === activeClass).length;
+    if (!rows.length || rows.length !== expected) { renderAttendanceClass(); return; }
+    rows.forEach(row => {
+        if (row.classList.contains('left-school')) return;
+        const id = row.dataset.sid;
+        if (!id) return;
+        const isPresent = dailyAttendance[id] === 'present';
+        const cls = 'student-tap' + (isPresent ? ' tapped' : ' not-marked');
+        if (row.className !== cls) row.className = cls;
+    });
 }
 
 async function finishAttendance() {
