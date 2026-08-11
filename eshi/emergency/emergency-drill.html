@@ -1,5 +1,12 @@
 <!DOCTYPE html>
-<!-- גרסה: v61 | תאריך: 2026-08-10 | הקישור הישיר למחנך (page=attendance&role=teacher) מוביל כעת למסך ביניים לבחירה בין "כיתות אם" ל"קבוצות לימוד" (כרטיס "סיכום" מוסתר), במקום ישירות לכיתות אם. -->
+<!-- גרסה: v62 | תאריך: 2026-08-11 | תוקנה קפיצת המסך בהקראת שמות. הסיבה לא הייתה
+     רינדור מחדש אלא הגבול: .not-marked הוגדר עם border 2px ואילו .tapped עם border:none,
+     כך שכל סימון הקטין את השורה ב-4 פיקסלים וכל השורות שמתחתיה זזו למעלה. מעכשיו הגבול
+     קבוע בכל המצבים ורק צבעו משתנה, כך שהגובה אינו משתנה כלל. במקביל, העדכון הנקודתי
+     איתר את השורה לפי טקסט השם — startsWith בכיתות אם והשוואה מלאה בקבוצות לימוד —
+     ולכן שני תלמידים בעלי שם זהה או שם שהוא תחילית של אחר עודכנו יחד. השורות מסומנות
+     כעת ב-data-sid והאיתור הוא לפי מזהה. -->
+<!-- v61 | 2026-08-10 | הקישור הישיר למחנך (page=attendance&role=teacher) מוביל כעת למסך ביניים לבחירה בין "כיתות אם" ל"קבוצות לימוד" (כרטיס "סיכום" מוסתר), במקום ישירות לכיתות אם. -->
 <!-- גרסה: v60 | תאריך: 2026-08-10 | תיקון: מודל היסטוריית האירועים הופיע תמיד (עטיפת ה-overlay אבדה בעת הוספת מודל דיווח בעיה ב-v57). שוחזרה עטיפת #historyModal — המודל שוב מוסתר עד לחיצה על "היסטוריה". -->
 <!-- גרסה: v59 | תאריך: 2026-08-10 | קישור ישיר למחנך לנוכחות יומית: emergency-drill?page=attendance&role=teacher מדלג ישירות לבחירת הכיתה (ללא מסך בחירת אירוע/תפקיד). -->
 <!-- גרסה: v58 | תאריך: 2026-08-10 | איפוס יומי אוטומטי כרשת ביטחון: אם שכחו "סיום יום ושמירה בארכיון", בפתיחה הראשונה ביום למחרת המערכת מארכבת אוטומטית את נתוני היום הקודם (event_history) ומנקה daily_attendance/emergency_drill/class_status. מבוסס על app_state.last_active_date. תלמידים ודיווחי מחנכים נשמרים. -->
@@ -136,15 +143,18 @@
         .student-phone { font-size: 0.85rem; color: var(--info); margin-top: 3px; }
         
         /* כרטיסי לחיצה מהירים - שלב 1 */
-        .student-tap { background: #27ae60; color: white; padding: 18px 20px; border-radius: 12px; margin-bottom: 8px; font-weight: 700; font-size: 1.15rem; cursor: pointer; text-align: center; transition: all 0.15s; user-select: none; -webkit-tap-highlight-color: transparent; }
+        /* גבול קבוע של 2px בכל המצבים, ורק צבעו משתנה. קודם היה border:2px
+           ב-not-marked מול border:none ב-tapped — כל סימון הקטין את השורה
+           ב-4 פיקסלים וכל השורות שמתחתיה קפצו למעלה. */
+        .student-tap { background: #27ae60; color: white; padding: 18px 20px; border-radius: 12px; margin-bottom: 8px; font-weight: 700; font-size: 1.15rem; cursor: pointer; text-align: center; transition: background 0.15s, color 0.15s, border-color 0.15s; user-select: none; -webkit-tap-highlight-color: transparent; border: 2px solid transparent; }
         .student-tap:active { transform: scale(0.98); }
-        .student-tap.not-marked { background: white; color: #333; border: 2px solid #bdc3c7; }
-        .student-tap.tapped { background: #27ae60; color: white; border: none; }
-        .student-tap.absent { background: #e74c3c; color: white; border: none; }
-        .student-tap.absent-today { background: #95a5a6; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: 0.15s; }
+        .student-tap.not-marked { background: white; color: #333; border-color: #bdc3c7; }
+        .student-tap.tapped { background: #27ae60; color: white; border-color: transparent; }
+        .student-tap.absent { background: #e74c3c; color: white; border-color: transparent; }
+        .student-tap.absent-today { background: #95a5a6; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: 0.15s; border-color: transparent; }
         .student-tap.absent-today:hover { background: #7f8c8d; }
         .student-tap.absent-today .late-hint { font-size: 0.7rem; opacity: 0.85; font-weight: 400; }
-        .student-tap.left-school { background: #e67e22; cursor: default; display: flex; justify-content: space-between; align-items: center; }
+        .student-tap.left-school { background: #e67e22; cursor: default; display: flex; justify-content: space-between; align-items: center; border-color: transparent; }
         
         .btn-mark { padding: 10px 18px; border: none; border-radius: 20px; font-weight: 700; cursor: pointer; font-size: 0.9rem; }
         .btn-mark.present { background: var(--success); color: white; }
@@ -1167,7 +1177,7 @@ function renderAttendanceStudyGroup() {
             content = `✓ ${s.name}`;
         }
         
-        return `<div class="${cls}" onclick="toggleAttendanceStudyGroupStudent('${id}')">${content}</div>`;
+        return `<div class="${cls}" data-sid="${id}" onclick="toggleAttendanceStudyGroupStudent('${id}')">${content}</div>`;
     }).join('');
     
     const total = students.length;
@@ -1192,18 +1202,13 @@ function toggleAttendanceStudyGroupStudent(id) {
     const studentName = attendanceStudyGroupStudents[id]?.name;
     if (!studentName) return;
     
-    const rows = list.querySelectorAll('.student-tap');
-    rows.forEach(row => {
-        if (row.classList.contains('left-school')) return; // תלמיד ששוחרר - לא לגעת
-        
-        const text = row.textContent.replace('✓ ', '').trim();
-        if (text === studentName) {
-            const isPresent = attendanceStudyGroupStatus[id] === 'present';
-            row.className = 'student-tap' + (isPresent ? ' tapped' : ' not-marked');
-            row.innerHTML = isPresent ? `✓ ${studentName}` : studentName;
-            row.onclick = () => toggleAttendanceStudyGroupStudent(id);
-        }
-    });
+    /* איתור לפי מזהה ולא לפי טקסט השם, שהיה מתבלבל בין תלמידים בשם זהה */
+    const row = list.querySelector('.student-tap[data-sid="' + CSS.escape(String(id)) + '"]');
+    if (row && !row.classList.contains('left-school')) {
+        const isPresent = attendanceStudyGroupStatus[id] === 'present';
+        row.className = 'student-tap' + (isPresent ? ' tapped' : ' not-marked');
+        row.innerHTML = isPresent ? `✓ ${studentName}` : studentName;
+    }
     
     // עדכון מונה הסיום
     const total = Object.keys(attendanceStudyGroupStudents).length;
@@ -2007,8 +2012,10 @@ async function renderAttendanceClass() {
             } else {
                 row.className = 'student-tap' + (isPresent ? ' tapped' : ' not-marked');
                 row.innerHTML = `<span>${student.name}</span>`;
+                row.dataset.sid = id;
                 row.onclick = () => toggleDailyAttendance(id);
             }
+            row.dataset.sid = id;
             list.appendChild(row);
         });
 }
@@ -2042,22 +2049,12 @@ function updateAttendanceStudentTile(id) {
     const list = document.getElementById('attendanceStudentList');
     if (!list) return;
     
-    const studentName = allStudents[id]?.name;
-    if (!studentName) return;
-    
-    const rows = list.querySelectorAll('.student-tap');
-    rows.forEach(row => {
-        const nameSpan = row.querySelector('span');
-        if (nameSpan && nameSpan.textContent.trim().startsWith(studentName)) {
-            // אם תלמיד שוחרר - לא לגעת
-            if (row.classList.contains('left-school')) return;
-            
-            const isPresent = dailyAttendance[id] === 'present';
-            row.className = 'student-tap' + (isPresent ? ' tapped' : ' not-marked');
-            row.innerHTML = `<span>${studentName}</span>`;
-            row.onclick = () => toggleDailyAttendance(id);
-        }
-    });
+    /* איתור לפי מזהה ולא לפי טקסט — שני תלמידים בשם זהה, או שם שהוא
+       תחילית של שם אחר, עודכנו קודם יחד */
+    const row = list.querySelector('.student-tap[data-sid="' + CSS.escape(String(id)) + '"]');
+    if (!row || row.classList.contains('left-school')) return;
+    const isPresent = dailyAttendance[id] === 'present';
+    row.className = 'student-tap' + (isPresent ? ' tapped' : ' not-marked');
 }
 
 async function finishAttendance() {
