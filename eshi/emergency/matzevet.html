@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<!-- eshi/emergency/matzevet.html · v1.0.0 · 2026-08-18 · בית חינוך גליל מערבי
+     © רני בן זאב. יוזמה עצמאית, מימון עצמי.
+
+     מצבת תלמידים יומית לפי שכבה — מסך רכז השכבה.
+
+     קריאה בלבד. המסך אינו כותב דבר למסד, ולכן אינו יכול לפגוע בנוכחות
+     שהמחנכים מוסרים בזמן אמת.
+
+     ⚠ כללי הספירה מועתקים מ-emergency-drill.html v63 ואסור שיסטו ממנו,
+     אחרת הרכז והמנהלת יראו שני מספרים שונים לאותו יום:
+     · נוכח = daily_attendance.status='present' וגם אינו בגיחה.
+       תלמיד שמחנך סימן כנוכח ומורה גיחה סימן שיצא — אינו נספר כנוכח
+       אלא כ"בגיחה" (הכלל מ-v50.1).
+     · נעדר = status='absent'.
+     · טרם דווח = אין רשומה כלל ב-daily_attendance.
+     · טיול נספר רק אם start_date <= היום; גיחה תמיד, כי היא חד-יומית.
+     · תלמידים עם active=false מסוננים לחלוטין.
+
+     שני פרויקטי Supabase: הנוכחות ב-skfriefqnoxfzmamcokd, והטיולים
+     ב-ohxnrjtdenylcwnszzfq. זו הסיבה לשתי פונקציות api נפרדות.
+
+     המסך נבנה סביב השאלה "מי עוד לא מסר": זו הפעולה היחידה שהרכז
+     יכול לעשות עכשיו. לכן הכיתות שטרם דיווחו מוצגות ראשונות ובאדום,
+     לפני כל מספר אחר. -->
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>מצבת תלמידים יומית · רכז שכבה</title>
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+:root{--primary:#2c3e50;--success:#27ae60;--danger:#c0392b;--warning:#f39c12;
+      --info:#3498db;--bg:#ecf0f1;--white:#fff;--muted:#7f8c8d;--line:#dfe6e9}
+*{box-sizing:border-box;margin:0;padding:0;font-family:'Rubik',sans-serif}
+body{background:var(--bg);color:#333;padding-bottom:50px}
+
+.header{background:var(--primary);color:#fff;padding:14px 18px;position:sticky;top:0;
+  z-index:100;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.header h1{font-size:1.12rem;font-weight:900}
+.header .sub{font-size:.78rem;color:#9fb3c8;font-weight:500}
+.header .when{margin-inline-start:auto;font-size:.76rem;color:#9fb3c8;text-align:start}
+.header .when b{display:block;color:#fff;font-size:.86rem}
+
+.wrap{max-width:1000px;margin:0 auto;padding:16px}
+
+/* ===== בורר שכבה ===== */
+.grades{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+.gbtn{padding:9px 20px;border:2px solid var(--line);background:var(--white);
+  border-radius:11px;font-weight:900;font-size:1rem;cursor:pointer;color:var(--primary);
+  transition:transform .1s}
+.gbtn:hover{transform:translateY(-1px)}
+.gbtn.on{color:#fff}
+.gbtn .n{display:block;font-size:.66rem;font-weight:600;opacity:.8}
+
+/* ===== מספרים ===== */
+.hero{display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));gap:9px;
+  margin-bottom:16px}
+.h{background:var(--white);border-radius:13px;padding:13px;text-align:center;
+  border-top:4px solid var(--line)}
+.h b{display:block;font-size:1.75rem;font-weight:900;line-height:1.1}
+.h span{font-size:.75rem;color:var(--muted);font-weight:600}
+.h.ok{border-top-color:var(--success)} .h.ok b{color:var(--success)}
+.h.no{border-top-color:var(--danger)}  .h.no b{color:var(--danger)}
+.h.wa{border-top-color:var(--warning)} .h.wa b{color:var(--warning)}
+.h.in{border-top-color:var(--info)}    .h.in b{color:var(--info)}
+
+/* ===== התראת "טרם דווח" ===== */
+.alert{background:#fdecea;border:2px solid var(--danger);border-radius:13px;
+  padding:14px 16px;margin-bottom:16px}
+.alert h2{font-size:.98rem;font-weight:900;color:var(--danger);margin-bottom:7px}
+.alert .cls{display:inline-flex;align-items:center;gap:6px;background:var(--white);
+  border:1.5px solid #e8b4ae;border-radius:9px;padding:6px 12px;margin:0 0 6px 6px;
+  font-weight:700;font-size:.9rem}
+.alert .cls small{color:var(--muted);font-weight:600}
+.alert.ok{background:#eafaf1;border-color:var(--success)}
+.alert.ok h2{color:var(--success);margin:0}
+
+/* ===== כיתות ===== */
+.sec-t{font-size:.78rem;font-weight:900;color:var(--muted);letter-spacing:1px;
+  margin:18px 0 9px}
+.cls-card{background:var(--white);border-radius:13px;margin-bottom:9px;overflow:hidden;
+  border-inline-start:6px solid var(--line)}
+.cls-h{display:flex;align-items:center;gap:10px;padding:12px 15px;cursor:pointer}
+.cls-h:hover{background:#f8fafb}
+.cls-h .an{font-size:1.3rem}
+.cls-h .nm{font-weight:900;font-size:1rem}
+.cls-h .badge{font-size:.68rem;font-weight:700;padding:2px 9px;border-radius:20px;
+  background:#fdecea;color:var(--danger)}
+.cls-h .badge.done{background:#eafaf1;color:var(--success)}
+.cls-h .st{margin-inline-start:auto;display:flex;gap:11px;font-size:.8rem;font-weight:700}
+.cls-h .st i{font-style:normal;color:var(--muted)}
+.cls-b{display:none;padding:0 15px 14px;border-top:1px solid var(--line)}
+.cls-card.open .cls-b{display:block}
+.nlist{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.nm-chip{background:#f4f6f7;border-radius:8px;padding:5px 11px;font-size:.84rem;
+  font-weight:600}
+.nm-chip.no{background:#fdecea;color:var(--danger)}
+.nm-chip.wa{background:#fef5e7;color:#9a6206}
+.nm-chip.in{background:#eaf4fc;color:#1f6391}
+.nm-chip small{color:var(--muted);font-weight:500}
+.grp-t{font-size:.74rem;font-weight:900;color:var(--muted);margin-top:11px}
+
+.msg{text-align:center;padding:40px 20px;color:var(--muted);font-weight:600}
+.foot{max-width:1000px;margin:22px auto 0;padding:0 16px;font-size:.72rem;
+  color:var(--muted);display:flex;gap:10px;flex-wrap:wrap}
+.foot .v{margin-inline-start:auto;opacity:.7}
+@media(max-width:640px){
+  .cls-h{flex-wrap:wrap}
+  .cls-h .st{margin-inline-start:0;width:100%}
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1>📊 מצבת תלמידים יומית</h1>
+    <div class="sub">בית חינוך גליל מערבי · מסך רכז שכבה</div>
+  </div>
+  <div class="when" id="when"><b>—</b><span>—</span></div>
+</div>
+
+<div class="wrap">
+  <div class="grades" id="grades"></div>
+  <div id="body"><div class="msg">טוען נתונים…</div></div>
+</div>
+
+<div class="foot">
+  <span>קריאה בלבד · מתעדכן אוטומטית כל 30 שניות</span>
+  <span class="v">matzevet · v1.0.0</span>
+</div>
+
+<script>
+/* ===== חיבורים ===== */
+const SURL = 'https://skfriefqnoxfzmamcokd.supabase.co';
+const SKEY = 'sb_publishable_Qx7EDPbdyYE9iv7uMQBKhQ_Aeojd_Q0';
+const TRIPS_SURL = 'https://ohxnrjtdenylcwnszzfq.supabase.co';
+const TRIPS_SKEY = 'sb_publishable_maSeTa8gQ-Jx8DCGhryltw_bZzQYfl5';
+
+async function api(path){
+  const r = await fetch(SURL+'/rest/v1/'+path,
+    {headers:{apikey:SKEY,Authorization:'Bearer '+SKEY}});
+  if(!r.ok) throw new Error(await r.text());
+  const t = await r.text(); return t?JSON.parse(t):null;
+}
+async function tripsApi(path){
+  try{
+    const r = await fetch(TRIPS_SURL+'/rest/v1/'+path,
+      {headers:{apikey:TRIPS_SKEY,Authorization:'Bearer '+TRIPS_SKEY}});
+    if(!r.ok) return null;
+    const t = await r.text(); return t?JSON.parse(t):null;
+  }catch(e){ return null; }
+}
+
+/* ===== עזרי כיתה — זהים ל-emergency-drill ===== */
+const GRADE_ORDER = {'ז':0,'ח':1,'ט':2,'י':3,'יא':4,'יב':5};
+const GRADES = ['ז','ח','ט','י','יא','יב'];
+function parseClass(cls){
+  const p = (cls||'').trim().split(/\s+/);
+  return {grade:p[0]||'', num:parseInt(p[1])||0};
+}
+function getColor(cls){
+  const m = {'ז':'#3498db','ח':'#16a085','ט':'#27ae60','י':'#e67e22','יא':'#e74c3c','יב':'#8e44ad'};
+  return m[parseClass(cls).grade] || '#7f8c8d';
+}
+const CLASS_ANIMALS = ['🦁','🐯','🐻','🐨','🐼','🦊','🐺','🦝','🐮','🐷','🐸','🐵','🦄','🐝','🦋','🐢','🐬','🐳','🦉','🦅','🦆','🦢','🦚','🐙','🦈','🐊','🦕','🦖','🐘','🦏','🦛','🦒','🦌','🐆','🐅','🐴','🐇','🦔','🦦','🦨'];
+function getAnimal(cls){
+  const {grade,num} = parseClass(cls);
+  const gi = GRADE_ORDER[grade] !== undefined ? GRADE_ORDER[grade] : 8;
+  return CLASS_ANIMALS[(gi*8 + Math.max(0,num-1)) % CLASS_ANIMALS.length];
+}
+const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>
+  ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+/* ===== מצב ===== */
+let STUDENTS={}, DAILY={}, PHASE={}, ONTRIP=new Set(), ONGICHA=new Set(),
+    RELEASED={}, GRADE=null, OPEN=new Set();
+
+async function load(){
+  const today = new Date().toISOString().split('T')[0];
+  const [students, daily, phases, releases] = await Promise.all([
+    api('students?order=class,name'),
+    api('daily_attendance'),
+    api('class_status'),
+    api('student_releases?status=eq.released&released_at=gte.'+today+
+        'T00:00:00&order=released_at.desc').catch(()=>[])
+  ]);
+
+  STUDENTS = {};
+  (students||[]).forEach(s=>{ if(s.active !== false)
+    STUDENTS[s.id] = {name:s.name, class:s.class, phone:s.phone}; });
+
+  DAILY = {}; (daily||[]).forEach(d=>{ DAILY[d.student_id] = d.status; });
+  PHASE = {}; (phases||[]).forEach(p=>{ PHASE[p.class_name] = p.status; });
+
+  RELEASED = {};
+  (releases||[]).forEach(r=>{
+    if(RELEASED[r.student_id]) return;
+    const t = new Date(r.released_at);
+    RELEASED[r.student_id] = {
+      time: String(t.getHours()).padStart(2,'0')+':'+String(t.getMinutes()).padStart(2,'0'),
+      reason: r.release_reason||''};
+  });
+
+  /* טיול נספר רק אם כבר התחיל; גיחה תמיד — היא חד-יומית */
+  ONTRIP = new Set(); ONGICHA = new Set();
+  const [recs, trips] = await Promise.all([
+    tripsApi('trip_attendance_status?is_active=eq.true&select=student_id,trip_id,source_type'),
+    tripsApi('trips?is_active=eq.true&start_date=lte.'+today+'&select=id')
+  ]);
+  const started = new Set((trips||[]).map(t=>String(t.id)));
+  (recs||[]).forEach(r=>{
+    if(!r.student_id) return;
+    const sid = String(r.student_id);
+    if(r.source_type === 'gicha') ONGICHA.add(sid);
+    else if(started.has(String(r.trip_id))) ONTRIP.add(sid);
+  });
+
+  render();
+}
+
+/* ===== סיווג תלמיד — לב המסך =====
+   סדר הבדיקות אינו שרירותי: גיחה גוברת על נוכחות (v50.1), ולכן היא
+   נבדקת לפני DAILY. היפוך הסדר היה מנפח את מספר הנוכחים. */
+function statusOf(id){
+  const sid = String(id);
+  if(ONGICHA.has(sid)) return 'gicha';
+  if(ONTRIP.has(sid))  return 'trip';
+  const d = DAILY[id];
+  if(d === 'present') return RELEASED[id] ? 'released' : 'present';
+  if(d === 'absent')  return 'absent';
+  return 'none';
+}
+
+function classesOf(grade){
+  const set = new Set();
+  Object.values(STUDENTS).forEach(s=>{
+    if(parseClass(s.class).grade === grade) set.add(s.class);
+  });
+  return [...set].sort((a,b)=>parseClass(a).num - parseClass(b).num);
+}
+function studentsOf(cls){
+  return Object.entries(STUDENTS).filter(([,s])=>s.class===cls)
+    .sort((a,b)=>String(a[1].name).localeCompare(String(b[1].name),'he'));
+}
+function tally(list){
+  const t = {present:0,absent:0,none:0,trip:0,gicha:0,released:0,total:list.length};
+  list.forEach(([id])=>{ t[statusOf(id)]++; });
+  return t;
+}
+
+/* ===== ציור ===== */
+function drawGrades(){
+  document.getElementById('grades').innerHTML = GRADES.map(g=>{
+    const n = Object.values(STUDENTS).filter(s=>parseClass(s.class).grade===g).length;
+    if(!n) return '';
+    const col = getColor(g+' 1');
+    return `<button class="gbtn ${GRADE===g?'on':''}" onclick="pick('${g}')"
+      style="${GRADE===g?'background:'+col+';border-color:'+col:'border-color:'+col}">
+      ${g}<span class="n">${n} תלמידים</span></button>`;
+  }).join('');
+}
+function pick(g){ GRADE=g; OPEN=new Set(); drawGrades(); render(); }
+function toggle(cls){
+  OPEN.has(cls) ? OPEN.delete(cls) : OPEN.add(cls);
+  render();
+}
+
+function chips(list, kind, extra){
+  const out = list.filter(([id])=>statusOf(id)===kind);
+  if(!out.length) return '';
+  const cl = kind==='absent'?'no' : kind==='none'?'wa' : 'in';
+  const lbl = {absent:'נעדרים', none:'טרם דווחו', trip:'בטיול',
+               gicha:'בגיחה', released:'שוחררו'}[kind];
+  return `<div class="grp-t">${lbl} · ${out.length}</div><div class="nlist">${
+    out.map(([id,s])=>`<span class="nm-chip ${cl}">${esc(s.name)}${
+      extra&&RELEASED[id] ? ' <small>'+esc(RELEASED[id].time)+
+        (RELEASED[id].reason?' · '+esc(RELEASED[id].reason):'')+'</small>' : ''
+    }</span>`).join('')}</div>`;
+}
+
+function render(){
+  const box = document.getElementById('body');
+  if(!GRADE){ box.innerHTML = '<div class="msg">בחרו שכבה למעלה.</div>'; return; }
+
+  const classes = classesOf(GRADE);
+  if(!classes.length){ box.innerHTML = '<div class="msg">אין כיתות בשכבה זו.</div>'; return; }
+
+  const all = classes.flatMap(studentsOf);
+  const T = tally(all);
+
+  /* כיתה נחשבת שדיווחה רק אם class_status סומן וגם יש רשומות בפועל.
+     סימון בלי רשומות קורה כשמחנך פתח את המסך וסיים בלי להקריא. */
+  const pending = classes.filter(c=>{
+    const st = studentsOf(c);
+    const reported = st.filter(([id])=>DAILY[id]!==undefined).length;
+    return PHASE[c] !== 'phase1_done' || reported === 0;
+  });
+
+  const hero = `<div class="hero">
+    <div class="h"><b>${T.total}</b><span>בשכבה</span></div>
+    <div class="h ok"><b>${T.present}</b><span>נוכחים</span></div>
+    <div class="h no"><b>${T.absent}</b><span>נעדרים</span></div>
+    <div class="h wa"><b>${T.none}</b><span>טרם דווחו</span></div>
+    ${T.released?`<div class="h in"><b>${T.released}</b><span>שוחררו</span></div>`:''}
+    ${T.trip?`<div class="h in"><b>${T.trip}</b><span>בטיול</span></div>`:''}
+    ${T.gicha?`<div class="h in"><b>${T.gicha}</b><span>בגיחה</span></div>`:''}
+  </div>`;
+
+  const alert = pending.length
+    ? `<div class="alert"><h2>⚠ טרם מסרו נוכחות · ${pending.length} כיתות</h2>
+        ${pending.map(c=>{
+          const st = studentsOf(c);
+          const n = st.filter(([id])=>DAILY[id]!==undefined).length;
+          return `<span class="cls">${getAnimal(c)} ${esc(c)}
+            <small>${n?n+' מתוך '+st.length:'לא התחילה'}</small></span>`;
+        }).join('')}</div>`
+    : `<div class="alert ok"><h2>✅ כל כיתות השכבה מסרו נוכחות</h2></div>`;
+
+  const cards = classes.map(c=>{
+    const st = studentsOf(c);
+    const t = tally(st);
+    const done = PHASE[c]==='phase1_done' && st.some(([id])=>DAILY[id]!==undefined);
+    return `<div class="cls-card ${OPEN.has(c)?'open':''}"
+        style="border-inline-start-color:${getColor(c)}">
+      <div class="cls-h" onclick="toggle('${esc(c)}')">
+        <span class="an">${getAnimal(c)}</span>
+        <span class="nm">${esc(c)}</span>
+        <span class="badge ${done?'done':''}">${done?'דיווחה':'טרם דיווחה'}</span>
+        <span class="st">
+          <i>נוכחים</i> ${t.present}/${t.total}
+          ${t.absent?`· <i>נעדרים</i> ${t.absent}`:''}
+          ${t.none?`· <i>טרם</i> ${t.none}`:''}
+        </span>
+      </div>
+      <div class="cls-b">
+        ${chips(st,'absent')}${chips(st,'none')}
+        ${chips(st,'released',true)}${chips(st,'trip')}${chips(st,'gicha')}
+        ${t.absent+t.none+t.released+t.trip+t.gicha===0
+          ? '<div class="grp-t">כל התלמידים נוכחים.</div>' : ''}
+      </div>
+    </div>`;
+  }).join('');
+
+  box.innerHTML = hero + alert + `<div class="sec-t">כיתות השכבה</div>` + cards;
+}
+
+/* ===== שעה ותאריך ===== */
+function stamp(){
+  const d = new Date(), b = document.getElementById('when');
+  const g = new Intl.DateTimeFormat('he-IL',
+    {weekday:'long',day:'2-digit',month:'2-digit'}).format(d);
+  b.innerHTML = '<b>'+g+'</b><span>עודכן '+
+    String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')+'</span>';
+}
+
+(async function boot(){
+  try{
+    await load();
+    const p = new URLSearchParams(location.search).get('grade');
+    if(p && GRADES.indexOf(p) > -1) GRADE = p;
+    drawGrades(); render(); stamp();
+    setInterval(async()=>{ try{ await load(); stamp(); }catch(e){} }, 30000);
+  }catch(e){
+    document.getElementById('body').innerHTML =
+      '<div class="msg">שגיאה בטעינת הנתונים: '+esc(String(e.message||e)).slice(0,120)+'</div>';
+  }
+})();
+</script>
+</body>
+</html>
