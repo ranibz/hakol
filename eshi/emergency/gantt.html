@@ -1,5 +1,11 @@
 <!DOCTYPE html>
-<!-- eshi/emergency/gantt.html · v1.1.0 · 2026-08-19 · בית חינוך גליל מערבי
+<!-- eshi/emergency/gantt.html · v1.2.0 · 2026-08-19 · בית חינוך גליל מערבי
+
+     v1.2.0 · חלונית הריחוף הציגה את שם האירוע בלבד — חזרה על
+     מה שכתוב על הפס ולא הוסיפה דבר. עכשיו היא נושאת גם את
+     טווח התאריכים (לועזי ועברי) וגם את ההערה שנשמרה.
+     פס שיש לו הערה מסומן בנקודה, אחרת אין דרך לדעת שכדאי
+     לרחף עליו (MINOR).
 
      v1.1.0 · נוספה שורת ימי השבוע שהייתה באקסל ונשמטה. היא חוזרת
      בכל חודש ולא פעם אחת בראש הגיליון: במסך גוללים,
@@ -87,6 +93,8 @@ body{background:var(--bg);color:#243447}
   border:1px solid rgba(0,0,0,.09);line-height:1.5}
 .bar:hover{filter:brightness(.94)}
 .bar.auto{opacity:.92;font-weight:600;font-style:normal}
+/* סימן שיש הערה — אחרת אין דרך לדעת שכדאי לרחף */
+.hasnote{opacity:.55;font-size:.9em}
 
 .ov{position:fixed;inset:0;background:rgba(15,23,32,.55);display:none;
   align-items:center;justify-content:center;z-index:200;padding:16px}
@@ -327,6 +335,15 @@ async function load(){
    אירוע נחתך לפי חודש: פס אחד לכל חודש שהוא נוגע בו. אירוע שנמשך
    מסוף אוקטובר לתחילת נובמבר אינו יכול להיות מלבן אחד ברשת שבה כל
    חודש הוא שורה נפרדת. */
+/* טווח קריא לחלונית הריחוף: יום בודד מוצג פעם אחת ולא פעמיים */
+function fmtRange(a, b){
+  const f = d => {
+    const dt = fromIso(d);
+    return dt.getUTCDate() + '.' + (dt.getUTCMonth()+1) + ' · ' + gim(hebOf(dt).d) + ' ' + hebOf(dt).mHe;
+  };
+  return a === b ? f(a) : f(a) + '  ←  ' + f(b);
+}
+
 function segmentsFor(y, m){
   const first = mk(y,m,1), last = mk(y,m,daysIn(y,m));
   const segs = [];
@@ -406,11 +423,21 @@ function render(){
           const col = s.auto ? '#f6c445' : (s.ev.color||tr.c);
           const start = s.from+off, span = s.to-s.from+1;
           const label = s.auto ? s.title : s.ev.title;
+          /* חלונית הריחוף נושאת גם את התאריכים וגם את ההערה. הפס עצמו
+             נחתך ב-ellipsis, ולכן הריחוף הוא המקום היחיד שבו נראה מה
+             שנכתב — ובלי ההערה הוא חזר על מה שכבר מופיע על הפס. */
+          let tip = label;
+          if(!s.auto){
+            const e=s.ev;
+            tip += '\n' + fmtRange(e.start_date, e.end_date);
+            if(e.notes) tip += '\n\n' + e.notes;
+          }
           tracks += `<div class="bar${s.auto?' auto':''}"
             style="grid-column:${start}/span ${span};margin-top:-19px;background:${col}"
-            title="${esc(label)}"
+            title="${esc(tip)}"
             ${s.auto?'':`onclick="openEdit('${s.ev.id}')"`}
-            >${s.cut?'… ':''}${esc(label)}</div>`;
+            >${s.cut?'… ':''}${esc(label)}${
+              (!s.auto && s.ev.notes) ? ' <span class="hasnote">•</span>' : ''}</div>`;
         });
       }
     });
