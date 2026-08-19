@@ -1,4 +1,12 @@
 <!DOCTYPE html>
+<!-- גרסה: v10 | תאריך: 2026-08-19 | מסך "ניהול ומעקב" עבר לאקורדיון:
+     כניסת אורחים (פס סגול), שוחררו היום, בקשות ממתינות, והיסטוריית שחרורים.
+     שני הראשונים ישבו קודם במודלים — היסטוריית השחרורים ואורחי היום — ומודל
+     חוסם את שאר המסך, כך שאי אפשר היה להשוות בין רשימה לרשימה בלי לסגור אותו.
+     המזהים הפנימיים נשמרו (guestsModalList, historyResults, releasedTodayList,
+     activityLog) מפני שפונקציות הטעינה מחפשות אותם בשם. openGuestsModal
+     ו-openHistoryModal נשמרו כשמות ומגלגלים עתה אל המקטע ופותחים אותו, כדי
+     שהלחיצה על תיבת הסטטיסטיקה תמשיך לעבוד. נוסף מונה על פס האורחים. -->
 <!-- גרסה: v9 | תאריך: 2026-08-10 | (1) במסך שחרור: תלמיד שכבר שוחרר היום נצבע כחול עם תווית "🚪 שוחרר HH:MM", ותלמיד בבקשת שחרור פתוחה נצבע כתום "⏳ בבקשת שחרור"; לחיצה על תלמיד כזה מבקשת אישור לפני בקשה נוספת. (2) הוסרו סיסמאות הכניסה למסכים (שחרור/שער/ניהול); superadmin נשאר מוגן. -->
 <!-- גרסה: v8 | תאריך: 2026-05-12 | תיקון: רישום אורח נכשל עם 400 כי טבלת guests דורשת עמודת name (NOT NULL). הקוד שולח עכשיו גם name וגם guest_name לאותו ערך. בנוסף, השגיאות בכל catch מוצגות במלואן במקום "שגיאה" כללי. -->
 <html lang="he" dir="rtl">
@@ -79,6 +87,44 @@
             display: flex; align-items: center; gap: 5px;
         }
         
+        /* ===== אקורדיון מסך הניהול =====
+           שני חלקים מן המסך ישבו במודלים — היסטוריית השחרורים ואורחי
+           היום. מודל חוסם את שאר המסך, ואי אפשר להשוות בין רשימה
+           לרשימה בלי לסגור אותו. כאן הכול נפתח במקום.
+
+           הצבע הוא של הנושא ולא של מצב, ולכן קבוע: סגול לאורחים,
+           תכלת להיסטוריה, כחול לשחרורי היום, כתום לממתינים. */
+        .acc {
+            background: var(--card);
+            border-radius: 16px;
+            margin-bottom: 14px;
+            overflow: hidden;
+            border-right: 5px solid var(--c, var(--border));
+        }
+        .acc > summary {
+            list-style: none;
+            cursor: pointer;
+            padding: 18px 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            user-select: none;
+        }
+        .acc > summary::-webkit-details-marker { display: none; }
+        .acc > summary:hover { background: rgba(255,255,255,.03); }
+        .acc > summary:focus-visible { outline: 3px solid var(--c); outline-offset: -3px; }
+        .acc .a-ic { font-size: 1.3rem; line-height: 1; }
+        .acc .a-t  { font-size: 1.05rem; font-weight: 700; }
+        .acc .a-n  {
+            font-size: .78rem; font-weight: 700; color: #0f172a;
+            background: var(--c, var(--border)); border-radius: 20px; padding: 2px 11px;
+        }
+        .acc .a-ch { margin-right: auto; opacity: .55; transition: transform .18s; }
+        .acc[open] > summary .a-ch { transform: rotate(180deg); }
+        .acc[open] > summary { border-bottom: 1px solid var(--border); }
+        .acc .a-b { padding: 16px 20px 20px; }
+        @media (prefers-reduced-motion: reduce) { .acc .a-ch { transition: none; } }
+
         .screen-header {
             background: var(--card);
             padding: 20px;
@@ -640,48 +686,55 @@
                 </div>
             </div>
             
-            <!-- כפתור היסטוריה -->
-            <div style="margin: 20px 0;">
-                <button class="btn-submit" style="background:var(--cyan);" onclick="openHistoryModal()">
-                    <span class="material-icons-round">history</span> היסטוריית שחרורים
-                </button>
-            </div>
-            
-            <h3 style="margin: 25px 0 15px; display:flex; align-items:center; gap:10px;">
-                <span style="font-size:1.3rem;">📋</span> שוחררו היום
-            </h3>
-            <div id="releasedTodayList"></div>
-            
-            <h3 style="margin: 30px 0 15px; opacity:0.7;">⏳ בקשות ממתינות לשחרור:</h3>
-            <div id="activityLog"></div>
-        </div>
-        
-        <!-- מודל אורחים -->
-        <div id="guestsModal" class="modal">
-            <div class="modal-content" style="max-width:600px;max-height:80vh;">
-                <div class="modal-header">
-                    <h3>🛂 אורחים היום</h3>
-                    <button class="modal-close" onclick="closeGuestsModal()">✕</button>
-                </div>
-                <div style="padding:15px;overflow-y:auto;max-height:60vh;" id="guestsModalList"></div>
-            </div>
-        </div>
-        
-        <!-- מודל היסטוריה -->
-        <div id="historyModal" class="modal">
-            <div class="modal-content" style="max-width:700px;max-height:90vh;">
-                <div class="modal-header">
-                    <h3>📅 היסטוריית שחרורים</h3>
-                    <button class="modal-close" onclick="closeHistoryModal()">✕</button>
-                </div>
-                <div style="padding:15px;">
+            <!-- ⚠ המזהים שבתוך האקורדיונים נשמרו כפי שהיו — releasedTodayList,
+                 activityLog, guestsModalList, historyResults, historyDate — מפני
+                 שפונקציות הטעינה מחפשות אותם בשם. שינוי שם כאן שובר טעינה
+                 שנראית תקינה עד שמישהו פותח את המקטע. -->
+
+            <details class="acc" id="accGuests" style="--c: var(--purple);"
+                     ontoggle="if(this.open) loadGuestsModal()">
+                <summary>
+                    <span class="a-ic">🛂</span>
+                    <span class="a-t">כניסת אורחים</span>
+                    <span class="a-n" id="accGuestsN">0</span>
+                    <span class="a-ch">▼</span>
+                </summary>
+                <div class="a-b" id="guestsModalList"></div>
+            </details>
+
+            <details class="acc" id="accReleased" style="--c: var(--primary);" open>
+                <summary>
+                    <span class="a-ic">📋</span>
+                    <span class="a-t">שוחררו היום</span>
+                    <span class="a-ch">▼</span>
+                </summary>
+                <div class="a-b" id="releasedTodayList"></div>
+            </details>
+
+            <details class="acc" id="accPending" style="--c: var(--warning);" open>
+                <summary>
+                    <span class="a-ic">⏳</span>
+                    <span class="a-t">בקשות ממתינות לשחרור</span>
+                    <span class="a-ch">▼</span>
+                </summary>
+                <div class="a-b" id="activityLog"></div>
+            </details>
+
+            <details class="acc" id="accHistory" style="--c: var(--cyan);"
+                     ontoggle="if(this.open) initHistory()">
+                <summary>
+                    <span class="a-ic">📅</span>
+                    <span class="a-t">היסטוריית שחרורים</span>
+                    <span class="a-ch">▼</span>
+                </summary>
+                <div class="a-b">
                     <div class="form-group">
                         <label>בחר תאריך:</label>
                         <input type="date" id="historyDate" onchange="loadHistoryByDate()" style="width:100%;">
                     </div>
-                    <div id="historyResults" style="max-height:60vh;overflow-y:auto;"></div>
+                    <div id="historyResults"></div>
                 </div>
-            </div>
+            </details>
         </div>
 
         <!-- מסך אדמין -->
@@ -1489,14 +1542,23 @@ async function resetDailyData() {
 }
 
 // ========== היסטוריה ==========
-function openHistoryModal() {
-    document.getElementById('historyModal').classList.add('active');
-    document.getElementById('historyDate').value = new Date().toISOString().split('T')[0];
+/* המודלים הוחלפו באקורדיונים. שמות הפונקציות נשמרו מפני שקוראים
+   להן ממקומות אחרים במסך — פתיחה היא עתה גלילה אל המקטע ופתיחתו. */
+function initHistory() {
+    const d = document.getElementById('historyDate');
+    if (d && !d.value) d.value = new Date().toISOString().split('T')[0];
     loadHistoryByDate();
 }
-
+function openAcc(id) {
+    const a = document.getElementById(id);
+    if (!a) return;
+    a.open = true;
+    a.scrollIntoView({ block: 'start', behavior:
+        matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+}
+function openHistoryModal() { openAcc('accHistory'); initHistory(); }
 function closeHistoryModal() {
-    document.getElementById('historyModal').classList.remove('active');
+    const a = document.getElementById('accHistory'); if (a) a.open = false;
 }
 
 async function loadHistoryByDate() {
@@ -1622,13 +1684,9 @@ async function loadHistoryByDate() {
 }
 
 // ========== מודל אורחים ==========
-function openGuestsModal() {
-    document.getElementById('guestsModal').classList.add('active');
-    loadGuestsModal();
-}
-
+function openGuestsModal() { openAcc('accGuests'); loadGuestsModal(); }
 function closeGuestsModal() {
-    document.getElementById('guestsModal').classList.remove('active');
+    const a = document.getElementById('accGuests'); if (a) a.open = false;
 }
 
 async function loadGuestsModal() {
@@ -1642,6 +1700,10 @@ async function loadGuestsModal() {
         const pending = (guests || []).filter(g => g.status === 'pending');
         const inside = (guests || []).filter(g => g.status === 'inside');
         const exited = (guests || []).filter(g => g.status === 'exited' && g.entered_at && g.entered_at.startsWith(today));
+
+        /* המונה שעל פס האקורדיון — סך מי שנוגע ליום הזה */
+        const nBadge = document.getElementById('accGuestsN');
+        if (nBadge) nBadge.textContent = pending.length + inside.length + exited.length;
         
         let html = '';
         
