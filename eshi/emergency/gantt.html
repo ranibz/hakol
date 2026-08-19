@@ -1,5 +1,13 @@
 <!DOCTYPE html>
-<!-- eshi/emergency/gantt.html · v1.5.0 · 2026-08-19 · בית חינוך גליל מערבי
+<!-- eshi/emergency/gantt.html · v1.6.0 · 2026-08-19 · בית חינוך גליל מערבי
+
+     v1.6.0 · נוספה בקרת רוחב. פס של יום בודד הוא אחד משלושים
+     ושבעה מרוחב החודש — כשלושים פיקסלים, צר מכדי להכיל
+     מילה, והטקסט נחתך ל-ער...
+
+     חמש רמות, עד פי 3.3 מן הרגיל. הבחירה נשמרת במכשיר, מפני
+     שהיא תלויה בגודל המסך ולא בנתונים. ההדפסה מתעלמת ממנה
+     וחוזרת להתאמת העמוד (MINOR).
 
      v1.5.0 · נוסף מצב צפייה — ?view=1. מורה שרוצה לדעת מתי חופשת
      פסח אינו צריך הרשאת עריכה, ובלוח משותף הסיכון האמיתי
@@ -85,6 +93,13 @@ body{background:var(--bg);color:#243447}
   border-radius:9px;padding:7px 14px;font-size:.85rem;font-weight:700;cursor:pointer}
 .top button:hover{border-color:#fff}
 .top button.pri{background:#2f80ed;border-color:#2f80ed}
+.top .zoom{display:flex;align-items:center;gap:6px;background:#1f2f3f;
+  border:1.5px solid #46596c;border-radius:9px;padding:2px 6px}
+.top .zoom button{border:0;background:none;padding:3px 9px;font-size:1.05rem;
+  line-height:1;border-radius:6px}
+.top .zoom button:hover{background:#33475c}
+.top .zoom b{font-size:.74rem;font-weight:700;color:#9fb3c8;min-width:56px;
+  text-align:center}
 
 .legend{display:flex;gap:14px;flex-wrap:wrap;padding:11px 18px;font-size:.78rem;
   font-weight:700;color:var(--muted);align-items:center}
@@ -92,8 +107,11 @@ body{background:var(--bg);color:#243447}
 .legend i{width:15px;height:11px;border-radius:3px;display:block}
 
 .sheet{padding:0 14px 60px;overflow-x:auto}
+/* רוחב הגיליון נשלט על ידי המשתמש. פס של יום בודד הוא 1/37 מרוחב
+   החודש, ובברירת המחדל זה כשלושים פיקסלים — צר מכדי להכיל מילה.
+   הגדלת הרוחב מרחיבה את כל העמודות יחד ושומרת על יישור השבועות. */
 .month{background:var(--white);border:1.5px solid var(--line);border-radius:10px;
-  margin-bottom:11px;display:flex;min-width:1080px}
+  margin-bottom:11px;display:flex;min-width:var(--sheetw,1080px)}
 .mlab{flex:0 0 118px;padding:11px 12px;border-inline-end:1.5px solid var(--line);
   background:#f7f9fa}
 .mlab b{display:block;font-size:1rem;font-weight:900}
@@ -174,7 +192,8 @@ body.viewonly .vtag{display:inline-block}
   .top,.legend,.ov,.toast{display:none!important}
   body{background:#fff}
   .sheet{padding:0;overflow:visible}
-  .month{break-inside:avoid;margin-bottom:5px;min-width:0}
+  .month{break-inside:avoid;margin-bottom:5px;min-width:0!important}
+  .zoom{display:none!important}
   @page{size:A3 landscape;margin:8mm}
 }
 </style>
@@ -188,6 +207,11 @@ body.viewonly .vtag{display:inline-block}
   </div>
   <div class="sp">
     <select id="yearSel" onchange="switchYear()"></select>
+    <span class="zoom">
+      <button onclick="zoom(-1)" title="צר יותר">−</button>
+      <b id="zLab">רוחב</b>
+      <button onclick="zoom(1)" title="רחב יותר">+</button>
+    </span>
     <button class="pri" id="btnNew" onclick="openNew()">+ אירוע חדש</button>
     <button onclick="window.print()">🖨️ הדפסה</button>
     <span class="vtag">👁️ צפייה בלבד</span>
@@ -393,6 +417,27 @@ let YEAR = null, EVENTS = [], EDIT = null, PICKCOL = COLORS[0];
    טעות, לא מפני כוונה.
    ============================================================ */
 let VIEW = false;
+
+/* רמות רוחב. הצעד גדול בכוונה — הפרש קטן אינו הופך פס בלתי קריא
+   לקריא, ורק מוסיף לחיצות. */
+const WIDTHS = [1080, 1500, 2000, 2700, 3600];
+const WKEY = 'gm_gantt_width';
+let ZI = 0;
+function applyZoom(){
+  document.getElementById('sheet').style.setProperty('--sheetw', WIDTHS[ZI]+'px');
+  const l=document.getElementById('zLab');
+  if(l) l.textContent = ZI===0 ? 'רוחב רגיל' : '×'+(WIDTHS[ZI]/WIDTHS[0]).toFixed(1);
+  try{ localStorage.setItem(WKEY, String(ZI)); }catch(e){}
+}
+function zoom(d){
+  ZI = Math.min(WIDTHS.length-1, Math.max(0, ZI+d));
+  applyZoom();
+}
+function loadZoom(){
+  try{ const v=parseInt(localStorage.getItem(WKEY),10);
+       if(!isNaN(v)) ZI=Math.min(WIDTHS.length-1,Math.max(0,v)); }catch(e){}
+  applyZoom();
+}
 
 function yearLabel(y){
   /* שנת הלימודים נפתחת בספטמבר; שם השנה העברית נלקח מן ה-1 בינואר שאחריו */
@@ -637,7 +682,7 @@ async function switchYear(){
   if(p) YEAR=parseInt(p,10);
   VIEW = q.get('view')==='1';
   if(VIEW) document.body.classList.add('viewonly');
-  buildYearSel(); drawColors();
+  buildYearSel(); drawColors(); loadZoom();
   try{ await load(); render(); }
   catch(e){
     document.getElementById('sheet').innerHTML=
