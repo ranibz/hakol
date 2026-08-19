@@ -1,5 +1,15 @@
 <!DOCTYPE html>
-<!-- eshi/emergency/gantt.html · v1.3.1 · 2026-08-19 · בית חינוך גליל מערבי
+<!-- eshi/emergency/gantt.html · v1.4.0 · 2026-08-19 · בית חינוך גליל מערבי
+
+     v1.4.0 · חופשות וחגים נראו זהים בטלפון. שני הגוונים נבדלו
+     זה מזה בגון אך לא בבהירות, ופס צר במסך קטן נקרא לפי כמה
+     הוא כהה ולא לפי הגון.
+
+     · החופשות הכהות בלוח, החגים הבהירים בו.
+     · נוספו לוכסנים על פס החופשה — סימן שאינו צבע, ולכן שורד
+       הדפסה בשחור-לבן ועיוורון צבעים.
+     · צבע הטקסט נגזר מבהירות הרקע, אחרת טקסט כהה על רקע
+       כהה היה בלתי קריא (MINOR).
 
      v1.3.1 · PATCH: ברירת המחדל של השנה עברה לשנה הבאה רק בספטמבר.
      את הגאנט בונים לפני שהשנה נפתחת, ולכן מי שנכנס באוגוסט
@@ -107,6 +117,10 @@ body{background:var(--bg);color:#243447}
   border:1px solid rgba(0,0,0,.09);line-height:1.5}
 .bar:hover{filter:brightness(.94)}
 .bar.auto{opacity:.92;font-weight:600;font-style:normal}
+/* לוכסנים על פס החופשה. סימן שאינו צבע, ולכן שורד גם הדפסה בשחור-לבן
+   וגם עיוורון צבעים — ובשני המצבים האלה הלוח הזה ייצפה בפועל. */
+.bar.vac{background-image:repeating-linear-gradient(135deg,
+  rgba(255,255,255,.16) 0 5px, rgba(255,255,255,0) 5px 10px)}
 /* סימן שיש הערה — אחרת אין דרך לדעת שכדאי לרחף */
 .hasnote{opacity:.55;font-size:.9em}
 
@@ -162,7 +176,7 @@ body{background:var(--bg);color:#243447}
 </div>
 
 <div class="legend">
-  <span><i style="background:#f0a8a8"></i> חופשות — בית הספר סגור</span>
+  <span><i style="background:#a33a3a"></i> חופשות — בית הספר סגור</span>
   <span><i style="background:var(--hol)"></i> חגים ומועדים — יום לימודים</span>
   <span><i style="background:var(--jun)"></i> חט״ן</span>
   <span><i style="background:var(--sen)"></i> חט״ע</span>
@@ -218,6 +232,19 @@ async function api(path, opts={}){
   if(!r.ok) throw new Error((await r.text()).slice(0,200));
   const t = await r.text(); return t?JSON.parse(t):null;
 }
+/* צבע הטקסט נגזר מבהירות הרקע ולא נקבע מראש: הפלטה ניתנת לעריכה,
+   וטקסט כהה על רקע כהה הוא הדרך הקצרה לפס בלתי קריא. */
+function lum(hex){
+  const h=String(hex||'').replace('#','');
+  if(h.length!==6) return 1;
+  const v=[0,2,4].map(i=>{
+    let c=parseInt(h.substr(i,2),16)/255;
+    return c<=.03928 ? c/12.92 : Math.pow((c+.055)/1.055,2.4);
+  });
+  return .2126*v[0] + .7152*v[1] + .0722*v[2];
+}
+const inkOn = bg => lum(bg) > .45 ? '#243447' : '#fff';
+
 const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>
   ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 
@@ -322,13 +349,17 @@ function autoHolidays(dt){
    אם אפשר לתכנן משהו ביום מסוים — בית הספר סגור, או שזה יום לימודים
    שמצוין בטקס — והיא נבלעה כשהיא סומנה בצבע בלבד. מסלול החופשות
    ראשון מלמעלה מפני שהוא הדבר שמסתכלים עליו קודם. */
+/* ⚠ החופשות והחגים חייבים להיבדל בבהירות ולא בגוון בלבד. פס צר
+   במסך טלפון נקרא לפי כמה הוא כהה, לא לפי אם הוא אדמדם או צהבהב,
+   ושני הגוונים הקודמים היו כמעט זהים בבהירותם והתמזגו. החופשות הן
+   עתה הכהות ביותר בלוח, והחגים הבהירים ביותר. */
 const TRACKS = [
-  {k:'vacation', t:'🏖️ חופשות',    c:'#f0a8a8'},
-  {k:'holidays', t:'חגים ומועדים', c:'#f6c445'},
+  {k:'vacation', t:'🏖️ חופשות',    c:'#a33a3a'},
+  {k:'holidays', t:'חגים ומועדים', c:'#ffe08a'},
   {k:'junior',   t:'חט״ן',         c:'#8fd3a8'},
   {k:'senior',   t:'חט״ע',         c:'#9dbdf0'}
 ];
-const COLORS = ['#f6c445','#8fd3a8','#9dbdf0','#f0a8a8','#c9b3e8','#ffd0a1'];
+const COLORS = ['#a33a3a','#ffe08a','#8fd3a8','#9dbdf0','#c9b3e8','#ffd0a1'];
 let YEAR = null, EVENTS = [], EDIT = null, PICKCOL = COLORS[0];
 
 function yearLabel(y){
@@ -463,8 +494,9 @@ function render(){
             tip += '\n' + fmtRange(e.start_date, e.end_date);
             if(e.notes) tip += '\n\n' + e.notes;
           }
-          tracks += `<div class="bar${s.auto?' auto':''}"
-            style="grid-column:${start}/span ${span};margin-top:-19px;background:${col}"
+          tracks += `<div class="bar${s.auto?' auto':''}${tr.k==='vacation'?' vac':''}"
+            style="grid-column:${start}/span ${span};margin-top:-19px;
+                   background-color:${col};color:${inkOn(col)}"
             title="${esc(tip)}"
             ${s.auto?'':`onclick="openEdit('${s.ev.id}')"`}
             >${s.cut?'… ':''}${esc(label)}${
