@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<!-- eshi/emergency/hazmana.html · v1.0.0 · 2026-08-19 · בית חינוך גליל מערבי
+     © רני בן זאב. יוזמה עצמאית, מימון עצמי.
+
+     טופס הזמנת אורח — עמוד ציבורי. המורה שולח את הקישור, והאורח ממלא
+     בעצמו לפני ההגעה.
+
+     כותב ל-guests באותו פרויקט של gate-system.html, עם status='pending'.
+     ⚠ זה חייב להישאר pending: מסך השומר מציג ברשימת ההמתנה אך ורק
+     רשומות במצב הזה. רשומה שתיווצר כמאושרת לא תגיע לשומר לעולם, והאורח
+     יעמוד בשער בלי שאיש יידע עליו.
+
+     ⚠ הטבלה דורשת גם name וגם guest_name (name הוא NOT NULL), ולכן שניהם
+     נשלחים עם אותו ערך — בדיוק כפי שתוקן ב-gate-system v8.
+
+     ⚠ עמוד ציבורי שכותב למסד. אין כאן אימות, ולכן:
+     · שדה מלכודת נסתר חוסם בוטים שממלאים כל שדה בטופס.
+     · השליחה נחסמת אחרי הצלחה, כדי שלחיצה כפולה לא תיצור שתי רשומות.
+     זו הגנה סבירה לטופס ביקור, לא לנתונים רגישים.
+
+     ?host=שם — ממלא מראש את שם המארח, כדי שהמורה ישלח קישור אישי
+     והאורח לא יצטרך לנחש איך לכתוב את שמו. -->
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>הזמנת אורח · בית חינוך גליל מערבי</title>
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0f172a;--card:#1e293b;--border:#334155;--primary:#3b82f6;
+      --success:#10b981;--warning:#f59e0b;--danger:#ef4444;--txt:#e2e8f0;
+      --muted:#94a3b8}
+*{box-sizing:border-box;margin:0;padding:0;font-family:'Rubik',sans-serif}
+body{background:var(--bg);color:var(--txt);min-height:100vh;padding:0 0 40px}
+
+.top{background:linear-gradient(135deg,#1e293b,#0f172a);
+  border-bottom:1px solid var(--border);padding:26px 20px;text-align:center}
+.top .ic{font-size:2.2rem;line-height:1}
+.top h1{font-size:1.3rem;font-weight:900;margin-top:6px}
+.top p{font-size:.86rem;color:var(--muted);margin-top:3px}
+
+.wrap{max-width:540px;margin:0 auto;padding:20px}
+.note{background:rgba(59,130,246,.1);border:1px solid rgba(59,130,246,.35);
+  border-radius:12px;padding:13px 15px;font-size:.86rem;line-height:1.6;
+  color:#bfdbfe;margin-bottom:18px}
+
+.fg{margin-bottom:15px}
+.fg label{display:block;font-size:.8rem;font-weight:700;color:var(--muted);
+  margin-bottom:6px}
+.fg label b{color:var(--danger)}
+.fg input,.fg select{width:100%;padding:13px 14px;border:1.5px solid var(--border);
+  border-radius:11px;background:#0b1220;color:var(--txt);font-size:1rem}
+.fg input:focus,.fg select:focus{outline:none;border-color:var(--primary)}
+.fg .two{display:flex;gap:10px}
+.fg .two input{flex:1}
+.hp{position:absolute;left:-9999px;width:1px;height:1px;opacity:0}
+
+.tg{display:flex;gap:9px}
+.tg button{flex:1;padding:12px;border:1.5px solid var(--border);border-radius:11px;
+  background:#0b1220;color:var(--muted);font-weight:700;font-size:.95rem;cursor:pointer}
+.tg button.on{background:var(--primary);border-color:var(--primary);color:#fff}
+.tg button.on.warn{background:var(--danger);border-color:var(--danger)}
+
+.warnbox{background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.4);
+  border-radius:11px;padding:12px 14px;font-size:.84rem;color:#fecaca;
+  margin-bottom:15px;line-height:1.55}
+
+.go{width:100%;padding:15px;border:0;border-radius:12px;background:var(--warning);
+  color:#0f172a;font-size:1.05rem;font-weight:900;cursor:pointer;margin-top:6px}
+.go:hover{filter:brightness(1.07)}
+.go:disabled{opacity:.5;cursor:default}
+.err{background:rgba(239,68,68,.12);border:1px solid var(--danger);border-radius:11px;
+  padding:12px 14px;font-size:.88rem;color:#fecaca;margin-bottom:14px;display:none}
+.err.on{display:block}
+
+.done{display:none;text-align:center;padding:26px 20px;
+  background:rgba(16,185,129,.09);border:1px solid rgba(16,185,129,.4);border-radius:16px}
+.done.on{display:block}
+.done .ic{font-size:2.6rem}
+.done h2{font-size:1.2rem;font-weight:900;margin:9px 0 6px;color:var(--success)}
+.done p{font-size:.9rem;color:var(--muted);line-height:1.65}
+.done .sum{text-align:start;background:#0b1220;border:1px solid var(--border);
+  border-radius:12px;padding:14px;margin-top:16px;font-size:.88rem;line-height:1.9}
+.done .sum b{color:var(--muted);font-weight:600}
+.foot{text-align:center;font-size:.72rem;color:#64748b;margin-top:22px}
+</style>
+</head>
+<body>
+
+<div class="top">
+  <div class="ic">🛂</div>
+  <h1>הזמנת אורח</h1>
+  <p>בית חינוך גליל מערבי</p>
+</div>
+
+<div class="wrap">
+
+  <div id="formWrap">
+    <div class="note">
+      מילוי הטופס מראש מקצר את הכניסה בשער. עם ההגעה יש להזדהות בפני
+      השומר, והכניסה מותנית באישורו.
+    </div>
+
+    <div class="err" id="err"></div>
+
+    <div class="fg">
+      <label>שם מלא <b>*</b></label>
+      <input id="gName" placeholder="שם פרטי ומשפחה" autocomplete="name">
+    </div>
+
+    <div class="fg">
+      <label>תעודת זהות</label>
+      <input id="gId" inputmode="numeric" placeholder="לזיהוי בשער">
+    </div>
+
+    <div class="fg">
+      <label>טלפון</label>
+      <input id="gPhone" type="tel" inputmode="tel" placeholder="050-0000000"
+             autocomplete="tel">
+    </div>
+
+    <div class="fg">
+      <label>תאריך ושעת הגעה <b>*</b></label>
+      <div class="two">
+        <input id="gDate" type="date">
+        <input id="gTime" type="time">
+      </div>
+    </div>
+
+    <div class="fg">
+      <label>מטרת הביקור</label>
+      <select id="gPurpose">
+        <option value="">בחרו…</option>
+        <option>פגישה עם מורה</option>
+        <option>פגישה עם הנהלה</option>
+        <option>ספק/שירות</option>
+        <option>הורה</option>
+        <option>אחר</option>
+      </select>
+    </div>
+
+    <div class="fg">
+      <label>עם מי נקבעה הפגישה <b>*</b></label>
+      <input id="gHost" placeholder="שם המורה או איש הקשר בבית הספר">
+    </div>
+
+    <div class="fg">
+      <label>האם ברשותכם נשק?</label>
+      <div class="tg">
+        <button type="button" id="armNo"  class="on" onclick="setArmed(false)">לא</button>
+        <button type="button" id="armYes" onclick="setArmed(true)">כן</button>
+      </div>
+    </div>
+
+    <div id="licWrap" style="display:none">
+      <div class="warnbox">
+        הכנסת נשק לשטח בית הספר מחייבת רישיון בתוקף והצגתו בשער.
+      </div>
+      <div class="fg">
+        <label>מספר רישיון נשק <b>*</b></label>
+        <input id="gLic" placeholder="מספר הרישיון">
+      </div>
+    </div>
+
+    <!-- מלכודת לבוטים: שדה נסתר שאדם לעולם לא ימלא -->
+    <input class="hp" id="hp" tabindex="-1" autocomplete="off" aria-hidden="true">
+
+    <button class="go" id="btnGo" onclick="submitGuest()">שליחת ההזמנה ←</button>
+  </div>
+
+  <div class="done" id="done">
+    <div class="ic">✅</div>
+    <h2>ההזמנה נשלחה</h2>
+    <p>הפרטים הועברו לשומר בשער.<br>
+       עם ההגעה יש להזדהות, והכניסה מותנית באישורו.</p>
+    <div class="sum" id="sum"></div>
+  </div>
+
+  <div class="foot">בית חינוך גליל מערבי · hazmana v1.0.0</div>
+</div>
+
+<script>
+const SURL = 'https://skfriefqnoxfzmamcokd.supabase.co';
+const SKEY = 'sb_publishable_Qx7EDPbdyYE9iv7uMQBKhQ_Aeojd_Q0';
+
+const el = id => document.getElementById(id);
+const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>
+  ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+let ARMED = false, SENT = false;
+
+function setArmed(v){
+  ARMED = v;
+  el('armYes').className = v ? 'on warn' : '';
+  el('armNo').className  = v ? '' : 'on';
+  el('licWrap').style.display = v ? '' : 'none';
+}
+function showErr(t){ const e=el('err'); e.textContent=t; e.classList.add('on');
+  e.scrollIntoView({block:'center', behavior:'smooth'}); }
+
+async function submitGuest(){
+  if(SENT) return;                       /* לחיצה כפולה לא תיצור שתי רשומות */
+  if(el('hp').value) return;             /* מלכודת — נסגר בשקט, בלי לרמוז לבוט */
+
+  const name   = (el('gName').value||'').trim();
+  const date   = el('gDate').value;
+  const time   = el('gTime').value;
+  const host   = (el('gHost').value||'').trim();
+  const lic    = (el('gLic').value||'').trim();
+
+  if(!name)       return showErr('חובה למלא שם מלא.');
+  if(!date)       return showErr('חובה לבחור תאריך הגעה.');
+  if(!host)       return showErr('חובה לציין עם מי נקבעה הפגישה.');
+  if(ARMED && !lic) return showErr('נשיאת נשק מחייבת מספר רישיון.');
+  el('err').classList.remove('on');
+
+  const btn = el('btnGo');
+  btn.disabled = true; btn.textContent = 'שולח…';
+
+  /* name ו-guest_name מקבלים את אותו ערך: name הוא NOT NULL בטבלה,
+     ו-guest_name הוא מה שמסך השומר מציג. */
+  const row = {
+    name: name, guest_name: name,
+    id_number: (el('gId').value||'').trim() || null,
+    phone:     (el('gPhone').value||'').trim() || null,
+    purpose:   el('gPurpose').value || null,
+    host_name: host,
+    status:    'pending',
+    expected_date: date || null,
+    expected_time: time || null,
+    is_armed:  ARMED,
+    weapon_license: ARMED ? lic : null
+  };
+
+  try{
+    const r = await fetch(SURL+'/rest/v1/guests', {method:'POST',
+      headers:{apikey:SKEY, Authorization:'Bearer '+SKEY,
+               'Content-Type':'application/json'},
+      body: JSON.stringify(row)});
+    if(!r.ok) throw new Error((await r.text()).slice(0,200));
+
+    SENT = true;
+    el('sum').innerHTML =
+      '<b>שם:</b> '+esc(name)+'<br>'+
+      '<b>הגעה:</b> '+esc(date.split('-').reverse().join('.'))+
+        (time?' · '+esc(time):'')+'<br>'+
+      '<b>פגישה עם:</b> '+esc(host)+
+      (row.purpose?'<br><b>מטרה:</b> '+esc(row.purpose):'')+
+      (ARMED?'<br><b>נשק:</b> רישיון '+esc(lic):'');
+    el('formWrap').style.display='none';
+    el('done').classList.add('on');
+    window.scrollTo({top:0, behavior:'smooth'});
+  }catch(e){
+    showErr('השליחה נכשלה: '+String(e.message||e).slice(0,140));
+    btn.disabled=false; btn.textContent='שליחת ההזמנה ←';
+  }
+}
+
+(function boot(){
+  /* ברירת מחדל: היום. אורח שממלא טופס עושה זאת לרוב סמוך לביקור,
+     ותאריך ריק הוא השדה שהכי נשכח. */
+  const d = new Date();
+  el('gDate').value = d.getFullYear()+'-'+
+    String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  el('gDate').min = el('gDate').value;
+
+  const host = new URLSearchParams(location.search).get('host');
+  if(host) el('gHost').value = host;
+})();
+</script>
+</body>
+</html>
