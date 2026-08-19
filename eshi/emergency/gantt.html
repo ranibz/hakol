@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<!-- eshi/emergency/gantt.html · v1.1.0 · 2026-08-19 · בית חינוך גליל מערבי
+
+     v1.1.0 · נוספה שורת ימי השבוע שהייתה באקסל ונשמטה. היא חוזרת
+     בכל חודש ולא פעם אחת בראש הגיליון: במסך גוללים,
+     וכותרת יחידה למעלה נעלמת אחרי החודש הראשון (MINOR).
+     © רני בן זאב. יוזמה עצמאית, מימון עצמי.
+
+     לוח גאנט שנתי — מחליף את גאנט_תשפז.xlsx.
+
+     מבנה הרשת זהה לאקסל בכוונה, כדי שמי שהתרגל אליו יזהה אותו מיד:
+     שנים־עשר חודשים מספטמבר עד אוגוסט, ובכל חודש שורת ימים לועזיים,
+     שורת תאריך עברי, ושלושה מסלולים — חגים/מועדים · חט"ן · חט"ע.
+     הימים מיושרים לעמודות לפי יום בשבוע, ולכן השבועות מסתדרים אנכית.
+
+     שלושה דברים שהאקסל לא ידע לעשות:
+
+     · אירוע רב-יומי הוא רשומה אחת עם תאריך התחלה וסיום, ולא אותו טקסט
+       מודבק בארבעה תאים. שינוי תאריך גורר את כל הפס.
+     · התאריך העברי מחושב ולא מוקלד. Intl עם לוח ca-hebrew מטפל גם
+       בשנה מעוברת ומבחין בין אדר א' לאדר ב'.
+     · חגי ישראל מזוהים מן התאריך העברי ומופיעים מאליהם.
+
+     ⚠ שכבת החגים היא הצעה ולא מקור סמכות. תאריכי הצומות והזיכרון
+     נדחים לפי כללים שאינם נגזרים מן התאריך העברי לבדו, ולכן יש לאמת
+     מול לוח משרד החינוך. אירוע ידני שנוסף על אותו יום גובר בתצוגה.
+
+     ⚠ הטבלה gantt_events חייבת להיווצר לפני השימוש — ראו את ה-SQL
+     שנמסר עם הקובץ. -->
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>לוח גאנט שנתי · בית חינוך גליל מערבי</title>
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+:root{--primary:#2c3e50;--bg:#eef1f3;--white:#fff;--line:#d8dfe4;--muted:#7f8c8d;
+      --hol:#f6c445;--jun:#8fd3a8;--sen:#9dbdf0;--sat:#f2f4f6;--today:#e74c3c}
+*{box-sizing:border-box;margin:0;padding:0;font-family:'Rubik',sans-serif}
+body{background:var(--bg);color:#243447}
+
+.top{background:var(--primary);color:#fff;padding:12px 18px;position:sticky;top:0;z-index:50;
+  display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.top h1{font-size:1.1rem;font-weight:900}
+.top .sub{font-size:.76rem;color:#9fb3c8}
+.top .sp{margin-inline-start:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.top select,.top button{background:#1f2f3f;color:#fff;border:1.5px solid #46596c;
+  border-radius:9px;padding:7px 14px;font-size:.85rem;font-weight:700;cursor:pointer}
+.top button:hover{border-color:#fff}
+.top button.pri{background:#2f80ed;border-color:#2f80ed}
+
+.legend{display:flex;gap:14px;flex-wrap:wrap;padding:11px 18px;font-size:.78rem;
+  font-weight:700;color:var(--muted);align-items:center}
+.legend span{display:flex;align-items:center;gap:6px}
+.legend i{width:15px;height:11px;border-radius:3px;display:block}
+
+.sheet{padding:0 14px 60px;overflow-x:auto}
+.month{background:var(--white);border:1.5px solid var(--line);border-radius:10px;
+  margin-bottom:11px;display:flex;min-width:1080px}
+.mlab{flex:0 0 118px;padding:11px 12px;border-inline-end:1.5px solid var(--line);
+  background:#f7f9fa}
+.mlab b{display:block;font-size:1rem;font-weight:900}
+.mlab small{color:var(--muted);font-size:.72rem;font-weight:600}
+.mgrid{flex:1;display:grid;grid-template-columns:repeat(37,1fr)}
+.mgrid>*{min-width:0}
+
+.wd,.d,.hd{border-inline-start:1px solid #eef2f4;text-align:center;font-size:.68rem;
+  padding:3px 0;line-height:1.35}
+.wd{font-size:.62rem;font-weight:800;color:#8a99a8;background:#fbfcfd;
+  border-bottom:1px solid var(--line)}
+.d{font-weight:700;color:#42566b}
+.hd{color:var(--muted);font-size:.62rem;border-bottom:1.5px solid var(--line)}
+.wd.sat,.d.sat,.hd.sat{background:var(--sat)}
+.wd.sat{color:#5b6b7a}
+.d.today{background:var(--today);color:#fff;border-radius:4px}
+
+.trk{border-inline-start:1px solid #f2f5f7;border-top:1px dotted #edf1f3;
+  min-height:19px;cursor:pointer}
+.trk:hover{background:#f4f8fb}
+.trk.sat{background:var(--sat)}
+.trk.sat:hover{background:#e9edf0}
+.tname{grid-column:1/-1;font-size:.62rem;font-weight:800;color:var(--muted);
+  padding:3px 7px;background:#fafbfc;border-top:1px solid var(--line);letter-spacing:.5px}
+
+.bar{margin:1px 2px;border-radius:5px;padding:2px 7px;font-size:.68rem;font-weight:700;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;
+  border:1px solid rgba(0,0,0,.09);line-height:1.5}
+.bar:hover{filter:brightness(.94)}
+.bar.auto{opacity:.92;font-weight:600;font-style:normal}
+
+.ov{position:fixed;inset:0;background:rgba(15,23,32,.55);display:none;
+  align-items:center;justify-content:center;z-index:200;padding:16px}
+.ov.on{display:flex}
+.modal{background:#fff;border-radius:15px;padding:20px;max-width:440px;width:100%}
+.modal h3{font-size:1.05rem;font-weight:900;margin-bottom:13px}
+.modal label{display:block;font-size:.72rem;font-weight:800;color:var(--muted);
+  margin-bottom:4px;letter-spacing:.5px}
+.modal input,.modal select,.modal textarea{width:100%;padding:9px 11px;
+  border:1.5px solid var(--line);border-radius:9px;font-size:.93rem;margin-bottom:10px}
+.modal textarea{min-height:56px;resize:vertical}
+.modal .two{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+.swatches{display:flex;gap:7px;margin-bottom:12px}
+.sw{width:28px;height:28px;border-radius:7px;border:2.5px solid transparent;cursor:pointer}
+.sw.on{border-color:#243447}
+.modal .row{display:flex;gap:8px;margin-top:4px}
+.modal .row button{flex:1;padding:10px;border-radius:9px;font-weight:800;font-size:.9rem;
+  cursor:pointer;border:2px solid var(--line);background:#fff;color:var(--muted)}
+.modal .row button.go{background:#2f80ed;border-color:#2f80ed;color:#fff}
+.modal .row button.del{border-color:#e74c3c;color:#e74c3c;flex:0 0 auto;padding:10px 15px}
+.err{color:#c0392b;font-size:.8rem;font-weight:700;margin-bottom:8px;display:none}
+.err.on{display:block}
+.toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:var(--primary);
+  color:#fff;padding:10px 20px;border-radius:10px;font-weight:700;font-size:.88rem;
+  z-index:300;display:none}
+.toast.on{display:block}
+.toast.err{background:#c0392b}
+.msg{padding:40px;text-align:center;color:var(--muted);font-weight:600}
+
+@media print{
+  .top,.legend,.ov,.toast{display:none!important}
+  body{background:#fff}
+  .sheet{padding:0;overflow:visible}
+  .month{break-inside:avoid;margin-bottom:5px;min-width:0}
+  @page{size:A3 landscape;margin:8mm}
+}
+</style>
+</head>
+<body>
+
+<div class="top">
+  <div>
+    <h1>📅 לוח גאנט שנתי</h1>
+    <div class="sub">בית חינוך גליל מערבי</div>
+  </div>
+  <div class="sp">
+    <select id="yearSel" onchange="switchYear()"></select>
+    <button class="pri" onclick="openNew()">+ אירוע חדש</button>
+    <button onclick="window.print()">🖨️ הדפסה</button>
+  </div>
+</div>
+
+<div class="legend">
+  <span><i style="background:var(--hol)"></i> חגים ומועדים</span>
+  <span><i style="background:var(--jun)"></i> חט״ן</span>
+  <span><i style="background:var(--sen)"></i> חט״ע</span>
+  <span>· לחיצה על יום ריק פותחת אירוע חדש · לחיצה על פס פותחת אותו לעריכה</span>
+</div>
+
+<div class="sheet" id="sheet"><div class="msg">טוען…</div></div>
+
+<div class="ov" id="ov">
+  <div class="modal">
+    <h3 id="mTitle">אירוע חדש</h3>
+    <div class="err" id="mErr"></div>
+
+    <label>שם האירוע</label>
+    <input id="fTitle" placeholder="למשל: טיול שנתי יא">
+
+    <div class="two">
+      <div><label>מתאריך</label><input type="date" id="fFrom"></div>
+      <div><label>עד תאריך</label><input type="date" id="fTo"></div>
+    </div>
+
+    <label>מסלול</label>
+    <select id="fTrack">
+      <option value="holidays">חגים ומועדים</option>
+      <option value="junior">חט״ן</option>
+      <option value="senior">חט״ע</option>
+    </select>
+
+    <label>צבע</label>
+    <div class="swatches" id="fColors"></div>
+
+    <label>הערה (לא חובה)</label>
+    <textarea id="fNotes" placeholder="פרטים, אחראי, מיקום…"></textarea>
+
+    <div class="row">
+      <button class="del" id="mDel" onclick="removeEvent()" style="display:none">מחיקה</button>
+      <button onclick="closeModal()">ביטול</button>
+      <button class="go" id="mGo" onclick="saveEvent()">שמירה</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const SURL = 'https://skfriefqnoxfzmamcokd.supabase.co';
+const SKEY = 'sb_publishable_Qx7EDPbdyYE9iv7uMQBKhQ_Aeojd_Q0';
+async function api(path, opts={}){
+  const r = await fetch(SURL+'/rest/v1/'+path, {...opts,
+    headers:{apikey:SKEY, Authorization:'Bearer '+SKEY,
+             'Content-Type':'application/json', Prefer: opts.prefer||''}});
+  if(!r.ok) throw new Error((await r.text()).slice(0,200));
+  const t = await r.text(); return t?JSON.parse(t):null;
+}
+const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>
+  ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+/* ================= תאריכים =================
+   כל החישובים על שעה 12:00 UTC. חצות מקומי עלול ליפול ליום הקודם
+   באזור זמן שלילי, ואז התאריך העברי יזוז ביום שלם. */
+const MONTHS = ['ספטמבר','אוקטובר','נובמבר','דצמבר','ינואר','פברואר',
+                'מרץ','אפריל','מאי','יוני','יולי','אוגוסט'];
+const DOW = ['א','ב','ג','ד','ה','ו','ש'];
+function mk(y,m,d){ return new Date(Date.UTC(y,m,d,12,0,0)); }
+function iso(dt){ return dt.toISOString().split('T')[0]; }
+function fromIso(s){ const p=String(s).split('-'); return mk(+p[0],+p[1]-1,+p[2]); }
+function daysIn(y,m){ return new Date(Date.UTC(y,m+1,0)).getUTCDate(); }
+
+/* התאריך העברי — מספרי לחישוב, ובגימטריה לתצוגה */
+const HEB_MONTHS = {Tishri:'תשרי', Heshvan:'חשוון', Marheshvan:'חשוון', Kislev:'כסלו',
+  Tevet:'טבת', Shevat:'שבט', Adar:'אדר', 'Adar I':"אדר א'", 'Adar II':"אדר ב'",
+  Nisan:'ניסן', Iyar:'אייר', Sivan:'סיוון', Tammuz:'תמוז', Av:'אב', Elul:'אלול'};
+const HFMT = new Intl.DateTimeFormat('en-u-ca-hebrew',{day:'numeric',month:'long',year:'numeric'});
+function hebOf(dt){
+  const o={}; HFMT.formatToParts(dt).forEach(p=>o[p.type]=p.value);
+  return {d:parseInt(o.day,10), m:o.month, mHe:HEB_MONTHS[o.month]||o.month, y:parseInt(o.year,10)};
+}
+/* גימטריה — כ"ג ולא 23 */
+const ONES=['','א','ב','ג','ד','ה','ו','ז','ח','ט'], TENS=['','י','כ','ל'];
+function gim(n){
+  if(n===15) return 'ט"ו';
+  if(n===16) return 'ט"ז';
+  const t=Math.floor(n/10), o=n%10;
+  const s=TENS[t]+ONES[o];
+  return s.length>1 ? s.slice(0,-1)+'"'+s.slice(-1) : s+"'";
+}
+
+/* ================= חגים =================
+   מזוהים מן התאריך העברי. שכבת הצעה בלבד — ראו האזהרה בראש הקובץ. */
+/* חנוכה נמשכת שמונה ימים מכ"ה בכסלו, אך כסלו הוא חודש שאורכו משתנה:
+   בשנה שבה יש בו כ"ט ימים החג נגמר בג' בטבת, ובשנה שבה יש בו שלושים
+   הוא נגמר בב'. תנאי קבוע על טבת נותן תשעה ימים באחת מן השנתיים,
+   ולכן נספרים כאן הימים אחורה עד כ"ה בכסלו במקום לנחש את אורך החודש. */
+function isHanukkah(dt){
+  const h=hebOf(dt);
+  if(h.m==='Kislev' && h.d>=25) return true;
+  if(h.m!=='Tevet' || h.d>3) return false;
+  for(let k=1;k<8;k++){
+    const p=hebOf(new Date(dt.getTime()-k*86400000));
+    if(p.m==='Kislev' && p.d===25) return true;
+  }
+  return false;
+}
+
+function autoHolidays(dt){
+  const h=hebOf(dt), out=[];
+  const adar = (h.m==='Adar'||h.m==='Adar II');
+  const add = t=>out.push(t);
+  if(h.m==='Elul' && h.d===29) add('ערב ראש השנה');
+  if(h.m==='Tishri'){
+    if(h.d===1||h.d===2) add('ראש השנה');
+    if(h.d===3) add('צום גדליה');
+    if(h.d===9) add('ערב יום כיפור');
+    if(h.d===10) add('יום כיפור');
+    if(h.d===14) add('ערב סוכות');
+    if(h.d===15) add('סוכות');
+    if(h.d>=16 && h.d<=20) add('חול המועד סוכות');
+    if(h.d===21) add('הושענא רבה');
+    if(h.d===22) add('שמחת תורה');
+    if(h.d===23) add('איסרו חג');
+  }
+  if(h.m==='Kislev' && h.d===24) add('ערב חנוכה');
+  if(isHanukkah(dt)) add('חנוכה');
+  if(h.m==='Tevet' && h.d===10) add('צום עשרה בטבת');
+  if(h.m==='Shevat' && h.d===15) add('ט״ו בשבט');
+  if(adar && h.d===13) add('תענית אסתר');
+  if(adar && h.d===14) add('פורים');
+  if(adar && h.d===15) add('שושן פורים');
+  if(h.m==='Nisan'){
+    if(h.d===14) add('ערב פסח');
+    if(h.d===15) add('פסח');
+    if(h.d>=16 && h.d<=20) add('חול המועד פסח');
+    if(h.d===21) add('שביעי של פסח');
+    if(h.d===22) add('איסרו חג');
+    if(h.d===27) add('יום הזיכרון לשואה ולגבורה');
+  }
+  if(h.m==='Iyar'){
+    if(h.d===4) add('יום הזיכרון');
+    if(h.d===5) add('יום העצמאות');
+    if(h.d===28) add('יום ירושלים');
+  }
+  if(h.m==='Sivan'){
+    if(h.d===5) add('ערב שבועות');
+    if(h.d===6) add('שבועות');
+  }
+  if(h.m==='Tammuz' && h.d===17) add('צום י״ז בתמוז');
+  if(h.m==='Av' && h.d===9) add('תשעה באב');
+  return out;
+}
+
+/* ================= מצב ================= */
+const TRACKS = [
+  {k:'holidays', t:'חגים ומועדים', c:'#f6c445'},
+  {k:'junior',   t:'חט״ן',         c:'#8fd3a8'},
+  {k:'senior',   t:'חט״ע',         c:'#9dbdf0'}
+];
+const COLORS = ['#f6c445','#8fd3a8','#9dbdf0','#f0a8a8','#c9b3e8','#ffd0a1'];
+let YEAR = null, EVENTS = [], EDIT = null, PICKCOL = COLORS[0];
+
+function yearLabel(y){
+  /* שנת הלימודים נפתחת בספטמבר; שם השנה העברית נלקח מן ה-1 בינואר שאחריו */
+  const h = hebOf(mk(y+1,0,1));
+  return 'תשפ' + gim(h.y-5780).replace(/['"]/g,'') + ' · ' + y + '/' + (y+1);
+}
+function buildYearSel(){
+  const now=new Date(), base=now.getUTCMonth()>=8?now.getUTCFullYear():now.getUTCFullYear()-1;
+  const sel=document.getElementById('yearSel');
+  sel.innerHTML='';
+  for(let y=base-1; y<=base+2; y++){
+    const o=document.createElement('option');
+    o.value=y; o.textContent=yearLabel(y);
+    sel.appendChild(o);
+  }
+  sel.value = YEAR;
+}
+
+async function load(){
+  const from = iso(mk(YEAR,8,1)), to = iso(mk(YEAR+1,7,31));
+  EVENTS = await api('gantt_events?year_start=eq.'+YEAR+
+    '&order=start_date.asc') || [];
+  EVENTS.forEach(e=>{ e._a=fromIso(e.start_date); e._b=fromIso(e.end_date); });
+}
+
+/* ================= פריסה =================
+   אירוע נחתך לפי חודש: פס אחד לכל חודש שהוא נוגע בו. אירוע שנמשך
+   מסוף אוקטובר לתחילת נובמבר אינו יכול להיות מלבן אחד ברשת שבה כל
+   חודש הוא שורה נפרדת. */
+function segmentsFor(y, m){
+  const first = mk(y,m,1), last = mk(y,m,daysIn(y,m));
+  const segs = [];
+  EVENTS.forEach(e=>{
+    if(e._b < first || e._a > last) return;
+    const a = e._a < first ? first : e._a;
+    const b = e._b > last  ? last  : e._b;
+    segs.push({ev:e, from:a.getUTCDate(), to:b.getUTCDate(),
+               cut: e._a<first || e._b>last});
+  });
+  return segs;
+}
+/* אריזה למסלולים: שני אירועים חופפים באותו מסלול יורדים זה מתחת לזה
+   במקום להסתיר זה את זה */
+function lanes(segs){
+  const out=[];
+  segs.sort((x,y)=>x.from-y.from || (y.to-y.from)-(x.to-x.from));
+  segs.forEach(s=>{
+    let i=0;
+    while(out[i] && out[i].some(o=>!(s.to<o.from || s.from>o.to))) i++;
+    (out[i]=out[i]||[]).push(s);
+  });
+  return out;
+}
+
+function render(){
+  const box=document.getElementById('sheet');
+  const todayIso = iso(new Date(Date.now()));
+  let html='';
+  for(let i=0;i<12;i++){
+    const m=(8+i)%12, y=YEAR+(m<8?1:0);
+    const n=daysIn(y,m), off=mk(y,m,1).getUTCDay();   /* 0=ראשון=א */
+    const hFirst=hebOf(mk(y,m,1)).mHe, hLast=hebOf(mk(y,m,n)).mHe;
+
+    let wds='', days='', hebs='';
+    for(let c=0;c<37;c++){
+      const dnum=c-off+1, has=dnum>=1&&dnum<=n;
+      const sat=(c%7)===6;
+      /* שורת ימי השבוע חוזרת בכל חודש ולא פעם אחת בראש הגיליון כמו
+         באקסל: כאן גוללים, וכותרת יחידה למעלה נעלמת מן המסך. */
+      wds+=`<div class="wd${sat?' sat':''}">${DOW[c%7]}</div>`;
+      if(!has){ days+=`<div class="d${sat?' sat':''}"></div>`;
+                hebs+=`<div class="hd${sat?' sat':''}"></div>`; continue; }
+      const dt=mk(y,m,dnum);
+      const isToday = iso(dt)===todayIso;
+      days+=`<div class="d${sat?' sat':''}${isToday?' today':''}">${dnum}</div>`;
+      hebs+=`<div class="hd${sat?' sat':''}">${gim(hebOf(dt).d)}</div>`;
+    }
+
+    let tracks='';
+    TRACKS.forEach(tr=>{
+      let segs=segmentsFor(y,m).filter(s=>s.ev.track===tr.k);
+      /* שכבת החגים האוטומטית — רק במסלול החגים, ורק היכן שאין אירוע ידני */
+      if(tr.k==='holidays'){
+        for(let d=1;d<=n;d++){
+          const dt=mk(y,m,d);
+          const taken=segs.some(s=>d>=s.from&&d<=s.to);
+          if(taken) continue;
+          autoHolidays(dt).forEach(t=>{
+            const prev=segs.find(s=>s.auto && s.title===t && s.to===d-1);
+            if(prev) prev.to=d;
+            else segs.push({auto:true, title:t, from:d, to:d, ev:null});
+          });
+        }
+      }
+      const L=lanes(segs);
+      const rows = Math.max(1, L.length);
+      tracks += `<div class="tname">${tr.t}</div>`;
+      for(let r=0;r<rows;r++){
+        for(let c=0;c<37;c++){
+          const dnum=c-off+1, sat=(c%7)===6;
+          const ok=dnum>=1&&dnum<=n;
+          tracks += `<div class="trk${sat?' sat':''}"${ok
+            ? ` onclick="openNew('${tr.k}','${iso(mk(y,m,dnum))}')"` : ''}></div>`;
+        }
+        (L[r]||[]).forEach(s=>{
+          const col = s.auto ? '#f6c445' : (s.ev.color||tr.c);
+          const start = s.from+off, span = s.to-s.from+1;
+          const label = s.auto ? s.title : s.ev.title;
+          tracks += `<div class="bar${s.auto?' auto':''}"
+            style="grid-column:${start}/span ${span};margin-top:-19px;background:${col}"
+            title="${esc(label)}"
+            ${s.auto?'':`onclick="openEdit('${s.ev.id}')"`}
+            >${s.cut?'… ':''}${esc(label)}</div>`;
+        });
+      }
+    });
+
+    html += `<div class="month">
+      <div class="mlab"><b>${MONTHS[i]}</b><small>${hFirst}${hFirst!==hLast?'–'+hLast:''}
+        · ${y}</small></div>
+      <div class="mgrid">${wds}${days}${hebs}${tracks}</div>
+    </div>`;
+  }
+  box.innerHTML=html;
+}
+
+/* ================= עריכה ================= */
+function drawColors(){
+  document.getElementById('fColors').innerHTML = COLORS.map(c=>
+    `<div class="sw${c===PICKCOL?' on':''}" style="background:${c}"
+      onclick="pickColor('${c}')"></div>`).join('');
+}
+function pickColor(c){ PICKCOL=c; drawColors(); }
+
+function openNew(track, day){
+  EDIT=null;
+  document.getElementById('mTitle').textContent='אירוע חדש';
+  document.getElementById('mDel').style.display='none';
+  document.getElementById('fTitle').value='';
+  document.getElementById('fNotes').value='';
+  document.getElementById('fTrack').value = track || 'senior';
+  const d = day || iso(new Date(Date.now()));
+  document.getElementById('fFrom').value=d;
+  document.getElementById('fTo').value=d;
+  PICKCOL = (TRACKS.find(t=>t.k===(track||'senior'))||{}).c || COLORS[0];
+  drawColors();
+  document.getElementById('mErr').classList.remove('on');
+  document.getElementById('ov').classList.add('on');
+  document.getElementById('fTitle').focus();
+}
+function openEdit(id){
+  const e=EVENTS.find(x=>String(x.id)===String(id)); if(!e) return;
+  EDIT=e;
+  document.getElementById('mTitle').textContent='עריכת אירוע';
+  document.getElementById('mDel').style.display='';
+  document.getElementById('fTitle').value=e.title||'';
+  document.getElementById('fNotes').value=e.notes||'';
+  document.getElementById('fTrack').value=e.track;
+  document.getElementById('fFrom').value=e.start_date;
+  document.getElementById('fTo').value=e.end_date;
+  PICKCOL=e.color||COLORS[0]; drawColors();
+  document.getElementById('mErr').classList.remove('on');
+  document.getElementById('ov').classList.add('on');
+}
+function closeModal(){ document.getElementById('ov').classList.remove('on'); EDIT=null; }
+function toast(t,err){
+  const n=document.getElementById('toast');
+  n.textContent=t; n.className='toast on'+(err?' err':'');
+  setTimeout(()=>n.className='toast',2600);
+}
+function showErr(t){
+  const e=document.getElementById('mErr'); e.textContent=t; e.classList.add('on');
+}
+
+async function saveEvent(){
+  const title=(document.getElementById('fTitle').value||'').trim();
+  let a=document.getElementById('fFrom').value, b=document.getElementById('fTo').value;
+  if(!title) return showErr('חובה לתת שם לאירוע.');
+  if(!a||!b)  return showErr('חובה למלא תאריך התחלה וסיום.');
+  if(b<a){ const t=a; a=b; b=t; }   /* תאריכים הפוכים מתוקנים בשקט */
+  const row={year_start:YEAR, track:document.getElementById('fTrack').value,
+             title:title, start_date:a, end_date:b, color:PICKCOL,
+             notes:(document.getElementById('fNotes').value||'').trim()||null};
+  const btn=document.getElementById('mGo'); btn.disabled=true; btn.textContent='שומר…';
+  try{
+    if(EDIT) await api('gantt_events?id=eq.'+encodeURIComponent(EDIT.id),
+      {method:'PATCH', body:JSON.stringify(row)});
+    else     await api('gantt_events', {method:'POST', body:JSON.stringify(row)});
+    closeModal(); await load(); render(); toast('✓ נשמר');
+  }catch(e){ showErr('שגיאה: '+String(e.message||e).slice(0,120)); }
+  btn.disabled=false; btn.textContent='שמירה';
+}
+async function removeEvent(){
+  if(!EDIT) return;
+  if(!confirm('למחוק את "'+EDIT.title+'"?')) return;
+  try{
+    await api('gantt_events?id=eq.'+encodeURIComponent(EDIT.id), {method:'DELETE'});
+    closeModal(); await load(); render(); toast('נמחק');
+  }catch(e){ showErr('שגיאה: '+String(e.message||e).slice(0,120)); }
+}
+
+async function switchYear(){
+  YEAR = parseInt(document.getElementById('yearSel').value,10);
+  try{ await load(); render(); }
+  catch(e){ document.getElementById('sheet').innerHTML=
+    '<div class="msg">שגיאה: '+esc(String(e.message||e)).slice(0,160)+'</div>'; }
+}
+
+(async function boot(){
+  const now=new Date();
+  YEAR = now.getUTCMonth()>=8 ? now.getUTCFullYear() : now.getUTCFullYear()-1;
+  const p=new URLSearchParams(location.search).get('year');
+  if(p) YEAR=parseInt(p,10);
+  buildYearSel(); drawColors();
+  try{ await load(); render(); }
+  catch(e){
+    document.getElementById('sheet').innerHTML=
+      '<div class="msg">שגיאה בטעינה: '+esc(String(e.message||e)).slice(0,180)+
+      '<br><br>אם הטבלה gantt_events טרם נוצרה — יש להריץ את ה-SQL תחילה.</div>';
+  }
+})();
+</script>
+</body>
+</html>
