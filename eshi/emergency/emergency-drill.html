@@ -1,5 +1,11 @@
 <!DOCTYPE html>
-<!-- גרסה: v63 | תאריך: 2026-08-11 | תוקנה קפיצה שנייה, שאינה קשורה ללחיצה: הכניסה
+<!-- גרסה: v64 | תאריך: 2026-08-18 | נרמול שם כיתה בכל נקודת כתיבה (normClass):
+     הסרת גרש וכיווץ רווחים. מצבת תשפ"ז נקלטה עם "י'  2" לצד "י 1", ומאחר
+     ש-parseClass מפצל לפי רווח היא החזירה שכבה "י'" שאינה קיימת בשום מפה —
+     שש כיתות י' נשרו מכל ספירה לפי שכבה, קיבלו צבע אפור והוצגו תחת "אחר".
+     הנרמול מוחל בקליטת האקסל, בהוספת תלמיד ובמעבר כיתה. הנתונים הקיימים
+     תוקנו ב-SQL במקביל.
+     v63 | תאריך: 2026-08-11 | תוקנה קפיצה שנייה, שאינה קשורה ללחיצה: הכניסה
      כמחנך מפעילה setInterval(loadData,5000), ו-loadData מסיים ב-renderCurrentScreen
      שבנה את רשימת התלמידים מחדש (innerHTML=''). כל חמש שניות הגלילה התאפסה והמסך קפץ
      גם בלי נגיעה. מעכשיו הרענון האוטומטי מסנכרן סימונים בלבד דרך syncAttendanceStudentTiles,
@@ -885,6 +891,25 @@ async function api(path, opts = {}) {
     if (!r.ok) throw new Error(await r.text());
     const t = await r.text(); 
     return t ? JSON.parse(t) : null;
+}
+
+/* ===== v64: נרמול שם כיתה =====
+   שם הכיתה הוא מפתח: הוא נשמר ב-students.class, ב-class_status.class_name,
+   ומשמש לקיבוץ ולפירוק לשכבה. די בהבדל של גרש או רווח כפול כדי ששתי
+   צורות של אותה כיתה יתקיימו זו לצד זו.
+
+   כך בדיוק קרה בתשפ"ז: המצבת נקלטה עם "י'  2" בעוד כיתה אחת נקלטה
+   כ"י 1". parseClass מפצל לפי רווח והחזיר שכבה "י'" שאינה קיימת בשום
+   מפה, ולכן שש כיתות י' נשרו מכל ספירה לפי שכבה, קיבלו צבע אפור,
+   והוצגו תחת "אחר" במקום תחת חטיבה עליונה.
+
+   הנרמול מוחל בכל נקודה שכותבת שם כיתה — קליטת אקסל, הוספת תלמיד
+   ומעבר כיתה — ולא בקריאה, כדי שהמסד עצמו יישאר אחיד. */
+function normClass(cls) {
+    return String(cls || '')
+        .replace(/['׳’"״“”]/g, '')  /* גרש וגרשיים, עברי ולועזי */
+        .replace(/\s+/g, ' ')
+        .trim();
 }
 
 /* ===== v56: פירוק שם כיתה, חטיבה, צבע לפי שכבה, וחיה קבועה לכל כיתה ===== */
@@ -2955,7 +2980,7 @@ function handleExcelUpload(event) {
                 if (!row || !row[cols.id]) continue;
                 const fullName = (String(row[cols.lastName] || '') + ' ' + String(row[cols.firstName] || '')).trim();
                 if (!fullName) continue;
-                const cls = (String(row[cols.shihva] || '') + ' ' + String(row[cols.classNum] || '')).trim() || 'ללא';
+                const cls = normClass(String(row[cols.shihva] || '') + ' ' + String(row[cols.classNum] || '')) || 'ללא';
                 let phone = String(row[cols.phone] || '').replace(/[-\s()]/g, '');
                 if (phone.startsWith('+972')) phone = '0' + phone.substring(4);
                 const city = String(row[cols.city] || '').trim() || 'לא ידוע';
@@ -3146,7 +3171,7 @@ async function addStudent() {
     const st = document.getElementById('addStudentStatus');
     if (!id || !(last || first) || !grade) { st.textContent = 'חובה: ת.ז, שם, ושכבה'; st.style.color = '#e74c3c'; return; }
     const name = (last + ' ' + first).trim();
-    const cls = (grade + ' ' + num).trim();
+    const cls = normClass(grade + ' ' + num);
     try {
         await api('students', { method: 'POST', prefer: 'resolution=merge-duplicates',
             body: JSON.stringify({ id: id, name: name, class: cls, phone: phone, city: city || 'לא ידוע', active: true }) });
@@ -3171,7 +3196,7 @@ function renderMoveResults() {
         </div>`).join('');
 }
 async function moveClass(id) {
-    const target = document.getElementById('mv-' + id).value.trim();
+    const target = normClass(document.getElementById('mv-' + id).value);
     const st = document.getElementById('moveStatus');
     if (!target) { st.textContent = 'נא להזין כיתת יעד'; st.style.color = '#e74c3c'; return; }
     try {
