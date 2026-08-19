@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<!-- eshi/emergency/shichrur.html · v1.1.0 · 2026-08-19 · בית חינוך גליל מערבי
+
+     v1.1.0 · הותאם לסכמה האמיתית של student_releases. ב-v1.0.0
+     לא נשלח released_by כלל, ומאחר שהוא NOT NULL ללא ברירת
+     מחדל — כל שחרור היה נדחה על ידי המסד.
+
+     · שם המשחרר/ת נשמר במכשיר ונשאל פעם אחת; ניתן להחלפה
+       מן הכותרת, עבור מחשב משותף בחדר מורים.
+     · סיבת השחרור הפכה לחובה — גם היא NOT NULL.
+     · נוספו picked_up_by ו-phone, שניהם רשות, לפי העמודות שכבר
+       קיימות בטבלה.
+     · status נשלח במפורש כ-'released'. ברירת המחדל במסד היא
+       'pending', ורשומה כזו אינה נספרת בשום מסך — התלמיד היה
+       יוצא מבית הספר ומוסיף להיראות נוכח (MINOR).
+     © רני בן זאב. יוזמה עצמאית, מימון עצמי.
+
+     שחרור תלמידים — מסך רכז השכבה. שחרור בלבד: אין כאן ניהול, קליטת
+     מצבת, הגדרות או מחיקות. הפעולה היחידה היא לשחרר תלמיד ולבטל שחרור.
+
+     כותב ל-student_releases שכבר קיימת ונקראת על ידי emergency-drill
+     (renderUnifiedSummary) ועל ידי matzevet.html. שלוש המערכות מציגות
+     מעכשיו את אותם שחרורים.
+
+     ⚠ ביטול שחרור מוחק את הרשומה ואינו משנה סטטוס. הסיבה: emergency-drill
+     מסנן status=eq.released, ורשומה מבוטלת שנשארת בטבלה הייתה נספרת
+     בשגיאה בכל מקום שלא הוסיף את אותו סינון. מחיקה משאירה מצב אחד בלבד.
+
+     ⚠ אין תיעוד של מי שחרר. אין עמודה כזו בטבלה, ולא הוספתי אותה כדי
+     לא לשנות סכמה שמערכות אחרות קוראות ממנה. במערכת שחרור זהו חסר
+     ממשי — ראו ההערה בסוף הקובץ.
+
+     כללי הספירה והתצוגה זהים ל-emergency-drill v64 ול-matzevet v1.0.0:
+     גיחה גוברת על נוכחות, תלמידים לא-פעילים מסוננים, ושם הכיתה מנורמל. -->
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>שחרור תלמידים · רכז שכבה</title>
+<link href="https://fonts.googleapis.com/css2?family=Rubik:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+:root{--primary:#2c3e50;--success:#27ae60;--danger:#c0392b;--warning:#f39c12;
+      --info:#3498db;--bg:#ecf0f1;--white:#fff;--muted:#7f8c8d;--line:#dfe6e9}
+*{box-sizing:border-box;margin:0;padding:0;font-family:'Rubik',sans-serif}
+body{background:var(--bg);color:#333;padding-bottom:50px}
+
+.header{background:var(--primary);color:#fff;padding:14px 18px;position:sticky;top:0;
+  z-index:100;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.header h1{font-size:1.12rem;font-weight:900}
+.header .sub{font-size:.78rem;color:#9fb3c8;font-weight:500}
+.header .who-strip{margin-inline-start:auto;font-size:.78rem;color:#9fb3c8;
+  font-weight:600}
+.header .who-strip b{color:#fff}
+.header .who-strip button{background:none;border:1.5px solid #4b6378;color:#cfd8e3;
+  border-radius:7px;padding:3px 10px;font-size:.72rem;font-weight:700;cursor:pointer;
+  margin-inline-start:6px}
+.header .who-strip button:hover{border-color:#fff;color:#fff}
+.header .when{font-size:.76rem;color:#9fb3c8;text-align:start}
+.header .when b{display:block;color:#fff;font-size:.86rem}
+
+.wrap{max-width:1000px;margin:0 auto;padding:16px}
+
+.grades{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.gbtn{padding:9px 20px;border:2px solid var(--line);background:var(--white);
+  border-radius:11px;font-weight:900;font-size:1rem;cursor:pointer;color:var(--primary)}
+.gbtn.on{color:#fff}
+.gbtn .n{display:block;font-size:.66rem;font-weight:600;opacity:.8}
+
+.search{width:100%;padding:12px 15px;border:2px solid var(--line);border-radius:11px;
+  font-size:1rem;background:var(--white);margin-bottom:14px}
+.search:focus{outline:none;border-color:var(--primary)}
+
+/* ===== ששוחררו היום ===== */
+.today-box{background:#eaf4fc;border:2px solid var(--info);border-radius:13px;
+  padding:14px 16px;margin-bottom:16px}
+.today-box h2{font-size:.98rem;font-weight:900;color:#1f6391;margin-bottom:9px}
+.rel{display:flex;align-items:center;gap:10px;background:var(--white);
+  border-radius:10px;padding:9px 13px;margin-bottom:6px;flex-wrap:wrap}
+.rel .nm{font-weight:700}
+.rel .meta{font-size:.8rem;color:var(--muted);font-weight:600}
+.rel .undo{margin-inline-start:auto;background:none;border:1.5px solid var(--line);
+  color:var(--muted);border-radius:8px;padding:5px 12px;font-size:.78rem;
+  font-weight:700;cursor:pointer}
+.rel .undo:hover{border-color:var(--danger);color:var(--danger)}
+
+/* ===== כיתות ===== */
+.cls-card{background:var(--white);border-radius:13px;margin-bottom:9px;overflow:hidden;
+  border-inline-start:6px solid var(--line)}
+.cls-h{display:flex;align-items:center;gap:10px;padding:12px 15px;cursor:pointer}
+.cls-h:hover{background:#f8fafb}
+.cls-h .an{font-size:1.3rem}
+.cls-h .nm{font-weight:900;font-size:1rem}
+.cls-h .cnt{margin-inline-start:auto;font-size:.8rem;color:var(--muted);font-weight:700}
+.cls-b{display:none;padding:6px 15px 14px;border-top:1px solid var(--line)}
+.cls-card.open .cls-b{display:block}
+
+.stu{display:flex;align-items:center;gap:10px;padding:9px 4px;
+  border-bottom:1px solid #f1f4f6;flex-wrap:wrap}
+.stu:last-child{border-bottom:0}
+.stu .nm{font-weight:600}
+.stu .tag{font-size:.7rem;font-weight:700;padding:2px 9px;border-radius:20px}
+.tag.ok{background:#eafaf1;color:var(--success)}
+.tag.no{background:#fdecea;color:var(--danger)}
+.tag.wa{background:#fef5e7;color:#9a6206}
+.tag.in{background:#eaf4fc;color:#1f6391}
+.stu .act{margin-inline-start:auto}
+.btn-rel{background:var(--info);color:#fff;border:none;border-radius:9px;
+  padding:7px 16px;font-weight:700;font-size:.84rem;cursor:pointer}
+.btn-rel:hover{background:#2b7cb8}
+.btn-rel[disabled]{background:#cfd8dc;cursor:default}
+
+/* ===== חלון סיבה ===== */
+.ov{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;
+  align-items:center;justify-content:center;z-index:200;padding:18px}
+.ov.on{display:flex}
+.modal{background:var(--white);border-radius:16px;padding:22px;max-width:430px;width:100%}
+.modal h3{font-size:1.08rem;font-weight:900;margin-bottom:3px}
+.modal .who{font-size:.85rem;color:var(--muted);font-weight:600;margin-bottom:14px}
+.chips{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:11px}
+.chip{border:1.5px solid var(--line);background:var(--white);border-radius:20px;
+  padding:6px 14px;font-size:.85rem;font-weight:600;cursor:pointer}
+.chip.on{background:var(--primary);color:#fff;border-color:var(--primary)}
+.modal input{width:100%;padding:11px;border:1.5px solid var(--line);border-radius:9px;
+  font-size:.95rem;margin-bottom:11px}
+.modal .lb{display:block;font-size:.74rem;font-weight:800;color:var(--muted);
+  letter-spacing:.5px;margin-bottom:5px}
+.modal .lb b{color:var(--danger)}
+.modal .err{color:var(--danger);font-size:.82rem;font-weight:700;
+  margin-bottom:9px;display:none}
+.modal .err.on{display:block}
+.modal input:focus{outline:none;border-color:var(--primary)}
+.modal .row{display:flex;gap:9px}
+.modal button{flex:1;padding:11px;border-radius:9px;font-weight:800;font-size:.92rem;
+  cursor:pointer;border:2px solid var(--line);background:var(--white);color:var(--muted)}
+.modal button.go{background:var(--info);border-color:var(--info);color:#fff}
+.msg{text-align:center;padding:40px 20px;color:var(--muted);font-weight:600}
+.toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);
+  background:var(--primary);color:#fff;padding:11px 22px;border-radius:11px;
+  font-weight:700;font-size:.9rem;z-index:300;display:none}
+.toast.on{display:block}
+.toast.err{background:var(--danger)}
+.foot{max-width:1000px;margin:22px auto 0;padding:0 16px;font-size:.72rem;
+  color:var(--muted);display:flex;gap:10px;flex-wrap:wrap}
+.foot .v{margin-inline-start:auto;opacity:.7}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div>
+    <h1>🚪 שחרור תלמידים</h1>
+    <div class="sub">בית חינוך גליל מערבי · מסך רכז שכבה</div>
+  </div>
+  <div class="who-strip" id="who"></div>
+  <div class="when" id="when"><b>—</b><span>—</span></div>
+</div>
+
+<div class="wrap">
+  <div class="grades" id="grades"></div>
+  <input class="search" id="q" placeholder="חיפוש תלמיד בשם…" oninput="render()">
+  <div id="body"><div class="msg">טוען נתונים…</div></div>
+</div>
+
+<div class="ov" id="ov">
+  <div class="modal">
+    <h3>שחרור תלמיד</h3>
+    <div class="who" id="mWho">—</div>
+
+    <label class="lb">סיבת השחרור <b>*</b></label>
+    <div class="chips" id="mChips"></div>
+    <input id="mReason" placeholder="חובה — בחרו סיבה או הקלידו">
+
+    <label class="lb">מי אוסף את התלמיד</label>
+    <input id="mPickup" placeholder="שם ההורה או המלווה (לא חובה)">
+
+    <label class="lb">טלפון</label>
+    <input id="mPhone" placeholder="לא חובה" inputmode="tel">
+
+    <div class="err" id="mErr"></div>
+    <div class="row">
+      <button onclick="closeModal()">ביטול</button>
+      <button class="go" id="mGo" onclick="doRelease()">שחרור ←</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div class="foot">
+  <span>השחרורים מוצגים גם במסך המנהלת ובמצבת השכבתית</span>
+  <span class="v">shichrur · v1.1.0</span>
+</div>
+
+<script>
+const SURL = 'https://skfriefqnoxfzmamcokd.supabase.co';
+const SKEY = 'sb_publishable_Qx7EDPbdyYE9iv7uMQBKhQ_Aeojd_Q0';
+const TRIPS_SURL = 'https://ohxnrjtdenylcwnszzfq.supabase.co';
+const TRIPS_SKEY = 'sb_publishable_maSeTa8gQ-Jx8DCGhryltw_bZzQYfl5';
+
+async function api(path, opts = {}){
+  const r = await fetch(SURL+'/rest/v1/'+path, {...opts,
+    headers:{apikey:SKEY, Authorization:'Bearer '+SKEY,
+             'Content-Type':'application/json', Prefer: opts.prefer||''}});
+  if(!r.ok) throw new Error((await r.text()).slice(0,200));
+  const t = await r.text(); return t?JSON.parse(t):null;
+}
+async function tripsApi(path){
+  try{
+    const r = await fetch(TRIPS_SURL+'/rest/v1/'+path,
+      {headers:{apikey:TRIPS_SKEY, Authorization:'Bearer '+TRIPS_SKEY}});
+    if(!r.ok) return null;
+    const t = await r.text(); return t?JSON.parse(t):null;
+  }catch(e){ return null; }
+}
+
+/* ===== עזרי כיתה — זהים ל-emergency-drill v64 ===== */
+const GRADE_ORDER = {'ז':0,'ח':1,'ט':2,'י':3,'יא':4,'יב':5};
+const GRADES = ['ז','ח','ט','י','יא','יב'];
+function normClass(c){
+  return String(c||'').replace(/['\u05f3\u2019"\u05f4\u201c\u201d]/g,'')
+    .replace(/\s+/g,' ').trim();
+}
+function parseClass(cls){
+  const p = normClass(cls).split(' ');
+  return {grade:p[0]||'', num:parseInt(p[1])||0};
+}
+function getColor(cls){
+  const m={'ז':'#3498db','ח':'#16a085','ט':'#27ae60','י':'#e67e22','יא':'#e74c3c','יב':'#8e44ad'};
+  return m[parseClass(cls).grade] || '#7f8c8d';
+}
+const ANIMALS=['🦁','🐯','🐻','🐨','🐼','🦊','🐺','🦝','🐮','🐷','🐸','🐵','🦄','🐝','🦋','🐢','🐬','🐳','🦉','🦅','🦆','🦢','🦚','🐙','🦈','🐊','🦕','🦖','🐘','🦏','🦛','🦒','🦌','🐆','🐅','🐴','🐇','🦔','🦦','🦨'];
+function getAnimal(cls){
+  const {grade,num}=parseClass(cls);
+  const gi = GRADE_ORDER[grade]!==undefined?GRADE_ORDER[grade]:8;
+  return ANIMALS[(gi*8+Math.max(0,num-1))%ANIMALS.length];
+}
+const esc = s => String(s==null?'':s).replace(/[&<>"]/g,c=>
+  ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+const REASONS = ['תור רופא','מחלה','אירוע משפחתי','אישור הורה','אחר'];
+
+/* ============================================================
+   מי משחרר
+   ------------------------------------------------------------
+   released_by הוא NOT NULL ללא ברירת מחדל — הטבלה תוכננה כך
+   שאי אפשר לשחרר תלמיד בלי שיירשם מי עשה זאת, וזה נכון: אם הורה
+   יטען שלא אישר, זו השורה היחידה שתענה.
+
+   השם נשמר במכשיר ונשאל פעם אחת. במחשב משותף בחדר מורים אפשר
+   להחליף אותו בכל רגע מן הכותרת.
+   ============================================================ */
+const WHO_KEY = 'gm_release_by';
+function whoAmI(){
+  try{ return localStorage.getItem(WHO_KEY) || ''; }catch(e){ return ''; }
+}
+function setWho(v){
+  try{ localStorage.setItem(WHO_KEY, v); }catch(e){}
+  drawWho();
+}
+function askWho(){
+  const cur = whoAmI();
+  const v = prompt('שם הרכז/ת המשחרר/ת — יירשם לצד כל שחרור:', cur);
+  if(v === null) return cur;
+  const t = String(v).trim();
+  if(t) setWho(t);
+  return t || cur;
+}
+function drawWho(){
+  const n = document.getElementById('who');
+  if(!n) return;
+  const w = whoAmI();
+  n.innerHTML = w
+    ? 'משחרר/ת: <b>'+esc(w)+'</b> <button onclick="askWho()">החלפה</button>'
+    : '<button onclick="askWho()">הזינו את שמכם כדי לשחרר</button>';
+}
+
+let STUDENTS={}, DAILY={}, ONTRIP=new Set(), ONGICHA=new Set(),
+    RELEASED={}, GRADE=null, OPEN=new Set(), TARGET=null, PICK='';
+
+function todayStr(){ return new Date().toISOString().split('T')[0]; }
+
+async function load(){
+  const t = todayStr();
+  const [students, daily, releases] = await Promise.all([
+    api('students?order=class,name'),
+    api('daily_attendance'),
+    api('student_releases?status=eq.released&released_at=gte.'+t+
+        'T00:00:00&order=released_at.desc')
+  ]);
+
+  STUDENTS={};
+  (students||[]).forEach(s=>{ if(s.active!==false)
+    STUDENTS[s.id]={name:s.name, class:normClass(s.class)}; });
+
+  DAILY={}; (daily||[]).forEach(d=>{ DAILY[d.student_id]=d.status; });
+
+  RELEASED={};
+  (releases||[]).forEach(r=>{
+    if(RELEASED[r.student_id]) return;
+    const d=new Date(r.released_at);
+    RELEASED[r.student_id]={
+      rowId: r.id,
+      time: String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'),
+      reason: r.release_reason||'',
+      by: r.released_by||'',
+      pickup: r.picked_up_by||''};
+  });
+
+  ONTRIP=new Set(); ONGICHA=new Set();
+  const [recs, trips] = await Promise.all([
+    tripsApi('trip_attendance_status?is_active=eq.true&select=student_id,trip_id,source_type'),
+    tripsApi('trips?is_active=eq.true&start_date=lte.'+t+'&select=id')
+  ]);
+  const started = new Set((trips||[]).map(x=>String(x.id)));
+  (recs||[]).forEach(r=>{
+    if(!r.student_id) return;
+    const sid=String(r.student_id);
+    if(r.source_type==='gicha') ONGICHA.add(sid);
+    else if(started.has(String(r.trip_id))) ONTRIP.add(sid);
+  });
+}
+
+/* גיחה נבדקת לפני הנוכחות — הכלל מ-v50.1 */
+function statusOf(id){
+  const sid=String(id);
+  if(RELEASED[id])     return 'released';
+  if(ONGICHA.has(sid)) return 'gicha';
+  if(ONTRIP.has(sid))  return 'trip';
+  const d=DAILY[id];
+  if(d==='present') return 'present';
+  if(d==='absent')  return 'absent';
+  return 'none';
+}
+const TAG = {present:['ok','נוכח'], absent:['no','נעדר'], none:['wa','טרם דווח'],
+             trip:['in','בטיול'], gicha:['in','בגיחה'], released:['in','שוחרר']};
+
+function classesOf(g){
+  const set=new Set();
+  Object.values(STUDENTS).forEach(s=>{ if(parseClass(s.class).grade===g) set.add(s.class); });
+  return [...set].sort((a,b)=>parseClass(a).num-parseClass(b).num);
+}
+function studentsOf(cls){
+  const q=(document.getElementById('q').value||'').trim();
+  return Object.entries(STUDENTS)
+    .filter(([,s])=>s.class===cls && (!q || String(s.name).indexOf(q)>-1))
+    .sort((a,b)=>String(a[1].name).localeCompare(String(b[1].name),'he'));
+}
+
+/* ===== ציור ===== */
+function drawGrades(){
+  document.getElementById('grades').innerHTML = GRADES.map(g=>{
+    const n=Object.values(STUDENTS).filter(s=>parseClass(s.class).grade===g).length;
+    if(!n) return '';
+    const col=getColor(g+' 1');
+    return `<button class="gbtn ${GRADE===g?'on':''}" onclick="pickGrade('${g}')"
+      style="${GRADE===g?'background:'+col+';border-color:'+col:'border-color:'+col}">
+      ${g}<span class="n">${n} תלמידים</span></button>`;
+  }).join('');
+}
+function pickGrade(g){ GRADE=g; OPEN=new Set(); drawGrades(); render(); }
+function toggle(c){ OPEN.has(c)?OPEN.delete(c):OPEN.add(c); render(); }
+
+function render(){
+  const box=document.getElementById('body');
+  if(!GRADE){ box.innerHTML='<div class="msg">בחרו שכבה למעלה.</div>'; return; }
+  const classes=classesOf(GRADE);
+  if(!classes.length){ box.innerHTML='<div class="msg">אין כיתות בשכבה זו.</div>'; return; }
+
+  /* ששוחררו היום בשכבה הזו — למעלה, כי זו התמונה שהרכז נשאל עליה */
+  const mine=Object.keys(RELEASED)
+    .filter(id=>STUDENTS[id] && parseClass(STUDENTS[id].class).grade===GRADE);
+  const top = mine.length ? `<div class="today-box">
+      <h2>🚪 שוחררו היום · ${mine.length}</h2>
+      ${mine.map(id=>{
+        const s=STUDENTS[id], r=RELEASED[id];
+        return `<div class="rel"><span class="nm">${esc(s.name)}</span>
+          <span class="meta">${esc(s.class)} · ${esc(r.time)} · ${esc(r.reason)}${
+            r.pickup?' · נאסף ע"י '+esc(r.pickup):''}${
+            r.by?' · שוחרר ע"י '+esc(r.by):''}</span>
+          <button class="undo" onclick="undo('${esc(String(id))}')">ביטול שחרור</button>
+        </div>`;}).join('')}</div>` : '';
+
+  const cards=classes.map(c=>{
+    const st=studentsOf(c);
+    const rel=st.filter(([id])=>RELEASED[id]).length;
+    if(!st.length) return '';
+    return `<div class="cls-card ${OPEN.has(c)?'open':''}"
+        style="border-inline-start-color:${getColor(c)}">
+      <div class="cls-h" onclick="toggle('${esc(c)}')">
+        <span class="an">${getAnimal(c)}</span><span class="nm">${esc(c)}</span>
+        <span class="cnt">${st.length} תלמידים${rel?' · '+rel+' שוחררו':''}</span>
+      </div>
+      <div class="cls-b">${st.map(([id,s])=>{
+        const k=statusOf(id), tg=TAG[k];
+        const done=k==='released';
+        return `<div class="stu"><span class="nm">${esc(s.name)}</span>
+          <span class="tag ${tg[0]}">${tg[1]}</span>
+          <span class="act">${done
+            ? `<button class="btn-rel" disabled>שוחרר ${esc(RELEASED[id].time)}</button>`
+            : `<button class="btn-rel" onclick="openModal('${esc(String(id))}')">שחרור</button>`
+          }</span></div>`;}).join('')}</div>
+    </div>`;}).join('');
+
+  box.innerHTML = top + cards;
+}
+
+/* ===== שחרור ===== */
+function openModal(id){
+  if(!whoAmI() && !askWho()) return;   /* released_by הוא NOT NULL */
+  TARGET=id; PICK='';
+  const s=STUDENTS[id];
+  document.getElementById('mWho').textContent = s.name+' · '+s.class;
+  ['mReason','mPickup','mPhone'].forEach(k=>document.getElementById(k).value='');
+  document.getElementById('mErr').classList.remove('on');
+  document.getElementById('mChips').innerHTML = REASONS.map(r=>
+    `<button class="chip" onclick="pickReason('${esc(r)}')">${esc(r)}</button>`).join('');
+  document.getElementById('ov').classList.add('on');
+}
+function closeModal(){ document.getElementById('ov').classList.remove('on'); TARGET=null; }
+function pickReason(r){
+  PICK=r;
+  [...document.querySelectorAll('#mChips .chip')].forEach(b=>
+    b.classList.toggle('on', b.textContent===r));
+  /* "אחר" מנקה את השדה במקום להשאיר בו את הסיבה הקודמת: מי שבוחר
+     בו מתכוון להקליד משהו אחר, ולא לשלוח את מה שנבחר לפניו. */
+  const f=document.getElementById('mReason');
+  if(r!=='אחר'){ f.value=r; } else { f.value=''; f.focus(); }
+}
+function toast(t, err){
+  const n=document.getElementById('toast');
+  n.textContent=t; n.className='toast on'+(err?' err':'');
+  setTimeout(()=>n.className='toast', 3000);
+}
+/* release_reason ו-released_by שניהם NOT NULL ללא ברירת מחדל. שליחה
+   בלעדיהם נדחית על ידי המסד, ולכן שניהם נבדקים כאן לפני הפנייה.
+
+   status נשלח במפורש כ-'released' ואינו נשאר בברירת המחדל 'pending':
+   emergency-drill ו-matzevet מסננים status=eq.released, ורשומה שתישאר
+   pending לא תיספר בשום מקום — התלמיד ייצא מבית הספר ויוסיף להיראות
+   נוכח. */
+async function doRelease(){
+  if(!TARGET) return;
+  const err=document.getElementById('mErr');
+  const reason=(document.getElementById('mReason').value||'').trim();
+  const by=whoAmI();
+  if(!reason){ err.textContent='חובה לציין סיבת שחרור.'; err.classList.add('on'); return; }
+  if(!by){ err.textContent='חובה להזין את שם המשחרר/ת.'; err.classList.add('on'); return; }
+  err.classList.remove('on');
+
+  const btn=document.getElementById('mGo');
+  btn.disabled=true; btn.textContent='שולח…';
+  const row={
+    student_id: String(TARGET),
+    released_by: by,
+    release_reason: reason,
+    released_at: new Date().toISOString(),
+    status: 'released'
+  };
+  const pickup=(document.getElementById('mPickup').value||'').trim();
+  const phone=(document.getElementById('mPhone').value||'').trim();
+  if(pickup) row.picked_up_by = pickup;
+  if(phone)  row.phone = phone;
+
+  try{
+    await api('student_releases', {method:'POST', prefer:'return=representation',
+      body: JSON.stringify(row)});
+    const nm = STUDENTS[TARGET] ? STUDENTS[TARGET].name : '';
+    closeModal();
+    await load(); render();
+    toast('✓ '+nm+' שוחרר');
+  }catch(e){
+    err.textContent='שגיאה: '+String(e.message||e).slice(0,110);
+    err.classList.add('on');
+  }
+  btn.disabled=false; btn.textContent='שחרור ←';
+}
+
+/* ביטול מוחק את הרשומה ואינו משנה סטטוס — ראו ההערה בראש הקובץ */
+async function undo(id){
+  const s=STUDENTS[id];
+  if(!confirm('לבטל את השחרור של '+(s?s.name:'')+'?')) return;
+  try{
+    await api('student_releases?student_id=eq.'+encodeURIComponent(id)+
+      '&released_at=gte.'+todayStr()+'T00:00:00', {method:'DELETE'});
+    await load(); render();
+    toast('השחרור בוטל');
+  }catch(e){ toast('שגיאה: '+String(e.message||e).slice(0,90), true); }
+}
+
+function stamp(){
+  const d=new Date(), b=document.getElementById('when');
+  const g=new Intl.DateTimeFormat('he-IL',{weekday:'long',day:'2-digit',month:'2-digit'}).format(d);
+  b.innerHTML='<b>'+g+'</b><span>עודכן '+
+    String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')+'</span>';
+}
+
+(async function boot(){
+  try{
+    await load();
+    const p=new URLSearchParams(location.search).get('grade');
+    if(p && GRADES.indexOf(p)>-1) GRADE=p;
+    drawGrades(); render(); stamp(); drawWho();
+    setInterval(async()=>{ try{ await load(); render(); stamp(); }catch(e){} }, 60000);
+  }catch(e){
+    document.getElementById('body').innerHTML=
+      '<div class="msg">שגיאה בטעינת הנתונים: '+esc(String(e.message||e)).slice(0,140)+'</div>';
+  }
+})();
+</script>
+</body>
+</html>
