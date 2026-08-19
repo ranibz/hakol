@@ -1,5 +1,12 @@
 <!DOCTYPE html>
-<!-- eshi/emergency/gantt.html · v1.4.0 · 2026-08-19 · בית חינוך גליל מערבי
+<!-- eshi/emergency/gantt.html · v1.5.0 · 2026-08-19 · בית חינוך גליל מערבי
+
+     v1.5.0 · נוסף מצב צפייה — ?view=1. מורה שרוצה לדעת מתי חופשת
+     פסח אינו צריך הרשאת עריכה, ובלוח משותף הסיכון האמיתי
+     אינו זדון אלא לחיצה לא מכוונת.
+
+     ⚠ אינה אבטחה: מי שיסיר את הפרמטר יוכל לערוך, ובדיוק כך
+     מקבלת ההנהלה את הגישה המלאה. ההגנה היא מפני טעות (MINOR).
 
      v1.4.0 · חופשות וחגים נראו זהים בטלפון. שני הגוונים נבדלו
      זה מזה בגון אך לא בבהירות, ופס צר במסך קטן נקרא לפי כמה
@@ -107,6 +114,17 @@ body{background:var(--bg);color:#243447}
 .trk{border-inline-start:1px solid #f2f5f7;border-top:1px dotted #edf1f3;
   min-height:19px;cursor:pointer}
 .trk:hover{background:#f4f8fb}
+/* במצב צפייה אין רמז שמזמין לחיצה: הכפתור מוסתר, והמצביע והריחוף
+   על התאים חוזרים למצב ניטרלי. */
+body.viewonly #btnNew{display:none}
+body.viewonly .trk{cursor:default}
+body.viewonly .trk:hover{background:transparent}
+body.viewonly .trk.sat:hover{background:var(--sat)}
+body.viewonly .bar{cursor:default}
+body.viewonly .bar:hover{filter:none}
+body.viewonly .vtag{display:inline-block}
+.vtag{display:none;font-size:.7rem;font-weight:700;color:#9fb3c8;
+  border:1.5px solid #46596c;border-radius:20px;padding:3px 11px}
 .trk.sat{background:var(--sat)}
 .trk.sat:hover{background:#e9edf0}
 .tname{grid-column:1/-1;font-size:.62rem;font-weight:800;color:var(--muted);
@@ -170,8 +188,9 @@ body{background:var(--bg);color:#243447}
   </div>
   <div class="sp">
     <select id="yearSel" onchange="switchYear()"></select>
-    <button class="pri" onclick="openNew()">+ אירוע חדש</button>
+    <button class="pri" id="btnNew" onclick="openNew()">+ אירוע חדש</button>
     <button onclick="window.print()">🖨️ הדפסה</button>
+    <span class="vtag">👁️ צפייה בלבד</span>
   </div>
 </div>
 
@@ -362,6 +381,19 @@ const TRACKS = [
 const COLORS = ['#a33a3a','#ffe08a','#8fd3a8','#9dbdf0','#c9b3e8','#ffd0a1'];
 let YEAR = null, EVENTS = [], EDIT = null, PICKCOL = COLORS[0];
 
+/* ============================================================
+   מצב צפייה — ?view=1
+   ------------------------------------------------------------
+   מורה שרוצה לדעת מתי חופשת פסח אינו צריך הרשאת עריכה, ובלוח
+   משותף הסיכון האמיתי אינו זדון אלא לחיצה לא מכוונת שגוררת פס
+   או פותחת חלון מחיקה.
+
+   ⚠ זו אינה אבטחה. מי שיסיר את הפרמטר מן הכתובת יוכל לערוך,
+   ובדיוק כך מקבלת ההנהלה את הגישה המלאה. ההגנה כאן היא מפני
+   טעות, לא מפני כוונה.
+   ============================================================ */
+let VIEW = false;
+
 function yearLabel(y){
   /* שנת הלימודים נפתחת בספטמבר; שם השנה העברית נלקח מן ה-1 בינואר שאחריו */
   const h = hebOf(mk(y+1,0,1));
@@ -523,6 +555,7 @@ function drawColors(){
 function pickColor(c){ PICKCOL=c; drawColors(); }
 
 function openNew(track, day){
+  if(VIEW) return;
   EDIT=null;
   document.getElementById('mTitle').textContent='אירוע חדש';
   document.getElementById('mDel').style.display='none';
@@ -539,6 +572,7 @@ function openNew(track, day){
   document.getElementById('fTitle').focus();
 }
 function openEdit(id){
+  if(VIEW) return;
   const e=EVENTS.find(x=>String(x.id)===String(id)); if(!e) return;
   EDIT=e;
   document.getElementById('mTitle').textContent='עריכת אירוע';
@@ -598,8 +632,11 @@ async function switchYear(){
 
 (async function boot(){
   YEAR = planYear();
-  const p=new URLSearchParams(location.search).get('year');
+  const q=new URLSearchParams(location.search);
+  const p=q.get('year');
   if(p) YEAR=parseInt(p,10);
+  VIEW = q.get('view')==='1';
+  if(VIEW) document.body.classList.add('viewonly');
   buildYearSel(); drawColors();
   try{ await load(); render(); }
   catch(e){
