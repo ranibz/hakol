@@ -1,5 +1,20 @@
 <!DOCTYPE html>
-<!-- eshi/emergency/shichrur.html · v1.1.0 · 2026-08-19 · בית חינוך גליל מערבי
+<!-- eshi/emergency/shichrur.html · v1.2.0 · 2026-08-19 · בית חינוך גליל מערבי
+
+     v1.2.0 · הוחלף לזרימה הדו-שלבית שמערכת השער מצפה לה.
+     gate-guard v8 מציג לשומר אך ורק רשומות status='pending',
+     וכפתור "אשר יציאה" מעביר אותן ל-'released'. ב-v1.1.0 נכתב
+     'released' מיד, ולכן השחרורים עודכנו בכיתות האם ומעולם
+     לא הגיעו לשומר.
+
+     · המסך מציג שני מצבים נפרדים: ממתינים ליציאה בשער,
+       ומי שכבר עבר.
+     · ביטול אפשרי רק בזמן המתנה. משעבר התלמיד בשער, היציאה
+       היא עובדה שקרתה ומחיקתה תמחק תיעוד של יציאה אמיתית.
+
+     ⚠ משמעות השינוי: התלמיד ייראה כמשוחרר ב-emergency-drill
+     וב-matzevet רק לאחר שהשומר יאשר, מפני ששניהם מסננים
+     status=eq.released. זה נכון — עד אז התלמיד עדיין בבית הספר (MINOR).
 
      v1.1.0 · הותאם לסכמה האמיתית של student_releases. ב-v1.0.0
      לא נשלח released_by כלל, ומאחר שהוא NOT NULL ללא ברירת
@@ -187,8 +202,8 @@ body{background:var(--bg);color:#333;padding-bottom:50px}
 <div class="toast" id="toast"></div>
 
 <div class="foot">
-  <span>השחרורים מוצגים גם במסך המנהלת ובמצבת השכבתית</span>
-  <span class="v">shichrur · v1.1.0</span>
+  <span>הבקשה עוברת לשומר בשער, ומשאושרה מופיעה בנוכחות ובמצבת</span>
+  <span class="v">shichrur · v1.2.0</span>
 </div>
 
 <script>
@@ -284,7 +299,7 @@ async function load(){
   const [students, daily, releases] = await Promise.all([
     api('students?order=class,name'),
     api('daily_attendance'),
-    api('student_releases?status=eq.released&released_at=gte.'+t+
+    api('student_releases?released_at=gte.'+t+
         'T00:00:00&order=released_at.desc')
   ]);
 
@@ -296,10 +311,12 @@ async function load(){
 
   RELEASED={};
   (releases||[]).forEach(r=>{
+    if(r.status!=='pending' && r.status!=='released') return;
     if(RELEASED[r.student_id]) return;
     const d=new Date(r.released_at);
     RELEASED[r.student_id]={
       rowId: r.id,
+      state: r.status,          /* pending = ממתין לשומר · released = יצא */
       time: String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0'),
       reason: r.release_reason||'',
       by: r.released_by||'',
@@ -323,7 +340,7 @@ async function load(){
 /* גיחה נבדקת לפני הנוכחות — הכלל מ-v50.1 */
 function statusOf(id){
   const sid=String(id);
-  if(RELEASED[id])     return 'released';
+  if(RELEASED[id]) return RELEASED[id].state==='pending' ? 'pending' : 'released';
   if(ONGICHA.has(sid)) return 'gicha';
   if(ONTRIP.has(sid))  return 'trip';
   const d=DAILY[id];
@@ -332,7 +349,8 @@ function statusOf(id){
   return 'none';
 }
 const TAG = {present:['ok','נוכח'], absent:['no','נעדר'], none:['wa','טרם דווח'],
-             trip:['in','בטיול'], gicha:['in','בגיחה'], released:['in','שוחרר']};
+             trip:['in','בטיול'], gicha:['in','בגיחה'],
+             pending:['wa','ממתין בשער'], released:['in','יצא']};
 
 function classesOf(g){
   const set=new Set();
@@ -369,20 +387,32 @@ function render(){
   /* ששוחררו היום בשכבה הזו — למעלה, כי זו התמונה שהרכז נשאל עליה */
   const mine=Object.keys(RELEASED)
     .filter(id=>STUDENTS[id] && parseClass(STUDENTS[id].class).grade===GRADE);
-  const top = mine.length ? `<div class="today-box">
-      <h2>🚪 שוחררו היום · ${mine.length}</h2>
-      ${mine.map(id=>{
-        const s=STUDENTS[id], r=RELEASED[id];
-        return `<div class="rel"><span class="nm">${esc(s.name)}</span>
-          <span class="meta">${esc(s.class)} · ${esc(r.time)} · ${esc(r.reason)}${
-            r.pickup?' · נאסף ע"י '+esc(r.pickup):''}${
-            r.by?' · שוחרר ע"י '+esc(r.by):''}</span>
-          <button class="undo" onclick="undo('${esc(String(id))}')">ביטול שחרור</button>
-        </div>`;}).join('')}</div>` : '';
+  /* ⚠ ביטול אפשרי רק בזמן שהבקשה ממתינה. משעבר התלמיד בשער היציאה
+     היא עובדה שקרתה, ומחיקת הרשומה הייתה מוחקת תיעוד של יציאה אמיתית. */
+  const waiting = mine.filter(id=>RELEASED[id].state==='pending');
+  const gone    = mine.filter(id=>RELEASED[id].state==='released');
+  const line = (id, undoable) => {
+    const s=STUDENTS[id], r=RELEASED[id];
+    return `<div class="rel"><span class="nm">${esc(s.name)}</span>
+      <span class="meta">${esc(s.class)} · ${esc(r.time)} · ${esc(r.reason)}${
+        r.pickup?' · נאסף ע"י '+esc(r.pickup):''}${
+        r.by?' · אישר/ה '+esc(r.by):''}</span>
+      ${undoable
+        ? `<button class="undo" onclick="undo('${esc(String(id))}')">ביטול הבקשה</button>`
+        : '<span class="meta" style="margin-inline-start:auto">✅ עבר/ה בשער</span>'}
+    </div>`;
+  };
+  const top = (waiting.length||gone.length) ? `<div class="today-box">
+      ${waiting.length?`<h2>⏳ ממתינים ליציאה בשער · ${waiting.length}</h2>
+        ${waiting.map(id=>line(id,true)).join('')}`:''}
+      ${gone.length?`<h2 style="margin-top:${waiting.length?'13px':'0'}">
+        🚪 יצאו היום · ${gone.length}</h2>
+        ${gone.map(id=>line(id,false)).join('')}`:''}
+    </div>` : '';
 
   const cards=classes.map(c=>{
     const st=studentsOf(c);
-    const rel=st.filter(([id])=>RELEASED[id]).length;
+    const rel=st.filter(([id])=>RELEASED[id]).length;   /* ממתינים + שיצאו */
     if(!st.length) return '';
     return `<div class="cls-card ${OPEN.has(c)?'open':''}"
         style="border-inline-start-color:${getColor(c)}">
@@ -392,11 +422,12 @@ function render(){
       </div>
       <div class="cls-b">${st.map(([id,s])=>{
         const k=statusOf(id), tg=TAG[k];
-        const done=k==='released';
+        const done = k==='pending' || k==='released';
         return `<div class="stu"><span class="nm">${esc(s.name)}</span>
           <span class="tag ${tg[0]}">${tg[1]}</span>
           <span class="act">${done
-            ? `<button class="btn-rel" disabled>שוחרר ${esc(RELEASED[id].time)}</button>`
+            ? `<button class="btn-rel" disabled>${
+                k==='pending'?'נשלח '+esc(RELEASED[id].time):'יצא '+esc(RELEASED[id].time)}</button>`
             : `<button class="btn-rel" onclick="openModal('${esc(String(id))}')">שחרור</button>`
           }</span></div>`;}).join('')}</div>
     </div>`;}).join('');
@@ -434,10 +465,13 @@ function toast(t, err){
 /* release_reason ו-released_by שניהם NOT NULL ללא ברירת מחדל. שליחה
    בלעדיהם נדחית על ידי המסד, ולכן שניהם נבדקים כאן לפני הפנייה.
 
-   status נשלח במפורש כ-'released' ואינו נשאר בברירת המחדל 'pending':
-   emergency-drill ו-matzevet מסננים status=eq.released, ורשומה שתישאר
-   pending לא תיספר בשום מקום — התלמיד ייצא מבית הספר ויוסיף להיראות
-   נוכח. */
+   ⚠ status נשלח כ-'pending' ולא כ-'released'. מסך השומר (gate-guard v8)
+   מציג לשומר אך ורק רשומות pending, ולוחצן "אשר יציאה" מבצע
+   PATCH status='released'. רשומה שנוצרת כבר כ-released אינה מגיעה
+   לשומר לעולם — זו הסיבה שהשחרורים עודכנו בכיתות האם ולא הופיעו בשער.
+
+   המשמעות: התלמיד ייחשב משוחרר בנוכחות ובמצבת רק לאחר שיעבור בשער.
+   זה נכון — עד אז הוא עדיין בבית הספר. */
 async function doRelease(){
   if(!TARGET) return;
   const err=document.getElementById('mErr');
@@ -454,7 +488,7 @@ async function doRelease(){
     released_by: by,
     release_reason: reason,
     released_at: new Date().toISOString(),
-    status: 'released'
+    status: 'pending'
   };
   const pickup=(document.getElementById('mPickup').value||'').trim();
   const phone=(document.getElementById('mPhone').value||'').trim();
@@ -467,7 +501,7 @@ async function doRelease(){
     const nm = STUDENTS[TARGET] ? STUDENTS[TARGET].name : '';
     closeModal();
     await load(); render();
-    toast('✓ '+nm+' שוחרר');
+    toast('✓ '+nm+' — הבקשה נשלחה לשער');
   }catch(e){
     err.textContent='שגיאה: '+String(e.message||e).slice(0,110);
     err.classList.add('on');
@@ -475,15 +509,21 @@ async function doRelease(){
   btn.disabled=false; btn.textContent='שחרור ←';
 }
 
-/* ביטול מוחק את הרשומה ואינו משנה סטטוס — ראו ההערה בראש הקובץ */
+/* ביטול מוחק את הרשומה ואינו משנה סטטוס: gate-guard מסנן לפי status,
+   ורשומה מבוטלת שנשארת בטבלה הייתה ממשיכה להופיע לשומר או להיספר.
+   המחיקה מוגבלת ל-pending בלבד ולתאריך היום. */
 async function undo(id){
-  const s=STUDENTS[id];
-  if(!confirm('לבטל את השחרור של '+(s?s.name:'')+'?')) return;
+  const s=STUDENTS[id], r=RELEASED[id];
+  if(!r) return;
+  if(r.state!=='pending'){
+    toast('התלמיד/ה כבר עבר/ה בשער — לא ניתן לבטל', true); return;
+  }
+  if(!confirm('לבטל את בקשת השחרור של '+(s?s.name:'')+'?')) return;
   try{
     await api('student_releases?student_id=eq.'+encodeURIComponent(id)+
-      '&released_at=gte.'+todayStr()+'T00:00:00', {method:'DELETE'});
+      '&status=eq.pending&released_at=gte.'+todayStr()+'T00:00:00', {method:'DELETE'});
     await load(); render();
-    toast('השחרור בוטל');
+    toast('הבקשה בוטלה');
   }catch(e){ toast('שגיאה: '+String(e.message||e).slice(0,90), true); }
 }
 
