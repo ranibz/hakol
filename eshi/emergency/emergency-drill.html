@@ -1,5 +1,11 @@
 <!DOCTYPE html>
-<!-- גרסה: v65 | תאריך: 2026-08-31 | קליטת אלפוני שכבות במקום מצבת אחת.
+<!-- גרסה: v66 | תאריך: 2026-08-31 | סיסמת הניהול הוחלפה, ואינה נשמרת עוד
+     בקוד: במקומה טביעת SHA-256 עם מלח (SYSADMIN_HASH), והבדיקה מחשבת טביעה
+     מהקלט ומשווה. קודם הסיסמה ישבה כמחרוזת גלויה וכל Ctrl+U חשף מסך שמוחק
+     תלמידים ומעלה מצבות. ההגנה מכסה מציצה מזדמנת בלבד — הבדיקה עדיין רצה
+     בדפדפן וניתנת לעקיפה בידי מי שמבין קוד; המשך מתבקש הוא בדיקה
+     ב-Netlify Function עם משתנה סביבה (MINOR).
+     v65 | תאריך: 2026-08-31 | קליטת אלפוני שכבות במקום מצבת אחת.
      המזכירות שולחות קובץ נפרד לכל שכבה, ובמבנה שונה: כותרות בשורה 3,
      עמודה C שם מלא (ולא שם משפחה), D מין, G תאריך לידה, I גיל — כך שהמיפוי
      הקבוע הישן היה שומר תאריך לידה בשדה הטלפון וגיל בשדה היישוב, ויוצר
@@ -881,7 +887,27 @@ let currentEvent = null; // 'attendance' | 'emergency'
 let activeClass = null;
 let allStudents = {};
 let allStudentsRaw = {}; // v57: כולל תלמידים לא-פעילים, לשימוש מסך הניהול
-const SYSADMIN_PW = 'Galilmaaravi2025!';
+/* v66: הסיסמה אינה נשמרת בקוד — רק טביעת SHA-256 שלה עם מלח קבוע.
+   מהטביעה אי אפשר לחלץ את המילה, ולכן Ctrl+U כבר לא חושף אותה.
+   ⚠ מגבלה שצריך להכיר: הבדיקה עדיין רצה בדפדפן, ולכן מי שמבין קוד יכול
+   לנסות ניחושים מול הטביעה או לעקוף את הבדיקה לגמרי. זו הגנה מפני מציצה
+   מזדמנת, לא מפני תוקף. הפתרון האמיתי הוא בדיקה ב-Netlify Function. */
+const SYSADMIN_SALT = 'gm-emg-2026';
+const SYSADMIN_HASH = '8977621c44e32f551376754d887af610a6a5fff49c6c201cfce94423321f0893';
+
+async function sysadminCheck(input) {
+    try {
+        const data = new TextEncoder().encode(SYSADMIN_SALT + String(input));
+        const buf = await crypto.subtle.digest('SHA-256', data);
+        const hex = Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
+        return hex === SYSADMIN_HASH;
+    } catch (e) {
+        /* crypto.subtle קיים רק ב-HTTPS או ב-localhost. בפתיחת הקובץ
+           מהדיסק אין הצפנה — ואז עדיף לחסום מאשר לפתוח בלי בדיקה. */
+        console.error('crypto.subtle לא זמין', e);
+        return false;
+    }
+}
 let dailyAttendance = {}; // student_id -> 'present' | 'absent'
 let emergencyStatus = {}; // student_id -> status
 let classPhase = {}; // class_name -> 'phase1_done'
@@ -3213,7 +3239,8 @@ async function autoArchiveAndReset(dateStr) {
 // ========== v57: ניהול מערכת + דיווח בעיה ==========
 async function openSysAdmin() {
     const input = prompt('סיסמת ניהול:');
-    if (input !== SYSADMIN_PW) { if (input !== null) toast('סיסמה שגויה', 'err'); return; }
+    if (input === null) return;
+    if (!(await sysadminCheck(input))) { toast('סיסמה שגויה', 'err'); return; }
     showScreen('screen-sysadmin');
     await loadData();
     renderIssues();
