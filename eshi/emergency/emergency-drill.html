@@ -1,5 +1,15 @@
 <!DOCTYPE html>
-<!-- גרסה: v64 | תאריך: 2026-08-18 | נרמול שם כיתה בכל נקודת כתיבה (normClass):
+<!-- גרסה: v65 | תאריך: 2026-08-31 | קליטת אלפוני שכבות במקום מצבת אחת.
+     המזכירות שולחות קובץ נפרד לכל שכבה, ובמבנה שונה: כותרות בשורה 3,
+     עמודה C שם מלא (ולא שם משפחה), D מין, G תאריך לידה, I גיל — כך שהמיפוי
+     הקבוע הישן היה שומר תאריך לידה בשדה הטלפון וגיל בשדה היישוב, ויוצר
+     תלמיד רפאים משורת הכותרות. מעכשיו העמודות מזוהות לפי שם הכותרת
+     (HDR_MAP) ושורת הכותרות מאותרת אוטומטית, כך ששינוי סדר עמודות לא ישבור.
+     שינוי שני וקריטי: המחיקה הוגבלה לכיתות שבקובץ בלבד — קודם נמחקה כל
+     טבלת students, ולכן העלאת אלפון ז' לבדו הייתה מוחקת את ח' עד י"ב.
+     נוסף אישור לפני מחיקה שמציג את רשימת הכיתות, ואפשרות לבחור כמה
+     אלפונים יחד (MAJOR: התנהגות ההעלאה השתנתה).
+     v64 | תאריך: 2026-08-18 | נרמול שם כיתה בכל נקודת כתיבה (normClass):
      הסרת גרש וכיווץ רווחים. מצבת תשפ"ז נקלטה עם "י'  2" לצד "י 1", ומאחר
      ש-parseClass מפצל לפי רווח היא החזירה שכבה "י'" שאינה קיימת בשום מפה —
      שש כיתות י' נשרו מכל ספירה לפי שכבה, קיבלו צבע אפור והוצגו תחת "אחר".
@@ -787,9 +797,10 @@
             <div class="admin-section">
                 <h3>📥 עדכון מצבות (Excel)</h3>
                 <div class="upload-zone" style="display:block;">
-                    <p style="margin-bottom:10px; color:#777;">מצבת תלמידים (כיתות אם) — מחליף את כל התלמידים</p>
-                    <input type="file" id="excelFile" accept=".xlsx,.xls" onchange="handleExcelUpload(event)">
-                    <button class="btn-upload" onclick="document.getElementById('excelFile').click()">📁 בחר קובץ מצבת</button>
+                    <p style="margin-bottom:10px; color:#777;">אלפוני שכבות — אפשר לבחור כמה קבצים יחד.<br>
+                    <b>מוחלפות רק השכבות שבקבצים</b>; שאר בית הספר אינו נוגע.</p>
+                    <input type="file" id="excelFile" accept=".xlsx,.xls" multiple onchange="handleExcelUpload(event)">
+                    <button class="btn-upload" onclick="document.getElementById('excelFile').click()">📁 בחר אלפון/ים</button>
                     <div id="uploadStatus" style="margin-top:10px; font-weight:bold;"></div>
                 </div>
                 <div class="upload-zone" style="display:block; margin-top:12px;">
@@ -2957,55 +2968,170 @@ async function archiveEvent() {
     }
 }
 
-// ========== העלאת אקסל ==========
-function handleExcelUpload(event) {
-    const file = event.target.files[0];
-    if (!file) return;
-    const statusDiv = document.getElementById('uploadStatus');
-    statusDiv.textContent = '⏳ טוען...';
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-        try {
-            const data = new Uint8Array(e.target.result);
-            const wb = XLSX.read(data, { type: 'array' });
-            const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1 });
-            
-            // עמודות קבועות
-            let headerRow = 0;
-            let cols = { id: 1, firstName: 3, lastName: 2, shihva: 4, classNum: 5, phone: 6, city: 8 };
-            
-            const students = [];
-            for (let i = headerRow + 1; i < rows.length; i++) {
-                const row = rows[i];
-                if (!row || !row[cols.id]) continue;
-                const fullName = (String(row[cols.lastName] || '') + ' ' + String(row[cols.firstName] || '')).trim();
-                if (!fullName) continue;
-                const cls = normClass(String(row[cols.shihva] || '') + ' ' + String(row[cols.classNum] || '')) || 'ללא';
-                let phone = String(row[cols.phone] || '').replace(/[-\s()]/g, '');
-                if (phone.startsWith('+972')) phone = '0' + phone.substring(4);
-                const city = String(row[cols.city] || '').trim() || 'לא ידוע';
-                students.push({ id: String(row[cols.id]).trim(), name: fullName, class: cls, phone: phone, city: city });
-            }
-            
-            const unique = {};
-            students.forEach(s => { unique[s.id] = s; });
-            const final = Object.values(unique);
-            
-            statusDiv.textContent = '⏳ שומר ' + final.length + '...';
-            await api('emergency_drill?student_id=neq.0', { method: 'DELETE' });
-            await api('daily_attendance?student_id=neq.0', { method: 'DELETE' });
-            await api('class_status?class_name=neq.0', { method: 'DELETE' });
-            await api('students?id=neq.0', { method: 'DELETE' });
-            
-            for (let i = 0; i < final.length; i += 50) {
-                await api('students', { method: 'POST', prefer: 'resolution=merge-duplicates', body: JSON.stringify(final.slice(i, i + 50)) });
-            }
-            statusDiv.textContent = '✅ ' + final.length + ' תלמידים!';
-        } catch (err) {
-            statusDiv.textContent = '❌ ' + err.message;
+// ========== העלאת אקסל · v65 ==========
+/* המזכירות שולחות אלפון נפרד לכל שכבה, ולא מצבת אחת של כל בית הספר.
+   שני שינויים נובעים מכך:
+   1. הכותרות מזוהות לפי שמן ולא לפי מיקום קבוע. באלפון הן בשורה 3,
+      עמודה C היא שם מלא (ולא שם משפחה), D היא מין, G תאריך לידה ו-I גיל —
+      כלומר המיפוי הישן היה שומר תאריך לידה כטלפון וגיל כיישוב.
+   2. המחיקה מוגבלת לשכבות שבקבצים בלבד. קודם נמחקה כל טבלת התלמידים,
+      ולכן העלאת אלפון ז' לבדו הייתה מוחקת את ח' עד י"ב. */
+
+const HDR_MAP = {
+    id:     ['ת.ז', 'תז', 'מספר זהות', 'ת. ז', 'זהות'],
+    name:   ['שם התלמיד', 'שם תלמיד', 'שם מלא'],
+    last:   ['שם משפחה'],
+    first:  ['שם פרטי'],
+    shihva: ['שכבה'],
+    cls:    ['מקבילה', 'כיתה'],
+    phone:  ['טלפון נייד של הורה 1', 'נייד הורה', 'טלפון נייד של הורה 2',
+             'סלולרי של התלמיד', 'טלפון נייד', 'טלפון בבית'],
+    city:   ['ישוב 1', 'יישוב 1', 'ישוב', 'יישוב']
+};
+
+/* השוואת כותרות: הסרת גרשיים, נקודות ורווחים כפולים */
+function hdrNorm(s) {
+    return String(s == null ? '' : s).replace(/["'\u05f3\u05f4.]/g, '').replace(/\s+/g, ' ').trim();
+}
+
+/* איתור שורת הכותרות: השורה הראשונה שיש בה גם ת.ז וגם שכבה */
+function findHeaderRow(rows) {
+    for (let i = 0; i < Math.min(rows.length, 15); i++) {
+        const cells = (rows[i] || []).map(hdrNorm);
+        const hasId = cells.some(c => HDR_MAP.id.includes(c));
+        const hasSh = cells.some(c => HDR_MAP.shihva.includes(c));
+        if (hasId && hasSh) return i;
+    }
+    return -1;
+}
+
+/* מיפוי שם כותרת למספר עמודה. לטלפון הסדר ברשימה הוא סדר עדיפות */
+function mapColumns(headerCells) {
+    const cells = headerCells.map(hdrNorm);
+    const find = names => {
+        for (const n of names) {
+            const idx = cells.indexOf(n);
+            if (idx > -1) return idx;
         }
+        return -1;
     };
-    reader.readAsArrayBuffer(file);
+    const m = {};
+    for (const key in HDR_MAP) m[key] = find(HDR_MAP[key]);
+    return m;
+}
+
+/* פענוח גיליון אחד לרשימת תלמידים. מחזיר גם שגיאה קריאה אם המבנה לא זוהה */
+function parseRosterSheet(rows, fileName) {
+    const hIdx = findHeaderRow(rows);
+    if (hIdx === -1) return { error: fileName + ': לא נמצאה שורת כותרות עם "ת.ז" ו"שכבה"' };
+    const col = mapColumns(rows[hIdx]);
+    if (col.id === -1) return { error: fileName + ': אין עמודת ת.ז' };
+    if (col.shihva === -1 || col.cls === -1) return { error: fileName + ': אין עמודת שכבה או מקבילה' };
+    if (col.name === -1 && col.last === -1) return { error: fileName + ': אין עמודת שם' };
+
+    const out = [];
+    for (let i = hIdx + 1; i < rows.length; i++) {
+        const row = rows[i];
+        if (!row) continue;
+        const rawId = String(row[col.id] == null ? '' : row[col.id]).trim();
+        /* רק ספרות — כך שורת כותרות חוזרת או שורת סיכום לא הופכת לתלמיד */
+        if (!/^\d{5,}$/.test(rawId)) continue;
+
+        let fullName = col.name > -1
+            ? String(row[col.name] || '').trim()
+            : (String(row[col.last] || '') + ' ' + String(row[col.first] || '')).trim();
+        if (!fullName) continue;
+
+        const cls = normClass(String(row[col.shihva] || '') + ' ' + String(row[col.cls] || '')) || 'ללא';
+
+        let phone = '';
+        for (const name of HDR_MAP.phone) {
+            const idx = rows[hIdx].map(hdrNorm).indexOf(name);
+            if (idx > -1 && row[idx]) { phone = String(row[idx]); break; }
+        }
+        phone = phone.replace(/[-\s()]/g, '');
+        if (phone.startsWith('+972')) phone = '0' + phone.substring(4);
+        if (phone && phone.length === 9 && !phone.startsWith('0')) phone = '0' + phone;
+
+        const city = col.city > -1 ? (String(row[col.city] || '').trim() || 'לא ידוע') : 'לא ידוע';
+        out.push({ id: rawId, name: fullName, class: cls, phone: phone, city: city });
+    }
+    return { students: out };
+}
+
+async function handleExcelUpload(event) {
+    const files = Array.from(event.target.files || []);
+    if (!files.length) return;
+    const statusDiv = document.getElementById('uploadStatus');
+    statusDiv.textContent = '⏳ קורא ' + files.length + ' קבצים...';
+
+    const readFile = f => new Promise((res, rej) => {
+        const r = new FileReader();
+        r.onload = e => res(new Uint8Array(e.target.result));
+        r.onerror = () => rej(new Error('קריאת ' + f.name + ' נכשלה'));
+        r.readAsArrayBuffer(f);
+    });
+
+    try {
+        const byId = {};
+        const errors = [];
+        for (const f of files) {
+            const wb = XLSX.read(await readFile(f), { type: 'array' });
+            for (const sheetName of wb.SheetNames) {
+                const rows = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { header: 1 });
+                const res = parseRosterSheet(rows, f.name);
+                if (res.error) { errors.push(res.error); continue; }
+                res.students.forEach(s => { byId[s.id] = s; });
+            }
+        }
+        const final = Object.values(byId);
+        if (!final.length) {
+            statusDiv.textContent = '❌ לא נקלט אף תלמיד. ' + (errors[0] || '');
+            return;
+        }
+
+        /* השכבות שבקבצים — ורק הן יימחקו */
+        const classes = [...new Set(final.map(s => s.class))].sort();
+        const grades  = [...new Set(classes.map(c => c.split(' ')[0]))].sort();
+
+        const msg = 'נקלטו ' + final.length + ' תלמידים ב-' + classes.length + ' כיתות:\n\n' +
+                    classes.join('   ') + '\n\n' +
+                    'הכיתות האלה יימחקו ויוחלפו בנתונים החדשים, כולל סימוני נוכחות שלהן.\n' +
+                    'שאר בית הספר לא ייגע.\n\nלהמשיך?';
+        if (!confirm(msg)) { statusDiv.textContent = 'בוטל'; return; }
+
+        /* מחיקה ממוקדת: קודם הרשומות התלויות בתלמיד, אחר כך התלמידים */
+        for (const cls of classes) {
+            const enc = encodeURIComponent(cls);
+            statusDiv.textContent = '⏳ מנקה ' + cls + '...';
+            let ids = [];
+            try {
+                const rows = await api('students?class=eq.' + enc + '&select=id');
+                ids = (rows || []).map(r => r.id);
+            } catch (e) { console.warn('שליפת תלמידי ' + cls, e); }
+            for (let i = 0; i < ids.length; i += 80) {
+                const chunk = ids.slice(i, i + 80).map(encodeURIComponent).join(',');
+                await api('daily_attendance?student_id=in.(' + chunk + ')', { method: 'DELETE' });
+                await api('emergency_drill?student_id=in.(' + chunk + ')', { method: 'DELETE' });
+            }
+            await api('class_status?class_name=eq.' + enc, { method: 'DELETE' });
+            await api('students?class=eq.' + enc, { method: 'DELETE' });
+        }
+
+        statusDiv.textContent = '⏳ שומר ' + final.length + '...';
+        for (let i = 0; i < final.length; i += 50) {
+            await api('students', { method: 'POST', prefer: 'resolution=merge-duplicates', body: JSON.stringify(final.slice(i, i + 50)) });
+        }
+
+        statusDiv.textContent = '✅ ' + final.length + ' תלמידים בשכבות ' + grades.join(', ') +
+                                (errors.length ? ' · דילוגים: ' + errors.join(' | ') : '');
+        await loadData();
+    } catch (err) {
+        statusDiv.textContent = '❌ ' + err.message;
+        console.error(err);
+    } finally {
+        event.target.value = '';
+    }
 }
 
 // ========== v58: איפוס יומי אוטומטי (רשת ביטחון אם שכחו "סיום יום") ==========
