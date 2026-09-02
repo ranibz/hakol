@@ -1,6 +1,14 @@
 <!DOCTYPE html>
-<!-- eshi/emergency/mivchanim.html · v1.1.0 · 2026-09-02 · בית חינוך גליל מערבי
+<!-- eshi/emergency/mivchanim.html · v1.2.0 · 2026-09-02 · בית חינוך גליל מערבי
      © רני בן זאב. יוזמה עצמאית, מימון עצמי.
+
+     v1.2.0 · נוספה העברת מבחן לתאריך אחר, לצד המחיקה. אותו מנוע
+     משבצות בדיוק, ובסוף עדכון במקום יצירה — כך שהמבחן שומר על
+     זהותו ואינו נמחק ונוצר מחדש.
+
+     ⚠ מבחן בהעברה אינו נספר נגד עצמו: לא בעומס השבועי, לא באזהרת
+     "יש מבחן באותו יום" ולא בגלישות. אחרת הוא היה מסמן באדום את
+     המשבצת שהוא עצמו יושב בה, ומונע מעצמו לזוז (MINOR).
 
      v1.1.0 · לחיצה על יום בלוח פותחת מבחן חדש באותו תאריך, והחיפוש
      רץ מיד: מי שלחץ על תאריך כבר אמר מה הוא רוצה, ואין טעם לבקש
@@ -176,7 +184,7 @@ const hebDay=d=>{ try{ return new Intl.DateTimeFormat('he-u-ca-hebrew',
 
 let YEAR=planYear(), GRADE='י', VIEW=false, MONTH=null,
     TT=[], SUBJ={}, BOARD=[], GANTT=[], CLASSES=[], NOEXAM_COL=false,
-    CAND=[], PICK=null, FORM={};
+    CAND=[], PICK=null, FORM={}, MOVE=null;   /* MOVE — המבחן שנמצא בהעברה */
 
 /* ============================================================
    טעינה
@@ -257,17 +265,21 @@ function matches(raw,base,level){
   if(level && String(s.level||'')!==String(level)) return false;
   return true;
 }
-/* מקצועות שכבר נגזלו השנה — בסיס לדירוג ולסימון */
+/* מקצועות שכבר נגזלו השנה — בסיס לדירוג ולסימון.
+   מבחן שנמצא בהעברה אינו נספר נגד עצמו: הגלישה שלו תיעלם
+   ברגע שיזוז, ואחרת הוא היה מסמן באדום את המשבצת שהוא כבר יושב בה. */
 function displacedSoFar(){
   const m={};
-  BOARD.forEach(e=>String(e.displaced||'').split(',').map(x=>x.trim())
+  BOARD.filter(e=>!MOVE||String(e.id)!==String(MOVE.id))
+    .forEach(e=>String(e.displaced||'').split(',').map(x=>x.trim())
     .filter(Boolean).forEach(x=>{ m[x]=(m[x]||0)+1; }));
   return m;
 }
 /* כמה מבחנים כבר יש לכיתה באותו שבוע */
 function weekLoad(dt,cls){
   const wk=weekKey(dt);
-  return BOARD.filter(e=>weekKey(fromIso(e.exam_date))===wk)
+  return BOARD.filter(e=>!MOVE||String(e.id)!==String(MOVE.id))
+    .filter(e=>weekKey(fromIso(e.exam_date))===wk)
     .filter(e=>e.scope==='grade'||e.class_name===cls).length;
 }
 
@@ -294,7 +306,8 @@ function buildCandidates(){
         const dl=Object.keys(disp);
         const repeat=dl.filter(x=>prev[x]);
         const load=Math.max.apply(null,cls.map(c=>weekLoad(d,c)));
-        const sameDay=BOARD.some(e=>e.exam_date===iso(d));
+        const sameDay=BOARD.some(e=>e.exam_date===iso(d) &&
+          (!MOVE||String(e.id)!==String(MOVE.id)));
         out.push({date:iso(d),day:di,hour:h,has:has.length,miss:miss.length,
                   total:has.length+miss.length,disp:dl,repeat:repeat,
                   load:load,sameDay:sameDay,evs:evs.map(e=>e.title)});
@@ -388,11 +401,30 @@ function openNew(date){
   if(!subs.length) return alert('אין מקצועות נבחנים בשכבה זו. '+
     'ודאו שהמערכת יובאה ושהמקצועות נורמלו במסך הייבוא.');
   const t=new Date(), plus=addD(t,21);
+  MOVE=null;
   FORM={base:subs[0].base, level:'', scope:'grade', cls:CLASSES[0],
         from:date||iso(t), to:date||iso(plus), oneDay:!!date};
   CAND=[]; PICK=null;
   if(date) buildCandidates();
   drawModal(subs);
+}
+
+/* ============================================================
+   העברת מבחן קיים
+   ------------------------------------------------------------
+   אותו מנוע בדיוק, ובסוף PATCH במקום POST. הגלישה מחושבת מחדש
+   לפי המשבצת החדשה, אחרת "גלישות השנה" היה ממשיך לספור מקצוע
+   שכבר אינו נגזל.
+   ============================================================ */
+function startMove(id){
+  const e=BOARD.find(x=>String(x.id)===String(id));
+  if(!e||VIEW) return;
+  MOVE=e;
+  const t=new Date(), plus=addD(t,28);
+  FORM={base:e.subject_base, level:e.level||'', scope:e.scope,
+        cls:e.class_name||CLASSES[0], from:iso(t), to:iso(plus), oneDay:false};
+  CAND=[]; PICK=null;
+  drawModal();
 }
 function drawModal(subs){
   subs=subs||subjectList();
@@ -400,8 +432,10 @@ function drawModal(subs){
   const lv=(subs.find(s=>s.base===FORM.base)||{levels:{}}).levels;
   const dd=FORM.oneDay?fromIso(FORM.from):null;
   const body=
-    '<h3>מבחן חדש · שכבה '+esc(GRADE)+
+    '<h3>'+(MOVE?'העברת מבחן':'מבחן חדש')+' · שכבה '+esc(GRADE)+
       (dd?' · יום '+DAYS[dayIdx(dd)]+' '+dd.getDate()+'.'+pad(dd.getMonth()+1):'')+'</h3>'+
+    (MOVE?'<p class="hint">כרגע: '+esc(MOVE.title||MOVE.subject_base)+' ב-'+
+      esc(MOVE.exam_date)+' שעה '+MOVE.hour+'. בחרו משבצת חדשה — הישנה תתפנה.</p>':'')+
     '<p class="hint">הכלי יציג רק משבצות אפשריות, מדורגות לפי כמה מכיתות '+
     'השכבה נמצאות במקצוע באותה שעה.</p>'+
     '<div class="row">'+
@@ -439,7 +473,7 @@ function drawModal(subs){
   }
   el('sheet').innerHTML=body;
 }
-function closeModal(){ const m=el('mdl'); if(m) m.remove(); }
+function closeModal(){ MOVE=null; const m=el('mdl'); if(m) m.remove(); }
 
 function findSlots(){ buildCandidates(); el('cands').innerHTML=candList(); }
 
@@ -479,15 +513,18 @@ function choose(i){
       '</div>':'')+
     '<div class="row" style="margin-top:12px">'+
       '<div><label>שם המבחן</label><input id="fTitle" placeholder="'+
-        esc(FORM.base)+' — מבחן" value=""></div>'+
+        esc(FORM.base)+' — מבחן" value="'+esc(MOVE&&MOVE.title||'')+'"></div>'+
       '<div style="flex:0;min-width:110px"><label>עד שעה</label>'+
-        '<input id="fH2" type="number" min="1" max="10" value="'+PICK.hour+'"></div>'+
+        '<input id="fH2" type="number" min="1" max="10" value="'+
+          (MOVE&&MOVE.hour_end&&MOVE.hour_end!==MOVE.hour
+            ? PICK.hour+(MOVE.hour_end-MOVE.hour) : PICK.hour)+'"></div>'+
     '</div>'+
     '<div style="margin-top:10px"><label>הערה</label>'+
-      '<input id="fNote" placeholder="לא חובה"></div>'+
+      '<input id="fNote" placeholder="לא חובה" value="'+esc(MOVE&&MOVE.notes||'')+'"></div>'+
     '<div class="acts">'+
       '<button class="btn g" onclick="drawModal()">חזרה</button>'+
-      '<button class="btn ok" id="svBtn" onclick="saveExam()">שמירה ←</button>'+
+      '<button class="btn ok" id="svBtn" onclick="saveExam()">'+
+        (MOVE?'העברה ←':'שמירה ←')+'</button>'+
     '</div><div id="mErr" class="msg no"></div>';
 }
 
@@ -504,11 +541,13 @@ async function saveExam(){
     updated_at:new Date().toISOString()};
   const b=el('svBtn'); b.disabled=true; b.textContent='שומר…';
   try{
-    await api('exam_board',{method:'POST',body:JSON.stringify([row])});
-    closeModal(); await loadAll(); render();
+    if(MOVE) await api('exam_board?id=eq.'+encodeURIComponent(MOVE.id),
+      {method:'PATCH',body:JSON.stringify(row)});
+    else     await api('exam_board',{method:'POST',body:JSON.stringify([row])});
+    MOVE=null; closeModal(); await loadAll(); render();
   }catch(e){
     el('mErr').textContent='שגיאה: '+e.message;
-    b.disabled=false; b.textContent='שמירה ←';
+    b.disabled=false; b.textContent=MOVE?'העברה ←':'שמירה ←';
   }
 }
 
@@ -534,6 +573,7 @@ function openExam(id){
     (e.notes?'<p style="margin-top:9px">'+esc(e.notes)+'</p>':'')+
     '<div class="acts">'+
       (VIEW?'':'<button class="btn no" onclick="delExam('+e.id+')">מחיקה</button>')+
+      (VIEW?'':'<button class="btn" onclick="startMove('+e.id+')">העברה לתאריך אחר</button>')+
       '<button class="btn g" onclick="closeModal()">סגירה</button>'+
     '</div>';
 }
