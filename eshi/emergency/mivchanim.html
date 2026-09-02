@@ -1,6 +1,12 @@
 <!DOCTYPE html>
-<!-- eshi/emergency/mivchanim.html · v1.0.0 · 2026-09-02 · בית חינוך גליל מערבי
+<!-- eshi/emergency/mivchanim.html · v1.1.0 · 2026-09-02 · בית חינוך גליל מערבי
      © רני בן זאב. יוזמה עצמאית, מימון עצמי.
+
+     v1.1.0 · לחיצה על יום בלוח פותחת מבחן חדש באותו תאריך, והחיפוש
+     רץ מיד: מי שלחץ על תאריך כבר אמר מה הוא רוצה, ואין טעם לבקש
+     ממנו טווח. יום חסום אינו נלחץ.
+     · תוקן: הכלל הגורף select{width:100%} מתח את בורר השכבה
+       בכותרת לכל רוחב הסרגל (MINOR).
 
      לוח מבחנים לרכז שכבה. הרכז אינו מחפש בלוח ואינו זוכר בעל פה
      מתי לשכבה יש מתמטיקה: הוא בוחר מקצוע וטווח, והכלי מצליב את
@@ -48,7 +54,10 @@ h1,h2,h3{font-family:'Secular One',sans-serif;font-weight:400;margin:0}
 .topin{max-width:1180px;margin:0 auto;padding:0 15px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
 .topin h1{font-size:1.25rem}
 .topin .sb{opacity:.85;font-size:.85rem}
-.topin select{border:0;border-radius:9px;padding:6px 11px;font-family:inherit;font-weight:800}
+/* ⚠ הכלל הגורף select{width:100%} מותח גם את בורר השכבה בכותרת
+   לכל רוחב הסרגל. כאן הוא חוזר לרוחב תוכנו. */
+.topin select{border:0;border-radius:9px;padding:6px 11px;font-family:inherit;
+  font-weight:800;width:auto;min-width:74px}
 .spacer{margin-inline-start:auto}
 .wrap{max-width:1180px;margin:0 auto;padding:16px 15px}
 .card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:17px 19px;margin-bottom:13px}
@@ -74,6 +83,8 @@ select,input,textarea{font-family:inherit;font-size:.95rem;border:1px solid #d5d
 .cell{background:#fff;border:1px solid var(--line);border-radius:11px;min-height:82px;
   padding:6px 7px;font-size:.8rem;position:relative}
 .cell.out{background:#faf9fd;border-style:dashed;opacity:.55}
+.cell.pick{cursor:pointer}
+.cell.pick:hover{border-color:#c4bce4;box-shadow:0 2px 9px rgba(76,29,149,.09)}
 .cell.vac{background:#fbeeee;border-color:#eccfcf}
 .cell .dn{font-family:'Secular One',sans-serif;font-size:.9rem;color:var(--soft)}
 .cell .heb{font-size:.68rem;color:#a7a3b8}
@@ -342,12 +353,14 @@ function calScreen(){
     cells.map(d=>{
       const s=iso(d), out=d.getMonth()!==MONTH.m;
       const evs=eventsOn(d), vac=isVacation(d);
-      return '<div class="cell'+(out?' out':'')+(vac?' vac':'')+'">'+
+      const pick=!VIEW && !isBlocked(d);
+      return '<div class="cell'+(out?' out':'')+(vac?' vac':'')+(pick?' pick':'')+'"'+
+        (pick?' onclick="openNew(\''+s+'\')" title="מבחן חדש ב-'+s+'"':'')+'>'+
         '<div class="dn">'+d.getDate()+' <span class="heb">'+esc(hebDay(d))+'</span></div>'+
         evs.slice(0,2).map(e=>'<span class="ev'+(e.track==='vacation'?' v':'')+'">'+
           esc(e.title)+'</span>').join('')+
         (byDate[s]||[]).map(e=>'<span class="ex'+(e.scope==='class'?' cls':'')+'" '+
-          'onclick="openExam('+e.id+')">'+esc(e.subject_base)+
+          'onclick="event.stopPropagation();openExam('+e.id+')">'+esc(e.subject_base)+
           (e.level?' '+esc(e.level):'')+(e.hour?' · ש׳'+e.hour:'')+
           (e.scope==='class'?' · '+esc(e.class_name):'')+'</span>').join('')+
         '</div>';
@@ -367,22 +380,28 @@ function calScreen(){
 /* ============================================================
    מבחן חדש
    ============================================================ */
-function openNew(){
+/* יום נבחר מן הלוח: הטווח מצטמצם אליו והחיפוש רץ מיד — הרכז
+   שלחץ על תאריך כבר אמר מה הוא רוצה, ואין טעם לבקש ממנו טווח. */
+function openNew(date){
   if(VIEW) return;
   const subs=subjectList();
   if(!subs.length) return alert('אין מקצועות נבחנים בשכבה זו. '+
     'ודאו שהמערכת יובאה ושהמקצועות נורמלו במסך הייבוא.');
   const t=new Date(), plus=addD(t,21);
   FORM={base:subs[0].base, level:'', scope:'grade', cls:CLASSES[0],
-        from:iso(t), to:iso(plus)};
+        from:date||iso(t), to:date||iso(plus), oneDay:!!date};
   CAND=[]; PICK=null;
+  if(date) buildCandidates();
   drawModal(subs);
 }
 function drawModal(subs){
   subs=subs||subjectList();
+  if(FORM.oneDay && !CAND.length) buildCandidates();
   const lv=(subs.find(s=>s.base===FORM.base)||{levels:{}}).levels;
+  const dd=FORM.oneDay?fromIso(FORM.from):null;
   const body=
-    '<h3>מבחן חדש · שכבה '+esc(GRADE)+'</h3>'+
+    '<h3>מבחן חדש · שכבה '+esc(GRADE)+
+      (dd?' · יום '+DAYS[dayIdx(dd)]+' '+dd.getDate()+'.'+pad(dd.getMonth()+1):'')+'</h3>'+
     '<p class="hint">הכלי יציג רק משבצות אפשריות, מדורגות לפי כמה מכיתות '+
     'השכבה נמצאות במקצוע באותה שעה.</p>'+
     '<div class="row">'+
