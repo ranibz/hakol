@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<!-- eshi/emergency/mivchanim.html · v1.0.0 · 2026-09-02 · בית חינוך גליל מערבי
+     © רני בן זאב. יוזמה עצמאית, מימון עצמי.
+
+     לוח מבחנים לרכז שכבה. הרכז אינו מחפש בלוח ואינו זוכר בעל פה
+     מתי לשכבה יש מתמטיקה: הוא בוחר מקצוע וטווח, והכלי מצליב את
+     המערכת עם הגאנט ועם המבחנים הקיימים ומציג רק את מה שאפשרי.
+
+     ⚠ הרעיון שעליו הכל עומד: ההקבצות כבר מסונכרנות במערכת. כשכל
+     כיתות השכבה יושבות במתמטיקה באותה שעה, זו משבצת המבחן —
+     היא כבר קיימת ואין צורך לבנות אותה. הכלי רק מוצא אותה.
+
+     גלישה ומה שנזכר ממנה
+     --------------------
+     מבחן אינו חייב לשבת על שעת המקצוע: לפעמים אין ברירה והוא
+     גולש על שיעור אחר. הכלי אינו חוסם זאת אלא רושם מי נגזל,
+     ובלוח הבא משבצת שתגזול שוב את אותו מקצוע יורדת בדירוג
+     ומסומנת. כך העלות מתפזרת ולא נופלת פעמיים על אותו מורה.
+
+     כללי העומס
+     ----------
+     מקסימום שני מבחנים בשבוע לכיתה. חריגה היא אזהרה ולא חסימה —
+     רכז שכבה חורג לפעמים ביודעין, וכלי שחוסם אותו הופך לכלי
+     שעוקפים.
+
+     ⚠ הגאנט: חופשה חוסמת. אירוע חט״ן חל על ז–ט ואירוע חט״ע על
+     י–יב, ושניהם אזהרה רכה עם שם האירוע — הגאנט אינו יודע להבחין
+     בין שבוע בגרויות ליום שיא. אם תיווסף העמודה no_exams ל-
+     gantt_events, הכלי יזהה אותה לבד ויתייחס אליה כחסימה.
+
+     מצב צפייה — ?view=1. מורה רואה את הלוח ואינו יכול לשנותו.
+     כמו בגאנט, זו הגנה מפני טעות ולא מפני כוונה. -->
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>לוח מבחנים · בית חינוך גליל מערבי</title>
+<link href="https://fonts.googleapis.com/css2?family=Secular+One&family=Assistant:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#1f2340;--soft:#6a6f8a;--bg:#f5f4f9;--line:#e3e0ee;--a:#4c1d95;--b:#0f766e;
+  --ok:#12b76a;--no:#dc2626;--warn:#e08600;--vac:#a33a3a}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:'Assistant',sans-serif;
+  font-size:16px;line-height:1.6;padding-bottom:50px}
+h1,h2,h3{font-family:'Secular One',sans-serif;font-weight:400;margin:0}
+.top{background:linear-gradient(135deg,var(--a),var(--b));color:#fff;padding:13px 0;
+  position:sticky;top:0;z-index:30}
+.topin{max-width:1180px;margin:0 auto;padding:0 15px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.topin h1{font-size:1.25rem}
+.topin .sb{opacity:.85;font-size:.85rem}
+.topin select{border:0;border-radius:9px;padding:6px 11px;font-family:inherit;font-weight:800}
+.spacer{margin-inline-start:auto}
+.wrap{max-width:1180px;margin:0 auto;padding:16px 15px}
+.card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:17px 19px;margin-bottom:13px}
+label{display:block;font-weight:800;font-size:.83rem;margin-bottom:4px}
+select,input,textarea{font-family:inherit;font-size:.95rem;border:1px solid #d5d2e4;
+  border-radius:10px;padding:9px 12px;background:#fff;color:var(--ink);width:100%}
+.row{display:flex;gap:11px;flex-wrap:wrap;align-items:flex-end}
+.row>div{flex:1;min-width:120px}
+.btn{background:var(--a);color:#fff;border:0;border-radius:11px;padding:10px 21px;
+  font-family:inherit;font-weight:800;font-size:.92rem;cursor:pointer}
+.btn:hover{filter:brightness(.92)} .btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.g{background:#efedf7;color:var(--ink)} .btn.ok{background:var(--ok)} .btn.no{background:var(--no)}
+.btn.sm{padding:6px 13px;font-size:.83rem;border-radius:9px}
+.hint{color:var(--soft);font-size:.86rem;margin:0 0 12px}
+.msg{font-weight:800;font-size:.88rem;margin-top:9px}
+.msg.ok{color:#0f7a4d} .msg.no{color:var(--no)}
+
+/* ---- לוח החודש ---- */
+.mhead{display:flex;gap:10px;align-items:center;margin-bottom:11px}
+.mhead h2{font-size:1.2rem}
+.cal{display:grid;grid-template-columns:repeat(6,1fr);gap:5px}
+.cal .wd{font-weight:800;font-size:.78rem;color:var(--soft);text-align:center;padding:3px}
+.cell{background:#fff;border:1px solid var(--line);border-radius:11px;min-height:82px;
+  padding:6px 7px;font-size:.8rem;position:relative}
+.cell.out{background:#faf9fd;border-style:dashed;opacity:.55}
+.cell.vac{background:#fbeeee;border-color:#eccfcf}
+.cell .dn{font-family:'Secular One',sans-serif;font-size:.9rem;color:var(--soft)}
+.cell .heb{font-size:.68rem;color:#a7a3b8}
+.ev{display:block;font-size:.7rem;font-weight:800;color:#8a5a00;background:#fff6e8;
+  border-radius:5px;padding:1px 5px;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ev.v{color:#9f1239;background:#fdecea}
+.ex{display:block;font-size:.74rem;font-weight:800;color:#fff;background:var(--a);
+  border-radius:6px;padding:2px 6px;margin-top:3px;cursor:pointer;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis}
+.ex.cls{background:var(--b)}
+.ex.warn{background:var(--warn)}
+
+/* ---- מועמדות ---- */
+.cand{border:2px solid var(--line);border-radius:13px;padding:11px 13px;margin-bottom:8px;
+  cursor:pointer;background:#fff}
+.cand:hover{border-color:#cfc9e8}
+.cand.full{border-inline-start:6px solid var(--ok)}
+.cand.part{border-inline-start:6px solid var(--warn)}
+.cand.over{border-inline-start:6px solid var(--no)}
+.cand b{font-family:'Secular One',sans-serif;font-weight:400;font-size:1.02rem}
+.cand .meta{color:var(--soft);font-size:.83rem}
+.cand .flag{display:inline-block;font-size:.75rem;font-weight:800;border-radius:20px;
+  padding:1px 9px;margin:4px 4px 0 0}
+.flag.g{background:#e7f7ee;color:#0f7a4d}
+.flag.y{background:#fff6e8;color:#8a5a00}
+.flag.r{background:#fdecea;color:#9f1239}
+
+.modal{position:fixed;inset:0;background:rgba(20,18,35,.45);display:flex;
+  align-items:center;justify-content:center;padding:15px;z-index:50}
+.sheet{background:#fff;border-radius:18px;padding:19px 21px;max-width:680px;width:100%;
+  max-height:88vh;overflow:auto}
+.sheet h3{font-size:1.15rem;margin-bottom:4px}
+.acts{display:flex;gap:9px;justify-content:flex-end;margin-top:14px;flex-wrap:wrap}
+table{border-collapse:collapse;width:100%;font-size:.85rem}
+th,td{border:1px solid var(--line);padding:6px 9px;text-align:right}
+th{background:#f6f5fb;font-weight:800;font-size:.8rem}
+.empty-state{color:var(--soft);text-align:center;padding:24px;font-size:.92rem}
+.viewonly .hideview{display:none!important}
+@media(max-width:700px){.cal{gap:3px}.cell{min-height:64px;padding:4px 5px}.topin h1{font-size:1.05rem}}
+</style>
+</head>
+<body>
+<div class="top"><div class="topin">
+  <h1>📝 לוח מבחנים</h1>
+  <select id="gradeSel" onchange="GRADE=this.value;boot()"></select>
+  <span class="sb" id="yearLbl"></span>
+  <span class="spacer"></span>
+  <button class="btn sm hideview" onclick="openNew()">מבחן חדש +</button>
+</div></div>
+
+<div class="wrap" id="app"><div class="empty-state">טוען…</div></div>
+
+<script>
+/* ============================================================
+   חיבור — skfriefqnoxfzmamcokd, אותו מסד של gantt_events
+   ============================================================ */
+const SURL='https://skfriefqnoxfzmamcokd.supabase.co';
+const SKEY='sb_publishable_Qx7EDPbdyYE9iv7uMQBKhQ_Aeojd_Q0';
+async function api(path,opts={}){
+  const r=await fetch(SURL+'/rest/v1/'+path,{...opts,
+    headers:{apikey:SKEY,Authorization:'Bearer '+SKEY,
+             'Content-Type':'application/json',Prefer:opts.prefer||''}});
+  if(!r.ok) throw new Error((await r.text()).slice(0,200));
+  const t=await r.text(); return t?JSON.parse(t):null;
+}
+const el=id=>document.getElementById(id);
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,
+  c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+const GRADES=['ז','ח','ט','י','יא','יב'];
+const JUNIOR=['ז','ח','ט'];
+const DAYS=['','ראשון','שני','שלישי','רביעי','חמישי','שישי'];
+const WD=['ראשון','שני','שלישי','רביעי','חמישי','שישי'];
+const MAX_WEEK=2;            /* מקסימום מבחנים בשבוע לכיתה */
+
+/* ---- תאריכים ---- */
+const pad=n=>String(n).padStart(2,'0');
+const iso=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+const fromIso=s=>{ const [y,m,d]=String(s).split('-').map(Number); return new Date(y,m-1,d); };
+const addD=(d,n)=>{ const x=new Date(d); x.setDate(x.getDate()+n); return x; };
+/* שבת אינה יום לימודים ואינה מקבלת אינדקס */
+const dayIdx=d=>d.getDay()===6?0:d.getDay()+1;
+/* השבוע מתחיל בראשון — זו יחידת "שני מבחנים בשבוע" */
+const weekKey=d=>iso(addD(d,-(d.getDay()===6?6:d.getDay())));
+function planYear(){ const d=new Date(); return d.getMonth()>=7?d.getFullYear():d.getFullYear()-1; }
+function yearLabel(y){ return 'תשפ״'+['ו','ז','ח','ט','י'][y-2025]+' · '+y+'/'+(y+1); }
+const hebDay=d=>{ try{ return new Intl.DateTimeFormat('he-u-ca-hebrew',
+  {day:'numeric',month:'short'}).format(d); }catch(e){ return ''; } };
+
+let YEAR=planYear(), GRADE='י', VIEW=false, MONTH=null,
+    TT=[], SUBJ={}, BOARD=[], GANTT=[], CLASSES=[], NOEXAM_COL=false,
+    CAND=[], PICK=null, FORM={};
+
+/* ============================================================
+   טעינה
+   ============================================================ */
+async function loadAll(){
+  TT=await api('exam_timetable?select=class_name,day,hour,subject_raw'+
+    '&year_start=eq.'+YEAR+'&grade=eq.'+encodeURIComponent(GRADE))||[];
+  CLASSES=[...new Set(TT.map(r=>r.class_name))].sort((a,b)=>{
+    const n=s=>parseInt(String(s).replace(/\D+/g,''),10)||0;
+    return n(a)-n(b)||String(a).localeCompare(b,'he');
+  });
+
+  SUBJ={};
+  ((await api('exam_subjects?select=*'))||[]).forEach(s=>{ SUBJ[s.subject_raw]=s; });
+
+  BOARD=await api('exam_board?select=*&year_start=eq.'+YEAR+
+    '&grade=eq.'+encodeURIComponent(GRADE)+'&order=exam_date')||[];
+
+  /* no_exams אינה קיימת בכל מסד. במקום להניח — מנסים, ואם היא
+     חסרה חוזרים לשליפה הרגילה. כך הכלי עובד לפני התוספת ואחריה. */
+  try{
+    GANTT=await api('gantt_events?select=track,title,start_date,end_date,no_exams'+
+      '&year_start=eq.'+YEAR)||[];
+    NOEXAM_COL=true;
+  }catch(e){
+    GANTT=await api('gantt_events?select=track,title,start_date,end_date'+
+      '&year_start=eq.'+YEAR)||[];
+    NOEXAM_COL=false;
+  }
+}
+
+/* מפת המערכת: יום → שעה → כיתה → מקצועות */
+function slotAt(day,hour,cls){
+  return TT.filter(r=>r.day===day&&r.hour===hour&&r.class_name===cls).map(r=>r.subject_raw);
+}
+const norm=raw=>SUBJ[raw]||{subject_base:raw,level:null,examable:true};
+
+/* המקצועות הנבחנים שקיימים בפועל בשכבה הזאת */
+function subjectList(){
+  const m={};
+  TT.forEach(r=>{
+    const s=norm(r.subject_raw);
+    if(s.examable===false) return;
+    if(!m[s.subject_base]) m[s.subject_base]={base:s.subject_base,levels:{},n:0};
+    m[s.subject_base].n++;
+    if(s.level) m[s.subject_base].levels[s.level]=1;
+  });
+  return Object.values(m).sort((a,b)=>b.n-a.n||a.base.localeCompare(b.base,'he'));
+}
+
+/* ---- הגאנט ליום נתון ---- */
+function eventsOn(dt){
+  const s=iso(dt);
+  return GANTT.filter(e=>e.start_date<=s && s<=e.end_date)
+    .filter(e=>{
+      if(e.track==='vacation'||e.track==='holidays') return true;
+      if(e.track==='junior') return JUNIOR.indexOf(GRADE)>-1;
+      if(e.track==='senior') return JUNIOR.indexOf(GRADE)<0;
+      return false;
+    });
+}
+const isVacation=dt=>eventsOn(dt).some(e=>e.track==='vacation');
+const isBlocked=dt=>eventsOn(dt).some(e=>e.track==='vacation'||e.no_exams===true);
+
+/* ============================================================
+   חישוב המועמדות — הלב
+   ------------------------------------------------------------
+   לכל יום בטווח ולכל שעה: כמה מכיתות ההיקף יושבות במקצוע.
+   כיסוי מלא הוא המשבצת הטובה; כיסוי חלקי אפשרי; אפס כיסוי
+   פירושו גלישה, והיא מותרת ונרשמת.
+   ============================================================ */
+function scopeClasses(){
+  return FORM.scope==='class' ? [FORM.cls] : CLASSES;
+}
+function matches(raw,base,level){
+  const s=norm(raw);
+  if(s.subject_base!==base) return false;
+  if(level && String(s.level||'')!==String(level)) return false;
+  return true;
+}
+/* מקצועות שכבר נגזלו השנה — בסיס לדירוג ולסימון */
+function displacedSoFar(){
+  const m={};
+  BOARD.forEach(e=>String(e.displaced||'').split(',').map(x=>x.trim())
+    .filter(Boolean).forEach(x=>{ m[x]=(m[x]||0)+1; }));
+  return m;
+}
+/* כמה מבחנים כבר יש לכיתה באותו שבוע */
+function weekLoad(dt,cls){
+  const wk=weekKey(dt);
+  return BOARD.filter(e=>weekKey(fromIso(e.exam_date))===wk)
+    .filter(e=>e.scope==='grade'||e.class_name===cls).length;
+}
+
+function buildCandidates(){
+  const {base,level,from,to}=FORM;
+  const cls=scopeClasses(), prev=displacedSoFar(), out=[];
+  let d=fromIso(from), end=fromIso(to);
+  while(d<=end){
+    const di=dayIdx(d);
+    if(di && !isBlocked(d)){
+      const evs=eventsOn(d).filter(e=>e.track!=='holidays');
+      for(let h=1;h<=10;h++){
+        const has=[], miss=[], disp={};
+        cls.forEach(c=>{
+          const raws=slotAt(di,h,c);
+          if(!raws.length) return;                  /* אין שיעור — לא נוגעים */
+          if(raws.some(r=>matches(r,base,level))) has.push(c);
+          else{
+            miss.push(c);
+            raws.forEach(r=>{ const s=norm(r); if(s.examable!==false) disp[s.subject_base]=1; });
+          }
+        });
+        if(!has.length && !miss.length) continue;   /* שעה ריקה לגמרי */
+        const dl=Object.keys(disp);
+        const repeat=dl.filter(x=>prev[x]);
+        const load=Math.max.apply(null,cls.map(c=>weekLoad(d,c)));
+        const sameDay=BOARD.some(e=>e.exam_date===iso(d));
+        out.push({date:iso(d),day:di,hour:h,has:has.length,miss:miss.length,
+                  total:has.length+miss.length,disp:dl,repeat:repeat,
+                  load:load,sameDay:sameDay,evs:evs.map(e=>e.title)});
+      }
+    }
+    d=addD(d,1);
+  }
+  /* דירוג: כיסוי מלא קודם, אחריו מעט גלישות, ובתוך שווים —
+     מוקדם יותר. גלישה חוזרת על אותו מקצוע נדחקת לסוף. */
+  out.sort((a,b)=>
+    (b.has/b.total)-(a.has/a.total) ||
+    a.repeat.length-b.repeat.length ||
+    a.disp.length-b.disp.length ||
+    (a.load>=MAX_WEEK?1:0)-(b.load>=MAX_WEEK?1:0) ||
+    a.date.localeCompare(b.date) || a.hour-b.hour);
+  CAND=out.slice(0,40);
+}
+
+/* ============================================================
+   לוח החודש
+   ============================================================ */
+function monthGrid(){
+  const first=new Date(MONTH.y,MONTH.m,1);
+  const start=addD(first,-(first.getDay()===6?6:first.getDay()));
+  const cells=[];
+  for(let i=0;i<42;i++){
+    const d=addD(start,i);
+    if(d.getDay()===6) continue;                    /* שבת אינה בלוח */
+    cells.push(d);
+    if(cells.length>=36) break;
+  }
+  return cells;
+}
+function monthLabel(){
+  return new Intl.DateTimeFormat('he',{month:'long',year:'numeric'})
+    .format(new Date(MONTH.y,MONTH.m,1));
+}
+function shiftMonth(n){
+  const d=new Date(MONTH.y,MONTH.m+n,1);
+  MONTH={y:d.getFullYear(),m:d.getMonth()}; render();
+}
+
+function calScreen(){
+  const cells=monthGrid();
+  const byDate={};
+  BOARD.forEach(e=>{ (byDate[e.exam_date]=byDate[e.exam_date]||[]).push(e); });
+
+  let html='<div class="card"><div class="mhead">'+
+    '<button class="btn g sm" onclick="shiftMonth(-1)">→ הקודם</button>'+
+    '<h2>'+esc(monthLabel())+'</h2>'+
+    '<button class="btn g sm" onclick="shiftMonth(1)">הבא ←</button>'+
+    '<span class="hint" style="margin:0 0 0 auto">שכבה '+esc(GRADE)+' · '+
+      CLASSES.length+' כיתות · '+BOARD.length+' מבחנים בשנה</span>'+
+    '</div><div class="cal">'+
+    WD.map(w=>'<div class="wd">'+w+'</div>').join('')+
+    cells.map(d=>{
+      const s=iso(d), out=d.getMonth()!==MONTH.m;
+      const evs=eventsOn(d), vac=isVacation(d);
+      return '<div class="cell'+(out?' out':'')+(vac?' vac':'')+'">'+
+        '<div class="dn">'+d.getDate()+' <span class="heb">'+esc(hebDay(d))+'</span></div>'+
+        evs.slice(0,2).map(e=>'<span class="ev'+(e.track==='vacation'?' v':'')+'">'+
+          esc(e.title)+'</span>').join('')+
+        (byDate[s]||[]).map(e=>'<span class="ex'+(e.scope==='class'?' cls':'')+'" '+
+          'onclick="openExam('+e.id+')">'+esc(e.subject_base)+
+          (e.level?' '+esc(e.level):'')+(e.hour?' · ש׳'+e.hour:'')+
+          (e.scope==='class'?' · '+esc(e.class_name):'')+'</span>').join('')+
+        '</div>';
+    }).join('')+'</div></div>';
+
+  /* גלישות — מה כבר נלקח השנה */
+  const dsp=displacedSoFar(), keys=Object.keys(dsp).sort((a,b)=>dsp[b]-dsp[a]);
+  if(keys.length) html+='<div class="card"><h3 style="font-size:1.05rem">גלישות השנה</h3>'+
+    '<p class="hint">מקצועות שמבחן כבר ישב על שעתם. הכלי ידחוק משבצת '+
+    'שתגזול אותם שוב.</p>'+
+    '<table><thead><tr><th>מקצוע</th><th style="width:90px">פעמים</th></tr></thead><tbody>'+
+    keys.map(k=>'<tr><td>'+esc(k)+'</td><td>'+dsp[k]+'</td></tr>').join('')+
+    '</tbody></table></div>';
+  return html;
+}
+
+/* ============================================================
+   מבחן חדש
+   ============================================================ */
+function openNew(){
+  if(VIEW) return;
+  const subs=subjectList();
+  if(!subs.length) return alert('אין מקצועות נבחנים בשכבה זו. '+
+    'ודאו שהמערכת יובאה ושהמקצועות נורמלו במסך הייבוא.');
+  const t=new Date(), plus=addD(t,21);
+  FORM={base:subs[0].base, level:'', scope:'grade', cls:CLASSES[0],
+        from:iso(t), to:iso(plus)};
+  CAND=[]; PICK=null;
+  drawModal(subs);
+}
+function drawModal(subs){
+  subs=subs||subjectList();
+  const lv=(subs.find(s=>s.base===FORM.base)||{levels:{}}).levels;
+  const body=
+    '<h3>מבחן חדש · שכבה '+esc(GRADE)+'</h3>'+
+    '<p class="hint">הכלי יציג רק משבצות אפשריות, מדורגות לפי כמה מכיתות '+
+    'השכבה נמצאות במקצוע באותה שעה.</p>'+
+    '<div class="row">'+
+      '<div><label>מקצוע</label><select onchange="FORM.base=this.value;FORM.level=\'\';CAND=[];drawModal()">'+
+        subs.map(s=>'<option'+(s.base===FORM.base?' selected':'')+'>'+esc(s.base)+
+          '</option>').join('')+'</select></div>'+
+      '<div><label>רמה</label><select onchange="FORM.level=this.value;CAND=[];drawModal()">'+
+        '<option value="">כל הרמות</option>'+
+        Object.keys(lv).map(l=>'<option'+(l===FORM.level?' selected':'')+'>'+esc(l)+
+          '</option>').join('')+'</select></div>'+
+      '<div><label>היקף</label><select onchange="FORM.scope=this.value;CAND=[];drawModal()">'+
+        '<option value="grade"'+(FORM.scope==='grade'?' selected':'')+'>כל השכבה</option>'+
+        '<option value="class"'+(FORM.scope==='class'?' selected':'')+'>כיתה אחת</option>'+
+        '</select></div>'+
+      (FORM.scope==='class'?'<div><label>כיתה</label>'+
+        '<select onchange="FORM.cls=this.value;CAND=[];drawModal()">'+
+        CLASSES.map(c=>'<option'+(c===FORM.cls?' selected':'')+'>'+esc(c)+'</option>').join('')+
+        '</select></div>':'')+
+    '</div>'+
+    '<div class="row" style="margin-top:10px">'+
+      '<div><label>מתאריך</label><input type="date" value="'+FORM.from+
+        '" onchange="FORM.from=this.value;CAND=[];drawModal()"></div>'+
+      '<div><label>עד תאריך</label><input type="date" value="'+FORM.to+
+        '" onchange="FORM.to=this.value;CAND=[];drawModal()"></div>'+
+      '<button class="btn" style="flex:0" onclick="findSlots()">חיפוש משבצות</button>'+
+    '</div>'+
+    '<div id="cands" style="margin-top:14px">'+candList()+'</div>'+
+    '<div class="acts"><button class="btn g" onclick="closeModal()">סגירה</button></div>';
+  let m=el('mdl');
+  if(!m){
+    m=document.createElement('div'); m.className='modal'; m.id='mdl';
+    m.innerHTML='<div class="sheet" id="sheet"></div>';
+    m.onclick=e=>{ if(e.target===m) closeModal(); };
+    document.body.appendChild(m);
+  }
+  el('sheet').innerHTML=body;
+}
+function closeModal(){ const m=el('mdl'); if(m) m.remove(); }
+
+function findSlots(){ buildCandidates(); el('cands').innerHTML=candList(); }
+
+function candList(){
+  if(!CAND.length) return '<p class="hint">לחצו "חיפוש משבצות".</p>';
+  return '<p class="hint">'+CAND.length+' משבצות, הטובה למעלה. לחיצה בוחרת.</p>'+
+    CAND.map((c,i)=>{
+      const full=c.miss===0, none=c.has===0;
+      const d=fromIso(c.date);
+      return '<div class="cand '+(full?'full':none?'over':'part')+'" onclick="choose('+i+')">'+
+        '<b>יום '+DAYS[c.day]+' '+d.getDate()+'.'+pad(d.getMonth()+1)+' · שעה '+c.hour+'</b>'+
+        '<div class="meta">'+(full?'כל '+c.total+' הכיתות במקצוע':
+           none?'אף כיתה אינה במקצוע — גלישה מלאה':
+           c.has+' מתוך '+c.total+' הכיתות במקצוע')+'</div>'+
+        (c.disp.length?'<span class="flag '+(c.repeat.length?'r':'y')+'">גולש על: '+
+          esc(c.disp.join(' · '))+(c.repeat.length?' ⟳ כבר נגזל':'')+'</span>':'')+
+        (c.load>=MAX_WEEK?'<span class="flag y">'+c.load+' מבחנים כבר בשבוע זה</span>':'')+
+        (c.sameDay?'<span class="flag y">יש מבחן באותו יום</span>':'')+
+        (c.evs.length?'<span class="flag y">'+esc(c.evs.join(' · '))+'</span>':'')+
+        '</div>';
+    }).join('');
+}
+
+function choose(i){
+  PICK=CAND[i];
+  const d=fromIso(PICK.date);
+  el('sheet').innerHTML=
+    '<h3>אישור מבחן</h3>'+
+    '<p class="hint">'+esc(FORM.base)+(FORM.level?' · '+esc(FORM.level):'')+' · '+
+      (FORM.scope==='grade'?'כל שכבה '+esc(GRADE):esc(FORM.cls))+'<br>'+
+      'יום '+DAYS[PICK.day]+' '+d.getDate()+'.'+pad(d.getMonth()+1)+'.'+d.getFullYear()+
+      ' · שעה '+PICK.hour+'</p>'+
+    (PICK.disp.length?'<div class="flag '+(PICK.repeat.length?'r':'y')+'" '+
+      'style="display:block;padding:9px 12px;border-radius:10px">'+
+      'המבחן גולש על: '+esc(PICK.disp.join(' · '))+
+      (PICK.repeat.length?'<br>⚠ '+esc(PICK.repeat.join(' · '))+' כבר נגזל השנה.':'')+
+      '</div>':'')+
+    '<div class="row" style="margin-top:12px">'+
+      '<div><label>שם המבחן</label><input id="fTitle" placeholder="'+
+        esc(FORM.base)+' — מבחן" value=""></div>'+
+      '<div style="flex:0;min-width:110px"><label>עד שעה</label>'+
+        '<input id="fH2" type="number" min="1" max="10" value="'+PICK.hour+'"></div>'+
+    '</div>'+
+    '<div style="margin-top:10px"><label>הערה</label>'+
+      '<input id="fNote" placeholder="לא חובה"></div>'+
+    '<div class="acts">'+
+      '<button class="btn g" onclick="drawModal()">חזרה</button>'+
+      '<button class="btn ok" id="svBtn" onclick="saveExam()">שמירה ←</button>'+
+    '</div><div id="mErr" class="msg no"></div>';
+}
+
+async function saveExam(){
+  if(!PICK) return;
+  const row={year_start:YEAR, grade:GRADE, scope:FORM.scope,
+    class_name:FORM.scope==='class'?FORM.cls:null,
+    subject_base:FORM.base, level:FORM.level||null,
+    exam_date:PICK.date, hour:PICK.hour,
+    hour_end:parseInt(el('fH2').value,10)||PICK.hour,
+    title:(el('fTitle').value||'').trim()||FORM.base,
+    notes:(el('fNote').value||'').trim()||null,
+    displaced:PICK.disp.length?PICK.disp.join(', '):null,
+    updated_at:new Date().toISOString()};
+  const b=el('svBtn'); b.disabled=true; b.textContent='שומר…';
+  try{
+    await api('exam_board',{method:'POST',body:JSON.stringify([row])});
+    closeModal(); await loadAll(); render();
+  }catch(e){
+    el('mErr').textContent='שגיאה: '+e.message;
+    b.disabled=false; b.textContent='שמירה ←';
+  }
+}
+
+/* ---- מבחן קיים ---- */
+function openExam(id){
+  const e=BOARD.find(x=>String(x.id)===String(id));
+  if(!e) return;
+  const d=fromIso(e.exam_date);
+  let m=el('mdl');
+  if(!m){
+    m=document.createElement('div'); m.className='modal'; m.id='mdl';
+    m.innerHTML='<div class="sheet" id="sheet"></div>';
+    m.onclick=ev=>{ if(ev.target===m) closeModal(); };
+    document.body.appendChild(m);
+  }
+  el('sheet').innerHTML='<h3>'+esc(e.title||e.subject_base)+'</h3>'+
+    '<p class="hint">'+esc(e.subject_base)+(e.level?' · '+esc(e.level):'')+' · '+
+      (e.scope==='grade'?'כל השכבה':esc(e.class_name))+'<br>'+
+      'יום '+DAYS[dayIdx(d)]+' '+d.getDate()+'.'+pad(d.getMonth()+1)+'.'+d.getFullYear()+
+      ' · שעות '+e.hour+(e.hour_end&&e.hour_end!==e.hour?'–'+e.hour_end:'')+'</p>'+
+    (e.displaced?'<div class="flag y" style="display:block;padding:9px 12px;border-radius:10px">'+
+      'גולש על: '+esc(e.displaced)+'</div>':'')+
+    (e.notes?'<p style="margin-top:9px">'+esc(e.notes)+'</p>':'')+
+    '<div class="acts">'+
+      (VIEW?'':'<button class="btn no" onclick="delExam('+e.id+')">מחיקה</button>')+
+      '<button class="btn g" onclick="closeModal()">סגירה</button>'+
+    '</div>';
+}
+async function delExam(id){
+  const e=BOARD.find(x=>String(x.id)===String(id));
+  if(!confirm('למחוק את "'+(e&&e.title||'המבחן')+'"?')) return;
+  try{
+    await api('exam_board?id=eq.'+encodeURIComponent(id),{method:'DELETE'});
+    closeModal(); await loadAll(); render();
+  }catch(err){ alert('שגיאה: '+err.message); }
+}
+
+/* ============================================================
+   אתחול
+   ============================================================ */
+function render(){
+  if(!CLASSES.length){
+    el('app').innerHTML='<div class="card"><div class="empty-state">'+
+      'אין מערכת לשכבה '+esc(GRADE)+' בשנת '+yearLabel(YEAR)+'.<br>'+
+      '<a href="mivchanim-import.html" style="color:var(--a)">למסך הייבוא ←</a>'+
+      '</div></div>';
+    return;
+  }
+  el('app').innerHTML=calScreen();
+}
+
+async function boot(){
+  el('app').innerHTML='<div class="empty-state">טוען…</div>';
+  el('yearLbl').textContent=yearLabel(YEAR);
+  try{
+    await loadAll();
+    if(!MONTH){ const t=new Date(); MONTH={y:t.getFullYear(),m:t.getMonth()}; }
+    render();
+  }catch(e){
+    el('app').innerHTML='<div class="card"><div class="empty-state">שגיאה: '+
+      esc(e.message)+'</div></div>';
+  }
+}
+
+(function init(){
+  const q=new URLSearchParams(location.search);
+  if(q.get('grade')) GRADE=q.get('grade');
+  if(q.get('year')) YEAR=parseInt(q.get('year'),10);
+  VIEW=q.get('view')==='1';
+  if(VIEW) document.body.classList.add('viewonly');
+  el('gradeSel').innerHTML=GRADES.map(g=>'<option'+(g===GRADE?' selected':'')+'>'+g+
+    '</option>').join('');
+  boot();
+})();
+</script>
+</body>
+</html>
