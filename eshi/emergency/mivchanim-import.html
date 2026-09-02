@@ -1,6 +1,12 @@
 <!DOCTYPE html>
-<!-- eshi/emergency/mivchanim-import.html · v1.1.0 · 2026-09-02 · בית חינוך גליל מערבי
+<!-- eshi/emergency/mivchanim-import.html · v1.2.0 · 2026-09-02 · בית חינוך גליל מערבי
      © רני בן זאב. יוזמה עצמאית, מימון עצמי.
+
+     v1.2.0 · נוספה לשונית צפייה: מפת כיסוי של כל השכבות והימים,
+     ומתחתיה המערכת השמורה לפי בחירת שכבה ויום. הייבוא נעשה
+     בעשרות הדבקות, והשאלה "מה כבר נכנס ומה נפל" הייתה מחייבת
+     שאילתת SQL. תא שמספר הכיתות בו אינו כמצופה מסומן בצהוב —
+     זה הסימן לעמודה שנפלה בהדבקה (MINOR).
 
      v1.1.0 · נוספו שכבות חטיבת הביניים — ז, ח, ט. הכלי נבנה על
      חט״ע בלבד, ולכן לא היה אפשר לבחור שכבת ביניים בבורר. מספר
@@ -94,6 +100,7 @@ td.empty{background:#fbfbfd}
   <span class="sb">לוח מבחנים</span>
   <div class="tabs">
     <button class="tab on" id="tabT" onclick="go('tt')">מערכת</button>
+    <button class="tab" id="tabV" onclick="go('view')">צפייה</button>
     <button class="tab" id="tabS" onclick="go('sub')">מקצועות</button>
   </div>
 </div></div>
@@ -430,21 +437,104 @@ async function saveSubs(){
 }
 
 /* ============================================================
+   צפייה — מה באמת יושב במסד
+   ------------------------------------------------------------
+   הייבוא נעשה בהדבקות רבות, ולכן השאלה "מה כבר נכנס ומה נפל"
+   היא השאלה החוזרת. מפת הכיסוי עונה עליה במבט אחד, ולחיצה על
+   תא פותחת את היום עצמו — לא צריך SQL כדי לבדוק ייבוא.
+   ============================================================ */
+let VROWS=[], MATRIX={};
+
+async function loadView(){
+  const all=await api('exam_timetable?select=grade,day,class_name&year_start=eq.'+YEAR)||[];
+  MATRIX={};
+  all.forEach(r=>{
+    const k=r.grade+'|'+r.day;
+    if(!MATRIX[k]) MATRIX[k]={n:0,cls:{}};
+    MATRIX[k].n++; MATRIX[k].cls[r.class_name]=1;
+  });
+  VROWS=await api('exam_timetable?select=class_name,hour,subject_raw&year_start=eq.'+YEAR+
+    '&grade=eq.'+encodeURIComponent(GRADE)+'&day=eq.'+DAY+'&order=hour')||[];
+}
+
+/* י-10 אחרי י-9 ולא אחרי י-1: מיון לפי המספר ולא לפי המחרוזת */
+function sortCls(a,b){
+  const n=s=>parseInt(String(s).replace(/\D+/g,''),10)||0;
+  return n(a)-n(b) || String(a).localeCompare(b,'he');
+}
+
+function viewScreen(){
+  const grades=Object.keys(CLASSES);
+  let mtx='<div class="card"><h3 style="font-size:1.05rem;margin-bottom:3px">מפת הכיסוי · '+
+    yearLabel(YEAR)+'</h3>'+
+    '<p class="hint">כמה שיבוצים נכנסו בכל שכבה ויום, ובסוגריים מספר הכיתות. '+
+    'מספר כיתות קטן מהצפוי הוא כמעט תמיד עמודה שנפלה בהדבקה. לחיצה פותחת את היום.</p>'+
+    '<div class="scroll"><table><thead><tr><th>שכבה</th>'+
+    [1,2,3,4,5,6].map(d=>'<th>'+DAYS[d]+'</th>').join('')+'</tr></thead><tbody>'+
+    grades.map(g=>'<tr><td class="h" style="width:auto">'+esc(g)+'</td>'+
+      [1,2,3,4,5,6].map(d=>{
+        const m=MATRIX[g+'|'+d];
+        if(!m) return '<td class="empty" style="text-align:center;color:#b9b6c9">—</td>';
+        const c=Object.keys(m.cls).length, exp=CLASSES[g];
+        const bad=c!==exp;
+        return '<td style="text-align:center;cursor:pointer'+
+          (bad?';background:#fff6e8':'')+'" onclick="GRADE=\''+g+'\';DAY='+d+';refresh()">'+
+          m.n+' <span style="color:'+(bad?'#8a5a00':'var(--soft)')+'">('+c+')</span></td>';
+      }).join('')+'</tr>').join('')+
+    '</tbody></table></div></div>';
+
+  const names=[...new Set(VROWS.map(r=>r.class_name))].sort(sortCls);
+  const hours=[...new Set(VROWS.map(r=>r.hour))].sort((a,b)=>a-b);
+  const at={};
+  VROWS.forEach(r=>{ (at[r.class_name+'|'+r.hour]=at[r.class_name+'|'+r.hour]||[]).push(r.subject_raw); });
+
+  let day='<div class="card"><div class="row">'+
+    '<div><label>שכבה</label><select onchange="GRADE=this.value;refresh()">'+
+      grades.map(g=>'<option'+(g===GRADE?' selected':'')+'>'+g+'</option>').join('')+'</select></div>'+
+    '<div><label>יום</label><select onchange="DAY=+this.value;refresh()">'+
+      [1,2,3,4,5,6].map(d=>'<option value="'+d+'"'+(d===DAY?' selected':'')+'>'+
+        DAYS[d]+'</option>').join('')+'</select></div>'+
+    '</div>';
+
+  if(!VROWS.length){
+    day+='<div class="empty-state">אין שיבוצים בשכבה '+esc(GRADE)+' ביום '+DAYS[DAY]+'.</div></div>';
+    return mtx+day;
+  }
+  day+='<p class="hint" style="margin:13px 0 0">'+VROWS.length+' שיבוצים · '+names.length+
+    ' כיתות · שעות '+hours[0]+'–'+hours[hours.length-1]+'</p>'+
+    '<div class="scroll" style="margin-top:9px"><table><thead><tr><th style="width:34px">ש׳</th>'+
+    names.map(n=>'<th>'+esc(n)+'</th>').join('')+'</tr></thead><tbody>'+
+    hours.map(h=>'<tr><td class="h">'+h+'</td>'+
+      names.map(n=>{
+        const s=at[n+'|'+h]||[];
+        return '<td'+(s.length?'':' class="empty"')+'>'+
+          s.map(x=>'<span class="s">'+esc(x)+'</span>').join('')+'</td>';
+      }).join('')+'</tr>').join('')+
+    '</tbody></table></div></div>';
+  return mtx+day;
+}
+
+/* ============================================================
    מסך
    ============================================================ */
 function go(t){
   TAB=t;
   el('tabT').classList.toggle('on',t==='tt');
+  el('tabV').classList.toggle('on',t==='view');
   el('tabS').classList.toggle('on',t==='sub');
   refresh();
 }
-function render(){ el('app').innerHTML = TAB==='tt' ? ttScreen() : subScreen(); }
+function render(){
+  el('app').innerHTML = TAB==='tt' ? ttScreen() : TAB==='view' ? viewScreen() : subScreen();
+}
 
 async function refresh(){
   CLS=classNames(GRADE);
   el('app').innerHTML='<div class="empty-state">טוען…</div>';
   try{
-    if(TAB==='tt') await loadCounts(); else await loadSubs();
+    if(TAB==='tt') await loadCounts();
+    else if(TAB==='view') await loadView();
+    else await loadSubs();
     render();
   }catch(e){
     el('app').innerHTML='<div class="card"><div class="empty-state">שגיאה: '+esc(e.message)+
