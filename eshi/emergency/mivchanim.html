@@ -1,5 +1,26 @@
 <!DOCTYPE html>
-<!-- eshi/emergency/mivchanim.html · v1.2.0 · 2026-09-02 · בית חינוך גליל מערבי
+<!-- eshi/emergency/mivchanim.html · v1.3.0 · 2026-09-04 · בית חינוך גליל מערבי
+
+     v1.3.0 · בקשות מורים ופרסום. עד כה הרכז אסף בקשות בוואטסאפ
+     והקליד אותן בעצמו. עכשיו הן נוחתות ישר על הלוח.
+
+     ⬛ בקשה היא שורה ב-exam_board עם status='draft', ולא טבלה נפרדת.
+     לכן אישור הוא שינוי סטטוס ולא העתקה בין טבלאות, והעברה
+     לתאריך אחר עובדת על בקשה בדיוק כמו על מבחן — המנוע לא נגע.
+
+     ⚠ טיוטה אינה נספרת בעומס השבועי ואינה מוסיפה גלישות.
+     היא מוצגת ואינה חוסמת: אחרת הרכז היה רואה אזהרות על מבחנים
+     שטרם החליט עליהם, ובקשות היו חוסמות זו את זו.
+
+     ⬛ בקשת חלון — exam_date ריק ו-window_start/end מלאים. היא אינה
+     יושבת על תא בלוח — שבעה מלבנים צהובים לאותה בקשה היו רעש —
+     אלא ברשימה מתחת ללוח, עם כפתור שפותח את מנוע המשבצות בטווח.
+
+     ⚠ exam_date אינו NOT NULL עוד. כל מקום שקורא אותו מסנן עכשיו
+     שורות בלי תאריך.
+
+     ⬛ פרסום — exam_publish, לפי שנה ושכבה. mivchanim-luach.html חסום עד
+     שהרכז מפרסם, כך שהוא בונה בלי שמורים ותלמידים רואים לוח חצי בנוי.
      © רני בן זאב. יוזמה עצמאית, מימון עצמי.
 
      v1.2.0 · נוספה העברת מבחן לתאריך אחר, לצד המחיקה. אותו מנוע
@@ -104,6 +125,9 @@ select,input,textarea{font-family:inherit;font-size:.95rem;border:1px solid #d5d
   overflow:hidden;text-overflow:ellipsis}
 .ex.cls{background:var(--b)}
 .ex.warn{background:var(--warn)}
+/* טיוטה — צהוב עם טקסט כהה. לבן על צהוב אינו נקרא. */
+.ex.draft{background:#eab308;color:#1c1917;border:1px dashed #92400e}
+.ex.draft::after{content:' · טיוטה';font-weight:600;opacity:.75}
 
 /* ---- מועמדות ---- */
 .cand{border:2px solid var(--line);border-radius:13px;padding:11px 13px;margin-bottom:8px;
@@ -184,7 +208,8 @@ const hebDay=d=>{ try{ return new Intl.DateTimeFormat('he-u-ca-hebrew',
 
 let YEAR=planYear(), GRADE='י', VIEW=false, MONTH=null,
     TT=[], SUBJ={}, BOARD=[], GANTT=[], CLASSES=[], NOEXAM_COL=false,
-    CAND=[], PICK=null, FORM={}, MOVE=null;   /* MOVE — המבחן שנמצא בהעברה */
+    CAND=[], PICK=null, FORM={}, MOVE=null,   /* MOVE — המבחן שנמצא בהעברה */
+    PUB=null;                                 /* שורת exam_publish לשנה+שכבה */
 
 /* ============================================================
    טעינה
@@ -203,6 +228,13 @@ async function loadAll(){
   BOARD=await api('exam_board?select=*&year_start=eq.'+YEAR+
     '&grade=eq.'+encodeURIComponent(GRADE)+'&order=exam_date')||[];
 
+  /* מצב הפרסום. אין שורה = טרם פורסם. */
+  try{
+    const pr=await api('exam_publish?select=*&year_start=eq.'+YEAR+
+      '&grade=eq.'+encodeURIComponent(GRADE)+'&limit=1');
+    PUB=(pr&&pr.length)?pr[0]:null;
+  }catch(e){ PUB=null; }
+
   /* no_exams אינה קיימת בכל מסד. במקום להניח — מנסים, ואם היא
      חסרה חוזרים לשליפה הרגילה. כך הכלי עובד לפני התוספת ואחריה. */
   try{
@@ -215,6 +247,12 @@ async function loadAll(){
     NOEXAM_COL=false;
   }
 }
+
+/* הבחנות הבסיסיות בלוח. ראה הערת הגרסה v1.3.0. */
+const isDraft  = e => e.status === 'draft';
+const isWindow = e => !e.exam_date;                    /* בקשת חלון */
+/* מה שנספר כמבחן לכל דבר: מאושר ועם תאריך. */
+const REAL = () => BOARD.filter(e => !isDraft(e) && !isWindow(e));
 
 /* מפת המערכת: יום → שעה → כיתה → מקצועות */
 function slotAt(day,hour,cls){
@@ -270,7 +308,7 @@ function matches(raw,base,level){
    ברגע שיזוז, ואחרת הוא היה מסמן באדום את המשבצת שהוא כבר יושב בה. */
 function displacedSoFar(){
   const m={};
-  BOARD.filter(e=>!MOVE||String(e.id)!==String(MOVE.id))
+  REAL().filter(e=>!MOVE||String(e.id)!==String(MOVE.id))
     .forEach(e=>String(e.displaced||'').split(',').map(x=>x.trim())
     .filter(Boolean).forEach(x=>{ m[x]=(m[x]||0)+1; }));
   return m;
@@ -278,7 +316,7 @@ function displacedSoFar(){
 /* כמה מבחנים כבר יש לכיתה באותו שבוע */
 function weekLoad(dt,cls){
   const wk=weekKey(dt);
-  return BOARD.filter(e=>!MOVE||String(e.id)!==String(MOVE.id))
+  return REAL().filter(e=>!MOVE||String(e.id)!==String(MOVE.id))
     .filter(e=>weekKey(fromIso(e.exam_date))===wk)
     .filter(e=>e.scope==='grade'||e.class_name===cls).length;
 }
@@ -353,14 +391,21 @@ function shiftMonth(n){
 function calScreen(){
   const cells=monthGrid();
   const byDate={};
-  BOARD.forEach(e=>{ (byDate[e.exam_date]=byDate[e.exam_date]||[]).push(e); });
+  /* בקשת חלון אינה יושבת על תא — היא ברשימה מתחת ללוח. */
+  BOARD.filter(e=>!isWindow(e))
+       .forEach(e=>{ (byDate[e.exam_date]=byDate[e.exam_date]||[]).push(e); });
 
   let html='<div class="card"><div class="mhead">'+
     '<button class="btn g sm" onclick="shiftMonth(-1)">→ הקודם</button>'+
     '<h2>'+esc(monthLabel())+'</h2>'+
     '<button class="btn g sm" onclick="shiftMonth(1)">הבא ←</button>'+
     '<span class="hint" style="margin:0 0 0 auto">שכבה '+esc(GRADE)+' · '+
-      CLASSES.length+' כיתות · '+BOARD.length+' מבחנים בשנה</span>'+
+      CLASSES.length+' כיתות · '+REAL().length+' מבחנים'+
+      (BOARD.filter(isDraft).length
+        ? ' · '+BOARD.filter(isDraft).length+' בקשות ממתינות':'')+'</span>'+
+    (VIEW?'':'<button class="btn '+(PUB&&PUB.published?'g':'')+' sm" '+
+      'onclick="togglePublish()">'+
+      (PUB&&PUB.published?'✓ מפורסם':'פרסום הלוח')+'</button>')+
     '</div><div class="cal">'+
     WD.map(w=>'<div class="wd">'+w+'</div>').join('')+
     cells.map(d=>{
@@ -372,12 +417,29 @@ function calScreen(){
         '<div class="dn">'+d.getDate()+' <span class="heb">'+esc(hebDay(d))+'</span></div>'+
         evs.slice(0,2).map(e=>'<span class="ev'+(e.track==='vacation'?' v':'')+'">'+
           esc(e.title)+'</span>').join('')+
-        (byDate[s]||[]).map(e=>'<span class="ex'+(e.scope==='class'?' cls':'')+'" '+
+        (byDate[s]||[]).map(e=>'<span class="ex'+
+          (isDraft(e)?' draft':(e.scope==='class'?' cls':''))+'" '+
           'onclick="event.stopPropagation();openExam('+e.id+')">'+esc(e.subject_base)+
           (e.level?' '+esc(e.level):'')+(e.hour?' · ש׳'+e.hour:'')+
           (e.scope==='class'?' · '+esc(e.class_name):'')+'</span>').join('')+
         '</div>';
     }).join('')+'</div></div>';
+
+  /* בקשות חלון — אין להן תא בלוח, ולכן רשימה מתחתיו. */
+  const wins=BOARD.filter(e=>isWindow(e)&&isDraft(e));
+  if(wins.length) html+='<div class="card"><h3 style="font-size:1.05rem">'+
+    'בקשות בטווח תאריכים ('+wins.length+')</h3>'+
+    '<p class="hint">מורים שביקשו חלון ולא תאריך. בחירת משבצת משלימה '+
+    'את הבקשה והופכת אותה למבחן.</p>'+
+    '<table><thead><tr><th>מקצוע</th><th>היקף</th><th>טווח</th>'+
+    '<th>מבקש</th><th style="width:160px"></th></tr></thead><tbody>'+
+    wins.map(e=>'<tr><td>'+esc(e.subject_base)+(e.level?' '+esc(e.level):'')+'</td>'+
+      '<td>'+(e.scope==='grade'?'כל השכבה':esc(e.class_name||''))+'</td>'+
+      '<td>'+esc(dmy(e.window_start))+' – '+esc(dmy(e.window_end))+'</td>'+
+      '<td>'+esc(e.requested_by||'—')+'</td>'+
+      '<td><button class="btn sm" onclick="placeWindow('+e.id+')">שיבוץ</button> '+
+      '<button class="btn no sm" onclick="rejectExam('+e.id+')">דחייה</button></td></tr>').join('')+
+    '</tbody></table></div>';
 
   /* גלישות — מה כבר נלקח השנה */
   const dsp=displacedSoFar(), keys=Object.keys(dsp).sort((a,b)=>dsp[b]-dsp[a]);
@@ -538,6 +600,9 @@ async function saveExam(){
     title:(el('fTitle').value||'').trim()||FORM.base,
     notes:(el('fNote').value||'').trim()||null,
     displaced:PICK.disp.length?PICK.disp.join(', '):null,
+    /* כל שמירה מצד הרכז היא אישור: יצירה, העברה, וגם שיבוץ
+       של בקשת חלון — שבה הטווח מתנקה כי כבר יש תאריך. */
+    status:'approved', window_start:null, window_end:null,
     updated_at:new Date().toISOString()};
   const b=el('svBtn'); b.disabled=true; b.textContent='שומר…';
   try{
@@ -571,12 +636,73 @@ function openExam(id){
     (e.displaced?'<div class="flag y" style="display:block;padding:9px 12px;border-radius:10px">'+
       'גולש על: '+esc(e.displaced)+'</div>':'')+
     (e.notes?'<p style="margin-top:9px">'+esc(e.notes)+'</p>':'')+
+    (isDraft(e)?'<div class="flag y" style="display:block;padding:9px 12px;'+
+      'border-radius:10px;margin-top:9px">בקשה של '+
+      esc(e.requested_by||'מורה')+' — טרם אושרה</div>':'')+
     '<div class="acts">'+
-      (VIEW?'':'<button class="btn no" onclick="delExam('+e.id+')">מחיקה</button>')+
+      (!VIEW&&isDraft(e)?'<button class="btn" onclick="approveExam('+e.id+')">✓ אישור</button>':'')+
+      (!VIEW&&isDraft(e)?'<button class="btn no" onclick="rejectExam('+e.id+')">דחייה</button>':'')+
+      (VIEW||isDraft(e)?'':'<button class="btn no" onclick="delExam('+e.id+')">מחיקה</button>')+
       (VIEW?'':'<button class="btn" onclick="startMove('+e.id+')">העברה לתאריך אחר</button>')+
       '<button class="btn g" onclick="closeModal()">סגירה</button>'+
     '</div>';
 }
+const dmy=s=>{ if(!s) return '—'; const d=fromIso(s);
+  return d.getDate()+'.'+pad(d.getMonth()+1)+'.'+d.getFullYear(); };
+
+/* ============================================================
+   בקשות ופרסום
+   ------------------------------------------------------------
+   אישור הוא PATCH על status בלבד. השורה אינה נוצרת מחדש ואינה
+   משנה מזהה, כך שהמורה רואה את אותה בקשה משנתה צבע.
+   ============================================================ */
+async function approveExam(id){
+  try{
+    await api('exam_board?id=eq.'+encodeURIComponent(id),
+      {method:'PATCH', body:JSON.stringify({status:'approved',
+        updated_at:new Date().toISOString()})});
+    closeModal(); await loadAll(); render();
+  }catch(err){ alert('שגיאה: '+err.message); }
+}
+async function rejectExam(id){
+  const e=BOARD.find(x=>String(x.id)===String(id));
+  if(!confirm('לדחות את הבקשה של '+((e&&e.requested_by)||'המורה')+'?\n\n'+
+    'הבקשה תימחק והמורה לא יקבל הודעה — כדאי לומר לו.')) return;
+  try{
+    /* מחיקה עם תנאי סטטוס: מסך מיושן לא ימחק מבחן שאושר בינתיים. */
+    await api('exam_board?id=eq.'+encodeURIComponent(id)+'&status=eq.draft',
+      {method:'DELETE'});
+    closeModal(); await loadAll(); render();
+  }catch(err){ alert('שגיאה: '+err.message); }
+}
+
+/* שיבוץ בקשת חלון — מנוע ההעברה הקיים, מוגבל לטווח שביקש המורה. */
+function placeWindow(id){
+  const e=BOARD.find(x=>String(x.id)===String(id)); if(!e) return;
+  MOVE=e;
+  FORM={base:e.subject_base, level:e.level||'', scope:e.scope,
+        cls:e.class_name||CLASSES[0], title:e.title||'', notes:e.notes||'',
+        from:e.window_start, to:e.window_end};
+  CAND=[]; PICK=null; drawModal();
+}
+
+async function togglePublish(){
+  const on=!(PUB&&PUB.published);
+  if(on && !confirm('לפרסם את לוח שכבה '+GRADE+'?\n\n'+
+      'מרגע זה מורים ותלמידים יראו אותו בקישור הלוח.')) return;
+  if(!on && !confirm('להסתיר את הלוח שוב?\n\n'+
+      'מי שיפתח את הקישור יראה "הלוח בבנייה".')) return;
+  const row={year_start:YEAR, grade:GRADE, published:on,
+             published_at:on?new Date().toISOString():null};
+  try{
+    /* api() בונה את הכותרות בעצמו ומקבל Prefer דרך opts.prefer בלבד. */
+    await api('exam_publish?on_conflict=year_start,grade',
+      {method:'POST', body:JSON.stringify([row]),
+       prefer:'resolution=merge-duplicates'});
+    await loadAll(); render();
+  }catch(err){ alert('שגיאה: '+err.message); }
+}
+
 async function delExam(id){
   const e=BOARD.find(x=>String(x.id)===String(id));
   if(!confirm('למחוק את "'+(e&&e.title||'המבחן')+'"?')) return;
