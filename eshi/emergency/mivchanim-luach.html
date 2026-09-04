@@ -1,5 +1,22 @@
 <!DOCTYPE html>
-<!-- eshi/emergency/mivchanim-luach.html · v1.0.0 · 2026-09-02 · בית חינוך גליל מערבי
+<!-- eshi/emergency/mivchanim-luach.html · v1.1.0 · 2026-09-04 · בית חינוך גליל מערבי
+
+     v1.1.0 · חסימה עד פרסום, וסינון טיוטות.
+
+     ⬛ הקישור אחד וקבוע, ולכן החסימה היא בתוכן ולא בכתובת:
+     exam_publish לפי שנה ושכבה. אין שורה, או published=false — מוצג
+     "הלוח בבנייה" במקום הלוח. כך הרכז בונה בלי שמורים
+     ותלמידים רואים לוח חצי בנוי ומתכננים לפיו.
+
+     ⚠ החסימה היא לפי שכבה. רכז י' יכול לפרסם בעוד רכז יא'
+     עדיין בונה, ומי שיחליף שכבה בבורר יראה את המצב שלה.
+
+     ⚠ טיוטות (status='draft') מסוננות בשאילתה עצמה ולא בתצוגה.
+     בקשה שטרם אושרה אינה מגיעה לדפדפן של התלמיד כלל, גם אחרי
+     שהלוח פורסם.
+
+     ⚠ גם שורות בלי exam_date מסוננות — הן בקשות חלון שטרם שובצו,
+     והקובץ הזה מחשב "בעוד כמה ימים" על כל שורה.
      © רני בן זאב. יוזמה עצמאית, מימון עצמי.
 
      לוח המבחנים כפי שמורה ותלמיד רואים אותו. קובץ נפרד מ-
@@ -151,11 +168,22 @@ const today=()=>{ const t=new Date(); return new Date(t.getFullYear(),t.getMonth
 const daysTo=d=>Math.round((d-today())/86400000);
 
 let YEAR=planYear(), GRADE='י', CLS='', MODE='list', MONTH=null,
-    BOARD=[], GANTT=[], CLASSES=[];
+    BOARD=[], GANTT=[], CLASSES=[], PUB=null;
 
 async function load(){
+  /* מצב הפרסום נבדק ראשון. אם הלוח חסום — אין טעם למשוך את
+     המבחנים לדפדפן שלא יציג אותם. */
+  try{
+    const pr=await api('exam_publish?select=*&year_start=eq.'+YEAR+
+      '&grade=eq.'+encodeURIComponent(GRADE)+'&limit=1');
+    PUB=(pr&&pr.length)?pr[0]:null;
+  }catch(e){ PUB=null; }
+  if(!(PUB&&PUB.published)){ BOARD=[]; GANTT=[]; CLASSES=[]; return; }
+
+  /* רק מבחנים מאושרים ועם תאריך. ראה הערות הגרסה. */
   BOARD=await api('exam_board?select=*&year_start=eq.'+YEAR+
-    '&grade=eq.'+encodeURIComponent(GRADE)+'&order=exam_date,hour');
+    '&grade=eq.'+encodeURIComponent(GRADE)+
+    '&status=eq.approved&exam_date=not.is.null&order=exam_date,hour');
   GANTT=await api('gantt_events?select=track,title,start_date,end_date&year_start=eq.'+YEAR);
   /* רשימת הכיתות מגיעה מן המערכת ולא מן המבחנים: כיתה שאין לה
      עדיין מבחן חייבת להופיע בבורר, אחרת נראה כאילו היא לא קיימת. */
@@ -277,6 +305,18 @@ function calScreen(){
    מסך
    ============================================================ */
 function render(){
+  el('sub').textContent='שכבה '+GRADE+' · '+yearLabel(YEAR);
+  if(!(PUB&&PUB.published)){
+    /* לא מפורסם — מסך המתנה במקום הלוח. בורר השכבה נשאר
+       פעיל כדי שאפשר יהיה לעבור לשכבה שכן פורסמה. */
+    el('foot').textContent='';
+    el('app').innerHTML='<div class="empty" style="padding:44px 16px">'+
+      '<div style="font-size:34px;line-height:1;margin-bottom:10px">⚙️</div>'+
+      '<b style="font-size:1.1rem">לוח המבחנים של שכבה '+esc(GRADE)+' בבנייה.</b><br>'+
+      'רכז השכבה עדיין משבץ את המבחנים. הלוח יופיע כאן באותה '+
+      'כתובת ברגע שיסתיים.</div>';
+    return;
+  }
   el('tgL').classList.toggle('on',MODE==='list');
   el('tgM').classList.toggle('on',MODE==='cal');
   el('cSel').innerHTML='<option value="">כל השכבה</option>'+
