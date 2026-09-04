@@ -1,5 +1,15 @@
 <!DOCTYPE html>
-<!-- eshi/emergency/mivchanim.html · v1.3.0 · 2026-09-04 · בית חינוך גליל מערבי
+<!-- eshi/emergency/mivchanim.html · v1.4.0 · 2026-09-04 · בית חינוך גליל מערבי
+
+     v1.4.0 · לחיצה על בקשת חלון צובעת את הטווח בלוח. עד כה הטווח
+     היה טקסט בטבלה, והרכז היה צריך להצליב אותו בעצמו מול הלוח.
+
+     ⚠ לפי לחיצה ולא צביעה קבועה של כל הבקשות: בשלוש בקשות
+     חופפות אי אפשר לדעת איזו רצועה של מי, והלוח נעשה רעש.
+     לחיצה שנייה מבטלת.
+
+     ⚠ אם הטווח מתחיל בחודש אחר, הלוח קופץ אליו — אחרת הלחיצה
+     היתה נראית כאילו לא עשתה כלום.
 
      v1.3.0 · בקשות מורים ופרסום. עד כה הרכז אסף בקשות בוואטסאפ
      והקליד אותן בעצמו. עכשיו הן נוחתות ישר על הלוח.
@@ -128,6 +138,13 @@ select,input,textarea{font-family:inherit;font-size:.95rem;border:1px solid #d5d
 /* טיוטה — צהוב עם טקסט כהה. לבן על צהוב אינו נקרא. */
 .ex.draft{background:#eab308;color:#1c1917;border:1px dashed #92400e}
 .ex.draft::after{content:' · טיוטה';font-weight:600;opacity:.75}
+/* הדגשת טווח של בקשת חלון שנלחצה */
+.cell.win{background:#fffbeb;border-color:#e5c454;box-shadow:inset 0 0 0 1px #f0dfa0}
+.cell.win .wl{display:block;font-size:.7rem;font-weight:800;color:#8a5a00;
+  background:#fdf0c8;border-radius:5px;padding:1px 5px;margin-top:3px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+tr.winrow{cursor:pointer}
+tr.winrow.on{background:#fffbeb}
 
 /* ---- מועמדות ---- */
 .cand{border:2px solid var(--line);border-radius:13px;padding:11px 13px;margin-bottom:8px;
@@ -209,7 +226,8 @@ const hebDay=d=>{ try{ return new Intl.DateTimeFormat('he-u-ca-hebrew',
 let YEAR=planYear(), GRADE='י', VIEW=false, MONTH=null,
     TT=[], SUBJ={}, BOARD=[], GANTT=[], CLASSES=[], NOEXAM_COL=false,
     CAND=[], PICK=null, FORM={}, MOVE=null,   /* MOVE — המבחן שנמצא בהעברה */
-    PUB=null;                                 /* שורת exam_publish לשנה+שכבה */
+    PUB=null,                                 /* שורת exam_publish לשנה+שכבה */
+    HLWIN=null;                               /* בקשת החלון שטווחה מודגש כעת */
 
 /* ============================================================
    טעינה
@@ -412,9 +430,13 @@ function calScreen(){
       const s=iso(d), out=d.getMonth()!==MONTH.m;
       const evs=eventsOn(d), vac=isVacation(d);
       const pick=!VIEW && !isBlocked(d);
-      return '<div class="cell'+(out?' out':'')+(vac?' vac':'')+(pick?' pick':'')+'"'+
+      /* הטווח של הבקשה שנלחצה — רק אחת בכל רגע. */
+      const inWin = HLWIN && HLWIN.window_start<=s && s<=HLWIN.window_end;
+      return '<div class="cell'+(out?' out':'')+(vac?' vac':'')+
+        (inWin?' win':'')+(pick?' pick':'')+'"'+
         (pick?' onclick="openNew(\''+s+'\')" title="מבחן חדש ב-'+s+'"':'')+'>'+
         '<div class="dn">'+d.getDate()+' <span class="heb">'+esc(hebDay(d))+'</span></div>'+
+        (inWin?'<span class="wl">'+esc(HLWIN.subject_base)+'</span>':'')+
         evs.slice(0,2).map(e=>'<span class="ev'+(e.track==='vacation'?' v':'')+'">'+
           esc(e.title)+'</span>').join('')+
         (byDate[s]||[]).map(e=>'<span class="ex'+
@@ -433,12 +455,16 @@ function calScreen(){
     'את הבקשה והופכת אותה למבחן.</p>'+
     '<table><thead><tr><th>מקצוע</th><th>היקף</th><th>טווח</th>'+
     '<th>מבקש</th><th style="width:160px"></th></tr></thead><tbody>'+
-    wins.map(e=>'<tr><td>'+esc(e.subject_base)+(e.level?' '+esc(e.level):'')+'</td>'+
+    wins.map(e=>'<tr class="winrow'+(HLWIN&&String(HLWIN.id)===String(e.id)?' on':'')+'" '+
+      'onclick="hlWindow('+e.id+')" title="לחיצה מסמנת את הטווח בלוח">'+
+      '<td>'+esc(e.subject_base)+(e.level?' '+esc(e.level):'')+'</td>'+
       '<td>'+(e.scope==='grade'?'כל השכבה':esc(e.class_name||''))+'</td>'+
       '<td>'+esc(dmy(e.window_start))+' – '+esc(dmy(e.window_end))+'</td>'+
       '<td>'+esc(e.requested_by||'—')+'</td>'+
-      '<td><button class="btn sm" onclick="placeWindow('+e.id+')">שיבוץ</button> '+
-      '<button class="btn no sm" onclick="rejectExam('+e.id+')">דחייה</button></td></tr>').join('')+
+      '<td><button class="btn sm" onclick="event.stopPropagation();placeWindow('+e.id+')">'+
+      'שיבוץ</button> '+
+      '<button class="btn no sm" onclick="event.stopPropagation();rejectExam('+e.id+')">'+
+      'דחייה</button></td></tr>').join('')+
     '</tbody></table></div>';
 
   /* גלישות — מה כבר נלקח השנה */
@@ -684,6 +710,21 @@ function placeWindow(id){
         cls:e.class_name||CLASSES[0], title:e.title||'', notes:e.notes||'',
         from:e.window_start, to:e.window_end};
   CAND=[]; PICK=null; drawModal();
+}
+
+/* לחיצה על שורת בקשת חלון — מדליקה ומכבה את הטווח בלוח. */
+function hlWindow(id){
+  const e=BOARD.find(x=>String(x.id)===String(id)); if(!e) return;
+  if(HLWIN && String(HLWIN.id)===String(id)){ HLWIN=null; render(); return; }
+  HLWIN=e;
+  /* אם הטווח מתחיל בחודש אחר, קופצים אליו — אחרת הלחיצה
+     נראית כאילו לא עשתה כלום. */
+  const st=fromIso(e.window_start);
+  if(!MONTH || MONTH.y!==st.getFullYear() || MONTH.m!==st.getMonth())
+    MONTH={y:st.getFullYear(), m:st.getMonth()};
+  render();
+  const c=document.querySelector('.cell.win');
+  if(c && c.scrollIntoView) c.scrollIntoView({behavior:'smooth', block:'center'});
 }
 
 async function togglePublish(){
