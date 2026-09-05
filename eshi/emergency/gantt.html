@@ -1,5 +1,22 @@
 <!DOCTYPE html>
-<!-- eshi/emergency/gantt.html · v1.6.0 · 2026-08-19 · בית חינוך גליל מערבי
+<!-- eshi/emergency/gantt.html · v1.7.0 · 2026-09-04 · בית חינוך גליל מערבי
+
+     v1.7.0 · שני מסלולי מבחנים — חט״ע וחט״ן.
+
+     ⬛ פס לכל יום שיש בו מבחן, ולא פס מתוח על רצף ימים:
+     יום בלי מבחן אמור להישאר ריק. הפס אומר "מבחנים" בלבד,
+     ולחיצה עליו פותחת את כל מבחני אותו יום.
+
+     ⚠ הפסים האלה אינם שורות גאנט אלא השתקפות של exam_board.
+     אי אפשר לערוך או למחוק אותם מכאן, ולחיצה על תא ריק
+     במסלולים האלה אינה פותחת אירוע חדש — אחרת היה נוצר
+     אירוע שנראה כמבחן ואינו מבחן. שינוי מבחן נעשה בלוח המבחנים.
+
+     ⚠ רק שכבות שפורסמו ב-exam_publish, ורק מבחנים status='approved'.
+     טיוטה שטרם אושרה אינה מגיעה לדפדפן כלל.
+
+     ⚠ פס של יום בודד צר והמילה עשויה להיחתך — בקרת הרוחב
+     של v1.6.0 מטפלת בזה, והריחוף מראה את רשימת המבחנים במלואה.
 
      v1.6.0 · נוספה בקרת רוחב. פס של יום בודד הוא אחד משלושים
      ושבעה מרוחב החודש — כשלושים פיקסלים, צר מכדי להכיל
@@ -400,10 +417,16 @@ const TRACKS = [
   {k:'vacation', t:'🏖️ חופשות',    c:'#a33a3a'},
   {k:'holidays', t:'חגים ומועדים', c:'#ffe08a'},
   {k:'junior',   t:'חט״ן',         c:'#8fd3a8'},
-  {k:'senior',   t:'חט״ע',         c:'#9dbdf0'}
+  {k:'senior',   t:'חט״ע',         c:'#9dbdf0'},
+  /* ⚠ שני האחרונים אינם מסלולי גאנט אלא השתקפות exam_board.
+     ro:true מסמן לקריאה בלבד — אין יצירה ואין עריכה. */
+  {k:'ex_senior', t:'📝 מבחנים · חט״ע', c:'#4c1d95', ro:true},
+  {k:'ex_junior', t:'📝 מבחנים · חט״ן', c:'#0f766e', ro:true}
 ];
+const JUNIOR_G=['ז','ח','ט'], SENIOR_G=['י','יא','יב'];
 const COLORS = ['#a33a3a','#ffe08a','#8fd3a8','#9dbdf0','#c9b3e8','#ffd0a1'];
 let YEAR = null, EVENTS = [], EDIT = null, PICKCOL = COLORS[0];
+let EXAMS = {};   /* תאריך → רשימת מבחנים מפורסמים */
 
 /* ============================================================
    מצב צפייה — ?view=1
@@ -468,6 +491,29 @@ async function load(){
   EVENTS = await api('gantt_events?year_start=eq.'+YEAR+
     '&order=start_date.asc') || [];
   EVENTS.forEach(e=>{ e._a=fromIso(e.start_date); e._b=fromIso(e.end_date); });
+  await loadExams();
+}
+
+/* מבחנים מפורסמים בלבד. נכשל? הגאנט ממשיך בלעדיהם — הוא
+   לא אמור להישבר בגלל תוספת. */
+async function loadExams(){
+  EXAMS={};
+  try{
+    const pub=await api('exam_publish?select=grade,published&year_start=eq.'+YEAR)||[];
+    const open=pub.filter(p=>p.published).map(p=>p.grade);
+    if(!open.length) return;
+    const rows=await api('exam_board?select=grade,scope,class_name,subject_base,level,'+
+      'exam_date,hour,hour_end,title&year_start=eq.'+YEAR+
+      '&status=eq.approved&exam_date=not.is.null&order=exam_date,hour')||[];
+    rows.filter(r=>open.indexOf(r.grade)>-1).forEach(r=>{
+      (EXAMS[r.exam_date]=EXAMS[r.exam_date]||[]).push(r);
+    });
+  }catch(e){ EXAMS={}; }
+}
+function examsOn(dateIso, kind){
+  const list=EXAMS[dateIso]||[];
+  const g = kind==='ex_junior' ? JUNIOR_G : SENIOR_G;
+  return list.filter(r=>g.indexOf(r.grade)>-1);
 }
 
 /* ================= פריסה =================
@@ -535,6 +581,17 @@ function render(){
     let tracks='';
     TRACKS.forEach(tr=>{
       let segs=segmentsFor(y,m).filter(s=>s.ev.track===tr.k);
+
+      /* מסלולי המבחנים — פס לכל יום בנפרד, בלי מתיחה על רצף.
+         יום בלי מבחן נשאר ריק. */
+      if(tr.ro){
+        segs=[];
+        for(let d=1;d<=n;d++){
+          const ds=iso(mk(y,m,d));
+          const list=examsOn(ds,tr.k);
+          if(list.length) segs.push({exam:true, date:ds, list:list, from:d, to:d, ev:null});
+        }
+      }
       /* שכבת החגים האוטומטית — רק במסלול החגים, ורק היכן שאין אירוע ידני */
       if(tr.k==='holidays'){
         for(let d=1;d<=n;d++){
@@ -555,10 +612,23 @@ function render(){
         for(let c=0;c<37;c++){
           const dnum=c-off+1, sat=(c%7)===6;
           const ok=dnum>=1&&dnum<=n;
-          tracks += `<div class="trk${sat?' sat':''}"${ok
+          tracks += `<div class="trk${sat?' sat':''}"${(ok && !tr.ro)
             ? ` onclick="openNew('${tr.k}','${iso(mk(y,m,dnum))}')"` : ''}></div>`;
         }
         (L[r]||[]).forEach(s=>{
+          /* פס מבחנים — תווית אחת, והפירוט בלחיצה. */
+          if(s.exam){
+            const start0=s.from+off;
+            const tip=s.list.map(x=>'· '+x.subject_base+(x.level?' '+x.level:'')+
+              ' — '+(x.scope==='grade'?'כל שכבה '+x.grade:x.class_name)+
+              (x.hour?' · שעה '+x.hour:'')).join('\n');
+            tracks += `<div class="bar" style="grid-column:${start0}/span 1;
+                 margin-top:-19px;background-color:${tr.c};color:#fff;cursor:pointer"
+                 title="${esc(s.list.length+' מבחנים\n'+tip)}"
+                 onclick="openExams('${s.date}','${tr.k}')"
+               >מבחנים${s.list.length>1?' ('+s.list.length+')':''}</div>`;
+            return;
+          }
           const col = s.auto ? '#f6c445' : (s.ev.color||tr.c);
           const start = s.from+off, span = s.to-s.from+1;
           const label = s.auto ? s.title : s.ev.title;
@@ -631,6 +701,52 @@ function openEdit(id){
   document.getElementById('mErr').classList.remove('on');
   document.getElementById('ov').classList.add('on');
 }
+/* ============================================================
+   פירוט מבחני היום — קריאה בלבד
+   ------------------------------------------------------------
+   חלון נפרד ולא טופס העריכה: אין כאן מה לערוך, וטופס
+   שנראה כמו טופס היה מזמין לנסות.
+   ============================================================ */
+function openExams(dateIso, kind){
+  const list=examsOn(dateIso,kind);
+  if(!list.length) return;
+  const d=fromIso(dateIso);
+  const ttl=new Intl.DateTimeFormat('he',{weekday:'long',day:'numeric',month:'long'})
+    .format(new Date(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate()));
+  let box=document.getElementById('exOv');
+  if(!box){
+    box=document.createElement('div');
+    box.id='exOv';
+    box.setAttribute('style','position:fixed;inset:0;background:rgba(20,18,30,.45);'+
+      'display:flex;align-items:center;justify-content:center;z-index:80;padding:18px');
+    box.onclick=ev=>{ if(ev.target===box) box.remove(); };
+    document.body.appendChild(box);
+  }
+  box.innerHTML='<div style="background:#fff;border-radius:16px;padding:20px 22px;'+
+    'max-width:440px;width:100%;font-family:inherit;max-height:80vh;overflow:auto">'+
+    '<h3 style="margin:0 0 3px">מבחנים · '+esc(ttl)+'</h3>'+
+    '<p style="margin:0 0 13px;color:#6a6f8a;font-size:.85rem">'+
+      (kind==='ex_junior'?'חטיבת הביניים':'חטיבה עליונה')+
+      ' · לשינוי — בלוח המבחנים</p>'+
+    list.map(x=>'<div style="border-top:1px solid #e3e0ee;padding:9px 0">'+
+      '<b>'+esc(x.subject_base)+(x.level?' '+esc(x.level):'')+'</b>'+
+      '<div style="font-size:.86rem;color:#6a6f8a">'+
+        (x.scope==='grade'?'כל שכבה '+esc(x.grade):esc(x.class_name||''))+
+        (x.hour?' · שעה '+x.hour+(x.hour_end&&x.hour_end!==x.hour?'–'+x.hour_end:''):'')+
+      '</div>'+
+      (x.title&&x.title!==x.subject_base
+        ?'<div style="font-size:.84rem">'+esc(x.title)+'</div>':'')+
+      '</div>').join('')+
+    '<div style="margin-top:15px;display:flex;gap:8px">'+
+      '<a href="mivchanim-luach.html?grade='+encodeURIComponent(list[0].grade)+
+        '" style="text-decoration:none;background:#4c1d95;color:#fff;border-radius:10px;'+
+        'padding:8px 16px;font-weight:800;font-size:.86rem">ללוח המבחנים</a>'+
+      '<button onclick="document.getElementById(\'exOv\').remove()" '+
+        'style="background:#efedf7;border:0;border-radius:10px;padding:8px 16px;'+
+        'font-family:inherit;font-weight:800;font-size:.86rem;cursor:pointer">סגירה</button>'+
+    '</div></div>';
+}
+
 function closeModal(){ document.getElementById('ov').classList.remove('on'); EDIT=null; }
 function toast(t,err){
   const n=document.getElementById('toast');
