@@ -1,5 +1,20 @@
 <!DOCTYPE html>
-<!-- eshi/emergency/mivchanim-eruim.html · v1.1.0 · 2026-09-05 · בית חינוך גליל מערבי
+<!-- eshi/emergency/mivchanim-eruim.html · v1.2.0 · 2026-09-05 · בית חינוך גליל מערבי
+
+     v1.2.0 · שמות ולא רק מספרים. לחיצה על "13 מתוך 16" פותחת
+     את הנעדרים והמאחרים של אותה כיתה, וכפתור ברמת האירוע
+     פותח את כולם יחד, מכל הכיתות.
+
+     ⬛ נעדרים ומאחרים בלבד. הנוכחים הם הרוב ואינם מוסיפים
+     מידע — רשימה של עשרים שמות נוכחים היתה מסתירה את השלושה
+     שחסרים.
+
+     ⬛ הערות שמחנכים כתבו מוצגות ליד כל שם, גם על תלמיד
+     שסומן נוכח — הערה על התנהגות אינה תלויה בהיעדרות.
+
+     ⚠ המסך הזה מציג שמות תלמידים שנעדרו והערות עליהם,
+     והוא פתוח לכל מי שיודע את הכתובת, כמו שאר המערכת.
+     עד v1.1.0 הוא הציג מספרים בלבד.
 
      v1.1.0 · שעות אמיתיות, קישור אחד לכל המחנכים, וסדר ברשימה.
 
@@ -149,7 +164,10 @@ async function loadAll(){
     .filter(e=>e.track!=='vacation'&&e.track!=='holidays');
 
   EVCLS=await api('event_classes?select=*')||[];
-  EVATT=await api('event_attendance?select=event_id,class_name,status')||[];
+  /* student_id ו-note נדרשים לרשימת השמות. השמות עצמם נשלפים
+     רק כשפותחים — אין טעם להוריד מאות תלמידים על הבנייה. */
+  EVATT=await api('event_attendance?select=event_id,class_name,student_id,status,'+
+    'note,marked_by,marked_at')||[];
 
   /* מבחנים מאושרים בלבד — טיוטה אינה מבחן ואינה מצדיקה אזהרה. */
   EXAMS=await api('exam_board?select=exam_date,hour,scope,class_name,subject_base,level'+
@@ -251,11 +269,17 @@ function editor(e, mine){
     r+='<div style="margin-top:11px"><button class="btn g sm" '+
       'onclick="copyLink(\''+e.id+'\')">העתקת קישור למחנכים</button>'+
       '<span class="hint" style="margin:0 0 0 9px">קישור אחד לכולם — '+
-      'כל מחנך בוחר את כיתתו.</span></div>'+
+      'כל מחנך בוחר את כיתתו.</span>'+
+      (mine.some(c=>attOf(e.id,c.class_name).n)
+        ? ' <button class="btn sm" onclick="showNames(\''+e.id+'\')">'+
+          'מי לא הגיע · כל הכיתות</button>' : '')+
+      '</div>'+
       '<table><thead><tr><th>כיתה</th><th>נוכחות</th></tr></thead><tbody>'+
       mine.map(c=>{ const a=attOf(e.id,c.class_name);
         return '<tr><td><b>'+esc(c.class_name)+'</b></td>'+
-        '<td>'+(a.n? '<span class="pill ok">'+a.present+' מתוך '+a.n+'</span>'
+        '<td>'+(a.n? '<button class="pill ok" style="border:0;cursor:pointer;'+
+                     'font-family:inherit" onclick="showNames(\''+e.id+'\',\''+
+                     esc(c.class_name)+'\')">'+a.present+' מתוך '+a.n+' · פירוט</button>'
                    : '<span class="pill off">טרם נספרה</span>')+'</td></tr>';
       }).join('')+'</tbody></table>';
   }
@@ -303,6 +327,56 @@ async function saveClasses(id){
     await loadAll(); render();
     const mm=el('msg'); if(mm){ mm.className='msg ok'; mm.textContent='נשמר.'; }
   }catch(err){ if(m){ m.className='msg no'; m.textContent='שגיאה: '+err.message; } }
+}
+
+/* ============================================================
+   פירוט נעדרים ומאחרים
+   ------------------------------------------------------------
+   cls ריק = כל כיתות השכבה באירוע. ראה הערת הגרסה v1.2.0.
+   ============================================================ */
+async function showNames(evid, cls){
+  const ev=GANTT.find(x=>String(x.id)===String(evid));
+  const pool=EVATT.filter(x=>String(x.event_id)===String(evid) &&
+    (cls ? x.class_name===cls
+         : myCls(evid).some(c=>c.class_name===x.class_name)));
+  const bad=pool.filter(x=>x.status!=='present');
+
+  let names={};
+  if(bad.length){
+    try{
+      const ids=[...new Set(bad.map(x=>x.student_id))]
+        .map(i=>'"'+String(i).replace(/"/g,'')+'"').join(',');
+      (await api('students?select=id,name&id=in.('+encodeURIComponent(ids)+')')||[])
+        .forEach(s=>{ names[String(s.id)]=s.name; });
+    }catch(e){}
+  }
+
+  let box=el('nmOv');
+  if(!box){
+    box=document.createElement('div'); box.id='nmOv';
+    box.setAttribute('style','position:fixed;inset:0;background:rgba(20,18,30,.45);'+
+      'display:flex;align-items:center;justify-content:center;z-index:80;padding:18px');
+    box.onclick=e=>{ if(e.target===box) box.remove(); };
+    document.body.appendChild(box);
+  }
+  const line=x=>'<div style="border-top:1px solid var(--line);padding:8px 0">'+
+    '<b>'+esc(names[String(x.student_id)]||x.student_id)+'</b>'+
+    '<span class="pill '+(x.status==='absent'?'':'ok')+'" style="margin-inline-start:7px">'+
+      (x.status==='absent'?'נעדר':'איחר')+'</span>'+
+    (cls?'':'<span class="evmeta"> · '+esc(x.class_name)+'</span>')+
+    (x.note?'<div style="font-size:.86rem;color:var(--soft)">'+esc(x.note)+'</div>':'')+
+    '</div>';
+
+  box.innerHTML='<div style="background:#fff;border-radius:16px;padding:20px 22px;'+
+    'max-width:460px;width:100%;max-height:80vh;overflow:auto">'+
+    '<h3 style="font-size:1.1rem;margin-bottom:2px">מי לא הגיע</h3>'+
+    '<p class="hint">'+esc(ev?ev.title:'')+' · '+(cls?esc(cls):'כל הכיתות')+
+      ' · '+pool.length+' נספרו</p>'+
+    (bad.length? bad.map(line).join('')
+      : '<div class="empty">כולם הגיעו.</div>')+
+    '<div style="margin-top:14px"><button class="btn g sm" '+
+      'onclick="document.getElementById(\'nmOv\').remove()">סגירה</button></div>'+
+    '</div>';
 }
 
 async function boot(){

@@ -1,5 +1,15 @@
 <!DOCTYPE html>
-<!-- eshi/emergency/mivchanim-nochehut.html · v1.1.0 · 2026-09-05 · בית חינוך גליל מערבי
+<!-- eshi/emergency/mivchanim-nochehut.html · v1.2.0 · 2026-09-05 · בית חינוך גליל מערבי
+
+     v1.2.0 · הערה לתלמיד. העמודה note קיימת מהסכימה הראשונה
+     ולא היתה בשימוש.
+
+     ⚠ ההערה נפתחת בלחיצה ולא מוצגת תמיד: שלושים שדות פתוחים
+     הופכים קריאת שמות של דקה לטופס שמרתיע מילוי.
+
+     ⚠ מה שנכתב כאן נראה לרכז השכבה במסך האירועים. הטקסט
+     המוצע למחנך אומר את זה מפורשת, כדי שלא יכתוב דברים
+     בהנחה שהם פרטיים.
 
      v1.1.0 · בורר כיתה, ונרמול שם הכיתה.
 
@@ -72,6 +82,10 @@ input{font-family:inherit;font-size:.95rem;border:1px solid #d5d2e4;border-radiu
 .seg button.p.on{background:var(--ok)}
 .seg button.a.on{background:var(--no)}
 .seg button.l.on{background:var(--late)}
+.nb{border:1px solid var(--line);background:#fff;border-radius:8px;padding:5px 9px;
+  font-family:inherit;font-size:.8rem;cursor:pointer;color:var(--soft)}
+.nb.has{background:#efedf7;color:var(--ink);border-color:#c4bce4;font-weight:800}
+.nin{width:100%;margin:2px 0 8px;font-size:.88rem}
 .bar{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--line);
   padding:11px 15px;display:flex;gap:10px;align-items:center;justify-content:center}
 .bar .in{max-width:640px;width:100%;display:flex;gap:10px;align-items:center}
@@ -110,7 +124,8 @@ const dmy=s=>{ if(!s) return ''; const p=String(s).split('-');
 /* ⚠ נרמול שם הכיתה — ראה הערת הגרסה v1.1.0. */
 const ncls = s => String(s||'').replace(/[׳'"־–-]/g,' ').replace(/\s+/g,' ').trim();
 
-let EVID='', CLS='', EV=null, EVCLS=[], STUDENTS=[], MARK={}, NOTE={}, WHO='', DIRTY=false;
+let EVID='', CLS='', EV=null, EVCLS=[], STUDENTS=[],
+    MARK={}, NOTE={}, OPEN={}, WHO='', DIRTY=false;
 
 async function boot(){
   const q=new URLSearchParams(location.search);
@@ -204,15 +219,19 @@ function render(){
         '<span class="chip"><b>'+c.late+'</b> איחרו</span>'+
         '<span class="chip" style="margin:0 auto 0 0"><b>'+STUDENTS.length+'</b> בכיתה</span>'+
       '</div>'+
-      '<p class="hint">כולם מסומנים נוכחים כברירת מחדל — סמנו רק את מי שחסר.</p>'+
+      '<p class="hint">כולם מסומנים נוכחים כברירת מחדל — סמנו רק את מי שחסר. '+
+      '✎ מוסיף הערה שרכז השכבה יראה.</p>'+
       '<div style="display:flex;gap:7px;margin-bottom:9px">'+
         '<button class="btn g sm" onclick="allOf(\'present\')">הכול נוכחים</button>'+
         '<button class="btn g sm" onclick="allOf(\'absent\')">הכול נעדרים</button>'+
       '</div>'+
       STUDENTS.map(s=>{
         const m=MARK[s.id]||'present';
+        const n=NOTE[s.id]||'', open=OPEN[s.id];
         return '<div class="st">'+
           '<span class="nm">'+esc(s.name)+'</span>'+
+          '<button class="nb'+(n?' has':'')+'" onclick="toggleNote(\''+esc(s.id)+
+            '\')" title="הערה">✎</button>'+
           '<div class="seg">'+
             '<button class="p'+(m==='present'?' on':'')+'" onclick="set(\''+esc(s.id)+
               '\',\'present\')">נוכח</button>'+
@@ -220,7 +239,10 @@ function render(){
               '\',\'late\')">איחר</button>'+
             '<button class="a'+(m==='absent'?' on':'')+'" onclick="set(\''+esc(s.id)+
               '\',\'absent\')">נעדר</button>'+
-          '</div></div>';
+          '</div></div>'+
+          ((open||n)?'<input class="nin" value="'+esc(n)+'" placeholder="הערה לרכז — '+
+            'סיבת היעדרות, התנהגות, כל דבר" '+
+            'oninput="setNote(\''+esc(s.id)+'\',this.value)">':'');
       }).join('')+
     '</div>'+
     '<div class="card">'+
@@ -236,6 +258,9 @@ function render(){
 }
 
 function set(id,v){ MARK[id]=v; DIRTY=true; render(); }
+function toggleNote(id){ OPEN[id]=!OPEN[id]; render(); }
+/* ללא render — ציור מחדש בכל תו היה מוציא את הפוקוס מהשדה. */
+function setNote(id,v){ NOTE[id]=v; DIRTY=true; }
 function allOf(v){ STUDENTS.forEach(s=>{ MARK[s.id]=v; }); DIRTY=true; render(); }
 
 async function save(){
