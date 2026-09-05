@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<!-- eshi/emergency/mivchanim-nochehut.html · v1.0.0 · 2026-09-05 · בית חינוך גליל מערבי
+     © רני בן זאב. יוזמה עצמאית, מימון עצמי.
+
+     קריאת שמות של כיתה באירוע. רכז השכבה מצרף כיתות לאירוע בלוח
+     המבחנים, ומעביר למחנך את הקישור מכאן.
+
+     ⬛ הכתובת נושאת את האירוע ואת הכיתה: ?event=<uuid>&class=<שם>.
+     המחנך אינו בוחר דבר — הוא פותח וקורא שמות.
+
+     ⬛ ברירת המחדל היא "נוכח" לכולם, והמחנך מסמן את מי שחסר. ברוב
+     האירועים רוב התלמידים נוכחים, וסימון של שלושה עדיף על סימון
+     של שלושים.
+
+     ⚠ הנוכחות נשמרת בטבלה משלה ולא ב-daily_attendance: זו נמחקת
+     ונדרסת מדי יום, ואירוע שהיה לפני שבועיים צריך להישאר קריא.
+
+     ⚠ אין סיסמה, כמו בשאר המערכת. שם המסמן נכתב ל-marked_by כדי
+     שהרכז יידע מי ספר, ולא כדי לאמת אותו.
+
+     ⚠ שמירה היא upsert לפי (event_id, student_id). מחנך שיפתח שוב
+     יראה את מה שסימן קודם וימשיך משם, ולא ייצור רשומות כפולות. -->
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>נוכחות באירוע</title>
+<link href="https://fonts.googleapis.com/css2?family=Secular+One&family=Assistant:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#1f2340;--soft:#6a6f8a;--bg:#f5f4f9;--line:#e3e0ee;--a:#4c1d95;--b:#0f766e;
+  --ok:#12b76a;--no:#dc2626;--late:#e08600}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:'Assistant',sans-serif;
+  font-size:16px;line-height:1.6;padding-bottom:90px}
+h1,h2,h3{font-family:'Secular One',sans-serif;font-weight:400;margin:0}
+.top{background:linear-gradient(135deg,var(--a),var(--b));color:#fff;padding:15px 0}
+.topin{max-width:640px;margin:0 auto;padding:0 15px}
+.topin h1{font-size:1.3rem}
+.topin p{margin:2px 0 0;opacity:.9;font-size:.88rem}
+.wrap{max-width:640px;margin:0 auto;padding:15px}
+.card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:16px 18px;
+  margin-bottom:12px}
+label{display:block;font-weight:800;font-size:.83rem;margin-bottom:4px}
+input{font-family:inherit;font-size:.95rem;border:1px solid #d5d2e4;border-radius:10px;
+  padding:9px 12px;background:#fff;color:var(--ink);width:100%}
+.btn{background:var(--a);color:#fff;border:0;border-radius:11px;padding:11px 22px;
+  font-family:inherit;font-weight:800;font-size:.93rem;cursor:pointer}
+.btn:hover{filter:brightness(.92)} .btn:disabled{opacity:.45;cursor:not-allowed}
+.btn.g{background:#efedf7;color:var(--ink)}
+.btn.sm{padding:6px 13px;font-size:.83rem;border-radius:9px}
+.sum{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:11px}
+.chip{background:#faf9fd;border:1px solid var(--line);border-radius:11px;
+  padding:7px 13px;font-size:.86rem;font-weight:800}
+.chip b{font-family:'Secular One',sans-serif;font-weight:400;font-size:1.05rem}
+.st{display:flex;align-items:center;gap:9px;padding:9px 2px;border-top:1px solid var(--line)}
+.st:first-child{border-top:0}
+.st .nm{flex:1;font-weight:700}
+.seg{display:flex;gap:3px}
+.seg button{font-family:inherit;font-size:.8rem;font-weight:800;border:1px solid var(--line);
+  background:#fff;color:var(--soft);border-radius:8px;padding:5px 11px;cursor:pointer}
+.seg button.on{color:#fff;border-color:transparent}
+.seg button.p.on{background:var(--ok)}
+.seg button.a.on{background:var(--no)}
+.seg button.l.on{background:var(--late)}
+.bar{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--line);
+  padding:11px 15px;display:flex;gap:10px;align-items:center;justify-content:center}
+.bar .in{max-width:640px;width:100%;display:flex;gap:10px;align-items:center}
+.msg{font-weight:800;font-size:.86rem}
+.msg.ok{color:#0f7a4d} .msg.no{color:var(--no)}
+.empty{text-align:center;color:var(--soft);padding:30px 12px}
+.hint{color:var(--soft);font-size:.86rem;margin:0 0 11px}
+</style>
+</head>
+<body>
+
+<div class="top"><div class="topin">
+  <h1 id="ttl">נוכחות באירוע</h1>
+  <p id="sub"></p>
+</div></div>
+
+<div class="wrap" id="app"><div class="card"><div class="empty">טוען…</div></div></div>
+
+<script>
+const SURL='https://skfriefqnoxfzmamcokd.supabase.co';
+const SKEY='sb_publishable_Qx7EDPbdyYE9iv7uMQBKhQ_Aeojd_Q0';
+async function api(path,opts={}){
+  const r=await fetch(SURL+'/rest/v1/'+path,{...opts,
+    headers:{apikey:SKEY,Authorization:'Bearer '+SKEY,
+             'Content-Type':'application/json',Prefer:opts.prefer||''}});
+  if(!r.ok) throw new Error((await r.text()).slice(0,200));
+  const t=await r.text(); return t?JSON.parse(t):null;
+}
+const el=id=>document.getElementById(id);
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,
+  c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const pad=n=>String(n).padStart(2,'0');
+const dmy=s=>{ if(!s) return ''; const p=String(s).split('-');
+  return (+p[2])+'.'+pad(+p[1])+'.'+p[0]; };
+
+let EVID='', CLS='', EV=null, STUDENTS=[], MARK={}, NOTE={}, WHO='', DIRTY=false;
+
+async function boot(){
+  const q=new URLSearchParams(location.search);
+  EVID=q.get('event')||''; CLS=q.get('class')||'';
+  if(!EVID||!CLS){
+    el('app').innerHTML='<div class="card"><div class="empty">'+
+      'הקישור חסר אירוע או כיתה.<br>בקשו מרכז השכבה את הקישור המלא.</div></div>';
+    return;
+  }
+  try{
+    const ev=await api('gantt_events?select=*&id=eq.'+encodeURIComponent(EVID)+'&limit=1');
+    EV=(ev&&ev.length)?ev[0]:null;
+    if(!EV) throw new Error('האירוע אינו קיים עוד');
+
+    /* ⚠ מוודאים שהכיתה באמת משויכת לאירוע. בלי זה קישור שהועתק
+       ונערך ביד היה פותח קריאת שמות לכיתה שאינה משתתפת. */
+    const link=await api('event_classes?select=class_name&event_id=eq.'+
+      encodeURIComponent(EVID)+'&class_name=eq.'+encodeURIComponent(CLS)+'&limit=1');
+    if(!link||!link.length) throw new Error('כיתה '+CLS+' אינה משויכת לאירוע הזה');
+
+    STUDENTS=await api('students?select=id,name,class&class=eq.'+
+      encodeURIComponent(CLS)+'&active=is.true&order=name')||[];
+
+    const prev=await api('event_attendance?select=student_id,status,note,marked_by'+
+      '&event_id=eq.'+encodeURIComponent(EVID)+
+      '&class_name=eq.'+encodeURIComponent(CLS))||[];
+    prev.forEach(r=>{ MARK[r.student_id]=r.status; if(r.note) NOTE[r.student_id]=r.note;
+                      if(r.marked_by) WHO=r.marked_by; });
+
+    /* ברירת מחדל: נוכח. ראה הערת הגרסה. */
+    STUDENTS.forEach(s=>{ if(!MARK[s.id]) MARK[s.id]='present'; });
+    render();
+  }catch(e){
+    el('app').innerHTML='<div class="card"><div class="empty">'+esc(e.message)+'</div></div>';
+  }
+}
+
+function counts(){
+  const c={present:0,absent:0,late:0};
+  STUDENTS.forEach(s=>{ c[MARK[s.id]||'present']++; });
+  return c;
+}
+
+function render(){
+  el('ttl').textContent=EV.title;
+  el('sub').textContent='כיתה '+CLS+' · '+dmy(EV.start_date)+
+    (EV.end_date!==EV.start_date?' – '+dmy(EV.end_date):'');
+
+  if(!STUDENTS.length){
+    el('app').innerHTML='<div class="card"><div class="empty">'+
+      'אין תלמידים פעילים בכיתה '+esc(CLS)+'.</div></div>';
+    return;
+  }
+  const c=counts();
+  el('app').innerHTML=
+    '<div class="card">'+
+      '<div class="sum">'+
+        '<span class="chip"><b>'+c.present+'</b> נוכחים</span>'+
+        '<span class="chip"><b>'+c.absent+'</b> נעדרים</span>'+
+        '<span class="chip"><b>'+c.late+'</b> איחרו</span>'+
+        '<span class="chip" style="margin:0 auto 0 0"><b>'+STUDENTS.length+'</b> בכיתה</span>'+
+      '</div>'+
+      '<p class="hint">כולם מסומנים נוכחים כברירת מחדל — סמנו רק את מי שחסר.</p>'+
+      '<div style="display:flex;gap:7px;margin-bottom:9px">'+
+        '<button class="btn g sm" onclick="allOf(\'present\')">הכול נוכחים</button>'+
+        '<button class="btn g sm" onclick="allOf(\'absent\')">הכול נעדרים</button>'+
+      '</div>'+
+      STUDENTS.map(s=>{
+        const m=MARK[s.id]||'present';
+        return '<div class="st">'+
+          '<span class="nm">'+esc(s.name)+'</span>'+
+          '<div class="seg">'+
+            '<button class="p'+(m==='present'?' on':'')+'" onclick="set(\''+esc(s.id)+
+              '\',\'present\')">נוכח</button>'+
+            '<button class="l'+(m==='late'?' on':'')+'" onclick="set(\''+esc(s.id)+
+              '\',\'late\')">איחר</button>'+
+            '<button class="a'+(m==='absent'?' on':'')+'" onclick="set(\''+esc(s.id)+
+              '\',\'absent\')">נעדר</button>'+
+          '</div></div>';
+      }).join('')+
+    '</div>'+
+    '<div class="card">'+
+      '<label>מי סופר?</label>'+
+      '<input id="who" value="'+esc(WHO)+'" placeholder="שם המחנך" '+
+        'oninput="WHO=this.value">'+
+    '</div>';
+
+  el('bar') || document.body.insertAdjacentHTML('beforeend',
+    '<div class="bar" id="bar"><div class="in">'+
+      '<button class="btn" id="save" onclick="save()">שמירת הנוכחות</button>'+
+      '<span class="msg" id="msg"></span></div></div>');
+}
+
+function set(id,v){ MARK[id]=v; DIRTY=true; render(); }
+function allOf(v){ STUDENTS.forEach(s=>{ MARK[s.id]=v; }); DIRTY=true; render(); }
+
+async function save(){
+  const m=el('msg');
+  if(!String(WHO).trim()){ m.className='msg no'; m.textContent='כתבו את שמכם.'; return; }
+  el('save').disabled=true; m.className='msg'; m.textContent='שומר…';
+  try{
+    const rows=STUDENTS.map(s=>({
+      event_id:EVID, student_id:String(s.id), class_name:CLS,
+      status:MARK[s.id]||'present', note:NOTE[s.id]||null,
+      marked_by:String(WHO).trim(), marked_at:new Date().toISOString()}));
+    /* upsert לפי (event_id, student_id) — ראה הערת הגרסה. */
+    await api('event_attendance?on_conflict=event_id,student_id',
+      {method:'POST', prefer:'resolution=merge-duplicates', body:JSON.stringify(rows)});
+    DIRTY=false;
+    m.className='msg ok'; m.textContent='נשמר. הרכז רואה את המספרים.';
+  }catch(e){
+    m.className='msg no'; m.textContent='שגיאה: '+String(e.message).slice(0,90);
+  }
+  el('save').disabled=false;
+}
+
+window.addEventListener('beforeunload',e=>{ if(DIRTY){ e.preventDefault(); e.returnValue=''; } });
+boot();
+</script>
+</body>
+</html>
