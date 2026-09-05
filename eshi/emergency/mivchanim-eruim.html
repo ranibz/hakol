@@ -1,5 +1,19 @@
 <!DOCTYPE html>
-<!-- eshi/emergency/mivchanim-eruim.html · v1.0.0 · 2026-09-05 · בית חינוך גליל מערבי
+<!-- eshi/emergency/mivchanim-eruim.html · v1.1.0 · 2026-09-05 · בית חינוך גליל מערבי
+
+     v1.1.0 · שעות אמיתיות, קישור אחד לכל המחנכים, וסדר ברשימה.
+
+     ⚠ השעות היו integer 1–10 — שעות מערכת. להרצאה זה לא מתאים:
+     הקלדת "1130" התקבלה כמספר. עכשיו time_start/time_end,
+     והשדות הם בוררי שעה של הדפדפן.
+
+     ⬛ קישור אחד לכל האירוע ולא אחד לכל כיתה: הרכז שולח אותו
+     לקבוצת המחנכים, וכל מחנך בוחר את כיתתו במסך.
+
+     ⬛ אירועים שיש להם כיתות מוצגים למעלה, השאר מתחת לכותרת
+     מקופלת. אין במסד שדה שאומר "אירוע של תלמידים", וניחוש
+     לפי מילים בכותרת היה שביר — "כנס" יכול להיות גם של תלמידים.
+     לכן סדר ולא סינון: שום אירוע אינו נעלם, הרעש יורד.
      © רני בן זאב. יוזמה עצמאית, מימון עצמי.
 
      אירועים ונוכחות. רכז השכבה מצרף כיתות לאירוע — הרצאה, סדנה,
@@ -107,7 +121,13 @@ const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,
 const pad=n=>String(n).padStart(2,'0');
 const dmy=s=>{ if(!s) return ''; const p=String(s).split('-');
   return (+p[2])+'.'+pad(+p[1])+'.'+p[0]; };
+/* time מ-Postgres חוזר כ-"10:00:00"; שדה type=time רוצה "10:00". */
+const hhmm=s=>String(s||'').slice(0,5);
 const GRADES=['ז','ח','ט','י','יא','יב'];
+/* ⚠ exam_timetable כותב "י-1" ו-students כותב "י 1". הנרמול קורה בקוד
+   ולא במסד: שתי הטבלאות משרתות מערכות נוספות, ושינוי גלובלי
+   שם ישבור דברים שלא נגענו בהם. */
+const ncls = s => String(s||'').replace(/[׳'"־–-]/g,' ').replace(/\s+/g,' ').trim();
 function planYear(){ const d=new Date(); return d.getMonth()>=7?d.getFullYear():d.getFullYear()-1; }
 function yearLabel(y){ return 'תשפ״'+['ו','ז','ח','ט','י'][y-2025]+' · '+y+'/'+(y+1); }
 
@@ -168,8 +188,23 @@ function render(){
     return void(el('app').innerHTML=html+'<div class="empty">'+
       'אין אירועים בשנה הזו.</div></div>');
 
-  html+=(withCls.length?'':'<p class="hint">עדיין לא צירפתם כיתות לאף אירוע.</p>')+
-    GANTT.map(e=>{
+  /* סדר ולא סינון — ראה הערת הגרסה v1.1.0. */
+  const rest=GANTT.filter(e=>myCls(e.id).length===0);
+  html+=(withCls.length
+    ? '<h4 style="font-size:1rem;margin:4px 0 9px">עם כיתות מהשכבה ('+withCls.length+')</h4>'
+    : '<p class="hint">עדיין לא צירפתם כיתות לאף אירוע.</p>')+
+    withCls.map(evCard).join('')+
+    (rest.length
+      ? '<details style="margin-top:14px"><summary style="cursor:pointer;font-weight:800;'+
+        'font-family:\'Secular One\',sans-serif;font-size:1rem;padding:6px 0">'+
+        'אירועים נוספים בלוח הגאנט ('+rest.length+')</summary>'+
+        '<p class="hint" style="margin-top:8px">כולל אירועי צוות שאינם נוגעים '+
+        'לתלמידים. צרפו כיתות למי שכן רלוונטי, והוא יעלה למעלה.</p>'+
+        rest.map(evCard).join('')+'</details>'
+      : '');
+  el('app').innerHTML=html+'</div>';
+
+  function evCard(e){
       const mine=myCls(e.id), open=String(PICK)===String(e.id);
       let r='<div class="evrow'+(open?' on':'')+'"><div class="evhead">'+
         '<div><h4>'+esc(e.title)+'</h4><div class="evmeta">'+esc(dmy(e.start_date))+
@@ -188,8 +223,7 @@ function render(){
       }
       if(open) r+=editor(e, mine);
       return r+'</div>';
-    }).join('');
-  el('app').innerHTML=html+'</div>';
+  }
 }
 
 function editor(e, mine){
@@ -200,10 +234,10 @@ function editor(e, mine){
     '<input type="checkbox" class="evc" value="'+esc(c)+'"'+
       (picked.indexOf(c)>-1?' checked':'')+'>'+esc(c)+'</label>').join('')+'</div>'+
     '<div class="hrow">'+
-      '<div><label>משעה</label><input type="number" min="1" max="10" id="h1" '+
-        'style="width:82px" value="'+((mine[0]&&mine[0].hour_start)||'')+'"></div>'+
-      '<div><label>עד שעה</label><input type="number" min="1" max="10" id="h2" '+
-        'style="width:82px" value="'+((mine[0]&&mine[0].hour_end)||'')+'"></div>'+
+      '<div><label>משעה</label><input type="time" id="h1" '+
+        'style="width:128px" value="'+esc(hhmm(mine[0]&&mine[0].time_start))+'"></div>'+
+      '<div><label>עד שעה</label><input type="time" id="h2" '+
+        'style="width:128px" value="'+esc(hhmm(mine[0]&&mine[0].time_end))+'"></div>'+
       '<button class="btn sm" onclick="saveClasses(\''+e.id+'\')">שמירה</button>'+
     '</div><div class="msg" id="msg"></div>';
 
@@ -214,14 +248,15 @@ function editor(e, mine){
     '<br>האירוע אינו נחסם — החליטו אם להזיז את המבחן בלוח המבחנים.</div>';
 
   if(mine.length){
-    r+='<table><thead><tr><th>כיתה</th><th>נוכחות</th>'+
-      '<th style="width:180px"></th></tr></thead><tbody>'+
+    r+='<div style="margin-top:11px"><button class="btn g sm" '+
+      'onclick="copyLink(\''+e.id+'\')">העתקת קישור למחנכים</button>'+
+      '<span class="hint" style="margin:0 0 0 9px">קישור אחד לכולם — '+
+      'כל מחנך בוחר את כיתתו.</span></div>'+
+      '<table><thead><tr><th>כיתה</th><th>נוכחות</th></tr></thead><tbody>'+
       mine.map(c=>{ const a=attOf(e.id,c.class_name);
         return '<tr><td><b>'+esc(c.class_name)+'</b></td>'+
         '<td>'+(a.n? '<span class="pill ok">'+a.present+' מתוך '+a.n+'</span>'
-                   : '<span class="pill off">טרם נספרה</span>')+'</td>'+
-        '<td><button class="btn g sm" onclick="copyLink(\''+e.id+'\',\''+
-          esc(c.class_name)+'\')">העתקת קישור למחנך</button></td></tr>';
+                   : '<span class="pill off">טרם נספרה</span>')+'</td></tr>';
       }).join('')+'</tbody></table>';
   }
   return r;
@@ -230,15 +265,15 @@ function editor(e, mine){
 function pick(id){ PICK=(String(PICK)===String(id)?null:id); render(); }
 function setGrade(g){ GRADE=g; PICK=null; boot(); }
 
-function teacherLink(id,cls){
+/* קישור אחד לכל המחנכים — הכיתה נבחרת במסך עצמו. */
+function teacherLink(id){
   return location.href.replace(/[^/]*$/,'') +
-    'mivchanim-nochehut.html?event='+encodeURIComponent(id)+
-    '&class='+encodeURIComponent(cls);
+    'mivchanim-nochehut.html?event='+encodeURIComponent(id);
 }
-async function copyLink(id,cls){
-  const u=teacherLink(id,cls), m=el('msg');
+async function copyLink(id){
+  const u=teacherLink(id), m=el('msg');
   try{ await navigator.clipboard.writeText(u);
-    if(m){ m.className='msg ok'; m.textContent='הקישור של '+cls+' הועתק.'; }
+    if(m){ m.className='msg ok'; m.textContent='הקישור הועתק — שלחו אותו לכל המחנכים.'; }
   }catch(e){
     /* ⚠ clipboard נחסם בהקשר לא מאובטח. עדיף להראות את הכתובת
        מאשר להשאיר את המחנך בלי כלום. */
@@ -248,7 +283,7 @@ async function copyLink(id,cls){
 
 async function saveClasses(id){
   const want=[...document.querySelectorAll('.evc')].filter(b=>b.checked).map(b=>b.value);
-  const h1=parseInt(el('h1').value,10)||null, h2=parseInt(el('h2').value,10)||null;
+  const h1=el('h1').value||null, h2=el('h2').value||null;
   const have=myCls(id).map(x=>x.class_name);
   const del=have.filter(c=>want.indexOf(c)<0);
   const m=el('msg');
@@ -263,7 +298,7 @@ async function saveClasses(id){
       await api('event_classes?on_conflict=event_id,class_name',
         {method:'POST', prefer:'resolution=merge-duplicates',
          body:JSON.stringify(want.map(c=>({event_id:id, class_name:c,
-           hour_start:h1, hour_end:h2})))});
+           time_start:h1, time_end:h2})))});
     }
     await loadAll(); render();
     const mm=el('msg'); if(mm){ mm.className='msg ok'; mm.textContent='נשמר.'; }

@@ -1,5 +1,15 @@
 <!DOCTYPE html>
-<!-- eshi/emergency/mivchanim-nochehut.html · v1.0.0 · 2026-09-05 · בית חינוך גליל מערבי
+<!-- eshi/emergency/mivchanim-nochehut.html · v1.1.0 · 2026-09-05 · בית חינוך גליל מערבי
+
+     v1.1.0 · בורר כיתה, ונרמול שם הכיתה.
+
+     ⬛ הקישור נושא את האירוע בלבד: ?event=<uuid>. הרכז שולח
+     קישור אחד לכל המחנכים, וכל מחנך בוחר את כיתתו.
+     ?class= עדיין נתמך ומדלג על הבורר.
+
+     ⚠ exam_timetable כותב "י-1" ו-students כותב "י 1". בלי נרמול
+     המסך היה מוצא אפס תלמידים ואומר "אין תלמידים בכיתה".
+     הנרמול בקוד ולא במסד: שתי הטבלאות משרתות מערכות נוספות.
      © רני בן זאב. יוזמה עצמאית, מימון עצמי.
 
      קריאת שמות של כיתה באירוע. רכז השכבה מצרף כיתות לאירוע בלוח
@@ -97,14 +107,17 @@ const pad=n=>String(n).padStart(2,'0');
 const dmy=s=>{ if(!s) return ''; const p=String(s).split('-');
   return (+p[2])+'.'+pad(+p[1])+'.'+p[0]; };
 
-let EVID='', CLS='', EV=null, STUDENTS=[], MARK={}, NOTE={}, WHO='', DIRTY=false;
+/* ⚠ נרמול שם הכיתה — ראה הערת הגרסה v1.1.0. */
+const ncls = s => String(s||'').replace(/[׳'"־–-]/g,' ').replace(/\s+/g,' ').trim();
+
+let EVID='', CLS='', EV=null, EVCLS=[], STUDENTS=[], MARK={}, NOTE={}, WHO='', DIRTY=false;
 
 async function boot(){
   const q=new URLSearchParams(location.search);
   EVID=q.get('event')||''; CLS=q.get('class')||'';
-  if(!EVID||!CLS){
+  if(!EVID){
     el('app').innerHTML='<div class="card"><div class="empty">'+
-      'הקישור חסר אירוע או כיתה.<br>בקשו מרכז השכבה את הקישור המלא.</div></div>';
+      'הקישור חסר אירוע.<br>בקשו מרכז השכבה את הקישור המלא.</div></div>';
     return;
   }
   try{
@@ -112,14 +125,21 @@ async function boot(){
     EV=(ev&&ev.length)?ev[0]:null;
     if(!EV) throw new Error('האירוע אינו קיים עוד');
 
-    /* ⚠ מוודאים שהכיתה באמת משויכת לאירוע. בלי זה קישור שהועתק
-       ונערך ביד היה פותח קריאת שמות לכיתה שאינה משתתפת. */
-    const link=await api('event_classes?select=class_name&event_id=eq.'+
-      encodeURIComponent(EVID)+'&class_name=eq.'+encodeURIComponent(CLS)+'&limit=1');
-    if(!link||!link.length) throw new Error('כיתה '+CLS+' אינה משויכת לאירוע הזה');
+    EVCLS=await api('event_classes?select=class_name,time_start,time_end&event_id=eq.'+
+      encodeURIComponent(EVID)+'&order=class_name')||[];
+    if(!EVCLS.length) throw new Error('לא צורפו כיתות לאירוע הזה עדיין');
 
-    STUDENTS=await api('students?select=id,name,class&class=eq.'+
-      encodeURIComponent(CLS)+'&active=is.true&order=name')||[];
+    /* אין כיתה בכתובת — המחנך בוחר. ראה הערת הגרסה v1.1.0. */
+    if(!CLS){ pickScreen(); return; }
+    if(!EVCLS.some(x=>x.class_name===CLS))
+      throw new Error('כיתה '+CLS+' אינה משוייכת לאירוע הזה');
+
+    /* ⚠ השוואה מנורמלת. מושכים לפי קידומת השכבה ומסננים
+       כאן, כדי לא להוריד את כל תלמידי בית הספר. */
+    const pref=ncls(CLS).split(' ')[0];
+    const pool=await api('students?select=id,name,class&class=like.'+
+      encodeURIComponent(pref+'*')+'&active=is.true&order=name')||[];
+    STUDENTS=pool.filter(s=>ncls(s.class)===ncls(CLS));
 
     const prev=await api('event_attendance?select=student_id,status,note,marked_by'+
       '&event_id=eq.'+encodeURIComponent(EVID)+
@@ -135,6 +155,29 @@ async function boot(){
   }
 }
 
+/* מסך בחירת הכיתה — מה שהמחנך רואה כשהקישור בלי כיתה. */
+function evTime(c){
+  return (c&&c.time_start)? ' · '+String(c.time_start).slice(0,5)+
+    (c.time_end?'\u2013'+String(c.time_end).slice(0,5):'') : '';
+}
+function pickScreen(){
+  el('ttl').textContent=EV.title;
+  el('sub').textContent=dmy(EV.start_date)+
+    (EV.end_date!==EV.start_date?' – '+dmy(EV.end_date):'')+evTime(EVCLS[0]);
+  el('app').innerHTML='<div class="card">'+
+    '<h3 style="font-size:1.1rem;margin-bottom:4px">איזו כיתה?</h3>'+
+    '<p class="hint">בחרו את הכיתה שלכם כדי לספור נוכחות.</p>'+
+    '<div style="display:flex;gap:8px;flex-wrap:wrap">'+
+    EVCLS.map(c=>'<button class="btn g" onclick="goClass(\''+
+      esc(c.class_name)+'\')">'+esc(c.class_name)+'</button>').join('')+
+    '</div></div>';
+}
+function goClass(c){
+  const u=new URL(location.href);
+  u.searchParams.set('class',c);
+  location.href=u.toString();
+}
+
 function counts(){
   const c={present:0,absent:0,late:0};
   STUDENTS.forEach(s=>{ c[MARK[s.id]||'present']++; });
@@ -144,7 +187,8 @@ function counts(){
 function render(){
   el('ttl').textContent=EV.title;
   el('sub').textContent='כיתה '+CLS+' · '+dmy(EV.start_date)+
-    (EV.end_date!==EV.start_date?' – '+dmy(EV.end_date):'');
+    (EV.end_date!==EV.start_date?' – '+dmy(EV.end_date):'')+
+    evTime(EVCLS.find(x=>x.class_name===CLS));
 
   if(!STUDENTS.length){
     el('app').innerHTML='<div class="card"><div class="empty">'+
