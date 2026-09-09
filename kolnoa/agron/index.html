@@ -1,5 +1,32 @@
 <!DOCTYPE html>
-<!-- agron-kolnoa/index.html · v1.0.0 · 2026-09-09 · RanLMS
+<!-- kolnoa/agron/index.html · v1.1.0 · 2026-09-09 · RanLMS
+
+     v1.1.0 · נעילה זמנית עד אישור התוכן.
+
+     ⬛ להסרת הנעילה — שורה אחת: חפשו למטה את
+         const GATE = '1234';
+     והחליפו אותה ב-
+         const GATE = '';
+     מחרוזת ריקה מכבה את השער לגמרי, והאגרון נפתח ישיר.
+     אין צורך למחוק שום דבר אחר.
+
+     ⚠ זו אינה הגנה על התוכן. המפתח הציבורי של המסד יושב
+     בקוד המקור, ומי שיודע לחפש ימשוך את המושגים ישירות.
+     מה שהנעילה כן עושה: מונעת מתלמיד לראות תוכן שטרם אושר.
+
+     ⚠ sessionStorage ולא localStorage — סגירת הדפדפן מבקשת שוב.
+
+     v1.0.1 · שורת הכותרת של טבלת התפקידים הסתירה שורות.
+
+     ⚠ נתתי לה position:sticky עם top:56px — מספר שניחשתי לגובה
+     סרגל הלשוניות מעליה. הסרגל גבוה יותר ומשתנה לפי רוחב
+     המסך, ולכן הכותרת נעצרה באמצע הטבלה וריחפה מעל השורות.
+
+     ⬛ התיקון: הסרגל מודד את עצמו ומעדכן משתנה CSS, במקום
+     מספר קשיח — כולל בשינוי גודל חלון ובמעבר למאוזן.
+
+     ⬛ הכותרת קיבלה גם צל מתחתיה ו-z-index מפורש. בלעדיהם הגבול
+     בינה לבין השורה שמתחתיה אינו נראה בגלילה.
      © רני בן זאב. יוזמה עצמאית, מימון עצמי.
 
      אגרון מושגים · הפקות קולנוע. 129 מושגים בעשר תחנות ההפקה.
@@ -38,6 +65,8 @@ h1,h2,h3{font-family:'Secular One',sans-serif;font-weight:400}
 .topin p{opacity:.85;font-size:.92rem;margin-top:3px}
 
 .bar{background:#fff;border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20}
+/* גובה הסרגל — נמדד בריצה ולא מנוחש. ראה הערת הגרסה v1.0.1. */
+:root{--barh:56px}
 .barin{max-width:1060px;margin:0 auto;padding:11px 15px;display:flex;gap:9px;
   align-items:center;flex-wrap:wrap}
 .tab{background:#efeafb;color:var(--ink);border:0;border-radius:10px;padding:8px 16px;
@@ -84,7 +113,8 @@ input,select{font-family:inherit;font-size:.92rem;border:1px solid #d8d3e8;
 table{width:100%;border-collapse:collapse;font-size:.88rem}
 th,td{padding:7px 9px;border-bottom:1px solid var(--line);text-align:right}
 th{background:var(--ink);color:#fff;font-size:.76rem;font-weight:800;
-  position:sticky;top:56px}
+  position:sticky;top:var(--barh);z-index:5;
+  box-shadow:0 2px 0 rgba(0,0,0,.18)}
 td.c{text-align:center;font-weight:900;color:var(--a)}
 tbody tr:hover{background:#faf9fd}
 .empty{text-align:center;color:var(--soft);padding:34px 12px}
@@ -114,6 +144,24 @@ tbody tr:hover{background:#faf9fd}
   <input id="q" placeholder="חיפוש בעברית או באנגלית…" style="width:230px" oninput="render()">
 </div></div>
 
+<div id="gate" style="position:fixed;inset:0;background:linear-gradient(135deg,#2e1065,#6d28d9);
+     z-index:99;display:flex;align-items:center;justify-content:center;padding:20px">
+  <div style="background:#fff;border-radius:18px;padding:26px 24px;max-width:340px;width:100%;
+              text-align:center">
+    <div style="font-size:34px;line-height:1;margin-bottom:8px">🎬</div>
+    <h2 style="font-size:1.2rem;margin-bottom:5px">אגרון המושגים</h2>
+    <p class="hint" style="margin-bottom:13px">האגרון בבדיקה וטרם נפתח לכולם.
+      הזינו סיסמה.</p>
+    <input id="gpw" type="password" placeholder="סיסמה" style="width:100%"
+           onkeydown="if(event.key==='Enter')unlock()">
+    <div style="margin-top:12px">
+      <button class="tab on" style="padding:9px 22px" onclick="unlock()">כניסה ←</button>
+    </div>
+    <div id="gerr" style="color:#dc2626;font-weight:800;font-size:.86rem;
+         margin-top:9px;min-height:19px"></div>
+  </div>
+</div>
+
 <div class="wrap" id="app"><div class="card"><div class="empty">טוען…</div></div></div>
 
 <script>
@@ -140,6 +188,26 @@ const ROLES = [
 const STAGES = {pre:'פרה', prod:'פרודקשן', post:'פוסט'};
 
 let TERMS = [], STATIONS = [], TAB = 'all', ROLE = null;
+
+/* ============================================================
+   נעילה זמנית — עד שהתוכן יאושר
+   ------------------------------------------------------------
+   ⬛ לפתיחת האגרון לכולם: החליפו את '1234' במחרוזת ריקה ''.
+   זו השורה היחידה שצריך לגעת בה.
+   ============================================================ */
+const GATE = '1234';
+const GKEY = 'agron_kolnoa_view';
+
+function unlock(){
+  if(el('gpw').value !== GATE){
+    el('gerr').textContent = 'סיסמה שגויה.';
+    el('gpw').value = ''; el('gpw').focus();
+    return;
+  }
+  try{ sessionStorage.setItem(GKEY,'1'); }catch(e){}
+  el('gate').style.display = 'none';
+  boot();
+}
 
 async function boot(){
   try{
@@ -253,7 +321,28 @@ function viewRole(){
   return html;
 }
 
-boot();
+/* ⚠ הסרגל עוטף לשתי שורות במסך צר, ולכן הגובה נמדד מחדש
+   בכל שינוי גודל ולא פעם אחת בטעינה. */
+function syncBar(){
+  const b = document.querySelector('.bar');
+  if(!b) return;
+  const h = b.offsetHeight;
+  /* ⚠ מדידה שרצה לפני שהדפדפן סיים לפרוס מחזירה 0,
+     ואז הכותרת נדבקת לראש המסך מתחת לסרגל — בדיוק הבאג
+     שתיקננו. עדיף להשאיר את ברירת המחדל. */
+  if(h > 0) document.documentElement.style.setProperty('--barh', h + 'px');
+}
+window.addEventListener('resize', syncBar);
+window.addEventListener('load', syncBar);   /* אחרי טעינת הגופנים */
+syncBar();
+
+/* GATE ריק = אין נעילה. ראה הערת הגרסה v1.1.0. */
+(function(){
+  let ok = !GATE;
+  if(!ok){ try{ ok = sessionStorage.getItem(GKEY) === '1'; }catch(e){} }
+  if(ok){ el('gate').style.display = 'none'; boot(); }
+  else  { setTimeout(()=>{ const p=el('gpw'); if(p) p.focus(); }, 60); }
+})();
 </script>
 </body>
 </html>
