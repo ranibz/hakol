@@ -1,5 +1,28 @@
 <!DOCTYPE html>
-<!-- eshi/emergency/mivchanim-eruim.html · v1.2.0 · 2026-09-05 · בית חינוך גליל מערבי
+<!-- eshi/emergency/mivchanim-eruim.html · v1.3.0 · 2026-09-12 · בית חינוך גליל מערבי
+
+     v1.3.0 · תיקון באג שהשתיק את הכפתור המרכזי במסך.
+
+     ⚠ "אירועים נוספים בלוח הגאנט" הוא details שנבנה מחדש בכל
+     render — בלי open. לחיצה על "כיתות ונוכחות" באירוע שיושב שם
+     קראה ל-render, הקטע נסגר, והעורך שנפתח הוסתר בתוכו. הכפתור
+     עבד, ופשוט לא נראה שקרה משהו. RESTOPEN זוכר את המצב ו-ontoggle
+     מעדכן אותו כשהמשתמש פותח או סוגר.
+     ⬛ ובנוסף: העורך שנפתח נגלל למרכז המסך. ברשימה של 38 אירועים
+     גם עורך שנפתח נכון יכול להיות מחוץ לשדה הראייה.
+
+     ⬛ כותרת "בחירת כיתות מהשכבה" מעל תיבות הסימון. קודם הן הופיעו
+     בלי הסבר, וכיתה שאינה מסומנת נראתה כמו כיתה שאינה קיימת.
+
+     ⬛ כפתור "פתיחת מסך הנוכחות" לצד העתקת הקישור — הרכז יכול
+     לבדוק או לספור בעצמו בלי להעתיק ולהדביק.
+
+     ⬛ ואחרי שמירה ההודעה אומרת מה הצעד הבא. "נשמר" לבד לא גילה
+     שכפתור הקישור למחנכים הופיע רק עכשיו.
+
+     ⬛ טלפון: לא היה שום @media. תיבות הכיתות בשלוש עמודות,
+     שורת השעות נשברת, וכל שדה קלט 16px.
+
 
      v1.2.0 · שמות ולא רק מספרים. לחיצה על "13 מתוך 16" פותחת
      את הנעדרים והמאחרים של אותה כיתה, וכפתור ברמת האירוע
@@ -106,6 +129,37 @@ th{font-size:.78rem;color:var(--soft);font-weight:800}
 .empty{text-align:center;color:var(--soft);padding:28px 12px}
 .msg{font-weight:800;font-size:.86rem;margin-top:8px}
 .msg.ok{color:#0f7a4d} .msg.no{color:var(--no)}
+
+/* ============================================================
+   v1.3.0 · טלפון. בקובץ הזה לא היה שום @media.
+   ============================================================ */
+.tblwrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+@media(max-width:760px){
+  body{font-size:15px}
+  .wrap{padding:12px 10px}
+  .card{padding:13px 14px;border-radius:14px}
+  .topin{gap:8px;padding:0 11px}
+  .topin h1{font-size:1rem}
+  .topin .sb{font-size:.76rem}
+  .evhead{flex-wrap:wrap;gap:8px}
+  .evhead .btn{margin:0!important;flex:1 1 100%}
+  .hrow{flex-wrap:wrap}
+  .hrow>div{flex:1 1 44%}
+  .hrow input[type=time]{width:100%!important}
+  .hrow .btn{flex:1 1 100%}
+  /* ⬛ תיבות הכיתות: שלוש בשורה ולא צמד ארוך שנגלל */
+  .cbox{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+  .cbox label{justify-content:center}
+  table{min-width:0}
+  .btn{padding:11px 17px}
+  /* ⚠ 16px בדיוק: פחות מזה גורם ל-iOS להגדיל את הדף בלחיצה על שדה
+     ולהשאיר אותו מוגדל. */
+  select,input,textarea{font-size:16px}
+}
+@media(max-width:420px){
+  .cbox{grid-template-columns:repeat(2,1fr)}
+  .topin h1{font-size:.95rem}
+}
 </style>
 </head>
 <body>
@@ -146,6 +200,7 @@ const ncls = s => String(s||'').replace(/[׳'"־–-]/g,' ').replace(/\s+/g,' ')
 function planYear(){ const d=new Date(); return d.getMonth()>=7?d.getFullYear():d.getFullYear()-1; }
 function yearLabel(y){ return 'תשפ״'+['ו','ז','ח','ט','י'][y-2025]+' · '+y+'/'+(y+1); }
 
+let RESTOPEN=false;          /* v1.3.0 — האם "אירועים נוספים" פתוח */
 let YEAR=planYear(), GRADE='י', PICK=null,
     CLASSES=[], GANTT=[], EVCLS=[], EVATT=[], EXAMS=[];
 
@@ -213,7 +268,13 @@ function render(){
     : '<p class="hint">עדיין לא צירפתם כיתות לאף אירוע.</p>')+
     withCls.map(evCard).join('')+
     (rest.length
-      ? '<details style="margin-top:14px"><summary style="cursor:pointer;font-weight:800;'+
+      /* v1.3.0 — ⚠ כאן היה הבאג: ה-details נבנה בכל render בלי open,
+         ולכן לחיצה על "כיתות ונוכחות" באירוע שיושב בתוכו סגרה את
+         הקטע והסתירה את העורך שנפתח. נראה כאילו הכפתור אינו עובד.
+         RESTOPEN זוכר את המצב, ו-ontoggle מעדכן אותו כשהמשתמש
+         פותח או סוגר בעצמו. */
+      ? '<details style="margin-top:14px"'+(RESTOPEN?' open':'')+
+        ' ontoggle="RESTOPEN=this.open"><summary style="cursor:pointer;font-weight:800;'+
         'font-family:\'Secular One\',sans-serif;font-size:1rem;padding:6px 0">'+
         'אירועים נוספים בלוח הגאנט ('+rest.length+')</summary>'+
         '<p class="hint" style="margin-top:8px">כולל אירועי צוות שאינם נוגעים '+
@@ -247,7 +308,10 @@ function render(){
 function editor(e, mine){
   const picked=mine.map(x=>x.class_name);
   const cl=clashes(e, picked);
-  let r='<div class="cbox">'+CLASSES.map(c=>
+  /* v1.3.0 — כותרת לתיבות. קודם הן הופיעו בלי שום הסבר, וכיתה
+     שאינה מסומנת נראתה כמו כיתה שאינה קיימת. */
+  let r='<label style="margin-top:4px">בחירת כיתות מהשכבה</label>'+
+    '<div class="cbox">'+CLASSES.map(c=>
     '<label class="'+(picked.indexOf(c)>-1?'has':'')+'">'+
     '<input type="checkbox" class="evc" value="'+esc(c)+'"'+
       (picked.indexOf(c)>-1?' checked':'')+'>'+esc(c)+'</label>').join('')+'</div>'+
@@ -268,8 +332,12 @@ function editor(e, mine){
   if(mine.length){
     r+='<div style="margin-top:11px"><button class="btn g sm" '+
       'onclick="copyLink(\''+e.id+'\')">העתקת קישור למחנכים</button>'+
-      '<span class="hint" style="margin:0 0 0 9px">קישור אחד לכולם — '+
-      'כל מחנך בוחר את כיתתו.</span>'+
+      ' <a class="btn sm" style="text-decoration:none;display:inline-block" '+
+        'href="'+esc(teacherLink(e.id))+'" target="_blank" rel="noopener">'+
+        'פתיחת מסך הנוכחות</a>'+
+      '<span class="hint" style="display:block;margin:7px 0 0">קישור אחד לכולם — '+
+      'כל מחנך בוחר את כיתתו. ⬛ "פתיחת מסך הנוכחות" פותחת את אותו מסך '+
+      'כאן, כדי לבדוק או לספור בעצמכם.</span>'+
       (mine.some(c=>attOf(e.id,c.class_name).n)
         ? ' <button class="btn sm" onclick="showNames(\''+e.id+'\')">'+
           'מי לא הגיע · כל הכיתות</button>' : '')+
@@ -286,7 +354,16 @@ function editor(e, mine){
   return r;
 }
 
-function pick(id){ PICK=(String(PICK)===String(id)?null:id); render(); }
+function pick(id){
+  PICK=(String(PICK)===String(id)?null:id);
+  /* אירוע בלי כיתות יושב בקטע המקופל — פתיחתו מחייבת שהקטע יישאר
+     פתוח, אחרת העורך נפתח מחוץ לשדה הראייה. */
+  if(PICK && myCls(PICK).length===0) RESTOPEN=true;
+  render();
+  /* ⬛ ברשימה של 38 אירועים גם עורך שנפתח נכון יכול להיות מחוץ למסך. */
+  if(PICK) setTimeout(()=>{ const r=document.querySelector('.evrow.on');
+    if(r&&r.scrollIntoView) r.scrollIntoView({behavior:'smooth',block:'center'}); },40);
+}
 function setGrade(g){ GRADE=g; PICK=null; boot(); }
 
 /* קישור אחד לכל המחנכים — הכיתה נבחרת במסך עצמו. */
@@ -325,7 +402,13 @@ async function saveClasses(id){
            time_start:h1, time_end:h2})))});
     }
     await loadAll(); render();
-    const mm=el('msg'); if(mm){ mm.className='msg ok'; mm.textContent='נשמר.'; }
+    const mm=el('msg');
+    if(mm){ mm.className='msg ok';
+      /* v1.3.0 — אחרי שמירה נאמר מה הצעד הבא. קודם נכתב "נשמר"
+         והרכז לא ידע שכפתור הקישור למחנכים הופיע רק עכשיו. */
+      mm.textContent = want.length
+        ? 'נשמר · '+want.length+' כיתות. עכשיו אפשר להעתיק את הקישור למחנכים.'
+        : 'נשמר · כל הכיתות הוסרו מהאירוע.'; }
   }catch(err){ if(m){ m.className='msg no'; m.textContent='שגיאה: '+err.message; } }
 }
 
