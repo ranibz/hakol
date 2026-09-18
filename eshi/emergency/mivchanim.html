@@ -1,5 +1,21 @@
 <!DOCTYPE html>
-<!-- eshi/emergency/mivchanim.html · v1.16.3 · 2026-09-18 · בית חינוך גליל מערבי
+<!-- eshi/emergency/mivchanim.html · v1.17.0 · 2026-09-18 · בית חינוך גליל מערבי
+
+     v1.17.0 · "עריכה" במקום "העברה לתאריך אחר".
+
+     ⚠ הכפתור על מבחן קיים פתח את מנוע החיפוש: טווח תאריכים, חיפוש
+     משבצות, ובחירת משבצת. מי שרצה רק להזיז שעה או לתקן הערה נתקע —
+     הוא שינה ערכים ולא הייתה שמירה, כי הטופס ההוא אינו שומר אלא
+     מחפש.
+
+     ⬛ עכשיו נפתח טופס עריכה: תאריך אחד, ריבועי שעות עם השעות
+     הקיימות מסומנות, מקצוע, היקף, שם והערה — ו"שמירה ←" שמעדכן
+     את המבחן במקום.
+     ⬛ "חיפוש משבצות אחרות ←" נשאר קישור בתחתית הטופס, למי שרוצה
+     שהכלי ימצא משבצת. שיבוץ בקשת חלון ממשיך להיפתח ישר בחיפוש,
+     כי שם אין עדיין תאריך.
+     ⚠ העריכה שומרת את הגלישה מחדש לפי השעות החדשות, כמו כל שמירה.
+
 
      v1.16.3 · ההערה נכתבת בתא עצמו, בשורה שנייה.
 
@@ -1340,13 +1356,21 @@ function startMove(id){
   const e=BOARD.find(x=>String(x.id)===String(id));
   if(!e||VIEW) return;
   MOVE=e;
+  /* v1.17.0 — נפתח לעריכה; החיפוש הוא קישור בתוך הטופס.
+     ⚠ היקף חופשי נשמר כ-class עם שם שאינו כיתה אמיתית; בפתיחה הוא
+     חוזר להיות "היקף אחר", אחרת בורר הכיתות היה מציג את הכיתה
+     הראשונה ולחיצה אחת הייתה מוחקת את "גוש 2". */
   const t=new Date(), plus=addD(t,28);
-  FORM={base:splitUnit(e.subject_base).fam, units:unitsOfExam(e), scope:e.scope,
+  const realCls = CLASSES.indexOf(e.class_name)>-1;
+  const freeScope = e.scope==='class' && e.class_name && !realCls;
+  FORM={base:splitUnit(e.subject_base).fam, units:unitsOfExam(e),
+        scope: freeScope?'other':e.scope,
+        groupName: freeScope?e.class_name:'', groupCls:[],
         /* v1.11.0 — הגשה נשארת הגשה גם בהעברה לתאריך אחר */
         kind:isTask(e)?'task':'exam',
         title:e.title||'', notes:e.notes||'',
-        cls:e.class_name||CLASSES[0], from:isTask(e)?e.exam_date:iso(t),
-        to:iso(plus), oneDay:false,
+        cls:e.class_name||CLASSES[0], from:e.exam_date, to:e.exam_date,
+        oneDay:false, searching:false,
         allowBlocked:false,
         /* מבחן בהעברה שומר על שעותיו — הן מסומנות מראש בריבועים,
            ולכן הוא נפתח במצב "שעות שאבחר" ולא לפי המערכת. */
@@ -1463,6 +1487,8 @@ function setKind(k){
 function drawModal(subs){
   subs=subs||subjectList();
   if(KIND()==='task') return drawTask(subs);
+  /* v1.17.0 — מבחן קיים נפתח לעריכה, לא לחיפוש */
+  if(MOVE && !FORM.searching) return drawEdit(subs);
   if(FORM.oneDay && !CAND.length) buildCandidates();
   const dd=FORM.oneDay?fromIso(FORM.from):null;
   const body=
@@ -1473,31 +1499,7 @@ function drawModal(subs){
     kindSwitch()+
     '<p class="hint">הכלי יציג רק משבצות אפשריות, מדורגות לפי כמה מכיתות '+
     'השכבה נמצאות במקצוע באותה שעה.</p>'+
-    '<div class="row">'+
-      /* v1.8.0 — שדה חיפוש במקום בורר. הרשימה נפתחת בלחיצה,
-         מסתננת בהקלדה, ומציעה הוספה למה שאינו קיים. */
-      '<div class="cbx"><label>מקצוע</label>'+
-        '<input id="subIn" autocomplete="off" placeholder="הקלידו שם מקצוע…" '+
-        'value="'+esc(FORM.base)+'" oninput="subFilter(this.value)" '+
-        'onfocus="this.select();subFilter(this.value,true)" onkeydown="subKey(event)" '+
-        'onblur="subBlur()">'+
-        '<div id="subList" class="cbx-list" hidden></div></div>'+
-
-      '<div><label>היקף</label><select onchange="FORM.scope=this.value;FORM.scopeAuto=false;'+
-        'CAND=[];SEARCHED=false;drawModal()">'+
-        '<option value="grade"'+(FORM.scope==='grade'?' selected':'')+'>כל השכבה</option>'+
-        '<option value="class"'+(FORM.scope==='class'?' selected':'')+'>כיתה אחת</option>'+
-        '<option value="elective"'+(FORM.scope==='elective'?' selected':'')+
-          '>מקצוע בחירה</option>'+
-        '<option value="other"'+(FORM.scope==='other'?' selected':'')+
-          '>היקף אחר — שם חופשי</option>'+
-        '</select></div>'+
-      (FORM.scope==='class'?'<div><label>כיתה</label>'+
-        '<select onchange="FORM.cls=this.value;CAND=[];SEARCHED=false;drawModal()">'+
-        CLASSES.map(c=>'<option'+(c===FORM.cls?' selected':'')+'>'+esc(c)+'</option>').join('')+
-        '</select></div>':'')+
-    '</div>'+
-    groupBox()+
+    subjScopeRow()+
     (FORM.scope==='elective'?'<p class="hint" style="margin:6px 0 0'+
       (electiveKnown()?'':';color:var(--warn)')+'">'+
       (electiveKnown()
@@ -1505,20 +1507,8 @@ function drawModal(subs){
           'גלישה אינה נרשמת — מי שיושב באותה שעה במקצוע אחר של האשכול אינו נבחן.'
         : '⚠ '+esc(FORM.base)+' אינו מופיע במערכת השעות. בחרו «לפי מקצוע אחר» '+
           'כדי לקחת את שעות האשכול ממקצוע מקביל.')+'</p>':'')+
-    /* v1.10.0 — יחידות הלימוד בריבועים, כמו השעות. מוצגות רק
-       למקצוע שיש לו יחידות במערכת; לאזרחות אין מה להציג. */
-    (function(){ UOPTS=unitsOf(FORM.base);
-      if(!UOPTS.length) return '';
-      return '<div style="margin-top:11px"><label>יחידות לימוד</label>'+
-        '<div class="hrs">'+
-          UOPTS.map((n,i)=>'<button type="button" class="hr'+
-            (UNITS().indexOf(n)>-1?' on':'')+'" onclick="togUnit('+i+')">'+
-            esc(n)+'</button>').join('')+
-          '<button type="button" class="hr all'+(UNITS().length?'':' on')+'" '+
-            'onclick="setUnits([])">הכול</button>'+
-        '</div>'+
-        '<p class="hint" style="margin:6px 0 0">'+unitsHint()+'</p></div>';
-    })()+
+    unitsBox()+
+    '<p class="hint" style="margin:6px 0 0">'+unitsHint()+'</p>'+
     '<div class="row" style="margin-top:10px">'+
       /* v1.6.0 — יום שנבחר מן הלוח מציג תאריך אחד. ⚠ קודם הופיעו
          "מתאריך" ו"עד תאריך" עם אותו ערך, וזה נראה כאילו צריך
@@ -1568,15 +1558,7 @@ function drawModal(subs){
         '</div>':'')+
       '<p class="hint" style="margin:6px 0 0">'+hoursHint()+'</p>'+
     '</div>'+
-    /* v1.16.1 — שם והערה בטופס, לא רק במסך האישור */
-    '<div class="row" style="margin-top:11px">'+
-      '<div><label>שם המבחן (רשות)</label>'+
-        '<input id="mTitle" placeholder="'+esc(defTitle())+'" '+
-        'value="'+esc(FORM.title||'')+'" oninput="FORM.title=this.value"></div>'+
-      '<div><label>הערה (רשות)</label>'+
-        '<input id="mNote" placeholder="מה שחשוב שיופיע בלוח" '+
-        'value="'+esc(FORM.notes||'')+'" oninput="FORM.notes=this.value"></div>'+
-    '</div>'+
+    titleNoteRow()+
     '<label style="display:flex;align-items:center;gap:7px;margin-top:11px;'+
       'font-weight:800;font-size:.86rem;cursor:pointer">'+
       '<input type="checkbox" style="width:auto;margin:0"'+
@@ -1618,6 +1600,124 @@ function groupBox(){
       (g.length? 'הכיסוי והגלישה ייבדקו ב'+esc(g.join(' · '))+'.'
                : 'בלי סימון — הכיסוי ייבדק מול כל השכבה.')+
     '</p></div>';
+}
+
+/* ============================================================
+   v1.17.0 · חלקים משותפים לטופסי המבחן, ההגשה והעריכה
+   ============================================================ */
+function subjScopeRow(){
+  return '<div class="row">'+
+    '<div class="cbx"><label>מקצוע</label>'+
+      '<input id="subIn" autocomplete="off" placeholder="הקלידו שם מקצוע…" '+
+      'value="'+esc(FORM.base)+'" oninput="subFilter(this.value)" '+
+      'onfocus="this.select();subFilter(this.value,true)" onkeydown="subKey(event)" '+
+      'onblur="subBlur()">'+
+      '<div id="subList" class="cbx-list" hidden></div></div>'+
+    '<div><label>היקף</label><select onchange="FORM.scope=this.value;FORM.scopeAuto=false;'+
+      'CAND=[];SEARCHED=false;drawModal()">'+
+      '<option value="grade"'+(FORM.scope==='grade'?' selected':'')+'>כל השכבה</option>'+
+      '<option value="class"'+(FORM.scope==='class'?' selected':'')+'>כיתה אחת</option>'+
+      '<option value="elective"'+(FORM.scope==='elective'?' selected':'')+
+        '>מקצוע בחירה</option>'+
+      '<option value="other"'+(FORM.scope==='other'?' selected':'')+
+        '>היקף אחר — שם חופשי</option>'+
+      '</select></div>'+
+    (FORM.scope==='class'?'<div><label>כיתה</label>'+
+      '<select onchange="FORM.cls=this.value;CAND=[];SEARCHED=false;drawModal()">'+
+      CLASSES.map(c=>'<option'+(c===FORM.cls?' selected':'')+'>'+esc(c)+'</option>').join('')+
+      '</select></div>':'')+
+  '</div>'+groupBox();
+}
+function unitsBox(){
+  UOPTS=unitsOf(FORM.base);
+  if(!UOPTS.length) return '';
+  return '<div style="margin-top:11px"><label>יחידות לימוד</label>'+
+    '<div class="hrs">'+
+      UOPTS.map((n,i)=>'<button type="button" class="hr'+
+        (UNITS().indexOf(n)>-1?' on':'')+'" onclick="togUnit('+i+')">'+esc(n)+
+        '</button>').join('')+
+      '<button type="button" class="hr all'+(UNITS().length?'':' on')+'" '+
+        'onclick="setUnits([])">הכול</button>'+
+    '</div></div>';
+}
+function titleNoteRow(){
+  return '<div class="row" style="margin-top:11px">'+
+    '<div><label>שם המבחן (רשות)</label>'+
+      '<input id="mTitle" placeholder="'+esc(defTitle())+'" '+
+      'value="'+esc(FORM.title||'')+'" oninput="FORM.title=this.value"></div>'+
+    '<div><label>הערה (רשות)</label>'+
+      '<input id="mNote" placeholder="מה שחשוב שיופיע בלוח" '+
+      'value="'+esc(FORM.notes||'')+'" oninput="FORM.notes=this.value"></div>'+
+  '</div>';
+}
+
+/* טופס עריכה של מבחן קיים — שומר במקום, בלי חיפוש משבצות */
+function drawEdit(subs){
+  subs=subs||subjectList();
+  const d=FORM.from?fromIso(FORM.from):null;
+  const blk=d&&isBlocked(d);
+  const body=
+    '<h3>עריכת מבחן · שכבה '+esc(GRADE)+'</h3>'+
+    '<p class="hint">כרגע: '+esc(MOVE.title||MOVE.subject_base)+' · '+
+      esc(dmy(MOVE.exam_date))+' · שעה '+MOVE.hour+
+      (MOVE.hour_end&&MOVE.hour_end!==MOVE.hour?'–'+MOVE.hour_end:'')+'</p>'+
+    kindSwitch()+
+    subjScopeRow()+
+    unitsBox()+
+    '<div style="margin-top:11px"><label>תאריך המבחן</label>'+
+      '<input type="date" value="'+esc(FORM.from||'')+'" '+
+      'onchange="FORM.from=this.value;FORM.to=this.value;drawModal()"></div>'+
+    (d?'<p class="hint" style="margin:6px 0 0">יום '+DAYS[dayIdx(d)]+' '+
+      d.getDate()+'.'+pad(d.getMonth()+1)+'.'+d.getFullYear()+
+      (blk?' · <span style="color:var(--no);font-weight:800">'+
+        esc(blockReason(d)||'יום חסום')+'</span>':'')+'</p>':'')+
+    '<div style="margin-top:11px"><label>שעות המבחן</label>'+
+      '<div class="hrs">'+
+        [1,2,3,4,5,6,7,8].map(n=>'<button type="button" class="hr'+
+          (HRS().indexOf(n)>-1?' on':'')+'" onclick="togHour('+n+')">'+n+
+          '</button>').join('')+
+      '</div>'+
+      '<p class="hint" style="margin:6px 0 0">'+
+        (HRS().length?hrLabel(HRS()):'סמנו לפחות שעה אחת.')+'</p></div>'+
+    titleNoteRow()+
+    '<div class="acts">'+
+      '<button class="btn g" onclick="closeModal()">ביטול</button>'+
+      '<button class="btn ok" id="edBtn" onclick="saveEdit(this)">שמירה ←</button>'+
+    '</div>'+
+    '<p class="hint" style="margin:9px 0 0">רוצים שהכלי ימצא משבצת אחרת? '+
+      '<a href="#" onclick="openSearch();'+
+      'return false" style="color:var(--a);font-weight:800">חיפוש משבצות ←</a></p>'+
+    '<div id="mErr" class="msg no"></div>';
+  let m=el('mdl');
+  if(!m){
+    m=document.createElement('div'); m.className='modal'; m.id='mdl';
+    m.innerHTML='<div class="sheet" id="sheet"></div>';
+    m.onclick=e=>{ if(e.target===m) closeModal(); };
+    document.body.appendChild(m);
+  }
+  el('sheet').innerHTML=body;
+}
+/* ⚠ אותה שמירה בדיוק של מבחן חדש: PICK נבנה מן השדות, וכך הגלישה,
+   השם וההערה עוברים באותו מסלול ולא בשני מסלולים שיתפצלו. */
+/* מעבר מעריכה לחיפוש: הטווח נפתח קדימה, אחרת החיפוש היה מוגבל
+   ליום שהמבחן כבר יושב בו. */
+function openSearch(){
+  FORM.searching=true;
+  FORM.from=iso(new Date()); FORM.to=iso(addD(new Date(),28));
+  FORM.oneDay=false; CAND=[];SEARCHED=false; PICK=null;
+  drawModal();
+}
+function saveEdit(btn){
+  /* ⚠ הודעה בטוחה: הטופס עשוי להיסגר בין הלחיצה לשמירה. */
+  const say=t=>{ const e=el('mErr'); if(e) e.textContent=t; else alert(t); };
+  const h=HRS();
+  if(!MOVE){ say('המבחן אינו פתוח לעריכה.'); return; }
+  if(!FORM.from){ say('בחרו תאריך.'); return; }
+  if(!h.length){ say('סמנו לפחות שעה אחת.'); return; }
+  const d=fromIso(FORM.from);
+  PICK={date:FORM.from, day:dayIdx(d), hour:h[0], hourEnd:h[h.length-1],
+        hours:h.slice(), disp:[], repeat:[]};
+  saveExam(btn);
 }
 
 function kindSwitch(){
@@ -1968,7 +2068,7 @@ function openExam(id){
       (!VIEW&&isDraft(e)?'<button class="btn" onclick="approveExam('+e.id+')">✓ אישור</button>':'')+
       (!VIEW&&isDraft(e)?'<button class="btn no" onclick="rejectExam('+e.id+')">דחייה</button>':'')+
       (VIEW||isDraft(e)?'':'<button class="btn no" onclick="delExam('+e.id+')">מחיקה</button>')+
-      (VIEW?'':'<button class="btn" onclick="startMove('+e.id+')">העברה לתאריך אחר</button>')+
+      (VIEW?'':'<button class="btn" onclick="startMove('+e.id+')">עריכה</button>')+
       '<button class="btn g" onclick="closeModal()">סגירה</button>'+
     '</div>';
 }
@@ -2005,9 +2105,11 @@ async function rejectExam(id){
 function placeWindow(id){
   const e=BOARD.find(x=>String(x.id)===String(id)); if(!e) return;
   MOVE=e;
+  /* ⚠ בקשת חלון נפתחת בחיפוש ולא בעריכה: אין לה עדיין תאריך. */
   FORM={base:splitUnit(e.subject_base).fam, units:unitsOfExam(e), scope:e.scope,
         cls:e.class_name||CLASSES[0], title:e.title||'', notes:e.notes||'',
-        from:e.window_start, to:e.window_end, allowBlocked:false, hours:[]};
+        from:e.window_start, to:e.window_end, allowBlocked:false, hours:[],
+        searching:true};
   CAND=[];SEARCHED=false; PICK=null; drawModal();
 }
 
