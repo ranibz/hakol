@@ -1,5 +1,24 @@
 <!DOCTYPE html>
-<!-- eshi/emergency/mivchanim.html · v1.15.0 · 2026-09-18 · בית חינוך גליל מערבי
+<!-- eshi/emergency/mivchanim.html · v1.16.0 · 2026-09-18 · בית חינוך גליל מערבי
+
+     v1.16.0 · היקף חופשי — "גוש א", קבוצה, או כל שם אחר.
+
+     ⚠ שלוש האפשרויות (כל השכבה / כיתה אחת / מקצוע בחירה) לא כיסו
+     חלוקות שהן לא כיתה ולא שכבה: גוש, קבוצת מיצוי, שתי כיתות יחד.
+     לרכז לא הייתה דרך לרשום אותן חוץ מלבחור כיתה אחת ולכתוב את
+     האמת בהערה.
+
+     ⬛ "היקף אחר" פותח שדה שם חופשי, ולצדו ריבועי הכיתות — סימון
+     הכיתות שבקבוצה הוא רשות, והוא מה שקובע את הכיסוי והגלישה.
+     בלי סימון נבדקת כל השכבה, וההערה אומרת זאת.
+
+     ⬛ במסד זה נשמר כ-scope='class' עם class_name שהוא השם החופשי.
+     ⚠ זו הסיבה שאין SQL נוסף: exam_board_check דורש class_name מלא
+     כשה-scope הוא class, והשם החופשי ממלא בדיוק את התנאי. בלוח
+     ובדוחות מופיע "גוש א" במקום שם כיתה, וזה מה שהרכז רצה לראות.
+     ⚠ הכיתות שסומנו אינן נשמרות — אין להן עמודה. הן משפיעות על
+     החיפוש בלבד, ומבחן שיועבר בהמשך ייבדק שוב מול כל השכבה.
+
 
      v1.15.0 · האשכולות רשומים בקוד, והזיהוי האוטומטי בוטל.
 
@@ -822,6 +841,9 @@ const blockReason=dt=>eventsOn(dt)
    ============================================================ */
 function scopeClasses(){
   if(FORM.scope==='class') return [FORM.cls];
+  /* v1.16.0 — היקף חופשי: הכיתות שסומנו, ואם לא סומנו — כל השכבה */
+  if(FORM.scope==='other')
+    return (FORM.groupCls&&FORM.groupCls.length)?FORM.groupCls.slice():CLASSES;
   /* v1.11.0 — מקצוע בחירה: רק הכיתות שבהן הקבוצה יושבת בפועל.
      ⚠ אם המקצוע אינו במערכת כלל אין מה לסנן לפיו, ואז נבדקת כל
      השכבה — הכיסוי שיתקבל אינו אמיתי, וההערה בטופס אומרת זאת. */
@@ -963,6 +985,16 @@ const matchUnits = () => REFON() ? [] : UNITS();
 const noDisp = () => FORM.scope==='elective';
 /* v1.13.1 — בחירה בבורר נשמרת מיד, ולא רק בשמירת המבחן: רכז
    שסגר את החלון באמצע לא צריך לבחור שוב. */
+/* v1.16.0 — סימון כיתה בקבוצה החופשית */
+function togGroupCls(i){
+  const c=CLASSES[i]; if(c==null) return;
+  const a=(FORM.groupCls||[]).slice(), k=a.indexOf(c);
+  if(k>-1) a.splice(k,1); else a.push(c);
+  FORM.groupCls=a.sort((x,y)=>CLASSES.indexOf(x)-CLASSES.indexOf(y));
+  CAND=[];SEARCHED=false; PICK=null; drawModal();
+}
+function setGroupName(v){ FORM.groupName=v; }
+
 function setRef(v){
   FORM.refBase=v; FORM.refCluster='';
   rememberRef(FORM.base, v);
@@ -1237,7 +1269,7 @@ function openNew(date,allowBlocked){
      חופשת פסח כבר אמר מה הוא רוצה. */
   FORM={base:subs.length?subs[0].base:'', level:'', scope:'grade', cls:CLASSES[0],
         from:date||iso(t), to:date||iso(plus), oneDay:!!date,
-        allowBlocked:!!allowBlocked, hours:[], units:[], kind:'exam', refBase:'', refCluster:'',
+        allowBlocked:!!allowBlocked, hours:[], units:[], kind:'exam', refBase:'', refCluster:'', groupName:'', groupCls:[],
         /* v1.8.0 — ברירת המחדל: שעות המקצוע במערכת */
         hmode:'auto'};
   CAND=[];SEARCHED=false; PICK=null;
@@ -1404,12 +1436,15 @@ function drawModal(subs){
         '<option value="class"'+(FORM.scope==='class'?' selected':'')+'>כיתה אחת</option>'+
         '<option value="elective"'+(FORM.scope==='elective'?' selected':'')+
           '>מקצוע בחירה</option>'+
+        '<option value="other"'+(FORM.scope==='other'?' selected':'')+
+          '>היקף אחר — שם חופשי</option>'+
         '</select></div>'+
       (FORM.scope==='class'?'<div><label>כיתה</label>'+
         '<select onchange="FORM.cls=this.value;CAND=[];SEARCHED=false;drawModal()">'+
         CLASSES.map(c=>'<option'+(c===FORM.cls?' selected':'')+'>'+esc(c)+'</option>').join('')+
         '</select></div>':'')+
     '</div>'+
+    groupBox()+
     (FORM.scope==='elective'?'<p class="hint" style="margin:6px 0 0'+
       (electiveKnown()?'':';color:var(--warn)')+'">'+
       (electiveKnown()
@@ -1503,6 +1538,26 @@ function drawModal(subs){
 /* ============================================================
    v1.11.0 · מבחן או הגשת עבודה
    ============================================================ */
+/* v1.16.0 — שדה השם החופשי וריבועי הכיתות.
+   ⚠ השם נקרא מן ה-DOM בשמירה ולא בכל הקלדה: ציור מחדש בכל אות
+   היה מוציא את המיקוד מן השדה. */
+function groupBox(){
+  if(FORM.scope!=='other') return '';
+  const g=FORM.groupCls||[];
+  return '<div style="margin-top:10px"><label>שם ההיקף</label>'+
+    '<input id="grpName" placeholder="לדוגמה: גוש א" value="'+esc(FORM.groupName||'')+'" '+
+    'oninput="setGroupName(this.value)">'+
+    '<label style="margin-top:9px">כיתות בקבוצה (רשות)</label>'+
+    '<div class="hrs">'+
+      CLASSES.map((c,i)=>'<button type="button" class="hr all'+(g.indexOf(c)>-1?' on':'')+
+        '" onclick="togGroupCls('+i+')">'+esc(c)+'</button>').join('')+
+    '</div>'+
+    '<p class="hint" style="margin:6px 0 0">'+
+      (g.length? 'הכיסוי והגלישה ייבדקו ב'+esc(g.join(' · '))+'.'
+               : 'בלי סימון — הכיסוי ייבדק מול כל השכבה.')+
+    '</p></div>';
+}
+
 function kindSwitch(){
   return '<div class="seg" style="margin:10px 0 12px">'+
     [['exam','📝 מבחן'],['task','📄 הגשת עבודה']].map(o=>
@@ -1538,12 +1593,15 @@ function drawTask(subs){
         '<option value="grade"'+(FORM.scope==='grade'?' selected':'')+'>כל השכבה</option>'+
         '<option value="class"'+(FORM.scope==='class'?' selected':'')+'>כיתה אחת</option>'+
         '<option value="elective"'+(FORM.scope==='elective'?' selected':'')+
-          '>מקצוע בחירה</option></select></div>'+
+          '>מקצוע בחירה</option>'+
+        '<option value="other"'+(FORM.scope==='other'?' selected':'')+
+          '>היקף אחר — שם חופשי</option></select></div>'+
       (FORM.scope==='class'?'<div><label>כיתה</label>'+
         '<select onchange="FORM.cls=this.value;drawModal()">'+
         CLASSES.map(c=>'<option'+(c===FORM.cls?' selected':'')+'>'+esc(c)+'</option>').join('')+
         '</select></div>':'')+
     '</div>'+
+    groupBox()+
     (UOPTS.length?'<div style="margin-top:11px"><label>יחידות לימוד</label>'+
       '<div class="hrs">'+
         UOPTS.map((n,i)=>'<button type="button" class="hr'+
@@ -1587,8 +1645,7 @@ async function saveTask(){
   const err=el('tErr');
   if(!FORM.base){ err.textContent='בחרו מקצוע.'; return; }
   if(!FORM.from){ err.textContent='בחרו מועד אחרון להגשה.'; return; }
-  const base={year_start:YEAR, grade:GRADE, scope:FORM.scope,
-    class_name:FORM.scope==='class'?FORM.cls:null,
+  const base={year_start:YEAR, grade:GRADE, scope:saveScope(), class_name:saveClass(),
     subject_base:FORM.base,
     level:UNITS().length?UNITS().map(u=>u+' יח״ל').join(', '):null,
     exam_date:FORM.from,
@@ -1675,6 +1732,7 @@ function choose(i){
     '<h3>אישור מבחן</h3>'+
     '<p class="hint">'+esc(FORM.base)+(UNITS().length?' · '+esc(unitsLabel(UNITS())):'')+' · '+
       (FORM.scope==='class'?esc(FORM.cls)
+        :FORM.scope==='other'?esc(groupLabel())
         :FORM.scope==='elective'?'מקצוע בחירה · שכבה '+esc(GRADE)
         :'כל שכבה '+esc(GRADE))+'<br>'+
       'יום '+DAYS[PICK.day]+' '+d.getDate()+'.'+pad(d.getMonth()+1)+'.'+d.getFullYear()+
@@ -1745,11 +1803,17 @@ const H2=()=>{ const d=PICK.hourEnd||PICK.hour;
 
 /* btn — הכפתור שנלחץ. במסך האישור זה svBtn, ובשמירה מהירה זה
    הכפתור שבתוך המשבצת. */
+/* v1.16.0 — היקף חופשי נשמר כ-class עם שם חופשי; ראה הערת הגרסה. */
+const groupLabel = () => tidy((el('grpName')&&el('grpName').value) || FORM.groupName ||
+  ((FORM.groupCls||[]).join(' · ')) || 'קבוצה');
+const saveScope = () => FORM.scope==='other' ? 'class' : FORM.scope;
+const saveClass = () => FORM.scope==='other' ? groupLabel()
+                      : FORM.scope==='class' ? FORM.cls : null;
+
 async function saveExam(btn){
   if(!PICK) return;
   const tEl=el('fTitle'), nEl=el('fNote');
-  const row={year_start:YEAR, grade:GRADE, scope:FORM.scope,
-    class_name:FORM.scope==='class'?FORM.cls:null,
+  const row={year_start:YEAR, grade:GRADE, scope:saveScope(), class_name:saveClass(),
     subject_base:FORM.base,
     level:UNITS().length?UNITS().map(u=>u+' יח״ל').join(', '):null,
     exam_date:PICK.date, hour:H1(), hour_end:H2(),
