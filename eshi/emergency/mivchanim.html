@@ -1,5 +1,38 @@
 <!DOCTYPE html>
-<!-- eshi/emergency/mivchanim.html · v1.12.0 · 2026-09-18 · בית חינוך גליל מערבי
+<!-- eshi/emergency/mivchanim.html · v1.12.1 · 2026-09-18 · בית חינוך גליל מערבי
+
+     v1.12.1 · התאמה לאילוצי exam_board, אחרי שגיאה 23514.
+
+     ⚠⚠ נדרשת פקודת SQL אחת בפרויקט skfriefqnoxfzmamcokd, אחרת
+     "מקצוע בחירה" ו"הגשת עבודה" ייכשלו בשמירה:
+
+       alter table exam_board drop constraint if exists exam_board_scope_check;
+       alter table exam_board add  constraint exam_board_scope_check
+         check (scope in ('grade','class','elective'));
+       alter table exam_board drop constraint if exists exam_board_check;
+       alter table exam_board add  constraint exam_board_check
+         check ((scope='grade'    and class_name is null)
+             or (scope='class'    and class_name is not null)
+             or (scope='elective' and class_name is null));
+       alter table exam_board alter column hour     drop not null;
+       alter table exam_board alter column hour_end drop not null;
+       notify pgrst, 'reload schema';
+
+     ⬛ למה כך ולא אחרת:
+     · exam_board_scope_check הגביל את scope ל-grade/class בלבד,
+       ולכן 'elective' נדחה. אפשר היה לוותר על ערך חדש ולשמור
+       מקצוע בחירה כ-class עם class_name='בחירה', אבל אז "בחירה"
+       הייתה מופיעה כשם כיתה בכל דוח, והאמת על ההיקף הייתה אובדת.
+     · exam_board_check דורש התאמה בין scope ל-class_name; הענף
+       השלישי מוסיף את elective עם class_name ריק.
+
+     ⚠⚠ בוטלה הנפילה לאחור ל-hour=0 של v1.11.0: exam_board_hour_check
+     דורש hour בין 1 ל-10, ולכן 0 היה נדחה בשגיאה שנייה ומבלבלת.
+     NULL דווקא עובר את הבדיקה — בדיקת CHECK שערכה NULL נחשבת
+     מתקיימת — ולכן הגשה בלי שעה תקינה ברגע ש-NOT NULL יורד.
+
+     ⬛ שגיאות המסד מתורגמות לעברית עם הפעולה הנדרשת, במקום JSON גולמי.
+
 
      v1.12.0 · שמירה בלחיצה אחת מן המשבצת המומלצת.
 
@@ -1312,22 +1345,17 @@ async function saveTask(){
     displaced:null, status:'approved', window_start:null, window_end:null,
     updated_at:new Date().toISOString()};
   const b=el('tvBtn'); b.disabled=true; b.textContent='שומר…';
-  /* ⚠ hour ריק הוא הסימן שזו הגשה. אם העמודה NOT NULL — שומרים 0.
-     שתי הצורות נקראות כהגשה, ולכן אין צורך לדעת מראש. */
-  const send=async row=>{
-    if(MOVE) return api('exam_board?id=eq.'+encodeURIComponent(MOVE.id),
-      {method:'PATCH',body:JSON.stringify(row)});
-    return api('exam_board',{method:'POST',body:JSON.stringify([row])});
-  };
+  /* ⚠ hour ריק הוא הסימן שזו הגשה, ו-NULL עובר את
+     exam_board_hour_check. אין נפילה לאחור ל-0: 0 נדחה בבדיקה
+     (1..10), וזה היה מייצר שגיאה שנייה מבלבלת. */
+  const row=Object.assign({hour:null,hour_end:null},base);
   try{
-    try{ await send(Object.assign({hour:null,hour_end:null},base)); }
-    catch(e1){
-      if(!/23502|not-null|not null|null value/i.test(e1.message)) throw e1;
-      await send(Object.assign({hour:0,hour_end:0},base));
-    }
+    if(MOVE) await api('exam_board?id=eq.'+encodeURIComponent(MOVE.id),
+      {method:'PATCH',body:JSON.stringify(row)});
+    else     await api('exam_board',{method:'POST',body:JSON.stringify([row])});
     MOVE=null; closeModal(); await loadAll(); render();
   }catch(e){
-    err.textContent='שגיאה: '+String(e.message).slice(0,140);
+    err.textContent=dbHint(e.message);
     b.disabled=false; b.textContent=MOVE?'העברה ←':'שמירה ←';
   }
 }
@@ -1486,10 +1514,27 @@ async function saveExam(btn){
     MOVE=null; closeModal(); await loadAll(); render();
   }catch(e){
     /* ⚠ mErr קיים במסך האישור בלבד; בשמירה מהירה אין לאן לכתוב. */
-    const m=el('mErr');
-    if(m) m.textContent='שגיאה: '+e.message; else alert('שגיאה: '+e.message);
+    const m=el('mErr'), t=dbHint(e.message);
+    if(m) m.textContent=t; else alert(t);
     if(b){ b.disabled=false; b.textContent=was; }
   }
+}
+
+/* v1.12.1 — שגיאת מסד בשפה של הרכז, עם מה שצריך לעשות.
+   ⚠ הרכז אינו קורא JSON של PostgREST, והשגיאה הגולמית נראית
+   כמו תקלה בכלי ולא כמו הגדרה חסרה. */
+function dbHint(msg){
+  const m=String(msg||'');
+  if(/exam_board_scope_check|exam_board_check/.test(m))
+    return 'המסד עדיין אינו מאפשר את ההיקף "מקצוע בחירה". '+
+           'צריך להריץ את פקודת ה-SQL של v1.12.1 (רשומה בראש הקובץ), '+
+           'או לבחור בינתיים "כל השכבה".';
+  if(/23502|not-null|not null|null value/i.test(m))
+    return 'עמודת "שעה" במסד מוגדרת חובה, ולכן אי אפשר לשמור הגשה בלי שעה. '+
+           'צריך להריץ: alter table exam_board alter column hour drop not null;';
+  if(/exam_board_hour_check/.test(m))
+    return 'שעת המבחן חייבת להיות בין 1 ל-10.';
+  return 'שגיאה: '+m.slice(0,140);
 }
 
 /* v1.12.0 — שמירה ישירות מן המשבצת, בלי מסך האישור. */
