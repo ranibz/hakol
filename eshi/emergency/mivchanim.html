@@ -1,5 +1,21 @@
 <!DOCTYPE html>
-<!-- eshi/emergency/mivchanim.html · v1.20.0 · 2026-09-18 · בית חינוך גליל מערבי
+<!-- eshi/emergency/mivchanim.html · v1.20.1 · 2026-09-18 · בית חינוך גליל מערבי
+
+     v1.20.1 · אי אפשר היה למחוק אירוע, ולא באשמת המשתמש.
+
+     ⚠⚠ הבאג: אירועי הגאנט הבית־ספרי (אסיפת הורים, כנס מורים) הוצגו
+     בתא בלי שום מטפל לחיצה, ולכן הלחיצה עליהם עברה לתא עצמו ופתחה
+     "מבחן חדש". מבחוץ זה נראה כאילו לחיצה על אירוע פותחת מבחן, ולא
+     הייתה שום דרך להבין מן המסך שמדובר בשני סוגי אירועים.
+
+     ⬛ שלושה תיקונים:
+     1 · לכל אירוע בתא יש עכשיו מטפל לחיצה משלו, גם לאירועי גאנט:
+         הם מציגים הודעה שהם בית־ספריים ומנוהלים בגאנט. לחיצה על
+         אירוע לעולם לא תפתח עוד טופס מבחן.
+     2 · אירוע שכבתי מסומן ב-✎ ובכיתוב "לחיצה לעריכה" בריחוף.
+     3 · מתחת ללוח יש רשימת "אירועי השכבה" עם עריכה ומחיקה לכל
+         אירוע — מקום קבוע לנהל אותם, בלי לחפש את התא הנכון בלוח.
+
 
      v1.20.0 · לאירוע יש שעות, והוא נראה כמו אירוע.
 
@@ -565,6 +581,11 @@ body.allmode .hideview{display:none}
 .ev.ge{cursor:pointer;border:1px solid #f0dfa0;white-space:normal}
 .ev.ge.blk{border-style:dashed;border-color:#d9a441}
 .ev.ge .evh{font-weight:700;opacity:.75}
+.ev.ge .evp{opacity:.55;font-weight:700}
+.ev.ge:hover{border-color:#b8860b}
+.ev.ge:hover .evp{opacity:1}
+/* אירוע גאנט אינו נערך כאן, אבל הוא כן נלחץ — כדי שלא ייפול על התא */
+.ev{cursor:pointer}
 .cell.sat .dn{opacity:.75}
 .cal .wd{font-weight:800;font-size:.78rem;color:var(--soft);text-align:center;padding:3px}
 .cell{background:#fff;border:1px solid var(--line);border-radius:11px;min-height:82px;
@@ -1449,11 +1470,17 @@ function calScreen(){
         evs.slice(0,3).map(e=>e.track==='grade'
           ? '<span class="ev ge'+(e.no_exams?' blk':'')+'" '+
             'title="'+esc(e.title+' · '+evHours(e)+(e.notes?' · '+e.notes:'')+
-              (e.no_exams?' · חוסם מבחנים':''))+'" '+
+              (e.no_exams?' · חוסם מבחנים':'')+' — לחיצה לעריכה')+'" '+
             (VIEW?'':'onclick="event.stopPropagation();openEvent('+e.id+')"')+'>'+
             (e.no_exams?'⛔ ':'')+esc(e.title)+
-            ' <span class="evh">· '+esc(evHours(e))+'</span></span>'
-          : '<span class="ev'+(e.track==='vacation'?' v':'')+'">'+
+            ' <span class="evh">· '+esc(evHours(e))+'</span>'+
+            (VIEW?'':' <span class="evp">✎</span>')+'</span>'
+          /* v1.20.1 — גם לאירוע גאנט יש מטפל, אחרת הלחיצה נופלת על
+             התא ופותחת מבחן חדש. */
+          : '<span class="ev'+(e.track==='vacation'?' v':'')+'" '+
+            'title="'+esc(e.title+' · אירוע בית ספרי מן הגאנט')+'" '+
+            'onclick="event.stopPropagation();gantInfo('+
+              JSON.stringify(esc(e.title)).replace(/"/g,'&quot;')+')">'+
             esc(e.title)+'</span>').join('')+
         /* v1.16.2 — שם המבחן קודם לשם המקצוע, והערה מסומנת ב-📝 */
         (byDate[s]||[]).map(e=>{
@@ -1498,6 +1525,30 @@ function calScreen(){
       '<button class="btn no sm" onclick="event.stopPropagation();rejectExam('+e.id+')">'+
       'דחייה</button></td></tr>').join('')+
     '</tbody></table></div></div>';
+
+  /* v1.20.1 — רשימת אירועי השכבה, לניהול בלי לחפש בלוח */
+  if(EVENTS.length){
+    const sorted=EVENTS.slice().sort((a,b)=>a.start_date.localeCompare(b.start_date));
+    html+='<div class="card"><h3 style="font-size:1.05rem">אירועי השכבה ('+
+      sorted.length+')</h3>'+
+      '<p class="hint">טיולים, ימי שיא והרצאות של שכבה '+esc(GRADE)+'. '+
+      'אירועי בית הספר מגיעים מן הגאנט ואינם נערכים כאן.</p>'+
+      '<div class="tblwrap"><table><thead><tr><th>אירוע</th><th>תאריכים</th>'+
+      '<th>שעות</th><th>חוסם</th>'+(VIEW?'':'<th style="width:150px"></th>')+
+      '</tr></thead><tbody>'+
+      sorted.map(e=>'<tr><td><b>'+esc(e.title)+'</b>'+
+        (tidy(e.notes)?'<div style="font-size:11.5px;color:var(--muted)">'+
+          esc(e.notes)+'</div>':'')+'</td>'+
+        '<td style="white-space:nowrap">'+esc(dmy(e.start_date))+
+          (e.end_date&&e.end_date!==e.start_date?' – '+esc(dmy(e.end_date)):'')+'</td>'+
+        '<td style="white-space:nowrap">'+esc(evHours(e))+'</td>'+
+        '<td>'+(e.no_exams?'<span class="flag r">⛔ חוסם</span>':'—')+'</td>'+
+        (VIEW?'':'<td style="white-space:nowrap">'+
+          '<button class="btn g sm" onclick="openEvent('+e.id+')">עריכה</button> '+
+          '<button class="btn no sm" onclick="delEvent('+e.id+')">מחיקה</button></td>')+
+        '</tr>').join('')+
+      '</tbody></table></div></div>';
+  }
 
   /* גלישות — מה כבר נלקח השנה */
   const dsp=displacedSoFar(), keys=Object.keys(dsp).sort((a,b)=>dsp[b]-dsp[a]);
@@ -1777,6 +1828,13 @@ function drawModal(subs){
    ------------------------------------------------------------
    טווח תאריכים, ו"לחסום מבחנים" שמתנהג כמו חסימת גאנט.
    ============================================================ */
+/* v1.20.1 — אירוע בית ספרי: אומרים מה הוא, ולא פותחים כלום. */
+function gantInfo(t){
+  alert('"'+t+'" הוא אירוע בית ספרי מתוך הגאנט.\n\n'+
+        'הוא מוצג כאן לידיעה, ומנוהל במערכת הגאנט ולא בלוח המבחנים.\n'+
+        'אירוע של השכבה מתווסף בכפתור "אירוע שכבתי +", וניתן לעריכה '+
+        'ולמחיקה מכאן.');
+}
 function openEvent(id){
   if(VIEW) return;
   const e=id?EVENTS.find(x=>String(x.id)===String(id)):null;
