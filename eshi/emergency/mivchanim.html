@@ -1,5 +1,35 @@
 <!DOCTYPE html>
-<!-- eshi/emergency/mivchanim.html · v1.11.0 · 2026-09-18 · בית חינוך גליל מערבי
+<!-- eshi/emergency/mivchanim.html · v1.12.0 · 2026-09-18 · בית חינוך גליל מערבי
+
+     v1.12.0 · שמירה בלחיצה אחת מן המשבצת המומלצת.
+
+     ⚠ עד כה כל שיבוץ עבר שני מסכים: בחירת משבצת, ואז מסך אישור עם
+     שעות, שם והערה. ברוב המקרים הרכז לא שינה שם דבר במסך השני —
+     הוא רק לחץ שמירה. זו לחיצה מיותרת בכל מבחן.
+
+     ⬛ לכל משבצת יש עכשיו "שמירה ←" שמבצע מיד: השעות המוצעות, שם
+     ברירת מחדל, בלי הערה.
+     ⬛ "פרטים" נשאר לצדו ופותח את מסך האישור לשינוי שעות, שם והערה.
+     לחיצה על גוף הכרטיס עושה אותו דבר.
+
+     ⚠⚠ H2() החזירה את שעת ההתחלה כשמסך האישור לא היה על המסך, ולכן
+     שמירה מהירה של משבצת 3–4 הייתה נשמרת כ-3–3. הנפילה לאחור היא
+     עכשיו hourEnd. באותה הזדמנות saveExam אינה מניחה עוד שהשדות
+     קיימים — היא נקראת משני מסכים.
+
+
+     v1.11.1 · המשבצת לא נראתה כמו כפתור, ו"סגירה" נראה כמו שמירה.
+
+     ⚠ במסך החיפוש הכפתור היחיד היה "סגירה", והמשבצת עצמה הייתה
+     כרטיס בלי שום סימן שלוחצים עליו. מי שמצא משבצת אחת נכונה לחץ
+     "סגירה" וציפה שתישמר — ויצא בלי מבחן.
+
+     ⬛ לכל משבצת נוסף "בחירה ←" מודגש, והכרטיס מקבל סימן מעבר עכבר.
+     ⬛ "סגירה" הפך ל"ביטול" בכל מסך שיש בו המשך: שם הכפתור אומר
+     מה קורה בלחיצה, לא איך נראית התיבה.
+     ⬛ שורת ההסבר מעל הרשימה אומרת מפורשות שהלחיצה מובילה לאישור
+     ושמירה, ומתחת לרשימה יש תזכורת שדבר עדיין לא נשמר.
+
 
      v1.11.0 · הגשת עבודה, ומקצוע בחירה.
 
@@ -295,6 +325,11 @@ tr.winrow.on{background:#fffbeb}
 .cand.over{border-inline-start:6px solid var(--no)}
 .cand b{font-family:'Secular One',sans-serif;font-weight:400;font-size:1.02rem}
 .cand .meta{color:var(--soft);font-size:.83rem}
+/* v1.12.0 — הפעולות יושבות על הכרטיס: שמירה מיידית, ופרטים לצדה. */
+.cand{position:relative}
+.cand:hover{border-color:var(--a);box-shadow:0 2px 10px rgba(76,29,149,.12)}
+.cacts{display:flex;gap:7px;margin-top:9px}
+.cacts .btn{flex:0 0 auto}
 .cand .flag{display:inline-block;font-size:.75rem;font-weight:800;border-radius:20px;
   padding:1px 9px;margin:4px 4px 0 0}
 .flag.g{background:#e7f7ee;color:#0f7a4d}
@@ -1170,7 +1205,7 @@ function drawModal(subs){
     (FORM.allowBlocked?'<p class="hint" style="color:var(--no);margin:5px 0 0">'+
       'ימים חסומים ייכללו בחיפוש, יסומנו באדום, ויופיעו בתחתית הרשימה.</p>':'')+
     '<div id="cands" style="margin-top:14px">'+candList()+'</div>'+
-    '<div class="acts"><button class="btn g" onclick="closeModal()">סגירה</button></div>';
+    '<div class="acts"><button class="btn g" onclick="closeModal()">ביטול</button></div>';
   let m=el('mdl');
   if(!m){
     m=document.createElement('div'); m.className='modal'; m.id='mdl';
@@ -1247,7 +1282,7 @@ function drawTask(subs){
     '<div style="margin-top:10px"><label>הערה</label>'+
       '<input id="tNote" placeholder="לא חובה" value="'+esc(MOVE&&MOVE.notes||'')+'"></div>'+
     '<div class="acts">'+
-      '<button class="btn g" onclick="closeModal()">סגירה</button>'+
+      '<button class="btn g" onclick="closeModal()">ביטול</button>'+
       '<button class="btn ok" id="tvBtn" onclick="saveTask()">'+
         (MOVE?'העברה ←':'שמירה ←')+'</button>'+
     '</div><div id="tErr" class="msg no"></div>';
@@ -1313,7 +1348,7 @@ function candList(){
         '<a href="#" onclick="setHMode(\'all\');findSlots();return false" '+
         'style="color:var(--a);font-weight:800">חיפוש בכל השעות ←</a>'
       : '<br>נסו טווח תאריכים רחב יותר או שעות אחרות.')+'</p>';
-  return '<p class="hint">'+CAND.length+' משבצות, הטובה למעלה. לחיצה בוחרת.</p>'+
+  return '<p class="hint">'+CAND.length+' משבצות, הטובה למעלה.</p>'+
     CAND.map((c,i)=>{
       const full=c.miss===0, none=c.has===0;
       const d=fromIso(c.date);
@@ -1334,8 +1369,17 @@ function candList(){
         (c.load>=MAX_WEEK?'<span class="flag y">'+c.load+' מבחנים כבר בשבוע זה</span>':'')+
         (c.sameDay?'<span class="flag y">יש מבחן באותו יום</span>':'')+
         (c.evs.length?'<span class="flag y">'+esc(c.evs.join(' · '))+'</span>':'')+
+        /* v1.12.0 — שני הצעדים האפשריים, על הכרטיס עצמו. */
+        '<div class="cacts">'+
+          '<button class="btn ok sm" onclick="event.stopPropagation();'+
+            'quickSave('+i+',this)">שמירה ←</button>'+
+          '<button class="btn g sm" onclick="event.stopPropagation();'+
+            'choose('+i+')">פרטים</button>'+
+        '</div>'+
         '</div>';
-    }).join('');
+    }).join('')+
+    '<p class="hint" style="margin:9px 0 0">«שמירה» קובע מיד את המבחן '+
+    'בשעות המוצעות. «פרטים» פותח שינוי שעות, שם והערה.</p>';
 }
 
 function choose(i){
@@ -1407,19 +1451,25 @@ function spanChanged(){
 
 const H1=()=>{ const v=parseInt(el('fH1')?el('fH1').value:PICK.hour,10);
   return Math.max(1,Math.min(10,v||PICK.hour)); };
-const H2=()=>{ const v=parseInt(el('fH2')?el('fH2').value:PICK.hour,10);
-  return Math.max(H1(),Math.min(10,v||H1())); };
+/* ⚠ הנפילה לאחור היא hourEnd ולא hour: בשמירה מהירה אין שדות על
+   המסך, ומשבצת 3–4 הייתה נשמרת כ-3–3. */
+const H2=()=>{ const d=PICK.hourEnd||PICK.hour;
+  const v=parseInt(el('fH2')?el('fH2').value:d,10);
+  return Math.max(H1(),Math.min(10,v||d)); };
 
-async function saveExam(){
+/* btn — הכפתור שנלחץ. במסך האישור זה svBtn, ובשמירה מהירה זה
+   הכפתור שבתוך המשבצת. */
+async function saveExam(btn){
   if(!PICK) return;
+  const tEl=el('fTitle'), nEl=el('fNote');
   const row={year_start:YEAR, grade:GRADE, scope:FORM.scope,
     class_name:FORM.scope==='class'?FORM.cls:null,
     subject_base:FORM.base,
     level:UNITS().length?UNITS().map(u=>u+' יח״ל').join(', '):null,
     exam_date:PICK.date, hour:H1(), hour_end:H2(),
-    title:(el('fTitle').value||'').trim()||
+    title:((tEl&&tEl.value)||'').trim()||
       (FORM.base+(UNITS().length?' '+UNITS().join('-')+' יח״ל':'')),
-    notes:(el('fNote').value||'').trim()||null,
+    notes:((nEl&&nEl.value)||'').trim()||null,
     /* הגלישה נרשמת לכל טווח השעות, לא לשעה הראשונה בלבד. */
     displaced:(function(){ const dl=dispForSpan(PICK.date,PICK.day,H1(),H2());
       return dl.length?dl.join(', '):null; })(),
@@ -1427,16 +1477,26 @@ async function saveExam(){
        של בקשת חלון — שבה הטווח מתנקה כי כבר יש תאריך. */
     status:'approved', window_start:null, window_end:null,
     updated_at:new Date().toISOString()};
-  const b=el('svBtn'); b.disabled=true; b.textContent='שומר…';
+  const b=btn||el('svBtn'), was=b?b.textContent:'';
+  if(b){ b.disabled=true; b.textContent='שומר…'; }
   try{
     if(MOVE) await api('exam_board?id=eq.'+encodeURIComponent(MOVE.id),
       {method:'PATCH',body:JSON.stringify(row)});
     else     await api('exam_board',{method:'POST',body:JSON.stringify([row])});
     MOVE=null; closeModal(); await loadAll(); render();
   }catch(e){
-    el('mErr').textContent='שגיאה: '+e.message;
-    b.disabled=false; b.textContent=MOVE?'העברה ←':'שמירה ←';
+    /* ⚠ mErr קיים במסך האישור בלבד; בשמירה מהירה אין לאן לכתוב. */
+    const m=el('mErr');
+    if(m) m.textContent='שגיאה: '+e.message; else alert('שגיאה: '+e.message);
+    if(b){ b.disabled=false; b.textContent=was; }
   }
+}
+
+/* v1.12.0 — שמירה ישירות מן המשבצת, בלי מסך האישור. */
+function quickSave(i, btn){
+  PICK=CAND[i];
+  if(!PICK) return;
+  saveExam(btn);
 }
 
 /* ---- מבחן קיים ---- */
