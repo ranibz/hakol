@@ -1,5 +1,25 @@
 <!DOCTYPE html>
-<!-- eshi/emergency/mivchanim.html · v1.14.0 · 2026-09-18 · בית חינוך גליל מערבי
+<!-- eshi/emergency/mivchanim.html · v1.15.0 · 2026-09-18 · בית חינוך גליל מערבי
+
+     v1.15.0 · האשכולות רשומים בקוד, והזיהוי האוטומטי בוטל.
+
+     ⚠ v1.14.0 ניסתה להסיק את האשכולות מן המערכת לפי חתימת שעות
+     ושעות מפוצלות. זה עבד, אבל הוליד מסך עם כפתורי אשכול, עיפרון
+     לשינוי שם וזיכרון לכל מקצוע — עבודה שלא הייתה קיימת קודם.
+     הרכז יודע מיהם המקצועות; רשימה קבועה קצרה מכל היוריסטיקה.
+
+     ⬛ CLUSTERS — שתי רשימות בראש הקוד. עדכון אשכול הוא עריכת שורה.
+     ⬛ בחירת מקצוע מהרשימות: ההיקף עובר מעצמו ל"מקצוע בחירה",
+     והשעות נלקחות מכל מקצועות האשכול שיושבים במערכת. מידע ונתונים,
+     שאינו במערכת, מקבל את שעות כימיה והנדסת תוכנה.
+     ⬛ מקצועות האשכול מופיעים ברשימת המקצועות גם אם אינם במערכת.
+
+     ⚠ ההיקף אינו עובר מעצמו למקצוע שכל כיתות השכבה לומדות —
+     "תקשורת" במגמת תקשורת הוא מקצוע של כולם, לא קבוצת בחירה.
+     ⚠ ההתאמה לשמות המערכת סלחנית: מתעלמת מרווחים ומגרשיים, מזהה
+     תכנה/תוכנה ופיסיקה/פיזיקה, ומקבלת הכלה ("תקשורת" מול "תקשורת
+     וחברה"). שם שאינו מתאים פשוט לא יצורף לאשכול.
+
 
      v1.14.0 · האשכולות מזוהים מן המערכת לבדם.
 
@@ -643,106 +663,71 @@ const tidy = s => String(s==null?'':s).trim().replace(/\s+/g,' ');
 const same = (a,b) => tidy(a)===tidy(b) && tidy(a)!=='';
 const XKEY = () => 'mivchanim:subjects:'+YEAR+':'+GRADE;
 /* ============================================================
-   v1.14.0 · איתור אשכולות בחירה מן המערכת. ראה הערת הגרסה.
+   v1.15.0 · אשכולות הבחירה
+   ------------------------------------------------------------
+   הרשימות נתונות, ולא מנוחשות. לעדכון אשכול — עורכים כאן שורה.
+   ⚠ השמות כאן הם שמות הרכז; ההתאמה לשמות המערכת סלחנית (ראה
+   sameSubj), ולכן אין צורך להעתיק בדיוק את הכתיב של המערכת.
    ============================================================ */
-const CKEY = () => 'mivchanim:clusters:'+YEAR+':'+GRADE;
-function clusterNames(){
-  try{ const v=JSON.parse(localStorage.getItem(CKEY())||'{}');
-       return (v&&typeof v==='object')?v:{}; }catch(e){ return {}; }
+const CLUSTERS = [
+  {name:'בחירה חובה', subs:['כימיה','תורת החשמל','תקשורת','מינהל',
+                            'מידע ונתונים','הנדסת תכנה']},
+  {name:'בחירה',      subs:['ביולוגיה','פיזיקה','מדעי החברה','דיפלומטיה']}
+];
+
+/* ⚠ השוואת שמות מקצועות: המערכת כותבת "הנדסת תוכנה" והרכז "הנדסת
+   תכנה", וגם "תקשורת" מול "תקשורת וחברה". מסירים רווחים, גרשיים
+   ואותיות אם קריאה, ומשווים גם בהכלה. */
+const subjKey = v => String(v||'')
+  .replace(/["'׳״’‘`.,\-–]/g,'')
+  .replace(/\s+/g,'')
+  .replace(/[ו]/g,'')
+  .replace(/[ס]/g,'ז');            /* פיסיקה = פיזיקה */
+function sameSubj(a,b){
+  const x=subjKey(a), y=subjKey(b);
+  if(!x||!y) return false;
+  return x===y || x.indexOf(y)===0 || y.indexOf(x)===0;
 }
-function nameCluster(key,name){
-  const m=clusterNames();
-  if(tidy(name)) m[key]=tidy(name); else delete m[key];
-  try{ localStorage.setItem(CKEY(), JSON.stringify(m)); }catch(e){}
-  CL_CACHE=null;
-}
+
+/* האשכולות, אחרי התאמה למה שקיים במערכת השעות */
 let CL_CACHE=null;
 function clusters(){
   if(CL_CACHE) return CL_CACHE;
-  /* מפת המשפחות: לכל משפחה השעות שבהן היא יושבת והכיתות שלה */
-  const fam={};
+  const famAll={};
   TT.forEach(r=>{
     const s=norm(r.subject_raw); if(s.examable===false) return;
     const f=famUnit(r.subject_raw).fam; if(!f) return;
-    const o=fam[f]=fam[f]||{slots:{},cls:{}};
+    const o=famAll[f]=famAll[f]||{slots:{},cls:{}};
     o.slots[r.day+'|'+r.hour]=1; o.cls[r.class_name]=1;
   });
-  const groups=[];
-  const add=(fams,slots)=>{
-    const hit=groups.filter(g=>fams.some(f=>g.subs[f]));
-    const g=hit[0]||{subs:{},slots:{}};
-    if(!hit.length) groups.push(g);
-    fams.forEach(f=>{ g.subs[f]=1; });
-    slots.forEach(k=>{ g.slots[k]=1; });
-    /* איחוד קבוצות שנפגשו דרך מקצוע משותף */
-    hit.slice(1).forEach(x=>{
-      Object.keys(x.subs).forEach(f=>{ g.subs[f]=1; });
-      Object.keys(x.slots).forEach(k=>{ g.slots[k]=1; });
-      groups.splice(groups.indexOf(x),1);
+  CL_CACHE=CLUSTERS.map(d=>{
+    /* המשפחות שבמערכת ששייכות לאשכול — מהן באות השעות */
+    const fams=Object.keys(famAll).filter(f=>d.subs.some(x=>sameSubj(x,f)));
+    const slots={}, cls={};
+    fams.forEach(f=>{
+      Object.keys(famAll[f].slots).forEach(k=>{ slots[k]=1; });
+      Object.keys(famAll[f].cls).forEach(c=>{ cls[c]=1; });
     });
-  };
-
-  /* סימן 1 — חתימת שעות זהה, וקבוצות כיתות שאינן חופפות */
-  const bySig={};
-  Object.keys(fam).forEach(f=>{
-    const sig=Object.keys(fam[f].slots).sort().join(',');
-    (bySig[sig]=bySig[sig]||[]).push(f);
+    return {key:d.name, name:d.name, subs:d.subs, fams:fams,
+      slots:Object.keys(slots).map(k=>({day:+k.split('|')[0],hour:+k.split('|')[1]}))
+        .sort((a,b)=>a.day-b.day||a.hour-b.hour),
+      classes:Object.keys(cls).length};
   });
-  Object.keys(bySig).forEach(sig=>{
-    const fams=bySig[sig];
-    if(fams.length<2 || !sig) return;
-    /* חפיפה בכיתות פירושה שאלה אינם מקבילים אלא אותו שיעור */
-    const seen={}; let overlap=false;
-    fams.forEach(f=>Object.keys(fam[f].cls).forEach(c=>{
-      if(seen[c]) overlap=true; seen[c]=1; }));
-    if(overlap) return;
-    add(fams, sig.split(','));
-  });
-
-  /* סימן 2 — שעה מפוצלת: לכיתה אחת שני מקצועות באותה שעה */
-  const cell={};
-  TT.forEach(r=>{
-    const s=norm(r.subject_raw); if(s.examable===false) return;
-    const f=famUnit(r.subject_raw).fam; if(!f) return;
-    const k=r.day+'|'+r.hour+'|'+r.class_name;
-    (cell[k]=cell[k]||{})[f]=1;
-  });
-  const split={};
-  Object.keys(cell).forEach(k=>{
-    const fams=Object.keys(cell[k]);
-    if(fams.length<2) return;
-    const sk=k.split('|').slice(0,2).join('|');
-    split[sk]=split[sk]||{};
-    fams.forEach(f=>{ split[sk][f]=1; });
-  });
-  Object.keys(split).forEach(sk=>add(Object.keys(split[sk]),[sk]));
-
-  const names=clusterNames();
-  CL_CACHE=groups.map(g=>{
-    const subs=Object.keys(g.subs).sort((a,b)=>a.localeCompare(b,'he'));
-    const slots=Object.keys(g.slots).map(k=>({day:+k.split('|')[0],hour:+k.split('|')[1]}))
-      .sort((a,b)=>a.day-b.day||a.hour-b.hour);
-    const cls={}; subs.forEach(f=>Object.keys((fam[f]||{cls:{}}).cls).forEach(c=>{ cls[c]=1; }));
-    const nCls=Object.keys(cls).length;
-    const key=subs.join('|');
-    /* ⚠ ברירת המחדל תיאורית ולא מנחשת "חובה": מקצוע בחירה שאינו
-       במערכת (קבוצה מכמה כיתות) גורם לאשכול להיראות חלקי, ולכן
-       "כל הכיתות משתתפות" אינו מבחן אמין. הרכז נותן את השם. */
-    const auto = 'אשכול ' + (slots.length?slotsLabel({slots:slots}):'');
-    return {key:key, subs:subs, slots:slots, classes:nCls,
-            name:names[key]||auto, auto:auto, named:!!names[key]};
-  }).filter(c=>c.subs.length>1)
-    .sort((a,b)=>b.classes-a.classes||a.name.localeCompare(b.name,'he'));
   return CL_CACHE;
 }
-const clusterOf = base => clusters().find(c=>c.subs.some(f=>same(f,base)));
+/* לאיזה אשכול שייך מקצוע. ⚠ גם מקצוע שאינו במערכת — זו כל הנקודה. */
+const clusterOf = base => clusters().find(c=>c.subs.some(x=>sameSubj(x,base)));
 const clusterByKey = k => clusters().find(c=>c.key===k);
 const slotsLabel = c => {
   const byDay={};
-  c.slots.forEach(s=>{ (byDay[s.day]=byDay[s.day]||[]).push(s.hour); });
+  (c.slots||[]).forEach(s=>{ (byDay[s.day]=byDay[s.day]||[]).push(s.hour); });
   return Object.keys(byDay).map(d=>DAYS[d]+' '+hrLabel(byDay[d].sort((a,b)=>a-b))
     .replace('שעות ','').replace('שעה ','')).join(' · ');
 };
+/* כמה כיתות לומדות את המקצוע עצמו — כדי לא להפוך מקצוע של כל
+   השכבה לקבוצת בחירה */
+const famClasses = base => CLASSES.filter(c=>TT.some(r=>r.class_name===c &&
+  same(famUnit(r.subject_raw).fam, base))).length;
 
 /* v1.13.1 — זיכרון המקצוע המקביל: מקצוע → מקצוע שממנו נלקחות השעות */
 const RKEY = () => 'mivchanim:ref:'+YEAR+':'+GRADE;
@@ -794,6 +779,10 @@ function subjectList(){
      חוזר לכולם ובכל מכשיר, בלי טבלה נוספת. */
   BOARD.forEach(e=>{ const f=splitUnit(e.subject_base).fam;
     if(f && !m[f]) slot(f,'board',false); });
+  /* v1.15.0 — מקצועות האשכולות מופיעים ברשימה גם אם אינם במערכת
+     השעות, כדי שלא יידרש להקליד אותם. */
+  CLUSTERS.forEach(d=>d.subs.forEach(b=>{ const f=tidy(b);
+    if(f && !m[f] && !Object.keys(m).some(k=>sameSubj(k,f))) slot(f,'cluster',false); }));
   extraSubjects().forEach(b=>{ const f=splitUnit(b).fam;
     if(f && !m[f]) slot(f,'extra',false); });
   return Object.values(m).sort((a,b)=>b.n-a.n||a.base.localeCompare(b.base,'he'));
@@ -987,13 +976,7 @@ function setCluster(key){
   rememberRef(FORM.base, key?CPFX+key:'');
   CAND=[];SEARCHED=false; PICK=null; drawModal();
 }
-function renameCluster(key){
-  const c=clusterByKey(key); if(!c) return;
-  const v=prompt('שם האשכול (למשל: בחירה חובה)', c.name);
-  if(v===null) return;
-  nameCluster(key, v);
-  drawModal();
-}
+
 function setHMode(m){
   FORM.hmode=m;
   if(m!=='pick') FORM.hours=[];
@@ -1034,10 +1017,8 @@ function hoursHint(){
   const m=HMODE();
   if(m==='ref'){
     const c=refCl();
-    if(c) return 'השעות נלקחות מ'+esc(c.name)+' — '+esc(slotsLabel(c))+
-      ' ('+esc(c.subs.join(' · '))+').'+
-      (same(recalledRef(FORM.base),CPFX+c.key)
-        ? ' נשמר ל'+esc(FORM.base)+' — בפעם הבאה ייבחר מעצמו.' : '');
+    if(c) return esc(FORM.base)+' באשכול '+esc(c.name)+'. השעות נלקחות מן האשכול — '+
+      esc(slotsLabel(c))+' ('+esc(c.fams.join(' · '))+').';
     if(!FORM.refBase)
       return 'בחרו את האשכול שבו יושבת הקבוצה, או מקצוע מקביל מסוים. '+
              'השעות, הימים והכיסוי ייגזרו ממנו.';
@@ -1309,7 +1290,8 @@ function subFilter(q, all){
   let h=SUBOPTS.map((b,i)=>{
     const o=hit[i];
     return '<div class="opt" onmousedown="subPick('+i+')">'+esc(b)+
-      (o&&!o.inTT?'<span class="sub">'+(o.src==='extra'?'נוסף בהקלדה':'לא במערכת השעות')+
+      (o&&!o.inTT?'<span class="sub">'+(o.src==='extra'?'נוסף בהקלדה'
+        :o.src==='cluster'?((clusterOf(b)||{}).name||'בחירה'):'לא במערכת השעות')+
         '</span>':'')+
       /* v1.9.0 — מחיקת מקצוע שהוקלד. רק הוקלד: מקצוע מן המערכת או
          מלוח המבחנים אינו ניתן למחיקה מכאן. */
@@ -1366,20 +1348,25 @@ function commitSubject(name){
   FORM.base=base; FORM.units=[];
   /* v1.13.0 — מקצוע שאין לו שעות במערכת: "לפי מקצוע אחר" עדיף על
      "כל השעות", שהוא ניחוש. אם אין מערכת בכלל — נשארים בכל השעות. */
-  /* v1.13.1 — אם כבר נקבע למקצוע הזה מקצוע מקביל או אשכול, הוא חוזר. */
-  const rec=recalledRef(base);
-  FORM.refBase = rec.indexOf(CPFX)===0 ? '' : rec;
-  FORM.refCluster = rec.indexOf(CPFX)===0 ? rec.slice(CPFX.length) : '';
-  /* v1.14.0 — מקצוע ששייך לאשכול מזוהה לבדו, בלי לשאול. */
-  if(!FORM.refBase && !FORM.refCluster){
-    const c=clusterOf(base);
-    if(c && !inTimetable(base)) FORM.refCluster=c.key;
+  /* v1.15.0 — מקצוע מן הרשימות מזוהה מיד: אשכול, היקף ושעות.
+     ⚠ מקצוע שכל כיתות השכבה לומדות אינו קבוצת בחירה גם אם הוא
+     ברשימה — "תקשורת" במגמת תקשורת הוא של כולם. */
+  const c=clusterOf(base), mine=famClasses(base);
+  FORM.refBase=''; FORM.refCluster='';
+  if(c && c.fams.length && (mine===0 || mine<CLASSES.length)){
+    FORM.refCluster=c.key;
+    if(FORM.hmode!=='pick') FORM.hmode='ref';
+    /* ⚠ מסומן כאוטומטי, כדי שהחלפה למקצוע רגיל תחזיר את ההיקף.
+       בחירה ידנית של הרכז אינה נדרסת. */
+    if(FORM.scope!=='class'){ FORM.scope='elective'; FORM.scopeAuto=true; }
+  }else{
+    if(FORM.scopeAuto && FORM.scope==='elective'){ FORM.scope='grade'; FORM.scopeAuto=false; }
+    const rec=recalledRef(base);
+    FORM.refBase = rec.indexOf(CPFX)===0 ? '' : rec;
+    if(HMODE()!=='pick' && !inTimetable(base))
+      FORM.hmode = (FORM.refBase || subjectList().some(x=>x.inTT)) ? 'ref' : 'all';
+    else if(HMODE()==='ref' && inTimetable(base) && !FORM.refBase) FORM.hmode='auto';
   }
-  if(HMODE()!=='pick' && !inTimetable(base))
-    FORM.hmode = (FORM.refBase||FORM.refCluster||clusters().length||
-                  subjectList().some(x=>x.inTT)) ? 'ref' : 'all';
-  else if(HMODE()==='ref' && inTimetable(base) && !FORM.refBase && !FORM.refCluster)
-    FORM.hmode='auto';
   CAND=[];SEARCHED=false; PICK=null; drawModal();
 }
 
@@ -1411,7 +1398,8 @@ function drawModal(subs){
         'onblur="subBlur()">'+
         '<div id="subList" class="cbx-list" hidden></div></div>'+
 
-      '<div><label>היקף</label><select onchange="FORM.scope=this.value;CAND=[];SEARCHED=false;drawModal()">'+
+      '<div><label>היקף</label><select onchange="FORM.scope=this.value;FORM.scopeAuto=false;'+
+        'CAND=[];SEARCHED=false;drawModal()">'+
         '<option value="grade"'+(FORM.scope==='grade'?' selected':'')+'>כל השכבה</option>'+
         '<option value="class"'+(FORM.scope==='class'?' selected':'')+'>כיתה אחת</option>'+
         '<option value="elective"'+(FORM.scope==='elective'?' selected':'')+
@@ -1468,32 +1456,24 @@ function drawModal(subs){
        בלבד, כדי שלא ייראו כאילו הם פעילים כשהם אינם. */
     '<div style="margin-top:12px"><label>שעות המבחן</label>'+
       '<div class="seg">'+
-        [['auto','לפי שעות המקצוע במערכת'],['ref','לפי אשכול בחירה'],
-         ['pick','שעות שאבחר'],['all','כל השעות — לדירוג']].map(o=>
+        /* ⚠ "לפי אשכול" מופיע רק כשיש אשכול או מסלול ידני פעיל —
+           כפתור שאינו עושה דבר הוא רעש. */
+        [['auto','לפי שעות המקצוע במערכת'],
+         ['ref', refCl()?'לפי שעות '+refCl().name:'לפי מקצוע אחר'],
+         ['pick','שעות שאבחר'],['all','כל השעות — לדירוג']]
+        .filter(o=>o[0]!=='ref' || refCl() || HMODE()==='ref' || !inTimetable(FORM.base))
+        .map(o=>
           '<button type="button" class="'+(HMODE()===o[0]?'on':'')+'" '+
           'onclick="setHMode(\''+o[0]+'\')">'+o[1]+'</button>').join('')+
       '</div>'+
-      /* v1.14.0 — האשכולות שזוהו מן המערכת, ואחריהם מסלול ידני. */
-      (HMODE()==='ref'?(function(){
-        const cs=clusters();
-        return (cs.length?'<div class="seg cl">'+cs.map(c=>
-            '<button type="button" class="'+(FORM.refCluster===c.key?'on':'')+'" '+
-            'onclick="setCluster(\''+esc(c.key).replace(/'/g,'&#39;')+'\')">'+
-            esc(c.name)+
-            /* ⚠ בלי שם משלו השם כבר מכיל את השעות — אין טעם לחזור עליהן */
-            (c.named?'<i>'+esc(slotsLabel(c))+'</i>':'')+
-            '<span class="pen" title="שינוי שם" onclick="event.stopPropagation();'+
-            'renameCluster(\''+esc(c.key).replace(/'/g,'&#39;')+'\')">✎</span>'+
-            '</button>').join('')+'</div>'
-          :'<p class="hint" style="margin:0 0 7px">לא זוהו אשכולות במערכת השעות '+
-           'של השכבה. בחרו מקצוע מקביל ידנית.</p>')+
-          '<select onchange="setRef(this.value)" style="max-width:320px">'+
-          '<option value="">'+(cs.length?'— או מקצוע מסוים —':'— בחרו מקצוע מקביל —')+
-          '</option>'+
+      /* v1.15.0 — אשכול ידוע אינו דורש שום בחירה. הבורר הידני מופיע
+         רק כשאין אשכול, למקצוע שאינו במערכת. */
+      (HMODE()==='ref' && !refCl()
+        ? '<select onchange="setRef(this.value)" style="max-width:320px">'+
+          '<option value="">— בחרו מקצוע שיושב באותן שעות —</option>'+
           subjectList().filter(x=>x.inTT).map(x=>'<option'+
             (x.base===FORM.refBase?' selected':'')+'>'+esc(x.base)+'</option>').join('')+
-          '</select>';
-      })():'')+
+          '</select>' : '')+
       (HMODE()==='pick'?'<div class="hrs">'+
         [1,2,3,4,5,6,7,8].map(n=>'<button type="button" class="hr'+
           (HRS().indexOf(n)>-1?' on':'')+'" onclick="togHour('+n+')">'+n+'</button>').join('')+
@@ -1554,7 +1534,7 @@ function drawTask(subs){
         'onblur="subBlur()">'+
         '<div id="subList" class="cbx-list" hidden></div></div>'+
       '<div><label>היקף</label>'+
-        '<select onchange="FORM.scope=this.value;drawModal()">'+
+        '<select onchange="FORM.scope=this.value;FORM.scopeAuto=false;drawModal()">'+
         '<option value="grade"'+(FORM.scope==='grade'?' selected':'')+'>כל השכבה</option>'+
         '<option value="class"'+(FORM.scope==='class'?' selected':'')+'>כיתה אחת</option>'+
         '<option value="elective"'+(FORM.scope==='elective'?' selected':'')+
