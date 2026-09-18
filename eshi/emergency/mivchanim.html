@@ -1,5 +1,17 @@
 <!DOCTYPE html>
-<!-- eshi/emergency/mivchanim.html · v1.16.0 · 2026-09-18 · בית חינוך גליל מערבי
+<!-- eshi/emergency/mivchanim.html · v1.16.1 · 2026-09-18 · בית חינוך גליל מערבי
+
+     v1.16.1 · שם המבחן וההערה עלו לטופס עצמו.
+
+     ⚠ שני השדות ישבו רק במסך האישור, ומאז v1.12.0 השמירה היא
+     בלחיצה אחת מן המשבצת — כלומר מסך האישור כמעט אינו נפתח, ושדה
+     ההערה נעלם מן העין. מי שרצה לרשום הערה לא ידע איפה.
+
+     ⬛ עכשיו שניהם בטופס, מעל המשבצות, ומסומנים "רשות". השמירה
+     המהירה לוקחת אותם, ומסך "פרטים" ממשיך להציג אותם לעריכה.
+     ⚠ הערכים יושבים ב-FORM ולא ב-DOM בלבד, אחרת כל ציור מחדש של
+     הטופס (סימון יחידה, שינוי תאריך) היה מוחק את מה שנכתב.
+
 
      v1.16.0 · היקף חופשי — "גוש א", קבוצה, או כל שם אחר.
 
@@ -1270,6 +1282,7 @@ function openNew(date,allowBlocked){
   FORM={base:subs.length?subs[0].base:'', level:'', scope:'grade', cls:CLASSES[0],
         from:date||iso(t), to:date||iso(plus), oneDay:!!date,
         allowBlocked:!!allowBlocked, hours:[], units:[], kind:'exam', refBase:'', refCluster:'', groupName:'', groupCls:[],
+        title:'', notes:'',
         /* v1.8.0 — ברירת המחדל: שעות המקצוע במערכת */
         hmode:'auto'};
   CAND=[];SEARCHED=false; PICK=null;
@@ -1292,6 +1305,7 @@ function startMove(id){
   FORM={base:splitUnit(e.subject_base).fam, units:unitsOfExam(e), scope:e.scope,
         /* v1.11.0 — הגשה נשארת הגשה גם בהעברה לתאריך אחר */
         kind:isTask(e)?'task':'exam',
+        title:e.title||'', notes:e.notes||'',
         cls:e.class_name||CLASSES[0], from:isTask(e)?e.exam_date:iso(t),
         to:iso(plus), oneDay:false,
         allowBlocked:false,
@@ -1515,6 +1529,15 @@ function drawModal(subs){
         '</div>':'')+
       '<p class="hint" style="margin:6px 0 0">'+hoursHint()+'</p>'+
     '</div>'+
+    /* v1.16.1 — שם והערה בטופס, לא רק במסך האישור */
+    '<div class="row" style="margin-top:11px">'+
+      '<div><label>שם המבחן (רשות)</label>'+
+        '<input id="mTitle" placeholder="'+esc(defTitle())+'" '+
+        'value="'+esc(FORM.title||'')+'" oninput="FORM.title=this.value"></div>'+
+      '<div><label>הערה (רשות)</label>'+
+        '<input id="mNote" placeholder="מה שחשוב שיופיע בלוח" '+
+        'value="'+esc(FORM.notes||'')+'" oninput="FORM.notes=this.value"></div>'+
+    '</div>'+
     '<label style="display:flex;align-items:center;gap:7px;margin-top:11px;'+
       'font-weight:800;font-size:.86rem;cursor:pointer">'+
       '<input type="checkbox" style="width:auto;margin:0"'+
@@ -1621,9 +1644,11 @@ function drawTask(subs){
       'border-radius:10px;margin-top:9px">באותו יום כבר יש '+sameDay.length+': '+
       esc(sameDay.map(x=>x.title||x.subject_base).join(' · '))+'</div>':'')+
     '<div style="margin-top:10px"><label>שם ההגשה</label><input id="tTitle" '+
-      'placeholder="'+esc(taskTitle())+'" value="'+esc(MOVE&&MOVE.title||'')+'"></div>'+
+      'placeholder="'+esc(taskTitle())+'" value="'+esc(FORM.title||(MOVE&&MOVE.title)||'')+
+      '" oninput="FORM.title=this.value"></div>'+
     '<div style="margin-top:10px"><label>הערה</label>'+
-      '<input id="tNote" placeholder="לא חובה" value="'+esc(MOVE&&MOVE.notes||'')+'"></div>'+
+      '<input id="tNote" placeholder="לא חובה" value="'+esc(FORM.notes||(MOVE&&MOVE.notes)||'')+
+      '" oninput="FORM.notes=this.value"></div>'+
     '<div class="acts">'+
       '<button class="btn g" onclick="closeModal()">ביטול</button>'+
       '<button class="btn ok" id="tvBtn" onclick="saveTask()">'+
@@ -1649,8 +1674,8 @@ async function saveTask(){
     subject_base:FORM.base,
     level:UNITS().length?UNITS().map(u=>u+' יח״ל').join(', '):null,
     exam_date:FORM.from,
-    title:(el('tTitle').value||'').trim()||taskTitle(),
-    notes:(el('tNote').value||'').trim()||null,
+    title:fieldVal('tTitle', FORM.title)||taskTitle(),
+    notes:fieldVal('tNote', FORM.notes)||null,
     displaced:null, status:'approved', window_start:null, window_end:null,
     updated_at:new Date().toISOString()};
   const b=el('tvBtn'); b.disabled=true; b.textContent='שומר…';
@@ -1759,10 +1784,11 @@ function choose(i){
     '</div>'+
     '<div id="spanInfo" class="hint" style="margin:7px 0 0"></div>'+
     '<div style="margin-top:10px"><label>שם המבחן</label><input id="fTitle" '+
-      'placeholder="'+esc(FORM.base+(UNITS().length?' '+UNITS().join('-')+' יח״ל':''))+
-      ' — מבחן" value="'+esc(MOVE&&MOVE.title||'')+'"></div>'+
+      'placeholder="'+esc(defTitle())+' — מבחן" value="'+
+      esc(FORM.title||(MOVE&&MOVE.title)||'')+'" oninput="FORM.title=this.value"></div>'+
     '<div style="margin-top:10px"><label>הערה</label>'+
-      '<input id="fNote" placeholder="לא חובה" value="'+esc(MOVE&&MOVE.notes||'')+'"></div>'+
+      '<input id="fNote" placeholder="לא חובה" value="'+
+      esc(FORM.notes||(MOVE&&MOVE.notes)||'')+'" oninput="FORM.notes=this.value"></div>'+
     '<div class="acts">'+
       '<button class="btn g" onclick="drawModal()">חזרה</button>'+
       '<button class="btn ok" id="svBtn" onclick="saveExam()">'+
@@ -1803,6 +1829,15 @@ const H2=()=>{ const d=PICK.hourEnd||PICK.hour;
 
 /* btn — הכפתור שנלחץ. במסך האישור זה svBtn, ובשמירה מהירה זה
    הכפתור שבתוך המשבצת. */
+/* שם ברירת המחדל של מבחן, כשלא נכתב אחר */
+const defTitle = () => (FORM.base||'')+
+  (UNITS().length?' '+UNITS().join('-')+' יח״ל':'');
+/* ⚠ מסך האישור גובר על הטופס: אם הוא פתוח, מה שנכתב בו הוא האחרון. */
+const fieldVal = (id, fallback) => {
+  const e=el(id);
+  return tidy(e ? e.value : (fallback||''));
+};
+
 /* v1.16.0 — היקף חופשי נשמר כ-class עם שם חופשי; ראה הערת הגרסה. */
 const groupLabel = () => tidy((el('grpName')&&el('grpName').value) || FORM.groupName ||
   ((FORM.groupCls||[]).join(' · ')) || 'קבוצה');
@@ -1812,14 +1847,14 @@ const saveClass = () => FORM.scope==='other' ? groupLabel()
 
 async function saveExam(btn){
   if(!PICK) return;
-  const tEl=el('fTitle'), nEl=el('fNote');
+
   const row={year_start:YEAR, grade:GRADE, scope:saveScope(), class_name:saveClass(),
     subject_base:FORM.base,
     level:UNITS().length?UNITS().map(u=>u+' יח״ל').join(', '):null,
     exam_date:PICK.date, hour:H1(), hour_end:H2(),
-    title:((tEl&&tEl.value)||'').trim()||
-      (FORM.base+(UNITS().length?' '+UNITS().join('-')+' יח״ל':'')),
-    notes:((nEl&&nEl.value)||'').trim()||null,
+    title:fieldVal('fTitle', FORM.title) || fieldVal('mTitle', FORM.title) ||
+          defTitle() || FORM.base,
+    notes:(fieldVal('fNote', FORM.notes) || fieldVal('mNote', FORM.notes)) || null,
     /* הגלישה נרשמת לכל טווח השעות, לא לשעה הראשונה בלבד. */
     displaced:(function(){ const dl=dispForSpan(PICK.date,PICK.day,H1(),H2());
       return dl.length?dl.join(', '):null; })(),
