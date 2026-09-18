@@ -1,5 +1,19 @@
 <!DOCTYPE html>
-<!-- eshi/emergency/mivchanim.html · v1.19.0 · 2026-09-18 · בית חינוך גליל מערבי
+<!-- eshi/emergency/mivchanim.html · v1.19.1 · 2026-09-18 · בית חינוך גליל מערבי
+
+     v1.19.1 · הודעת השגיאה של האירועים הפסיקה לנחש.
+
+     ⚠ ב-v1.19.0 כל שגיאה שהוזכר בה exam_events הוצגה כ"הטבלה חסרה",
+     והשם מופיע כמעט בכל שגיאה של PostgREST — גם בחסימת RLS וגם
+     בעמודה שאינה מוכרת. רכז שהריץ את ה-SQL קיבל הודעה שאומרת לו
+     להריץ אותו שוב.
+
+     ⬛ evHint מפריד לפי קוד השגיאה:
+     · PGRST205 / 42P01 — הטבלה אינה במטמון הסכמה או אינה קיימת.
+     · 42501 / row-level security — RLS חוסם.
+     · 42703 — עמודה חסרה.
+     · אחרת — הטקסט המקורי מן השרת, בלי פרשנות.
+
 
      v1.19.0 · אירועים שכבתיים, תצוגת כל השכבות, וסיכום חטיבתי.
 
@@ -1757,6 +1771,22 @@ function openEvent(id){
     '</div><div id="evErr" class="msg no"></div>';
 }
 
+/* v1.19.1 — תרגום שגיאת מסד לאירועים, לפי קוד ולא לפי שם הטבלה */
+function evHint(msg){
+  const m=String(msg||'');
+  /* ⚠ סדר הבדיקות חשוב: "does not exist" מופיע גם בשגיאת עמודה,
+     ולכן עמודה נבדקת ראשונה. */
+  if(/42703|column .* does not exist/i.test(m))
+    return 'עמודה חסרה בטבלה. הריצו שוב את exam_events-v1.19.0.sql.';
+  if(/PGRST205|42P01|schema cache|relation .* does not exist/i.test(m))
+    return 'הטבלה exam_events אינה מוכרת ל-API. הריצו: '+
+           "notify pgrst, 'reload schema';  — ואם לא עזר, הריצו שוב את "+
+           'exam_events-v1.19.0.sql.';
+  if(/42501|row-level security|permission denied/i.test(m))
+    return 'המסד חוסם כתיבה לטבלה (RLS או הרשאות). ראו את ה-SQL של v1.19.1.';
+  return 'שגיאה מן המסד: '+m.slice(0,200);
+}
+
 async function saveEvent(){
   const err=el('evErr');
   const title=tidy(el('evTitle').value);
@@ -1776,9 +1806,9 @@ async function saveEvent(){
     else      await api('exam_events',{method:'POST',body:JSON.stringify([row])});
     EV_ID=null; closeModal(); await loadAll(); if(ALLMODE) await loadAllGrades(); render();
   }catch(e){
-    err.textContent = /exam_events|42P01|relation/i.test(e.message)
-      ? 'טבלת האירועים חסרה במסד. יש להריץ את exam_events-v1.19.0.sql.'
-      : 'שגיאה: '+String(e.message).slice(0,140);
+    err.textContent=evHint(e.message);
+    /* ⚠ גם ב-console, כי ההודעה בממשק מקוצרת */
+    console.error('exam_events', e.message);
     b.disabled=false; b.textContent='שמירה ←';
   }
 }
@@ -1788,7 +1818,7 @@ async function delEvent(id){
   try{
     await api('exam_events?id=eq.'+encodeURIComponent(id),{method:'DELETE'});
     EV_ID=null; closeModal(); await loadAll(); if(ALLMODE) await loadAllGrades(); render();
-  }catch(err){ alert('שגיאה: '+String(err.message).slice(0,140)); }
+  }catch(err){ console.error('exam_events', err.message); alert(evHint(err.message)); }
 }
 
 /* ============================================================
