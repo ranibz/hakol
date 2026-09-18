@@ -1,5 +1,24 @@
 <!DOCTYPE html>
-<!-- eshi/emergency/mivchanim.html · v1.12.1 · 2026-09-18 · בית חינוך גליל מערבי
+<!-- eshi/emergency/mivchanim.html · v1.13.0 · 2026-09-18 · בית חינוך גליל מערבי
+
+     v1.13.0 · אשכולות בחירה: שעות לפי מקצוע מקביל, ובלי גלישה מדומה.
+
+     ⚠ הרקע: בשכבה יש שני אשכולות בחירה — חובה ובחירה — והם יושבים
+     בשעות שונות, כי תלמיד יכול לקחת גם וגם. מקצוע בחירה שאינו
+     מופיע במערכת השעות (קבוצה שנרכבת מכמה כיתות) נשאר בלי שעות,
+     והכלי הציע לחפש בכל השעות — כלומר לנחש.
+
+     ⬛ מצב שעות רביעי: "לפי מקצוע אחר". בוחרים מקצוע מקביל מאותו
+     אשכול — מידע ונתונים לוקח את שעות כימיה או הנדסת תוכנה —
+     והשעות, הימים והכיסוי נגזרים ממנו. האשכול מזוהה מן המקצוע
+     שנבחר, ולכן אין צורך להגדיר אשכולות בשום מקום.
+     ⬛ מקצוע שאינו במערכת עובר אוטומטית למצב הזה במקום ל"כל השעות".
+
+     ⚠⚠ בהיקף "מקצוע בחירה" הגלישה אינה נרשמת יותר. הקבוצה מורכבת
+     מתלמידים מכמה כיתות, ומי שיושב באותה שעה במקצוע אחר של האשכול
+     אינו נבחן — לרשום "גולש על הנדסת תוכנה" היה לדווח גזילה שלא
+     קרתה, ולדחוק בגללה משבצות טובות בדירוג.
+
 
      v1.12.1 · התאמה לאילוצי exam_board, אחרי שגיאה 23514.
 
@@ -658,7 +677,7 @@ function scopeClasses(){
      ⚠ אם המקצוע אינו במערכת כלל אין מה לסנן לפיו, ואז נבדקת כל
      השכבה — הכיסוי שיתקבל אינו אמיתי, וההערה בטופס אומרת זאת. */
   if(FORM.scope==='elective'){
-    const u=UNITS(), b=FORM.base;
+    const u=matchUnits(), b=matchBase();
     const on=CLASSES.filter(c=>TT.some(r=>r.class_name===c &&
       matches(r.subject_raw,b,u)));
     return on.length?on:CLASSES;
@@ -666,7 +685,7 @@ function scopeClasses(){
   return CLASSES;
 }
 const electiveKnown = () => FORM.scope!=='elective' ||
-  CLASSES.some(c=>TT.some(r=>r.class_name===c && matches(r.subject_raw,FORM.base,UNITS())));
+  CLASSES.some(c=>TT.some(r=>r.class_name===c && matches(r.subject_raw,matchBase(),matchUnits())));
 /* ============================================================
    v1.10.0 · יחידות לימוד
    ------------------------------------------------------------
@@ -744,7 +763,8 @@ function weekLoad(dt,cls){
    ⚠ עד כה מבחן משעה 3 עד 5 רשם גלישה רק של שעה 3, ולכן "גלישות
    השנה" החטיא שתי שעות מתוך שלוש. */
 function dispForSpan(dateIso,di,h1,h2){
-  const base=FORM.base, units=UNITS(), cls=scopeClasses(), disp={};
+  if(noDisp()) return [];
+  const base=matchBase(), units=matchUnits(), cls=scopeClasses(), disp={};
   /* נבדקות כל השעות בטווח, גם אם הסימון היה לא רצוף — הטווח הוא
      מה שנשמר, ולכן הוא מה שנרשם כגלישה. */
   for(let h=Math.min(h1,h2); h<=Math.max(h1,h2); h++){
@@ -776,16 +796,25 @@ const HRS=()=>(FORM.hours||[]).slice().sort((a,b)=>a-b);
    all  — כל השעות, והכלי מדרג (ההתנהגות של סימון ריק ב-v1.7.0)
    ============================================================ */
 const HMODE = () => FORM.hmode || 'auto';
+/* v1.13.0 — במצב "לפי מקצוע אחר" כל החישוב (שעות, ימים, כיסוי)
+   נעשה מול המקצוע המקביל, כי הוא זה שיושב במערכת. */
+const REFON  = () => HMODE()==='ref' && !!FORM.refBase;
+const matchBase  = () => REFON() ? FORM.refBase : FORM.base;
+const matchUnits = () => REFON() ? [] : UNITS();
+/* בקבוצת בחירה אין גלישה: היושבים באותה שעה במקצוע אחר של האשכול
+   פשוט אינם נבחנים. */
+const noDisp = () => FORM.scope==='elective';
 function setHMode(m){
   FORM.hmode=m;
   if(m!=='pick') FORM.hours=[];
+  if(m!=='ref') FORM.refBase='';
   CAND=[];SEARCHED=false; PICK=null; drawModal();
 }
 /* השעות שבהן המקצוע יושב במערכת ביום נתון, מקובצות לרצפים.
    ⚠ שעות 2 ו-6 הן שתי מועמדות נפרדות ולא טווח 2–6: טווח כזה היה
    גורר את המבחן על ארבע שעות שאיש אינו לומד בהן את המקצוע. */
 function subjectBlocks(di){
-  const cls=scopeClasses(), base=FORM.base, units=UNITS(), on={};
+  const cls=scopeClasses(), base=matchBase(), units=matchUnits(), on={};
   for(let h=1;h<=10;h++)
     if(cls.some(c=>slotAt(di,h,c).some(r=>matches(r,base,units)))) on[h]=1;
   const out=[]; let cur=[];
@@ -813,11 +842,18 @@ const hrLabel=list=>{
 };
 function hoursHint(){
   const m=HMODE();
+  if(m==='ref'){
+    if(!FORM.refBase)
+      return 'בחרו מקצוע שיושב במערכת באותן שעות — מקצוע מקביל מאותו אשכול בחירה. '+
+             'השעות, הימים והכיסוי ייגזרו ממנו.';
+    return 'השעות נלקחות מ'+esc(FORM.refBase)+'. יוצעו רק ימים שבהם '+
+           esc(FORM.refBase)+' יושב במערכת, ובשעותיו.';
+  }
   if(m==='auto'){
     if(!FORM.base) return 'בחרו מקצוע.';
     if(!inTimetable(FORM.base))
-      return '⚠ «'+esc(FORM.base)+'» אינו מופיע במערכת השעות של השכבה, ואין לו שעות '+
-             'לשבת עליהן. סמנו שעות, או חפשו בכל השעות.';
+      return '⚠ «'+esc(FORM.base)+'» אינו מופיע במערכת השעות של השכבה. אם זו קבוצת '+
+             'בחירה, בחרו «לפי מקצוע אחר» וקחו את השעות ממקצוע מקביל מאותו אשכול.';
     return 'המבחן ייפול על השעות שבהן '+esc(FORM.base)+
            (UNITS().length?' ('+esc(unitsLabel(UNITS()))+')':'')+
            ' מופיע במערכת. יוצעו רק ימים שבהם המקצוע נלמד, ורצף שעות יוצע כמקשה אחת.';
@@ -831,7 +867,7 @@ function hoursHint(){
 }
 
 function buildCandidates(){
-  const base=FORM.base, units=UNITS(), from=FORM.from, to=FORM.to;
+  const base=matchBase(), units=matchUnits(), from=FORM.from, to=FORM.to;
   const cls=scopeClasses(), prev=displacedSoFar(), out=[];
   let d=fromIso(from), end=fromIso(to);
   while(d<=end){
@@ -848,7 +884,7 @@ function buildCandidates(){
       /* v1.8.0 — מאיפה באות השעות הנבדקות, לפי מצב הבחירה. */
       const marked=HRS(), hm=HMODE();
       const blocks = (hm==='pick' && marked.length) ? [marked]
-        : hm==='auto' ? subjectBlocks(di)
+        : (hm==='auto' || REFON()) ? subjectBlocks(di)
         : (function(){ const o=[]; for(let h=1;h<=10;h++) o.push([h]); return o; })();
       for(const blk2 of blocks){
         const h=blk2[0], hEnd=blk2[blk2.length-1];
@@ -861,7 +897,8 @@ function buildCandidates(){
             any=true;
             if(raws.some(r=>matches(r,base,units))) continue;
             all=false;
-            raws.forEach(r=>{ const sb=norm(r); if(sb.examable!==false) disp[sb.subject_base]=1; });
+            if(!noDisp())
+              raws.forEach(r=>{ const sb=norm(r); if(sb.examable!==false) disp[sb.subject_base]=1; });
           }
           if(!any) return;
           if(all) has.push(c); else miss.push(c);
@@ -872,7 +909,8 @@ function buildCandidates(){
         const load=Math.max.apply(null,cls.map(c=>weekLoad(d,c)));
         const sameDay=BOARD.some(e=>e.exam_date===iso(d) &&
           (!MOVE||String(e.id)!==String(MOVE.id)));
-        out.push({date:iso(d),day:di,hour:h,hourEnd:hEnd,hours:blk2.slice(),auto:hm==='auto',
+        out.push({date:iso(d),day:di,hour:h,hourEnd:hEnd,hours:blk2.slice(),
+                  auto:hm==='auto'||REFON(), ref:REFON()?FORM.refBase:'',
                   has:has.length,miss:miss.length,
                   total:has.length+miss.length,disp:dl,repeat:repeat,
                   load:load,sameDay:sameDay,evs:evs.map(e=>e.title),
@@ -1020,7 +1058,7 @@ function openNew(date,allowBlocked){
      חופשת פסח כבר אמר מה הוא רוצה. */
   FORM={base:subs.length?subs[0].base:'', level:'', scope:'grade', cls:CLASSES[0],
         from:date||iso(t), to:date||iso(plus), oneDay:!!date,
-        allowBlocked:!!allowBlocked, hours:[], units:[], kind:'exam',
+        allowBlocked:!!allowBlocked, hours:[], units:[], kind:'exam', refBase:'',
         /* v1.8.0 — ברירת המחדל: שעות המקצוע במערכת */
         hmode:'auto'};
   CAND=[];SEARCHED=false; PICK=null;
@@ -1128,8 +1166,12 @@ function commitSubject(name){
   const base=m?m.base:t;
   if(!m) addExtraSubject(base);
   FORM.base=base; FORM.units=[];
-  /* מקצוע שאין לו שעות במערכת — "לפי המערכת" לא יחזיר דבר. */
-  if(HMODE()==='auto' && !inTimetable(base)) FORM.hmode='all';
+  /* v1.13.0 — מקצוע שאין לו שעות במערכת: "לפי מקצוע אחר" עדיף על
+     "כל השעות", שהוא ניחוש. אם אין מערכת בכלל — נשארים בכל השעות. */
+  FORM.refBase='';
+  if(HMODE()!=='pick' && !inTimetable(base))
+    FORM.hmode = subjectList().some(x=>x.inTT) ? 'ref' : 'all';
+  else if(HMODE()==='ref' && inTimetable(base)) FORM.hmode='auto';
   CAND=[];SEARCHED=false; PICK=null; drawModal();
 }
 
@@ -1175,9 +1217,10 @@ function drawModal(subs){
     (FORM.scope==='elective'?'<p class="hint" style="margin:6px 0 0'+
       (electiveKnown()?'':';color:var(--warn)')+'">'+
       (electiveKnown()
-        ? 'הכיסוי נמדד רק בכיתות שבהן '+esc(FORM.base)+' מופיע במערכת.'
-        : '⚠ '+esc(FORM.base)+' אינו מופיע במערכת השעות, ולכן הכיסוי המוצג הוא '+
-          'מול כל השכבה ואינו משקף את הקבוצה.')+'</p>':'')+
+        ? 'הכיסוי נמדד רק בכיתות שבהן '+esc(matchBase())+' מופיע במערכת. '+
+          'גלישה אינה נרשמת — מי שיושב באותה שעה במקצוע אחר של האשכול אינו נבחן.'
+        : '⚠ '+esc(FORM.base)+' אינו מופיע במערכת השעות. בחרו «לפי מקצוע אחר» '+
+          'כדי לקחת את שעות האשכול ממקצוע מקביל.')+'</p>':'')+
     /* v1.10.0 — יחידות הלימוד בריבועים, כמו השעות. מוצגות רק
        למקצוע שיש לו יחידות במערכת; לאזרחות אין מה להציג. */
     (function(){ UOPTS=unitsOf(FORM.base);
@@ -1217,11 +1260,19 @@ function drawModal(subs){
        בלבד, כדי שלא ייראו כאילו הם פעילים כשהם אינם. */
     '<div style="margin-top:12px"><label>שעות המבחן</label>'+
       '<div class="seg">'+
-        [['auto','לפי שעות המקצוע במערכת'],['pick','שעות שאבחר'],
-         ['all','כל השעות — לדירוג']].map(o=>
+        [['auto','לפי שעות המקצוע במערכת'],['ref','לפי מקצוע אחר'],
+         ['pick','שעות שאבחר'],['all','כל השעות — לדירוג']].map(o=>
           '<button type="button" class="'+(HMODE()===o[0]?'on':'')+'" '+
           'onclick="setHMode(\''+o[0]+'\')">'+o[1]+'</button>').join('')+
       '</div>'+
+      /* v1.13.0 — בורר המקצוע המקביל. select ולא הקלדה: צריך מקצוע
+         שקיים במערכת, לא שם חדש. */
+      (HMODE()==='ref'?'<select onchange="FORM.refBase=this.value;'+
+        'CAND=[];SEARCHED=false;drawModal()" style="max-width:320px">'+
+        '<option value="">— בחרו מקצוע מקביל —</option>'+
+        subjectList().filter(x=>x.inTT).map(x=>'<option'+
+          (x.base===FORM.refBase?' selected':'')+'>'+esc(x.base)+'</option>').join('')+
+        '</select>':'')+
       (HMODE()==='pick'?'<div class="hrs">'+
         [1,2,3,4,5,6,7,8].map(n=>'<button type="button" class="hr'+
           (HRS().indexOf(n)>-1?' on':'')+'" onclick="togHour('+n+')">'+n+'</button>').join('')+
@@ -1370,7 +1421,12 @@ function candList(){
   if(!CAND.length && !SEARCHED) return '<p class="hint">לחצו "חיפוש משבצות".</p>';
   if(!CAND.length) return '<p class="hint" style="color:var(--no)">'+
     'לא נמצאה אף משבצת בטווח שנבחר.'+
-    (HMODE()==='auto'
+    (REFON()
+      ? '<br>החיפוש הוא לפי שעות '+esc(FORM.refBase)+', ולכן ימים שאין בהם '+
+        esc(FORM.refBase)+' אינם מוצעים. '+
+        '<a href="#" onclick="setHMode(\'all\');findSlots();return false" '+
+        'style="color:var(--a);font-weight:800">חיפוש בכל השעות ←</a>'
+      : HMODE()==='auto'
       ? '<br>החיפוש הוא לפי שעות המקצוע במערכת, ולכן ימים שאין בהם '+
         esc(FORM.base||'המקצוע')+' אינם מוצעים. '+
         '<a href="#" onclick="setHMode(\'all\');findSlots();return false" '+
@@ -1384,7 +1440,8 @@ function candList(){
         '" onclick="choose('+i+')">'+
         '<b>יום '+DAYS[c.day]+' '+d.getDate()+'.'+pad(d.getMonth()+1)+' · '+
           hrLabel(c.hours||[c.hour])+'</b>'+
-        (c.auto?'<span class="flag g">לפי שעות המקצוע במערכת</span>':'')+
+        (c.ref?'<span class="flag g">לפי שעות '+esc(c.ref)+'</span>'
+          :c.auto?'<span class="flag g">לפי שעות המקצוע במערכת</span>':'')+
         (c.blocked?'<span class="flag r">⚠ יום חסום'+
           (c.blockWhy?' — '+esc(c.blockWhy):'')+'</span>':'')+
         '<div class="meta">'+(full?'כל '+c.total+' הכיתות במקצוע'+
