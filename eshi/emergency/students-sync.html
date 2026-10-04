@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<!-- VERSION 2.0.0 - 04/10/2026 - נבנה סביב פורמט הייצוא של מנב"ס: זיהוי אוטומטי של שורת הכותרות ושל כל העמודות (ת.ז, שם התלמיד, מין, שכבה, מקבילה, תאריך לידה, ישוב, טלפונים), בלי מיפוי ידני. תומך בהעלאת שכבה אחר שכבה — הקבצים נצברים וההשוואה נעשית פעם אחת בסוף. כיבוי תלמידים מוגבל כברירת מחדל לשכבות שהועלו בפועל, כדי שהעלאת שכבה אחת לא תכבה את כל בית הספר. שדות ריקים אינם נכתבים, כדי לא לדרוס נתונים קיימים. | פיתוח: רני בן זאב -->
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>מצבת תלמידים · גליל מערבי</title>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box}
+:root{--bd:#dde3ea;--t2:#6b7785;--pri:#1565c0}
+html,body{margin:0;padding:0;font-family:'Heebo',sans-serif;background:#eef2f6;color:#1a2330}
+.wrap{max-width:1040px;margin:0 auto;padding:18px 16px 70px}
+.hdr{background:linear-gradient(135deg,#0d47a1,#1565c0);color:#fff;border-radius:16px;padding:20px;margin-bottom:16px;box-shadow:0 4px 16px rgba(13,71,161,.2)}
+.hdr h1{margin:0;font-size:1.4rem;font-weight:900}
+.hdr p{margin:5px 0 0;opacity:.92;font-size:.9rem}
+.card{background:#fff;border:1px solid var(--bd);border-radius:15px;padding:17px;margin-bottom:14px}
+.card h2{margin:0 0 4px;font-size:1.08rem;font-weight:900;color:var(--pri)}
+.card .sub{font-size:.85rem;color:var(--t2);margin-bottom:13px;line-height:1.55}
+.step{display:inline-flex;align-items:center;justify-content:center;width:25px;height:25px;border-radius:50%;background:var(--pri);color:#fff;font-weight:900;font-size:.85rem;margin-left:8px}
+.card.off{opacity:.45;pointer-events:none}
+.card.off .step{background:#b6c2ce}
+
+.drop{border:3px dashed #b9c7d6;border-radius:14px;padding:30px 18px;text-align:center;cursor:pointer;transition:.15s;background:#f8fafc}
+.drop:hover,.drop.over{border-color:var(--pri);background:#eef5ff}
+.drop .ic{font-size:2.5rem}
+.drop b{display:block;margin-top:7px;font-size:1.05rem}
+.drop span{display:block;color:var(--t2);font-size:.85rem;margin-top:4px}
+input[type=file]{display:none}
+
+.fl{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;margin-top:8px;border:1px solid}
+.fl.ok{background:#f1f8e9;border-color:#c5e1a5}
+.fl.bad{background:#ffebee;border-color:#ffcdd2}
+.fl .nm{flex:1;font-weight:800;font-size:.9rem;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fl .meta{font-size:.8rem;color:var(--t2);white-space:nowrap}
+.fl .x{background:#fff;border:1px solid #ef9a9a;color:#c62828;border-radius:7px;padding:4px 9px;font-family:Heebo,sans-serif;font-weight:800;font-size:.78rem;cursor:pointer}
+
+table{width:100%;border-collapse:collapse;font-size:.87rem}
+th,td{padding:8px 9px;text-align:right;border-bottom:1px solid #eef1f4}
+th{background:#f6f8fa;font-weight:800;font-size:.8rem;color:var(--t2);position:sticky;top:0}
+.scroll{max-height:300px;overflow:auto;border:1px solid var(--bd);border-radius:11px}
+
+select,input[type=text]{padding:8px 10px;border:1px solid var(--bd);border-radius:9px;font-family:Heebo,sans-serif;font-size:.9rem;background:#fff}
+.maprow{display:flex;align-items:center;gap:10px;padding:8px 11px;background:#f8fafc;border:1px solid var(--bd);border-radius:10px;margin-bottom:6px;flex-wrap:wrap}
+.maprow label{flex:0 0 140px;font-weight:800;font-size:.88rem}
+.maprow select{flex:1;min-width:0}
+.maprow.ok{background:#f1f8e9;border-color:#c5e1a5}
+
+.btn{padding:14px 20px;border:none;border-radius:12px;font-family:Heebo,sans-serif;font-size:1rem;font-weight:900;cursor:pointer}
+.btn.pri{background:linear-gradient(135deg,#1565c0,#1976d2);color:#fff;box-shadow:0 4px 12px rgba(21,101,192,.26)}
+.btn.go{background:linear-gradient(135deg,#2e7d32,#43a047);color:#fff;box-shadow:0 4px 12px rgba(46,125,50,.26)}
+.btn:disabled{opacity:.45;cursor:not-allowed;box-shadow:none}
+.btn.w{width:100%}
+
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(125px,1fr));gap:9px;margin-bottom:11px}
+.tile{border-radius:12px;padding:12px 9px;text-align:center;border:2px solid}
+.tile .n{font-size:1.8rem;font-weight:900;line-height:1}
+.tile .l{font-size:.76rem;font-weight:800;margin-top:3px}
+.t-new{background:#e8f5e9;border-color:#66bb6a}.t-new .n{color:#1b5e20}
+.t-upd{background:#e3f2fd;border-color:#64b5f6}.t-upd .n{color:#0d47a1}
+.t-off{background:#fff3e0;border-color:#ffb74d}.t-off .n{color:#e65100}
+.t-tot{background:#f5f5f5;border-color:#bdbdbd}.t-tot .n{color:#424242}
+
+.note{border-radius:11px;padding:12px 14px;font-size:.87rem;line-height:1.6;margin-bottom:12px}
+.note.w{background:#fff8e1;border:1px solid #ffe082;color:#8a5a00}
+.note.e{background:#ffebee;border:1px solid #ffcdd2;color:#b71c1c}
+.note.g{background:#e8f5e9;border:1px solid #c5e1a5;color:#1b5e20}
+.note.i{background:#e3f2fd;border:1px solid #bbdefb;color:#0d47a1}
+
+.opt{display:block;padding:12px 13px;border:2px solid var(--bd);border-radius:11px;margin-bottom:8px;cursor:pointer;background:#fff}
+.opt.sel{border-color:var(--pri);background:#f3f8ff}
+.opt b{display:block;font-size:.93rem}
+.opt span{display:block;font-size:.8rem;color:var(--t2);margin-top:3px;line-height:1.5}
+.opt input{margin-left:8px}
+
+.tabs{display:flex;gap:7px;margin-bottom:9px;flex-wrap:wrap}
+.tabs button{padding:8px 15px;border-radius:9px;border:2px solid var(--bd);background:#fff;color:var(--t2);font-family:Heebo,sans-serif;font-weight:800;font-size:.85rem;cursor:pointer}
+.tabs button.on{background:var(--pri);border-color:var(--pri);color:#fff}
+
+.log{background:#0f172a;color:#cbd5e1;border-radius:11px;padding:13px;font-family:ui-monospace,Menlo,monospace;font-size:.8rem;max-height:250px;overflow:auto;direction:ltr;text-align:left;white-space:pre-wrap;line-height:1.55}
+.log .ok{color:#86efac}.log .er{color:#fca5a5}.log .wn{color:#fde68a}
+.bar{height:9px;background:#e8edf2;border-radius:5px;overflow:hidden;margin:10px 0}
+.bar i{display:block;height:100%;background:linear-gradient(90deg,#43a047,#66bb6a);width:0;transition:width .25s}
+.foot{text-align:center;color:var(--t2);font-size:.8rem;padding:16px 0}
+.pill{display:inline-block;background:#eef2f7;border:1px solid var(--bd);border-radius:7px;padding:2px 9px;font-size:.78rem;font-weight:700;margin:2px}
+.pill.on{background:#e8f5e9;border-color:#a5d6a7;color:#1b5e20}
+details{margin-top:10px}
+summary{cursor:pointer;font-size:.85rem;color:var(--pri);font-weight:800}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="hdr">
+    <h1>🎓 מצבת תלמידים — מקור אמת אחד</h1>
+    <p>מורידים ממנב"ס, גוררים לכאן, והמערכות מסתנכרנות. שכבה אחר שכבה.</p>
+  </div>
+
+  <!-- 1 -->
+  <div class="card" id="c1">
+    <h2><span class="step">1</span>גרירת קבצי מנב"ס</h2>
+    <div class="sub">אפשר לגרור כמה קבצים — שכבה אחר שכבה. הם נצברים, וההשוואה נעשית פעם אחת על כולם יחד.
+      הקובץ נקרא בדפדפן שלך בלבד.</div>
+    <div class="drop" id="drop">
+      <div class="ic">📄</div>
+      <b>גרור לכאן קובץ, או לחץ לבחירה</b>
+      <span>ייצוא "אלפון" ממנב"ס — הכותרות מזוהות לבד, אין צורך לערוך</span>
+    </div>
+    <input type="file" id="file" accept=".xlsx,.xls,.csv" multiple>
+    <div id="files"></div>
+    <div id="sum"></div>
+  </div>
+
+  <!-- 2 -->
+  <div class="card off" id="c2">
+    <h2><span class="step">2</span>בדיקה מול המערכות</h2>
+    <div class="sub">בדיקה יבשה. שום דבר עוד לא נכתב.</div>
+    <button class="btn pri w" id="btnCheck">🔍 בדוק מה עומד להשתנות</button>
+    <div id="checkOut"></div>
+  </div>
+
+  <!-- 3 -->
+  <div class="card off" id="c3">
+    <h2><span class="step">3</span>סנכרון</h2>
+    <div class="sub">כתיבה לשני הפרויקטים. עד הלחיצה הזו לא נגעתי בכלום.</div>
+    <div id="syncBox"></div>
+  </div>
+
+  <div class="foot">פיתוח הסביבה · רני בן זאב</div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+/* ============================================================
+   שני הפרויקטים שמסתנכרנים
+   ============================================================ */
+const DB={
+  galil:{ n:'מערכת טיולים וגיחות', url:'https://ohxnrjtdenylcwnszzfq.supabase.co',
+          key:'sb_publishable_maSeTa8gQ-Jx8DCGhryltw_bZzQYfl5', sel:'id,active,grade' },
+  emerg:{ n:'מערכת חירום ונוכחות', url:'https://skfriefqnoxfzmamcokd.supabase.co',
+          key:'sb_publishable_Qx7EDPbdyYE9iv7uMQBKhQ_Aeojd_Q0', sel:'id,active,class' }
+};
+async function api(db,path,opts={}){
+  const d=DB[db];
+  const r=await fetch(d.url+'/rest/v1/'+path,{...opts,headers:{
+    'apikey':d.key,'Authorization':'Bearer '+d.key,'Content-Type':'application/json',...(opts.headers||{})}});
+  if(!r.ok) throw new Error('['+db+'] '+r.status+' '+(await r.text()).slice(0,260));
+  if(r.status===204||r.headers.get('content-length')==='0') return null;
+  const t=await r.text(); return t?JSON.parse(t):null;
+}
+const esc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const $=i=>document.getElementById(i);
+const nrm=s=>String(s==null?'':s).replace(/["'.׳״\s]/g,'').trim();
+
+/* ============================================================
+   פורמט מנב"ס — זיהוי אוטומטי
+   שורת הכותרות היא השורה שמכילה גם "ת.ז" וגם "שם התלמיד".
+   ============================================================ */
+const COLS={
+  id    :['ת.ז','תז','תעודת זהות','מספר זהות'],
+  full  :['שם התלמיד','שם מלא','שם'],
+  last  :['שם משפחה','משפחה'],
+  first :['שם פרטי'],
+  grade :['שכבה'],
+  num   :['מקבילה','מספר כיתה','כיתה מקבילה'],
+  cls   :['כיתה'],
+  gender:['מין'],
+  bdate :['תאריך לידה'],
+  city  :['ישוב 1','יישוב 1','ישוב','יישוב','עיר'],
+  ph1   :['סלולרי של התלמיד','נייד התלמיד'],
+  ph2   :['טלפון נייד של הורה 1'],
+  ph3   :['טלפון נייד של הורה 2'],
+  ph4   :['טלפון בבית','טלפון']
+};
+function findHeaderRow(rows){
+  for(let i=0;i<Math.min(rows.length,25);i++){
+    const r=(rows[i]||[]).map(nrm);
+    const hasId=r.some(c=>COLS.id.some(g=>nrm(g)===c));
+    const hasNm=r.some(c=>COLS.full.concat(COLS.last).some(g=>nrm(g)===c));
+    if(hasId&&hasNm) return i;
+  }
+  // גיבוי: השורה עם הכי הרבה תאים מלאים מבין העשר הראשונות
+  let best=0,bn=0;
+  for(let i=0;i<Math.min(rows.length,10);i++){
+    const n=(rows[i]||[]).filter(c=>String(c).trim()).length;
+    if(n>bn){bn=n;best=i;}
+  }
+  return best;
+}
+function mapCols(headers){
+  const used=new Set(), M={};
+  const order=['id','full','last','first','grade','num','cls','gender','bdate','city','ph1','ph2','ph3','ph4'];
+  order.forEach(k=>{
+    if(k==='full'&&M.last&&M.first) return;
+    for(const g of COLS[k]){
+      const i=headers.findIndex((h,idx)=>!used.has(idx)&&nrm(h)===nrm(g));
+      if(i>=0){ M[k]=i; used.add(i); return; }
+    }
+    for(const g of COLS[k]){
+      const i=headers.findIndex((h,idx)=>!used.has(idx)&&nrm(h).includes(nrm(g)));
+      if(i>=0){ M[k]=i; used.add(i); return; }
+    }
+  });
+  return M;
+}
+
+/* ============================================================
+   קריאת קבצים — נצברים
+   ============================================================ */
+let FILES=[];                 // {name, rows:[rec], grades:[], warn}
+$('drop').onclick=()=>$('file').click();
+['dragover','dragenter'].forEach(e=>$('drop').addEventListener(e,ev=>{ev.preventDefault();$('drop').classList.add('over');}));
+['dragleave','drop'].forEach(e=>$('drop').addEventListener(e,ev=>{ev.preventDefault();$('drop').classList.remove('over');}));
+$('drop').addEventListener('drop',ev=>{ [...(ev.dataTransfer.files||[])].forEach(readFile); });
+$('file').onchange=e=>{ [...e.target.files].forEach(readFile); e.target.value=''; };
+
+function readFile(f){
+  if(typeof XLSX==='undefined'){
+    $('sum').innerHTML='<div class="note e">⚠️ ספריית קריאת האקסל לא נטענה (ייתכן חסימת רשת בבית הספר). נסה מרשת אחרת.</div>';
+    return;
+  }
+  const rd=new FileReader();
+  rd.onload=ev=>{
+    try{
+      const wb=XLSX.read(new Uint8Array(ev.target.result),{type:'array'});
+      const recs=[]; const warn=[];
+      wb.SheetNames.forEach(sn=>{
+        const rows=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,blankrows:false,defval:''});
+        if(rows.length<2) return;
+        const hi=findHeaderRow(rows);
+        const headers=(rows[hi]||[]).map(h=>String(h).trim());
+        const M=mapCols(headers);
+        if(M.id===undefined){ warn.push('בגיליון "'+sn+'" לא נמצאה עמודת ת.ז'); return; }
+        rows.slice(hi+1).forEach(r=>{
+          const g=i=>i===undefined?'':String(r[i]==null?'':r[i]).trim();
+          const id=g(M.id).replace(/\D/g,'');
+          if(!/^\d{9}$/.test(id)) return;
+          let last=g(M.last), first=g(M.first), full=g(M.full);
+          if(!last&&!first&&full){ const p=full.split(/\s+/); last=p[0]||''; first=p.slice(1).join(' '); }
+          if(last||first) full=(last+' '+first).trim();
+          let grade=g(M.grade), num=g(M.num).replace(/\D/g,''), cls=g(M.cls);
+          if((!grade||!num)&&cls){ const m=cls.match(/^(.+?)\s*(\d+)$/); if(m){ grade=m[1].trim(); num=m[2]; } }
+          if(!grade&&!num&&sn){ const m=sn.match(/^\s*([א-ת"']+)\s*-?\s*(\d*)/); if(m){ grade=grade||m[1]; num=num||m[2]; } }
+          if(!grade||!num) return;
+          const phone=[g(M.ph1),g(M.ph2),g(M.ph3),g(M.ph4)].map(p=>p.replace(/\D/g,'')).find(p=>p.length>=9)||'';
+          recs.push({id, first:first.trim(), last:last.trim(), full:full.trim(),
+                     grade:grade.trim(), num, className:grade.trim()+num,
+                     gender:g(M.gender), bdate:g(M.bdate), city:g(M.city), phone, sheet:sn});
+        });
+      });
+      if(!recs.length){
+        FILES.push({name:f.name,rows:[],grades:[],warn:warn.length?warn:['לא נמצאו תלמידים תקינים בקובץ']});
+      } else {
+        FILES.push({name:f.name,rows:recs,grades:[...new Set(recs.map(r=>r.grade))].sort(),warn});
+      }
+      paintFiles();
+    }catch(e){
+      FILES.push({name:f.name,rows:[],grades:[],warn:[e.message]});
+      paintFiles();
+    }
+  };
+  rd.readAsArrayBuffer(f);
+}
+function removeFile(i){ FILES.splice(i,1); paintFiles(); }
+
+/* איחוד כל הקבצים, בלי כפילויות ת״ז (המופע האחרון מנצח) */
+function allRows(){
+  const m=new Map();
+  FILES.forEach(f=>f.rows.forEach(r=>m.set(r.id,r)));
+  return [...m.values()];
+}
+function allGrades(){ return [...new Set(allRows().map(r=>r.grade))].sort(); }
+
+function paintFiles(){
+  $('files').innerHTML=FILES.map((f,i)=>`
+    <div class="fl ${f.rows.length?'ok':'bad'}">
+      <span style="font-size:1.1rem">${f.rows.length?'✅':'⚠️'}</span>
+      <span class="nm">${esc(f.name)}</span>
+      <span class="meta">${f.rows.length?`${f.rows.length} תלמידים · ${f.grades.join(', ')}`:esc(f.warn[0]||'ריק')}</span>
+      <button class="x" onclick="removeFile(${i})">הסר</button>
+    </div>`).join('');
+  const rows=allRows(), grades=allGrades();
+  if(!rows.length){ $('sum').innerHTML=''; $('c2').classList.add('off'); PLAN=null; return; }
+  const byCls={}; rows.forEach(r=>byCls[r.className]=(byCls[r.className]||0)+1);
+  const dup=FILES.reduce((a,f)=>a+f.rows.length,0)-rows.length;
+  $('sum').innerHTML=`
+    <div class="note g" style="margin-top:12px">
+      <b>סה״כ ${rows.length} תלמידים</b> מ-${FILES.length} ${FILES.length===1?'קובץ':'קבצים'} ·
+      שכבות: ${grades.map(g=>`<span class="pill on">${esc(g)}</span>`).join('')}
+      ${dup?`<br><span style="font-size:.82rem">(${dup} כפילויות ת״ז בין הקבצים אוחדו)</span>`:''}
+    </div>
+    <div style="font-size:.84rem;color:var(--t2);margin-bottom:7px">כיתות:
+      ${Object.keys(byCls).sort().map(c=>`<span class="pill">${esc(c)} · ${byCls[c]}</span>`).join('')}</div>
+    <details><summary>הצג שש שורות ראשונות לבדיקה</summary>
+      <div class="scroll" style="margin-top:8px"><table>
+        <tr><th>ת״ז</th><th>משפחה</th><th>פרטי</th><th>כיתה</th><th>מין</th><th>לידה</th><th>טלפון</th><th>יישוב</th></tr>
+        ${rows.slice(0,6).map(r=>`<tr><td>${esc(r.id)}</td><td>${esc(r.last)}</td><td>${esc(r.first)}</td>
+          <td>${esc(r.className)}</td><td>${esc(r.gender)}</td><td>${esc(r.bdate)}</td>
+          <td>${esc(r.phone)}</td><td>${esc(r.city)}</td></tr>`).join('')}
+      </table></div></details>`;
+  $('c2').classList.remove('off');
+}
+
+/* ============================================================
+   בדיקה יבשה
+   ============================================================ */
+let PLAN=null, SCOPE='grades';
+$('btnCheck').onclick=async()=>{
+  const b=$('btnCheck'); b.disabled=true; b.textContent='⏳ קורא את המערכות...';
+  try{
+    const rows=allRows(), ids=new Set(rows.map(r=>r.id)), grades=new Set(allGrades());
+    const [gal,eme]=await Promise.all([fetchAll('galil'),fetchAll('emerg')]);
+    PLAN={rows,ids,grades,galil:gal,emerg:eme};
+    paintPlan();
+    $('c3').classList.remove('off');
+    $('c3').scrollIntoView({behavior:'smooth',block:'start'});
+  }catch(e){ $('checkOut').innerHTML=`<div class="note e">❌ ${esc(e.message)}</div>`; }
+  finally{ b.disabled=false; b.textContent='🔍 בדוק מה עומד להשתנות'; }
+};
+async function fetchAll(db){
+  const out=[]; const step=1000;
+  for(let from=0;;from+=step){
+    const r=await api(db,'students?select='+DB[db].sel+'&order=id',
+      {headers:{'Range-Unit':'items','Range':from+'-'+(from+step-1)}});
+    if(!r||!r.length) break; out.push(...r); if(r.length<step) break;
+  }
+  return out;
+}
+const rowGrade=(db,s)=> db==='galil' ? (s.grade||'') : String(s.class||'').trim().split(/\s+/)[0];
+function diff(db){
+  const ex=PLAN[db], have=new Set(ex.map(s=>String(s.id)));
+  const add=PLAN.rows.filter(r=>!have.has(r.id));
+  const upd=PLAN.rows.filter(r=>have.has(r.id));
+  let off=[];
+  if(SCOPE==='grades') off=ex.filter(s=>s.active!==false && !PLAN.ids.has(String(s.id)) && PLAN.grades.has(rowGrade(db,s)));
+  else if(SCOPE==='all') off=ex.filter(s=>s.active!==false && !PLAN.ids.has(String(s.id)));
+  return {add,upd,off};
+}
+function paintPlan(){
+  if(!PLAN) return;
+  const gl=[...PLAN.grades].join(', ');
+  $('checkOut').innerHTML=`
+    <div style="margin-top:14px">
+      <div style="font-weight:900;font-size:.95rem;margin-bottom:7px">מי יכובה (<code>active=false</code>)?</div>
+      <label class="opt ${SCOPE==='grades'?'sel':''}"><input type="radio" name="sc" ${SCOPE==='grades'?'checked':''} onchange="setScope('grades')">
+        <b>רק בשכבות שהעליתי — ${esc(gl)}</b>
+        <span>תלמיד שרשום כיום באחת השכבות האלה ואינו בקבצים — יכובה. שאר בית הספר לא ייגע. <b>זו הבחירה הנכונה בהעלאה שכבה אחר שכבה.</b></span></label>
+      <label class="opt ${SCOPE==='all'?'sel':''}"><input type="radio" name="sc" ${SCOPE==='all'?'checked':''} onchange="setScope('all')">
+        <b>בכל בית הספר</b>
+        <span>כל מי שאינו בקבצים יכובה. בחר בזה רק כשהעלית את <b>כל</b> השכבות יחד.</span></label>
+      <label class="opt ${SCOPE==='none'?'sel':''}"><input type="radio" name="sc" ${SCOPE==='none'?'checked':''} onchange="setScope('none')">
+        <b>לא לכבות אף אחד</b>
+        <span>רק הוספה ועדכון.</span></label>
+    </div>
+    ${['galil','emerg'].map(db=>{
+      const d=diff(db);
+      return `<div style="margin-top:14px">
+        <h3 style="margin:0 0 8px;font-size:.98rem">${db==='galil'?'🚌':'🚨'} ${DB[db].n}
+          <span style="font-weight:600;color:var(--t2);font-size:.82rem">· ${PLAN[db].length} רשומות כיום</span></h3>
+        <div class="tiles">
+          <div class="tile t-new"><div class="n">${d.add.length}</div><div class="l">יתווספו</div></div>
+          <div class="tile t-upd"><div class="n">${d.upd.length}</div><div class="l">יתעדכנו</div></div>
+          <div class="tile t-off"><div class="n">${d.off.length}</div><div class="l">יכובו</div></div>
+        </div></div>`;}).join('')}
+    <div class="note w" style="margin-top:12px"><b>כלום עוד לא נכתב.</b> המספרים למעלה הם מה שיקרה בלחיצה על הסנכרון.</div>`;
+  buildSync();
+}
+function setScope(s){ SCOPE=s; paintPlan(); }
+
+/* ============================================================
+   סנכרון
+   ============================================================ */
+function buildSync(){
+  $('syncBox').innerHTML=`
+    <div class="tabs">
+      <button class="on" id="tg" onclick="this.classList.toggle('on')">🚌 ${DB.galil.n}</button>
+      <button class="on" id="te" onclick="this.classList.toggle('on')">🚨 ${DB.emerg.n}</button>
+    </div>
+    <div style="font-size:.79rem;color:var(--t2);margin-bottom:11px">לחיצה על מערכת מכבה אותה מהסנכרון. כברירת מחדל שתיהן פעילות.</div>
+    <button class="btn go w" id="btnGo">🔄 סנכרן עכשיו</button>
+    <div class="bar" id="bar" style="display:none"><i></i></div>
+    <div class="log" id="log" style="display:none"></div>`;
+  $('btnGo').onclick=runSync;
+}
+function logLine(t,c){ const l=$('log'); l.style.display='block'; l.innerHTML+=`<span class="${c||''}">${esc(t)}</span>\n`; l.scrollTop=l.scrollHeight; }
+function prog(p){ $('bar').style.display='block'; $('bar').querySelector('i').style.width=p+'%'; }
+
+/* שדה ריק אינו נשלח, כדי לא לדרוס נתון קיים.
+   PostgREST דורש מפתחות זהים בכל אצווה, לכן מקבצים לפי צירוף השדות הקיימים. */
+function payload(db,r){
+  const o = db==='galil'
+    ? {id:r.id, first_name:r.first||null, last_name:r.last||null,
+       grade:r.grade, class_number:r.num, class_name:r.className, active:true, school_year:SCHOOL_YEAR}
+    : {id:r.id, name:r.full, class:r.grade+' '+r.num, active:true};
+  if(r.phone) o.phone=r.phone;
+  if(r.city)  o.city=r.city;
+  if(db==='galil'){
+    if(r.gender) o.gender=r.gender;
+    if(r.bdate)  o.birthdate=r.bdate;
+  }
+  return o;
+}
+const SCHOOL_YEAR='2026';
+function groupBySig(db,rows){
+  const g={};
+  rows.forEach(r=>{ const p=payload(db,r); const k=Object.keys(p).sort().join('|');
+    (g[k]=g[k]||[]).push(p); });
+  return Object.values(g);
+}
+async function upsert(db,rows){
+  const groups=groupBySig(db,rows); let done=0;
+  for(const grp of groups){
+    for(let i=0;i<grp.length;i+=200){
+      await api(db,'students',{method:'POST',body:JSON.stringify(grp.slice(i,i+200)),
+        headers:{'Prefer':'resolution=merge-duplicates,return=minimal'}});
+      done+=Math.min(200,grp.length-i);
+    }
+  }
+  return done;
+}
+async function deactivate(db,ids){
+  for(let i=0;i<ids.length;i+=80){
+    await api(db,'students?id=in.('+ids.slice(i,i+80).map(x=>'"'+x+'"').join(',')+')',
+      {method:'PATCH',body:JSON.stringify({active:false}),headers:{'Prefer':'return=minimal'}});
+  }
+}
+async function runSync(){
+  if(!PLAN) return;
+  const targets=[]; if($('tg').classList.contains('on')) targets.push('galil');
+  if($('te').classList.contains('on')) targets.push('emerg');
+  if(!targets.length){ alert('לא נבחרה אף מערכת'); return; }
+  const offTot=targets.reduce((a,db)=>a+diff(db).off.length,0);
+  if(!confirm(`לסנכרן ${PLAN.rows.length} תלמידים (${[...PLAN.grades].join(', ')})\nאל: ${targets.map(t=>DB[t].n).join(' ו')}?\n\n`+
+    (offTot?`${offTot} רשומות יכובו (active=false). הן לא יימחקו.\n`:'לא יכובה אף אחד.\n')+
+    '\nפעולה זו כותבת לבסיס הנתונים.')) return;
+
+  const b=$('btnGo'); b.disabled=true; b.textContent='⏳ מסנכרן...'; $('log').innerHTML=''; prog(0);
+  let step=0; const steps=targets.length*2;
+  for(const db of targets){
+    const d=diff(db);
+    logLine('── '+DB[db].n+' ──','wn');
+    try{ const n=await upsert(db,PLAN.rows);
+      logLine('  ✓ נכתבו '+n+' תלמידים ('+d.add.length+' חדשים, '+d.upd.length+' עודכנו)','ok');
+    }catch(e){ logLine('  ✗ כתיבה נכשלה: '+e.message,'er'); }
+    prog(Math.round(++step/steps*100));
+    if(d.off.length){
+      try{ await deactivate(db,d.off.map(s=>String(s.id)));
+        logLine('  ✓ כובו '+d.off.length+' תלמידים','ok');
+      }catch(e){ logLine('  ✗ כיבוי נכשל: '+e.message,'er'); }
+    } else logLine('  — אין מה לכבות','wn');
+    prog(Math.round(++step/steps*100));
+  }
+  logLine('');
+  logLine('הסתיים. אפשר לגרור את השכבה הבאה ולסנכרן שוב.','ok');
+  b.disabled=false; b.textContent='🔄 סנכרן שוב';
+}
+</script>
+</body>
+</html>
