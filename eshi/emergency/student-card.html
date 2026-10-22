@@ -1,8 +1,12 @@
 <!DOCTYPE html>
 <!--
   כרטיס תלמיד דיגיטלי + קליטת מאחרים בשער
-  v0.6.0 | 22.10.2026 | פיתוח: רני בן זאב
+  v0.6.1 | 22.10.2026 | פיתוח: רני בן זאב
   שינויים:
+  - v0.6.1: ספריית הסריקה נטענת קודם מקובץ מקומי באותה תיקייה (html5-qrcode.min.js, גרסה 2.3.8,
+    רישיון Apache-2.0), ורק אם הוא חסר — מ-jsDelivr ו-unpkg.
+    תיקון באג: הניתוב רץ בראש הקובץ, ופתיחה ישירה של מסך השומר נעצרה על logTimer שעוד לא הוגדר —
+    כך נשברו גם טעינת הסורק וגם רישום מסריקה במצלמה הרגילה. הניתוב עבר לסוף הקובץ (PATCH).
   - v0.6.0: (1) רשימת "מאחרים היום" נטענת בשתי שאילתות (late_arrivals ואז students) — הקשר בין הטבלאות
     בוטל ב-SQL כדי שהעלאת אלפון לא תמחק כרטיסים, ולכן השאילתה המשולבת נכשלה.
     (2) ספריית הסריקה נטענת רק בלחיצה על "הפעלת מצלמה", מ-jsDelivr ובגיבוי מ-unpkg; כל כשל
@@ -27,7 +31,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>כרטיס תלמיד v0.6.0</title>
+<title>כרטיס תלמיד v0.6.1</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
   :root{--bg:#f2f4f8;--card:#fff;--ink:#1c2333;--muted:#6b7385;--brand:#1f4fa3;--ok:#14975a;--warn:#d98a00;--bad:#c62f2f;}
@@ -62,7 +66,7 @@
 </head>
 <body>
 <div class="wrap" id="app"></div>
-<footer>פיתוח: רני בן זאב · v0.6.0</footer>
+<footer>פיתוח: רני בן זאב · v0.6.1</footer>
 
 <script>
 // ===== חיבור =====
@@ -115,17 +119,11 @@ function tokenFromText(text){
   try{ return new URL(text).searchParams.get('scan'); }catch(e){ return null; }
 }
 
-// ===== ניתוב =====
-if (params.get('card')) renderCard(params.get('card'));
-else if (params.get('claim')) renderClaim(params.get('claim'));
-else if (params.get('scan')) handleScanLink(params.get('scan'));
-else if (params.get('mode') === 'guard') ls.get(PIN_KEY) ? renderGuard() : renderPin(()=>renderGuard());
-else if (ls.get(CARD_KEY)) renderCard(ls.get(CARD_KEY));
-else renderHome();
+// ===== ניתוב: מופעל בסוף הקובץ (v0.6.1), אחרי שכל המשתנים הוגדרו =====
 
 function renderHome(){
   app.innerHTML = `
-    <h1>כרטיס תלמיד <span class="badge">v0.6.0</span></h1>
+    <h1>כרטיס תלמיד <span class="badge">v0.6.1</span></h1>
     <p class="muted">${SCHOOL}</p>
     <a class="btn" href="${location.pathname}?mode=guard">🛡️ מסך שומר — קליטת מאחרים</a>`;
 }
@@ -246,7 +244,7 @@ function renderPin(next){
 let scanner = null, busy = false, logTimer = null, searchTimer = null;
 function renderGuard(){
   app.innerHTML = `
-    <h1>🛡️ קליטת מאחרים <span class="badge">v0.6.0</span></h1>
+    <h1>🛡️ קליטת מאחרים <span class="badge">v0.6.1</span></h1>
     <p class="muted">סרקו את כרטיס התלמיד — במצלמה הרגילה או כאן</p>
     <button class="btn" id="startBtn">הפעלת מצלמה</button>
     <div id="reader"></div>
@@ -281,6 +279,7 @@ async function searchStudents(q){
 
 // v0.6.0: הספרייה נטענת רק כשצריך, עם מקור גיבוי
 const SCANNER_SRC = [
+  'html5-qrcode.min.js',
   'https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js',
   'https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js'
 ];
@@ -367,6 +366,15 @@ async function drawLog(){
         return `<div class="row"><span>${esc(x.name || '—')} · ${esc(x.class || '')}</span><span class="muted">${hhmm(r.arrived_at)}${r.source==='manual'?' ✍️':''}</span></div>`; }).join('');
   }catch(e){ el.innerHTML = `<div class="row"><span class="err">לא ניתן לטעון את הרשימה</span></div>${errLine(e)}`; }
 }
+
+// ===== ניתוב =====
+// v0.6.1: חייב לרוץ אחרון — קודם רץ בראש הקובץ, ומסך השומר נעצר על משתנה שעוד לא הוגדר
+if (params.get('card')) renderCard(params.get('card'));
+else if (params.get('claim')) renderClaim(params.get('claim'));
+else if (params.get('scan')) handleScanLink(params.get('scan'));
+else if (params.get('mode') === 'guard') ls.get(PIN_KEY) ? renderGuard() : renderPin(()=>renderGuard());
+else if (ls.get(CARD_KEY)) renderCard(ls.get(CARD_KEY));
+else renderHome();
 </script>
 </body>
 </html>
