@@ -1,8 +1,11 @@
 <!DOCTYPE html>
 <!--
   כניסה באיחור — דף נחיתה למערכת כרטיסי התלמיד
-  v1.1.0 | 22.10.2026 | פיתוח: רני בן זאב
+  v1.2.0 | 22.10.2026 | פיתוח: רני בן זאב
   שינויים:
+  - v1.2.0: קישור עם ?tab= מציג רק את החלק של אותו קהל — בלי שורת הלשוניות, עם כותרת משנה מתאימה,
+    ובלי אזור "קישורים לשליחה". הדף בלי פרמטר (late-entry.html) הוא המסך המלא של המנהל, עם כל
+    הלשוניות וכפתורי השליחה. סינון תצוגה בלבד — מסך הניהול עצמו מוגן בסיסמה.
   - v1.1.0: בלשונית "הנהלה" — אזור "📤 קישורים לשליחה": קישור לכל קהל (שומר, מחנכים, הנהלה, תלמידים)
     שנפתח ישר בלשונית שלו, עם כפתור העתקה וכפתור שליחה בוואטסאפ. הקישורים נבנים מכתובת הדף עצמו.
   - v1.0.0: דף ראשון. ארבע לשוניות: תלמיד (הפעלת כרטיס לפי כיתה / הכרטיס שלי), שומר (מסך קליטה),
@@ -14,7 +17,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>כניסה באיחור — כרטיס תלמיד v1.1.0</title>
+<title>כניסה באיחור — כרטיס תלמיד v1.2.0</title>
 <style>
   :root{--bg:#f2f4f8;--card:#fff;--ink:#1c2333;--muted:#6b7385;--brand:#1f4fa3;--line:#e3e8f2;
         --stu:#1f4fa3;--grd:#14975a;--tch:#d98a00;--adm:#7d3cb5;}
@@ -56,8 +59,8 @@
 <div class="wrap">
   <header>
     <div class="sc">🎓 בית חינוך גליל מערבי</div>
-    <h1>כניסה באיחור <span class="badge">v1.1.0</span></h1>
-    <p>תלמיד שמגיע אחרי קריאת השמות מציג לשומר את כרטיס התלמיד בטלפון. המחנך והמנהלת רואים מיד שהגיע ומתי.</p>
+    <h1>כניסה באיחור <span class="badge">v1.2.0</span></h1>
+    <p id="hdrSub">תלמיד שמגיע אחרי קריאת השמות מציג לשומר את כרטיס התלמיד בטלפון. המחנך והמנהלת רואים מיד שהגיע ומתי.</p>
   </header>
 
   <nav class="tabs" id="tabs">
@@ -129,7 +132,7 @@
 
   <!-- הנהלה -->
   <section class="panel" id="p-adm" style="--c:var(--adm)">
-    <div class="box">
+    <div class="box" id="shareBox">
       <h2>📤 קישורים לשליחה</h2>
       <p>כל קישור נפתח ישר בלשונית של מי שמקבל אותו.</p>
       <div id="shareLinks"></div>
@@ -147,7 +150,7 @@
   </section>
 
   <div class="toast" id="toast"></div>
-  <footer>פיתוח: רני בן זאב · v1.1.0</footer>
+  <footer>פיתוח: רני בן זאב · v1.2.0</footer>
 </div>
 
 <script>
@@ -163,8 +166,24 @@ function showTab(p){
 }
 document.getElementById('tabs').onclick = e => { const t = e.target.closest('.tab'); if(t) showTab(t.dataset.p); };
 const fromUrl = new URLSearchParams(location.search).get('tab');
-let saved = null; try{ saved = localStorage.getItem(TAB_KEY); }catch(e){}
-showTab(['stu','grd','tch','adm'].includes(fromUrl) ? fromUrl : (saved || 'stu'));
+const AUDIENCE = {
+  stu: {title:'כרטיס תלמיד',        sub:'מגיעים באיחור? מציגים לשומר את הכרטיס בטלפון, והמחנך רואה מיד שהגעתם.'},
+  grd: {title:'קליטת מאחרים בשער',  sub:'סורקים את כרטיס התלמיד, והתלמיד נרשם מיד כנוכח אצל המחנך והמנהלת.'},
+  tch: {title:'כניסה באיחור — מחנך', sub:'תלמיד שנכנס בשער מופיע בקריאת השמות עם שעת הכניסה.'},
+  adm: {title:'כניסה באיחור — הנהלה', sub:'סיכום הנוכחות, רשימת המאחרים וניהול כרטיסי התלמיד.'}
+};
+if (AUDIENCE[fromUrl]) {
+  // v1.2.0: קישור לקהל מסוים — רק החלק שלו
+  document.getElementById('tabs').style.display = 'none';
+  document.getElementById('shareBox').style.display = 'none';
+  document.querySelector('header h1').firstChild.textContent = AUDIENCE[fromUrl].title + ' ';
+  document.getElementById('hdrSub').textContent = AUDIENCE[fromUrl].sub;
+  document.title = AUDIENCE[fromUrl].title;
+  document.querySelectorAll('.panel').forEach(x => x.classList.toggle('on', x.id === 'p-' + fromUrl));
+} else {
+  let saved = null; try{ saved = localStorage.getItem(TAB_KEY); }catch(e){}
+  showTab(AUDIENCE[saved] ? saved : 'stu');
+}
 
 // ===== v1.1.0: קישורים לשליחה =====
 const PAGE_URL = location.origin + location.pathname;
