@@ -1,5 +1,10 @@
 <!DOCTYPE html>
-<!-- גרסה: v68 | תאריך: 2026-10-22 | מסך המנהלת: (1) באקורדיון הכיתה, תלמיד שנכנס בשער מוצג
+<!-- גרסה: v69 | תאריך: 2026-10-22 | מסך ניהול: אזור "🎫 כרטיסי תלמיד" — בחירת כיתה, ולכל תלמיד
+     שליחת הכרטיס בוואטסאפ לטלפון שבמערכת, העתקת קישור, וחידוש כרטיס (הכרטיס הישן מפסיק לעבוד).
+     הקודים נשלפים דרך get_class_cards בשרת, שבודק את סיסמת הניהול מול טביעה השמורה ב-gate_secrets
+     (admin_hash) — כך שגם מי שעוקף את הבדיקה בדפדפן לא מקבל את הקודים. הסיסמה נשמרת בזיכרון
+     בלבד (sysadminPass) מרגע הכניסה למסך הניהול ועד רענון הדף (MINOR).
+     v68 | תאריך: 2026-10-22 | מסך המנהלת: (1) באקורדיון הכיתה, תלמיד שנכנס בשער מוצג
      "🛡️ נכנס בשער HH:MM" במקום "✓ נוכח". (2) רשימה חדשה "🛡️ נכנסו באיחור היום" עם שם, כיתה
      ושעה, ליד רשימת "שוחררו היום". (3) שתי הרשימות נפתחות ונסגרות (אקורדיון) — סגורות כברירת
      מחדל, ומצב הפתיחה נשמר בין רענוני חמש השניות (MINOR).
@@ -396,6 +401,15 @@
         .admin-search { margin-bottom: 8px; }
         .btn-admin { background: var(--primary); color: white; border: none; padding: 10px 18px; border-radius: 8px; font-weight: 700; cursor: pointer; }
         .admin-status { margin-top: 8px; font-weight: 700; font-size: 0.9rem; }
+        /* v69: כרטיסי תלמיד */
+        .card-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 10px 12px; background: #f6f8fb; border-radius: 8px; margin-bottom: 6px; flex-wrap: wrap; }
+        .card-row .nm { font-weight: 700; }
+        .card-row .acts { display: flex; gap: 6px; }
+        .card-row button { border: none; border-radius: 8px; padding: 8px 10px; font-weight: 700; cursor: pointer; font-family: inherit; font-size: 0.85rem; }
+        .card-row .wa { background: #25d366; color: white; }
+        .card-row .cp { background: #dfe6f1; color: #1c2333; }
+        .card-row .rs { background: transparent; color: #c0392b; }
+        .card-row .nophone { color: #999; font-size: 0.8rem; }
         .admin-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 10px 12px; border: 1px solid #eee; border-radius: 8px; margin-bottom: 6px; background: #fbfcfd; flex-wrap: wrap; }
         .admin-row .grow { flex: 1; min-width: 120px; }
         .admin-row.inactive { opacity: 0.6; background: #f4f4f4; }
@@ -817,6 +831,15 @@
                 <input id="deact-search" class="admin-search" placeholder="חפש תלמיד לפי שם..." oninput="renderDeactResults()">
                 <div id="deactResults"></div>
                 <div id="deactStatus" class="admin-status"></div>
+            </div>
+
+            <!-- v69: כרטיסי תלמיד -->
+            <div class="admin-section">
+                <h3>🎫 כרטיסי תלמיד</h3>
+                <p style="color:#777; font-size:0.9rem; margin-bottom:8px;">כל תלמיד מקבל קישור אישי לכרטיס. הכרטיס מוצג לשומר כשנכנסים באיחור.</p>
+                <select id="cards-class" class="admin-search" onchange="loadClassCards()"><option value="">בחרו כיתה…</option></select>
+                <div id="cardsList"></div>
+                <div id="cardsStatus" class="admin-status"></div>
             </div>
 
             <!-- העלאות אקסל -->
@@ -3296,16 +3319,114 @@ async function autoArchiveAndReset(dateStr) {
     } catch (e) { console.warn('[auto-reset] ארכוב/ניקוי נכשל', e); }
 }
 
+// ========== v69: כרטיסי תלמיד ==========
+let sysadminPass = null; // נשמר בזיכרון בלבד, מהכניסה למסך הניהול
+let classCards = [];     // [{id,name,phone,token}] של הכיתה שנבחרה
+const CARD_BASE = location.origin + location.pathname.replace(/[^/]*$/, '') + 'student-card.html?card=';
+const cardLink = token => CARD_BASE + token;
+
+function fillCardsClassSelect() {
+    const sel = document.getElementById('cards-class');
+    if (!sel) return;
+    const order = { 'ז': 1, 'ח': 2, 'ט': 3, 'י': 4, 'יא': 5, 'יב': 6 };
+    const classes = [...new Set(Object.values(allStudents).map(s => s.class).filter(Boolean))].sort((a, b) => {
+        const [ga, na] = a.split(' '), [gb, nb] = b.split(' ');
+        return ((order[ga] || 9) - (order[gb] || 9)) || ((parseInt(na) || 0) - (parseInt(nb) || 0));
+    });
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">בחרו כיתה…</option>' + classes.map(c => `<option value="${c}">${c}</option>`).join('');
+    sel.value = cur;
+}
+
+async function cardsRpc(fn, body) {
+    const r = await fetch(SURL + '/rest/v1/rpc/' + fn, {
+        method: 'POST',
+        headers: { 'apikey': SKEY, 'Authorization': 'Bearer ' + SKEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+    });
+    if (!r.ok) throw new Error(await r.text());
+    return r.json();
+}
+
+async function loadClassCards() {
+    const cls = document.getElementById('cards-class').value;
+    const list = document.getElementById('cardsList');
+    const st = document.getElementById('cardsStatus');
+    list.innerHTML = ''; st.textContent = '';
+    if (!cls) return;
+    if (!sysadminPass) { st.textContent = 'יש להיכנס מחדש למסך הניהול'; return; }
+    st.textContent = '⏳ טוען...';
+    try {
+        classCards = await cardsRpc('get_class_cards', { p_pass: sysadminPass, p_class: cls });
+    } catch (e) { st.textContent = '❌ שגיאה בטעינה'; console.error(e); return; }
+    st.textContent = '';
+    if (!classCards.length) { list.innerHTML = '<p style="color:#7f8c8d;">אין כרטיסים בכיתה זו</p>'; return; }
+    renderClassCards();
+}
+
+function renderClassCards() {
+    const list = document.getElementById('cardsList');
+    list.innerHTML = classCards.map((c, i) => `
+        <div class="card-row">
+            <span class="nm">${c.name}</span>
+            <span class="acts">
+                ${waPhone(c.phone) ? `<button class="wa" onclick="sendCardWhatsapp(${i})">וואטסאפ</button>` : `<span class="nophone">אין טלפון</span>`}
+                <button class="cp" onclick="copyCardLink(${i})">העתק קישור</button>
+                <button class="rs" onclick="resetCard(${i})" title="הכרטיס הישן יפסיק לעבוד">חידוש</button>
+            </span>
+        </div>`).join('');
+}
+
+/* טלפון ישראלי לפורמט וואטסאפ: 0501234567 → 972501234567 */
+function waPhone(phone) {
+    let d = String(phone || '').replace(/\D/g, '');
+    if (d.startsWith('972')) return d.length >= 11 ? d : '';
+    if (d.startsWith('0')) d = d.slice(1);
+    return d.length === 9 && d.startsWith('5') ? '972' + d : '';
+}
+
+function cardMessage(c) {
+    const first = c.name.split(' ').slice(-1)[0];
+    return `שלום, זהו כרטיס התלמיד הדיגיטלי של ${c.name} (${c.class || document.getElementById('cards-class').value}) בבית חינוך גליל מערבי.\n` +
+           `כשמגיעים לבית הספר באיחור, מציגים את הכרטיס לשומר בכניסה — והמחנך רואה מיד שהגעת.\n` +
+           `מומלץ לפתוח את הקישור בטלפון של ${first} ולשמור אותו:\n${cardLink(c.token)}`;
+}
+
+function sendCardWhatsapp(i) {
+    const c = classCards[i];
+    window.open('https://wa.me/' + waPhone(c.phone) + '?text=' + encodeURIComponent(cardMessage(c)), '_blank');
+}
+
+async function copyCardLink(i) {
+    const link = cardLink(classCards[i].token);
+    try { await navigator.clipboard.writeText(link); toast('הקישור הועתק', 'ok'); }
+    catch (e) { prompt('העתיקו את הקישור:', link); }
+}
+
+async function resetCard(i) {
+    const c = classCards[i];
+    if (!confirm(`לחדש את הכרטיס של ${c.name}?\nהקישור הקודם יפסיק לעבוד, ויהיה צריך לשלוח קישור חדש.`)) return;
+    try {
+        const token = await cardsRpc('reset_card', { p_pass: sysadminPass, p_student_id: c.id });
+        if (!token) throw new Error('no token');
+        c.token = token;
+        renderClassCards();
+        toast('נוצר כרטיס חדש', 'ok');
+    } catch (e) { toast('שגיאה בחידוש', 'err'); console.error(e); }
+}
+
 // ========== v57: ניהול מערכת + דיווח בעיה ==========
 async function openSysAdmin() {
     const input = prompt('סיסמת ניהול:');
     if (input === null) return;
     if (!(await sysadminCheck(input))) { toast('סיסמה שגויה', 'err'); return; }
+    sysadminPass = input; // v69: לשליפת כרטיסי תלמיד מהשרת
     showScreen('screen-sysadmin');
     await loadData();
     renderIssues();
     renderMoveResults();
     renderDeactResults();
+    fillCardsClassSelect(); // v69
 }
 
 // --- דיווחי מחנכים ---
