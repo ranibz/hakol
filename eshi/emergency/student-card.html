@@ -1,8 +1,15 @@
 <!DOCTYPE html>
 <!--
   כרטיס תלמיד דיגיטלי + קליטת מאחרים בשער
-  v0.3.0 | 22.10.2026 | פיתוח: רני בן זאב
+  v0.5.0 | 22.10.2026 | פיתוח: רני בן זאב
   שינויים:
+  - v0.5.0: האימות כבר לא מול טלפון ההורה (אינו קיים במאגר). התלמיד מקליד 4 ספרות אחרונות של הטלפון
+    שלו; בפעם הראשונה הן נשמרות בשרת כקוד (טביעה בלבד), ובפעמים הבאות נבדקות מולו (claim_card).
+    בוטלה הנעילה לטלפון אחד — עם אותו קוד אפשר לפתוח את הכרטיס גם בטלפון חדש.
+  - v0.4.0: הפעלה עצמית מקישור כיתתי (?claim=<כיתה>) שהמחנך שולח לקבוצת הוואטסאפ.
+    התלמיד בוחר את שמו ומקליד 4 ספרות אחרונות של הטלפון הרשום (claim_card בשרת).
+    הכרטיס ננעל לטלפון הראשון שמפעיל אותו; 5 ניסיונות שגויים נועלים אותו עד איפוס במסך הניהול.
+    הכרטיס נשמר בטלפון — פתיחת הדף בלי פרמטרים מציגה אותו. הנחיה לשמירה במסך הבית.
   - v0.3.0: חיבור ל-Supabase (skfriefqnoxfzmamcokd).
     כרטיס נטען דרך get_card(token) — הקודים יושבים ב-student_cards ואינם נקראים מהדף.
     רישום דרך register_late(pin, token|student_id) — בודק קוד שומר בשרת, כותב ל-late_arrivals
@@ -16,7 +23,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>כרטיס תלמיד v0.3.0</title>
+<title>כרטיס תלמיד v0.5.0</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <style>
@@ -46,12 +53,13 @@
   .log .row:last-child{border-bottom:0}
   input{width:100%;padding:12px;border:1px solid #d5dae4;border-radius:10px;font-size:16px;margin-top:8px}
   .err{color:var(--bad);font-size:14px;min-height:18px}
+  .tip{background:#fff;border-radius:12px;padding:12px 14px;margin-top:12px;font-size:14px;line-height:1.7;color:var(--muted)}
   footer{text-align:center;color:var(--muted);font-size:12px;margin:24px 0 8px}
 </style>
 </head>
 <body>
 <div class="wrap" id="app"></div>
-<footer>פיתוח: רני בן זאב · v0.3.0</footer>
+<footer>פיתוח: רני בן זאב · v0.5.0</footer>
 
 <script>
 // ===== חיבור =====
@@ -60,6 +68,8 @@ const SB_KEY = 'sb_publishable_Qx7EDPbdyYE9iv7uMQBKhQ_Aeojd_Q0'; // אותו מ�
 const SCHOOL = 'בית חינוך גליל מערבי';
 const PIN_KEY = 'gm_guard_pin';
 const DEV_KEY = 'gm_guard_device';
+const CARD_KEY = 'gm_my_card';        // v0.4.0: הכרטיס של התלמיד בטלפון שלו
+const STU_DEV_KEY = 'gm_student_device';
 
 const H = {apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY, 'Content-Type': 'application/json'};
 async function rpc(fn, body){
@@ -90,19 +100,26 @@ function deviceId(){
   if(!d){ d = 'guard-' + Math.random().toString(36).slice(2,8); ls.set(DEV_KEY,d); }
   return d;
 }
+function studentDevice(){
+  let d = ls.get(STU_DEV_KEY);
+  if(!d){ d = 'stu-' + Math.random().toString(36).slice(2,10) + Date.now().toString(36); ls.set(STU_DEV_KEY,d); }
+  return d;
+}
 function tokenFromText(text){
   try{ return new URL(text).searchParams.get('scan'); }catch(e){ return null; }
 }
 
 // ===== ניתוב =====
 if (params.get('card')) renderCard(params.get('card'));
+else if (params.get('claim')) renderClaim(params.get('claim'));
 else if (params.get('scan')) handleScanLink(params.get('scan'));
 else if (params.get('mode') === 'guard') ls.get(PIN_KEY) ? renderGuard() : renderPin(()=>renderGuard());
+else if (ls.get(CARD_KEY)) renderCard(ls.get(CARD_KEY));
 else renderHome();
 
 function renderHome(){
   app.innerHTML = `
-    <h1>כרטיס תלמיד <span class="badge">v0.3.0</span></h1>
+    <h1>כרטיס תלמיד <span class="badge">v0.5.0</span></h1>
     <p class="muted">${SCHOOL}</p>
     <a class="btn" href="${location.pathname}?mode=guard">🛡️ מסך שומר — קליטת מאחרים</a>`;
 }
@@ -113,7 +130,11 @@ async function renderCard(token){
   let s;
   try{ s = (await rpc('get_card', {p_token: token}))[0]; }
   catch(e){ app.innerHTML = `<h1>אין חיבור</h1><p class="muted">בדקו חיבור לאינטרנט ונסו שוב.</p>`; return; }
-  if(!s){ app.innerHTML = `<h1>הכרטיס לא נמצא</h1><p class="muted">בקשו מהמחנך קישור חדש.</p>`; return; }
+  if(!s){
+    if(ls.get(CARD_KEY) === token) ls.del(CARD_KEY);
+    app.innerHTML = `<h1>הכרטיס לא נמצא</h1><p class="muted">ייתכן שהכרטיס אופס. בקשו מהמחנך את קישור הכיתה והפעילו מחדש.</p>`; return;
+  }
+  ls.set(CARD_KEY, token);
   app.innerHTML = `
     <div class="idcard">
       <div class="school">🎓 ${SCHOOL} · כרטיס תלמיד</div>
@@ -122,11 +143,67 @@ async function renderCard(token){
       <div class="qrbox"><div id="qr"></div></div>
       <div class="clock" id="clock"></div>
     </div>
-    <p class="muted" style="text-align:center;margin-top:14px">הציגו את הכרטיס לשומר בכניסה</p>`;
+    <p class="muted" style="text-align:center;margin-top:14px">הציגו את הכרטיס לשומר בכניסה</p>
+    <div class="tip">📌 <b>שמרו את הכרטיס במסך הבית</b><br>
+      אייפון: כפתור השיתוף ← "הוסף למסך הבית"<br>
+      אנדרואיד: ⋮ ← "הוסף למסך הבית"</div>`;
   new QRCode(document.getElementById('qr'), {text: scanUrl(token), width:230, height:230, correctLevel: QRCode.CorrectLevel.M});
   const tick = () => document.getElementById('clock').textContent =
     new Date().toLocaleString('he-IL',{weekday:'long',day:'numeric',month:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit'});
   tick(); setInterval(tick, 1000);
+}
+
+// ===== v0.4.0: הפעלה עצמית מקישור הכיתה =====
+async function renderClaim(cls){
+  const saved = ls.get(CARD_KEY);
+  if(saved){ renderCard(saved); return; }
+  app.innerHTML = `<p class="muted">טוען…</p>`;
+  let rows;
+  try{ rows = await rpc('list_class_students', {p_class: cls}); }
+  catch(e){ app.innerHTML = `<h1>אין חיבור</h1><p class="muted">בדקו חיבור לאינטרנט ונסו שוב.</p>`; return; }
+  if(!rows.length){ app.innerHTML = `<h1>הכיתה לא נמצאה</h1><p class="muted">בקשו מהמחנך קישור חדש.</p>`; return; }
+  app.innerHTML = `
+    <h1>🎫 הפעלת כרטיס תלמיד</h1>
+    <p class="muted">כיתה ${esc(cls)} · בחרו את השם שלכם</p>
+    <div class="list" id="names">${rows.map(r =>
+      `<a href="#" data-id="${esc(r.id)}" data-name="${esc(r.name)}"><span>${esc(r.name)}</span><span class="muted">${r.claimed ? 'הופעל ✓' : '›'}</span></a>`).join('')}</div>
+    <p class="muted">השם שלכם מסומן "הופעל" ולא אתם הפעלתם? פנו למחנך.</p>`;
+  document.getElementById('names').onclick = e => {
+    const a = e.target.closest('a[data-id]'); if(!a) return; e.preventDefault();
+    renderClaimVerify(cls, a.dataset.id, a.dataset.name);
+  };
+}
+
+function renderClaimVerify(cls, id, name){
+  app.innerHTML = `
+    <h1>🎫 ${esc(name)}</h1>
+    <p class="muted">הקלידו את 4 הספרות האחרונות של מספר הטלפון שלכם.</p>
+    <input id="digits" type="tel" inputmode="numeric" maxlength="4" placeholder="4 ספרות אחרונות" autocomplete="off">
+    <button class="btn" id="go">הפעלת הכרטיס</button>
+    <div class="err" id="err"></div>
+    <button class="btn sec" id="back">זה לא אני — חזרה לרשימה</button>`;
+  document.getElementById('back').onclick = () => renderClaim(cls);
+  document.getElementById('go').onclick = async () => {
+    const d = document.getElementById('digits').value.trim();
+    const err = document.getElementById('err');
+    if(!/^\d{4}$/.test(d)){ err.textContent = 'יש להקליד 4 ספרות'; return; }
+    err.textContent = 'בודק…';
+    let r;
+    try{ r = await rpc('claim_card', {p_student_id: id, p_pin: d}); }
+    catch(e){ err.textContent = 'אין חיבור, נסו שוב'; return; }
+    if(r.ok){
+      ls.set(CARD_KEY, r.token);
+      history.replaceState(null,'',location.pathname + '?card=' + r.token);
+      renderCard(r.token);
+      return;
+    }
+    if(r.error === 'bad_digits' && r.left <= 0) r.error = 'locked';
+    err.textContent = ({
+      bad_digits: `הספרות לא נכונות. נותרו ${r.left} ניסיונות.`,
+      locked: 'הכרטיס ננעל אחרי יותר מדי ניסיונות. פנו למחנך.',
+      not_found: 'התלמיד לא נמצא. פנו למחנך.'
+    })[r.error] || 'שגיאה, נסו שוב';
+  };
 }
 
 // ===== נפתח מסריקה במצלמה הרגילה =====
@@ -163,7 +240,7 @@ function renderPin(next){
 let scanner = null, busy = false, logTimer = null, searchTimer = null;
 function renderGuard(){
   app.innerHTML = `
-    <h1>🛡️ קליטת מאחרים <span class="badge">v0.3.0</span></h1>
+    <h1>🛡️ קליטת מאחרים <span class="badge">v0.5.0</span></h1>
     <p class="muted">סרקו את כרטיס התלמיד — במצלמה הרגילה או כאן</p>
     <button class="btn" id="startBtn">הפעלת מצלמה</button>
     <div id="reader"></div>

@@ -1,5 +1,11 @@
 <!DOCTYPE html>
-<!-- גרסה: v69 | תאריך: 2026-10-22 | מסך ניהול: אזור "🎫 כרטיסי תלמיד" — בחירת כיתה, ולכל תלמיד
+<!-- גרסה: v71 | תאריך: 2026-10-22 | נוסח ההודעה לקבוצת הכיתה עודכן: התלמיד מקליד 4 ספרות אחרונות של
+     הטלפון שלו (במקום טלפון ההורה, שאינו במאגר) (PATCH).
+     v70 | תאריך: 2026-10-22 | כרטיסי תלמיד: כפתור "העתקת הודעה לקבוצת הכיתה" עם קישור כיתתי
+     (student-card.html?claim=<כיתה>) שממנו כל תלמיד מפעיל את הכרטיס שלו. ליד כל תלמיד מוצג אם
+     הכרטיס הופעל, ומונה "הופעלו X מתוך Y". "חידוש" הפך ל"איפוס" — מבטל את הכרטיס ומשחרר את
+     הנעילה לטלפון, כך שהתלמיד יכול להפעיל מחדש מקישור הכיתה (MINOR).
+     v69 | תאריך: 2026-10-22 | מסך ניהול: אזור "🎫 כרטיסי תלמיד" — בחירת כיתה, ולכל תלמיד
      שליחת הכרטיס בוואטסאפ לטלפון שבמערכת, העתקת קישור, וחידוש כרטיס (הכרטיס הישן מפסיק לעבוד).
      הקודים נשלפים דרך get_class_cards בשרת, שבודק את סיסמת הניהול מול טביעה השמורה ב-gate_secrets
      (admin_hash) — כך שגם מי שעוקף את הבדיקה בדפדפן לא מקבל את הקודים. הסיסמה נשמרת בזיכרון
@@ -410,6 +416,10 @@
         .card-row .cp { background: #dfe6f1; color: #1c2333; }
         .card-row .rs { background: transparent; color: #c0392b; }
         .card-row .nophone { color: #999; font-size: 0.8rem; }
+        .cards-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; margin: 10px 0; }
+        .cards-count { font-weight: 700; color: #555; }
+        .cl-yes { color: #27ae60; font-size: 0.8rem; font-weight: 700; margin-right: 6px; }
+        .cl-no { color: #999; font-size: 0.8rem; font-weight: 400; margin-right: 6px; }
         .admin-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 10px 12px; border: 1px solid #eee; border-radius: 8px; margin-bottom: 6px; background: #fbfcfd; flex-wrap: wrap; }
         .admin-row .grow { flex: 1; min-width: 120px; }
         .admin-row.inactive { opacity: 0.6; background: #f4f4f4; }
@@ -3324,6 +3334,7 @@ let sysadminPass = null; // נשמר בזיכרון בלבד, מהכניסה ל�
 let classCards = [];     // [{id,name,phone,token}] של הכיתה שנבחרה
 const CARD_BASE = location.origin + location.pathname.replace(/[^/]*$/, '') + 'student-card.html?card=';
 const cardLink = token => CARD_BASE + token;
+const claimLink = cls => CARD_BASE.replace('?card=', '?claim=') + encodeURIComponent(cls); // v70
 
 function fillCardsClassSelect() {
     const sel = document.getElementById('cards-class');
@@ -3366,13 +3377,18 @@ async function loadClassCards() {
 
 function renderClassCards() {
     const list = document.getElementById('cardsList');
-    list.innerHTML = classCards.map((c, i) => `
+    const done = classCards.filter(c => c.claimed).length;
+    list.innerHTML = `
+        <div class="cards-top">
+            <button class="btn-admin" onclick="copyGroupMessage()">📋 העתקת הודעה לקבוצת הכיתה</button>
+            <span class="cards-count">הופעלו ${done} מתוך ${classCards.length}</span>
+        </div>` + classCards.map((c, i) => `
         <div class="card-row">
-            <span class="nm">${c.name}</span>
+            <span class="nm">${c.name} <span class="${c.claimed ? 'cl-yes' : 'cl-no'}">${c.claimed ? '✓ הופעל' : 'ממתין'}</span></span>
             <span class="acts">
                 ${waPhone(c.phone) ? `<button class="wa" onclick="sendCardWhatsapp(${i})">וואטסאפ</button>` : `<span class="nophone">אין טלפון</span>`}
                 <button class="cp" onclick="copyCardLink(${i})">העתק קישור</button>
-                <button class="rs" onclick="resetCard(${i})" title="הכרטיס הישן יפסיק לעבוד">חידוש</button>
+                <button class="rs" onclick="resetCard(${i})" title="הכרטיס הישן יפסיק לעבוד">איפוס</button>
             </span>
         </div>`).join('');
 }
@@ -3397,6 +3413,22 @@ function sendCardWhatsapp(i) {
     window.open('https://wa.me/' + waPhone(c.phone) + '?text=' + encodeURIComponent(cardMessage(c)), '_blank');
 }
 
+/* v70: הודעה לקבוצת הוואטסאפ של הכיתה — קישור אחד לכולם */
+async function copyGroupMessage() {
+    const cls = document.getElementById('cards-class').value;
+    const msg = `🎫 כרטיס תלמיד דיגיטלי — כיתה ${cls}\n\n` +
+        `מעכשיו, מי שמגיע לבית הספר באיחור מציג לשומר בכניסה את כרטיס התלמיד בטלפון, והמחנך רואה מיד שהגעתם.\n\n` +
+        `להפעלת הכרטיס:\n` +
+        `1. היכנסו לקישור\n` +
+        `2. בחרו את השם שלכם\n` +
+        `3. הקלידו את 4 הספרות האחרונות של מספר הטלפון שלכם\n` +
+        `4. שמרו את הכרטיס במסך הבית של הטלפון\n\n` +
+        `⚠️ הפעילו רק את הכרטיס שלכם.\n\n` +
+        claimLink(cls);
+    try { await navigator.clipboard.writeText(msg); toast('ההודעה הועתקה — הדביקו בקבוצת הכיתה', 'ok'); }
+    catch (e) { prompt('העתיקו את ההודעה:', msg); }
+}
+
 async function copyCardLink(i) {
     const link = cardLink(classCards[i].token);
     try { await navigator.clipboard.writeText(link); toast('הקישור הועתק', 'ok'); }
@@ -3405,13 +3437,14 @@ async function copyCardLink(i) {
 
 async function resetCard(i) {
     const c = classCards[i];
-    if (!confirm(`לחדש את הכרטיס של ${c.name}?\nהקישור הקודם יפסיק לעבוד, ויהיה צריך לשלוח קישור חדש.`)) return;
+    if (!confirm(`לאפס את הכרטיס של ${c.name}?\nהכרטיס הקודם יפסיק לעבוד, והתלמיד יפעיל כרטיס חדש מקישור הכיתה.`)) return;
     try {
         const token = await cardsRpc('reset_card', { p_pass: sysadminPass, p_student_id: c.id });
         if (!token) throw new Error('no token');
         c.token = token;
+        c.claimed = false;
         renderClassCards();
-        toast('נוצר כרטיס חדש', 'ok');
+        toast('הכרטיס אופס', 'ok');
     } catch (e) { toast('שגיאה בחידוש', 'err'); console.error(e); }
 }
 
