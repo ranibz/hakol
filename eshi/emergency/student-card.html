@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<!--
+  כרטיס תלמיד דיגיטלי + קליטת מאחרים בשער
+  v0.3.0 | 22.10.2026 | פיתוח: רני בן זאב
+  שינויים:
+  - v0.3.0: חיבור ל-Supabase (skfriefqnoxfzmamcokd).
+    כרטיס נטען דרך get_card(token) — הקודים יושבים ב-student_cards ואינם נקראים מהדף.
+    רישום דרך register_late(pin, token|student_id) — בודק קוד שומר בשרת, כותב ל-late_arrivals
+    ומעדכן daily_attendance ל-present. קוד השומר כבר לא כתוב בקובץ (check_guard_pin).
+    חיפוש ידני מטבלת students; רשימת "מאחרים היום" מ-late_arrivals, מתרעננת כל 15 שניות.
+  - v0.2.0: QR כקישור (?scan=TOKEN), טלפון שומר מוגדר בקוד.
+  - v0.1.0: גרסת דמה עם נתונים מובנים.
+  מסכים: ?card=TOKEN (כרטיס) · ?scan=TOKEN (נפתח מסריקה במצלמה) · ?mode=guard (שומר)
+-->
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>כרטיס תלמיד v0.3.0</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<style>
+  :root{--bg:#f2f4f8;--card:#fff;--ink:#1c2333;--muted:#6b7385;--brand:#1f4fa3;--ok:#14975a;--warn:#d98a00;--bad:#c62f2f;}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Arial,sans-serif;background:var(--bg);color:var(--ink)}
+  .wrap{max-width:480px;margin:0 auto;padding:16px}
+  h1{font-size:20px;margin:8px 0 4px}
+  .muted{color:var(--muted);font-size:14px}
+  .badge{display:inline-block;font-size:11px;background:#e3e8f2;color:var(--muted);padding:2px 8px;border-radius:99px}
+  .btn{display:block;width:100%;padding:14px;border:0;border-radius:12px;background:var(--brand);color:#fff;font-size:17px;font-weight:600;text-align:center;text-decoration:none;margin:10px 0;cursor:pointer}
+  .btn.sec{background:#e3e8f2;color:var(--ink)}
+  .list a{display:flex;justify-content:space-between;padding:12px 14px;background:var(--card);border-radius:10px;margin:6px 0;text-decoration:none;color:var(--ink)}
+  .idcard{background:linear-gradient(160deg,#1f4fa3,#163a7a);color:#fff;border-radius:20px;padding:20px;margin-top:12px;box-shadow:0 8px 24px rgba(0,0,0,.15)}
+  .idcard .school{font-size:13px;opacity:.85}
+  .idcard .name{font-size:28px;font-weight:700;margin:14px 0 2px}
+  .idcard .cls{font-size:18px;opacity:.9}
+  .qrbox{background:#fff;border-radius:14px;padding:16px;margin-top:18px;display:flex;justify-content:center}
+  .clock{text-align:center;font-size:15px;margin-top:12px;opacity:.9}
+  #reader{width:100%;border-radius:14px;overflow:hidden;background:#000;margin-top:10px}
+  .result{display:none;border-radius:16px;padding:22px;margin-top:12px;color:#fff;text-align:center}
+  .result.ok{background:var(--ok)} .result.dup{background:var(--warn)} .result.bad{background:var(--bad)}
+  .result .big{font-size:28px;font-weight:700;margin:6px 0}
+  .result .mid{font-size:18px}
+  .log{background:var(--card);border-radius:12px;padding:6px 12px;margin-top:14px}
+  .log .row{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #eef0f4;font-size:15px}
+  .log .row:last-child{border-bottom:0}
+  input{width:100%;padding:12px;border:1px solid #d5dae4;border-radius:10px;font-size:16px;margin-top:8px}
+  .err{color:var(--bad);font-size:14px;min-height:18px}
+  footer{text-align:center;color:var(--muted);font-size:12px;margin:24px 0 8px}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+<footer>פיתוח: רני בן זאב · v0.3.0</footer>
+
+<script>
+// ===== חיבור =====
+const SB_URL = 'https://skfriefqnoxfzmamcokd.supabase.co';
+const SB_KEY = 'sb_publishable_Qx7EDPbdyYE9iv7uMQBKhQ_Aeojd_Q0'; // אותו מפתח כמו ב-emergency-drill.html
+const SCHOOL = 'בית חינוך גליל מערבי';
+const PIN_KEY = 'gm_guard_pin';
+const DEV_KEY = 'gm_guard_device';
+
+const H = {apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY, 'Content-Type': 'application/json'};
+async function rpc(fn, body){
+  const r = await fetch(`${SB_URL}/rest/v1/rpc/${fn}`, {method:'POST', headers:H, body:JSON.stringify(body)});
+  if(!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+async function sbGet(path){
+  const r = await fetch(`${SB_URL}/rest/v1/${path}`, {headers:H});
+  if(!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+
+// ===== עזרים =====
+const app = document.getElementById('app');
+const params = new URLSearchParams(location.search);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const hhmm = d => new Date(d).toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit',timeZone:'Asia/Jerusalem'});
+const today = () => new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Jerusalem'}).format(new Date());
+const scanUrl = t => location.origin + location.pathname + '?scan=' + t;
+const ls = {
+  get(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } },
+  set(k,v){ try{ localStorage.setItem(k,v); }catch(e){} },
+  del(k){ try{ localStorage.removeItem(k); }catch(e){} }
+};
+function deviceId(){
+  let d = ls.get(DEV_KEY);
+  if(!d){ d = 'guard-' + Math.random().toString(36).slice(2,8); ls.set(DEV_KEY,d); }
+  return d;
+}
+function tokenFromText(text){
+  try{ return new URL(text).searchParams.get('scan'); }catch(e){ return null; }
+}
+
+// ===== ניתוב =====
+if (params.get('card')) renderCard(params.get('card'));
+else if (params.get('scan')) handleScanLink(params.get('scan'));
+else if (params.get('mode') === 'guard') ls.get(PIN_KEY) ? renderGuard() : renderPin(()=>renderGuard());
+else renderHome();
+
+function renderHome(){
+  app.innerHTML = `
+    <h1>כרטיס תלמיד <span class="badge">v0.3.0</span></h1>
+    <p class="muted">${SCHOOL}</p>
+    <a class="btn" href="${location.pathname}?mode=guard">🛡️ מסך שומר — קליטת מאחרים</a>`;
+}
+
+// ===== כרטיס תלמיד =====
+async function renderCard(token){
+  app.innerHTML = `<p class="muted">טוען כרטיס…</p>`;
+  let s;
+  try{ s = (await rpc('get_card', {p_token: token}))[0]; }
+  catch(e){ app.innerHTML = `<h1>אין חיבור</h1><p class="muted">בדקו חיבור לאינטרנט ונסו שוב.</p>`; return; }
+  if(!s){ app.innerHTML = `<h1>הכרטיס לא נמצא</h1><p class="muted">בקשו מהמחנך קישור חדש.</p>`; return; }
+  app.innerHTML = `
+    <div class="idcard">
+      <div class="school">🎓 ${SCHOOL} · כרטיס תלמיד</div>
+      <div class="name">${esc(s.name)}</div>
+      <div class="cls">כיתה ${esc(s.class)}</div>
+      <div class="qrbox"><div id="qr"></div></div>
+      <div class="clock" id="clock"></div>
+    </div>
+    <p class="muted" style="text-align:center;margin-top:14px">הציגו את הכרטיס לשומר בכניסה</p>`;
+  new QRCode(document.getElementById('qr'), {text: scanUrl(token), width:230, height:230, correctLevel: QRCode.CorrectLevel.M});
+  const tick = () => document.getElementById('clock').textContent =
+    new Date().toLocaleString('he-IL',{weekday:'long',day:'numeric',month:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  tick(); setInterval(tick, 1000);
+}
+
+// ===== נפתח מסריקה במצלמה הרגילה =====
+function handleScanLink(token){
+  history.replaceState(null,'',location.pathname); // רענון לא ירשום שוב
+  if(ls.get(PIN_KEY)){ renderGuard(); register({p_token: token}); return; }
+  app.innerHTML = `
+    <h1>❌ מכשיר לא מורשה</h1>
+    <p class="muted">רק טלפון השומר יכול לרשום כניסה באיחור. התלמיד צריך להציג את הכרטיס לשומר.</p>
+    <button class="btn sec" id="iamGuard">אני השומר — הגדרת הטלפון</button>`;
+  document.getElementById('iamGuard').onclick = () => renderPin(()=>{ renderGuard(); register({p_token: token}); });
+}
+
+// ===== הגדרת טלפון שומר =====
+function renderPin(next){
+  app.innerHTML = `
+    <h1>🛡️ הגדרת טלפון שומר</h1>
+    <p class="muted">פעולה חד-פעמית. לאחריה הטלפון הזה יוכל לרשום איחורים.</p>
+    <input id="pin" type="password" inputmode="numeric" placeholder="קוד שומר">
+    <button class="btn" id="pinOk">אישור</button>
+    <div class="err" id="pinErr"></div>`;
+  document.getElementById('pinOk').onclick = async () => {
+    const pin = document.getElementById('pin').value.trim();
+    const err = document.getElementById('pinErr');
+    err.textContent = 'בודק…';
+    try{
+      if(await rpc('check_guard_pin', {p_pin: pin})){ ls.set(PIN_KEY, pin); next(); }
+      else err.textContent = 'קוד שגוי';
+    }catch(e){ err.textContent = 'אין חיבור, נסו שוב'; }
+  };
+}
+
+// ===== מסך שומר =====
+let scanner = null, busy = false, logTimer = null, searchTimer = null;
+function renderGuard(){
+  app.innerHTML = `
+    <h1>🛡️ קליטת מאחרים <span class="badge">v0.3.0</span></h1>
+    <p class="muted">סרקו את כרטיס התלמיד — במצלמה הרגילה או כאן</p>
+    <button class="btn" id="startBtn">הפעלת מצלמה</button>
+    <div id="reader"></div>
+    <div class="result" id="result"></div>
+    <input id="search" placeholder="תלמיד בלי טלפון? חיפוש לפי שם…">
+    <div class="list" id="searchRes"></div>
+    <div class="log" id="log"><div class="row"><span class="muted">טוען…</span></div></div>`;
+  document.getElementById('startBtn').onclick = startScanner;
+  document.getElementById('search').oninput = e => {
+    clearTimeout(searchTimer);
+    const q = e.target.value.trim();
+    if(q.length < 2){ document.getElementById('searchRes').innerHTML=''; return; }
+    searchTimer = setTimeout(()=>searchStudents(q), 300);
+  };
+  document.getElementById('searchRes').onclick = e => {
+    const a = e.target.closest('a'); if(!a) return; e.preventDefault();
+    register({p_student_id: a.dataset.id});
+    document.getElementById('search').value=''; document.getElementById('searchRes').innerHTML='';
+  };
+  drawLog();
+  clearInterval(logTimer); logTimer = setInterval(drawLog, 15000);
+}
+
+async function searchStudents(q){
+  try{
+    const rows = await sbGet(`students?select=id,name,class&active=eq.true&name=ilike.${encodeURIComponent('*'+q+'*')}&order=name&limit=10`);
+    document.getElementById('searchRes').innerHTML = rows.length ? rows.map(s =>
+      `<a href="#" data-id="${esc(s.id)}"><span>${esc(s.name)}</span><span class="muted">${esc(s.class)}</span></a>`).join('')
+      : `<p class="muted">לא נמצא</p>`;
+  }catch(e){ document.getElementById('searchRes').innerHTML = `<p class="err">שגיאת חיבור</p>`; }
+}
+
+function startScanner(){
+  document.getElementById('startBtn').style.display='none';
+  scanner = new Html5Qrcode('reader');
+  scanner.start({facingMode:'environment'}, {fps:10, qrbox:{width:240,height:240}}, onScan)
+    .catch(() => { showResult('bad','אין גישה למצלמה','יש לאשר הרשאת מצלמה בדפדפן'); document.getElementById('startBtn').style.display='block'; });
+}
+
+async function onScan(text){
+  if(busy) return;
+  busy = true;
+  try{ scanner.pause(true); }catch(e){}
+  const token = tokenFromText(text);
+  if(!token) showResult('bad','קוד לא מוכר','זה לא כרטיס תלמיד');
+  else await register({p_token: token});
+  setTimeout(()=>{ busy=false; try{ scanner.resume(); }catch(e){} }, 2500);
+}
+
+async function register(target){
+  showResult('dup','רושם…','');
+  let r;
+  try{ r = await rpc('register_late', {p_pin: ls.get(PIN_KEY), p_device: deviceId(), ...target}); }
+  catch(e){ showResult('bad','אין חיבור','הרישום לא נשמר — נסו שוב'); return; }
+  if(!r.ok && r.error === 'bad_pin'){
+    ls.del(PIN_KEY);
+    showResult('bad','קוד השומר הוחלף','יש להגדיר את הטלפון מחדש');
+    setTimeout(()=>renderPin(()=>renderGuard()), 2000);
+    return;
+  }
+  if(!r.ok){ showResult('bad','כרטיס לא תקף','הפנו את התלמיד למזכירות'); return; }
+  if(r.duplicate){ showResult('dup', r.name, `כבר נרשם היום ב-${hhmm(r.arrived_at)}`); return; }
+  if(navigator.vibrate) navigator.vibrate(150);
+  showResult('ok', r.name, `כיתה ${r.class} · נרשם/ה באיחור ${hhmm(r.arrived_at)}`);
+  drawLog();
+}
+
+function showResult(kind, big, mid){
+  const r = document.getElementById('result'); if(!r) return;
+  r.className = 'result ' + kind;
+  const icon = big==='רושם…' ? '⏳' : kind==='ok'?'✅':kind==='dup'?'⚠️':'❌';
+  r.innerHTML = `<div>${icon}</div><div class="big">${esc(big)}</div><div class="mid">${esc(mid)}</div>`;
+  r.style.display = 'block';
+  clearTimeout(r._t); r._t = setTimeout(()=> r.style.display='none', 4000);
+}
+
+async function drawLog(){
+  const el = document.getElementById('log'); if(!el) return;
+  try{
+    const rows = await sbGet(`late_arrivals?select=arrived_at,source,students(name,class)&arrival_date=eq.${today()}&order=arrived_at.desc`);
+    el.innerHTML = `<div class="row"><b>מאחרים היום</b><b>${rows.length}</b></div>` +
+      rows.map(r=>`<div class="row"><span>${esc(r.students?.name)} · ${esc(r.students?.class)}</span><span class="muted">${hhmm(r.arrived_at)}${r.source==='manual'?' ✍️':''}</span></div>`).join('');
+  }catch(e){ el.innerHTML = `<div class="row"><span class="err">לא ניתן לטעון את הרשימה</span></div>`; }
+}
+</script>
+</body>
+</html>
