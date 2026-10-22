@@ -1,8 +1,10 @@
 <!DOCTYPE html>
 <!--
   כניסה באיחור — דף נחיתה למערכת כרטיסי התלמיד
-  v1.0.0 | 22.10.2026 | פיתוח: רני בן זאב
+  v1.1.0 | 22.10.2026 | פיתוח: רני בן זאב
   שינויים:
+  - v1.1.0: בלשונית "הנהלה" — אזור "📤 קישורים לשליחה": קישור לכל קהל (שומר, מחנכים, הנהלה, תלמידים)
+    שנפתח ישר בלשונית שלו, עם כפתור העתקה וכפתור שליחה בוואטסאפ. הקישורים נבנים מכתובת הדף עצמו.
   - v1.0.0: דף ראשון. ארבע לשוניות: תלמיד (הפעלת כרטיס לפי כיתה / הכרטיס שלי), שומר (מסך קליטה),
     מחנך (נוכחות + קבלת הודעה לקבוצה), הנהלה (סיכום מנהלת + ניהול כרטיסים).
     רשימת הכיתות נטענת מטבלת students (פעילים בלבד).
@@ -12,7 +14,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>כניסה באיחור — כרטיס תלמיד v1.0.0</title>
+<title>כניסה באיחור — כרטיס תלמיד v1.1.0</title>
 <style>
   :root{--bg:#f2f4f8;--card:#fff;--ink:#1c2333;--muted:#6b7385;--brand:#1f4fa3;--line:#e3e8f2;
         --stu:#1f4fa3;--grd:#14975a;--tch:#d98a00;--adm:#7d3cb5;}
@@ -39,6 +41,14 @@
   ol{margin:0;padding-inline-start:20px;color:var(--ink);font-size:15px;line-height:1.75}
   ol b{color:var(--c)}
   .note{background:#fff8e6;border-radius:12px;padding:10px 12px;font-size:14px;color:#7a5a00;line-height:1.5}
+  .share-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;background:var(--bg);border-radius:12px;margin-top:8px}
+  .share-row .who{font-weight:700;font-size:16px}
+  .share-row .acts{display:flex;gap:6px}
+  .share-row button,.share-row a{border:0;border-radius:10px;padding:9px 12px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;text-decoration:none}
+  .share-row .cp{background:var(--line);color:var(--ink)}
+  .share-row .wa{background:#25d366;color:#fff}
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#1c2333;color:#fff;padding:10px 18px;border-radius:99px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none}
+  .toast.on{opacity:1}
   footer{text-align:center;color:var(--muted);font-size:12px;margin:24px 0 8px}
 </style>
 </head>
@@ -46,7 +56,7 @@
 <div class="wrap">
   <header>
     <div class="sc">🎓 בית חינוך גליל מערבי</div>
-    <h1>כניסה באיחור <span class="badge">v1.0.0</span></h1>
+    <h1>כניסה באיחור <span class="badge">v1.1.0</span></h1>
     <p>תלמיד שמגיע אחרי קריאת השמות מציג לשומר את כרטיס התלמיד בטלפון. המחנך והמנהלת רואים מיד שהגיע ומתי.</p>
   </header>
 
@@ -120,6 +130,11 @@
   <!-- הנהלה -->
   <section class="panel" id="p-adm" style="--c:var(--adm)">
     <div class="box">
+      <h2>📤 קישורים לשליחה</h2>
+      <p>כל קישור נפתח ישר בלשונית של מי שמקבל אותו.</p>
+      <div id="shareLinks"></div>
+    </div>
+    <div class="box">
       <h2>📊 סיכום נוכחות</h2>
       <p>תמונת מצב של בית הספר, כולל רשימת "נכנסו באיחור היום" ו"שוחררו היום".</p>
       <a class="btn" href="emergency-drill.html?page=summary">פתיחת הסיכום</a>
@@ -131,7 +146,8 @@
     </div>
   </section>
 
-  <footer>פיתוח: רני בן זאב · v1.0.0</footer>
+  <div class="toast" id="toast"></div>
+  <footer>פיתוח: רני בן זאב · v1.1.0</footer>
 </div>
 
 <script>
@@ -149,6 +165,35 @@ document.getElementById('tabs').onclick = e => { const t = e.target.closest('.ta
 const fromUrl = new URLSearchParams(location.search).get('tab');
 let saved = null; try{ saved = localStorage.getItem(TAB_KEY); }catch(e){}
 showTab(['stu','grd','tch','adm'].includes(fromUrl) ? fromUrl : (saved || 'stu'));
+
+// ===== v1.1.0: קישורים לשליחה =====
+const PAGE_URL = location.origin + location.pathname;
+const SHARE = [
+  {tab:'grd', who:'🛡️ לשומר',   msg:'מסך קליטת המאחרים בשער — סורקים את כרטיס התלמיד:'},
+  {tab:'tch', who:'📋 למחנכים', msg:'נוכחות יומית וחלוקת כרטיסי תלמיד לכיתה:'},
+  {tab:'adm', who:'📊 להנהלה',  msg:'סיכום נוכחות, רשימת המאחרים וניהול כרטיסי התלמיד:'},
+  {tab:'stu', who:'🎫 לתלמידים', msg:'כרטיס התלמיד הדיגיטלי — מציגים לשומר כשמגיעים באיחור:'}
+];
+const shareUrl = t => PAGE_URL + '?tab=' + t;
+document.getElementById('shareLinks').innerHTML = SHARE.map((x, i) => `
+  <div class="share-row">
+    <span class="who">${x.who}</span>
+    <span class="acts">
+      <button class="cp" data-i="${i}">העתקה</button>
+      <a class="wa" target="_blank" href="https://wa.me/?text=${encodeURIComponent(x.msg + '\n' + shareUrl(x.tab))}">וואטסאפ</a>
+    </span>
+  </div>`).join('');
+document.getElementById('shareLinks').onclick = async e => {
+  const b = e.target.closest('button.cp'); if(!b) return;
+  const link = shareUrl(SHARE[b.dataset.i].tab);
+  try{ await navigator.clipboard.writeText(link); toast('הקישור הועתק'); }
+  catch(err){ prompt('העתיקו את הקישור:', link); }
+};
+function toast(t){
+  const el = document.getElementById('toast');
+  el.textContent = t; el.classList.add('on');
+  clearTimeout(el._t); el._t = setTimeout(()=>el.classList.remove('on'), 1800);
+}
 
 // ===== רשימת כיתות להפעלת כרטיס =====
 const ORDER = {'ז':1,'ח':2,'ט':3,'י':4,'יא':5,'יב':6};
