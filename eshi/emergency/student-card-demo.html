@@ -1,8 +1,11 @@
 <!DOCTYPE html>
 <!--
   כרטיס תלמיד דיגיטלי + סורק שומר — גרסת בדיקה
-  v0.1.0 | 22.10.2026 | פיתוח: רני בן זאב
+  v0.2.0 | 22.10.2026 | פיתוח: רני בן זאב
   שינויים:
+  - v0.2.0: ה-QR בכרטיס הוא עכשיו קישור (?scan=TOKEN), כך שגם המצלמה הרגילה של הטלפון פותחת אותו.
+    רק טלפון שהוגדר כ"טלפון שומר" (קוד שומר, בבדיקה: 1234) רושם איחור; טלפון אחר מקבל "מכשיר לא מורשה".
+    הסורק שבתוך מסך השומר ממשיך לעבוד וקורא גם את הפורמט החדש.
   - v0.1.0: גרסה ראשונה לבדיקה. נתוני דמה מובנים, ללא Supabase.
     מסכים: רשימת תלמידי דמה (?), כרטיס תלמיד (?card=TOKEN), סורק שומר (?mode=guard).
     השומר סורק QR מהכרטיס ← מוצג אישור גדול ← נרשם "הגיע באיחור" (נשמר מקומית בטלפון השומר בלבד).
@@ -11,7 +14,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>כרטיס תלמיד — בדיקה v0.1.0</title>
+<title>כרטיס תלמיד — בדיקה v0.2.0</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <style>
@@ -47,7 +50,7 @@
 </head>
 <body>
 <div class="wrap" id="app"></div>
-<footer>פיתוח: רני בן זאב · גרסת בדיקה v0.1.0</footer>
+<footer>פיתוח: רני בן זאב · גרסת בדיקה v0.2.0</footer>
 
 <script>
 // ===== נתוני דמה (בשלב הבא יגיעו מ-Supabase) =====
@@ -58,7 +61,16 @@ const STUDENTS = [
   {token:'Hc9Lm3Pq7XwE', name:'מאיה אברהם', cls:'ז-5'},
   {token:'t2VbN6jKr8Ua', name:'עומר מזרחי', cls:'יב-6'},
 ];
-const PREFIX = 'GMCARD:';
+const PREFIX = 'GMCARD:';            // פורמט ישן (v0.1.0) — עדיין נתמך בסורק
+const GUARD_PIN = '1234';            // קוד שומר לבדיקה בלבד
+const GUARD_KEY = 'gm_guard_device';
+const scanUrl = t => location.origin + location.pathname + '?scan=' + t;
+function isGuard(){ try{ return localStorage.getItem(GUARD_KEY) === '1'; }catch(e){ return false; } }
+function setGuard(){ try{ localStorage.setItem(GUARD_KEY,'1'); }catch(e){} }
+function tokenFromText(text){
+  if(text.startsWith(PREFIX)) return text.slice(PREFIX.length);
+  try{ return new URL(text).searchParams.get('scan'); }catch(e){ return null; }
+}
 const LOG_KEY = 'gm_late_demo_' + new Date().toISOString().slice(0,10);
 
 const app = document.getElementById('app');
@@ -72,14 +84,40 @@ function saveLog(l){ try{ localStorage.setItem(LOG_KEY, JSON.stringify(l)); }cat
 
 // ===== ניתוב =====
 if (params.get('card')) renderCard(params.get('card'));
-else if (params.get('mode') === 'guard') renderGuard();
+else if (params.get('scan')) handleScanLink(params.get('scan'));
+else if (params.get('mode') === 'guard') isGuard() ? renderGuard() : renderPin(()=>renderGuard());
 else renderHome();
+
+// ===== נפתח מסריקה במצלמה הרגילה =====
+function handleScanLink(token){
+  history.replaceState(null,'',location.pathname); // שרענון לא ירשום שוב
+  if(isGuard()){ renderGuard(); register(token,'סריקה'); return; }
+  app.innerHTML = `
+    <h1>❌ מכשיר לא מורשה</h1>
+    <p class="muted">רק טלפון השומר יכול לרשום כניסה באיחור. התלמיד צריך להציג את הכרטיס לשומר.</p>
+    <button class="btn sec" id="iamGuard">אני השומר — הגדרת הטלפון</button>`;
+  document.getElementById('iamGuard').onclick = () => renderPin(()=>{ renderGuard(); register(token,'סריקה'); });
+}
+
+// ===== הגדרת טלפון שומר =====
+function renderPin(next){
+  app.innerHTML = `
+    <h1>🛡️ הגדרת טלפון שומר</h1>
+    <p class="muted">פעולה חד-פעמית. לאחריה הטלפון הזה יוכל לרשום איחורים.</p>
+    <input id="pin" type="password" inputmode="numeric" placeholder="קוד שומר">
+    <button class="btn" id="pinOk">אישור</button>
+    <p class="muted" id="pinErr" style="color:var(--bad)"></p>`;
+  document.getElementById('pinOk').onclick = () => {
+    if(document.getElementById('pin').value.trim() === GUARD_PIN){ setGuard(); next(); }
+    else document.getElementById('pinErr').textContent = 'קוד שגוי';
+  };
+}
 
 // ===== מסך פתיחה (לבדיקה בלבד) =====
 function renderHome(){
   const base = location.pathname;
   app.innerHTML = `
-    <h1>כרטיס תלמיד — בדיקה <span class="badge">v0.1.0</span></h1>
+    <h1>כרטיס תלמיד — בדיקה <span class="badge">v0.2.0</span></h1>
     <p class="muted">פתחו כרטיס של תלמיד בטלפון אחד, ואת מסך השומר בטלפון אחר.</p>
     <a class="btn" href="${base}?mode=guard">🛡️ מסך שומר — סריקה</a>
     <h1 style="margin-top:20px">כרטיסי דמה</h1>
@@ -101,7 +139,7 @@ function renderCard(token){
       <div class="clock" id="clock"></div>
     </div>
     <p class="muted" style="text-align:center;margin-top:14px">הציגו את הכרטיס לשומר בכניסה</p>`;
-  new QRCode(document.getElementById('qr'), {text: PREFIX + s.token, width:230, height:230, correctLevel: QRCode.CorrectLevel.M});
+  new QRCode(document.getElementById('qr'), {text: scanUrl(s.token), width:230, height:230, correctLevel: QRCode.CorrectLevel.M});
   // שעון חי — מקשה על הצגת צילום מסך ישן
   const tick = () => document.getElementById('clock').textContent =
     new Date().toLocaleString('he-IL',{weekday:'long',day:'numeric',month:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit'});
@@ -112,7 +150,7 @@ function renderCard(token){
 let scanner = null, busy = false;
 function renderGuard(){
   app.innerHTML = `
-    <h1>🛡️ קליטת מאחרים <span class="badge">v0.1.0</span></h1>
+    <h1>🛡️ קליטת מאחרים <span class="badge">v0.2.0</span></h1>
     <p class="muted">כוונו את המצלמה לכרטיס התלמיד</p>
     <button class="btn" id="startBtn">הפעלת מצלמה</button>
     <div id="reader"></div>
@@ -145,8 +183,9 @@ function onScan(text){
   if(busy) return;
   busy = true;
   try{ scanner.pause(true); }catch(e){}
-  if(!text.startsWith(PREFIX)) showResult('bad','קוד לא מוכר','זה לא כרטיס תלמיד');
-  else register(text.slice(PREFIX.length), 'סריקה');
+  const token = tokenFromText(text);
+  if(!token) showResult('bad','קוד לא מוכר','זה לא כרטיס תלמיד');
+  else register(token, 'סריקה');
   setTimeout(()=>{ busy=false; try{ scanner.resume(); }catch(e){} }, 2500);
 }
 
