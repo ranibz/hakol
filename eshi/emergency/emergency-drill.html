@@ -1,5 +1,10 @@
 <!DOCTYPE html>
-<!-- גרסה: v66 | תאריך: 2026-08-31 | סיסמת הניהול הוחלפה, ואינה נשמרת עוד
+<!-- גרסה: v67 | תאריך: 2026-10-22 | כניסה באיחור דרך השער (כרטיס תלמיד דיגיטלי, student-card.html).
+     loadData טוען גם את late_arrivals של היום (לפי שעון ישראל) למפה lateArrivals.
+     במסך המחנך — תלמיד שנסרק בשער מוצג עם "🛡️ נכנס בשער HH:MM" ליד השם, גם אם
+     הסריקה הגיעה בזמן שהמסך פתוח (הסנכרון של חמש השניות מעדכן גם את התוכן ולא רק את הצבע).
+     לחיצה לסימון "חסר" על תלמיד שנכנס בשער מבקשת אישור, כדי שקריאת שמות לא תדרוס סריקה (MINOR).
+     v66 | תאריך: 2026-08-31 | סיסמת הניהול הוחלפה, ואינה נשמרת עוד
      בקוד: במקומה טביעת SHA-256 עם מלח (SYSADMIN_HASH), והבדיקה מחשבת טביעה
      מהקלט ומשווה. קודם הסיסמה ישבה כמחרוזת גלויה וכל Ctrl+U חשף מסך שמוחק
      תלמידים ומעלה מצבות. ההגנה מכסה מציצה מזדמנת בלבד — הבדיקה עדיין רצה
@@ -181,6 +186,7 @@
         .student-tap.absent-today { background: #95a5a6; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: 0.15s; border-color: transparent; }
         .student-tap.absent-today:hover { background: #7f8c8d; }
         .student-tap.absent-today .late-hint { font-size: 0.7rem; opacity: 0.85; font-weight: 400; }
+        .student-tap .gate-entry { display: block; font-size: 0.8rem; font-weight: 600; opacity: 0.95; margin-top: 4px; }
         .student-tap.left-school { background: #e67e22; cursor: default; display: flex; justify-content: space-between; align-items: center; border-color: transparent; }
         
         .btn-mark { padding: 10px 18px; border: none; border-radius: 20px; font-weight: 700; cursor: pointer; font-size: 0.9rem; }
@@ -909,6 +915,7 @@ async function sysadminCheck(input) {
     }
 }
 let dailyAttendance = {}; // student_id -> 'present' | 'absent'
+let lateArrivals = {}; // v67: student_id -> שעת כניסה בשער (HH:MM), מ-late_arrivals של היום
 let emergencyStatus = {}; // student_id -> status
 let classPhase = {}; // class_name -> 'phase1_done'
 let openPanels = new Set();
@@ -991,12 +998,18 @@ function showScreen(id) {
 
 async function loadData() {
     try {
-        const [students, daily, emergency, phases] = await Promise.all([
+        const ilToday = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem' }).format(new Date());
+        const [students, daily, emergency, phases, late] = await Promise.all([
             api('students?order=class,name'),
             api('daily_attendance'),
             api('emergency_drill'),
-            api('class_status')
+            api('class_status'),
+            api('late_arrivals?select=student_id,arrived_at&arrival_date=eq.' + ilToday).catch(() => [])
         ]);
+        lateArrivals = {};
+        (late || []).forEach(l => {
+            lateArrivals[l.student_id] = new Date(l.arrived_at).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jerusalem' });
+        });
         allStudents = {};
         allStudentsRaw = {};
         (students || []).forEach(s => {
@@ -2081,7 +2094,8 @@ async function renderAttendanceClass() {
                 // אין onclick - התלמיד נעול
             } else {
                 row.className = 'student-tap' + (isPresent ? ' tapped' : ' not-marked');
-                row.innerHTML = `<span>${student.name}</span>`;
+                row.innerHTML = attendanceTileHTML(id, student.name);
+                row.dataset.late = lateArrivals[id] || '';
                 row.dataset.sid = id;
                 row.onclick = () => toggleDailyAttendance(id);
             }
@@ -2090,9 +2104,20 @@ async function renderAttendanceClass() {
         });
 }
 
+// v67: תוכן שורת תלמיד — שם, ואם נכנס בשער גם שעת הכניסה
+function attendanceTileHTML(id, name) {
+    const t = lateArrivals[id];
+    return t ? `<span>${name}</span><span class="gate-entry">🛡️ נכנס בשער ${t}</span>` : `<span>${name}</span>`;
+}
+
 async function toggleDailyAttendance(studentId) {
     // עדכון אופטימיסטי - מיד על המסך
     const wasPresent = dailyAttendance[studentId] === 'present';
+    // v67: תלמיד שנכנס בשער — אישור לפני סימון כחסר
+    if (wasPresent && lateArrivals[studentId]) {
+        const nm = (allStudents[studentId] || {}).name || '';
+        if (!confirm(`${nm} נכנס/ה בשער ב-${lateArrivals[studentId]}.\nלסמן בכל זאת כחסר/ה?`)) return;
+    }
     const newStatus = wasPresent ? 'absent' : 'present';
     dailyAttendance[studentId] = newStatus;
     
@@ -2142,6 +2167,12 @@ function syncAttendanceStudentTiles() {
         const isPresent = dailyAttendance[id] === 'present';
         const cls = 'student-tap' + (isPresent ? ' tapped' : ' not-marked');
         if (row.className !== cls) row.className = cls;
+        // v67: סריקה בשער שהגיעה בזמן שהמסך פתוח — עדכון התוכן
+        const late = lateArrivals[id] || '';
+        if (row.dataset.late !== late) {
+            row.dataset.late = late;
+            row.innerHTML = attendanceTileHTML(id, (allStudents[id] || {}).name || '');
+        }
     });
 }
 
