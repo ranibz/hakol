@@ -1,5 +1,9 @@
 <!DOCTYPE html>
-<!-- גרסה: v67 | תאריך: 2026-10-22 | כניסה באיחור דרך השער (כרטיס תלמיד דיגיטלי, student-card.html).
+<!-- גרסה: v68 | תאריך: 2026-10-22 | מסך המנהלת: (1) באקורדיון הכיתה, תלמיד שנכנס בשער מוצג
+     "🛡️ נכנס בשער HH:MM" במקום "✓ נוכח". (2) רשימה חדשה "🛡️ נכנסו באיחור היום" עם שם, כיתה
+     ושעה, ליד רשימת "שוחררו היום". (3) שתי הרשימות נפתחות ונסגרות (אקורדיון) — סגורות כברירת
+     מחדל, ומצב הפתיחה נשמר בין רענוני חמש השניות (MINOR).
+     v67 | תאריך: 2026-10-22 | כניסה באיחור דרך השער (כרטיס תלמיד דיגיטלי, student-card.html).
      loadData טוען גם את late_arrivals של היום (לפי שעון ישראל) למפה lateArrivals.
      במסך המחנך — תלמיד שנסרק בשער מוצג עם "🛡️ נכנס בשער HH:MM" ליד השם, גם אם
      הסריקה הגיעה בזמן שהמסך פתוח (הסנכרון של חמש השניות מעדכן גם את התוכן ולא רק את הצבע).
@@ -315,6 +319,16 @@
         .released-list-section h3 { color: #e67e22; margin-bottom: 12px; }
         .released-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: #fef9e7; border-radius: 8px; margin-bottom: 6px; font-size: 0.95rem; }
         .released-row .time { font-weight: 700; color: #e67e22; }
+        /* v68: רשימות מתקפלות אצל המנהלת */
+        .summary-list summary { list-style: none; display: flex; justify-content: space-between; align-items: center; cursor: pointer; user-select: none; }
+        .summary-list summary::-webkit-details-marker { display: none; }
+        .summary-list summary h3 { margin-bottom: 0; }
+        .summary-list .chev { font-size: 1.2rem; color: #7f8c8d; transition: transform 0.2s; }
+        .summary-list[open] .chev { transform: rotate(180deg); }
+        .summary-list .summary-list-body { margin-top: 12px; }
+        .late-list summary h3 { color: #1f4fa3; }
+        .released-row.late-row { background: #eaf1fb; }
+        .released-row.late-row .time { color: #1f4fa3; }
         
         /* כפתורי פעולה לנעדרים */
         .missing-actions { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -916,6 +930,8 @@ async function sysadminCheck(input) {
 }
 let dailyAttendance = {}; // student_id -> 'present' | 'absent'
 let lateArrivals = {}; // v67: student_id -> שעת כניסה בשער (HH:MM), מ-late_arrivals של היום
+let lateArrivalsSrc = {}; // v68: student_id -> 'scan' | 'manual'
+let summaryListOpen = { late: false, released: false }; // v68: מצב פתיחת רשימות המנהלת
 let emergencyStatus = {}; // student_id -> status
 let classPhase = {}; // class_name -> 'phase1_done'
 let openPanels = new Set();
@@ -1004,10 +1020,12 @@ async function loadData() {
             api('daily_attendance'),
             api('emergency_drill'),
             api('class_status'),
-            api('late_arrivals?select=student_id,arrived_at&arrival_date=eq.' + ilToday).catch(() => [])
+            api('late_arrivals?select=student_id,arrived_at,source&arrival_date=eq.' + ilToday).catch(() => [])
         ]);
         lateArrivals = {};
+        lateArrivalsSrc = {};
         (late || []).forEach(l => {
+            lateArrivalsSrc[l.student_id] = l.source;
             lateArrivals[l.student_id] = new Date(l.arrived_at).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jerusalem' });
         });
         allStudents = {};
@@ -1686,26 +1704,36 @@ async function renderUnifiedSummary(opts) {
         }
     });
     
-    // 7. רשימת שוחררו (אם יש)
-    if (unifiedSummaryReleasedList.length > 0) {
-        const releasedSection = document.createElement('div');
-        releasedSection.className = 'released-list-section';
-        releasedSection.innerHTML = `<h3>🚪 שוחררו היום (${unifiedSummaryReleasedList.length})</h3>`;
-        
-        unifiedSummaryReleasedList
-            .sort((a, b) => a.time.localeCompare(b.time))
-            .forEach(r => {
-                const row = document.createElement('div');
-                row.className = 'released-row';
-                row.innerHTML = `
-                    <div><strong>${r.name}</strong> · ${r.class}${r.reason ? ` · ${r.reason}` : ''}</div>
-                    <div class="time">${r.time}</div>
-                `;
-                releasedSection.appendChild(row);
-            });
-        
-        list.appendChild(releasedSection);
+    // 7. v68: רשימות אקורדיון — נכנסו באיחור, ושוחררו
+    const lateList = Object.keys(lateArrivals)
+        .filter(id => allStudents[id])
+        .map(id => ({ name: allStudents[id].name, class: allStudents[id].class, time: lateArrivals[id], manual: lateArrivalsSrc[id] === 'manual' }))
+        .sort((a, b) => a.time.localeCompare(b.time));
+    if (lateList.length > 0) {
+        list.appendChild(buildSummaryListSection('late', `🛡️ נכנסו באיחור היום (${lateList.length})`,
+            lateList.map(r => `<div class="released-row late-row">
+                <div><strong>${r.name}</strong> · ${r.class}${r.manual ? ' · ✍️ נרשם ידנית' : ''}</div>
+                <div class="time">${r.time}</div></div>`).join('')));
     }
+    if (unifiedSummaryReleasedList.length > 0) {
+        list.appendChild(buildSummaryListSection('released', `🚪 שוחררו היום (${unifiedSummaryReleasedList.length})`,
+            unifiedSummaryReleasedList
+                .sort((a, b) => a.time.localeCompare(b.time))
+                .map(r => `<div class="released-row">
+                    <div><strong>${r.name}</strong> · ${r.class}${r.reason ? ` · ${r.reason}` : ''}</div>
+                    <div class="time">${r.time}</div></div>`).join('')));
+    }
+}
+
+/* v68: רשימה מתקפלת במסך המנהלת. מצב הפתיחה נשמר ב-summaryListOpen,
+   כי המסך נבנה מחדש כל חמש שניות ובלי זה הרשימה הייתה נסגרת מעצמה. */
+function buildSummaryListSection(key, title, rowsHtml) {
+    const sec = document.createElement('details');
+    sec.className = 'released-list-section summary-list ' + key + '-list';
+    if (summaryListOpen[key]) sec.open = true;
+    sec.innerHTML = `<summary><h3>${title}</h3><span class="chev">▾</span></summary><div class="summary-list-body">${rowsHtml}</div>`;
+    sec.addEventListener('toggle', () => { summaryListOpen[key] = sec.open; });
+    return sec;
 }
 
 function toggleUnifiedClassAccordion(cls, grade, mode) {
@@ -1786,7 +1814,8 @@ function renderUnifiedClassAccordion(cls, grade, mode) {
             else { cls2 = 'absent'; statusTxt = '❓ לא אותר'; }
         } else {
             const st = dailyAttendance[id];
-            if (st === 'present') { cls2 = 'present'; statusTxt = '✓ נוכח'; }
+            if (st === 'present' && lateArrivals[id]) { cls2 = 'present'; statusTxt = `🛡️ נכנס בשער ${lateArrivals[id]}`; } // v68
+            else if (st === 'present') { cls2 = 'present'; statusTxt = '✓ נוכח'; }
             else if (st === 'absent') { cls2 = 'absent'; statusTxt = '✗ חסר'; }
             else { cls2 = ''; statusTxt = '⚪ לא סומן'; }
         }
