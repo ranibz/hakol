@@ -1,5 +1,16 @@
 <!DOCTYPE html>
-<!-- kolnoa/agron/index.html · v1.1.0 · 2026-09-09 · RanLMS
+<!-- kolnoa/agron/index.html · v1.2.0 · 2026-10-29 · RanLMS
+
+     v1.2.0 · עיבוי מהמסמכים של צוות הקולנוע (56 מושגים):
+       · details — "בהרחבה": הסבר מורחב עם דגשים, מתחת להגדרה.
+       · links — סרטונים (עשר התחנות, פבלו), שיעורים ותחנות בהכל בכף, מצגות,
+         מסמכים ו"עושים סרטים". מוצגים ככפתורים בכרטיס המושג.
+       · roles — טבלת התפקידים בשלוש דרגות: ✓ חובה לתפקיד · ○ כדאי להכיר · — לא נדרש.
+         מושג בלי roles מוצג כמו קודם (✓ לפי r_*).
+       · see_also — "ראו גם" למושג קשור.
+       · החיפוש כולל גם את ההסבר המורחב.
+       ⚠ דורש HAKOL-agron-kolnoa-iboy.sql (ארבע עמודות חדשות ב-cinema_terms).
+         בלעדיו הדף עובד כמו קודם.
 
      v1.1.0 · נעילה זמנית עד אישור התוכן.
 
@@ -100,6 +111,23 @@ input,select{font-family:inherit;font-size:.92rem;border:1px solid #d8d3e8;
 .tag.s-pre{background:#e6f5f3;color:var(--pre)}
 .tag.s-prod{background:#fdf0dd;color:var(--prod)}
 .tag.s-post{background:#f2eafd;color:var(--post)}
+.tag.lo{background:#fff;color:var(--soft);border:1px dashed #cfc8e3}
+/* v1.2.0 · בהרחבה, קישורים, ראו גם */
+.more{margin-top:8px;background:#faf8ff;border-inline-start:3px solid var(--a);border-radius:0 10px 10px 0;
+  padding:8px 12px;font-size:.93rem;color:#2c2840}
+.more b{color:var(--a);font-size:.8rem;display:block;margin-bottom:1px}
+.lnk{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}
+.lnk a{font-size:.8rem;font-weight:700;text-decoration:none;color:var(--ink);background:#fff;
+  border:1px solid var(--line);border-radius:9px;padding:4px 10px;line-height:1.4}
+.lnk a:hover{border-color:var(--a);color:var(--a)}
+.lnk a.video{background:#fff4f4;border-color:#f3d3d3}
+.lnk a.station,.lnk a.lesson{background:#f4f0ff;border-color:#ddd2fb}
+.see{font-size:.84rem;color:var(--soft);margin-top:7px}
+.see a{color:var(--a);font-weight:800;cursor:pointer}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:.84rem;color:var(--soft);margin-bottom:10px}
+.legend b{color:var(--a);font-weight:900}
+td.c.lo{color:#a59fc0;font-weight:700}
+.grp{font-weight:800;color:var(--soft);font-size:.9rem;margin:6px 0 8px}
 
 .roles{display:grid;grid-template-columns:repeat(auto-fit,minmax(168px,1fr));gap:11px}
 .role{background:var(--card);border:2px solid var(--line);border-radius:15px;
@@ -225,8 +253,28 @@ const stName  = id => (STATIONS.find(s=>+s.id===+id)||{}).name || ('תחנה '+i
 const stages  = t => String(t.stage||'').split(',').filter(Boolean);
 const stageTag = t => stages(t).map(s =>
   '<span class="tag s-'+s+'">'+(STAGES[s]||s)+'</span>').join('');
-const roleTags = t => ROLES.filter(r => t[r.k])
-  .map(r => '<span class="tag">'+r.n+'</span>').join('');
+/* v1.2.0 — דרגה לכל תפקיד: '✓' חובה · '○' כדאי להכיר · '' לא נדרש.
+   מושג בלי roles (טרם עובה) — לפי r_* כמו קודם. */
+const lvl = (t,k) => {
+  if(t.roles && typeof t.roles==='object'){
+    const v = t.roles[k]; return v==='✓' ? '✓' : (v==='○' ? '○' : '');
+  }
+  return t[k] ? '✓' : '';
+};
+const roleTags = t => ROLES.filter(r => lvl(t,r.k))
+  .map(r => '<span class="tag'+(lvl(t,r.k)==='○'?' lo" title="כדאי להכיר':'')+'">'+r.n+
+    (lvl(t,r.k)==='○'?' ○':'')+'</span>').join('');
+const linksHtml = t => {
+  const L = Array.isArray(t.links) ? t.links : [];
+  if(!L.length) return '';
+  return '<div class="lnk">'+L.map(l => '<a class="'+esc(l.k||'')+'" href="'+esc(l.u)+
+    '" target="_blank" rel="noopener">'+esc(l.t)+'</a>').join('')+'</div>';
+};
+const norm = s => String(s||'').replace(/[\s־\-'׳"״]/g,'');
+function seeTerm(name){
+  el('q').value = name; TAB = 'all'; render();
+  window.scrollTo({top:0, behavior:'smooth'});
+}
 
 /* ⚠ הסינון משותף לשלוש התצוגות, אחרת חיפוש בלשונית אחת היה
    מתנהג אחרת מבלשונית שנייה. */
@@ -235,8 +283,8 @@ function visible(){
   const st = el('stage').value;
   return TERMS.filter(t => {
     if(st && stages(t).indexOf(st) < 0) return false;
-    if(q && (t.term+' '+(t.term_en||'')+' '+t.definition).indexOf(q) < 0) return false;
-    if(TAB==='role' && ROLE && !t[ROLE]) return false;
+    if(q && (t.term+' '+(t.term_en||'')+' '+t.definition+' '+(t.details||'')).indexOf(q) < 0) return false;
+    if(TAB==='role' && ROLE && !lvl(t,ROLE)) return false;
     return true;
   });
 }
@@ -255,6 +303,9 @@ function termCard(t){
   return '<div class="term"><h3>'+esc(t.term)+
     (t.term_en ? '<span class="en">'+esc(t.term_en)+'</span>' : '')+'</h3>'+
     '<p>'+esc(t.definition)+'</p>'+
+    (t.details ? '<div class="more"><b>בהרחבה</b>'+esc(t.details)+'</div>' : '')+
+    linksHtml(t)+
+    (t.see_also ? '<div class="see">ראו גם: <a onclick="seeTerm(this.textContent)">'+esc(t.see_also)+'</a></div>' : '')+
     '<div class="tags">'+stageTag(t)+roleTags(t)+'</div></div>';
 }
 
@@ -276,8 +327,8 @@ function viewAll(){
 function viewMatrix(){
   const list = visible();
   if(!list.length) return '<div class="card"><div class="empty">אין תוצאות.</div></div>';
-  return '<div class="card"><p class="hint" style="margin-bottom:11px">'+
-    'מי צריך לדעת מה. ✓ מסמן שהמושג רלוונטי לתפקיד.</p>'+
+  return '<div class="card"><p class="hint" style="margin-bottom:8px">'+
+    'מי צריך לדעת מה.</p>'+'<div class="legend"><span><b>✓</b> חובה לתפקיד</span><span><b style="color:#a59fc0">○</b> כדאי להכיר</span><span>ריק — לא נדרש</span></div>'+
     '<div style="overflow-x:auto"><table><thead><tr><th>מושג</th><th>תחנה</th>'+
     ROLES.map(r=>'<th style="text-align:center">'+r.n+'</th>').join('')+
     '</tr></thead><tbody>'+
@@ -285,7 +336,7 @@ function viewMatrix(){
       (t.term_en?'<div style="font-size:.78rem;color:var(--soft);direction:ltr;'+
         'text-align:right">'+esc(t.term_en)+'</div>':'')+'</td>'+
       '<td style="font-size:.82rem">'+esc(stName(t.station))+'</td>'+
-      ROLES.map(r=>'<td class="c">'+(t[r.k]?'✓':'')+'</td>').join('')+
+      ROLES.map(r=>{ const v=lvl(t,r.k); return '<td class="c'+(v==='○'?' lo':'')+'">'+v+'</td>'; }).join('')+
       '</tr>').join('')+
     '</tbody></table></div></div>';
 }
@@ -301,22 +352,26 @@ function viewRole(){
     '<div class="roles">'+ ROLES.map(r =>
       '<div class="role'+(ROLE===r.k?' on':'')+'" onclick="pickRole(\''+r.k+'\')">'+
       '<span class="ic">'+r.ic+'</span><b>'+r.n+'</b>'+
-      '<div class="c">'+base.filter(t=>t[r.k]).length+' מושגים</div>'+
+      '<div class="c">'+base.filter(t=>lvl(t,r.k)==='✓').length+' חובה · '+
+        base.filter(t=>lvl(t,r.k)==='○').length+' כדאי להכיר</div>'+
       '<div class="c" style="font-size:.78rem;margin-top:4px">'+esc(r.d)+'</div>'+
       '</div>').join('')+'</div></div>';
 
   if(!ROLE) return html;
 
-  const list = base.filter(t => t[ROLE]);
+  const list = base.filter(t => lvl(t,ROLE));
   const role = ROLES.find(r => r.k===ROLE);
   html += '<div class="count">'+role.ic+' '+role.n+' · '+list.length+' מושגים</div>';
   if(!list.length) return html + '<div class="card"><div class="empty">אין תוצאות.</div></div>';
+  /* v1.2.0 — בכל תחנה: קודם מה שחובה לתפקיד, אחר כך מה שכדאי להכיר */
   STATIONS.forEach(s => {
     const inSt = list.filter(t => +t.station === +s.id);
     if(!inSt.length) return;
+    const must = inSt.filter(t => lvl(t,ROLE)==='✓'), nice = inSt.filter(t => lvl(t,ROLE)==='○');
     html += '<div class="stn"><h2><i>'+s.id+'</i>'+esc(s.name)+'</h2>'+
       '<div class="n">'+inSt.length+' מושגים</div>'+
-      inSt.map(termCard).join('')+'</div>';
+      (must.length ? (nice.length ? '<div class="grp">✓ חובה לתפקיד</div>' : '')+must.map(termCard).join('') : '')+
+      (nice.length ? '<div class="grp">○ כדאי להכיר</div>'+nice.map(termCard).join('') : '')+'</div>';
   });
   return html;
 }
