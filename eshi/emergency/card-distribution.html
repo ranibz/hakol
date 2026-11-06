@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<!--
+  חלוקת כרטיסי תלמיד — קישור כיתתי, בדיקת מחנך ותמונת שכבה
+  v1.0.0 | 06.11.2026 | פיתוח: רני בן זאב
+  שינויים:
+  - v1.0.0: דף ראשון. שלוש לשוניות:
+    🔗 חלוקה — כל הכיתות לפי שכבות. לחיצה על כיתה: קישור הכיתה (student-card.html?claim=<כיתה>)
+       והודעה מוכנה לקבוצת הוואטסאפ, עם כפתורי העתקה ושליחה.
+    📋 מחנך — בוחרים כיתה ורואים לכל תלמיד: 📲 התקין · ✓ הפעיל (לא התקין) · ⏳ ממתין, עם מונים
+       והודעת תזכורת מוכנה עם שמות מי שעוד לא הפעיל.
+    📊 רכז שכבה — בוחרים שכבה ורואים כל כיתה: כמה הפעילו וכמה התקינו מתוך כמה, עם פסי התקדמות;
+       לחיצה על כיתה פותחת את רשימת השמות.
+    קישור ישיר: ?tab=dist|tch|grd, ואפשר גם &class=<כיתה> או &grade=<שכבה>.
+    הנתונים מ-card_status (HAKOL-card-status.sql): שם ומצב בלבד, בלי קודים ובלי טלפונים.
+    אם ה-SQL עוד לא הורץ — הדף עובר ל-list_class_students ומציג "הפעיל" בלבד, עם הודעה.
+  קבצים קשורים באותה תיקייה: student-card.html (v0.7.1 ומעלה מדווח התקנה) · late-entry.html
+-->
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>חלוקת כרטיסי תלמיד v1.0.0</title>
+<style>
+  :root{--bg:#f2f4f8;--card:#fff;--ink:#1c2333;--muted:#6b7385;--line:#e3e8f2;
+        --dist:#1f4fa3;--tch:#d98a00;--grd:#7d3cb5;--ok:#14975a;--half:#5b8def;--wait:#c9ced8;}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Arial,sans-serif;background:var(--bg);color:var(--ink)}
+  .wrap{max-width:640px;margin:0 auto;padding:16px}
+  header{background:linear-gradient(160deg,#1f4fa3,#163a7a);color:#fff;border-radius:20px;padding:22px 20px;margin-bottom:14px}
+  header .sc{font-size:13px;opacity:.85}
+  header h1{margin:8px 0 4px;font-size:24px}
+  header p{margin:0;opacity:.9;font-size:15px;line-height:1.5}
+  .badge{display:inline-block;font-size:11px;background:rgba(255,255,255,.2);padding:2px 8px;border-radius:99px;vertical-align:middle}
+  .tabs{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:12px}
+  .tab{border:0;background:var(--card);border-radius:12px;padding:10px 4px;font-family:inherit;font-size:14px;font-weight:700;color:var(--muted);cursor:pointer;border-bottom:3px solid transparent}
+  .tab .ic{display:block;font-size:22px;margin-bottom:2px}
+  .tab.on{color:var(--ink);border-bottom-color:var(--c)}
+  .panel{display:none}.panel.on{display:block}
+  .box{background:var(--card);border-radius:16px;padding:16px;margin-bottom:12px}
+  .box h2{font-size:18px;margin:0 0 6px}
+  .box p{margin:0 0 10px;color:var(--muted);font-size:15px;line-height:1.55}
+  .grade h3{margin:14px 0 8px;font-size:16px}
+  .chips{display:flex;flex-wrap:wrap;gap:8px}
+  .chip{border:2px solid var(--line);background:#fff;border-radius:12px;padding:10px 14px;font-family:inherit;font-size:16px;font-weight:700;cursor:pointer;min-width:64px}
+  .chip.on{border-color:var(--c);background:var(--c);color:#fff}
+  select{width:100%;padding:12px;border:1px solid #d5dae4;border-radius:10px;font-size:16px;font-family:inherit;background:#fff}
+  .link{direction:ltr;text-align:left;background:var(--bg);border-radius:10px;padding:10px 12px;font-size:13px;word-break:break-all;margin:8px 0}
+  .msg{white-space:pre-wrap;background:#e9f9ee;border-radius:12px;padding:12px;font-size:15px;line-height:1.6;margin:8px 0}
+  .acts{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .btn{display:block;width:100%;padding:13px;border:0;border-radius:12px;background:var(--c,#1f4fa3);color:#fff;font-size:16px;font-weight:700;text-align:center;text-decoration:none;cursor:pointer;font-family:inherit}
+  .btn.sec{background:var(--line);color:var(--ink)}
+  .btn.wa{background:#25d366}
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:10px 0}
+  .stat{background:var(--bg);border-radius:12px;padding:10px;text-align:center}
+  .stat b{display:block;font-size:24px}
+  .stat span{font-size:13px;color:var(--muted)}
+  .row{display:flex;justify-content:space-between;align-items:center;padding:10px 4px;border-bottom:1px solid #eef0f4;font-size:16px}
+  .row:last-child{border-bottom:0}
+  .st{font-size:13px;font-weight:700;border-radius:99px;padding:3px 10px;white-space:nowrap}
+  .st.i{background:#e3f6ec;color:var(--ok)} .st.c{background:#e6eefc;color:#1f4fa3} .st.w{background:#f1f2f5;color:var(--muted)}
+  .bar{height:10px;background:#eef0f4;border-radius:99px;overflow:hidden;display:flex;margin-top:6px}
+  .bar i{display:block;height:100%}
+  .cls{background:var(--bg);border-radius:12px;padding:12px;margin-top:8px;cursor:pointer}
+  .cls .top{display:flex;justify-content:space-between;font-weight:700}
+  .cls .sub{font-size:13px;color:var(--muted);margin-top:2px}
+  .cls .names{display:none;margin-top:8px;background:#fff;border-radius:10px;padding:2px 10px}
+  .cls.open .names{display:block}
+  .legend{font-size:13px;color:var(--muted);display:flex;gap:12px;flex-wrap:wrap;margin-top:6px}
+  .legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-left:4px;vertical-align:middle}
+  .note{background:#fff8e6;border-radius:12px;padding:10px 12px;font-size:14px;color:#7a5a00;line-height:1.5;margin-bottom:12px}
+  .muted{color:var(--muted)}
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#1c2333;color:#fff;padding:10px 18px;border-radius:99px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none}
+  .toast.on{opacity:1}
+  footer{text-align:center;color:var(--muted);font-size:12px;margin:24px 0 8px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="sc">🎓 בית חינוך גליל מערבי</div>
+    <h1>חלוקת כרטיסי תלמיד <span class="badge">v1.0.0</span></h1>
+    <p>קישור לכל כיתה לשליחה בקבוצת הוואטסאפ, ומעקב מי הפעיל ומי התקין את הכרטיס.</p>
+  </header>
+
+  <nav class="tabs" id="tabs">
+    <button class="tab" data-p="dist" style="--c:var(--dist)"><span class="ic">🔗</span>חלוקה</button>
+    <button class="tab" data-p="tch" style="--c:var(--tch)"><span class="ic">📋</span>מחנך</button>
+    <button class="tab" data-p="grd" style="--c:var(--grd)"><span class="ic">📊</span>רכז שכבה</button>
+  </nav>
+
+  <div class="note" id="sqlNote" style="display:none">⚠️ מעקב ההתקנה עוד לא פעיל בשרת (חסר HAKOL-card-status.sql). מוצג רק מי הפעיל את הכרטיס.</div>
+
+  <!-- חלוקה -->
+  <section class="panel" id="p-dist" style="--c:var(--dist)">
+    <div class="box">
+      <h2>🔗 קישור לכיתה</h2>
+      <p>לוחצים על כיתה ומקבלים את הקישור ואת ההודעה המוכנה. המחנך מדביק אותה בקבוצת הוואטסאפ של הכיתה.</p>
+      <div id="distGrades"><p class="muted">טוען כיתות…</p></div>
+    </div>
+    <div class="box" id="distOut" style="display:none"></div>
+  </section>
+
+  <!-- מחנך -->
+  <section class="panel" id="p-tch" style="--c:var(--tch)">
+    <div class="box">
+      <h2>📋 בדיקת מחנך</h2>
+      <p>בחרו את הכיתה שלכם ותראו מי כבר הפעיל ומי התקין את הכרטיס.</p>
+      <select id="tchClass"><option value="">טוען כיתות…</option></select>
+    </div>
+    <div class="box" id="tchOut" style="display:none"></div>
+  </section>
+
+  <!-- רכז שכבה -->
+  <section class="panel" id="p-grd" style="--c:var(--grd)">
+    <div class="box">
+      <h2>📊 תמונת שכבה</h2>
+      <p>בחרו שכבה ותראו כל כיתה בה. לחיצה על כיתה פותחת את רשימת השמות.</p>
+      <div class="chips" id="grdChips"></div>
+    </div>
+    <div class="box" id="grdOut" style="display:none"></div>
+  </section>
+
+  <div class="toast" id="toast"></div>
+  <footer>פיתוח: רני בן זאב · v1.0.0</footer>
+</div>
+
+<script>
+const SB_URL = 'https://skfriefqnoxfzmamcokd.supabase.co';
+const SB_KEY = 'sb_publishable_Qx7EDPbdyYE9iv7uMQBKhQ_Aeojd_Q0';
+const H = {apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY, 'Content-Type': 'application/json'};
+const TAB_KEY = 'gm_cards_tab';
+const BASE = location.href.replace(/[^/]*$/, '');          // התיקייה של הדף
+const claimUrl = c => BASE + 'student-card.html?claim=' + encodeURIComponent(c);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const $ = id => document.getElementById(id);
+const q = new URLSearchParams(location.search);
+
+async function rpc(fn, body){
+  const r = await fetch(`${SB_URL}/rest/v1/rpc/${fn}`, {method:'POST', headers:H, body:JSON.stringify(body)});
+  if(!r.ok) throw new Error(await r.text());
+  return r.json();
+}
+function toast(t){ const el = $('toast'); el.textContent = t; el.classList.add('on'); clearTimeout(el._t); el._t = setTimeout(()=>el.classList.remove('on'), 1800); }
+async function copy(text){
+  try{ await navigator.clipboard.writeText(text); toast('הועתק'); }
+  catch(e){ prompt('העתיקו:', text); }
+}
+
+// ===== כיתות ושכבות =====
+const ORDER = {'ז':1,'ח':2,'ט':3,'י':4,'יא':5,'יב':6};
+const gradeOf = c => String(c).split(' ')[0];
+function sortClasses(a, b){
+  const [ga, na] = a.split(' '), [gb, nb] = b.split(' ');
+  return ((ORDER[ga] || 9) - (ORDER[gb] || 9)) || ((parseInt(na) || 0) - (parseInt(nb) || 0)) || a.localeCompare(b, 'he');
+}
+let CLASSES = [], GRADES = [];
+
+// ===== מצב כרטיסים: card_status, ובלעדיו list_class_students =====
+let HAS_STATUS = true;
+async function statusFor({cls, grade}){
+  if(HAS_STATUS){
+    try{ return await rpc('card_status', {p_class: cls || null, p_grade: grade || null}); }
+    catch(e){ HAS_STATUS = false; $('sqlNote').style.display = 'block'; }
+  }
+  const list = cls ? [cls] : CLASSES.filter(c => gradeOf(c) === grade);
+  const out = [];
+  for(const c of list){
+    const rows = await rpc('list_class_students', {p_class: c});
+    rows.forEach(r => out.push({class: c, name: r.name, claimed: r.claimed, installed: false}));
+  }
+  return out;
+}
+const stOf = r => r.installed ? 'i' : r.claimed ? 'c' : 'w';
+const ST_TXT = {i:'📲 התקין', c:'✓ הפעיל', w:'⏳ ממתין'};
+function counts(rows){
+  const n = rows.length, inst = rows.filter(r => r.installed).length, act = rows.filter(r => r.claimed || r.installed).length;
+  return {n, inst, act, wait: n - act};
+}
+function bar(c){
+  const p = x => c.n ? (x / c.n * 100) : 0;
+  return `<div class="bar"><i style="width:${p(c.inst)}%;background:var(--ok)"></i><i style="width:${p(c.act - c.inst)}%;background:var(--half)"></i></div>`;
+}
+const LEGEND = `<div class="legend"><span><i style="background:var(--ok)"></i>התקין</span><span><i style="background:var(--half)"></i>הפעיל, עוד לא התקין</span><span><i style="background:#eef0f4"></i>ממתין</span></div>`;
+function namesHTML(rows){
+  return rows.map(r => `<div class="row"><span>${esc(r.name)}</span><span class="st ${stOf(r)}">${ST_TXT[stOf(r)]}</span></div>`).join('')
+    || '<p class="muted">אין תלמידים פעילים בכיתה.</p>';
+}
+
+// ===== 🔗 חלוקה =====
+function classMsg(c){
+  return `🎫 כרטיס תלמיד דיגיטלי — כיתה ${c}\n\n` +
+    `1. פתחו את הקישור, בחרו את השם שלכם והקלידו 4 ספרות אחרונות של הטלפון שלכם.\n` +
+    `2. מתחת לכרטיס לחצו "📲 התקנה" (באייפון: שיתוף ⬆️ ← "הוסף למסך הבית").\n` +
+    `3. מגיעים באיחור? פותחים את האייקון ומציגים לשומר.\n\n` + claimUrl(c);
+}
+function drawDistGrades(){
+  $('distGrades').innerHTML = GRADES.map(g => `<div class="grade"><h3>שכבה ${esc(g)}</h3><div class="chips">${
+    CLASSES.filter(c => gradeOf(c) === g).map(c => `<button class="chip" data-c="${esc(c)}">${esc(c)}</button>`).join('')}</div></div>`).join('');
+}
+function showDist(c){
+  document.querySelectorAll('#distGrades .chip').forEach(b => b.classList.toggle('on', b.dataset.c === c));
+  const msg = classMsg(c);
+  $('distOut').style.display = 'block';
+  $('distOut').innerHTML = `<h2>כיתה ${esc(c)}</h2>
+    <p>הקישור:</p><div class="link">${esc(claimUrl(c))}</div>
+    <p>ההודעה לקבוצת הכיתה:</p><div class="msg">${esc(msg)}</div>
+    <div class="acts">
+      <button class="btn sec" id="cpMsg">העתקת ההודעה</button>
+      <a class="btn wa" target="_blank" href="https://wa.me/?text=${encodeURIComponent(msg)}">שליחה בוואטסאפ</a>
+    </div>
+    <button class="btn sec" id="cpLink" style="margin-top:8px">העתקת הקישור בלבד</button>
+    <button class="btn" id="goTch" style="margin-top:8px">📋 מי כבר הפעיל בכיתה הזו?</button>`;
+  $('cpMsg').onclick = () => copy(msg);
+  $('cpLink').onclick = () => copy(claimUrl(c));
+  $('goTch').onclick = () => { showTab('tch'); $('tchClass').value = c; showTch(c); };
+  $('distOut').scrollIntoView({behavior:'smooth', block:'start'});
+}
+$('distGrades').onclick = e => { const b = e.target.closest('.chip'); if(b) showDist(b.dataset.c); };
+
+// ===== 📋 מחנך =====
+async function showTch(c){
+  const out = $('tchOut');
+  if(!c){ out.style.display = 'none'; return; }
+  out.style.display = 'block'; out.innerHTML = '<p class="muted">טוען…</p>';
+  let rows;
+  try{ rows = await statusFor({cls: c}); }
+  catch(e){ out.innerHTML = '<p class="muted">אין חיבור — נסו שוב.</p>'; return; }
+  const k = counts(rows);
+  const waiting = rows.filter(r => !r.claimed && !r.installed).map(r => r.name);
+  const notInst = rows.filter(r => r.claimed && !r.installed).map(r => r.name);
+  const remind = (waiting.length ? `⏳ עוד לא הפעילו את כרטיס התלמיד:\n${waiting.map(n => '• ' + n).join('\n')}\n\n` : '') +
+    (HAS_STATUS && notInst.length ? `📲 הפעילו אבל עוד לא התקינו:\n${notInst.map(n => '• ' + n).join('\n')}\n\n` : '') +
+    `הקישור להפעלה:\n${claimUrl(c)}`;
+  out.innerHTML = `<h2>כיתה ${esc(c)}</h2>
+    <div class="stats">
+      <div class="stat"><b style="color:var(--ok)">${HAS_STATUS ? k.inst : '—'}</b><span>התקינו</span></div>
+      <div class="stat"><b style="color:#1f4fa3">${k.act}</b><span>הפעילו</span></div>
+      <div class="stat"><b>${k.wait}</b><span>ממתינים</span></div>
+    </div>
+    ${bar(k)}${LEGEND}
+    <div style="margin-top:10px">${namesHTML(rows)}</div>
+    ${(waiting.length || notInst.length) ? `<div class="acts" style="margin-top:12px">
+      <button class="btn sec" id="cpRem">העתקת תזכורת</button>
+      <a class="btn wa" target="_blank" href="https://wa.me/?text=${encodeURIComponent(remind)}">תזכורת בוואטסאפ</a></div>` : '<p style="margin-top:12px;font-weight:700;color:var(--ok)">🎉 כל הכיתה הפעילה!</p>'}
+    <button class="btn sec" id="tchRef" style="margin-top:8px">🔄 רענון</button>`;
+  if($('cpRem')) $('cpRem').onclick = () => copy(remind);
+  $('tchRef').onclick = () => showTch(c);
+}
+$('tchClass').onchange = e => showTch(e.target.value);
+
+// ===== 📊 רכז שכבה =====
+async function showGrade(g){
+  document.querySelectorAll('#grdChips .chip').forEach(b => b.classList.toggle('on', b.dataset.g === g));
+  const out = $('grdOut');
+  out.style.display = 'block'; out.innerHTML = '<p class="muted">טוען…</p>';
+  let rows;
+  try{ rows = await statusFor({grade: g}); }
+  catch(e){ out.innerHTML = '<p class="muted">אין חיבור — נסו שוב.</p>'; return; }
+  const by = {};
+  rows.forEach(r => (by[r.class] = by[r.class] || []).push(r));
+  const list = Object.keys(by).sort(sortClasses);
+  const all = counts(rows);
+  out.innerHTML = `<h2>שכבה ${esc(g)}</h2>
+    <div class="stats">
+      <div class="stat"><b style="color:var(--ok)">${HAS_STATUS ? all.inst : '—'}</b><span>התקינו</span></div>
+      <div class="stat"><b style="color:#1f4fa3">${all.act}</b><span>הפעילו</span></div>
+      <div class="stat"><b>${all.n}</b><span>תלמידים</span></div>
+    </div>${bar(all)}${LEGEND}
+    ${list.map(c => { const k = counts(by[c]); return `<div class="cls" data-c="${esc(c)}">
+      <div class="top"><span>כיתה ${esc(c)}</span><span>${k.act} מתוך ${k.n}</span></div>
+      <div class="sub">הפעילו ${k.act}${HAS_STATUS ? ` · התקינו ${k.inst}` : ''} · ${k.wait === 0 ? 'כולם הפעילו ✓' : k.wait === 1 ? 'ממתין אחד' : k.wait + ' ממתינים'} · לחצו לרשימה</div>
+      ${bar(k)}<div class="names">${namesHTML(by[c])}</div></div>`; }).join('')}
+    <button class="btn sec" id="grdRef" style="margin-top:12px">🔄 רענון</button>`;
+  $('grdRef').onclick = () => showGrade(g);
+}
+$('grdChips').onclick = e => { const b = e.target.closest('.chip'); if(b) showGrade(b.dataset.g); };
+$('grdOut').onclick = e => { const c = e.target.closest('.cls'); if(c) c.classList.toggle('open'); };
+
+// ===== לשוניות =====
+function showTab(p){
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('on', t.dataset.p === p));
+  document.querySelectorAll('.panel').forEach(x => x.classList.toggle('on', x.id === 'p-' + p));
+  try{ localStorage.setItem(TAB_KEY, p); }catch(e){}
+}
+$('tabs').onclick = e => { const t = e.target.closest('.tab'); if(t) showTab(t.dataset.p); };
+
+// ===== טעינה =====
+(async () => {
+  const want = q.get('tab');
+  let saved = null; try{ saved = localStorage.getItem(TAB_KEY); }catch(e){}
+  showTab(['dist','tch','grd'].includes(want) ? want : (['dist','tch','grd'].includes(saved) ? saved : 'dist'));
+  try{
+    const r = await fetch(`${SB_URL}/rest/v1/students?select=class&active=eq.true`, {headers:H});
+    if(!r.ok) throw new Error(await r.text());
+    CLASSES = [...new Set((await r.json()).map(x => x.class).filter(Boolean))].sort(sortClasses);
+  }catch(e){
+    $('distGrades').innerHTML = '<p class="muted">אין חיבור — נסו שוב מאוחר יותר.</p>';
+    $('tchClass').innerHTML = '<option value="">אין חיבור</option>';
+    return;
+  }
+  GRADES = [...new Set(CLASSES.map(gradeOf))].sort((a, b) => (ORDER[a] || 9) - (ORDER[b] || 9));
+  drawDistGrades();
+  $('tchClass').innerHTML = '<option value="">בחרו כיתה…</option>' + CLASSES.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+  $('grdChips').innerHTML = GRADES.map(g => `<button class="chip" data-g="${esc(g)}">${esc(g)}</button>`).join('');
+  const qc = q.get('class'), qg = q.get('grade');
+  if(qc && CLASSES.includes(qc)){
+    if(want === 'tch'){ $('tchClass').value = qc; showTch(qc); } else showDist(qc);
+  }
+  if(qg && GRADES.includes(qg)) showGrade(qg);
+})();
+</script>
+</body>
+</html>
