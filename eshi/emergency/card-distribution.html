@@ -1,8 +1,11 @@
 <!DOCTYPE html>
 <!--
   חלוקת כרטיסי תלמיד — קישור כיתתי, בדיקת מחנך ותמונת שכבה
-  v1.0.0 | 06.11.2026 | פיתוח: רני בן זאב
+  v1.0.1 | 06.11.2026 | פיתוח: רני בן זאב
   שינויים:
+  - v1.0.1: כיתה שכתובה בלי רווח ("ח6" במקום "ח 6") הופיעה כשכבה נפרדת "ח6". השכבה נקבעת עכשיו לפי
+    האותיות בתחילת שם הכיתה (ז/ח/ט/י/יא/יב), עם או בלי רווח, וגם המיון לפי המספר. תמונת השכבה נטענת
+    כיתה-כיתה (card_status עם p_class), כך שגם כיתה בלי רווח נכללת בשכבה שלה.
   - v1.0.0: דף ראשון. שלוש לשוניות:
     🔗 חלוקה — כל הכיתות לפי שכבות. לחיצה על כיתה: קישור הכיתה (student-card.html?claim=<כיתה>)
        והודעה מוכנה לקבוצת הוואטסאפ, עם כפתורי העתקה ושליחה.
@@ -19,7 +22,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>חלוקת כרטיסי תלמיד v1.0.0</title>
+<title>חלוקת כרטיסי תלמיד v1.0.1</title>
 <style>
   :root{--bg:#f2f4f8;--card:#fff;--ink:#1c2333;--muted:#6b7385;--line:#e3e8f2;
         --dist:#1f4fa3;--tch:#d98a00;--grd:#7d3cb5;--ok:#14975a;--half:#5b8def;--wait:#c9ced8;}
@@ -78,7 +81,7 @@
 <div class="wrap">
   <header>
     <div class="sc">🎓 בית חינוך גליל מערבי</div>
-    <h1>חלוקת כרטיסי תלמיד <span class="badge">v1.0.0</span></h1>
+    <h1>חלוקת כרטיסי תלמיד <span class="badge">v1.0.1</span></h1>
     <p>קישור לכל כיתה לשליחה בקבוצת הוואטסאפ, ומעקב מי הפעיל ומי התקין את הכרטיס.</p>
   </header>
 
@@ -121,7 +124,7 @@
   </section>
 
   <div class="toast" id="toast"></div>
-  <footer>פיתוח: רני בן זאב · v1.0.0</footer>
+  <footer>פיתוח: רני בן זאב · v1.0.1</footer>
 </div>
 
 <script>
@@ -148,21 +151,22 @@ async function copy(text){
 
 // ===== כיתות ושכבות =====
 const ORDER = {'ז':1,'ח':2,'ט':3,'י':4,'יא':5,'יב':6};
-const gradeOf = c => String(c).split(' ')[0];
+/* v1.0.1 — השכבה לפי האותיות בתחילת השם, עם או בלי רווח ("ח 6" וגם "ח6") */
+const gradeOf = c => { const m = String(c).trim().match(/^(יב|יא|ז|ח|ט|י)(?![א-ת])/); return m ? m[1] : String(c).trim().split(/\s+/)[0]; };
+const numOf = c => parseInt((String(c).match(/\d+/) || [0])[0]) || 0;
 function sortClasses(a, b){
-  const [ga, na] = a.split(' '), [gb, nb] = b.split(' ');
-  return ((ORDER[ga] || 9) - (ORDER[gb] || 9)) || ((parseInt(na) || 0) - (parseInt(nb) || 0)) || a.localeCompare(b, 'he');
+  return ((ORDER[gradeOf(a)] || 9) - (ORDER[gradeOf(b)] || 9)) || (numOf(a) - numOf(b)) || a.localeCompare(b, 'he');
 }
 let CLASSES = [], GRADES = [];
 
 // ===== מצב כרטיסים: card_status, ובלעדיו list_class_students =====
 let HAS_STATUS = true;
 async function statusFor({cls, grade}){
+  const list = cls ? [cls] : CLASSES.filter(c => gradeOf(c) === grade);
   if(HAS_STATUS){
-    try{ return await rpc('card_status', {p_class: cls || null, p_grade: grade || null}); }
+    try{ return (await Promise.all(list.map(c => rpc('card_status', {p_class: c, p_grade: null})))).flat(); }
     catch(e){ HAS_STATUS = false; $('sqlNote').style.display = 'block'; }
   }
-  const list = cls ? [cls] : CLASSES.filter(c => gradeOf(c) === grade);
   const out = [];
   for(const c of list){
     const rows = await rpc('list_class_students', {p_class: c});
