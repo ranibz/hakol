@@ -1,8 +1,17 @@
 <!DOCTYPE html>
 <!--
   כרטיס תלמיד דיגיטלי + קליטת מאחרים בשער
-  v0.6.1 | 22.10.2026 | פיתוח: רני בן זאב
+  v0.7.0 | 06.11.2026 | פיתוח: רני בן זאב
   שינויים:
+  - v0.7.0: כרטיס התלמיד כאפליקציה בטלפון (PWA). מתחת לכרטיס — "📲 התקנת כרטיס התלמיד": באנדרואיד
+    כפתור התקנה אמיתי (האפליקציה מופיעה ברשימת האפליקציות), באייפון הוראה ל"הוסף למסך הבית".
+    האייקון — עץ הזית מהלוגו של בית הספר. האפליקציה נפתחת ישר לכרטיס, במסך מלא.
+    עובד גם בלי אינטרנט: שם, כיתה והקוד נשמרים בטלפון (gm_my_card_data), והכרטיס מוצג מיד
+    ומתעדכן מהשרת ברקע. כרטיס שאופס בשרת נמחק מהטלפון רק כשהשרת ענה — לא כשאין רשת.
+    ⚠ אייפון: אפליקציה במסך הבית מקבלת אחסון נפרד מספארי, ולכן בכתובת תמיד יושב ?card=<קוד>
+    (גם כשהכרטיס נפתח מהשמור), ובאייפון לא נטען manifest — כך האייקון נפתח ישר על הכרטיס.
+    קבצים חדשים באותה תיקייה: card-manifest.json · card-sw.js · card-icon-192.png · card-icon-512.png ·
+    card-icon-maskable-512.png · card-apple-touch.png. ה-service worker מוגבל ל-student-card.html בלבד.
   - v0.6.1: ספריית הסריקה נטענת קודם מקובץ מקומי באותה תיקייה (html5-qrcode.min.js, גרסה 2.3.8,
     רישיון Apache-2.0), ורק אם הוא חסר — מ-jsDelivr ו-unpkg.
     תיקון באג: הניתוב רץ בראש הקובץ, ופתיחה ישירה של מסך השומר נעצרה על logTimer שעוד לא הוגדר —
@@ -31,7 +40,20 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>כרטיס תלמיד v0.6.1</title>
+<title>כרטיס תלמיד</title>
+<meta name="theme-color" content="#1f4fa3">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="כרטיס תלמיד">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="apple-touch-icon" href="card-apple-touch.png">
+<link rel="icon" type="image/png" href="card-icon-192.png">
+<script>
+  /* v0.7.0 — manifest רק מחוץ לאייפון: באייפון "הוסף למסך הבית" צריך לשמור את הכתובת הנוכחית
+     (עם ?card=), כי לאפליקציה במסך הבית יש אחסון נפרד מספארי והיא לא תכיר את הכרטיס השמור. */
+  window.IS_IOS = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  if (!window.IS_IOS) document.write('<link rel="manifest" href="card-manifest.json">');
+</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
   :root{--bg:#f2f4f8;--card:#fff;--ink:#1c2333;--muted:#6b7385;--brand:#1f4fa3;--ok:#14975a;--warn:#d98a00;--bad:#c62f2f;}
@@ -61,12 +83,16 @@
   input{width:100%;padding:12px;border:1px solid #d5dae4;border-radius:10px;font-size:16px;margin-top:8px}
   .err{color:var(--bad);font-size:14px;min-height:18px}
   .tip{background:#fff;border-radius:12px;padding:12px 14px;margin-top:12px;font-size:14px;line-height:1.7;color:var(--muted)}
+  .inst{background:#fff;border-radius:14px;padding:14px;margin-top:14px;text-align:center}
+  .inst h3{margin:0 0 6px;font-size:17px}
+  .inst p{margin:0;color:var(--muted);font-size:14px;line-height:1.7}
+  .offline{text-align:center;font-size:12px;opacity:.85;margin-top:6px}
   footer{text-align:center;color:var(--muted);font-size:12px;margin:24px 0 8px}
 </style>
 </head>
 <body>
 <div class="wrap" id="app"></div>
-<footer>פיתוח: רני בן זאב · v0.6.1</footer>
+<footer>פיתוח: רני בן זאב · v0.7.0</footer>
 
 <script>
 // ===== חיבור =====
@@ -77,6 +103,8 @@ const PIN_KEY = 'gm_guard_pin';
 const DEV_KEY = 'gm_guard_device';
 const CARD_KEY = 'gm_my_card';        // v0.4.0: הכרטיס של התלמיד בטלפון שלו
 const STU_DEV_KEY = 'gm_student_device';
+const CARD_DATA_KEY = 'gm_my_card_data';  // v0.7.0: {token,name,class} — להצגה בלי אינטרנט
+const IS_APP = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
 
 const H = {apikey: SB_KEY, Authorization: 'Bearer ' + SB_KEY, 'Content-Type': 'application/json'};
 async function rpc(fn, body){
@@ -123,22 +151,20 @@ function tokenFromText(text){
 
 function renderHome(){
   app.innerHTML = `
-    <h1>כרטיס תלמיד <span class="badge">v0.6.1</span></h1>
+    <h1>כרטיס תלמיד <span class="badge">v0.7.0</span></h1>
     <p class="muted">${SCHOOL}</p>
-    <a class="btn" href="${location.pathname}?mode=guard">🛡️ מסך שומר — קליטת מאחרים</a>`;
+    ${IS_APP ? `<div class="tip">עדיין לא הופעל כרטיס בטלפון הזה.<br>פתחו את קישור הכיתה שהמחנך שלח בקבוצה, או:</div>
+      <a class="btn" href="late-entry.html?tab=stu">הפעלת הכרטיס שלי</a>` : ''}
+    <a class="btn ${IS_APP ? 'sec' : ''}" href="${location.pathname}?mode=guard">🛡️ מסך שומר — קליטת מאחרים</a>`;
 }
 
 // ===== כרטיס תלמיד =====
-async function renderCard(token){
-  app.innerHTML = `<p class="muted">טוען כרטיס…</p>`;
-  let s;
-  try{ s = (await rpc('get_card', {p_token: token}))[0]; }
-  catch(e){ app.innerHTML = `<h1>אין חיבור</h1><p class="muted">בדקו חיבור לאינטרנט ונסו שוב.</p>${errLine(e)}`; return; }
-  if(!s){
-    if(ls.get(CARD_KEY) === token) ls.del(CARD_KEY);
-    app.innerHTML = `<h1>הכרטיס לא נמצא</h1><p class="muted">ייתכן שהכרטיס אופס. בקשו מהמחנך את קישור הכיתה והפעילו מחדש.</p>`; return;
-  }
-  ls.set(CARD_KEY, token);
+// v0.7.0: מוצג מיד מהשמור בטלפון, ומתעדכן מהשרת ברקע. בלי רשת — נשאר השמור.
+function cachedCard(token){
+  try{ const c = JSON.parse(ls.get(CARD_DATA_KEY) || 'null'); return c && c.token === token ? c : null; }catch(e){ return null; }
+}
+let clockTimer = null;
+function drawCard(token, s, offline){
   app.innerHTML = `
     <div class="idcard">
       <div class="school">🎓 ${SCHOOL} · כרטיס תלמיד</div>
@@ -146,16 +172,65 @@ async function renderCard(token){
       <div class="cls">כיתה ${esc(s.class)}</div>
       <div class="qrbox"><div id="qr"></div></div>
       <div class="clock" id="clock"></div>
+      ${offline ? '<div class="offline">📴 אין חיבור — הכרטיס מוצג מהטלפון ותקף לסריקה</div>' : ''}
     </div>
     <p class="muted" style="text-align:center;margin-top:14px">הציגו את הכרטיס לשומר בכניסה</p>
-    <div class="tip">📌 <b>שמרו את הכרטיס במסך הבית</b><br>
-      אייפון: כפתור השיתוף ← "הוסף למסך הבית"<br>
-      אנדרואיד: ⋮ ← "הוסף למסך הבית"</div>`;
-  new QRCode(document.getElementById('qr'), {text: scanUrl(token), width:230, height:230, correctLevel: QRCode.CorrectLevel.M});
-  const tick = () => document.getElementById('clock').textContent =
-    new Date().toLocaleString('he-IL',{weekday:'long',day:'numeric',month:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit'});
-  tick(); setInterval(tick, 1000);
+    <div id="inst"></div>`;
+  if(window.QRCode) new QRCode(document.getElementById('qr'), {text: scanUrl(token), width:230, height:230, correctLevel: QRCode.CorrectLevel.M});
+  else document.getElementById('qr').innerHTML = '<p class="muted">הקוד לא נטען — חברו לאינטרנט פעם אחת</p>';
+  const tick = () => { const c = document.getElementById('clock'); if(c) c.textContent =
+    new Date().toLocaleString('he-IL',{weekday:'long',day:'numeric',month:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit'}); };
+  tick(); clearInterval(clockTimer); clockTimer = setInterval(tick, 1000);
+  drawInstall();
 }
+async function renderCard(token){
+  /* באייפון "הוסף למסך הבית" שומר את הכתובת הנוכחית — לכן הקוד תמיד בכתובת */
+  if(params.get('card') !== token) history.replaceState(null,'',location.pathname + '?card=' + token);
+  const cached = cachedCard(token);
+  if(cached) drawCard(token, cached, false);
+  else app.innerHTML = `<p class="muted">טוען כרטיס…</p>`;
+  let s;
+  try{ s = (await rpc('get_card', {p_token: token}))[0]; }
+  catch(e){
+    if(cached){ drawCard(token, cached, true); return; }
+    app.innerHTML = `<h1>אין חיבור</h1><p class="muted">בדקו חיבור לאינטרנט ונסו שוב. אחרי הפתיחה הראשונה הכרטיס יעבוד גם בלי אינטרנט.</p>${errLine(e)}`; return;
+  }
+  if(!s){
+    if(ls.get(CARD_KEY) === token){ ls.del(CARD_KEY); ls.del(CARD_DATA_KEY); }
+    app.innerHTML = `<h1>הכרטיס לא נמצא</h1><p class="muted">ייתכן שהכרטיס אופס. בקשו מהמחנך את קישור הכיתה והפעילו מחדש.</p>`; return;
+  }
+  ls.set(CARD_KEY, token);
+  ls.set(CARD_DATA_KEY, JSON.stringify({token, name: s.name, class: s.class}));
+  if(!cached || cached.name !== s.name || cached.class !== s.class) drawCard(token, s, false);
+}
+
+// ===== v0.7.0: התקנה כאפליקציה =====
+let installEvt = null;
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; drawInstall(); });
+window.addEventListener('appinstalled', () => { installEvt = null; drawInstall(true); });
+function drawInstall(done){
+  const el = document.getElementById('inst'); if(!el) return;
+  if(IS_APP){ el.innerHTML = ''; return; }
+  if(done){ el.innerHTML = `<div class="inst"><h3>✓ הותקן</h3><p>מעכשיו פותחים את "כרטיס תלמיד" מהאייקון בטלפון.</p></div>`; return; }
+  if(installEvt){
+    el.innerHTML = `<div class="inst"><h3>📲 התקנת כרטיס התלמיד</h3>
+      <p>אייקון בטלפון שנפתח ישר לכרטיס — גם בלי אינטרנט.</p>
+      <button class="btn" id="instBtn">התקנה</button></div>`;
+    document.getElementById('instBtn').onclick = async () => {
+      installEvt.prompt();
+      try{ const c = await installEvt.userChoice; if(c && c.outcome === 'accepted'){ installEvt = null; drawInstall(true); return; } }catch(e){}
+      installEvt = null; drawInstall();
+    };
+    return;
+  }
+  el.innerHTML = window.IS_IOS
+    ? `<div class="inst"><h3>📲 התקנת כרטיס התלמיד</h3>
+        <p>בספארי: לחצו על כפתור השיתוף <b>⬆️</b> (למטה) ← גללו ובחרו <b>"הוסף למסך הבית"</b> ← <b>"הוסף"</b>.<br>
+        מעכשיו האייקון "כרטיס תלמיד" נפתח ישר לכרטיס.</p></div>`
+    : `<div class="inst"><h3>📲 התקנת כרטיס התלמיד</h3>
+        <p>בכרום: לחצו על <b>⋮</b> למעלה ← <b>"התקנת אפליקציה"</b> או <b>"הוספה למסך הבית"</b>.</p></div>`;
+}
+if('serviceWorker' in navigator) navigator.serviceWorker.register('card-sw.js', {scope: './student-card.html'}).catch(()=>{});
 
 // ===== v0.4.0: הפעלה עצמית מקישור הכיתה =====
 async function renderClaim(cls){
@@ -197,6 +272,7 @@ function renderClaimVerify(cls, id, name){
     catch(e){ err.textContent = 'אין חיבור, נסו שוב'; return; }
     if(r.ok){
       ls.set(CARD_KEY, r.token);
+      ls.set(CARD_DATA_KEY, JSON.stringify({token: r.token, name, class: cls}));
       history.replaceState(null,'',location.pathname + '?card=' + r.token);
       renderCard(r.token);
       return;
@@ -244,7 +320,7 @@ function renderPin(next){
 let scanner = null, busy = false, logTimer = null, searchTimer = null;
 function renderGuard(){
   app.innerHTML = `
-    <h1>🛡️ קליטת מאחרים <span class="badge">v0.6.1</span></h1>
+    <h1>🛡️ קליטת מאחרים <span class="badge">v0.7.0</span></h1>
     <p class="muted">סרקו את כרטיס התלמיד — במצלמה הרגילה או כאן</p>
     <button class="btn" id="startBtn">הפעלת מצלמה</button>
     <div id="reader"></div>
