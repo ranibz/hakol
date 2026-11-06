@@ -1,8 +1,11 @@
 <!DOCTYPE html>
 <!--
   כרטיס תלמיד דיגיטלי + קליטת מאחרים בשער
-  v0.7.1 | 06.11.2026 | פיתוח: רני בן זאב
+  v0.7.2 | 06.11.2026 | פיתוח: רני בן זאב
   שינויים:
+  - v0.7.2: קישור כיתה (?claim=) בטלפון שכבר יש בו כרטיס פותח את הכרטיס השמור — כמו קודם — אבל
+    מתחתיו מופיע "לא הכרטיס שלך? הפעלת כרטיס אחר", שמוחק את הכרטיס מהטלפון הזה (בשרת לא משתנה
+    כלום) ומציג את רשימת השמות של הכיתה. כך מורה שבדק כרטיס, או טלפון משותף, לא נתקעים על כרטיס אחד.
   - v0.7.1: האפליקציה המותקנת מדווחת לשרת בכל פתיחה (card_installed) — כך דף החלוקה מראה למחנך
     ולרכז השכבה מי התקין. בדפדפן רגיל לא נשלח כלום. כשל בדיווח לא משפיע על הכרטיס.
     דורש HAKOL-card-status.sql.
@@ -95,7 +98,7 @@
 </head>
 <body>
 <div class="wrap" id="app"></div>
-<footer>פיתוח: רני בן זאב · v0.7.1</footer>
+<footer>פיתוח: רני בן זאב · v0.7.2</footer>
 
 <script>
 // ===== חיבור =====
@@ -154,7 +157,7 @@ function tokenFromText(text){
 
 function renderHome(){
   app.innerHTML = `
-    <h1>כרטיס תלמיד <span class="badge">v0.7.1</span></h1>
+    <h1>כרטיס תלמיד <span class="badge">v0.7.2</span></h1>
     <p class="muted">${SCHOOL}</p>
     ${IS_APP ? `<div class="tip">עדיין לא הופעל כרטיס בטלפון הזה.<br>פתחו את קישור הכיתה שהמחנך שלח בקבוצה, או:</div>
       <a class="btn" href="late-entry.html?tab=stu">הפעלת הכרטיס שלי</a>` : ''}
@@ -239,7 +242,23 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('card-sw.js', 
 // ===== v0.4.0: הפעלה עצמית מקישור הכיתה =====
 async function renderClaim(cls){
   const saved = ls.get(CARD_KEY);
-  if(saved){ renderCard(saved); return; }
+  if(saved){
+    await renderCard(saved);
+    const box = document.getElementById('inst');
+    if(box){
+      const d = document.createElement('div');
+      d.className = 'inst';
+      d.innerHTML = `<p>לא הכרטיס שלך?</p><button class="btn sec" id="swapCard">הפעלת כרטיס אחר — כיתה ${esc(cls)}</button>`;
+      box.after(d);
+      document.getElementById('swapCard').onclick = () => {
+        if(!confirm('להסיר את הכרטיס הזה מהטלפון ולהפעיל כרטיס אחר?\nבשרת לא נמחק כלום — בעל הכרטיס יוכל לפתוח אותו שוב עם הספרות שלו.')) return;
+        ls.del(CARD_KEY); ls.del(CARD_DATA_KEY);
+        history.replaceState(null,'',location.pathname + '?claim=' + encodeURIComponent(cls));
+        renderClaim(cls);
+      };
+    }
+    return;
+  }
   app.innerHTML = `<p class="muted">טוען…</p>`;
   let rows;
   try{ rows = await rpc('list_class_students', {p_class: cls}); }
@@ -324,7 +343,7 @@ function renderPin(next){
 let scanner = null, busy = false, logTimer = null, searchTimer = null;
 function renderGuard(){
   app.innerHTML = `
-    <h1>🛡️ קליטת מאחרים <span class="badge">v0.7.1</span></h1>
+    <h1>🛡️ קליטת מאחרים <span class="badge">v0.7.2</span></h1>
     <p class="muted">סרקו את כרטיס התלמיד — במצלמה הרגילה או כאן</p>
     <button class="btn" id="startBtn">הפעלת מצלמה</button>
     <div id="reader"></div>
