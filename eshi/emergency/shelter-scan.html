@@ -1,5 +1,9 @@
 <!DOCTYPE html>
-<!-- גרסה: v1.5.1 | תאריך: 2026-11-07 | סריקת מקלטים בשעת חירום — מערכת נפרדת ממסך השומר.
+<!-- גרסה: v1.6.0 | תאריך: 2026-11-07 | סריקת מקלטים בשעת חירום — מערכת נפרדת ממסך השומר.
+  - v1.6.0: (1) מסך הסריקה: פס מצב בולט למעלה. בלי אינטרנט — "📴 אין אינטרנט · הסריקות נשמרות בטלפון",
+    עם הסבר שההנהלה מקבלת את הנתונים דרך ה-QR וכפתור "🔳 הצגת QR להנהלה". עם אינטרנט — ✓ או "שולח…".
+    (2) מסך המנהלת: "📍 מצב המקומות" למעלה — כל מקלט / נקודת כינוס של האירוע עם ✅ התקבל (כמה תלמידים,
+    מתי, דרך אינטרנט / QR / SMS) או ⏳ עדיין לא התקבל, וכפתור גלוי "📷 סריקת QR ממקלט / נקודת כינוס".
   - v1.5.1: כפתור "📊 מסך מנהלת" בולט גם במסך בחירת המקום, כך שמגיעים אליו מכל מסלול.
   - v1.5.0: דף ראשי מסודר. בוחרים סוג אירוע (ירי טילים / רעידת אדמה / אירוע נוסף), ובכל אחד שני כפתורים:
     📷 סריקה בשטח, ו-📊 מסך מנהלת. מסך המנהלת נפתח בלי סיסמה בטלפון שכבר הוגדר עם קוד המקלטים
@@ -43,15 +47,15 @@
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="app-version" content="1.5.1">
+<meta name="app-version" content="1.6.0">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <script>
-/* עדכון אוטומטי (v1.5.1): דפדפן שפתח עותק ישן מהזיכרון — למשל לחיצה על קישור בוואטסאפ בטלפון —
+/* עדכון אוטומטי (v1.6.0): דפדפן שפתח עותק ישן מהזיכרון — למשל לחיצה על קישור בוואטסאפ בטלפון —
    בודק מול האתר אם יש גרסה חדשה יותר, ואם כן טוען אותה מחדש פעם אחת. */
 (function(){
-  var V = '1.5.1', u = location.pathname;
+  var V = '1.6.0', u = location.pathname;
   if(navigator.onLine === false || !window.fetch) return;
   fetch(u + '?vcheck=' + Date.now(), {cache: 'no-store'})
     .then(function(r){ return r.ok ? r.text() : ''; })
@@ -150,6 +154,14 @@
   .mrow .sub{font-size:13px;color:var(--muted);white-space:nowrap}
   .mrow.no{background:#fde8e6} .mrow.no .sub{color:var(--bad);font-weight:700}
   .mrow.yes{background:#e9f7ef} .mrow.away{background:#fff3c4} .mrow.away .sub{color:#7a5a00}
+  .net{border-radius:14px;padding:12px 14px;margin-bottom:10px;font-size:15px;line-height:1.5}
+  .net.off{background:#fff3c4;border:2px solid #f0c84a;color:#5a4300;font-size:16px}
+  .net.wait{background:#fff7e0;color:#7a5a00}
+  .net.on{background:#e3f6ec;color:#0d5d27;font-weight:700;padding:8px 12px;font-size:14px}
+  .prow{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:11px 10px;border-radius:10px;margin-top:6px;font-size:16px;font-weight:700}
+  .prow .sub{font-size:13px;font-weight:600;white-space:nowrap}
+  .prow.got{background:#e3f6ec} .prow.got .sub{color:#0d5d27}
+  .prow.wait{background:#f1f2f5} .prow.wait .sub{color:var(--muted)}
   .qrfull{display:none;position:fixed;inset:0;background:#fff;z-index:50;padding:18px 16px;overflow:auto;text-align:center}
   .qrfull.on{display:block}
   .qrfull h2{font-size:22px;margin:4px 0}
@@ -160,7 +172,7 @@
 <body>
 <div class="top"><h1 id="title">🚨 סריקת מקלט</h1><div class="sub" id="sub"></div></div>
 <div class="wrap" id="app"></div>
-<footer>פיתוח: רני בן זאב · v1.5.1</footer>
+<footer>פיתוח: רני בן זאב · v1.6.0</footer>
 <div id="qrFull" class="qrfull"></div>
 
 <script>
@@ -247,7 +259,7 @@ async function refreshRoster(pin){
   return ROSTER.rows.length;
 }
 
-let online = false;
+let online = navigator.onLine !== false;   // v1.6.0 — מצב התחלתי לפי הדפדפן, עד הסנכרון הראשון
 function setOnline(v){ online = v; renderSub(); }
 
 // ===== סורק מצלמה משותף =====
@@ -283,6 +295,22 @@ const session = () => ls.get('sh_session');
 const pending = () => SCANS.filter(s => !s.synced);
 const current = () => SCANS.filter(s => s.session === session() && s.shelter === shelter());
 
+/* v1.6.0 — פס מצב במסך הסריקה */
+function drawNet(){
+  const b = $('netBanner'); if(!b) return;
+  const p = pending().length;
+  if(!online){
+    b.className = 'net off';
+    b.innerHTML = `<b>📴 אין אינטרנט</b><br>הסריקות נשמרות בטלפון ויישלחו לבד כשהרשת תחזור.
+      <b>כדי שההנהלה תראה אותן עכשיו:</b> הציגו להם את ה-QR של ${evType() === 'quake' ? 'נקודת הכינוס' : 'המקום'} לסריקה.
+      <button class="btn" id="netQr" style="background:#1c2230;margin-top:8px">🔳 הצגת QR להנהלה</button>`;
+    $('netQr').onclick = showSummaryQR;
+  } else if(p){
+    b.className = 'net wait'; b.innerHTML = `⏳ מחובר · שולח ${p} סריקות להנהלה…`;
+  } else {
+    b.className = 'net on'; b.innerHTML = `✓ מחובר — ההנהלה רואה את הסריקות`;
+  }
+}
 function renderSub(){
   const el = $('sub'); if(!el) return;
   const net = online ? '<span class="pill on">מחובר</span>' : '<span class="pill off">📴 אין חיבור</span>';
@@ -291,6 +319,7 @@ function renderSub(){
   } else {
     const p = pending().length;
     el.innerHTML = `${net}${p ? `<span class="pill off">${p} ממתינות לשליחה</span>` : ''}${shelter() ? `<span>${esc(shelter())}</span>` : ''}`;
+    drawNet();
   }
 }
 
@@ -401,6 +430,7 @@ function renderPick(){
 function renderScan(){
   stopScanner();
   app.innerHTML = `
+    <div id="netBanner"></div>
     <button class="shBtn" id="chg">
       <span><span class="nm">📍 ${esc(shelter())}</span><br><span class="ch">לחצו להחלפת מקום · מאז ${hhmm(session())}</span></span>
       <span class="num"><span id="cnt">0</span><small>נסרקו</small></span>
@@ -672,6 +702,34 @@ async function loadServer(force = false){
   renderManage();
 }
 
+/* v1.6.0 — מה התקבל מכל מקום: מספר תלמידים, מתי, ודרך מה */
+function placeInfo(){
+  const pl = mgPlaces(), t0 = since(), info = {};
+  const ok = sh => !pl || pl.includes(sh);
+  const add = (sh, sid, at, via) => { const x = info[sh] ||= {ids: new Set(), last: '', vias: new Set()};
+    if(sid) x.ids.add(sid); if(at > x.last) x.last = at; x.vias.add(via); };
+  SERVER.forEach(r => { if(r.scanned_at >= t0 && ok(r.shelter)) add(r.shelter, r.student_id, r.scanned_at, 'אינטרנט'); });
+  Object.values(MERGED).forEach(m => { if(m.at >= t0 && ok(m.shelter)){
+    add(m.shelter, null, m.at, m.via);
+    m.codes.forEach(c => { const s = fromCode(c); if(s) info[m.shelter].ids.add(s.id); }); } });
+  return info;
+}
+function placesPanel(){
+  const info = placeInfo();
+  const list = [...new Set([...(mgPlaces() || EVENTS.other.places), ...Object.keys(info)])];
+  const got = list.filter(p => info[p]).length;
+  return `<div class="box">
+    <h2>📍 מצב המקומות · התקבלו ${got} מתוך ${list.length}</h2>
+    ${list.map(p => info[p]
+      ? `<div class="prow got"><span>✅ ${esc(p)}</span><span class="sub">${info[p].ids.size} תלמידים · ${hhmm(info[p].last)} · ${esc([...info[p].vias].join(' + '))}</span></div>`
+      : `<div class="prow wait"><span>⏳ ${esc(p)}</span><span class="sub">עדיין לא התקבל</span></div>`).join('')}
+    <button class="btn" id="camBtn" style="background:#2f4f8f">📷 סריקת QR ממקלט / נקודת כינוס</button>
+    <p class="muted" style="margin:6px 2px 0">בלי אינטרנט: ניגשים לאחראי, והוא מציג את ה-QR של המקום.</p>
+    <div id="reader"></div>
+    <div class="result" id="res"></div>
+  </div>`;
+}
+
 function locations(){
   // מיקום אחרון של כל תלמיד: שרת + סיכומים שנסרקו/הודבקו
   const loc = {};
@@ -731,6 +789,7 @@ function renderManage(){
       <div><b style="color:var(--bad)">${missing.length}</b>חסרים</div>
       <div><b style="color:#b07d00">${away.length}</b>לא הגיעו / יצאו</div>
     </div>
+    ${placesPanel()}
     <p class="muted" style="margin:8px 2px">מ-${dayTime(since())}${mgPlaces() ? ' · ' + esc(mgPlaces().join(' / ')) : ''}. "חסרים" = היו בבית הספר הבוקר ולא נמצאו באף מקום.</p>
     <div class="mtabs">
       <button data-v="student" class="${MG_VIEW === 'student' ? 'on' : ''}">👤 לפי תלמיד</button>
@@ -738,13 +797,8 @@ function renderManage(){
       <button data-v="place" class="${MG_VIEW === 'place' ? 'on' : ''}">📍 לפי מקום</button>
     </div>
     <div class="box" style="margin-top:8px">${body}</div>
-    <div class="result" id="res"></div>
-    <details class="more"><summary>איחוד בלי אינטרנט ופעולות…</summary>
-      <div class="row2">
-        <button class="btn small" id="camBtn">📷 סריקת QR סיכום</button>
-        <button class="btn sec small" id="paste">✉️ הדבקת SMS</button>
-      </div>
-      <div id="reader"></div>
+    <details class="more"><summary>הדבקת SMS ופעולות נוספות…</summary>
+      <button class="btn sec small" id="paste">✉️ הדבקת SMS ממקלט</button>
       <div id="pasteArea"></div>
       <div class="row2">
         <button class="btn sec small" id="newEv">אירוע חדש</button>
