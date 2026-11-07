@@ -1,5 +1,8 @@
 <!DOCTYPE html>
-<!-- גרסה: v1.2.1 | תאריך: 2026-11-07 | סריקת מקלטים בשעת חירום — מערכת נפרדת ממסך השומר.
+<!-- גרסה: v1.2.2 | תאריך: 2026-11-07 | סריקת מקלטים בשעת חירום — מערכת נפרדת ממסך השומר.
+  - v1.2.2: הטלפון נפתח תמיד על "מה האירוע?" (אזעקה / רעידת אדמה), כמו במחשב — אלא אם יש אירוע פעיל
+    (סריקה או בחירת מקום ב-3 השעות האחרונות), ואז ממשיכים ישר במסך הסריקה. בחירת סוג אירוע אחרי 3 שעות
+    פותחת אירוע חדש. כפתור המקום 📍 מחזיר ל"מה האירוע?". בוטל הדילוג האוטומטי לטלפון שהוגדר לפני v1.2.0.
   - v1.2.1: עדכון אוטומטי — דף שנפתח מעותק ישן (למשל מקישור בוואטסאפ בטלפון) בודק בטעינה מול האתר
     אם יש גרסה חדשה (meta app-version) ומרענן את עצמו פעם אחת. גם תגיות no-cache.
      v1.2.0 — שני סוגי אירוע באותה מערכת. במסך הראשון בוחרים:
@@ -22,15 +25,15 @@
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="app-version" content="1.2.1">
+<meta name="app-version" content="1.2.2">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <script>
-/* עדכון אוטומטי (v1.2.1): דפדפן שפתח עותק ישן מהזיכרון — למשל לחיצה על קישור בוואטסאפ בטלפון —
+/* עדכון אוטומטי (v1.2.2): דפדפן שפתח עותק ישן מהזיכרון — למשל לחיצה על קישור בוואטסאפ בטלפון —
    בודק מול האתר אם יש גרסה חדשה יותר, ואם כן טוען אותה מחדש פעם אחת. */
 (function(){
-  var V = '1.2.1', u = location.pathname;
+  var V = '1.2.2', u = location.pathname;
   if(navigator.onLine === false || !window.fetch) return;
   fetch(u + '?vcheck=' + Date.now(), {cache: 'no-store'})
     .then(function(r){ return r.ok ? r.text() : ''; })
@@ -124,7 +127,7 @@
 <body>
 <div class="top"><h1 id="title">🚨 סריקת מקלט</h1><div class="sub" id="sub"></div></div>
 <div class="wrap" id="app"></div>
-<footer>פיתוח: רני בן זאב · v1.2.1</footer>
+<footer>פיתוח: רני בן זאב · v1.2.2</footer>
 <div id="qrFull" class="qrfull"></div>
 
 <script>
@@ -248,7 +251,6 @@ function renderSub(){
 }
 
 function shelterRoute(){
-  if(!evType() && shelter()) ls.set('sh_type', 'shelter');   // טלפון שהוגדר לפני v1.2.0
   const ev = EVENTS[evType()];
   $('title').textContent = ev ? `${ev.icon} ${ev.name}` : '🚨 סריקה בחירום';
   if(!ls.get('sh_pin') || !ROSTER) return renderSetup();
@@ -282,6 +284,12 @@ function renderSetup(){
 }
 
 const evType = () => ls.get('sh_type');   // 'shelter' | 'quake'
+const EVENT_TTL = 3 * 3600 * 1000;          // v1.2.2 — אירוע "פעיל" עד 3 שעות מהפעולה האחרונה
+function eventStale(){
+  const t0 = Date.parse(session() || '') || 0;
+  const last = SCANS.filter(x => x.session === session()).reduce((m, x) => Math.max(m, Date.parse(x.at) || 0), t0);
+  return !last || Date.now() - last > EVENT_TTL;
+}
 function renderType(){
   stopScanner(); closeQR();
   $('title').textContent = '🚨 סריקה בחירום';
@@ -292,7 +300,8 @@ function renderType(){
       <button class="quake" data-t="quake">🌍 רעידת אדמה<small>כינוס במגרש ההיסעים / ברחבת האשכול</small></button>
     </div>`;
   app.querySelectorAll('[data-t]').forEach(b => b.onclick = () => {
-    if(evType() && evType() !== b.dataset.t) ls.set('sh_session', new Date().toISOString());   // סוג אחר = אירוע חדש
+    if(!session() || eventStale() || (evType() && evType() !== b.dataset.t))
+      ls.set('sh_session', new Date().toISOString());   // סוג אחר, או אירוע ישן = אירוע חדש
     ls.set('sh_type', b.dataset.t); ls.del('sh_shelter'); shelterRoute();
   });
 }
@@ -352,7 +361,7 @@ function renderScan(){
   $('title').textContent = `${(EVENTS[evType()] || EVENTS.shelter).icon} ${(EVENTS[evType()] || EVENTS.shelter).name}`;
   $('chg').onclick = () => {
     if(current().length && !confirm('להחליף מקום? התלמידים שכבר נסרקו נשארים רשומים במקום הנוכחי.')) return;
-    stopScanner(); ls.del('sh_shelter'); renderPick();
+    stopScanner(); ls.del('sh_shelter'); renderType();
   };
   $('q').oninput = e => renderHits(e.target.value);
   $('clsSel').onchange = e => renderClassCheck(e.target.value);
@@ -643,6 +652,8 @@ function onSummaryScan(text){
 }
 
 // ===== הפעלה =====
+/* v1.2.2 — פתיחה: בלי אירוע פעיל (3 שעות) מתחילים תמיד מ"מה האירוע?" */
+if(!MANAGE && eventStale()){ ls.del('sh_type'); ls.del('sh_shelter'); }
 if(MANAGE) manageRoute(); else shelterRoute();
 renderSub();
 window.addEventListener('online', () => MANAGE ? (ls.get('mg_pass') && loadServer()) : sync());
