@@ -1,5 +1,11 @@
 <!DOCTYPE html>
-<!-- גרסה: v1.4.0 | תאריך: 2026-11-07 | סריקת מקלטים בשעת חירום — מערכת נפרדת ממסך השומר.
+<!-- גרסה: v1.5.1 | תאריך: 2026-11-07 | סריקת מקלטים בשעת חירום — מערכת נפרדת ממסך השומר.
+  - v1.5.1: כפתור "📊 מסך מנהלת" בולט גם במסך בחירת המקום, כך שמגיעים אליו מכל מסלול.
+  - v1.5.0: דף ראשי מסודר. בוחרים סוג אירוע (ירי טילים / רעידת אדמה / אירוע נוסף), ובכל אחד שני כפתורים:
+    📷 סריקה בשטח, ו-📊 מסך מנהלת. מסך המנהלת נפתח בלי סיסמה בטלפון שכבר הוגדר עם קוד המקלטים
+    (בטלפון חדש — קוד המקלטים או סיסמת המנהל, פעם אחת). מסך המנהלת מסונן לסוג האירוע (?mode=manage&event=…)
+    ומציג שלוש תצוגות: 👤 לפי תלמיד (כל החסרים, עם חיפוש), 🏫 לפי כיתה (חסרים / כאן / לא הגיעו-יצאו,
+    לחיצה פותחת שמות), 📍 לפי מקום. דורש HAKOL-shelter-status.sql v2 (shelter_status מקבל גם קוד מקלטים).
   - v1.4.0: 📋 הקראת שמות לפי כיתה — כפתור גלוי במסך הסריקה (בכל סוג אירוע). בוחרים כיתה ורואים את כל
     התלמידים: ✅ ירוק = נסרק/סומן באירוע הזה בטלפון הזה; 🟡 צהוב = לא הגיע לבית הספר הבוקר, או יצא/שוחרר
     (לפי קריאת השמות היומית); לבן = עוד לא נסרק. לחיצה על שם לבן או צהוב מסמנת "נמצא כאן" (נרשם כמו סריקה,
@@ -37,15 +43,15 @@
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="app-version" content="1.4.0">
+<meta name="app-version" content="1.5.1">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <script>
-/* עדכון אוטומטי (v1.4.0): דפדפן שפתח עותק ישן מהזיכרון — למשל לחיצה על קישור בוואטסאפ בטלפון —
+/* עדכון אוטומטי (v1.5.1): דפדפן שפתח עותק ישן מהזיכרון — למשל לחיצה על קישור בוואטסאפ בטלפון —
    בודק מול האתר אם יש גרסה חדשה יותר, ואם כן טוען אותה מחדש פעם אחת. */
 (function(){
-  var V = '1.4.0', u = location.pathname;
+  var V = '1.5.1', u = location.pathname;
   if(navigator.onLine === false || !window.fetch) return;
   fetch(u + '?vcheck=' + Date.now(), {cache: 'no-store'})
     .then(function(r){ return r.ok ? r.text() : ''; })
@@ -137,6 +143,13 @@
   .rollRow.yes{background:#e3f6ec;border-color:#9fd9b5}
   .rollRow.away{background:#fff3c4;border-color:#f0d36b}
   .rollRow.away .sub{color:#7a5a00}
+  .mtabs{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:10px}
+  .mtabs button{padding:12px 4px;border:2px solid var(--line);border-radius:12px;background:#fff;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer}
+  .mtabs button.on{background:#2f4f8f;border-color:#2f4f8f;color:#fff}
+  .mrow{display:flex;justify-content:space-between;gap:8px;padding:10px 8px;border-radius:10px;margin-top:5px;font-size:16px;font-weight:600}
+  .mrow .sub{font-size:13px;color:var(--muted);white-space:nowrap}
+  .mrow.no{background:#fde8e6} .mrow.no .sub{color:var(--bad);font-weight:700}
+  .mrow.yes{background:#e9f7ef} .mrow.away{background:#fff3c4} .mrow.away .sub{color:#7a5a00}
   .qrfull{display:none;position:fixed;inset:0;background:#fff;z-index:50;padding:18px 16px;overflow:auto;text-align:center}
   .qrfull.on{display:block}
   .qrfull h2{font-size:22px;margin:4px 0}
@@ -147,7 +160,7 @@
 <body>
 <div class="top"><h1 id="title">🚨 סריקת מקלט</h1><div class="sub" id="sub"></div></div>
 <div class="wrap" id="app"></div>
-<footer>פיתוח: רני בן זאב · v1.4.0</footer>
+<footer>פיתוח: רני בן זאב · v1.5.1</footer>
 <div id="qrFull" class="qrfull"></div>
 
 <script>
@@ -334,7 +347,26 @@ function renderType(){
       <button class="quake" data-t="quake">🌍 רעידת אדמה<small>כינוס במגרש ההיסעים / ברחבת האשכול</small>${live('quake')}</button>
       <button class="other2" data-t="other">⚠️ אירוע נוסף<small>בחירת מקום</small>${live('other')}</button>
     </div>`;
-  app.querySelectorAll('[data-t]').forEach(b => b.onclick = () => chooseEvent(b.dataset.t));
+  app.querySelectorAll('[data-t]').forEach(b => b.onclick = () => renderHub(b.dataset.t));
+}
+/* v1.5.0 — אחרי בחירת סוג האירוע: סריקה בשטח או מסך מנהלת */
+function renderHub(t){
+  stopScanner(); closeQR();
+  const ev = EVENTS[t]; if(!ev) return renderType();
+  $('title').textContent = `${ev.icon} ${ev.name}`;
+  const active = !eventStale() && evType() === t && shelter();
+  app.innerHTML = `
+    <div class="pickTitle">${ev.icon} ${ev.name}</div>
+    <div class="bigList">
+      <button data-h="scan">📷 סריקה בשטח<small>${active ? `▶ ממשיכים: ${esc(shelter())} · ${current().length} נסרקו` : 'אחראי מקלט / מחנך בנקודת הכינוס'}</small></button>
+      <button class="other2" data-h="manage">📊 מסך מנהלת<small>מי חסר — לפי תלמידים ולפי כיתות</small></button>
+    </div>
+    <button class="linkBtn" id="hubBack">← חזרה לבחירת סוג האירוע</button>`;
+  $('hubBack').onclick = renderType;
+  app.querySelectorAll('[data-h]').forEach(b => b.onclick = () => {
+    if(b.dataset.h === 'scan') return chooseEvent(t);
+    location.href = location.pathname + '?mode=manage&event=' + (t === 'shelter' ? 'missiles' : t);
+  });
 }
 /* בחירת סוג אירוע: אותו סוג באירוע פעיל = ממשיכים בסריקה; אחרת בוחרים מקום (סוג אחר / אירוע ישן = אירוע חדש) */
 function chooseEvent(t){
@@ -353,8 +385,10 @@ function renderPick(){
     <div class="pickTitle">${ev.ask}</div>
     <div class="bigList">${ev.places.map(s => `<button class="${evType() === 'quake' ? 'quake' : ''}" data-s="${esc(s)}">${esc(s)}${ev.hint[s] ? `<small>${esc(ev.hint[s])}</small>` : ''}</button>`).join('')}
       <button class="other" data-s="__other">אחר…</button></div>
+    <button class="btn" id="toMg" style="background:#2f4f8f;margin-top:18px">📊 מסך מנהלת — מי חסר</button>
     <button class="linkBtn" id="chgType">החלפת סוג האירוע</button>`;
   $('chgType').onclick = renderType;
+  $('toMg').onclick = () => location.href = location.pathname + '?mode=manage&event=' + (evType() === 'shelter' ? 'missiles' : (evType() || 'other'));
   app.querySelectorAll('[data-s]').forEach(b => b.onclick = () => {
     let s = b.dataset.s;
     if(s === '__other'){ s = (prompt('שם המקום:') || '').trim(); if(!s) return; }
@@ -594,9 +628,16 @@ let SERVER = ls.get('mg_server', []);       // [{student_id, shelter, scanned_at
 let MERGED = ls.get('mg_merged', {});       // key shelter|stamp|part -> {shelter, at, codes[]}
 const since = () => ls.get('mg_since') || new Date(new Date().setHours(0,0,0,0)).toISOString();
 
+/* v1.5.0 — מסך המנהלת לפי סוג אירוע; נכנסים עם הקוד שכבר שמור בטלפון (מנהל או מקלטים) */
+const MG_EVENT = EVENT_PARAM[params.get('event')] || null;
+const mgPass = () => ls.get('mg_pass') || ls.get('sh_pin');
+const mgPlaces = () => MG_EVENT && MG_EVENT !== 'other' ? EVENTS[MG_EVENT].places : null;
+let MG_VIEW = ls.get('mg_view') || 'student';
+
 function manageRoute(){
-  $('title').textContent = '🚨 חירום — מסך מנהלת';
-  if(!ls.get('mg_pass') || !ROSTER) return renderManageSetup();
+  const ev = EVENTS[MG_EVENT];
+  $('title').textContent = ev ? `📊 ${ev.icon} ${ev.name}` : '📊 חירום — מסך מנהלת';
+  if(!mgPass() || !ROSTER) return renderManageSetup();
   renderManage(); loadServer(true);
 }
 
@@ -604,22 +645,24 @@ function renderManageSetup(){
   app.innerHTML = `
     <div class="box">
       <h2>הגדרת מסך המנהלת</h2>
-      <p class="muted">פעולה חד-פעמית, כשיש אינטרנט. הרשימה נשמרת בטלפון כדי שאפשר יהיה לאחד מקלטים גם בלי אינטרנט.</p>
-      <input id="pass" type="password" placeholder="סיסמת מנהל">
+      <p class="muted">פעולה חד-פעמית, כשיש אינטרנט. מקלידים <b>קוד מקלטים</b> או <b>סיסמת מנהל</b>. הרשימה נשמרת בטלפון, וממנו והלאה המסך נפתח בלי סיסמה — גם בלי אינטרנט.</p>
+      <input id="pass" type="password" placeholder="קוד מקלטים או סיסמת מנהל">
       <button class="btn" id="go">כניסה</button>
       <div class="err" id="err"></div>
-    </div>`;
+    </div>
+    <button class="linkBtn" id="mgHome">← לדף הראשי</button>`;
+  $('mgHome').onclick = () => location.href = location.pathname;
   $('go').onclick = async () => {
     const p = $('pass').value.trim(); if(!p) return;
     $('err').textContent = 'מוריד רשימה…';
     try{ await refreshRoster(p); ls.set('mg_pass', p); setOnline(true); manageRoute(); }
-    catch(e){ $('err').textContent = String(e.message).includes('empty') ? 'סיסמה שגויה' : 'אין חיבור לשרת'; }
+    catch(e){ $('err').textContent = String(e.message).includes('empty') ? 'קוד שגוי' : 'אין חיבור לשרת'; }
   };
 }
 
 async function loadServer(force = false){
   try{
-    const rows = await rpc('shelter_status', {p_pass: ls.get('mg_pass'), p_since: since()});
+    const rows = await rpc('shelter_status', {p_pass: mgPass(), p_since: since()});
     const changed = JSON.stringify(rows || []) !== JSON.stringify(SERVER);
     SERVER = rows || []; ls.set('mg_server', SERVER); setOnline(true);
     // רענון אוטומטי לא מצייר מחדש אם לא השתנה כלום או אם פתוחה הדבקת SMS
@@ -632,7 +675,9 @@ async function loadServer(force = false){
 function locations(){
   // מיקום אחרון של כל תלמיד: שרת + סיכומים שנסרקו/הודבקו
   const loc = {};
-  const put = (sid, sh, at, via) => { if(!loc[sid] || loc[sid].at < at) loc[sid] = {shelter: sh, at, via}; };
+  const pl = mgPlaces();
+  const put = (sid, sh, at, via) => { if(pl && !pl.includes(sh)) return;   // v1.5.0 — רק מקומות של סוג האירוע
+    if(!loc[sid] || loc[sid].at < at) loc[sid] = {shelter: sh, at, via}; };
   const t0 = since();
   SERVER.forEach(r => { if(r.scanned_at >= t0) put(r.student_id, r.shelter, r.scanned_at, 'שרת'); });
   Object.values(MERGED).forEach(m => { if(m.at >= t0) m.codes.forEach(c => { const s = fromCode(c); if(s) put(s.id, m.shelter, m.at, m.via); }); });
@@ -643,68 +688,94 @@ function renderManage(){
   stopScanner();
   const loc = locations();
   const rows = ROSTER.rows;
-  const inShelter = rows.filter(s => loc[s.id]);
+  const inPlace = rows.filter(s => loc[s.id]);
   const missing = rows.filter(s => !loc[s.id] && !awayLabel(s));
-  const notMorning = rows.filter(s => !loc[s.id] && awayLabel(s));
-  const byShelter = {};
-  inShelter.forEach(s => (byShelter[loc[s.id].shelter] ||= []).push(s));
-  const classes = [...new Set(rows.map(s => s.c))];
+  const away = rows.filter(s => !loc[s.id] && awayLabel(s));
+  const byPlace = {};
+  inPlace.forEach(s => (byPlace[loc[s.id].shelter] ||= []).push(s));
+  const classes = [...new Set(rows.map(s => s.c))].sort((a,b) => a.localeCompare(b, 'he', {numeric:true}));
+  const stOf = s => loc[s.id] ? 'yes' : awayLabel(s) ? 'away' : 'no';
+  const row = s => {
+    const k = stOf(s);
+    const sub = k === 'yes' ? `${esc(loc[s.id].shelter)} · ${hhmm(loc[s.id].at)}` : k === 'away' ? esc(awayLabel(s)) : 'חסר/ה';
+    return `<div class="mrow ${k}"><span>${k === 'yes' ? '✅ ' : k === 'away' ? '🟡 ' : '❗ '}${esc(s.n)} <span class="grey">· ${esc(s.c)}</span></span><span class="sub">${sub}</span></div>`;
+  };
+
+  let body = '';
+  if(MG_VIEW === 'student'){
+    const list = missing.slice().sort((a,b) => a.c.localeCompare(b.c, 'he', {numeric:true}) || a.n.localeCompare(b.n, 'he'));
+    body = `<input id="mgq" placeholder="חיפוש תלמיד (כל התלמידים)…" style="margin-top:0">
+      <div id="mgHits"></div>
+      <h2 style="margin-top:12px">❗ חסרים (${list.length})</h2>
+      ${list.length ? list.map(row).join('') : '<p class="muted">אין חסרים 🎉</p>'}
+      ${away.length ? `<details style="margin-top:10px"><summary><span>🟡 לא הגיעו / יצאו</span><span>${away.length}</span></summary>${away.map(row).join('')}</details>` : ''}`;
+  } else if(MG_VIEW === 'class'){
+    const cl = classes.map(c => {
+      const all = rows.filter(s => s.c === c);
+      return {c, all, miss: all.filter(s => stOf(s) === 'no').length, yes: all.filter(s => stOf(s) === 'yes').length, aw: all.filter(s => stOf(s) === 'away').length};
+    }).sort((a,b) => b.miss - a.miss || a.c.localeCompare(b.c, 'he', {numeric:true}));
+    body = cl.map(x => `<details${x.miss ? '' : ''}><summary><span>${esc(x.c)}</span><span>${x.miss ? `<span class="miss">${x.miss} חסרים</span>` : '<span style="color:var(--ok)">✓ כולם</span>'} <span class="tag">· כאן ${x.yes}/${x.all.length}${x.aw ? ` · 🟡 ${x.aw}` : ''}</span></span></summary>
+        ${x.all.slice().sort((a,b) => ({no:0,away:2,yes:1}[stOf(a)] - {no:0,away:2,yes:1}[stOf(b)]) || a.n.localeCompare(b.n, 'he')).map(row).join('')}</details>`).join('');
+  } else {
+    body = Object.keys(byPlace).length ? Object.entries(byPlace).sort((a,b) => b[1].length - a[1].length).map(([sh, list]) => {
+      const last = list.map(s => loc[s.id].at).sort().pop();
+      const vias = [...new Set(list.map(s => loc[s.id].via))].join(', ');
+      return `<details><summary><span>${esc(sh)}</span><span>${list.length} <span class="tag">· ${hhmm(last)} · ${esc(vias)}</span></span></summary>
+        ${list.sort((a,b) => a.c.localeCompare(b.c, 'he', {numeric:true}) || a.n.localeCompare(b.n, 'he')).map(row).join('')}</details>`;
+    }).join('') : '<p class="muted">עדיין אין נתונים מהשטח</p>';
+  }
 
   app.innerHTML = `
     <div class="stat" id="stat">
-      <div><b style="color:var(--ok)">${inShelter.length}</b>נסרקו</div>
+      <div><b style="color:var(--ok)">${inPlace.length}</b>נמצאו</div>
       <div><b style="color:var(--bad)">${missing.length}</b>חסרים</div>
-      <div><b style="color:#b07d00">${notMorning.length}</b>לא הגיעו / יצאו</div>
+      <div><b style="color:#b07d00">${away.length}</b>לא הגיעו / יצאו</div>
     </div>
-    <p class="muted">אירוע מ-${dayTime(since())}. "חסרים" = לא נסרקו באף מקום (מקלט או נקודת כינוס) ולא סומנו בבוקר כנעדרים או כמי שיצאו (לפי הרשימה מ-${hhmm(ROSTER.at)}).</p>
-    <div class="row2">
-      <button class="btn small" id="camBtn">📷 סריקת QR סיכום</button>
-      <button class="btn sec small" id="paste">✉️ הדבקת SMS</button>
+    <p class="muted" style="margin:8px 2px">מ-${dayTime(since())}${mgPlaces() ? ' · ' + esc(mgPlaces().join(' / ')) : ''}. "חסרים" = היו בבית הספר הבוקר ולא נמצאו באף מקום.</p>
+    <div class="mtabs">
+      <button data-v="student" class="${MG_VIEW === 'student' ? 'on' : ''}">👤 לפי תלמיד</button>
+      <button data-v="class" class="${MG_VIEW === 'class' ? 'on' : ''}">🏫 לפי כיתה</button>
+      <button data-v="place" class="${MG_VIEW === 'place' ? 'on' : ''}">📍 לפי מקום</button>
     </div>
-    <div id="reader"></div>
+    <div class="box" style="margin-top:8px">${body}</div>
     <div class="result" id="res"></div>
-    <div id="pasteArea"></div>
-
-    <div class="box"><h2>לפי מקום</h2>
-      ${Object.keys(byShelter).length ? Object.entries(byShelter).sort((a,b) => b[1].length - a[1].length).map(([sh, list]) => {
-        const last = list.map(s => loc[s.id].at).sort().pop();
-        const vias = [...new Set(list.map(s => loc[s.id].via))].join(', ');
-        return `<details><summary><span>${esc(sh)}</span><span>${list.length} <span class="tag">· ${hhmm(last)} · ${esc(vias)}</span></span></summary>
-          <div class="list">${list.sort((a,b) => a.c.localeCompare(b.c, 'he') || a.n.localeCompare(b.n, 'he')).map(s => `<div class="r"><span>${esc(s.n)}</span><span class="grey">${esc(s.c)}</span></div>`).join('')}</div></details>`;
-      }).join('') : '<p class="muted">עדיין אין נתונים מהמקלטים</p>'}
-    </div>
-
-    <div class="box"><h2>חסרים לפי כיתה</h2>
-      ${classes.map(c => {
-        const all = rows.filter(s => s.c === c);
-        const miss = all.filter(s => !loc[s.id] && !awayLabel(s)), gone = all.filter(s => !loc[s.id] && awayLabel(s));
-        if(!miss.length && !gone.length) return '';
-        return `<details${miss.length ? ' open' : ''}><summary><span>${esc(c)}</span><span><span class="miss">${miss.length} חסרים</span> <span class="tag">· ${all.length - miss.length - gone.length}/${all.length} נסרקו</span></span></summary>
-          <div class="list">${miss.map(s => `<div class="r"><span class="miss">${esc(s.n)}</span><span></span></div>`).join('')}
-          ${gone.map(s => `<div class="r"><span class="grey">${esc(s.n)}</span><span class="grey">${esc(awayLabel(s) || 'לא סומן בבוקר')}</span></div>`).join('')}</div></details>`;
-      }).join('') || '<p class="muted">אין חסרים 🎉</p>'}
-    </div>
-
+    <details class="more"><summary>איחוד בלי אינטרנט ופעולות…</summary>
+      <div class="row2">
+        <button class="btn small" id="camBtn">📷 סריקת QR סיכום</button>
+        <button class="btn sec small" id="paste">✉️ הדבקת SMS</button>
+      </div>
+      <div id="reader"></div>
+      <div id="pasteArea"></div>
+      <div class="row2">
+        <button class="btn sec small" id="newEv">אירוע חדש</button>
+        <button class="btn sec small" id="upd">עדכון רשימת תלמידים</button>
+      </div>
+    </details>
     <div class="row2">
       <button class="btn sec small" id="ref">🔄 רענון</button>
-      <button class="btn sec small" id="newEv">אירוע חדש</button>
-    </div>
-    <button class="btn sec small" id="upd">עדכון רשימת תלמידים</button>`;
+      <button class="btn sec small" id="mgHome">← דף ראשי</button>
+    </div>`;
 
+  app.querySelectorAll('.mtabs [data-v]').forEach(b => b.onclick = () => { MG_VIEW = b.dataset.v; ls.set('mg_view', MG_VIEW); renderManage(); });
+  if($('mgq')) $('mgq').oninput = e => {
+    const q = e.target.value.trim();
+    $('mgHits').innerHTML = q.length < 2 ? '' : (rows.filter(s => s.n.includes(q)).slice(0, 15).map(row).join('') || '<p class="muted">לא נמצא</p>');
+  };
   window._camStart = () => startScanner(onSummaryScan);
   $('camBtn').onclick = window._camStart;
   $('paste').onclick = () => {
-    $('pasteArea').innerHTML = `<div class="box"><p class="muted">העתיקו את כל הודעת ה-SMS מהמקלט והדביקו כאן. אפשר כמה הודעות יחד.</p>
+    $('pasteArea').innerHTML = `<div class="box"><p class="muted">העתיקו את כל הודעת ה-SMS מהשטח והדביקו כאן. אפשר כמה הודעות יחד.</p>
       <textarea id="pt"></textarea><button class="btn small" id="ptGo">איחוד</button></div>`;
-    $('ptGo').onclick = () => { const n = mergeText($('pt').value, 'SMS'); alert(n ? `אוחדו ${n} חלקים` : 'לא נמצא קוד מקלט בהודעה'); if(n) renderManage(); };
+    $('ptGo').onclick = () => { const n = mergeText($('pt').value, 'SMS'); alert(n ? `אוחדו ${n} חלקים` : 'לא נמצא קוד בהודעה'); if(n) renderManage(); };
   };
   $('ref').onclick = () => loadServer(true);
+  $('mgHome').onclick = () => location.href = location.pathname;
   $('newEv').onclick = () => {
     if(!confirm('להתחיל מעקב אירוע חדש מעכשיו? סריקות קודמות לא ייספרו.')) return;
     ls.set('mg_since', new Date(Date.now() - 5*60000).toISOString()); MERGED = {}; ls.set('mg_merged', MERGED); loadServer(true);
   };
   $('upd').onclick = async () => {
-    try{ await refreshRoster(ls.get('mg_pass')); setOnline(true); loadServer(true); }
+    try{ await refreshRoster(mgPass()); setOnline(true); loadServer(true); }
     catch(e){ setOnline(false); alert('אין חיבור. הרשימה הקודמת נשארת.'); }
   };
   renderSub();
@@ -743,15 +814,15 @@ else{
   if(pe) chooseEvent(pe); else renderType();
 }
 renderSub();
-window.addEventListener('online', () => MANAGE ? (ls.get('mg_pass') && loadServer()) : sync());
+window.addEventListener('online', () => MANAGE ? (mgPass() && loadServer()) : sync());
 window.addEventListener('offline', () => setOnline(false));
 setInterval(() => {
-  if(MANAGE){ if(ls.get('mg_pass') && !scanner) loadServer(); }
+  if(MANAGE){ if(mgPass() && !scanner) loadServer(); }
   else sync();
 }, 20000);
 // רשימת התלמידים מתרעננת לבד כל 10 דקות כשיש חיבור (כדי שסטטוס הבוקר יהיה עדכני)
 setInterval(() => {
-  const k = ls.get(MANAGE ? 'mg_pass' : 'sh_pin');
+  const k = MANAGE ? mgPass() : ls.get('sh_pin');
   if(k && ROSTER && Date.now() - new Date(ROSTER.at).getTime() > 10*60000) refreshRoster(k).then(() => setOnline(true)).catch(() => {});
 }, 60000);
 if(!MANAGE) sync();
