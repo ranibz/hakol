@@ -1,5 +1,11 @@
 <!DOCTYPE html>
-<!-- גרסה: v1.1.0 | תאריך: 2026-11-07 | סריקת מקלטים בשעת חירום — מערכת נפרדת ממסך השומר.
+<!-- גרסה: v1.2.0 | תאריך: 2026-11-07 | סריקת מקלטים בשעת חירום — מערכת נפרדת ממסך השומר.
+     v1.2.0 — שני סוגי אירוע באותה מערכת. במסך הראשון בוחרים:
+       🚨 אזעקה — מקלטים (כמו קודם), או 🌍 רעידת אדמה — נקודות כינוס: מגרש ההיסעים (חטיבה עליונה, י–יב)
+       ורחבת האשכול (חטיבת ביניים, ז–ט). שם המחנכים סורקים.
+       ברעידת אדמה: תלמיד שנסרק בנקודה שאינה של החטיבה שלו נרשם, עם התראה כתומה ושם הנקודה הנכונה.
+       "עוד…" ← "📋 בדיקת כיתה": בוחרים כיתה ורואים מי מהכיתה נסרק בטלפון הזה באירוע ומי לא.
+       מסך המנהלת מציג "לפי מקום" (מקלט או נקודת כינוס). אותן טבלאות ואותו פורמט QR — בלי שינוי SQL.
      v1.1.0 — מסך אחראי המקלט פשוט מאוד:
        בחירת מקלט: כפתור ענק לכל מקלט, אחד מתחת לשני, בכל רוחב המסך.
        מסך הסריקה: למעלה כפתור גדול עם שם המקלט ומונה (לחיצה = החלפת מקלט), כפתור ענק "📷 סריקה",
@@ -80,6 +86,10 @@
   details.more{margin-top:14px}
   details.more>summary{justify-content:center;color:var(--muted);font-weight:700}
   details.more .box{box-shadow:none;border:1px solid var(--line)}
+  .bigList button small{display:block;font-size:15px;font-weight:600;opacity:.9;margin-top:4px}
+  .bigList button.quake{background:#8a5a00}
+  .linkBtn{display:block;margin:16px auto 0;background:none;border:0;color:var(--muted);font-size:15px;text-decoration:underline;font-family:inherit;cursor:pointer}
+  .result.warn{background:var(--warn)}
   .qrfull{display:none;position:fixed;inset:0;background:#fff;z-index:50;padding:18px 16px;overflow:auto;text-align:center}
   .qrfull.on{display:block}
   .qrfull h2{font-size:22px;margin:4px 0}
@@ -90,7 +100,7 @@
 <body>
 <div class="top"><h1 id="title">🚨 סריקת מקלט</h1><div class="sub" id="sub"></div></div>
 <div class="wrap" id="app"></div>
-<footer>פיתוח: רני בן זאב · v1.1.0</footer>
+<footer>פיתוח: רני בן זאב · v1.2.0</footer>
 <div id="qrFull" class="qrfull"></div>
 
 <script>
@@ -98,6 +108,16 @@
 const SB_URL = 'https://skfriefqnoxfzmamcokd.supabase.co';
 const SB_KEY = 'sb_publishable_Qx7EDPbdyYE9iv7uMQBKhQ_Aeojd_Q0';
 const SHELTERS = ['מקלט תקשורת','מקלט מתמטיקה','מקלט גאוגרפיה','מקלט מוסיקה','אודיטוריום אשכול','ספריה'];
+/* v1.2.0 — סוגי אירוע. ברעידת אדמה כל חטיבה מתכנסת בנקודה משלה, והמחנכים סורקים שם. */
+const QUAKE_POINTS = {upper: 'מגרש ההיסעים', middle: 'רחבת האשכול'};
+const EVENTS = {
+  shelter: {icon: '🚨', name: 'אזעקה — מקלטים', ask: 'באיזה מקלט אתה?', places: SHELTERS, hint: {}},
+  quake:   {icon: '🌍', name: 'רעידת אדמה — נקודות כינוס', ask: 'באיזו נקודת כינוס אתה?',
+            places: [QUAKE_POINTS.upper, QUAKE_POINTS.middle],
+            hint: {[QUAKE_POINTS.upper]: 'חטיבה עליונה · י–יב', [QUAKE_POINTS.middle]: 'חטיבת ביניים · ז–ט'}}
+};
+const levelOf = c => { c = String(c || '').trim();
+  return /^(יא|יב|י)(?![א-ת])/.test(c) ? 'upper' : /^(ז|ח|ט)(?![א-ת])/.test(c) ? 'middle' : null; };
 const CHUNK = 60;   // תלמידים בכל QR סיכום
 
 async function rpc(fn, body, ms = 8000){
@@ -204,8 +224,11 @@ function renderSub(){
 }
 
 function shelterRoute(){
-  $('title').textContent = '🚨 סריקת מקלט';
+  if(!evType() && shelter()) ls.set('sh_type', 'shelter');   // טלפון שהוגדר לפני v1.2.0
+  const ev = EVENTS[evType()];
+  $('title').textContent = ev ? `${ev.icon} ${ev.name}` : '🚨 סריקה בחירום';
   if(!ls.get('sh_pin') || !ROSTER) return renderSetup();
+  if(!ev) return renderType();
   if(!shelter()) return renderPick();
   renderScan();
 }
@@ -234,12 +257,32 @@ function renderSetup(){
   };
 }
 
+const evType = () => ls.get('sh_type');   // 'shelter' | 'quake'
+function renderType(){
+  stopScanner(); closeQR();
+  $('title').textContent = '🚨 סריקה בחירום';
+  app.innerHTML = `
+    <div class="pickTitle">מה האירוע?</div>
+    <div class="bigList">
+      <button data-t="shelter">🚨 אזעקה<small>כניסה למקלטים</small></button>
+      <button class="quake" data-t="quake">🌍 רעידת אדמה<small>כינוס במגרש ההיסעים / ברחבת האשכול</small></button>
+    </div>`;
+  app.querySelectorAll('[data-t]').forEach(b => b.onclick = () => {
+    if(evType() && evType() !== b.dataset.t) ls.set('sh_session', new Date().toISOString());   // סוג אחר = אירוע חדש
+    ls.set('sh_type', b.dataset.t); ls.del('sh_shelter'); shelterRoute();
+  });
+}
+
 function renderPick(){
   stopScanner(); closeQR();
+  const ev = EVENTS[evType()] || EVENTS.shelter;
+  $('title').textContent = `${ev.icon} ${ev.name}`;
   app.innerHTML = `
-    <div class="pickTitle">באיזה מקלט אתה?</div>
-    <div class="bigList">${SHELTERS.map(s => `<button data-s="${esc(s)}">${esc(s)}</button>`).join('')}
-      <button class="other" data-s="__other">אחר…</button></div>`;
+    <div class="pickTitle">${ev.ask}</div>
+    <div class="bigList">${ev.places.map(s => `<button class="${evType() === 'quake' ? 'quake' : ''}" data-s="${esc(s)}">${esc(s)}${ev.hint[s] ? `<small>${esc(ev.hint[s])}</small>` : ''}</button>`).join('')}
+      <button class="other" data-s="__other">אחר…</button></div>
+    <button class="linkBtn" id="chgType">החלפת סוג האירוע</button>`;
+  $('chgType').onclick = renderType;
   app.querySelectorAll('[data-s]').forEach(b => b.onclick = () => {
     let s = b.dataset.s;
     if(s === '__other'){ s = (prompt('שם המקום:') || '').trim(); if(!s) return; }
@@ -253,13 +296,13 @@ function renderScan(){
   stopScanner();
   app.innerHTML = `
     <button class="shBtn" id="chg">
-      <span><span class="nm">📍 ${esc(shelter())}</span><br><span class="ch">לחצו להחלפת מקלט · מאז ${hhmm(session())}</span></span>
+      <span><span class="nm">📍 ${esc(shelter())}</span><br><span class="ch">לחצו להחלפת מקום · מאז ${hhmm(session())}</span></span>
       <span class="num"><span id="cnt">0</span><small>נסרקו</small></span>
     </button>
     <button class="btn huge" id="camBtn">📷 סריקה</button>
     <div id="reader"></div>
     <div class="result" id="res"></div>
-    <button class="btn qrbig" id="qrSum">🔳 QR נתוני המקלט</button>
+    <button class="btn qrbig" id="qrSum">🔳 QR נתוני ${evType() === 'quake' ? 'נקודת הכינוס' : 'המקלט'}</button>
 
     <details class="more"><summary>עוד…</summary>
       <div class="box">
@@ -267,8 +310,13 @@ function renderScan(){
         <input id="q" placeholder="חיפוש לפי שם…">
         <div id="hits"></div>
       </div>
+      <div class="box">
+        <h2>📋 בדיקת כיתה</h2>
+        <select id="clsSel"><option value="">בחרו כיתה…</option>${[...new Set(ROSTER.rows.map(r => r.c))].sort((a,b) => a.localeCompare(b, 'he', {numeric:true})).map(c => `<option>${esc(c)}</option>`).join('')}</select>
+        <div id="clsOut"></div>
+      </div>
       <button class="btn sec" id="sms">✉️ שליחת הנתונים ב-SMS</button>
-      <div class="box"><h2>נסרקו במקלט</h2><div class="list" id="list"></div></div>
+      <div class="box"><h2>נסרקו כאן</h2><div class="list" id="list"></div></div>
       <div class="row2">
         <button class="btn sec small" id="newEv">אירוע חדש</button>
         <button class="btn sec small" id="upd">עדכון רשימת תלמידים</button>
@@ -277,11 +325,13 @@ function renderScan(){
     </details>`;
   window._camStart = () => startScanner(onShelterScan);
   $('camBtn').onclick = window._camStart;
+  $('title').textContent = `${(EVENTS[evType()] || EVENTS.shelter).icon} ${(EVENTS[evType()] || EVENTS.shelter).name}`;
   $('chg').onclick = () => {
-    if(current().length && !confirm('להחליף מקלט? התלמידים שכבר נסרקו נשארים רשומים במקלט הנוכחי.')) return;
+    if(current().length && !confirm('להחליף מקום? התלמידים שכבר נסרקו נשארים רשומים במקום הנוכחי.')) return;
     stopScanner(); ls.del('sh_shelter'); renderPick();
   };
   $('q').oninput = e => renderHits(e.target.value);
+  $('clsSel').onchange = e => renderClassCheck(e.target.value);
   $('qrSum').onclick = showSummaryQR;
   $('sms').onclick = sendSMS;
   $('newEv').onclick = () => {
@@ -302,6 +352,20 @@ function renderList(){
     const st = byId[s.sid] || {n:'(לא ברשימה)', c:''};
     return `<div class="r"><span>${esc(st.n)} <span class="grey">· ${esc(st.c)}</span></span><span class="grey">${hhmm(s.at)}${s.synced ? '' : ' ⏳'}</span></div>`;
   }).join('') : '<p class="muted">עדיין לא נסרקו תלמידים</p>';
+}
+
+/* v1.2.0 — מי מהכיתה נסרק בטלפון הזה באירוע הנוכחי (בכל מקום) */
+function renderClassCheck(c){
+  const el = $('clsOut'); if(!el) return;
+  if(!c){ el.innerHTML = ''; return; }
+  const here = {};
+  SCANS.filter(x => x.session === session()).forEach(x => { if(!here[x.sid] || here[x.sid].at > x.at) here[x.sid] = x; });
+  const all = ROSTER.rows.filter(r => r.c === c);
+  const yes = all.filter(r => here[r.id]), no = all.filter(r => !here[r.id]);
+  el.innerHTML = `<p class="muted" style="margin-top:8px"><b style="color:var(--ok)">${yes.length}</b> נסרקו · <b style="color:var(--bad)">${no.length}</b> לא נסרקו בטלפון הזה</p>
+    <div class="list">${no.map(r => `<div class="r"><span class="miss">${esc(r.n)}</span><span class="grey">${r.a ? 'לא סומן בבוקר' : ''}</span></div>`).join('')}
+    ${yes.map(r => `<div class="r"><span>✅ ${esc(r.n)}</span><span class="grey">${hhmm(here[r.id].at)}</span></div>`).join('')}</div>
+    <p class="muted" style="font-size:12px">רק סריקות מהטלפון הזה. תלמיד שנסרק בטלפון אחר יופיע כאן כ"לא נסרק" — התמונה המלאה במסך המנהלת.</p>`;
 }
 
 function renderHits(q){
@@ -330,7 +394,13 @@ function addScan(st, src){
   if(dup){ beep(false); showResult('dup', `<div class="big">${esc(st.n)}</div><div>${esc(st.c)} · כבר נסרק ב-${hhmm(dup.at)}</div>`); return; }
   SCANS.push({id: uid(), sid: st.id, shelter: shelter(), at: new Date().toISOString(), session: session(), src, synced: false});
   saveScans(); beep(true);
-  showResult('ok', `<div style="font-size:26px">✅</div><div class="big">${esc(st.n)}</div><div>${esc(st.c)}</div>`);
+  /* v1.2.0 — רעידת אדמה: תלמיד בנקודה של החטיבה השנייה נרשם, עם התראה */
+  const right = evType() === 'quake' ? QUAKE_POINTS[levelOf(st.c)] : null;
+  if(right && right !== shelter())
+    showResult('warn', `<div style="font-size:26px">✅ נרשם</div><div class="big">${esc(st.n)}</div><div>${esc(st.c)}</div>
+      <div style="margin-top:6px;font-weight:700">⚠️ נקודת הכינוס של החטיבה שלו/ה: ${esc(right)}</div>`);
+  else showResult('ok', `<div style="font-size:26px">✅</div><div class="big">${esc(st.n)}</div><div>${esc(st.c)}</div>`);
+  if($('clsSel') && $('clsSel').value) renderClassCheck($('clsSel').value);
   renderList(); renderSub(); sync();
 }
 
@@ -411,7 +481,7 @@ let MERGED = ls.get('mg_merged', {});       // key shelter|stamp|part -> {shelte
 const since = () => ls.get('mg_since') || new Date(new Date().setHours(0,0,0,0)).toISOString();
 
 function manageRoute(){
-  $('title').textContent = '🚨 מקלטים — מסך מנהלת';
+  $('title').textContent = '🚨 חירום — מסך מנהלת';
   if(!ls.get('mg_pass') || !ROSTER) return renderManageSetup();
   renderManage(); loadServer(true);
 }
@@ -468,11 +538,11 @@ function renderManage(){
 
   app.innerHTML = `
     <div class="stat" id="stat">
-      <div><b style="color:var(--ok)">${inShelter.length}</b>במקלטים</div>
+      <div><b style="color:var(--ok)">${inShelter.length}</b>נסרקו</div>
       <div><b style="color:var(--bad)">${missing.length}</b>חסרים</div>
       <div><b class="grey">${notMorning.length}</b>לא סומנו בבוקר</div>
     </div>
-    <p class="muted">אירוע מ-${dayTime(since())}. "חסרים" = לא נסרקו באף מקלט ולא סומנו כנעדרים בקריאת השמות של הבוקר (לפי הרשימה מ-${hhmm(ROSTER.at)}).</p>
+    <p class="muted">אירוע מ-${dayTime(since())}. "חסרים" = לא נסרקו באף מקום (מקלט או נקודת כינוס) ולא סומנו כנעדרים בקריאת השמות של הבוקר (לפי הרשימה מ-${hhmm(ROSTER.at)}).</p>
     <div class="row2">
       <button class="btn small" id="camBtn">📷 סריקת QR סיכום</button>
       <button class="btn sec small" id="paste">✉️ הדבקת SMS</button>
@@ -481,7 +551,7 @@ function renderManage(){
     <div class="result" id="res"></div>
     <div id="pasteArea"></div>
 
-    <div class="box"><h2>לפי מקלט</h2>
+    <div class="box"><h2>לפי מקום</h2>
       ${Object.keys(byShelter).length ? Object.entries(byShelter).sort((a,b) => b[1].length - a[1].length).map(([sh, list]) => {
         const last = list.map(s => loc[s.id].at).sort().pop();
         const vias = [...new Set(list.map(s => loc[s.id].via))].join(', ');
@@ -495,7 +565,7 @@ function renderManage(){
         const all = rows.filter(s => s.c === c);
         const miss = all.filter(s => !loc[s.id] && !s.a), gone = all.filter(s => !loc[s.id] && s.a);
         if(!miss.length && !gone.length) return '';
-        return `<details${miss.length ? ' open' : ''}><summary><span>${esc(c)}</span><span><span class="miss">${miss.length} חסרים</span> <span class="tag">· ${all.length - miss.length - gone.length}/${all.length} במקלט</span></span></summary>
+        return `<details${miss.length ? ' open' : ''}><summary><span>${esc(c)}</span><span><span class="miss">${miss.length} חסרים</span> <span class="tag">· ${all.length - miss.length - gone.length}/${all.length} נסרקו</span></span></summary>
           <div class="list">${miss.map(s => `<div class="r"><span class="miss">${esc(s.n)}</span><span></span></div>`).join('')}
           ${gone.map(s => `<div class="r"><span class="grey">${esc(s.n)}</span><span class="grey">לא סומן בבוקר</span></div>`).join('')}</div></details>`;
       }).join('') || '<p class="muted">אין חסרים 🎉</p>'}
