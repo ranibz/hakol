@@ -1,5 +1,12 @@
 <!DOCTYPE html>
-<!-- גרסה: v1.3.0 | תאריך: 2026-11-07 | סריקת מקלטים בשעת חירום — מערכת נפרדת ממסך השומר.
+<!-- גרסה: v1.4.0 | תאריך: 2026-11-07 | סריקת מקלטים בשעת חירום — מערכת נפרדת ממסך השומר.
+  - v1.4.0: 📋 הקראת שמות לפי כיתה — כפתור גלוי במסך הסריקה (בכל סוג אירוע). בוחרים כיתה ורואים את כל
+    התלמידים: ✅ ירוק = נסרק/סומן באירוע הזה בטלפון הזה; 🟡 צהוב = לא הגיע לבית הספר הבוקר, או יצא/שוחרר
+    (לפי קריאת השמות היומית); לבן = עוד לא נסרק. לחיצה על שם לבן או צהוב מסמנת "נמצא כאן" (נרשם כמו סריקה,
+    source=rollcall); לחיצה על ירוק שעוד לא נשלח לשרת מבטלת. בוטלה "בדיקת כיתה" שהייתה תחת "עוד…".
+    shelter_roster מחזיר גם status מ-daily_attendance (HAKOL-shelter-status.sql); בלי ה-SQL הצהוב מבוסס
+    על "נעדר" בלבד. במסך המנהלת — תלמיד שיצא/שוחרר ולא נסרק לא נספר ב"חסרים" אלא ב"לא הגיעו / יצאו",
+    וליד שמו מופיע הסטטוס מהבוקר.
   - v1.3.0: דף ראשי — בכל פתיחה (גם מוואטסאפ, גם מהאייקון) מופיע "בחרו סוג אירוע" עם שלושה כפתורים:
     🚀 ירי טילים (מקלטים) · 🌍 רעידת אדמה (נקודות כינוס) · ⚠️ אירוע נוסף (כל המקומות + אחר).
     אם יש אירוע פעיל (3 שעות), על הכפתור שלו כתוב "▶ ממשיכים: <מקום> · <מספר> נסרקו", ולחיצה עליו
@@ -30,15 +37,15 @@
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="app-version" content="1.3.0">
+<meta name="app-version" content="1.4.0">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <script>
-/* עדכון אוטומטי (v1.3.0): דפדפן שפתח עותק ישן מהזיכרון — למשל לחיצה על קישור בוואטסאפ בטלפון —
+/* עדכון אוטומטי (v1.4.0): דפדפן שפתח עותק ישן מהזיכרון — למשל לחיצה על קישור בוואטסאפ בטלפון —
    בודק מול האתר אם יש גרסה חדשה יותר, ואם כן טוען אותה מחדש פעם אחת. */
 (function(){
-  var V = '1.3.0', u = location.pathname;
+  var V = '1.4.0', u = location.pathname;
   if(navigator.onLine === false || !window.fetch) return;
   fetch(u + '?vcheck=' + Date.now(), {cache: 'no-store'})
     .then(function(r){ return r.ok ? r.text() : ''; })
@@ -124,6 +131,12 @@
   .bigList button .go{display:block;margin-top:8px;font-size:15px;font-weight:700;background:rgba(255,255,255,.22);border-radius:10px;padding:6px}
   .linkBtn{display:block;margin:16px auto 0;background:none;border:0;color:var(--muted);font-size:15px;text-decoration:underline;font-family:inherit;cursor:pointer}
   .result.warn{background:var(--warn)}
+  .rollRow{width:100%;display:flex;justify-content:space-between;align-items:center;gap:8px;padding:14px 12px;margin-top:6px;
+       border:2px solid var(--line);border-radius:12px;background:#fff;font-size:18px;font-weight:700;font-family:inherit;cursor:pointer;text-align:right;color:var(--ink)}
+  .rollRow .sub{font-size:13px;font-weight:600;color:var(--muted);white-space:nowrap}
+  .rollRow.yes{background:#e3f6ec;border-color:#9fd9b5}
+  .rollRow.away{background:#fff3c4;border-color:#f0d36b}
+  .rollRow.away .sub{color:#7a5a00}
   .qrfull{display:none;position:fixed;inset:0;background:#fff;z-index:50;padding:18px 16px;overflow:auto;text-align:center}
   .qrfull.on{display:block}
   .qrfull h2{font-size:22px;margin:4px 0}
@@ -134,7 +147,7 @@
 <body>
 <div class="top"><h1 id="title">🚨 סריקת מקלט</h1><div class="sub" id="sub"></div></div>
 <div class="wrap" id="app"></div>
-<footer>פיתוח: רני בן זאב · v1.3.0</footer>
+<footer>פיתוח: רני בן זאב · v1.4.0</footer>
 <div id="qrFull" class="qrfull"></div>
 
 <script>
@@ -153,6 +166,14 @@ const EVENTS = {
             places: [...SHELTERS, QUAKE_POINTS.upper, QUAKE_POINTS.middle], hint: {}}
 };
 const EVENT_PARAM = {missiles: 'shelter', shelter: 'shelter', quake: 'quake', other: 'other'};
+/* v1.4.0 — מצב הבוקר מקריאת השמות: לא הגיע / יצא (שוחרר) מסומנים בצהוב */
+function awayLabel(s){
+  const st = String(s.st || '').toLowerCase();
+  if(s.a || /absent|נעדר|חסר|לא הגיע/.test(st)) return 'לא הגיע הבוקר';
+  if(/releas|left|exit|out|יצא|שוחרר|שחרור/.test(st)) return 'יצא מבית הספר';
+  if(/excus|מוצדק|מאושר/.test(st)) return 'היעדרות מאושרת';
+  return '';
+}
 const levelOf = c => { c = String(c || '').trim();
   return /^(יא|יב|י)(?![א-ת])/.test(c) ? 'upper' : /^(ז|ח|ט)(?![א-ת])/.test(c) ? 'middle' : null; };
 const CHUNK = 60;   // תלמידים בכל QR סיכום
@@ -208,7 +229,7 @@ const fromCode = c => c.startsWith('#') ? byId[c.slice(1)] : byTok8[c];
 async function refreshRoster(pin){
   const rows = await rpc('shelter_roster', {p_pin: pin}, 15000);
   if(!rows || !rows.length) throw new Error('empty');
-  ROSTER = {at: new Date().toISOString(), rows: rows.map(r => ({id:r.student_id, t:r.token, n:r.name, c:r.class, a:!!r.absent}))};
+  ROSTER = {at: new Date().toISOString(), rows: rows.map(r => ({id:r.student_id, t:r.token, n:r.name, c:r.class, a:!!r.absent, st:r.status || ''}))};
   ls.set('sh_roster', ROSTER); indexRoster();
   return ROSTER.rows.length;
 }
@@ -354,17 +375,13 @@ function renderScan(){
     <div id="reader"></div>
     <div class="result" id="res"></div>
     <button class="btn qrbig" id="qrSum">🔳 QR נתוני ${evType() === 'quake' ? 'נקודת הכינוס' : 'המקלט'}</button>
+    <button class="btn" id="rollBtn" style="background:#2f4f8f;font-size:19px;padding:16px">📋 הקראת שמות לפי כיתה</button>
 
     <details class="more"><summary>עוד…</summary>
       <div class="box">
         <h2>תלמיד בלי טלפון</h2>
         <input id="q" placeholder="חיפוש לפי שם…">
         <div id="hits"></div>
-      </div>
-      <div class="box">
-        <h2>📋 בדיקת כיתה</h2>
-        <select id="clsSel"><option value="">בחרו כיתה…</option>${[...new Set(ROSTER.rows.map(r => r.c))].sort((a,b) => a.localeCompare(b, 'he', {numeric:true})).map(c => `<option>${esc(c)}</option>`).join('')}</select>
-        <div id="clsOut"></div>
       </div>
       <button class="btn sec" id="sms">✉️ שליחת הנתונים ב-SMS</button>
       <div class="box"><h2>נסרקו כאן</h2><div class="list" id="list"></div></div>
@@ -382,7 +399,7 @@ function renderScan(){
     stopScanner(); ls.del('sh_shelter'); renderType();
   };
   $('q').oninput = e => renderHits(e.target.value);
-  $('clsSel').onchange = e => renderClassCheck(e.target.value);
+  $('rollBtn').onclick = () => renderRoll(ls.get('sh_roll_class') || '');
   $('qrSum').onclick = showSummaryQR;
   $('sms').onclick = sendSMS;
   $('newEv').onclick = () => {
@@ -403,6 +420,52 @@ function renderList(){
     const st = byId[s.sid] || {n:'(לא ברשימה)', c:''};
     return `<div class="r"><span>${esc(st.n)} <span class="grey">· ${esc(st.c)}</span></span><span class="grey">${hhmm(s.at)}${s.synced ? '' : ' ⏳'}</span></div>`;
   }).join('') : '<p class="muted">עדיין לא נסרקו תלמידים</p>';
+}
+
+/* v1.4.0 — הקראת שמות לפי כיתה */
+function rollHere(){
+  const here = {};
+  SCANS.filter(x => x.session === session()).forEach(x => { if(!here[x.sid] || here[x.sid].at > x.at) here[x.sid] = x; });
+  return here;
+}
+function renderRoll(c){
+  stopScanner(); closeQR();
+  const classes = [...new Set(ROSTER.rows.map(r => r.c))].sort((a,b) => a.localeCompare(b, 'he', {numeric:true}));
+  if(c && !classes.includes(c)) c = '';
+  const here = rollHere();
+  const all = c ? ROSTER.rows.filter(r => r.c === c).sort((a,b) => a.n.localeCompare(b.n, 'he')) : [];
+  const nYes = all.filter(r => here[r.id]).length, nAway = all.filter(r => !here[r.id] && awayLabel(r)).length;
+  app.innerHTML = `
+    <button class="btn sec" id="rollBack" style="margin-top:4px">← חזרה לסריקה · ${esc(shelter())}</button>
+    <div class="pickTitle" style="margin-top:12px">📋 הקראת שמות</div>
+    <select id="rollCls" style="font-size:18px;font-weight:700"><option value="">בחרו כיתה…</option>${classes.map(x => `<option ${x === c ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select>
+    ${c ? `<div class="stat" style="margin-top:10px">
+        <div><b style="color:var(--ok)">${nYes}</b>כאן</div>
+        <div><b style="color:var(--bad)">${all.length - nYes - nAway}</b>חסרים</div>
+        <div><b style="color:#b07d00">${nAway}</b>לא הגיעו / יצאו</div></div>
+      <p class="muted" style="margin:8px 2px">לחיצה על שם = "נמצא כאן". ✅ ירוק — כאן · 🟡 צהוב — לא הגיע הבוקר או יצא · לבן — עוד לא נמצא.</p>
+      <div id="rollList">${all.map(r => {
+        const h = here[r.id], away = awayLabel(r);
+        const cls = h ? 'yes' : away ? 'away' : 'no';
+        const sub = h ? `${hhmm(h.at)}${h.shelter !== shelter() ? ' · ' + esc(h.shelter) : ''}${h.synced ? '' : ' ⏳'}` : away;
+        return `<button class="rollRow ${cls}" data-id="${esc(r.id)}"><span>${h ? '✅ ' : away ? '🟡 ' : ''}${esc(r.n)}</span><span class="sub">${sub}</span></button>`;
+      }).join('')}</div>
+      <p class="muted" style="font-size:12px;margin-top:8px">רק סריקות וסימונים מהטלפון הזה. התמונה המלאה מכל הטלפונים — במסך המנהלת.</p>` : ''}`;
+  $('rollBack').onclick = renderScan;
+  $('rollCls').onchange = e => { ls.set('sh_roll_class', e.target.value); renderRoll(e.target.value); };
+  if($('rollList')) $('rollList').onclick = e => {
+    const b = e.target.closest('[data-id]'); if(!b) return;
+    const st = byId[b.dataset.id]; const h = rollHere()[st.id];
+    if(h){
+      if(h.synced || h.session !== session()){ alert(`${st.n} כבר נרשם/ה ב-${hhmm(h.at)} ונשלח לשרת.`); return; }
+      if(!confirm(`לבטל את הרישום של ${st.n}?`)) return;
+      SCANS = SCANS.filter(x => x.id !== h.id); saveScans(); renderRoll(c); return;
+    }
+    const away = awayLabel(st);
+    if(away && !confirm(`${st.n} מסומן/ת "${away}".\nלסמן שנמצא/ת כאן?`)) return;
+    SCANS.push({id: uid(), sid: st.id, shelter: shelter(), at: new Date().toISOString(), session: session(), src: 'rollcall', synced: false});
+    saveScans(); beep(true); renderSub(); sync(); renderRoll(c);
+  };
 }
 
 /* v1.2.0 — מי מהכיתה נסרק בטלפון הזה באירוע הנוכחי (בכל מקום) */
@@ -451,7 +514,7 @@ function addScan(st, src){
     showResult('warn', `<div style="font-size:26px">✅ נרשם</div><div class="big">${esc(st.n)}</div><div>${esc(st.c)}</div>
       <div style="margin-top:6px;font-weight:700">⚠️ נקודת הכינוס של החטיבה שלו/ה: ${esc(right)}</div>`);
   else showResult('ok', `<div style="font-size:26px">✅</div><div class="big">${esc(st.n)}</div><div>${esc(st.c)}</div>`);
-  if($('clsSel') && $('clsSel').value) renderClassCheck($('clsSel').value);
+
   renderList(); renderSub(); sync();
 }
 
@@ -581,8 +644,8 @@ function renderManage(){
   const loc = locations();
   const rows = ROSTER.rows;
   const inShelter = rows.filter(s => loc[s.id]);
-  const missing = rows.filter(s => !loc[s.id] && !s.a);
-  const notMorning = rows.filter(s => !loc[s.id] && s.a);
+  const missing = rows.filter(s => !loc[s.id] && !awayLabel(s));
+  const notMorning = rows.filter(s => !loc[s.id] && awayLabel(s));
   const byShelter = {};
   inShelter.forEach(s => (byShelter[loc[s.id].shelter] ||= []).push(s));
   const classes = [...new Set(rows.map(s => s.c))];
@@ -591,9 +654,9 @@ function renderManage(){
     <div class="stat" id="stat">
       <div><b style="color:var(--ok)">${inShelter.length}</b>נסרקו</div>
       <div><b style="color:var(--bad)">${missing.length}</b>חסרים</div>
-      <div><b class="grey">${notMorning.length}</b>לא סומנו בבוקר</div>
+      <div><b style="color:#b07d00">${notMorning.length}</b>לא הגיעו / יצאו</div>
     </div>
-    <p class="muted">אירוע מ-${dayTime(since())}. "חסרים" = לא נסרקו באף מקום (מקלט או נקודת כינוס) ולא סומנו כנעדרים בקריאת השמות של הבוקר (לפי הרשימה מ-${hhmm(ROSTER.at)}).</p>
+    <p class="muted">אירוע מ-${dayTime(since())}. "חסרים" = לא נסרקו באף מקום (מקלט או נקודת כינוס) ולא סומנו בבוקר כנעדרים או כמי שיצאו (לפי הרשימה מ-${hhmm(ROSTER.at)}).</p>
     <div class="row2">
       <button class="btn small" id="camBtn">📷 סריקת QR סיכום</button>
       <button class="btn sec small" id="paste">✉️ הדבקת SMS</button>
@@ -614,11 +677,11 @@ function renderManage(){
     <div class="box"><h2>חסרים לפי כיתה</h2>
       ${classes.map(c => {
         const all = rows.filter(s => s.c === c);
-        const miss = all.filter(s => !loc[s.id] && !s.a), gone = all.filter(s => !loc[s.id] && s.a);
+        const miss = all.filter(s => !loc[s.id] && !awayLabel(s)), gone = all.filter(s => !loc[s.id] && awayLabel(s));
         if(!miss.length && !gone.length) return '';
         return `<details${miss.length ? ' open' : ''}><summary><span>${esc(c)}</span><span><span class="miss">${miss.length} חסרים</span> <span class="tag">· ${all.length - miss.length - gone.length}/${all.length} נסרקו</span></span></summary>
           <div class="list">${miss.map(s => `<div class="r"><span class="miss">${esc(s.n)}</span><span></span></div>`).join('')}
-          ${gone.map(s => `<div class="r"><span class="grey">${esc(s.n)}</span><span class="grey">לא סומן בבוקר</span></div>`).join('')}</div></details>`;
+          ${gone.map(s => `<div class="r"><span class="grey">${esc(s.n)}</span><span class="grey">${esc(awayLabel(s) || 'לא סומן בבוקר')}</span></div>`).join('')}</div></details>`;
       }).join('') || '<p class="muted">אין חסרים 🎉</p>'}
     </div>
 
