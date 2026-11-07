@@ -1,5 +1,11 @@
 <!DOCTYPE html>
-<!-- גרסה: v1.0.0 | תאריך: 2026-11-07 | סריקת מקלטים בשעת חירום — מערכת נפרדת ממסך השומר.
+<!-- גרסה: v1.1.0 | תאריך: 2026-11-07 | סריקת מקלטים בשעת חירום — מערכת נפרדת ממסך השומר.
+     v1.1.0 — מסך אחראי המקלט פשוט מאוד:
+       בחירת מקלט: כפתור ענק לכל מקלט, אחד מתחת לשני, בכל רוחב המסך.
+       מסך הסריקה: למעלה כפתור גדול עם שם המקלט ומונה (לחיצה = החלפת מקלט), כפתור ענק "📷 סריקה",
+       ומתחתיו תמיד "🔳 QR נתוני המקלט" — נפתח על כל המסך, עם מעבר בין חלקים אם יש יותר מ-60 תלמידים.
+       כל השאר (תלמיד בלי טלפון, SMS, רשימת הנסרקים, אירוע חדש, עדכון רשימה) תחת "עוד…".
+       מסך המנהלת (?mode=manage) לא השתנה. פורמט ה-QR (GMSH1) לא השתנה.
      אותו דאטאבייס (skfriefqnoxfzmamcokd) ואותו כרטיס תלמיד (QR של student-card.html?scan=TOKEN).
      עובד גם בלי אינטרנט: הדף והספריות נשמרים ב-shelter-sw.js, רשימת התלמידים נשמרת בטלפון,
      כל סריקה נכנסת לתור ונשלחת ל-shelter_scans כשיש חיבור.
@@ -57,13 +63,35 @@
   .tag{font-size:12px;color:var(--muted);font-weight:400}
   .miss{color:var(--bad);font-weight:700}
   .grey{color:var(--muted)}
+  /* v1.1.0 — מסך אחראי מקלט פשוט */
+  .pickTitle{font-size:22px;font-weight:800;text-align:center;margin:6px 0 4px}
+  .bigList{display:flex;flex-direction:column;gap:10px;margin-top:12px}
+  .bigList button{width:100%;padding:22px 14px;border:0;border-radius:16px;background:var(--red);color:#fff;
+       font-size:22px;font-weight:800;font-family:inherit;cursor:pointer;box-shadow:0 2px 0 rgba(0,0,0,.15)}
+  .bigList button.other{background:#e9ecf2;color:var(--ink)}
+  .shBtn{width:100%;display:flex;justify-content:space-between;align-items:center;gap:10px;padding:14px 16px;border:2px solid var(--line);
+       border-radius:16px;background:#fff;font-family:inherit;cursor:pointer;text-align:right;margin-top:4px}
+  .shBtn .nm{font-size:22px;font-weight:800;color:var(--deep)}
+  .shBtn .ch{font-size:13px;color:var(--muted)}
+  .shBtn .num{font-size:40px;font-weight:800;color:var(--deep);line-height:1;text-align:center}
+  .shBtn .num small{display:block;font-size:12px;font-weight:600;color:var(--muted)}
+  .btn.huge{padding:26px 14px;font-size:26px;font-weight:800;border-radius:18px;margin-top:12px}
+  .btn.qrbig{padding:20px 14px;font-size:21px;font-weight:800;border-radius:18px;background:#1c2230}
+  details.more{margin-top:14px}
+  details.more>summary{justify-content:center;color:var(--muted);font-weight:700}
+  details.more .box{box-shadow:none;border:1px solid var(--line)}
+  .qrfull{display:none;position:fixed;inset:0;background:#fff;z-index:50;padding:18px 16px;overflow:auto;text-align:center}
+  .qrfull.on{display:block}
+  .qrfull h2{font-size:22px;margin:4px 0}
+  .qrfull .qrwrap{padding:6px}
   footer{text-align:center;color:var(--muted);font-size:12px;margin:20px 0 10px}
 </style>
 </head>
 <body>
 <div class="top"><h1 id="title">🚨 סריקת מקלט</h1><div class="sub" id="sub"></div></div>
 <div class="wrap" id="app"></div>
-<footer>פיתוח: רני בן זאב · v1.0.0</footer>
+<footer>פיתוח: רני בן זאב · v1.1.0</footer>
+<div id="qrFull" class="qrfull"></div>
 
 <script>
 // ===== חיבור =====
@@ -143,12 +171,12 @@ async function startScanner(onText){
       if(text === lastText && now - lastAt < 3000) return;
       lastText = text; lastAt = now; onText(text);
     });
-    const b = $('camBtn'); if(b){ b.textContent = '⏹️ עצירת מצלמה'; b.onclick = stopScanner; }
+    const b = $('camBtn'); if(b){ b.dataset.label = b.dataset.label || b.textContent; b.textContent = '⏹️ עצירת מצלמה'; b.onclick = stopScanner; }
   }catch(e){ alert('לא ניתן להפעיל מצלמה: ' + e); }
 }
 async function stopScanner(){
   if(scanner){ try{ await scanner.stop(); }catch(e){} scanner = null; }
-  const b = $('camBtn'); if(b){ b.textContent = '📷 הפעלת מצלמה'; b.onclick = window._camStart; }
+  const b = $('camBtn'); if(b){ b.textContent = b.dataset.label || '📷 הפעלת מצלמה'; b.onclick = window._camStart; }
 }
 function beep(ok){
   try{ navigator.vibrate && navigator.vibrate(ok ? 80 : [60,60,60]); }catch(e){}
@@ -207,12 +235,11 @@ function renderSetup(){
 }
 
 function renderPick(){
+  stopScanner(); closeQR();
   app.innerHTML = `
-    <div class="box">
-      <h2>באיזה מקלט אתה?</h2>
-      <div class="shelters">${SHELTERS.map(s => `<button data-s="${esc(s)}">${esc(s)}</button>`).join('')}
-        <button data-s="__other">אחר…</button></div>
-    </div>`;
+    <div class="pickTitle">באיזה מקלט אתה?</div>
+    <div class="bigList">${SHELTERS.map(s => `<button data-s="${esc(s)}">${esc(s)}</button>`).join('')}
+      <button class="other" data-s="__other">אחר…</button></div>`;
   app.querySelectorAll('[data-s]').forEach(b => b.onclick = () => {
     let s = b.dataset.s;
     if(s === '__other'){ s = (prompt('שם המקום:') || '').trim(); if(!s) return; }
@@ -225,35 +252,35 @@ function renderPick(){
 function renderScan(){
   stopScanner();
   app.innerHTML = `
-    <div class="box" style="display:flex;justify-content:space-between;align-items:center">
-      <div><div class="muted">${esc(shelter())} · מאז ${hhmm(session())}</div><div class="count" id="cnt">0</div><div class="muted">תלמידים נסרקו</div></div>
-      <button class="btn sec small" style="width:auto;margin:0" id="chg">החלפת מקלט</button>
-    </div>
-    <button class="btn" id="camBtn">📷 הפעלת מצלמה</button>
+    <button class="shBtn" id="chg">
+      <span><span class="nm">📍 ${esc(shelter())}</span><br><span class="ch">לחצו להחלפת מקלט · מאז ${hhmm(session())}</span></span>
+      <span class="num"><span id="cnt">0</span><small>נסרקו</small></span>
+    </button>
+    <button class="btn huge" id="camBtn">📷 סריקה</button>
     <div id="reader"></div>
     <div class="result" id="res"></div>
-    <div class="box">
-      <h2>תלמיד בלי טלפון</h2>
-      <input id="q" placeholder="חיפוש לפי שם…">
-      <div id="hits"></div>
-    </div>
-    <div class="box">
-      <h2>העברה למנהלת כשאין אינטרנט</h2>
-      <div class="row2">
-        <button class="btn sec small" id="qrSum">🔳 QR סיכום</button>
-        <button class="btn sec small" id="sms">✉️ שליחת SMS</button>
+    <button class="btn qrbig" id="qrSum">🔳 QR נתוני המקלט</button>
+
+    <details class="more"><summary>עוד…</summary>
+      <div class="box">
+        <h2>תלמיד בלי טלפון</h2>
+        <input id="q" placeholder="חיפוש לפי שם…">
+        <div id="hits"></div>
       </div>
-      <div id="sumArea"></div>
-    </div>
-    <div class="box"><h2>נסרקו במקלט</h2><div class="list" id="list"></div></div>
-    <div class="row2">
-      <button class="btn sec small" id="newEv">אירוע חדש</button>
-      <button class="btn sec small" id="upd">עדכון רשימת תלמידים</button>
-    </div>
-    <p class="muted" style="margin-top:10px">רשימת התלמידים מ-${dayTime(ROSTER.at)} · ${ROSTER.rows.length} תלמידים</p>`;
+      <button class="btn sec" id="sms">✉️ שליחת הנתונים ב-SMS</button>
+      <div class="box"><h2>נסרקו במקלט</h2><div class="list" id="list"></div></div>
+      <div class="row2">
+        <button class="btn sec small" id="newEv">אירוע חדש</button>
+        <button class="btn sec small" id="upd">עדכון רשימת תלמידים</button>
+      </div>
+      <p class="muted" style="margin-top:10px">רשימת התלמידים מ-${dayTime(ROSTER.at)} · ${ROSTER.rows.length} תלמידים</p>
+    </details>`;
   window._camStart = () => startScanner(onShelterScan);
   $('camBtn').onclick = window._camStart;
-  $('chg').onclick = () => { stopScanner(); ls.del('sh_shelter'); renderPick(); };
+  $('chg').onclick = () => {
+    if(current().length && !confirm('להחליף מקלט? התלמידים שכבר נסרקו נשארים רשומים במקלט הנוכחי.')) return;
+    stopScanner(); ls.del('sh_shelter'); renderPick();
+  };
   $('q').oninput = e => renderHits(e.target.value);
   $('qrSum').onclick = showSummaryQR;
   $('sms').onclick = sendSMS;
@@ -346,21 +373,26 @@ function summaryLines(){
   }
   return lines;
 }
+function closeQR(){ const f = $('qrFull'); if(f){ f.classList.remove('on'); f.innerHTML = ''; } }
 function showSummaryQR(){
   if(typeof QRCode === 'undefined'){ alert('רכיב ה-QR לא נטען. פתחו את הדף פעם אחת עם אינטרנט.'); return; }
+  stopScanner();
   const lines = summaryLines(); let i = 0;
-  const area = $('sumArea');
+  const f = $('qrFull');
+  const size = Math.min(window.innerWidth - 48, 380);
   const draw = () => {
-    area.innerHTML = `<p class="muted" style="margin-top:10px">המנהלת סורקת ב"מסך מנהלת" ← "סריקת QR סיכום".
-      ${lines.length > 1 ? `<b>חלק ${i+1} מתוך ${lines.length}</b> — סרקו את כל החלקים.` : ''}</p>
+    f.innerHTML = `<h2>🔳 ${esc(shelter())}</h2>
+      <p class="muted" style="margin:4px 0 0">${current().length} תלמידים · ${hhmm(new Date())}</p>
+      <p class="muted" style="margin:6px 0 0">המנהלת סורקת ב"מסך מנהלת" ← "סריקת QR סיכום"</p>
+      ${lines.length > 1 ? `<p style="font-size:18px;font-weight:800;margin:8px 0 0">חלק ${i+1} מתוך ${lines.length} — סרקו את כל החלקים</p>` : ''}
       <div class="qrwrap"><div id="sumQr"></div></div>
-      ${lines.length > 1 ? `<button class="btn sec small" id="nextQr">${i < lines.length-1 ? 'החלק הבא ←' : 'חזרה לחלק 1'}</button>` : ''}
-      <button class="btn sec small" id="closeQr">סגירה</button>`;
-    new QRCode($('sumQr'), {text: lines[i], width: 280, height: 280, correctLevel: QRCode.CorrectLevel.L});
+      ${lines.length > 1 ? `<button class="btn" id="nextQr">${i < lines.length-1 ? 'החלק הבא ←' : 'חזרה לחלק 1'}</button>` : ''}
+      <button class="btn sec" id="closeQr">סגירה</button>`;
+    new QRCode($('sumQr'), {text: lines[i], width: size, height: size, correctLevel: QRCode.CorrectLevel.L});
     if($('nextQr')) $('nextQr').onclick = () => { i = (i + 1) % lines.length; draw(); };
-    $('closeQr').onclick = () => area.innerHTML = '';
+    $('closeQr').onclick = closeQR;
   };
-  draw();
+  f.classList.add('on'); draw();
 }
 function sendSMS(){
   let num = ls.get('sh_sms');
