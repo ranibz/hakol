@@ -1,7 +1,14 @@
 <!DOCTYPE html>
 <!--
   כניסה באיחור — דף נחיתה למערכת כרטיסי התלמיד
-  v1.3.1 | 07.11.2026 | פיתוח: רני בן זאב
+  v1.4.0 | 08.11.2026 | פיתוח: רני בן זאב
+  - v1.4.0: דף הנחיתה של המערכת — חמישה קהלים: תלמידים · מחנכים · רכזים · מנהלת · שומר.
+    · במסך המלא (בלי ?tab=) אזור "📤 קישורים לשליחה" עומד בראש הדף, מעל הלשוניות — קישור לכל קהל
+      עם העתקה ושליחה בוואטסאפ. בקישור לקהל (?tab=stu|tch|rkz|adm|grd) רואים רק את החלק שלו.
+    · לשונית חדשה "רכזים" (rkz): תמונת שכבה, קישורים לכיתות, סיכום נוכחות.
+    · מחנך: "📷 פתיחת סריקה" (student-card.html?mode=guard) ו"שליחת הקישור לכיתה שלי".
+    · "הנהלה" נקראת עכשיו "מנהלת" (הקוד adm לא השתנה — קישורים ישנים ממשיכים לעבוד).
+    · תיקון: כיתה שכתובה בלי רווח ("ח6") ממוינת בשכבה שלה ברשימת הכיתות.
   - v1.3.1: עדכון אוטומטי — דף שנפתח מעותק ישן (למשל מקישור בוואטסאפ בטלפון) בודק בטעינה מול האתר
     אם יש גרסה חדשה (meta app-version) ומרענן את עצמו פעם אחת. גם תגיות no-cache.
   שינויים:
@@ -22,7 +29,7 @@
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="app-version" content="1.3.1">
+<meta name="app-version" content="1.4.0">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
@@ -30,7 +37,7 @@
 /* עדכון אוטומטי (v1.3.1): דפדפן שפתח עותק ישן מהזיכרון — למשל לחיצה על קישור בוואטסאפ בטלפון —
    בודק מול האתר אם יש גרסה חדשה יותר, ואם כן טוען אותה מחדש פעם אחת. */
 (function(){
-  var V = '1.3.1', u = location.pathname;
+  var V = '1.4.0', u = location.pathname;
   if(navigator.onLine === false || !window.fetch) return;
   fetch(u + '?vcheck=' + Date.now(), {cache: 'no-store'})
     .then(function(r){ return r.ok ? r.text() : ''; })
@@ -45,10 +52,10 @@
 })();
 </script>
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>כניסה באיחור — כרטיס תלמיד v1.3.1</title>
+<title>כרטיס תלמיד · כניסה באיחור v1.4.0</title>
 <style>
   :root{--bg:#f2f4f8;--card:#fff;--ink:#1c2333;--muted:#6b7385;--brand:#1f4fa3;--line:#e3e8f2;
-        --stu:#1f4fa3;--grd:#14975a;--tch:#d98a00;--adm:#7d3cb5;}
+        --stu:#1f4fa3;--grd:#14975a;--tch:#d98a00;--rkz:#0f766e;--adm:#7d3cb5;}
   *{box-sizing:border-box}
   body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Arial,sans-serif;background:var(--bg);color:var(--ink)}
   .wrap{max-width:560px;margin:0 auto;padding:16px}
@@ -57,7 +64,8 @@
   header h1{margin:8px 0 4px;font-size:24px}
   header p{margin:0;opacity:.9;font-size:15px;line-height:1.5}
   .badge{display:inline-block;font-size:11px;background:rgba(255,255,255,.2);padding:2px 8px;border-radius:99px;vertical-align:middle}
-  .tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:12px}
+  .tabs{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;margin-bottom:12px}
+  .tab{font-size:13px!important}
   .tab{border:0;background:var(--card);border-radius:12px;padding:10px 4px;font-family:inherit;font-size:14px;font-weight:700;color:var(--muted);cursor:pointer;border-bottom:3px solid transparent}
   .tab .ic{display:block;font-size:22px;margin-bottom:2px}
   .tab.on{color:var(--ink);border-bottom-color:var(--c)}
@@ -87,15 +95,22 @@
 <div class="wrap">
   <header>
     <div class="sc">🎓 בית חינוך גליל מערבי</div>
-    <h1>כניסה באיחור <span class="badge">v1.3.1</span></h1>
+    <h1>כרטיס תלמיד · כניסה באיחור <span class="badge">v1.4.0</span></h1>
     <p id="hdrSub">תלמיד שמגיע אחרי קריאת השמות מציג לשומר את כרטיס התלמיד בטלפון. המחנך והמנהלת רואים מיד שהגיע ומתי.</p>
   </header>
 
+  <div class="box" id="shareBox">
+    <h2>📤 קישורים לשליחה</h2>
+    <p>לכל קהל קישור משלו — מי שמקבל רואה רק את החלק שלו.</p>
+    <div id="shareLinks"></div>
+  </div>
+
   <nav class="tabs" id="tabs">
-    <button class="tab" data-p="stu" style="--c:var(--stu)"><span class="ic">🎫</span>תלמיד</button>
+    <button class="tab" data-p="stu" style="--c:var(--stu)"><span class="ic">🎫</span>תלמידים</button>
+    <button class="tab" data-p="tch" style="--c:var(--tch)"><span class="ic">📋</span>מחנכים</button>
+    <button class="tab" data-p="rkz" style="--c:var(--rkz)"><span class="ic">📊</span>רכזים</button>
+    <button class="tab" data-p="adm" style="--c:var(--adm)"><span class="ic">🏫</span>מנהלת</button>
     <button class="tab" data-p="grd" style="--c:var(--grd)"><span class="ic">🛡️</span>שומר</button>
-    <button class="tab" data-p="tch" style="--c:var(--tch)"><span class="ic">📋</span>מחנך</button>
-    <button class="tab" data-p="adm" style="--c:var(--adm)"><span class="ic">📊</span>הנהלה</button>
   </nav>
 
   <!-- תלמיד -->
@@ -154,6 +169,16 @@
       <a class="btn" href="card-distribution.html?tab=tch">בדיקת הכיתה שלי</a>
     </div>
     <div class="box">
+      <h2>📷 סריקת כרטיסים</h2>
+      <p>סריקת כרטיס התלמיד במצלמה — תלמיד שנסרק נרשם כנוכח.</p>
+      <a class="btn" href="student-card.html?mode=guard">פתיחת סריקה</a>
+    </div>
+    <div class="box">
+      <h2>🔗 הקישור לכיתה שלי</h2>
+      <p>קישור והודעה מוכנה להפעלת הכרטיס, להדביק בקבוצת הוואטסאפ של הכיתה.</p>
+      <a class="btn" href="card-distribution.html?tab=dist">קבלת הקישור לכיתה</a>
+    </div>
+    <div class="box">
       <h2>חלוקת כרטיסים לכיתה</h2>
       <ol>
         <li>מקבלים <b>הודעה מוכנה</b> עם קישור הכיתה (מההנהלה).</li>
@@ -164,13 +189,27 @@
     </div>
   </section>
 
-  <!-- הנהלה -->
-  <section class="panel" id="p-adm" style="--c:var(--adm)">
-    <div class="box" id="shareBox">
-      <h2>📤 קישורים לשליחה</h2>
-      <p>כל קישור נפתח ישר בלשונית של מי שמקבל אותו.</p>
-      <div id="shareLinks"></div>
+  <!-- רכזים -->
+  <section class="panel" id="p-rkz" style="--c:var(--rkz)">
+    <div class="box">
+      <h2>📊 תמונת שכבה</h2>
+      <p>כל כיתה בשכבה: כמה הפעילו וכמה התקינו את הכרטיס, ורשימת השמות.</p>
+      <a class="btn" href="card-distribution.html?tab=grd">פתיחת תמונת השכבה</a>
     </div>
+    <div class="box">
+      <h2>🔗 קישורים לכיתות</h2>
+      <p>קישור והודעה מוכנה לכל כיתה, להעביר למחנכים.</p>
+      <a class="btn" href="card-distribution.html?tab=dist">קישורים לכיתות</a>
+    </div>
+    <div class="box">
+      <h2>📋 סיכום נוכחות</h2>
+      <p>תמונת מצב של בית הספר, כולל מי נכנס באיחור היום.</p>
+      <a class="btn" href="emergency-drill.html?page=summary">פתיחת הסיכום</a>
+    </div>
+  </section>
+
+  <!-- מנהלת -->
+  <section class="panel" id="p-adm" style="--c:var(--adm)">
     <div class="box">
       <h2>🎫 חלוקת כרטיסים</h2>
       <p>קישור והודעה מוכנה לכל כיתה, בדיקת מחנך ותמונת שכבה לרכזים.</p>
@@ -189,7 +228,7 @@
   </section>
 
   <div class="toast" id="toast"></div>
-  <footer>פיתוח: רני בן זאב · v1.3.1</footer>
+  <footer>פיתוח: רני בן זאב · v1.4.0</footer>
 </div>
 
 <script>
@@ -208,8 +247,9 @@ const fromUrl = new URLSearchParams(location.search).get('tab');
 const AUDIENCE = {
   stu: {title:'כרטיס תלמיד',        sub:'מגיעים באיחור? מציגים לשומר את הכרטיס בטלפון, והמחנך רואה מיד שהגעתם.'},
   grd: {title:'קליטת מאחרים בשער',  sub:'סורקים את כרטיס התלמיד, והתלמיד נרשם מיד כנוכח אצל המחנך והמנהלת.'},
-  tch: {title:'כניסה באיחור — מחנך', sub:'תלמיד שנכנס בשער מופיע בקריאת השמות עם שעת הכניסה.'},
-  adm: {title:'כניסה באיחור — הנהלה', sub:'סיכום הנוכחות, רשימת המאחרים וניהול כרטיסי התלמיד.'}
+  tch: {title:'כרטיס תלמיד — מחנכים', sub:'נוכחות, מי בכיתה הפעיל את הכרטיס, סריקה והקישור לכיתה.'},
+  rkz: {title:'כרטיס תלמיד — רכזים', sub:'תמונת שכבה: מי הפעיל ומי התקין את הכרטיס, וקישורים לכיתות.'},
+  adm: {title:'כניסה באיחור — מנהלת', sub:'סיכום הנוכחות, רשימת המאחרים וניהול כרטיסי התלמיד.'}
 };
 if (AUDIENCE[fromUrl]) {
   // v1.2.0: קישור לקהל מסוים — רק החלק שלו
@@ -227,10 +267,11 @@ if (AUDIENCE[fromUrl]) {
 // ===== v1.1.0: קישורים לשליחה =====
 const PAGE_URL = location.origin + location.pathname;
 const SHARE = [
-  {tab:'grd', who:'🛡️ לשומר',   msg:'מסך קליטת המאחרים בשער — סורקים את כרטיס התלמיד:'},
-  {tab:'tch', who:'📋 למחנכים', msg:'נוכחות יומית וחלוקת כרטיסי תלמיד לכיתה:'},
-  {tab:'adm', who:'📊 להנהלה',  msg:'סיכום נוכחות, רשימת המאחרים וניהול כרטיסי התלמיד:'},
-  {tab:'stu', who:'🎫 לתלמידים', msg:'כרטיס התלמיד הדיגיטלי — מציגים לשומר כשמגיעים באיחור:'}
+  {tab:'stu', who:'🎫 לתלמידים', msg:'כרטיס התלמיד הדיגיטלי — מציגים לשומר כשמגיעים באיחור:'},
+  {tab:'tch', who:'📋 למחנכים', msg:'כרטיס תלמיד — נוכחות, מי בכיתה הפעיל את הכרטיס, סריקה והקישור לכיתה:'},
+  {tab:'rkz', who:'📊 לרכזים',  msg:'כרטיס תלמיד — תמונת שכבה: מי הפעיל ומי התקין:'},
+  {tab:'adm', who:'🏫 למנהלת',  msg:'סיכום נוכחות, רשימת המאחרים וניהול כרטיסי התלמיד:'},
+  {tab:'grd', who:'🛡️ לשומר',   msg:'מסך קליטת המאחרים בשער — סורקים את כרטיס התלמיד:'}
 ];
 const shareUrl = t => PAGE_URL + '?tab=' + t;
 document.getElementById('shareLinks').innerHTML = SHARE.map((x, i) => `
@@ -255,9 +296,10 @@ function toast(t){
 
 // ===== רשימת כיתות להפעלת כרטיס =====
 const ORDER = {'ז':1,'ח':2,'ט':3,'י':4,'יא':5,'יב':6};
+const gradeOf = c => { const m = String(c).trim().match(/^(יב|יא|ז|ח|ט|י)(?![א-ת])/); return m ? m[1] : ''; };
 function sortClasses(a, b){
-  const [ga, na] = a.split(' '), [gb, nb] = b.split(' ');
-  return ((ORDER[ga] || 9) - (ORDER[gb] || 9)) || ((parseInt(na) || 0) - (parseInt(nb) || 0));
+  return ((ORDER[gradeOf(a)] || 9) - (ORDER[gradeOf(b)] || 9)) ||
+         ((parseInt(String(a).replace(/\D/g,'')) || 0) - (parseInt(String(b).replace(/\D/g,'')) || 0));
 }
 (async () => {
   const sel = document.getElementById('claimClass');
