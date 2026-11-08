@@ -1,7 +1,13 @@
 <!DOCTYPE html>
 <!--
   חלוקת כרטיסי תלמיד — קישור כיתתי, בדיקת מחנך ותמונת שכבה
-  v1.0.2 | 07.11.2026 | פיתוח: רני בן זאב
+  v1.1.0 | 08.11.2026 | פיתוח: רני בן זאב
+  - v1.1.0: כל קהל עם כתובת משלו. קישור עם ?tab= מציג רק את החלק של אותו קהל — בלי שורת הלשוניות
+    ועם כותרת משלו:  ?tab=dist (שליחה לתלמידים) · ?tab=tch (מחנך) · ?tab=grd (רכז שכבה).
+    הדף בלי פרמטר הוא המסך המלא, עם הלשוניות ואזור "📤 קישורים לשליחה" — קישור נפרד לכל קהל
+    עם העתקה ושליחה בוואטסאפ.
+    במסך המחנך: כפתור "📷 פתיחת סריקה" (student-card.html?mode=guard — סריקת כרטיסי תלמיד),
+    והכיתה שנבחרה נזכרת בטלפון של המחנך לפעם הבאה.
   - v1.0.2: עדכון אוטומטי — דף שנפתח מעותק ישן (למשל מקישור בוואטסאפ בטלפון) בודק בטעינה מול האתר
     אם יש גרסה חדשה (meta app-version) ומרענן את עצמו פעם אחת. גם תגיות no-cache.
   שינויים:
@@ -23,7 +29,7 @@
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="app-version" content="1.0.2">
+<meta name="app-version" content="1.1.0">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
@@ -31,7 +37,7 @@
 /* עדכון אוטומטי (v1.0.2): דפדפן שפתח עותק ישן מהזיכרון — למשל לחיצה על קישור בוואטסאפ בטלפון —
    בודק מול האתר אם יש גרסה חדשה יותר, ואם כן טוען אותה מחדש פעם אחת. */
 (function(){
-  var V = '1.0.2', u = location.pathname;
+  var V = '1.1.0', u = location.pathname;
   if(navigator.onLine === false || !window.fetch) return;
   fetch(u + '?vcheck=' + Date.now(), {cache: 'no-store'})
     .then(function(r){ return r.ok ? r.text() : ''; })
@@ -105,8 +111,8 @@
 <div class="wrap">
   <header>
     <div class="sc">🎓 בית חינוך גליל מערבי</div>
-    <h1>חלוקת כרטיסי תלמיד <span class="badge">v1.0.2</span></h1>
-    <p>קישור לכל כיתה לשליחה בקבוצת הוואטסאפ, ומעקב מי הפעיל ומי התקין את הכרטיס.</p>
+    <h1><span id="hTitle">חלוקת כרטיסי תלמיד</span> <span class="badge" id="ver">v1.1.0</span></h1>
+    <p id="hSub">קישור לכל כיתה לשליחה בקבוצת הוואטסאפ, ומעקב מי הפעיל ומי התקין את הכרטיס.</p>
   </header>
 
   <nav class="tabs" id="tabs">
@@ -114,6 +120,13 @@
     <button class="tab" data-p="tch" style="--c:var(--tch)"><span class="ic">📋</span>מחנך</button>
     <button class="tab" data-p="grd" style="--c:var(--grd)"><span class="ic">📊</span>רכז שכבה</button>
   </nav>
+
+  <!-- קישורים לשליחה — רק במסך המלא (בלי ?tab=) -->
+  <div class="box" id="shareBox" style="display:none">
+    <h2>📤 קישורים לשליחה</h2>
+    <p>לכל קהל קישור משלו, שנפתח רק בחלק שלו.</p>
+    <div id="shareList"></div>
+  </div>
 
   <div class="note" id="sqlNote" style="display:none">⚠️ מעקב ההתקנה עוד לא פעיל בשרת (חסר HAKOL-card-status.sql). מוצג רק מי הפעיל את הכרטיס.</div>
 
@@ -133,6 +146,8 @@
       <h2>📋 בדיקת מחנך</h2>
       <p>בחרו את הכיתה שלכם ותראו מי כבר הפעיל ומי התקין את הכרטיס.</p>
       <select id="tchClass"><option value="">טוען כיתות…</option></select>
+      <a class="btn" href="student-card.html?mode=guard" style="margin-top:10px;--c:#0f766e">📷 פתיחת סריקה</a>
+      <p class="muted" style="margin:6px 0 0;font-size:13px">סריקת כרטיסי התלמיד במצלמה — קליטת מאחרים.</p>
     </div>
     <div class="box" id="tchOut" style="display:none"></div>
   </section>
@@ -148,7 +163,7 @@
   </section>
 
   <div class="toast" id="toast"></div>
-  <footer>פיתוח: רני בן זאב · v1.0.2</footer>
+  <footer>פיתוח: רני בן זאב · v1.1.0</footer>
 </div>
 
 <script>
@@ -240,7 +255,10 @@ function showDist(c){
     <button class="btn" id="goTch" style="margin-top:8px">📋 מי כבר הפעיל בכיתה הזו?</button>`;
   $('cpMsg').onclick = () => copy(msg);
   $('cpLink').onclick = () => copy(claimUrl(c));
-  $('goTch').onclick = () => { showTab('tch'); $('tchClass').value = c; showTch(c); };
+  $('goTch').onclick = () => {
+    if(SOLO){ location.href = location.pathname + '?tab=tch&class=' + encodeURIComponent(c); return; }
+    showTab('tch'); $('tchClass').value = c; showTch(c);
+  };
   $('distOut').scrollIntoView({behavior:'smooth', block:'start'});
 }
 $('distGrades').onclick = e => { const b = e.target.closest('.chip'); if(b) showDist(b.dataset.c); };
@@ -274,7 +292,7 @@ async function showTch(c){
   if($('cpRem')) $('cpRem').onclick = () => copy(remind);
   $('tchRef').onclick = () => showTch(c);
 }
-$('tchClass').onchange = e => showTch(e.target.value);
+$('tchClass').onchange = e => { try{ localStorage.setItem(TCH_KEY, e.target.value); }catch(x){} showTch(e.target.value); };
 
 // ===== 📊 רכז שכבה =====
 async function showGrade(g){
@@ -312,11 +330,41 @@ function showTab(p){
 }
 $('tabs').onclick = e => { const t = e.target.closest('.tab'); if(t) showTab(t.dataset.p); };
 
+// ===== כתובת לכל קהל =====
+const TCH_KEY = 'gm_cards_tch_class';
+const AUD = {
+  dist: {t:'שליחת כרטיס התלמיד לתלמידים', s:'לוחצים על כיתה ומקבלים קישור והודעה מוכנה לקבוצת הוואטסאפ של הכיתה.', ic:'🔗', who:'שליחה לתלמידים'},
+  tch:  {t:'כרטיסי תלמיד · מחנך', s:'מי בכיתה שלכם הפעיל ומי התקין את הכרטיס, תזכורת מוכנה, ופתיחת סריקה.', ic:'📋', who:'מחנכים'},
+  grd:  {t:'כרטיסי תלמיד · רכז שכבה', s:'כל כיתה בשכבה: כמה הפעילו וכמה התקינו, ורשימת השמות.', ic:'📊', who:'רכזי שכבה'}
+};
+const WANT = q.get('tab');
+const SOLO = Object.keys(AUD).includes(WANT);
+const PAGE_URL = location.origin + location.pathname;
+function drawShare(){
+  $('shareList').innerHTML = Object.entries(AUD).map(([k, a]) => {
+    const u = PAGE_URL + '?tab=' + k;
+    return `<div style="border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-top:8px">
+      <b>${a.ic} ${a.who}</b>
+      <div class="muted" style="direction:ltr;text-align:left;font-size:13px;word-break:break-all;margin:4px 0 8px">${esc(u)}</div>
+      <div class="acts"><button class="btn sec" data-cp="${esc(u)}">העתקה</button>
+        <a class="btn wa" target="_blank" href="https://wa.me/?text=${encodeURIComponent(a.t + ':\n' + u)}">וואטסאפ</a></div></div>`;
+  }).join('');
+  $('shareList').onclick = e => { const b = e.target.closest('[data-cp]'); if(b) copy(b.dataset.cp); };
+}
+
 // ===== טעינה =====
 (async () => {
-  const want = q.get('tab');
-  let saved = null; try{ saved = localStorage.getItem(TAB_KEY); }catch(e){}
-  showTab(['dist','tch','grd'].includes(want) ? want : (['dist','tch','grd'].includes(saved) ? saved : 'dist'));
+  const want = WANT;
+  if(SOLO){
+    $('tabs').style.display = 'none';
+    $('hTitle').textContent = AUD[want].t; $('hSub').textContent = AUD[want].s;
+    document.title = AUD[want].t;
+    showTab(want);
+  }else{
+    let saved = null; try{ saved = localStorage.getItem(TAB_KEY); }catch(e){}
+    showTab(['dist','tch','grd'].includes(saved) ? saved : 'dist');
+    $('shareBox').style.display = 'block'; drawShare();
+  }
   try{
     const r = await fetch(`${SB_URL}/rest/v1/students?select=class&active=eq.true`, {headers:H});
     if(!r.ok) throw new Error(await r.text());
@@ -331,8 +379,11 @@ $('tabs').onclick = e => { const t = e.target.closest('.tab'); if(t) showTab(t.d
   $('tchClass').innerHTML = '<option value="">בחרו כיתה…</option>' + CLASSES.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
   $('grdChips').innerHTML = GRADES.map(g => `<button class="chip" data-g="${esc(g)}">${esc(g)}</button>`).join('');
   const qc = q.get('class'), qg = q.get('grade');
+  let lastTch = null; try{ lastTch = localStorage.getItem(TCH_KEY); }catch(e){}
   if(qc && CLASSES.includes(qc)){
     if(want === 'tch'){ $('tchClass').value = qc; showTch(qc); } else showDist(qc);
+  }else if(want === 'tch' && lastTch && CLASSES.includes(lastTch)){
+    $('tchClass').value = lastTch; showTch(lastTch);
   }
   if(qg && GRADES.includes(qg)) showGrade(qg);
 })();
