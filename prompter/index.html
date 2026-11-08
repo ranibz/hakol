@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <!--
-  prompter/index.html · טלפרומפטר לסמארטפון · v1.3.0 · 08/11/2026 · ranibz/hakol → hakolbakaf.co.il/prompter/
+  prompter/index.html · טלפרומפטר לסמארטפון · v1.3.1 · 08/11/2026 · ranibz/hakol → hakolbakaf.co.il/prompter/
+  v1.3.1 · ⚙️ הגדרות גם במסך הראשי ובעורך (לא רק בנגן) — מכינים מראש מראה/מהירות/גודל ואז ▶.
+           בחירת "מראה" נשמרת עד שמשנים (בפתיחת האפליקציה — רגיל).
   v1.3.0 · ⚙️ הגדרות: כפתור קבוע בפינת הנגן (נשאר גלוי גם כשהטקסט רץ). פותח חלון עם כפתורים גדולים:
            רגיל / מראה · 🐢 לאט / 🐇 מהר · הקטנת / הגדלת כתב · 🎤 פקודות קוליות · שוליים · פס קריאה · ספירה.
            החלון עצמו לא מתהפך במראה. פתיחת ההגדרות עוצרת את הטקסט; "סגירה" — ממשיכים מאותו מקום.
@@ -26,7 +28,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
-<meta name="app-version" content="1.3.0">
+<meta name="app-version" content="1.3.1">
 <meta name="theme-color" content="#0b0f17">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -138,7 +140,8 @@ footer.cr{text-align:center;color:var(--muted);font-size:12px;margin-top:26px}
 <section id="home" class="wrap">
   <header class="top">
     <div class="logo">🎙️</div>
-    <div><h1>טלפרומפטר</h1><p>כותבים מראש · מניחים את הטלפון מתחת לזכוכית · מקריאים</p></div>
+    <div style="flex:1"><h1>טלפרומפטר</h1><p>כותבים מראש · מניחים את הטלפון מתחת לזכוכית · מקריאים</p></div>
+    <button class="btn" data-gear style="flex:0 0 auto;padding:12px 14px">⚙️ הגדרות</button>
   </header>
   <div class="row">
     <button class="btn main" id="newBtn" style="flex:1">➕ תסריט חדש</button>
@@ -153,7 +156,7 @@ footer.cr{text-align:center;color:var(--muted);font-size:12px;margin-top:26px}
     <b>🎤 פקודות קוליות:</b> בנגן לוחצים "🎤 קולי" ואומרים בהפסקה, לבד: <b>"מהר יותר"</b> · <b>"לאט יותר"</b> · <b>"עצור"</b> · <b>"המשך"</b> · <b>"אחורה"</b> · <b>"מההתחלה"</b>.<br>
     <b>שלט Bluetooth:</b> רווח = עצירה/המשך · חצים ↑↓ = מהירות · ←→ = קפיצה.
   </div>
-  <footer class="cr">פיתוח: רני בן זאב · v1.3.0</footer>
+  <footer class="cr">פיתוח: רני בן זאב · v1.3.1</footer>
 </section>
 
 <!-- ===== עורך ===== -->
@@ -162,6 +165,7 @@ footer.cr{text-align:center;color:var(--muted);font-size:12px;margin-top:26px}
     <button class="btn ghost" id="edBack">→ חזרה</button>
     <div class="row">
       <button class="btn ghost" id="edDel" title="מחיקה">🗑️</button>
+      <button class="btn ghost" data-gear title="הגדרות">⚙️</button>
       <button class="btn main" id="edPlay">▶ הרצה</button>
     </div>
   </div>
@@ -365,8 +369,13 @@ function drawSheet(){
   $('shMargin').textContent = '↔️ שוליים: ' + ['צרים','בינוניים','רחבים'][S.margin];
   $('shGuide').classList.toggle('on', S.guide); $('shCount').classList.toggle('on', S.count);
 }
-function openSheet(){ if(P.playing || P.counting) stop(); drawSheet(); $('sheet').classList.remove('hide'); }
-function closeSheet(){ $('sheet').classList.add('hide'); hudShow(true); }
+function openSheet(){
+  if(P.playing || P.counting) stop();
+  $('shRestart').style.display = $('player').classList.contains('hide') ? 'none' : '';
+  drawSheet(); $('sheet').classList.remove('hide');
+}
+function closeSheet(){ $('sheet').classList.add('hide'); if(!$('player').classList.contains('hide')) hudShow(true); }
+document.querySelectorAll('[data-gear]').forEach(b => b.onclick = openSheet);
 function hudShow(stay){
   $('hud').classList.remove('off'); $('topbtn').classList.remove('off'); $('meta').classList.remove('off');
   clearTimeout(P.hudT);
@@ -413,7 +422,6 @@ function openPlayer(id){
   const s = scripts.find(x => x.id === id); if(!s) return;
   P.from = $('editor').classList.contains('hide') ? 'home' : 'editor';
   renderText(s.body); P.pos = 0; P.playing = false;
-  S.mirror = false;   // v1.2.0 — כל פתיחה מתחילה ב"רגיל"; עוברים ל"מראה" כשמניחים בפרומפטר
   $('meta').innerHTML = [s.title && '🎙️ ' + esc(s.title), s.student && '👤 ' + esc(s.student), s.project && '🎬 ' + esc(s.project)].filter(Boolean).join('<br>');
   show('player'); layout(); drawHud(); hudShow(true);
   if(S.voice) voiceOn(false);
@@ -469,7 +477,9 @@ $('sheet').addEventListener('click', e => {
   if(e.target === $('sheet')) return closeSheet();
   const m = e.target.closest('[data-mir]'), v = e.target.closest('[data-voice]');
   if(m){ S.mirror = m.dataset.mir === '1'; layout(); drawHud(); }
-  if(v){ const on = v.dataset.voice === '1'; if(on !== !!S.voice){ S.voice = on; saveSet(); on ? voiceOn(true) : voiceOff(); drawHud(); } }
+  if(v){ const on = v.dataset.voice === '1'; if(on !== !!S.voice){ S.voice = on; saveSet();
+    const inPlayer = !$('player').classList.contains('hide');
+    on ? (inPlayer ? voiceOn(true) : toast('🎤 יופעל כשתלחצו ▶')) : voiceOff(); drawHud(); } }
 });
 $('shSlow').onclick = () => setSpeed(-1);
 $('shFast').onclick = () => setSpeed(1);
@@ -532,6 +542,7 @@ function voiceOff(){ V.want = false; if(V.rec){ try{ V.rec.abort(); }catch(e){} 
 
 /* שלט Bluetooth / מקלדת */
 document.addEventListener('keydown', e => {
+  if(e.key === 'Escape' && !$('sheet').classList.contains('hide')){ closeSheet(); e.preventDefault(); return; }
   if($('player').classList.contains('hide')) return;
   const k = e.key;
   if(!$('sheet').classList.contains('hide')){ if(k === 'Escape'){ closeSheet(); e.preventDefault(); } return; }
