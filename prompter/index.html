@@ -1,0 +1,409 @@
+<!DOCTYPE html>
+<!--
+  prompter/index.html · טלפרומפטר לסמארטפון · v1.0.0 · 08/11/2026 · ranibz/hakol → hakolbakaf.co.il/prompter/
+  מניחים את הטלפון מתחת לזכוכית של הטלפרומפטר, והטקסט שנכתב מראש רץ בהיפוך מראה.
+  · תסריטים: כתיבה / הדבקה / פתיחת קובץ טקסט — נשמרים בטלפון (localStorage), בלי שרת ובלי חשבון.
+      ## כותרת      → כותרת קטע (צבע אחר)
+      [הנחיה]       → הנחיה לקריין שלא מקריאים (צהוב, קטן) — למשל [חיוך] [הפסקה] [להסתכל למצלמה]
+  · נגן: ספירה לאחור, גלילה חלקה, פס קריאה, מראה אופקית (לזכוכית) והיפוך אנכי, מהירות, גודל אות,
+      שוליים, זמן שנותר, החזקת המסך דולק (Wake Lock), מסך מלא.
+  · שליטה: נגיעה במסך = עצירה/המשך · גרירה = גלילה ידנית · שלט Bluetooth / מקלדת:
+      רווח/Enter = עצירה/המשך · ↑↓ = מהירות · ←→ / PageUp/PageDown = קפיצה אחורה/קדימה · Home = להתחלה
+  · אפליקציה: manifest + service worker — מתקינים למסך הבית ועובד גם בלי אינטרנט.
+  פיתוח: רני בן זאב
+-->
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="app-version" content="1.0.0">
+<meta name="theme-color" content="#0b0f17">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="טלפרומפטר">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch.png">
+<title>טלפרומפטר</title>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;700;800&family=Assistant:wght@600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0b0f17;--panel:#151b26;--panel2:#1d2533;--ink:#eef2f8;--muted:#8b97aa;--line:#2a3445;--acc:#ff5a3c;--acc2:#ffb020;--ok:#33c27f}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family:Heebo,system-ui,sans-serif}
+button{font:inherit;cursor:pointer;border:0;color:inherit}
+.hide{display:none!important}
+.wrap{max-width:720px;margin:0 auto;padding:max(16px,env(safe-area-inset-top)) 16px 40px}
+header.top{display:flex;align-items:center;gap:12px;margin-bottom:18px}
+header.top .logo{width:46px;height:46px;border-radius:13px;background:linear-gradient(140deg,var(--acc),#c2185b);display:grid;place-items:center;font-size:24px}
+header.top h1{margin:0;font-size:24px;font-weight:800}
+header.top p{margin:2px 0 0;color:var(--muted);font-size:13.5px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:13px 16px;border-radius:13px;font-weight:700;font-size:16px;background:var(--panel2)}
+.btn.main{background:var(--acc);color:#fff}
+.btn.wide{width:100%}
+.btn.ghost{background:transparent;border:1px solid var(--line)}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.list{margin-top:14px;display:flex;flex-direction:column;gap:10px}
+.item{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:14px;display:flex;gap:12px;align-items:center}
+.item .t{flex:1;min-width:0}
+.item .t b{display:block;font-size:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.item .t span{color:var(--muted);font-size:13px}
+.item .play{width:52px;height:52px;border-radius:50%;background:var(--acc);color:#fff;font-size:22px;flex:0 0 auto}
+.item .ed{background:var(--panel2);width:42px;height:42px;border-radius:12px;font-size:18px;flex:0 0 auto}
+.empty{color:var(--muted);text-align:center;padding:30px 10px;border:1px dashed var(--line);border-radius:16px;line-height:1.7}
+.tip{background:var(--panel);border-radius:14px;padding:12px 14px;color:var(--muted);font-size:13.5px;line-height:1.7;margin-top:18px}
+.tip b{color:var(--ink)}
+code{background:var(--panel2);padding:1px 6px;border-radius:6px;color:var(--acc2)}
+label.l{display:block;font-weight:700;margin:14px 0 6px}
+input[type=text],textarea{width:100%;background:var(--panel);color:var(--ink);border:1px solid var(--line);border-radius:12px;padding:12px;font:inherit;font-size:16px}
+textarea{min-height:52vh;line-height:1.7;resize:vertical}
+input:focus,textarea:focus{outline:2px solid var(--acc);border-color:transparent}
+.stats{color:var(--muted);font-size:13px;margin-top:6px}
+footer.cr{text-align:center;color:var(--muted);font-size:12px;margin-top:26px}
+
+/* ===== נגן ===== */
+#player{position:fixed;inset:0;background:#000;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none}
+#stage{position:absolute;inset:0;overflow:hidden}
+#flip{position:absolute;inset:0}
+#text{position:absolute;left:0;right:0;top:0;will-change:transform;color:#fff;font-family:Assistant,Heebo,sans-serif;font-weight:700;white-space:pre-wrap;word-wrap:break-word;text-align:right}
+#text .sec{color:var(--acc2);font-size:.62em;font-weight:800;display:block;margin:.6em 0 .2em;letter-spacing:.02em}
+#text .cue{color:#ffd54a;font-size:.55em;font-weight:600;font-style:italic;vertical-align:middle;opacity:.9}
+#text .end{display:block;text-align:center;color:var(--muted);font-size:.5em;margin-top:1.4em}
+#guide{position:absolute;left:0;right:0;height:0;pointer-events:none}
+#guide::before,#guide::after{content:'';position:absolute;top:-14px;border:14px solid transparent}
+#guide::before{right:4px;border-right-color:var(--acc)}
+#guide::after{left:4px;border-left-color:var(--acc)}
+#guide .band{position:absolute;left:0;right:0;top:-.8em;height:1.6em;background:rgba(255,90,60,.08);border-top:1px solid rgba(255,90,60,.25);border-bottom:1px solid rgba(255,90,60,.25)}
+#shade{position:absolute;left:0;right:0;bottom:0;height:22%;background:linear-gradient(transparent,#000);pointer-events:none}
+#count{position:absolute;inset:0;display:grid;place-items:center;font-size:30vmin;font-weight:800;color:var(--acc);pointer-events:none;text-shadow:0 0 40px rgba(255,90,60,.5)}
+#prog{position:absolute;top:0;left:0;right:0;height:4px;background:rgba(255,255,255,.08);z-index:3}
+#prog i{display:block;height:100%;background:var(--acc);width:0}
+#hud{position:absolute;left:0;right:0;bottom:0;padding:12px 12px max(14px,env(safe-area-inset-bottom));background:linear-gradient(transparent,rgba(0,0,0,.92) 30%);transition:opacity .25s;z-index:4}
+#hud.off{opacity:0;pointer-events:none}
+#hud .bar{display:flex;align-items:center;justify-content:space-between;gap:8px;max-width:760px;margin:0 auto}
+#hud .grp{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.08);border-radius:14px;padding:4px}
+#hud .grp button{min-width:44px;height:44px;border-radius:11px;background:transparent;font-size:18px;font-weight:800}
+#hud .grp button:active{background:rgba(255,255,255,.15)}
+#hud .grp .v{min-width:44px;text-align:center;font-weight:800;font-size:15px}
+#hud .grp small{display:block;font-size:10px;color:var(--muted);font-weight:500;line-height:1}
+#hud .big{width:64px;height:64px;border-radius:50%;background:var(--acc);color:#fff;font-size:26px;flex:0 0 auto}
+#hud .row2{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin:10px auto 0;max-width:760px}
+#hud .chip{background:rgba(255,255,255,.08);border-radius:999px;padding:8px 12px;font-size:13.5px;font-weight:700}
+#hud .chip.on{background:var(--acc);color:#fff}
+#hud .time{color:var(--muted);font-size:13px;text-align:center;margin-top:8px}
+#topbtn{position:absolute;top:max(10px,env(safe-area-inset-top));right:10px;z-index:4;display:flex;gap:6px;transition:opacity .25s}
+#topbtn.off{opacity:0;pointer-events:none}
+#topbtn button{background:rgba(255,255,255,.12);border-radius:12px;padding:9px 12px;font-weight:700;font-size:14px}
+#pauseTag{position:absolute;top:max(14px,env(safe-area-inset-top));left:50%;transform:translateX(-50%);background:rgba(255,90,60,.9);color:#fff;border-radius:999px;padding:5px 14px;font-weight:800;font-size:14px;z-index:3}
+.toast{position:fixed;bottom:110px;left:50%;transform:translateX(-50%);background:#fff;color:#111;padding:9px 16px;border-radius:999px;font-weight:700;font-size:14px;z-index:20;display:none}
+</style>
+</head>
+<body>
+
+<!-- ===== רשימת תסריטים ===== -->
+<section id="home" class="wrap">
+  <header class="top">
+    <div class="logo">🎙️</div>
+    <div><h1>טלפרומפטר</h1><p>כותבים מראש · מניחים את הטלפון מתחת לזכוכית · מקריאים</p></div>
+  </header>
+  <div class="row">
+    <button class="btn main" id="newBtn" style="flex:1">➕ תסריט חדש</button>
+    <label class="btn ghost" style="flex:0 0 auto">📄 קובץ<input type="file" id="fileIn" accept=".txt,text/plain" hidden></label>
+  </div>
+  <div class="list" id="list"></div>
+  <button class="btn ghost wide hide" id="installBtn" style="margin-top:14px">📲 התקנה כאפליקציה במסך הבית</button>
+  <div class="tip">
+    <b>איך עובדים:</b> פותחים תסריט ← ▶ ← מניחים את הטלפון מתחת לזכוכית. בהגדרות הנגן, <b>🪞 מראה</b> הופך את הטקסט כך שבזכוכית הוא נקרא נכון.<br>
+    <b>סימונים בטקסט:</b> <code>## כותרת</code> לכותרת קטע · <code>[חיוך]</code> להנחיה שלא מקריאים.<br>
+    <b>שלט Bluetooth:</b> רווח = עצירה/המשך · חצים ↑↓ = מהירות · ←→ = קפיצה.
+  </div>
+  <footer class="cr">פיתוח: רני בן זאב · v1.0.0</footer>
+</section>
+
+<!-- ===== עורך ===== -->
+<section id="editor" class="wrap hide">
+  <div class="row" style="justify-content:space-between">
+    <button class="btn ghost" id="edBack">→ חזרה</button>
+    <div class="row">
+      <button class="btn ghost" id="edDel" title="מחיקה">🗑️</button>
+      <button class="btn main" id="edPlay">▶ הרצה</button>
+    </div>
+  </div>
+  <label class="l" for="edTitle">שם התסריט</label>
+  <input type="text" id="edTitle" placeholder="למשל: פתיח לכתבה">
+  <label class="l" for="edBody">הטקסט</label>
+  <textarea id="edBody" placeholder="כתבו או הדביקו כאן את הטקסט…&#10;&#10;## פתיח&#10;שלום וברוכים הבאים. [חיוך]"></textarea>
+  <div class="stats" id="edStats"></div>
+  <footer class="cr">נשמר אוטומטית בטלפון</footer>
+</section>
+
+<!-- ===== נגן ===== -->
+<section id="player" class="hide">
+  <div id="prog"><i></i></div>
+  <div id="stage"><div id="flip"><div id="text"></div><div id="guide"><div class="band"></div></div><div id="shade"></div></div></div>
+  <div id="count" class="hide"></div>
+  <div id="pauseTag" class="hide">⏸ עצירה</div>
+  <div id="topbtn">
+    <button id="pExit">✕ יציאה</button>
+    <button id="pFull">⛶ מסך מלא</button>
+  </div>
+  <div id="hud">
+    <div class="bar">
+      <div class="grp"><button id="spDn">−</button><div class="v"><span id="spV">5</span><small>מהירות</small></div><button id="spUp">+</button></div>
+      <button class="big" id="pPlay">▶</button>
+      <div class="grp"><button id="fsDn">A−</button><div class="v"><span id="fsV">48</span><small>גודל</small></div><button id="fsUp">A+</button></div>
+    </div>
+    <div class="row2">
+      <button class="chip" id="cMirror">🪞 מראה</button>
+      <button class="chip" id="cFlipV">↕️ היפוך</button>
+      <button class="chip" id="cMargin">↔️ שוליים</button>
+      <button class="chip" id="cGuide">➖ פס קריאה</button>
+      <button class="chip" id="cCount">⏱️ ספירה</button>
+      <button class="chip" id="cRestart">⏮ להתחלה</button>
+    </div>
+    <div class="time" id="pTime"></div>
+  </div>
+</section>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ---------- אחסון ---------- */
+const LS_SCRIPTS = 'prompter_scripts_v1', LS_SET = 'prompter_settings_v1';
+function load(k, d){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; }catch(e){ return d; } }
+function save(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){ toast('לא הצלחנו לשמור בטלפון'); } }
+let scripts = load(LS_SCRIPTS, []);
+const DEF = {speed:5, font:48, mirror:false, flipV:false, margin:1, guide:true, count:true};
+let S = Object.assign({}, DEF, load(LS_SET, {}));
+const saveSet = () => save(LS_SET, S);
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function toast(t){ const e = $('toast'); e.textContent = t; e.style.display = 'block'; clearTimeout(e._t); e._t = setTimeout(() => e.style.display = 'none', 1600); }
+const words = t => (t.replace(/\[[^\]]*\]/g, ' ').replace(/^##.*$/gm, ' ').match(/\S+/g) || []).length;
+const fmtMin = s => { s = Math.max(0, Math.round(s)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
+function show(id){ ['home','editor','player'].forEach(x => $(x).classList.toggle('hide', x !== id)); }
+
+/* ---------- רשימה ---------- */
+function drawList(){
+  scripts.sort((a, b) => b.updated - a.updated);
+  $('list').innerHTML = scripts.length ? scripts.map(s => {
+    const w = words(s.body);
+    return `<div class="item">
+      <button class="play" data-play="${s.id}" aria-label="הרצה">▶</button>
+      <div class="t" data-ed="${s.id}"><b>${esc(s.title || 'ללא שם')}</b>
+        <span>${w} מילים · כ-${fmtMin(w / 150 * 60)} דק' הקראה · ${new Date(s.updated).toLocaleDateString('he-IL')}</span></div>
+      <button class="ed" data-ed="${s.id}" aria-label="עריכה">✏️</button></div>`;
+  }).join('') : `<div class="empty">עוד אין תסריטים.<br>לחצו על <b>➕ תסריט חדש</b> וכתבו או הדביקו את הטקסט.</div>`;
+}
+$('list').onclick = e => {
+  const p = e.target.closest('[data-play]'), d = e.target.closest('[data-ed]');
+  if(p) openPlayer(p.dataset.play); else if(d) openEditor(d.dataset.ed);
+};
+$('newBtn').onclick = () => {
+  const s = {id: 's' + Date.now().toString(36), title: '', body: '', updated: Date.now()};
+  scripts.push(s); save(LS_SCRIPTS, scripts); openEditor(s.id);
+};
+$('fileIn').onchange = async e => {
+  const f = e.target.files[0]; if(!f) return;
+  const body = await f.text();
+  const s = {id: 's' + Date.now().toString(36), title: f.name.replace(/\.[^.]+$/, ''), body, updated: Date.now()};
+  scripts.push(s); save(LS_SCRIPTS, scripts); e.target.value = ''; openEditor(s.id);
+};
+
+/* ---------- עורך ---------- */
+let cur = null;
+function openEditor(id){
+  cur = scripts.find(s => s.id === id); if(!cur) return;
+  $('edTitle').value = cur.title; $('edBody').value = cur.body; edStats();
+  show('editor'); if(!cur.body) $('edBody').focus();
+}
+function edSave(){
+  if(!cur) return;
+  cur.title = $('edTitle').value; cur.body = $('edBody').value; cur.updated = Date.now();
+  save(LS_SCRIPTS, scripts); edStats();
+}
+function edStats(){ const w = words($('edBody').value); $('edStats').textContent = `${w} מילים · כ-${fmtMin(w / 150 * 60)} דקות הקראה (בקצב רגיל)`; }
+let edT; ['edTitle','edBody'].forEach(id => $(id).addEventListener('input', () => { clearTimeout(edT); edT = setTimeout(edSave, 400); edStats(); }));
+$('edBack').onclick = () => {
+  edSave();
+  if(cur && !cur.body.trim() && !cur.title.trim()) scripts = scripts.filter(s => s !== cur), save(LS_SCRIPTS, scripts);
+  cur = null; drawList(); show('home');
+};
+$('edDel').onclick = () => {
+  if(!cur || !confirm('למחוק את התסריט "' + (cur.title || 'ללא שם') + '"?')) return;
+  scripts = scripts.filter(s => s !== cur); save(LS_SCRIPTS, scripts); cur = null; drawList(); show('home');
+};
+$('edPlay').onclick = () => { edSave(); if(!cur.body.trim()) return toast('אין עדיין טקסט'); openPlayer(cur.id); };
+
+/* ---------- נגן ---------- */
+const P = {pos:0, max:0, playing:false, last:0, raf:0, counting:false, hudT:0, wake:null, from:'home', drag:null};
+const pxPerSec = () => S.speed * 0.1 * S.font * 1.45;          // מהירות 1 = עשירית שורה בשנייה
+const GUIDE_AT = 0.3;                                          // פס הקריאה — 30% מגובה המסך
+
+function renderText(body){
+  const h = esc(body)
+    .replace(/^##\s*(.*)$/gm, '<span class="sec">$1</span>')
+    .replace(/\[([^\]\n]{1,80})\]/g, '<span class="cue">[$1]</span>');
+  $('text').innerHTML = h + '<span class="end">— סוף —</span>';
+}
+function layout(){
+  const H = $('stage').clientHeight, W = $('stage').clientWidth;
+  const pad = [0.04, 0.1, 0.18][S.margin] * W;
+  const t = $('text');
+  t.style.fontSize = S.font + 'px'; t.style.lineHeight = '1.45';
+  t.style.padding = `${H * GUIDE_AT - S.font * 0.72}px ${pad}px ${H * 0.75}px`;
+  $('guide').style.top = (H * GUIDE_AT) + 'px';
+  $('guide').style.display = S.guide ? '' : 'none';
+  $('guide').querySelector('.band').style.fontSize = S.font + 'px';
+  $('flip').style.transform = `scale(${S.mirror ? -1 : 1}, ${S.flipV ? -1 : 1})`;
+  P.max = Math.max(0, t.scrollHeight - H);
+  P.pos = Math.min(P.pos, P.max);
+  paint();
+}
+function paint(){
+  $('text').style.transform = `translate3d(0, ${-P.pos}px, 0)`;
+  const pr = P.max ? P.pos / P.max : 0;
+  $('prog').firstElementChild.style.width = (pr * 100) + '%';
+  const left = (P.max - P.pos) / pxPerSec();
+  $('pTime').textContent = `נשאר כ-${fmtMin(left)} · ${Math.round(pr * 100)}%`;
+}
+function drawHud(){
+  $('spV').textContent = S.speed; $('fsV').textContent = S.font;
+  $('pPlay').textContent = P.playing ? '⏸' : '▶';
+  $('cMirror').classList.toggle('on', S.mirror);
+  $('cFlipV').classList.toggle('on', S.flipV);
+  $('cGuide').classList.toggle('on', S.guide);
+  $('cCount').classList.toggle('on', S.count);
+  $('cMargin').textContent = '↔️ שוליים: ' + ['צרים','בינוניים','רחבים'][S.margin];
+  $('pauseTag').classList.toggle('hide', P.playing || P.counting || P.pos === 0);
+}
+function hudShow(stay){
+  $('hud').classList.remove('off'); $('topbtn').classList.remove('off');
+  clearTimeout(P.hudT);
+  if(P.playing && !stay) P.hudT = setTimeout(() => { $('hud').classList.add('off'); $('topbtn').classList.add('off'); }, 2500);
+}
+function tick(t){
+  if(!P.playing) return;
+  const dt = Math.min(0.1, (t - P.last) / 1000); P.last = t;
+  if(!P.drag){
+    P.pos += pxPerSec() * dt;
+    if(P.pos >= P.max){ P.pos = P.max; paint(); stop(); toast('סוף הטקסט'); return; }
+  }
+  paint();
+  P.raf = requestAnimationFrame(tick);
+}
+async function wakeOn(){ try{ if('wakeLock' in navigator) P.wake = await navigator.wakeLock.request('screen'); }catch(e){} }
+function wakeOff(){ try{ P.wake && P.wake.release(); }catch(e){} P.wake = null; }
+function start(){
+  if(P.playing || P.counting) return;
+  if(P.pos >= P.max) P.pos = 0;
+  wakeOn();
+  const go = () => { P.counting = false; $('count').classList.add('hide'); P.playing = true; P.last = performance.now(); drawHud(); hudShow(); P.raf = requestAnimationFrame(tick); };
+  if(S.count && P.pos === 0){
+    P.counting = true; drawHud(); hudShow(true);
+    let n = 3; const c = $('count'); c.classList.remove('hide'); c.textContent = n;
+    const iv = setInterval(() => { n--; if(n <= 0){ clearInterval(iv); go(); } else c.textContent = n; }, 1000);
+    P.countIv = iv;
+  } else go();
+}
+function stop(){
+  P.playing = false; cancelAnimationFrame(P.raf);
+  if(P.counting){ clearInterval(P.countIv); P.counting = false; $('count').classList.add('hide'); }
+  drawHud(); hudShow(true);
+}
+const toggle = () => (P.playing || P.counting) ? stop() : start();
+function jump(lines){ P.pos = Math.max(0, Math.min(P.max, P.pos + lines * S.font * 1.45)); paint(); drawHud(); }
+function setSpeed(d){ S.speed = Math.max(1, Math.min(30, S.speed + d)); saveSet(); drawHud(); paint(); }
+function setFont(d){
+  const pr = P.max ? P.pos / P.max : 0;
+  S.font = Math.max(24, Math.min(140, S.font + d)); saveSet(); layout(); P.pos = pr * P.max; paint(); drawHud();
+}
+
+function openPlayer(id){
+  const s = scripts.find(x => x.id === id); if(!s) return;
+  P.from = $('editor').classList.contains('hide') ? 'home' : 'editor';
+  renderText(s.body); P.pos = 0; P.playing = false;
+  show('player'); layout(); drawHud(); hudShow(true);
+  if(document.fonts && document.fonts.ready) document.fonts.ready.then(layout);
+}
+function exitPlayer(){
+  stop(); wakeOff();
+  if(document.fullscreenElement) document.exitFullscreen().catch(() => {});
+  if(P.from === 'editor') show('editor'); else { drawList(); show('home'); }
+}
+
+/* שליטה במגע: נגיעה = עצירה/המשך, גרירה = גלילה */
+$('stage').addEventListener('pointerdown', e => {
+  P.drag = {y: e.clientY, pos: P.pos, moved: false};
+  $('stage').setPointerCapture(e.pointerId);
+});
+$('stage').addEventListener('pointermove', e => {
+  if(!P.drag) return;
+  const dy = e.clientY - P.drag.y;
+  if(Math.abs(dy) > 8) P.drag.moved = true;
+  if(P.drag.moved){
+    P.pos = Math.max(0, Math.min(P.max, P.drag.pos - dy * (S.flipV ? -1 : 1)));
+    paint();
+  }
+});
+$('stage').addEventListener('pointerup', () => {
+  const d = P.drag; P.drag = null; if(!d) return;
+  if(!d.moved){ if($('hud').classList.contains('off')) hudShow(); else toggle(); }
+  else { P.last = performance.now(); drawHud(); hudShow(); }
+});
+$('stage').addEventListener('pointercancel', () => { P.drag = null; });
+
+$('pPlay').onclick = toggle;
+$('spUp').onclick = () => { setSpeed(1); hudShow(); };
+$('spDn').onclick = () => { setSpeed(-1); hudShow(); };
+$('fsUp').onclick = () => { setFont(6); hudShow(); };
+$('fsDn').onclick = () => { setFont(-6); hudShow(); };
+$('cMirror').onclick = () => { S.mirror = !S.mirror; saveSet(); layout(); drawHud(); hudShow(); };
+$('cFlipV').onclick = () => { S.flipV = !S.flipV; saveSet(); layout(); drawHud(); hudShow(); };
+$('cGuide').onclick = () => { S.guide = !S.guide; saveSet(); layout(); drawHud(); hudShow(); };
+$('cCount').onclick = () => { S.count = !S.count; saveSet(); drawHud(); hudShow(); };
+$('cMargin').onclick = () => { S.margin = (S.margin + 1) % 3; saveSet(); layout(); drawHud(); hudShow(); };
+$('cRestart').onclick = () => { stop(); P.pos = 0; paint(); drawHud(); };
+$('pExit').onclick = exitPlayer;
+$('pFull').onclick = () => {
+  const el = document.documentElement;
+  if(document.fullscreenElement) document.exitFullscreen().catch(() => {});
+  else if(el.requestFullscreen) el.requestFullscreen().catch(() => toast('מסך מלא לא נתמך בדפדפן הזה'));
+  else toast('באייפון: התקינו למסך הבית לקבלת מסך מלא');
+};
+window.addEventListener('resize', () => { if(!$('player').classList.contains('hide')){ const pr = P.max ? P.pos / P.max : 0; layout(); P.pos = pr * P.max; paint(); } });
+document.addEventListener('visibilitychange', () => { if(document.visibilityState === 'visible' && P.playing) wakeOn(); });
+
+/* שלט Bluetooth / מקלדת */
+document.addEventListener('keydown', e => {
+  if($('player').classList.contains('hide')) return;
+  const k = e.key;
+  if(k === ' ' || k === 'Enter' || k === 'MediaPlayPause'){ toggle(); }
+  else if(k === 'ArrowUp'){ setSpeed(1); }
+  else if(k === 'ArrowDown'){ setSpeed(-1); }
+  else if(k === 'ArrowLeft' || k === 'PageDown'){ jump(3); }
+  else if(k === 'ArrowRight' || k === 'PageUp'){ jump(-3); }
+  else if(k === 'Home'){ stop(); P.pos = 0; paint(); drawHud(); }
+  else if(k === 'Escape'){ exitPlayer(); }
+  else if(k === '+' || k === '='){ setFont(6); }
+  else if(k === '-'){ setFont(-6); }
+  else return;
+  e.preventDefault(); hudShow();
+});
+
+/* ---------- התקנה כאפליקציה ---------- */
+let deferred = null;
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferred = e; $('installBtn').classList.remove('hide'); });
+$('installBtn').onclick = async () => { if(!deferred) return; deferred.prompt(); await deferred.userChoice.catch(() => {}); deferred = null; $('installBtn').classList.add('hide'); };
+if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+
+/* תסריט לדוגמה בפעם הראשונה */
+if(!scripts.length && !load('prompter_seeded', false)){
+  scripts.push({id: 'demo', title: 'דוגמה — פתיח לכתבה', updated: Date.now(),
+    body: '## פתיח\nשלום וברוכים הבאים. [חיוך]\nהיום נצא למסע קצר אל מאחורי הקלעים של חדר החדשות.\n\n## גוף\nכל כתבה מתחילה בשאלה אחת פשוטה: מה הסיפור? [הפסקה]\nאחרי זה באים התחקיר, הצילומים והעריכה — ורק בסוף, מה שאתם רואים על המסך.\n\n## סיום\nתודה שצפיתם, ונתראה בפעם הבאה. [להסתכל למצלמה]'});
+  save(LS_SCRIPTS, scripts); save('prompter_seeded', true);
+}
+drawList();
+</script>
+</body>
+</html>
