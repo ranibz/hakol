@@ -1,5 +1,5 @@
-/* prompter/sw.js · v1.0.0 · טלפרומפטר — עובד גם בלי אינטרנט. הדף: רשת קודם, ואם אין — מהמטמון. פיתוח: רני בן זאב */
-const C = 'prompter-v1.0.0';
+/* prompter/sw.js · v1.1.0 · טלפרומפטר — עובד גם בלי אינטרנט. הדף: רשת קודם, ואם אין — מהמטמון. פיתוח: רני בן זאב */
+const C = 'prompter-v1.1.0';
 const FILES = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png', './apple-touch.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(C).then(c => c.addAll(FILES)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', e => {

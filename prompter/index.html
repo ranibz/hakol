@@ -1,6 +1,9 @@
 <!DOCTYPE html>
 <!--
-  prompter/index.html · טלפרומפטר לסמארטפון · v1.0.0 · 08/11/2026 · ranibz/hakol → hakolbakaf.co.il/prompter/
+  prompter/index.html · טלפרומפטר לסמארטפון · v1.1.0 · 08/11/2026 · ranibz/hakol → hakolbakaf.co.il/prompter/
+  v1.1.0 · 🎤 פקודות קוליות (Web Speech API, עברית): "מהר יותר" / "לאט יותר" / "עצור" / "המשך" / "אחורה" / "מההתחלה".
+           פקודה נקלטת רק כשהיא נאמרת לבד, בהפסקה — כדי שמילים מתוך התסריט לא יפעילו אותה.
+           · 🪞 מראה: כפתור בולט בראש המסך, ופעיל כברירת מחדל בפעם הראשונה (הטלפון מונח מתחת לזכוכית).
   מניחים את הטלפון מתחת לזכוכית של הטלפרומפטר, והטקסט שנכתב מראש רץ בהיפוך מראה.
   · תסריטים: כתיבה / הדבקה / פתיחת קובץ טקסט — נשמרים בטלפון (localStorage), בלי שרת ובלי חשבון.
       ## כותרת      → כותרת קטע (צבע אחר)
@@ -16,7 +19,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
-<meta name="app-version" content="1.0.0">
+<meta name="app-version" content="1.1.0">
 <meta name="theme-color" content="#0b0f17">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -93,6 +96,12 @@ footer.cr{text-align:center;color:var(--muted);font-size:12px;margin-top:26px}
 #topbtn{position:absolute;top:max(10px,env(safe-area-inset-top));right:10px;z-index:4;display:flex;gap:6px;transition:opacity .25s}
 #topbtn.off{opacity:0;pointer-events:none}
 #topbtn button{background:rgba(255,255,255,.12);border-radius:12px;padding:9px 12px;font-weight:700;font-size:14px}
+#topbtn button.on{background:var(--acc);color:#fff}
+#mic{position:absolute;top:calc(max(10px,env(safe-area-inset-top)) + 54px);left:12px;z-index:3;background:rgba(51,194,127,.9);color:#fff;border-radius:999px;padding:5px 12px;font-weight:800;font-size:13px;display:flex;align-items:center;gap:6px}
+#mic i{width:9px;height:9px;border-radius:50%;background:#fff;animation:pulse 1.2s infinite}
+#mic.err{background:rgba(255,176,32,.95);color:#111}
+@keyframes pulse{50%{opacity:.25}}
+#heard{position:absolute;top:calc(max(10px,env(safe-area-inset-top)) + 94px);left:12px;z-index:3;background:#fff;color:#111;border-radius:12px;padding:6px 12px;font-weight:800;font-size:15px;display:none}
 #pauseTag{position:absolute;top:max(14px,env(safe-area-inset-top));left:50%;transform:translateX(-50%);background:rgba(255,90,60,.9);color:#fff;border-radius:999px;padding:5px 14px;font-weight:800;font-size:14px;z-index:3}
 .toast{position:fixed;bottom:110px;left:50%;transform:translateX(-50%);background:#fff;color:#111;padding:9px 16px;border-radius:999px;font-weight:700;font-size:14px;z-index:20;display:none}
 </style>
@@ -114,9 +123,10 @@ footer.cr{text-align:center;color:var(--muted);font-size:12px;margin-top:26px}
   <div class="tip">
     <b>איך עובדים:</b> פותחים תסריט ← ▶ ← מניחים את הטלפון מתחת לזכוכית. בהגדרות הנגן, <b>🪞 מראה</b> הופך את הטקסט כך שבזכוכית הוא נקרא נכון.<br>
     <b>סימונים בטקסט:</b> <code>## כותרת</code> לכותרת קטע · <code>[חיוך]</code> להנחיה שלא מקריאים.<br>
+    <b>🎤 פקודות קוליות:</b> בנגן לוחצים "🎤 קולי" ואומרים בהפסקה, לבד: <b>"מהר יותר"</b> · <b>"לאט יותר"</b> · <b>"עצור"</b> · <b>"המשך"</b> · <b>"אחורה"</b> · <b>"מההתחלה"</b>.<br>
     <b>שלט Bluetooth:</b> רווח = עצירה/המשך · חצים ↑↓ = מהירות · ←→ = קפיצה.
   </div>
-  <footer class="cr">פיתוח: רני בן זאב · v1.0.0</footer>
+  <footer class="cr">פיתוח: רני בן זאב · v1.1.0</footer>
 </section>
 
 <!-- ===== עורך ===== -->
@@ -142,9 +152,13 @@ footer.cr{text-align:center;color:var(--muted);font-size:12px;margin-top:26px}
   <div id="stage"><div id="flip"><div id="text"></div><div id="guide"><div class="band"></div></div><div id="shade"></div></div></div>
   <div id="count" class="hide"></div>
   <div id="pauseTag" class="hide">⏸ עצירה</div>
+  <div id="mic" class="hide"><i></i><span id="micTxt">מקשיב</span></div>
+  <div id="heard"></div>
   <div id="topbtn">
     <button id="pExit">✕ יציאה</button>
-    <button id="pFull">⛶ מסך מלא</button>
+    <button id="pMirror">🪞 מראה</button>
+    <button id="pVoice">🎤 קולי</button>
+    <button id="pFull">⛶</button>
   </div>
   <div id="hud">
     <div class="bar">
@@ -153,7 +167,6 @@ footer.cr{text-align:center;color:var(--muted);font-size:12px;margin-top:26px}
       <div class="grp"><button id="fsDn">A−</button><div class="v"><span id="fsV">48</span><small>גודל</small></div><button id="fsUp">A+</button></div>
     </div>
     <div class="row2">
-      <button class="chip" id="cMirror">🪞 מראה</button>
       <button class="chip" id="cFlipV">↕️ היפוך</button>
       <button class="chip" id="cMargin">↔️ שוליים</button>
       <button class="chip" id="cGuide">➖ פס קריאה</button>
@@ -172,7 +185,7 @@ const LS_SCRIPTS = 'prompter_scripts_v1', LS_SET = 'prompter_settings_v1';
 function load(k, d){ try{ const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; }catch(e){ return d; } }
 function save(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){ toast('לא הצלחנו לשמור בטלפון'); } }
 let scripts = load(LS_SCRIPTS, []);
-const DEF = {speed:5, font:48, mirror:false, flipV:false, margin:1, guide:true, count:true};
+const DEF = {speed:5, font:48, mirror:true, flipV:false, margin:1, guide:true, count:true, voice:false};
 let S = Object.assign({}, DEF, load(LS_SET, {}));
 const saveSet = () => save(LS_SET, S);
 
@@ -270,7 +283,8 @@ function paint(){
 function drawHud(){
   $('spV').textContent = S.speed; $('fsV').textContent = S.font;
   $('pPlay').textContent = P.playing ? '⏸' : '▶';
-  $('cMirror').classList.toggle('on', S.mirror);
+  $('pMirror').classList.toggle('on', S.mirror);
+  $('pVoice').classList.toggle('on', S.voice);
   $('cFlipV').classList.toggle('on', S.flipV);
   $('cGuide').classList.toggle('on', S.guide);
   $('cCount').classList.toggle('on', S.count);
@@ -324,10 +338,11 @@ function openPlayer(id){
   P.from = $('editor').classList.contains('hide') ? 'home' : 'editor';
   renderText(s.body); P.pos = 0; P.playing = false;
   show('player'); layout(); drawHud(); hudShow(true);
+  if(S.voice) voiceOn(false);
   if(document.fonts && document.fonts.ready) document.fonts.ready.then(layout);
 }
 function exitPlayer(){
-  stop(); wakeOff();
+  stop(); wakeOff(); voiceOff();
   if(document.fullscreenElement) document.exitFullscreen().catch(() => {});
   if(P.from === 'editor') show('editor'); else { drawList(); show('home'); }
 }
@@ -358,7 +373,8 @@ $('spUp').onclick = () => { setSpeed(1); hudShow(); };
 $('spDn').onclick = () => { setSpeed(-1); hudShow(); };
 $('fsUp').onclick = () => { setFont(6); hudShow(); };
 $('fsDn').onclick = () => { setFont(-6); hudShow(); };
-$('cMirror').onclick = () => { S.mirror = !S.mirror; saveSet(); layout(); drawHud(); hudShow(); };
+$('pMirror').onclick = () => { S.mirror = !S.mirror; saveSet(); layout(); drawHud(); hudShow(); toast(S.mirror ? '🪞 מראה פעילה — לזכוכית' : 'מראה כבויה — קריאה ישירה'); };
+$('pVoice').onclick = () => { S.voice = !S.voice; saveSet(); drawHud(); hudShow(); S.voice ? voiceOn(true) : voiceOff(); };
 $('cFlipV').onclick = () => { S.flipV = !S.flipV; saveSet(); layout(); drawHud(); hudShow(); };
 $('cGuide').onclick = () => { S.guide = !S.guide; saveSet(); layout(); drawHud(); hudShow(); };
 $('cCount').onclick = () => { S.count = !S.count; saveSet(); drawHud(); hudShow(); };
@@ -373,6 +389,48 @@ $('pFull').onclick = () => {
 };
 window.addEventListener('resize', () => { if(!$('player').classList.contains('hide')){ const pr = P.max ? P.pos / P.max : 0; layout(); P.pos = pr * P.max; paint(); } });
 document.addEventListener('visibilitychange', () => { if(document.visibilityState === 'visible' && P.playing) wakeOn(); });
+
+/* ---------- 🎤 פקודות קוליות ---------- */
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+const V = {rec:null, want:false, lastCmd:0, ht:0};
+const norm = t => ' ' + String(t).replace(/[^\u0590-\u05FFa-zA-Z0-9 ]/g, ' ').replace(/[\u0591-\u05C7]/g, '').replace(/\s+/g, ' ').trim() + ' ';
+const CMDS = [
+  {re:/ (מהר יותר|יותר מהר|מהר|תאיץ|מהירות למעלה|faster) /, run:() => setSpeed(2), say:'⏩ מהר יותר'},
+  {re:/ (לאט יותר|יותר לאט|לאט|תאט|מהירות למטה|slower) /, run:() => setSpeed(-2), say:'⏪ לאט יותר'},
+  {re:/ (עצור|עצרי|עצירה|סטופ|רגע|stop) /, run:() => stop(), say:'⏸ עצירה'},
+  {re:/ (המשך|תמשיך|המשיכי|התחל|סע|play|go) /, run:() => start(), say:'▶ המשך'},
+  {re:/ (אחורה|חזור|חזרה|back) /, run:() => jump(-3), say:'⤴ אחורה'},
+  {re:/ (מההתחלה|להתחלה|מהתחלה) /, run:() => { stop(); P.pos = 0; paint(); drawHud(); }, say:'⏮ מההתחלה'}
+];
+function heard(t){ const h = $('heard'); h.textContent = t; h.style.display = 'block'; clearTimeout(V.ht); V.ht = setTimeout(() => h.style.display = 'none', 1400); }
+function micState(txt, err){ const m = $('mic'); m.classList.remove('hide'); m.classList.toggle('err', !!err); $('micTxt').textContent = txt; }
+function voiceOn(user){
+  if(!SR){ S.voice = false; saveSet(); drawHud(); if(user) toast('הדפדפן לא תומך בפקודות קוליות — נסו בכרום'); return; }
+  if(V.rec) return;
+  V.want = true;
+  const r = new SR(); V.rec = r;
+  r.lang = 'he-IL'; r.continuous = true; r.interimResults = true; r.maxAlternatives = 3;
+  r.onstart = () => micState('🎤 מקשיב לפקודות');
+  r.onresult = e => {
+    for(let i = e.resultIndex; i < e.results.length; i++){
+      const res = e.results[i];
+      // פקודה = קטע קצר שנאמר לבד (עד 3 מילים) — כך מילים מתוך הטקסט לא מפעילות פקודות
+      for(let a = 0; a < res.length; a++){
+        const t = norm(res[a].transcript);
+        if(t.trim().split(' ').length > 3) continue;
+        const c = CMDS.find(x => x.re.test(t));
+        if(c && Date.now() - V.lastCmd > 900){ V.lastCmd = Date.now(); c.run(); heard(c.say); return; }
+      }
+    }
+  };
+  r.onerror = e => {
+    if(e.error === 'not-allowed' || e.error === 'service-not-allowed'){ V.want = false; S.voice = false; saveSet(); drawHud(); micState('🎤 אין הרשאה למיקרופון', true); setTimeout(() => $('mic').classList.add('hide'), 3000); }
+    else if(e.error === 'network') micState('🎤 צריך אינטרנט לפקודות קוליות', true);
+  };
+  r.onend = () => { V.rec = null; if(V.want && !$('player').classList.contains('hide')) setTimeout(() => { if(V.want) voiceOn(false); }, 250); else $('mic').classList.add('hide'); };
+  try{ r.start(); }catch(e){ V.rec = null; }
+}
+function voiceOff(){ V.want = false; if(V.rec){ try{ V.rec.abort(); }catch(e){} V.rec = null; } $('mic').classList.add('hide'); }
 
 /* שלט Bluetooth / מקלדת */
 document.addEventListener('keydown', e => {
