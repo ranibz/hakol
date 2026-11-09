@@ -1,8 +1,10 @@
 <!DOCTYPE html>
-<!-- גרסה: v1.2.0 | תאריך: 2026-11-09 | פיזור בחירום — סריקת QR לפי תפקידים · eshi/emergency/pizur-scan.html
+<!-- גרסה: v1.3.0 | תאריך: 2026-11-09 | פיזור בחירום — סריקת QR לפי תפקידים · eshi/emergency/pizur-scan.html
   לפי "נוהל פינוי בית הספר בחירום" (pinui.html). אותו דאטאבייס (skfriefqnoxfzmamcokd), אותו כרטיס תלמיד
   (QR של student-card.html?scan=TOKEN) ואותו קוד מקלטים כמו shelter-scan.html — טלפון שכבר הוגדר לסריקת
   מקלטים לא צריך הגדרה נוספת (רשימת התלמידים והקוד משותפים: sh_pin / sh_roster).
+  v1.3.0 · איפוס: בדף הראשי "🔄 איפוס — התחלה מחדש בטלפון הזה" (שוכח אוטובוס, שם מורה ואירוע; רישומים שלא נשלחו
+    עדיין יישלחו). במסך האוטובוס — לחיצה על הכותרת הכחולה = החלפת אוטובוס.
   v1.2.0 · (1) שם המורה (חובה) נרשם עם האוטובוס, ובמסך המנהלת מופיע ליד הישוב. (2) שומר — סריקה אחת:
     "יצא מהשער" (עצמאית או עם הורים, בלי בחירה ובלי טופס). במסך המנהלת מונה אחד "🚪 יצאו מהשער".
     (3) לחיצה על שורת אוטובוס או על "יצאו מהשער" מציגה את רשימת התלמידים.
@@ -26,14 +28,14 @@
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="app-version" content="1.2.0">
+<meta name="app-version" content="1.3.0">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <script>
 /* עדכון אוטומטי: דפדפן שפתח עותק ישן מהזיכרון בודק מול האתר אם יש גרסה חדשה, ואם כן טוען אותה פעם אחת. */
 (function(){
-  var V = '1.2.0', u = location.pathname;
+  var V = '1.3.0', u = location.pathname;
   if(navigator.onLine === false || !window.fetch) return;
   fetch(u + '?vcheck=' + Date.now(), {cache: 'no-store'})
     .then(function(r){ return r.ok ? r.text() : ''; })
@@ -205,7 +207,7 @@
 <body>
 <div class="top"><h1 id="title">🚌 פיזור בחירום</h1><div class="sub" id="sub"></div></div>
 <div class="wrap" id="app"></div>
-<footer>פיתוח: רני בן זאב · v1.2.0</footer>
+<footer>פיתוח: רני בן זאב · v1.3.0</footer>
 <div id="qrFull" class="qrfull"></div>
 
 <script>
@@ -383,7 +385,9 @@ function renderHome(){
       <button class="grd" data-r="guard">🚪 שומר — יציאה מהשער<small>עצמאית או עם הורים — אותה סריקה</small>${grdLive}</button>
       <button class="mg" data-r="manage">📊 מסך מנהלת<small>אוטובוסים, יציאות, ומי עוד לא יצא</small></button>
     </div>
-    <p class="muted" style="text-align:center;margin-top:14px"><a href="pizur-start.html">📖 הסברים וקישורים</a> · לפי <a href="pinui.html">נוהל פינוי בית הספר בחירום</a> · <a href="shelter-scan.html">סריקת מקלטים</a></p>`;
+    <p class="muted" style="text-align:center;margin-top:14px"><a href="pizur-start.html">📖 הסברים וקישורים</a> · לפי <a href="pinui.html">נוהל פינוי בית הספר בחירום</a> · <a href="shelter-scan.html">סריקת מקלטים</a></p>
+    ${session() || curBus() || ls.get('pz_escort') ? '<button class="linkBtn" id="reset">🔄 איפוס — התחלה מחדש בטלפון הזה</button>' : ''}`;
+  if($('reset')) $('reset').onclick = resetPhone;
   app.querySelectorAll('[data-r]').forEach(x => x.onclick = () => {
     const r = x.dataset.r;
     if(r === 'manage') return location.href = location.pathname + '?mode=manage';
@@ -391,6 +395,14 @@ function renderHome(){
     go(r);
   });
   renderSub();
+}
+/* v1.3.0 — איפוס: שוכחים את האוטובוס, שם המורה והאירוע הנוכחי. רשימת התלמידים והקוד נשארים,
+   ורישומים שעוד לא נשלחו — יישלחו (לא נמחקים). */
+function resetPhone(){
+  const p = pending().length + pendingBuses().length;
+  if(!confirm('לאפס את הטלפון?\nהאוטובוס, שם המורה והספירה במסך יתאפסו.' + (p ? `\n${p} רישומים שעוד לא נשלחו יישלחו כשיהיה חיבור.` : ''))) return;
+  ['pz_bus', 'pz_session', 'pz_role', 'pz_escort'].forEach(k => ls.del(k));
+  renderHome();
 }
 function go(r){
   ensureSession(); ls.set('pz_role', r);
@@ -439,10 +451,10 @@ function renderBus(){
   $('title').textContent = `🚌 אוטובוס ${b.no} · ${b.town}`;
   app.innerHTML = `
     <div id="netBanner"></div>
-    <div class="busHead${b.departed ? ' gone' : ''}">
-      <span><span class="nm">🚌 ${esc(b.no)} · ${esc(b.town)}</span><br><span class="ch">${b.departed ? 'יצא ב-' + hhmm(b.departed) : 'פתוח מ-' + hhmm(b.opened)}${b.escort ? ' · ' + esc(b.escort) : ''}</span></span>
+    <button class="busHead${b.departed ? ' gone' : ''}" id="chgBus" style="width:100%;border:0;font-family:inherit;text-align:right;cursor:pointer">
+      <span><span class="nm">🚌 ${esc(b.no)} · ${esc(b.town)}</span><br><span class="ch">${b.departed ? 'יצא ב-' + hhmm(b.departed) : 'פתוח מ-' + hhmm(b.opened)}${b.escort ? ' · ' + esc(b.escort) : ''} · <u>לחצו להחלפת אוטובוס</u></span></span>
       <span class="num"><span id="cnt">0</span><small>עלו</small></span>
-    </div>
+    </button>
     <button class="btn huge" id="camBtn" style="background:var(--bus)">📷 סריקה</button>
     <div id="reader"></div>
     <div class="result" id="res"></div>
@@ -464,6 +476,7 @@ function renderBus(){
   };
   $('qrSum').onclick = showSummaryQR;
   $('newBus').onclick = () => { stopScanner(); renderBusForm(); };
+  $('chgBus').onclick = () => { stopScanner(); renderBusForm(); };
   $('home').onclick = renderHome;
   $('q').oninput = e => renderHits(e.target.value, 'bus');
   $('upd').onclick = updRoster;
