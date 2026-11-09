@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<!--
+  פיזור בחירום — דף נחיתה · eshi/emergency/pizur-start.html
+  v1.0.0 | 09.11.2026 | פיתוח: רני בן זאב
+  - דף ראשון, באותו מבנה כמו shelter-start.html. ארבע לשוניות:
+    🚌 אוטובוסים — אחראי אוטובוס: הכנה, ברגע האמת, בלי אינטרנט, קישור ישיר (pizur-scan.html?role=bus).
+    🚪 שומר — יציאה עצמאית / עם הורה, רישום מי לקח (pizur-scan.html?role=guard).
+    📊 הנהלה — מסך המנהלת (pizur-scan.html?mode=manage), מה רואים בו, איחוד בלי אינטרנט, מסלול הפינוי,
+       קישור לנוהל הפינוי (pinui.html), קישורים לשליחה לכל קהל (העתקה / וואטסאפ), ורשימת בדיקה לתרגיל.
+    🎫 תלמידים — מה עושים בפיזור: כרטיס תלמיד, סריקה בעלייה לאוטובוס / ביציאה מהשער.
+    קישור עם ?tab=bus|grd|adm|stu מציג רק את החלק של אותו קהל, בלי שורת הלשוניות ובלי אזור הקישורים.
+    הדף לא קורא לשרת.
+-->
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="app-version" content="1.0.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<script>
+(function(){
+  var V = '1.0.0', u = location.pathname;
+  if(navigator.onLine === false || !window.fetch) return;
+  fetch(u + '?vcheck=' + Date.now(), {cache: 'no-store'})
+    .then(function(r){ return r.ok ? r.text() : ''; })
+    .then(function(t){
+      var m = t.match(/<meta name="app-version" content="([^"]+)"/);
+      if(!m || m[1] === V) return;
+      var k = 'vreload:' + u + ':' + m[1];
+      try{ if(sessionStorage.getItem(k)) return; sessionStorage.setItem(k, '1'); }catch(e){ return; }
+      var q = new URLSearchParams(location.search); q.set('v', m[1]);
+      location.replace(u + '?' + q.toString() + location.hash);
+    }).catch(function(){});
+})();
+</script>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0f4c5c">
+<meta name="robots" content="noindex">
+<title>פיזור בחירום</title>
+<style>
+  :root{--bg:#f4f5f8;--card:#fff;--ink:#1c2230;--muted:#6b7385;--line:#e6e9ef;--deep:#0f4c5c;--red:#0f6b80;
+        --bus:#0f6b80;--grd:#6a3fb5;--adm:#1c2230;--stu:#1f4fa3;}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Arial,sans-serif;background:var(--bg);color:var(--ink)}
+  .wrap{max-width:560px;margin:0 auto;padding:16px}
+  header{background:linear-gradient(160deg,#13697d,#0b3440);color:#fff;border-radius:20px;padding:22px 20px;margin-bottom:14px}
+  header .sc{font-size:13px;opacity:.85}
+  header h1{margin:8px 0 4px;font-size:24px}
+  header p{margin:0;opacity:.92;font-size:15px;line-height:1.5}
+  .badge{display:inline-block;font-size:11px;background:rgba(255,255,255,.2);padding:2px 8px;border-radius:99px;vertical-align:middle}
+  .tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:12px}
+  .tab{border:0;background:var(--card);border-radius:12px;padding:10px 2px;font-family:inherit;font-size:13px;font-weight:700;color:var(--muted);cursor:pointer;border-bottom:3px solid transparent}
+  .tab .ic{display:block;font-size:22px;margin-bottom:2px}
+  .tab.on{color:var(--ink);border-bottom-color:var(--c)}
+  .panel{display:none}.panel.on{display:block}
+  .box{background:var(--card);border-radius:16px;padding:16px;margin-bottom:12px}
+  .box h2{font-size:18px;margin:0 0 6px}
+  .box p{margin:0 0 10px;color:var(--muted);font-size:15px;line-height:1.55}
+  .btn{display:block;width:100%;padding:14px;border:0;border-radius:12px;background:var(--c,var(--red));color:#fff;font-size:17px;font-weight:700;text-align:center;text-decoration:none;margin:8px 0 0;cursor:pointer;font-family:inherit}
+  .btn.big{padding:18px;font-size:19px}
+  ol,ul{margin:0;padding-inline-start:20px;font-size:15px;line-height:1.75}
+  ol b,ul b{color:var(--c)}
+  .alert{background:#fde8e6;border:2px solid #f3b8b2;border-radius:14px;padding:12px 14px;font-size:15px;line-height:1.55;color:#7a1f1f;margin-bottom:12px}
+  .note{background:#fff8e6;border-radius:12px;padding:10px 12px;font-size:14px;color:#7a5a00;line-height:1.5;margin-top:10px}
+  .check label{display:flex;gap:10px;align-items:flex-start;padding:8px 2px;border-bottom:1px solid #eef0f4;font-size:15px;line-height:1.5;cursor:pointer}
+  .check label:last-child{border-bottom:0}
+  .check input{width:20px;height:20px;margin-top:2px;flex:none;accent-color:var(--c)}
+  .share-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 12px;background:var(--bg);border-radius:12px;margin-top:8px}
+  .share-row .who{font-weight:700;font-size:15px}
+  .share-row .acts{display:flex;gap:6px}
+  .share-row button,.share-row a{border:0;border-radius:10px;padding:9px 12px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;text-decoration:none}
+  .share-row .cp{background:var(--line);color:var(--ink)}
+  .share-row .wa{background:#25d366;color:#fff}
+  .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#1c2230;color:#fff;padding:10px 18px;border-radius:99px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none}
+  .toast.on{opacity:1}
+  footer{text-align:center;color:var(--muted);font-size:12px;margin:24px 0 8px}
+  .flow{display:flex;flex-direction:column;gap:6px;margin-top:6px}
+  .flow div{background:var(--bg);border-radius:10px;padding:9px 12px;font-size:14.5px;line-height:1.45}
+  .flow div b{color:var(--c)}
+  .flow .ar{background:none;text-align:center;padding:0;color:var(--muted)}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .btn.sec{background:#e3e8f2;color:var(--ink)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="sc">🎓 בית חינוך גליל מערבי</div>
+    <h1>פיזור בחירום <span class="badge">v1.0.0</span></h1>
+    <p id="hdrSub">כל תלמיד שעולה לאוטובוס או יוצא מהשער נסרק עם כרטיס התלמיד. ההנהלה רואה במסך אחד מי באיזה אוטובוס, מי יצא, ומי עוד לא יצא. עובד גם כשהאינטרנט נופל.</p>
+  </header>
+
+  <nav class="tabs" id="tabs">
+    <button class="tab" data-p="bus" style="--c:var(--bus)"><span class="ic">🚌</span>אוטובוסים</button>
+    <button class="tab" data-p="grd" style="--c:var(--grd)"><span class="ic">🚪</span>שומר</button>
+    <button class="tab" data-p="adm" style="--c:var(--adm)"><span class="ic">📊</span>הנהלה</button>
+    <button class="tab" data-p="stu" style="--c:var(--stu)"><span class="ic">🎫</span>תלמידים</button>
+  </nav>
+
+  <!-- אחראי אוטובוס -->
+  <section class="panel" id="p-bus" style="--c:var(--bus)">
+    <div class="box">
+      <h2>🚌 מסך אחראי האוטובוס</h2>
+      <p>רושמים מספר אוטובוס וישוב, ואז סורקים כל תלמיד שעולה.</p>
+      <a class="btn big" href="pizur-scan.html?role=bus">פתיחת מסך האוטובוס</a>
+    </div>
+    <div class="box">
+      <h2>הכנה מראש — כשיש אינטרנט</h2>
+      <ol>
+        <li>פותחים את <b>מסך האוטובוס</b> ומקלידים את <b>קוד המקלטים</b> (מההנהלה). הטלפון מוריד את רשימת כל התלמידים. טלפון שכבר הוגדר לסריקת המקלטים — לא צריך שוב.</li>
+        <li><b>מתקינים את המסך בטלפון</b>: באנדרואיד ⋮ ← "הוספה למסך הבית"; באייפון שיתוף ⬆️ ← "הוסף למסך הבית".</li>
+        <li>בודקים פעם אחת שהמצלמה נפתחת (מאשרים גישה למצלמה).</li>
+      </ol>
+    </div>
+    <div class="box">
+      <h2>ברגע האמת</h2>
+      <ol>
+        <li>מקבלים <b>תדרוך בחדר המורים</b> ואת הרשימה השמית של תלמידי ההסעה.</li>
+        <li>פותחים את המסך ובוחרים <b>🚌 אחראי אוטובוס</b>.</li>
+        <li>רושמים <b>מספר אוטובוס</b> ו<b>ישוב</b> (ושם המלווה, לא חובה) ← <b>📷 פתיחת סריקה</b>.</li>
+        <li>סורקים את הכרטיס של כל תלמיד שעולה. <b>ירוק</b> = נרשם · <b>כתום</b> = כבר נסרק.</li>
+        <li>תלמיד בלי טלפון: <b>עוד… ← חיפוש לפי שם</b> ולחיצה על השם.</li>
+        <li>כשכולם עלו: <b>🚍 האוטובוס יצא</b> — ההנהלה רואה שהאוטובוס יצא ועם כמה תלמידים.</li>
+        <li>אוטובוס נוסף? <b>עוד… ← 🚌 אוטובוס אחר</b>.</li>
+        <li>כמו בנוהל: מצלמים ומעבירים בקבוצת "בחירום מלווי הסעות", ומדווחים כשאחרון התלמידים ירד.</li>
+      </ol>
+    </div>
+    <div class="box">
+      <h2>📴 אין אינטרנט?</h2>
+      <ol>
+        <li>ממשיכים לסרוק כרגיל. הכול נשמר בטלפון, ליד השם מופיע ⏳.</li>
+        <li>כשהרשת חוזרת, הסריקות נשלחות לבד.</li>
+        <li>ההנהלה צריכה את הרשימה עכשיו? <b>🔳 QR נתוני האוטובוס</b> — המנהלת סורקת אותו מהטלפון שלה.</li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- שומר -->
+  <section class="panel" id="p-grd" style="--c:var(--grd)">
+    <div class="box">
+      <h2>🚪 מסך השער</h2>
+      <p>סורקים כל תלמיד שיוצא מהשער — עצמאית או עם הורה.</p>
+      <a class="btn big" href="pizur-scan.html?role=guard">פתיחת מסך השער</a>
+    </div>
+    <div class="box">
+      <h2>הכנה מראש — כשיש אינטרנט</h2>
+      <ol>
+        <li>פותחים את <b>מסך השער</b> ומקלידים את <b>קוד המקלטים</b>.</li>
+        <li>מתקינים את המסך בטלפון (הוספה למסך הבית), ובודקים שהמצלמה נפתחת.</li>
+      </ol>
+    </div>
+    <div class="box">
+      <h2>ברגע האמת</h2>
+      <ol>
+        <li>למעלה בוחרים: <b>🚶 עצמאית</b> או <b>👪 עם הורה</b>.</li>
+        <li><b>עצמאית</b> — כל סריקה נרשמת מיד.</li>
+        <li><b>עם הורה</b> — אחרי הסריקה רושמים <b>מי לקח</b> (שם וקרבה, חובה) ו<b>ישוב</b>, ואז <b>✓ רישום יציאה</b>. כיתה ושם התלמיד נרשמים לבד מהכרטיס.</li>
+        <li>הורה לוקח רק את בנו/ביתו. לוקח משהו נוסף — רק בידיעת ואישור ההורה הנלווה.</li>
+        <li>טעות ברישום? <b>עוד… ← ✕</b> ליד השם.</li>
+      </ol>
+    </div>
+    <div class="box">
+      <h2>לפי הנוהל</h2>
+      <ul>
+        <li><b>אופציה א</b> — כשאין כניסת או יציאת אוטובוסים: התלמידים שמפונים ע"י הוריהם נעמדים ליד <b>שער היציאה הקטן</b>.</li>
+        <li><b>אופציה ב</b> — כשיש חפיפה עם האוטובוסים: קדימות לאוטובוסים, וההורים יופנו ל<b>רחבת האשכול</b>.</li>
+        <li>ליד השומר ימונה איש צוות (אחראי יעקב או ממונה מטעמו).</li>
+      </ul>
+      <div class="note">📴 בלי אינטרנט — הכול נשמר בטלפון. להנהלה: <b>🔳 QR נתוני השער</b>.</div>
+    </div>
+  </section>
+
+  <!-- הנהלה -->
+  <section class="panel" id="p-adm" style="--c:var(--adm)">
+    <div class="box">
+      <h2>📊 מסך המנהלת</h2>
+      <p>הכול במסך אחד, מתעדכן לבד כל 10 שניות. כניסה ראשונה: קוד מקלטים או סיסמת מנהל.</p>
+      <a class="btn big" href="pizur-scan.html?mode=manage">פתיחת מסך המנהלת</a>
+    </div>
+    <div class="box">
+      <h2>מה רואים במסך</h2>
+      <ul>
+        <li><b>🏫 בבית הספר</b> — לפי קריאת השמות של הבוקר.</li>
+        <li><b>🚌 באוטובוסים · 🚶 עצמאית · 👪 עם הורים · ⏳ עוד לא יצאו</b>.</li>
+        <li><b>כל אוטובוס</b> — מספר, ישוב, כמה עלו, בטעינה / יצא ומתי. לחיצה = שמות.</li>
+        <li><b>יציאה מהשער</b> — עצמאית ועם הורים, כולל מי לקח ולאיזה ישוב.</li>
+        <li><b>מי עוד לא יצא</b> — לפי חטיבות (ז–ט / י–יב) וכיתות, עם שמות. וחיפוש תלמיד.</li>
+      </ul>
+    </div>
+    <div class="box">
+      <h2>מסלול הפינוי</h2>
+      <div class="flow">
+        <div><b>מחנכים</b> — כל התלמידים מתכנסים בכיתות האם, המחנכים סורקים שוב</div>
+        <div class="ar">⬇</div>
+        <div><b>צוות צל"ח · חדר 101</b> — רשימה מעודכנת לפי ישובים, עדיפויות לפיזור</div>
+        <div class="ar">⬇</div>
+        <div><b>אחראי הסעות ← כריזה</b> — ירידה לרחבת ההסעים לפי ישובים</div>
+        <div class="ar">⬇</div>
+        <div><b>🚌 אחראי אוטובוס</b> סורק את העולים · <b>🚪 שומר</b> סורק את היוצאים מהשער</div>
+        <div class="ar">⬇</div>
+        <div><b>📊 מסך המנהלת</b> — מי באיזה אוטובוס, מי יצא, ומי עוד לא יצא</div>
+      </div>
+      <div class="row2" style="margin-top:6px">
+        <a class="btn sec" href="pinui.html">📖 נוהל הפינוי</a>
+        <a class="btn sec" href="shelter-start.html">🚨 סריקת מקלטים</a>
+      </div>
+    </div>
+    <div class="box">
+      <h2>איחוד כשאין אינטרנט</h2>
+      <ul>
+        <li><b>📷 סריקת QR מהשטח</b> (בתחתית מסך המנהלת): ניגשים לאחראי האוטובוס או לשומר, והוא מציג "QR נתוני…".</li>
+        <li>כשהרשת חוזרת, כל הסריקות מגיעות לבד — אין צורך לעשות כלום.</li>
+        <li><b>אירוע חדש</b> במסך המנהלת — מתחיל ספירה מעכשיו (לתרגיל / אחרי תרגיל).</li>
+      </ul>
+    </div>
+    <div class="box" id="shareBox">
+      <h2>📤 קישורים לשליחה</h2>
+      <p>כל קישור נפתח ישר בחלק של מי שמקבל אותו.</p>
+      <div id="shareLinks"></div>
+    </div>
+    <div class="box check">
+      <h2>✅ רשימת בדיקה לפני תרגיל</h2>
+      <p>הסימונים נשמרים בטלפון הזה בלבד.</p>
+      <div id="checklist"></div>
+    </div>
+  </section>
+
+  <!-- תלמידים -->
+  <section class="panel" id="p-stu" style="--c:var(--stu)">
+    <div class="alert">⚠️ <b>בלי אינטרנט, הכרטיס נפתח רק אם התקנתם אותו מראש.</b> התקינו עכשיו, כשיש רשת.</div>
+    <div class="box">
+      <h2>🎫 הכרטיס שלי</h2>
+      <p>כבר הפעלתם כרטיס בטלפון הזה? הוא נפתח ישר.</p>
+      <a class="btn" href="student-card.html">פתיחת הכרטיס שלי</a>
+      <a class="btn" style="background:#e3e8f2;color:var(--ink)" href="late-entry.html?tab=stu">עוד לא הפעלתי כרטיס</a>
+    </div>
+    <div class="box">
+      <h2>בפיזור בחירום</h2>
+      <ol>
+        <li>מחכים בכיתה עם המחנך עד הקריאה בכריזה.</li>
+        <li>יורדים לרחבת ההסעים <b>לפי הישוב</b> שלכם.</li>
+        <li>בעלייה לאוטובוס — פותחים את <b>כרטיס התלמיד</b> ומציגים לאחראי האוטובוס.</li>
+        <li>הורה בא לקחת אתכם? יוצאים <b>רק דרך השומר</b> ומציגים לו את הכרטיס.</li>
+        <li>אין טלפון או שהסוללה נגמרה? אומרים את <b>השם</b>, והאחראי ירשום אתכם.</li>
+      </ol>
+    </div>
+  </section>
+
+  <div class="toast" id="toast"></div>
+  <footer>פיתוח: רני בן זאב · v1.0.0</footer>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const TAB_KEY = 'gm_pizur_tab', CHECK_KEY = 'gm_pizur_check';
+const ls = {
+  get(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } },
+  set(k,v){ try{ localStorage.setItem(k,v); }catch(e){} }
+};
+function showTab(p){
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('on', t.dataset.p === p));
+  document.querySelectorAll('.panel').forEach(x => x.classList.toggle('on', x.id === 'p-' + p));
+  ls.set(TAB_KEY, p);
+}
+$('tabs').onclick = e => { const t = e.target.closest('.tab'); if(t) showTab(t.dataset.p); };
+const AUDIENCE = {
+  bus: {title:'פיזור בחירום — אחראי אוטובוס', sub:'רושמים מספר אוטובוס וישוב, וסורקים כל תלמיד שעולה. עובד גם בלי אינטרנט, אם המסך הותקן מראש.'},
+  grd: {title:'פיזור בחירום — שומר',          sub:'סורקים כל תלמיד שיוצא מהשער — עצמאית או עם הורה.'},
+  adm: {title:'פיזור בחירום — הנהלה',          sub:'מי באיזה אוטובוס, מי יצא, ומי עוד לא יצא — במסך אחד.'},
+  stu: {title:'פיזור בחירום — תלמידים',        sub:'בעלייה לאוטובוס וביציאה מהשער מציגים את כרטיס התלמיד. התקינו אותו מראש.'}
+};
+const fromUrl = new URLSearchParams(location.search).get('tab');
+if(AUDIENCE[fromUrl]){
+  $('tabs').style.display = 'none';
+  $('shareBox').style.display = 'none';
+  document.querySelector('header h1').firstChild.textContent = AUDIENCE[fromUrl].title + ' ';
+  $('hdrSub').textContent = AUDIENCE[fromUrl].sub;
+  document.title = AUDIENCE[fromUrl].title;
+  document.querySelectorAll('.panel').forEach(x => x.classList.toggle('on', x.id === 'p-' + fromUrl));
+}else{
+  const saved = ls.get(TAB_KEY);
+  showTab(AUDIENCE[saved] ? saved : 'bus');
+}
+
+const PAGE_URL = location.origin + location.pathname;
+const SHARE = [
+  {tab:'bus', who:'🚌 למלווי ההסעות',  msg:'פיזור בחירום — מסך אחראי האוטובוס. פתחו, הקלידו את קוד המקלטים והתקינו בטלפון עכשיו, כשיש אינטרנט:'},
+  {tab:'grd', who:'🚪 לשומר',          msg:'פיזור בחירום — מסך השער (יציאה עצמאית / עם הורה). פתחו והתקינו בטלפון עכשיו:'},
+  {tab:'adm', who:'📊 להנהלה',         msg:'פיזור בחירום — מסך ההנהלה: מי באיזה אוטובוס, מי יצא ומי עוד לא יצא:'},
+  {tab:'stu', who:'🎫 לתלמידים',       msg:'בפיזור בחירום עולים לאוטובוס ויוצאים מהשער עם כרטיס התלמיד. התקינו אותו עכשיו בטלפון:'}
+];
+const shareUrl = t => PAGE_URL + '?tab=' + t;
+$('shareLinks').innerHTML = SHARE.map((x, i) => `
+  <div class="share-row">
+    <span class="who">${x.who}</span>
+    <span class="acts">
+      <button class="cp" data-i="${i}">העתקה</button>
+      <a class="wa" target="_blank" href="https://wa.me/?text=${encodeURIComponent(x.msg + '\n' + shareUrl(x.tab))}">וואטסאפ</a>
+    </span>
+  </div>`).join('');
+$('shareLinks').onclick = async e => {
+  const b = e.target.closest('button.cp'); if(!b) return;
+  const link = shareUrl(SHARE[b.dataset.i].tab);
+  try{ await navigator.clipboard.writeText(link); toast('הקישור הועתק'); }
+  catch(err){ prompt('העתיקו את הקישור:', link); }
+};
+function toast(t){
+  const el = $('toast'); el.textContent = t; el.classList.add('on');
+  clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('on'), 1800);
+}
+
+const CHECKS = [
+  'הורץ HAKOL-pizur.sql בסופרבייס',
+  'קוד המקלטים נמסר לכל מלווי ההסעות ולשומר',
+  'כל מלווה ושומר פתח את המסך, הקליד קוד והתקין אותו בטלפון',
+  'נבדק בטלפון אחד לפחות: מצב טיסה ← פתיחה מהאייקון ← סריקה עובדת',
+  'המנהלת פתחה את מסך המנהלת כשיש אינטרנט',
+  'רוב התלמידים התקינו את כרטיס התלמיד (דף החלוקה)',
+  'טבלת מלווי ההסעות בנוהל הפינוי מעודכנת ומודפסת כגיבוי',
+  'קבוצת "בחירום מלווי הסעות" פתוחה לכתיבה בשעת חירום'
+];
+let done = {}; try{ done = JSON.parse(ls.get(CHECK_KEY) || '{}'); }catch(e){}
+$('checklist').innerHTML = CHECKS.map((t, i) =>
+  `<label><input type="checkbox" data-i="${i}" ${done[i] ? 'checked' : ''}><span>${t}</span></label>`).join('');
+$('checklist').onchange = e => {
+  const c = e.target.closest('input'); if(!c) return;
+  done[c.dataset.i] = c.checked; ls.set(CHECK_KEY, JSON.stringify(done));
+};
+</script>
+</body>
+</html>
