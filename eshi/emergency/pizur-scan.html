@@ -1,0 +1,824 @@
+<!DOCTYPE html>
+<!-- גרסה: v1.0.0 | תאריך: 2026-11-09 | פיזור בחירום — סריקת QR לפי תפקידים · eshi/emergency/pizur-scan.html
+  לפי "נוהל פינוי בית הספר בחירום" (pinui.html). אותו דאטאבייס (skfriefqnoxfzmamcokd), אותו כרטיס תלמיד
+  (QR של student-card.html?scan=TOKEN) ואותו קוד מקלטים כמו shelter-scan.html — טלפון שכבר הוגדר לסריקת
+  מקלטים לא צריך הגדרה נוספת (רשימת התלמידים והקוד משותפים: sh_pin / sh_roster).
+  v1.0.0 · שלושה תפקידים:
+    🚌 אחראי אוטובוס — לפני פתיחת המצלמה רושמים מספר אוטובוס וישוב (+ שם המלווה, לא חובה). סורקים את העולים.
+       מונה גדול, "🚍 האוטובוס יצא" (דיווח להנהלה, אפשר לבטל), "אוטובוס אחר", תלמיד בלי טלפון (חיפוש שם).
+    🚪 שומר — בוחרים 🚶 עצמאית / 👪 עם הורה. עם הורה: אחרי הסריקה רושמים מי לקח (חובה) ולאיזה ישוב.
+    📊 מסך מנהלת (?mode=manage) — הכול במסך אחד, מתעדכן לבד כל 10 שניות:
+       מספר התלמידים בבית הספר (לפי קריאת השמות של הבוקר) · באוטובוסים · עצמאית · עם הורים · עוד לא יצאו;
+       כל אוטובוס — מספר, ישוב, כמה עלו (לחיצה = שמות), בטעינה / יצא ומתי; יציאות מהשער עם מי לקח;
+       מי עוד לא יצא — לפי חטיבות (ז–ט / י–יב) וכיתות, עם שמות; חיפוש תלמיד.
+  · בלי אינטרנט: הדף נשמר בטלפון (pizur-sw.js), כל רישום נכנס לתור ונשלח כשיש חיבור. בינתיים — "QR נתוני…"
+    (GMPZ1|kind|bus|town|stamp|k/n|codes) שהמנהלת סורקת.
+  · ביטול רישום (✕ ברשימה) — גם אחרי שנשלח (pizur_cancel). תלמיד שנרשם פעמיים — נספר לפי הרישום האחרון.
+  · קישור ישיר לתפקיד: ?role=bus | ?role=guard. דורש HAKOL-pizur.sql.
+  פיתוח: רני בן זאב -->
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="app-version" content="1.0.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
+<script>
+/* עדכון אוטומטי: דפדפן שפתח עותק ישן מהזיכרון בודק מול האתר אם יש גרסה חדשה, ואם כן טוען אותה פעם אחת. */
+(function(){
+  var V = '1.0.0', u = location.pathname;
+  if(navigator.onLine === false || !window.fetch) return;
+  fetch(u + '?vcheck=' + Date.now(), {cache: 'no-store'})
+    .then(function(r){ return r.ok ? r.text() : ''; })
+    .then(function(t){
+      var m = t.match(/<meta name="app-version" content="([^"]+)"/);
+      if(!m || m[1] === V) return;
+      var k = 'vreload:' + u + ':' + m[1];
+      try{ if(sessionStorage.getItem(k)) return; sessionStorage.setItem(k, '1'); }catch(e){ return; }
+      var q = new URLSearchParams(location.search); q.set('v', m[1]);
+      location.replace(u + '?' + q.toString() + location.hash);
+    }).catch(function(){});
+})();
+</script>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f4c5c">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="robots" content="noindex">
+<title>פיזור בחירום — גליל מערבי</title>
+<script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+  :root{--bg:#f4f5f8;--card:#fff;--ink:#1c2230;--muted:#6b7385;--red:#b3261e;--deep:#7a1f1f;
+        --ok:#1e8e3e;--warn:#e37400;--bad:#c5221f;--line:#e6e9ef}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Arial,sans-serif;background:var(--bg);color:var(--ink)}
+  .top{background:var(--deep);color:#fff;padding:12px 16px;position:sticky;top:0;z-index:5}
+  .top h1{margin:0;font-size:19px}
+  .top .sub{font-size:13px;opacity:.9;margin-top:3px;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:12px;font-weight:600}
+  .pill.on{background:#d7f3df;color:#0d5d27} .pill.off{background:#ffe0b2;color:#7a3d00}
+  .wrap{max-width:560px;margin:0 auto;padding:14px 16px 30px}
+  .box{background:var(--card);border-radius:14px;padding:14px;margin-top:12px;box-shadow:0 1px 3px rgba(0,0,0,.06)}
+  h2{font-size:16px;margin:0 0 8px}
+  .muted{color:var(--muted);font-size:14px}
+  .btn{display:block;width:100%;padding:14px;border:0;border-radius:12px;background:var(--red);color:#fff;
+       font-size:17px;font-weight:700;margin-top:10px;cursor:pointer;font-family:inherit}
+  .btn.sec{background:#e9ecf2;color:var(--ink);font-weight:600}
+  .btn.small{padding:10px;font-size:15px}
+  .row2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .row2 .btn{margin-top:8px}
+  input,select,textarea{width:100%;padding:12px;border:1px solid #d5dae4;border-radius:10px;font-size:16px;margin-top:8px;font-family:inherit;background:#fff}
+  textarea{min-height:110px;direction:ltr}
+  .shelters{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+  .shelters button{padding:16px 8px;border:2px solid var(--line);border-radius:12px;background:#fff;font-size:16px;font-weight:600;font-family:inherit;cursor:pointer}
+  .shelters button:active{border-color:var(--red)}
+  #reader{width:100%;border-radius:14px;overflow:hidden;background:#000;margin-top:10px}
+  .result{display:none;border-radius:16px;padding:18px;margin-top:12px;color:#fff;text-align:center}
+  .result.ok{background:var(--ok)} .result.dup{background:var(--warn)} .result.bad{background:var(--bad)}
+  .result .big{font-size:26px;font-weight:800;margin:4px 0}
+  .count{font-size:40px;font-weight:800;color:var(--deep);line-height:1}
+  .list .r{display:flex;justify-content:space-between;gap:8px;padding:9px 2px;border-bottom:1px solid var(--line);font-size:15px}
+  .list .r:last-child{border-bottom:0}
+  .hit{padding:11px 12px;border:1px solid var(--line);border-radius:10px;margin-top:6px;display:flex;justify-content:space-between;cursor:pointer;background:#fff}
+  .err{color:var(--bad);font-size:14px;min-height:18px;margin-top:6px}
+  .qrwrap{display:flex;justify-content:center;background:#fff;padding:14px;border-radius:12px;margin-top:10px}
+  .stat{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;text-align:center}
+  .stat div{background:var(--card);border-radius:12px;padding:10px}
+  .stat b{display:block;font-size:26px}
+  details{background:var(--card);border-radius:12px;padding:10px 12px;margin-top:8px}
+  summary{cursor:pointer;font-weight:700;display:flex;justify-content:space-between;gap:8px}
+  .tag{font-size:12px;color:var(--muted);font-weight:400}
+  .miss{color:var(--bad);font-weight:700}
+  .grey{color:var(--muted)}
+  /* v1.1.0 — מסך אחראי מקלט פשוט */
+  .pickTitle{font-size:22px;font-weight:800;text-align:center;margin:6px 0 4px}
+  .bigList{display:flex;flex-direction:column;gap:10px;margin-top:12px}
+  .bigList button{width:100%;padding:22px 14px;border:0;border-radius:16px;background:var(--red);color:#fff;
+       font-size:22px;font-weight:800;font-family:inherit;cursor:pointer;box-shadow:0 2px 0 rgba(0,0,0,.15)}
+  .bigList button.other{background:#e9ecf2;color:var(--ink)}
+  .shBtn{width:100%;display:flex;justify-content:space-between;align-items:center;gap:10px;padding:14px 16px;border:2px solid var(--line);
+       border-radius:16px;background:#fff;font-family:inherit;cursor:pointer;text-align:right;margin-top:4px}
+  .shBtn .nm{font-size:22px;font-weight:800;color:var(--deep)}
+  .shBtn .ch{font-size:13px;color:var(--muted)}
+  .shBtn .num{font-size:40px;font-weight:800;color:var(--deep);line-height:1;text-align:center}
+  .shBtn .num small{display:block;font-size:12px;font-weight:600;color:var(--muted)}
+  .btn.huge{padding:26px 14px;font-size:26px;font-weight:800;border-radius:18px;margin-top:12px}
+  .btn.qrbig{padding:20px 14px;font-size:21px;font-weight:800;border-radius:18px;background:#1c2230}
+  details.more{margin-top:14px}
+  details.more>summary{justify-content:center;color:var(--muted);font-weight:700}
+  details.more .box{box-shadow:none;border:1px solid var(--line)}
+  .bigList button small{display:block;font-size:15px;font-weight:600;opacity:.9;margin-top:4px}
+  .bigList button.quake{background:#8a5a00}
+  .bigList button.other2{background:#2f4f8f}
+  .bigList button .go{display:block;margin-top:8px;font-size:15px;font-weight:700;background:rgba(255,255,255,.22);border-radius:10px;padding:6px}
+  .linkBtn{display:block;margin:16px auto 0;background:none;border:0;color:var(--muted);font-size:15px;text-decoration:underline;font-family:inherit;cursor:pointer}
+  .result.warn{background:var(--warn)}
+  .rollRow{width:100%;display:flex;justify-content:space-between;align-items:center;gap:8px;padding:14px 12px;margin-top:6px;
+       border:2px solid var(--line);border-radius:12px;background:#fff;font-size:18px;font-weight:700;font-family:inherit;cursor:pointer;text-align:right;color:var(--ink)}
+  .rollRow .sub{font-size:13px;font-weight:600;color:var(--muted);white-space:nowrap}
+  .rollRow.yes{background:#e3f6ec;border-color:#9fd9b5}
+  .rollRow.away{background:#fff3c4;border-color:#f0d36b}
+  .rollRow.away .sub{color:#7a5a00}
+  .mtabs{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:10px}
+  .mtabs button{padding:12px 4px;border:2px solid var(--line);border-radius:12px;background:#fff;font-size:15px;font-weight:700;font-family:inherit;cursor:pointer}
+  .mtabs button.on{background:#2f4f8f;border-color:#2f4f8f;color:#fff}
+  .mrow{display:flex;justify-content:space-between;gap:8px;padding:10px 8px;border-radius:10px;margin-top:5px;font-size:16px;font-weight:600}
+  .mrow .sub{font-size:13px;color:var(--muted);white-space:nowrap}
+  .mrow.no{background:#fde8e6} .mrow.no .sub{color:var(--bad);font-weight:700}
+  .mrow.yes{background:#e9f7ef} .mrow.away{background:#fff3c4} .mrow.away .sub{color:#7a5a00}
+  .net{border-radius:14px;padding:12px 14px;margin-bottom:10px;font-size:15px;line-height:1.5}
+  .net.off{background:#fff3c4;border:2px solid #f0c84a;color:#5a4300;font-size:16px}
+  .net.wait{background:#fff7e0;color:#7a5a00}
+  .net.on{background:#e3f6ec;color:#0d5d27;font-weight:700;padding:8px 12px;font-size:14px}
+  .prow{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:11px 10px;border-radius:10px;margin-top:6px;font-size:16px;font-weight:700}
+  .prow .sub{font-size:13px;font-weight:600;white-space:nowrap}
+  .prow.got{background:#e3f6ec} .prow.got .sub{color:#0d5d27}
+  .prow.wait{background:#f1f2f5} .prow.wait .sub{color:var(--muted)}
+  .qrfull{display:none;position:fixed;inset:0;background:#fff;z-index:50;padding:18px 16px;overflow:auto;text-align:center}
+  .qrfull.on{display:block}
+  .qrfull h2{font-size:22px;margin:4px 0}
+  .qrfull .qrwrap{padding:6px}
+  footer{text-align:center;color:var(--muted);font-size:12px;margin:20px 0 10px}
+</style>
+<style>
+  /* פיזור — צבעים ותוספות */
+  :root{--deep:#0f4c5c;--red:#0f6b80;--bus:#0f6b80;--self:#6a3fb5;--par:#b45309}
+  .bigList button.bus{background:var(--bus)} .bigList button.grd{background:var(--self)} .bigList button.mg{background:#1c2230}
+  .seg{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+  .seg button{padding:16px 6px;border:3px solid var(--line);border-radius:14px;background:#fff;font-size:18px;font-weight:800;font-family:inherit;cursor:pointer;color:var(--ink)}
+  .seg button.on.self{background:var(--self);border-color:var(--self);color:#fff}
+  .seg button.on.par{background:var(--par);border-color:var(--par);color:#fff}
+  .result.self{background:var(--self)} .result.par{background:var(--par)}
+  .form label{display:block;font-weight:700;margin-top:10px;font-size:15px}
+  .form input{margin-top:4px}
+  .busHead{background:var(--bus);color:#fff;border-radius:16px;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;gap:10px}
+  .busHead .nm{font-size:24px;font-weight:800}
+  .busHead .ch{font-size:13px;opacity:.9}
+  .busHead .num{font-size:42px;font-weight:800;line-height:1;text-align:center}
+  .busHead .num small{display:block;font-size:12px;font-weight:600;opacity:.9}
+  .busHead.gone{background:#4b5563}
+  .confirm{background:#fff;border:3px solid var(--par);border-radius:16px;padding:14px;margin-top:12px}
+  .confirm .big{font-size:24px;font-weight:800}
+  .stat5{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;text-align:center}
+  .stat5 div{background:var(--card);border-radius:12px;padding:8px 2px;font-size:12.5px;font-weight:600;color:var(--muted)}
+  .stat5 b{display:block;font-size:24px;color:var(--ink)}
+  @media (max-width:420px){ .stat5{grid-template-columns:repeat(3,1fr)} }
+  .bcard{border:2px solid var(--line);border-radius:12px;margin-top:8px;background:#fff;padding:0}
+  .bcard>summary{padding:11px 12px;align-items:center}
+  .bcard .bn{font-size:18px;font-weight:800;color:var(--bus)}
+  .bcard .bt{font-size:13px;color:var(--muted);font-weight:600}
+  .bcard .cnt{font-size:26px;font-weight:800;color:var(--ink);line-height:1}
+  .bcard .inner{padding:0 10px 10px}
+  .bcard.gone{background:#f3f4f6}
+  .lvl{border-radius:14px;padding:12px;margin-top:10px;background:#fff}
+  .lvl h3{margin:0 0 6px;font-size:17px;display:flex;justify-content:space-between}
+  .live{display:inline-block;width:9px;height:9px;border-radius:50%;background:#22c55e;margin-inline-end:6px;animation:pl 1.6s infinite}
+  @keyframes pl{50%{opacity:.25}}
+  .mini{border:0;background:#eef0f4;border-radius:6px;padding:2px 7px;cursor:pointer;font-size:12px;margin-inline-start:4px}
+  .mrow.bus{background:#e6f3f6} .mrow.self{background:#efe9fb} .mrow.par{background:#fdf0e1}
+</style>
+</head>
+<body>
+<div class="top"><h1 id="title">🚌 פיזור בחירום</h1><div class="sub" id="sub"></div></div>
+<div class="wrap" id="app"></div>
+<footer>פיתוח: רני בן זאב · v1.0.0</footer>
+<div id="qrFull" class="qrfull"></div>
+
+<script>
+// ===== חיבור — אותו פרויקט ואותו קוד מקלטים כמו shelter-scan.html =====
+const SB_URL = 'https://skfriefqnoxfzmamcokd.supabase.co';
+const SB_KEY = 'sb_publishable_Qx7EDPbdyYE9iv7uMQBKhQ_Aeojd_Q0';
+/* הצעות לשם הישוב (אפשר גם להקליד ישוב אחר) — לפי קווי ההסעות בנוהל הפינוי */
+const TOWNS = ['נהריה','עכו','שלומי','בן עמי','שבי ציון','בוסתן הגליל','אחיהוד','נתיב השיירה','עמקא','אשרת','גורן','אבן מנחם',
+  'נטועה','שתולה','יערה','גרנות הגליל','שומרה','זרעית','מנות','עבדון','צוריאל','אלקוש','פקיעין חדשה','חוסן','מעונה','עין יעקב',
+  'לפידות','הילה','גיתה','נווה זיו','כפר ורדים','כברי','געתון','איילון','טל-אל','מעלות-תרשיחא'];
+const KIND = {bus: {ic: '🚌', l: 'עלה לאוטובוס'}, self: {ic: '🚶', l: 'יצא עצמאית'}, parent: {ic: '👪', l: 'יצא עם הורה'}};
+const EVENT_TTL = 3 * 3600 * 1000;   // אירוע "פעיל" עד 3 שעות מהפעולה האחרונה
+const CHUNK = 60;
+
+function awayLabel(s){
+  const st = String(s.st || '').toLowerCase();
+  if(s.a || /absent|נעדר|חסר|לא הגיע/.test(st)) return 'לא הגיע הבוקר';
+  if(/releas|left|exit|out|יצא|שוחרר|שחרור/.test(st)) return 'יצא מבית הספר';
+  if(/excus|מוצדק|מאושר/.test(st)) return 'היעדרות מאושרת';
+  return '';
+}
+const levelOf = c => { c = String(c || '').trim();
+  return /^(יא|יב|י)(?![א-ת])/.test(c) ? 'upper' : /^(ז|ח|ט)(?![א-ת])/.test(c) ? 'middle' : 'other'; };
+const LEVELS = {middle: 'חטיבת ביניים · ז–ט', upper: 'חטיבה עליונה · י–יב', other: 'כיתות אחרות'};
+
+async function rpc(fn, body, ms = 8000){
+  const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), ms);
+  try{
+    const r = await fetch(`${SB_URL}/rest/v1/rpc/${fn}`, {method:'POST', signal:ctl.signal,
+      headers:{apikey:SB_KEY, Authorization:'Bearer '+SB_KEY, 'Content-Type':'application/json'}, body:JSON.stringify(body)});
+    if(!r.ok) throw new Error(await r.text());
+    const txt = await r.text(); return txt ? JSON.parse(txt) : null;
+  } finally { clearTimeout(t); }
+}
+
+// ===== עזרים =====
+const app = document.getElementById('app');
+const $ = id => document.getElementById(id);
+const params = new URLSearchParams(location.search);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const hhmm = d => new Date(d).toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit',timeZone:'Asia/Jerusalem'});
+const dayTime = d => new Date(d).toLocaleString('he-IL',{day:'numeric',month:'numeric',hour:'2-digit',minute:'2-digit',timeZone:'Asia/Jerusalem'});
+const byHe = (a, b) => String(a).localeCompare(String(b), 'he', {numeric:true});
+const ls = {
+  get(k, d = null){ try{ const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); }catch(e){ return d; } },
+  set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} },
+  del(k){ try{ localStorage.removeItem(k); }catch(e){} }
+};
+const uid = () => (crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2));
+function deviceId(){ let d = ls.get('pz_device'); if(!d){ d = 'pizur-' + Math.random().toString(36).slice(2,8); ls.set('pz_device', d); } return d; }
+function tokenFromText(text){
+  text = String(text || '').trim();
+  if(text.startsWith('GMCARD:')) return text.slice(7);
+  try{ return new URL(text).searchParams.get('scan'); }catch(e){ return null; }
+}
+function toast(html, cls = 'ok', ms = 3500){
+  const r = $('res'); if(!r) return;
+  r.className = 'result ' + cls; r.innerHTML = html; r.style.display = 'block';
+  clearTimeout(toast.t); toast.t = setTimeout(() => r.style.display = 'none', ms);
+}
+function beep(ok){ try{ navigator.vibrate && navigator.vibrate(ok ? 80 : [60,60,60]); }catch(e){} }
+
+if('serviceWorker' in navigator) navigator.serviceWorker.register('pizur-sw.js', {scope: './pizur-scan.html'}).catch(() => {});
+if(navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+
+// ===== רשימת תלמידים — משותפת עם סריקת המקלטים (אותו טלפון לא צריך הגדרה פעמיים) =====
+let ROSTER = ls.get('sh_roster');
+let byTok = {}, byTok8 = {}, byId = {};
+function indexRoster(){
+  byTok = {}; byTok8 = {}; byId = {};
+  (ROSTER?.rows || []).forEach(s => { byId[s.id] = s; if(s.t){ byTok[s.t] = s; byTok8[s.t.slice(0,8)] = s; } });
+}
+indexRoster();
+const codeOf = s => s.t ? s.t.slice(0,8) : '#' + s.id;
+const fromCode = c => c.startsWith('#') ? byId[c.slice(1)] : byTok8[c];
+async function refreshRoster(pin){
+  const rows = await rpc('shelter_roster', {p_pin: pin}, 15000);
+  if(!rows || !rows.length) throw new Error('empty');
+  ROSTER = {at: new Date().toISOString(), rows: rows.map(r => ({id:r.student_id, t:r.token, n:r.name, c:r.class, a:!!r.absent, st:r.status || ''}))};
+  ls.set('sh_roster', ROSTER); indexRoster();
+  return ROSTER.rows.length;
+}
+
+let online = navigator.onLine !== false;
+function setOnline(v){ online = v; renderSub(); }
+
+// ===== מצלמה =====
+let scanner = null, lastText = '', lastAt = 0;
+async function startScanner(onText){
+  if(typeof Html5Qrcode === 'undefined'){ alert('רכיב הסריקה לא נטען. פתחו את הדף פעם אחת עם אינטרנט.'); return; }
+  if(scanner){ try{ await scanner.stop(); }catch(e){} }
+  scanner = new Html5Qrcode('reader');
+  try{
+    await scanner.start({facingMode:'environment'}, {fps:10, qrbox:{width:240, height:240}}, text => {
+      const now = Date.now();
+      if(text === lastText && now - lastAt < 3000) return;
+      lastText = text; lastAt = now; onText(text);
+    });
+    const b = $('camBtn'); if(b){ b.dataset.label = b.dataset.label || b.textContent; b.textContent = '⏹️ עצירת מצלמה'; b.onclick = stopScanner; }
+  }catch(e){ alert('לא ניתן להפעיל מצלמה: ' + e); }
+}
+async function stopScanner(){
+  if(scanner){ try{ await scanner.stop(); }catch(e){} scanner = null; }
+  const b = $('camBtn'); if(b){ b.textContent = b.dataset.label || '📷 סריקה'; b.onclick = window._camStart; }
+}
+
+/* =====================================================================
+   נתונים בטלפון
+   ===================================================================== */
+let SCANS = ls.get('pz_scans', []);     // [{id, sid, kind, bus, town, taker, at, session, src, synced}]
+let BUSES = ls.get('pz_buses', []);     // [{id, no, town, escort, opened, departed, session, synced}]
+const saveScans = () => ls.set('pz_scans', SCANS);
+const saveBuses = () => ls.set('pz_buses', BUSES);
+const session = () => ls.get('pz_session');
+const role = () => ls.get('pz_role');           // 'bus' | 'guard'
+const curBus = () => BUSES.find(b => b.id === ls.get('pz_bus'));
+const pending = () => SCANS.filter(s => !s.synced);
+const pendingBuses = () => BUSES.filter(b => !b.synced);
+const inSession = () => SCANS.filter(s => s.session === session());
+function eventStale(){
+  const t0 = Date.parse(session() || '') || 0;
+  const last = inSession().reduce((m, x) => Math.max(m, Date.parse(x.at) || 0), t0);
+  return !last || Date.now() - last > EVENT_TTL;
+}
+function ensureSession(){ if(!session() || eventStale()) ls.set('pz_session', new Date().toISOString()); }
+
+function renderSub(){
+  const el = $('sub'); if(!el) return;
+  const net = online ? '<span class="pill on">מחובר</span>' : '<span class="pill off">📴 אין חיבור</span>';
+  const p = pending().length + pendingBuses().length;
+  el.innerHTML = `${net}${!MANAGE && p ? `<span class="pill off">${p} ממתינות לשליחה</span>` : ''}${MANAGE && ROSTER ? `<span>רשימה מ-${dayTime(ROSTER.at)}</span>` : ''}`;
+  const b = $('netBanner'); if(!b) return;
+  if(!online){
+    b.className = 'net off';
+    b.innerHTML = `<b>📴 אין אינטרנט</b><br>הסריקות נשמרות בטלפון ויישלחו לבד כשהרשת תחזור.
+      כדי שההנהלה תראה אותן עכשיו — הציגו לה את ה-QR לסריקה.
+      <button class="btn" id="netQr" style="background:#1c2230;margin-top:8px">🔳 QR להנהלה</button>`;
+    $('netQr').onclick = showSummaryQR;
+  } else if(p){ b.className = 'net wait'; b.innerHTML = `⏳ מחובר · שולח ${p} רשומות להנהלה…`; }
+  else { b.className = 'net on'; b.innerHTML = '✓ מחובר — ההנהלה רואה בזמן אמת'; }
+}
+
+/* =====================================================================
+   מסך ראשי · הגדרה
+   ===================================================================== */
+function renderSetup(next){
+  app.innerHTML = `
+    <div class="box">
+      <h2>הגדרת הטלפון</h2>
+      <p class="muted">פעם אחת, <b>כשיש אינטרנט</b>. מקלידים את <b>קוד המקלטים</b> (אותו קוד של סריקת המקלטים). הטלפון שומר את רשימת התלמידים, ומאז הסריקה עובדת גם בלי אינטרנט.</p>
+      <input id="pin" type="password" placeholder="קוד מקלטים">
+      <button class="btn" id="go">שמירה והורדת רשימת התלמידים</button>
+      <div class="err" id="err"></div>
+    </div>
+    <button class="linkBtn" id="back">← חזרה</button>`;
+  $('back').onclick = renderHome;
+  $('go').onclick = async () => {
+    const pin = $('pin').value.trim(); if(!pin) return;
+    $('go').disabled = true; $('err').textContent = 'מוריד רשימה…';
+    try{ const n = await refreshRoster(pin); ls.set('sh_pin', pin); setOnline(true); alert(`נשמרו ${n} תלמידים בטלפון.`); next ? next() : renderHome(); }
+    catch(e){ $('go').disabled = false; $('err').textContent = String(e.message).includes('empty') ? 'קוד שגוי' : 'אין חיבור לשרת. נסו שוב כשיש אינטרנט.'; }
+  };
+}
+
+function renderHome(){
+  stopScanner(); closeQR();
+  $('title').textContent = '🚌 פיזור בחירום';
+  const b = curBus(), active = !eventStale();
+  const busLive = active && role() === 'bus' && b ? `<span class="go">▶ ממשיכים: אוטובוס ${esc(b.no)} · ${esc(b.town)} · ${inSession().filter(s => s.kind === 'bus' && s.bus === b.id).length} עלו</span>` : '';
+  const grdLive = active && role() === 'guard' ? `<span class="go">▶ ממשיכים: ${inSession().filter(s => s.kind !== 'bus').length} יצאו</span>` : '';
+  app.innerHTML = `
+    <div class="pickTitle">מה התפקיד שלך?</div>
+    <div class="bigList">
+      <button class="bus" data-r="bus">🚌 אחראי אוטובוס<small>סריקת העולים לאוטובוס</small>${busLive}</button>
+      <button class="grd" data-r="guard">🚪 שומר — יציאה מהשער<small>יוצאים עצמאית / עם הורים</small>${grdLive}</button>
+      <button class="mg" data-r="manage">📊 מסך מנהלת<small>אוטובוסים, יציאות, ומי עוד לא יצא</small></button>
+    </div>
+    <p class="muted" style="text-align:center;margin-top:14px">לפי <a href="pinui.html">נוהל פינוי בית הספר בחירום</a> · <a href="shelter-scan.html">סריקת מקלטים</a></p>`;
+  app.querySelectorAll('[data-r]').forEach(x => x.onclick = () => {
+    const r = x.dataset.r;
+    if(r === 'manage') return location.href = location.pathname + '?mode=manage';
+    if(!ls.get('sh_pin') || !ROSTER) return renderSetup(() => go(r));
+    go(r);
+  });
+  renderSub();
+}
+function go(r){
+  ensureSession(); ls.set('pz_role', r);
+  if(r === 'bus') return curBus() && curBus().session === session() ? renderBus() : renderBusForm();
+  renderGuard();
+}
+
+/* =====================================================================
+   🚌 אחראי אוטובוס
+   ===================================================================== */
+function renderBusForm(){
+  stopScanner();
+  $('title').textContent = '🚌 אחראי אוטובוס';
+  const last = curBus();
+  app.innerHTML = `
+    <div class="box form">
+      <h2>לפני הסריקה — פרטי האוטובוס</h2>
+      <label>מספר אוטובוס<input id="bNo" inputmode="numeric" placeholder="למשל 3" value=""></label>
+      <label>לאיזה ישוב<input id="bTown" list="towns" placeholder="שם הישוב"></label>
+      <datalist id="towns">${TOWNS.map(t => `<option value="${esc(t)}">`).join('')}</datalist>
+      <label>שם המלווה <span class="tag">(לא חובה)</span><input id="bEsc" value="${esc(ls.get('pz_escort') || '')}" placeholder="השם שלך"></label>
+      <button class="btn huge" id="open" style="background:var(--bus)">📷 פתיחת סריקה</button>
+      <div class="err" id="err"></div>
+    </div>
+    ${last && last.session === session() ? `<button class="btn sec" id="backBus">← חזרה לאוטובוס ${esc(last.no)} · ${esc(last.town)}</button>` : ''}
+    <button class="linkBtn" id="home">← החלפת תפקיד</button>`;
+  $('home').onclick = renderHome;
+  if($('backBus')) $('backBus').onclick = renderBus;
+  $('bNo').focus();
+  $('open').onclick = () => {
+    const no = $('bNo').value.trim(), town = $('bTown').value.trim(), escort = $('bEsc').value.trim();
+    if(!no){ $('err').textContent = 'חסר מספר אוטובוס'; return; }
+    if(!town){ $('err').textContent = 'חסר ישוב'; return; }
+    ls.set('pz_escort', escort);
+    const b = {id: uid(), no, town, escort, opened: new Date().toISOString(), departed: null, session: session(), synced: false};
+    BUSES.push(b); saveBuses(); ls.set('pz_bus', b.id);
+    renderBus(); sync();
+    setTimeout(() => window._camStart && window._camStart(), 50);
+  };
+}
+const onBus = b => inSession().filter(s => s.kind === 'bus' && s.bus === b.id);
+function renderBus(){
+  stopScanner();
+  const b = curBus(); if(!b) return renderBusForm();
+  $('title').textContent = `🚌 אוטובוס ${b.no} · ${b.town}`;
+  app.innerHTML = `
+    <div id="netBanner"></div>
+    <div class="busHead${b.departed ? ' gone' : ''}">
+      <span><span class="nm">🚌 ${esc(b.no)} · ${esc(b.town)}</span><br><span class="ch">${b.departed ? 'יצא ב-' + hhmm(b.departed) : 'פתוח מ-' + hhmm(b.opened)}${b.escort ? ' · ' + esc(b.escort) : ''}</span></span>
+      <span class="num"><span id="cnt">0</span><small>עלו</small></span>
+    </div>
+    <button class="btn huge" id="camBtn" style="background:var(--bus)">📷 סריקה</button>
+    <div id="reader"></div>
+    <div class="result" id="res"></div>
+    <button class="btn" id="depart" style="background:${b.departed ? '#6b7385' : '#1e8e3e'};font-size:19px;padding:16px">${b.departed ? '↩️ ביטול "האוטובוס יצא"' : '🚍 האוטובוס יצא — דיווח להנהלה'}</button>
+    <button class="btn qrbig" id="qrSum">🔳 QR נתוני האוטובוס</button>
+    <details class="more"><summary>עוד…</summary>
+      <div class="box"><h2>תלמיד בלי טלפון</h2><input id="q" placeholder="חיפוש לפי שם…"><div id="hits"></div></div>
+      <div class="box"><h2>עלו לאוטובוס</h2><div class="list" id="list"></div></div>
+      <button class="btn sec" id="newBus">🚌 אוטובוס אחר</button>
+      <button class="btn sec small" id="upd">עדכון רשימת תלמידים</button>
+      <p class="muted" style="margin-top:10px">רשימת התלמידים מ-${dayTime(ROSTER.at)} · ${ROSTER.rows.length} תלמידים</p>
+    </details>
+    <button class="linkBtn" id="home">← החלפת תפקיד</button>`;
+  window._camStart = () => startScanner(t => onCard(t, 'bus'));
+  $('camBtn').onclick = window._camStart;
+  $('depart').onclick = () => {
+    if(!b.departed && !confirm(`לדווח שאוטובוס ${b.no} (${b.town}) יצא עם ${onBus(b).length} תלמידים?`)) return;
+    b.departed = b.departed ? null : new Date().toISOString(); b.synced = false; saveBuses(); renderBus(); sync();
+  };
+  $('qrSum').onclick = showSummaryQR;
+  $('newBus').onclick = () => { stopScanner(); renderBusForm(); };
+  $('home').onclick = renderHome;
+  $('q').oninput = e => renderHits(e.target.value, 'bus');
+  $('upd').onclick = updRoster;
+  renderList(); renderSub();
+}
+
+/* =====================================================================
+   🚪 שומר — יציאה עצמאית / עם הורה
+   ===================================================================== */
+const gmode = () => ls.get('pz_gmode') || 'self';
+function renderGuard(){
+  stopScanner();
+  $('title').textContent = '🚪 יציאה מהשער';
+  const m = gmode();
+  const mine = inSession().filter(s => s.kind !== 'bus');
+  app.innerHTML = `
+    <div id="netBanner"></div>
+    <div class="seg">
+      <button class="self${m === 'self' ? ' on' : ''}" data-m="self">🚶 עצמאית<br><small>${mine.filter(s => s.kind === 'self').length}</small></button>
+      <button class="par${m === 'parent' ? ' on' : ''}" data-m="parent">👪 עם הורה<br><small>${mine.filter(s => s.kind === 'parent').length}</small></button>
+    </div>
+    <p class="muted" style="text-align:center;margin:6px 0 0">${m === 'parent' ? 'אחרי הסריקה רושמים מי לקח את התלמיד ולאיזה ישוב' : 'כל סריקה נרשמת מיד כ"יצא עצמאית"'}</p>
+    <button class="btn huge" id="camBtn" style="background:${m === 'parent' ? 'var(--par)' : 'var(--self)'}">📷 סריקה</button>
+    <div id="reader"></div>
+    <div id="pform"></div>
+    <div class="result" id="res"></div>
+    <button class="btn qrbig" id="qrSum">🔳 QR נתוני השער</button>
+    <details class="more"><summary>עוד…</summary>
+      <div class="box"><h2>תלמיד בלי טלפון</h2><input id="q" placeholder="חיפוש לפי שם…"><div id="hits"></div></div>
+      <div class="box"><h2>יצאו מהשער</h2><div class="list" id="list"></div></div>
+      <button class="btn sec small" id="upd">עדכון רשימת תלמידים</button>
+    </details>
+    <button class="linkBtn" id="home">← החלפת תפקיד</button>`;
+  app.querySelectorAll('[data-m]').forEach(x => x.onclick = () => { ls.set('pz_gmode', x.dataset.m); const on = !!scanner; renderGuard(); if(on) window._camStart(); });
+  window._camStart = () => startScanner(t => onCard(t, gmode()));
+  $('camBtn').onclick = window._camStart;
+  $('qrSum').onclick = showSummaryQR;
+  $('home').onclick = renderHome;
+  $('q').oninput = e => renderHits(e.target.value, gmode());
+  $('upd').onclick = updRoster;
+  renderList(); renderSub();
+}
+/* הורה: טופס קצר אחרי הסריקה — מי לקח ולאיזה ישוב */
+function parentForm(st){
+  const el = $('pform');
+  el.innerHTML = `<div class="confirm form">
+      <div class="big">👪 ${esc(st.n)}</div><div class="muted">${esc(st.c)}</div>
+      <label>מי לקח (שם וקרבה)<input id="pTaker" placeholder="למשל: דנה כהן — אמא"></label>
+      <label>ישוב<input id="pTown" list="towns2" placeholder="ישוב"></label>
+      <datalist id="towns2">${TOWNS.map(t => `<option value="${esc(t)}">`).join('')}</datalist>
+      <div class="row2"><button class="btn" id="pOk" style="background:var(--par)">✓ רישום יציאה</button><button class="btn sec" id="pNo">ביטול</button></div>
+      <div class="err" id="pErr"></div></div>`;
+  $('pTaker').focus();
+  $('pOk').onclick = () => {
+    const taker = $('pTaker').value.trim(), town = $('pTown').value.trim();
+    if(!taker){ $('pErr').textContent = 'חובה לרשום מי לקח את התלמיד'; return; }
+    el.innerHTML = '';
+    addScan(st, 'parent', {taker, town});
+  };
+  $('pNo').onclick = () => { el.innerHTML = ''; };
+}
+
+/* =====================================================================
+   סריקה ורישום
+   ===================================================================== */
+function onCard(text, kind){
+  const tok = tokenFromText(text), st = tok && byTok[tok];
+  if(!st){ beep(false); toast('<div class="big">לא מזוהה</div><div>כרטיס לא ברשימה. חפשו את התלמיד לפי שם (תחת "עוד…").</div>', 'bad'); return; }
+  pick(st, kind, 'scan');
+}
+function pick(st, kind, src){
+  const prev = inSession().filter(s => s.sid === st.id).sort((a, b) => b.at.localeCompare(a.at))[0];
+  const b = kind === 'bus' ? curBus() : null;
+  if(prev && prev.kind === kind && (kind !== 'bus' || prev.bus === b.id)){
+    beep(false); toast(`<div class="big">${esc(st.n)}</div><div>${esc(st.c)} · כבר נרשם ב-${hhmm(prev.at)}</div>`, 'dup'); return;
+  }
+  if(prev && !confirm(`${st.n} כבר נרשם/ה בטלפון הזה: ${KIND[prev.kind].l}${prev.kind === 'bus' ? ' ' + busName(prev.bus) : ''} (${hhmm(prev.at)}).\nלרשום מחדש?`)) return;
+  if(kind === 'parent') return parentForm(st);
+  addScan(st, kind, {}, src);
+}
+const busName = id => { const b = BUSES.find(x => x.id === id); return b ? `${b.no} · ${b.town}` : ''; };
+function addScan(st, kind, extra = {}, src = 'scan'){
+  const b = kind === 'bus' ? curBus() : null;
+  SCANS.push({id: uid(), sid: st.id, kind, bus: b ? b.id : null, town: b ? b.town : (extra.town || ''), taker: extra.taker || '',
+    at: new Date().toISOString(), session: session(), src, synced: false});
+  saveScans(); beep(true);
+  const away = awayLabel(st);
+  const cls = kind === 'bus' ? 'ok' : kind === 'self' ? 'self' : 'par';
+  toast(`<div style="font-size:26px">${KIND[kind].ic} ✅</div><div class="big">${esc(st.n)}</div><div>${esc(st.c)}${b ? ' · אוטובוס ' + esc(b.no) : extra.taker ? ' · ' + esc(extra.taker) : ''}</div>
+    ${away ? `<div style="margin-top:6px;font-weight:700">⚠️ בבוקר סומן/ה: ${esc(away)}</div>` : ''}`, cls);
+  renderList(); renderSub(); sync();
+}
+function renderList(){
+  const b = curBus();
+  const list = (role() === 'bus' ? (b ? onBus(b) : []) : inSession().filter(s => s.kind !== 'bus')).slice().sort((x, y) => y.at.localeCompare(x.at));
+  if($('cnt')) $('cnt').textContent = list.length;
+  if(!$('list')) return;
+  $('list').innerHTML = list.length ? list.map(s => {
+    const st = byId[s.sid] || {n: '(לא ברשימה)', c: ''};
+    return `<div class="r"><span>${role() === 'bus' ? '' : KIND[s.kind].ic + ' '}${esc(st.n)} <span class="grey">· ${esc(st.c)}${s.taker ? ' · ' + esc(s.taker) : ''}</span></span>
+      <span class="grey">${hhmm(s.at)}${s.synced ? '' : ' ⏳'} <button class="mini" data-un="${esc(s.id)}" title="ביטול">✕</button></span></div>`;
+  }).join('') : '<p class="muted">עדיין אין</p>';
+  $('list').querySelectorAll('[data-un]').forEach(x => x.onclick = () => undo(x.dataset.un));
+}
+async function undo(id){
+  const s = SCANS.find(x => x.id === id); if(!s) return;
+  const st = byId[s.sid] || {n: ''};
+  if(!confirm(`לבטל את הרישום של ${st.n}?`)) return;
+  if(s.synced){
+    try{ const r = await rpc('pizur_cancel', {p_pin: ls.get('sh_pin'), p_id: id}); if(r === -1) throw new Error('pin'); }
+    catch(e){ alert('אין חיבור — אי אפשר לבטל רישום שכבר נשלח. נסו שוב כשיש אינטרנט.'); return; }
+  }
+  SCANS = SCANS.filter(x => x.id !== id); saveScans(); renderList(); renderSub();
+}
+function renderHits(q, kind){
+  q = q.trim(); const el = $('hits');
+  if(q.length < 2){ el.innerHTML = ''; return; }
+  const hits = ROSTER.rows.filter(s => s.n.includes(q)).slice(0, 12);
+  el.innerHTML = hits.map(s => `<div class="hit" data-id="${esc(s.id)}"><span>${esc(s.n)}</span><span class="grey">${esc(s.c)}</span></div>`).join('') || '<p class="muted">לא נמצא</p>';
+  el.querySelectorAll('[data-id]').forEach(h => h.onclick = () => { $('q').value = ''; el.innerHTML = ''; pick(byId[h.dataset.id], kind, 'manual'); });
+}
+async function updRoster(){
+  try{ const n = await refreshRoster(ls.get('sh_pin')); setOnline(true); alert(`עודכן: ${n} תלמידים`); }
+  catch(e){ setOnline(false); alert('אין חיבור. הרשימה הקודמת נשארת בטלפון.'); }
+}
+
+// --- סנכרון לשרת ---
+let syncing = false;
+async function sync(){
+  if(syncing || MANAGE) return;
+  const pin = ls.get('sh_pin'); if(!pin) return;
+  syncing = true;
+  try{
+    const p = pending().slice(0, 300), pb = pendingBuses();
+    if(p.length || pb.length){
+      const rows = p.map(s => {
+        const b = s.bus ? BUSES.find(x => x.id === s.bus) : null;
+        return {id: s.id, student_id: s.sid, kind: s.kind, bus_id: s.bus, bus_no: b ? b.no : null, settlement: s.town || null,
+          taker: s.taker || null, scanned_at: s.at, session_started: s.session, device: deviceId(), source: s.src};
+      });
+      const buses = pb.map(b => ({id: b.id, bus_no: b.no, settlement: b.town, escort: b.escort || null, opened_at: b.opened,
+        departed_at: b.departed, session_started: b.session, device: deviceId()}));
+      const res = await rpc('pizur_sync', {p_pin: pin, p_rows: rows, p_buses: buses});
+      if(res === -1) throw new Error('pin');
+      const done = new Set(rows.map(r => r.id)), bdone = new Set(buses.map(b => b.id + '|' + b.departed_at));
+      SCANS.forEach(s => { if(done.has(s.id)) s.synced = true; });
+      BUSES.forEach(b => { if(bdone.has(b.id + '|' + b.departed)) b.synced = true; });
+      const old = Date.now() - 3*864e5;
+      SCANS = SCANS.filter(s => !s.synced || Date.parse(s.at) > old);
+      BUSES = BUSES.filter(b => !b.synced || Date.parse(b.opened) > old || b.id === ls.get('pz_bus'));
+      saveScans(); saveBuses();
+    } else await rpc('check_shelter_pin', {p_pin: pin}, 5000);
+    setOnline(true);
+    if($('list')) renderList();
+  }catch(e){ setOnline(false); }
+  finally{ syncing = false; }
+}
+
+// --- QR סיכום (בלי אינטרנט) — GMPZ1|kind|bus_no|town|stamp|k/n|codes ---
+function summaryLines(){
+  const groups = {};
+  if(role() === 'bus'){ const b = curBus(); if(b) groups['bus|' + b.no + '|' + b.town] = onBus(b); }
+  else inSession().filter(s => s.kind !== 'bus').forEach(s => (groups[s.kind + '||' + (s.town || '')] ||= []).push(s));
+  const stamp = Math.floor(Date.now() / 60000), lines = [];
+  Object.entries(groups).forEach(([k, list]) => {
+    const [kind, no, town] = k.split('|');
+    const codes = list.map(s => byId[s.sid]).filter(Boolean).map(codeOf);
+    const n = Math.max(1, Math.ceil(codes.length / CHUNK));
+    for(let i = 0; i < n; i++) lines.push(`GMPZ1|${kind}|${encodeURIComponent(no)}|${encodeURIComponent(town)}|${stamp}|${i+1}/${n}|${codes.slice(i*CHUNK, (i+1)*CHUNK).join(',')}`);
+  });
+  return lines;
+}
+function closeQR(){ const f = $('qrFull'); if(f){ f.classList.remove('on'); f.innerHTML = ''; } }
+function showSummaryQR(){
+  if(typeof QRCode === 'undefined'){ alert('רכיב ה-QR לא נטען. פתחו את הדף פעם אחת עם אינטרנט.'); return; }
+  const lines = summaryLines(); if(!lines.length){ alert('עדיין אין רישומים'); return; }
+  stopScanner();
+  let i = 0; const f = $('qrFull'), size = Math.min(window.innerWidth - 48, 380);
+  const b = curBus();
+  const head = role() === 'bus' && b ? `🚌 אוטובוס ${esc(b.no)} · ${esc(b.town)} · ${onBus(b).length} עלו` : `🚪 יציאה מהשער · ${inSession().filter(s => s.kind !== 'bus').length} יצאו`;
+  const draw = () => {
+    f.innerHTML = `<h2>${head}</h2>
+      <p class="muted" style="margin:6px 0 0">המנהלת סורקת ב"מסך מנהלת" ← "📷 סריקת QR מהשטח" · ${hhmm(new Date())}</p>
+      ${lines.length > 1 ? `<p style="font-size:18px;font-weight:800;margin:8px 0 0">חלק ${i+1} מתוך ${lines.length} — סרקו את כל החלקים</p>` : ''}
+      <div class="qrwrap"><div id="sumQr"></div></div>
+      ${lines.length > 1 ? `<button class="btn" id="nextQr">${i < lines.length-1 ? 'החלק הבא ←' : 'חזרה לחלק 1'}</button>` : ''}
+      <button class="btn sec" id="closeQr">סגירה</button>`;
+    new QRCode($('sumQr'), {text: lines[i], width: size, height: size, correctLevel: QRCode.CorrectLevel.L});
+    if($('nextQr')) $('nextQr').onclick = () => { i = (i + 1) % lines.length; draw(); };
+    $('closeQr').onclick = closeQR;
+  };
+  f.classList.add('on'); draw();
+}
+
+/* =====================================================================
+   📊 מסך מנהלת (?mode=manage) — הכול במסך אחד, מתעדכן כל 10 שניות
+   ===================================================================== */
+const MANAGE = params.get('mode') === 'manage';
+let SERVER = ls.get('pzm_server', {scans: [], buses: []});
+let MERGED = ls.get('pzm_merged', {});
+const since = () => ls.get('pzm_since') || new Date(new Date().setHours(0,0,0,0)).toISOString();
+const mgPass = () => ls.get('mg_pass') || ls.get('sh_pin');
+const OPEN = new Set(ls.get('pzm_open', []));
+
+function manageRoute(){
+  $('title').textContent = '📊 פיזור בחירום — מסך מנהלת';
+  if(!mgPass() || !ROSTER) return renderManageSetup();
+  renderManage(); loadServer(true);
+}
+function renderManageSetup(){
+  app.innerHTML = `
+    <div class="box">
+      <h2>הגדרת מסך המנהלת</h2>
+      <p class="muted">פעם אחת, כשיש אינטרנט. <b>קוד מקלטים</b> או <b>סיסמת מנהל</b>. אחר כך המסך נפתח בלי סיסמה.</p>
+      <input id="pass" type="password" placeholder="קוד מקלטים או סיסמת מנהל">
+      <button class="btn" id="go">כניסה</button>
+      <div class="err" id="err"></div>
+    </div>
+    <button class="linkBtn" id="home">← לדף הראשי</button>`;
+  $('home').onclick = () => location.href = location.pathname;
+  $('go').onclick = async () => {
+    const p = $('pass').value.trim(); if(!p) return;
+    $('err').textContent = 'מוריד רשימה…';
+    try{ await refreshRoster(p); ls.set('mg_pass', p); setOnline(true); manageRoute(); }
+    catch(e){ $('err').textContent = String(e.message).includes('empty') ? 'קוד שגוי' : 'אין חיבור לשרת'; }
+  };
+}
+async function loadServer(force = false){
+  try{
+    const r = await rpc('pizur_status', {p_pass: mgPass(), p_since: since()});
+    const data = {scans: r?.scans || [], buses: r?.buses || []};
+    const changed = JSON.stringify(data) !== JSON.stringify(SERVER);
+    SERVER = data; ls.set('pzm_server', SERVER); setOnline(true);
+    if(!changed && !force) return;
+  }catch(e){ setOnline(false); if(!force) return; }
+  if(!scanner) renderManage();
+}
+
+/* המצב האחרון של כל תלמיד — מהשרת ומ-QR שנסרקו */
+function model(){
+  const t0 = since(), last = {}, buses = {};
+  const iso = x => x ? new Date(x).toISOString() : '';   // השרת מחזיר זמן עם +00:00 — מיישרים להשוואה
+  const bkey = (no, town) => `${no}|${town}`;
+  const bus = (no, town) => buses[bkey(no, town)] ||= {no, town, ids: new Set(), opened: '', departed: '', escorts: new Set(), last: '', vias: new Set()};
+  const put = (sid, rec) => { if(!last[sid] || last[sid].at < rec.at) last[sid] = rec; };
+  SERVER.buses.forEach(b0 => { const b = {...b0, opened_at: iso(b0.opened_at), departed_at: iso(b0.departed_at)};
+    if(b.opened_at >= t0){ const x = bus(b.bus_no, b.settlement);
+    if(!x.opened || b.opened_at < x.opened) x.opened = b.opened_at;
+    if(b.departed_at && b.departed_at > x.departed) x.departed = b.departed_at;
+    if(b.escort) x.escorts.add(b.escort); } });
+  SERVER.scans.forEach(s => { const at = iso(s.scanned_at); if(at < t0) return;
+    put(s.student_id, {kind: s.kind, no: s.bus_no, town: s.settlement || '', taker: s.taker || '', at, via: 'אינטרנט'}); });
+  Object.values(MERGED).forEach(m => { if(m.at < t0) return;
+    m.codes.forEach(c => { const st = fromCode(c); if(st) put(st.id, {kind: m.kind, no: m.no, town: m.town, taker: '', at: m.at, via: 'QR'}); }); });
+  Object.entries(last).forEach(([sid, r]) => { if(r.kind === 'bus'){ const x = bus(r.no, r.town); x.ids.add(sid); x.vias.add(r.via); if(r.at > x.last) x.last = r.at; } });
+  return {last, buses: Object.values(buses).sort((a, b) => byHe(a.no, b.no) || byHe(a.town, b.town))};
+}
+function renderManage(){
+  stopScanner();
+  const {last, buses} = model();
+  const rows = ROSTER.rows;
+  const left = rows.filter(s => last[s.id]);
+  const nBus = left.filter(s => last[s.id].kind === 'bus').length;
+  const selfL = left.filter(s => last[s.id].kind === 'self'), parL = left.filter(s => last[s.id].kind === 'parent');
+  const present = rows.filter(s => !awayLabel(s) || last[s.id]);
+  const waiting = rows.filter(s => !last[s.id] && !awayLabel(s));
+  const away = rows.filter(s => !last[s.id] && awayLabel(s));
+  const nm = s => `${esc(s.n)} <span class="grey">· ${esc(s.c)}</span>`;
+  const det = (key, sum, inner, cls = '') => `<details class="${cls}" data-k="${esc(key)}"${OPEN.has(key) ? ' open' : ''}>${sum}${inner}</details>`;
+
+  const busCards = buses.length ? buses.map(x => {
+    const list = [...x.ids].map(id => byId[id]).filter(Boolean).sort((a, b) => byHe(a.c, b.c) || byHe(a.n, b.n));
+    return det('bus:' + x.no + '|' + x.town, `<summary><span><span class="bn">🚌 ${esc(x.no)} · ${esc(x.town)}</span><br>
+        <span class="bt">${x.departed ? '🚍 יצא ב-' + hhmm(x.departed) : '⏳ בטעינה'}${x.escorts.size ? ' · ' + esc([...x.escorts].join(', ')) : ''}${x.last ? ' · עדכון ' + hhmm(x.last) : ''}${x.vias.has('QR') ? ' · QR' : ''}</span></span>
+        <span class="cnt">${list.length}<span class="bt"> עלו</span></span></summary>`,
+      `<div class="inner">${list.map(s => `<div class="mrow bus"><span>${nm(s)}</span><span class="sub">${hhmm(last[s.id].at)}</span></div>`).join('') || '<p class="muted">עדיין לא עלו</p>'}</div>`,
+      'bcard' + (x.departed ? ' gone' : ''));
+  }).join('') : '<p class="muted">עדיין לא נפתחו אוטובוסים</p>';
+
+  const exitList = (list, cls) => list.sort((a, b) => last[b.id].at.localeCompare(last[a.id].at)).map(s => {
+    const r = last[s.id];
+    return `<div class="mrow ${cls}"><span>${nm(s)}${r.taker ? `<br><span class="grey" style="font-size:13px">👪 ${esc(r.taker)}${r.town ? ' · ' + esc(r.town) : ''}</span>` : ''}</span><span class="sub">${hhmm(r.at)}</span></div>`;
+  }).join('') || '<p class="muted">אין</p>';
+
+  const lvl = Object.keys(LEVELS).map(L => {
+    const all = rows.filter(s => levelOf(s.c) === L); if(!all.length) return '';
+    const w = waiting.filter(s => levelOf(s.c) === L);
+    const classes = [...new Set(all.map(s => s.c))].sort(byHe).map(c => {
+      const cAll = all.filter(s => s.c === c), cw = w.filter(s => s.c === c);
+      return det('cls:' + c, `<summary><span>${esc(c)}</span><span>${cw.length ? `<span class="miss">${cw.length} עוד לא יצאו</span>` : '<span style="color:var(--ok)">✓ כולם יצאו</span>'} <span class="tag">· יצאו ${cAll.filter(x => last[x.id]).length}/${cAll.filter(x => last[x.id] || !awayLabel(x)).length}</span></span></summary>`,
+        cw.sort((a, b) => byHe(a.n, b.n)).map(s => `<div class="mrow no"><span>❗ ${esc(s.n)}</span><span class="sub">עוד לא יצא/ה</span></div>`).join(''));
+    }).join('');
+    return `<div class="lvl"><h3><span>${esc(LEVELS[L])}</span><span>${w.length ? `<span class="miss">${w.length}</span>` : '<span style="color:var(--ok)">✓ 0</span>'}</span></h3>${classes}</div>`;
+  }).join('');
+
+  app.innerHTML = `
+    <div class="stat5" id="stat">
+      <div><b>${present.length}</b>🏫 בבית הספר</div>
+      <div><b style="color:var(--bus)">${nBus}</b>🚌 באוטובוסים</div>
+      <div><b style="color:var(--self)">${selfL.length}</b>🚶 עצמאית</div>
+      <div><b style="color:var(--par)">${parL.length}</b>👪 עם הורים</div>
+      <div><b style="color:var(--bad)">${waiting.length}</b>⏳ עוד לא יצאו</div>
+    </div>
+    <p class="muted" style="margin:8px 2px"><span class="live"></span>מתעדכן לבד · מ-${dayTime(since())} · "בבית הספר" = לפי קריאת השמות של הבוקר${away.length ? ` (${away.length} לא הגיעו / יצאו קודם)` : ''}</p>
+
+    <div class="box"><h2>🚌 אוטובוסים: ${buses.length}${buses.length ? ` <span class="tag">(${buses.filter(x => x.departed).length} כבר יצאו)</span>` : ""}</h2>${busCards}</div>
+
+    <div class="box"><h2>🚪 יציאה מהשער</h2>
+      ${det('self', `<summary><span>🚶 יצאו עצמאית</span><span>${selfL.length}</span></summary>`, exitList(selfL, 'self'))}
+      ${det('par', `<summary><span>👪 יצאו עם הורים</span><span>${parL.length}</span></summary>`, exitList(parL, 'par'))}
+    </div>
+
+    <div class="box"><h2>⏳ מי עוד לא יצא · ${waiting.length}</h2>
+      <input id="mgq" placeholder="חיפוש תלמיד…" style="margin-top:0"><div id="mgHits"></div>
+      ${lvl}
+      ${away.length ? det('away', `<summary><span>🟡 לא הגיעו הבוקר / יצאו קודם</span><span>${away.length}</span></summary>`,
+        away.sort((a, b) => byHe(a.c, b.c) || byHe(a.n, b.n)).map(s => `<div class="mrow away"><span>${nm(s)}</span><span class="sub">${esc(awayLabel(s))}</span></div>`).join('')) : ''}
+    </div>
+
+    <div class="box"><h2>📷 בלי אינטרנט בשטח</h2>
+      <p class="muted">ניגשים לאחראי האוטובוס / לשומר, והוא מציג "QR נתוני…".</p>
+      <button class="btn" id="camBtn" style="background:#2f4f8f">📷 סריקת QR מהשטח</button>
+      <div id="reader"></div><div class="result" id="res"></div></div>
+
+    <div class="row2">
+      <button class="btn sec small" id="ref">🔄 רענון</button>
+      <button class="btn sec small" id="newEv">אירוע חדש</button>
+      <button class="btn sec small" id="upd">עדכון רשימת תלמידים</button>
+      <button class="btn sec small" id="home">← דף ראשי</button>
+    </div>`;
+  app.querySelectorAll('details[data-k]').forEach(d => d.ontoggle = () => { d.open ? OPEN.add(d.dataset.k) : OPEN.delete(d.dataset.k); ls.set('pzm_open', [...OPEN]); });
+  $('mgq').oninput = e => {
+    const q = e.target.value.trim();
+    $('mgHits').innerHTML = q.length < 2 ? '' : (rows.filter(s => s.n.includes(q)).slice(0, 12).map(s => {
+      const r = last[s.id];
+      const sub = r ? `${KIND[r.kind].ic} ${r.kind === 'bus' ? 'אוטובוס ' + esc(r.no) + ' · ' + esc(r.town) : KIND[r.kind].l}${r.taker ? ' · ' + esc(r.taker) : ''} · ${hhmm(r.at)}` : awayLabel(s) ? '🟡 ' + esc(awayLabel(s)) : '❗ עוד לא יצא/ה';
+      return `<div class="mrow ${r ? (r.kind === 'parent' ? 'par' : r.kind) : awayLabel(s) ? 'away' : 'no'}"><span>${nm(s)}</span><span class="sub">${sub}</span></div>`;
+    }).join('') || '<p class="muted">לא נמצא</p>');
+  };
+  window._camStart = () => startScanner(onSummaryScan);
+  $('camBtn').onclick = window._camStart;
+  $('ref').onclick = () => loadServer(true);
+  $('home').onclick = () => location.href = location.pathname;
+  $('newEv').onclick = () => {
+    if(!confirm('להתחיל מעקב אירוע חדש מעכשיו? רישומים קודמים לא ייספרו.')) return;
+    ls.set('pzm_since', new Date(Date.now() - 5*60000).toISOString()); MERGED = {}; ls.set('pzm_merged', MERGED); loadServer(true);
+  };
+  $('upd').onclick = async () => {
+    try{ await refreshRoster(mgPass()); setOnline(true); loadServer(true); }
+    catch(e){ setOnline(false); alert('אין חיבור. הרשימה הקודמת נשארת.'); }
+  };
+  renderSub();
+}
+function onSummaryScan(text){
+  const m = /^GMPZ1\|(bus|self|parent)\|([^|]*)\|([^|]*)\|(\d+)\|(\d+\/\d+)\|(.*)$/.exec(String(text).trim());
+  if(!m){ beep(false); toast('<div class="big">זה לא QR של הפיזור</div><div>בטלפון בשטח: "🔳 QR נתוני…"</div>', 'bad'); return; }
+  const [, kind, noE, townE, stamp, part, codes] = m;
+  const dec = x => { try{ return decodeURIComponent(x); }catch(e){ return x; } };
+  const no = dec(noE), town = dec(townE), list = codes ? codes.split(',').filter(Boolean) : [];
+  MERGED[`${kind}|${no}|${town}|${stamp}|${part}`] = {kind, no, town, at: new Date(Number(stamp) * 60000).toISOString(), codes: list};
+  ls.set('pzm_merged', MERGED); beep(true);
+  stopScanner().then(() => { renderManage();
+    toast(`<div class="big">${KIND[kind].ic} ${kind === 'bus' ? 'אוטובוס ' + esc(no) + ' · ' + esc(town) : KIND[kind].l}</div><div>חלק ${esc(part)} · ${list.length} תלמידים אוחדו</div>`); });
+}
+
+// ===== הפעלה =====
+if(MANAGE) manageRoute();
+else{
+  if(params.has('v')){ history.replaceState(null, '', location.pathname); }
+  const r = params.get('role');
+  if((r === 'bus' || r === 'guard') && ls.get('sh_pin') && ROSTER) go(r); else renderHome();
+}
+window.addEventListener('online', () => MANAGE ? (mgPass() && loadServer()) : sync());
+window.addEventListener('offline', () => setOnline(false));
+setInterval(() => { if(MANAGE){ if(mgPass() && ROSTER && !scanner) loadServer(); } else sync(); }, MANAGE ? 10000 : 15000);
+setInterval(() => {
+  const k = MANAGE ? mgPass() : ls.get('sh_pin');
+  if(k && ROSTER && Date.now() - new Date(ROSTER.at).getTime() > 10*60000) refreshRoster(k).then(() => setOnline(true)).catch(() => {});
+}, 60000);
+if(!MANAGE) sync();
+</script>
+</body>
+</html>
