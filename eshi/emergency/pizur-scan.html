@@ -1,8 +1,11 @@
 <!DOCTYPE html>
-<!-- גרסה: v1.0.1 | תאריך: 2026-11-09 | פיזור בחירום — סריקת QR לפי תפקידים · eshi/emergency/pizur-scan.html
+<!-- גרסה: v1.1.0 | תאריך: 2026-11-09 | פיזור בחירום — סריקת QR לפי תפקידים · eshi/emergency/pizur-scan.html
   לפי "נוהל פינוי בית הספר בחירום" (pinui.html). אותו דאטאבייס (skfriefqnoxfzmamcokd), אותו כרטיס תלמיד
   (QR של student-card.html?scan=TOKEN) ואותו קוד מקלטים כמו shelter-scan.html — טלפון שכבר הוגדר לסריקת
   מקלטים לא צריך הגדרה נוספת (רשימת התלמידים והקוד משותפים: sh_pin / sh_roster).
+  v1.1.0 · מסך המנהלת פשוט — רק כמויות: 5 מונים, שורה לכל אוטובוס (מספר · ישוב · בטעינה/יצא · כמה עלו),
+    ומי עוד לא יצא לפי חטיבות וכיתות (משבצת לכל כיתה עם המספר; לחיצה מציגה את השמות). סריקת QR,
+    רענון ואירוע חדש — תחת "עוד…". בלי רשימות שמות של אוטובוסים ויציאות, בלי חיפוש ובלי טקסטי הסבר.
   v1.0.1 · בדף הראשי קישור לדף ההסברים והקישורים (pizur-start.html).
   v1.0.0 · שלושה תפקידים:
     🚌 אחראי אוטובוס — לפני פתיחת המצלמה רושמים מספר אוטובוס וישוב (+ שם המלווה, לא חובה). סורקים את העולים.
@@ -20,14 +23,14 @@
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="app-version" content="1.0.1">
+<meta name="app-version" content="1.1.0">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <script>
 /* עדכון אוטומטי: דפדפן שפתח עותק ישן מהזיכרון בודק מול האתר אם יש גרסה חדשה, ואם כן טוען אותה פעם אחת. */
 (function(){
-  var V = '1.0.1', u = location.pathname;
+  var V = '1.1.0', u = location.pathname;
   if(navigator.onLine === false || !window.fetch) return;
   fetch(u + '?vcheck=' + Date.now(), {cache: 'no-store'})
     .then(function(r){ return r.ok ? r.text() : ''; })
@@ -175,6 +178,20 @@
   .lvl h3{margin:0 0 6px;font-size:17px;display:flex;justify-content:space-between}
   .live{display:inline-block;width:9px;height:9px;border-radius:50%;background:#22c55e;margin-inline-end:6px;animation:pl 1.6s infinite}
   @keyframes pl{50%{opacity:.25}}
+  .brow{display:grid;grid-template-columns:1fr auto 52px;gap:10px;align-items:center;padding:10px 12px;border-radius:12px;background:#e6f3f6;margin-top:6px}
+  .brow .bn{font-size:18px;font-weight:800;color:var(--bus)}
+  .brow .bs{font-size:13px;color:var(--muted);font-weight:600;white-space:nowrap}
+  .brow .bc{font-size:28px;text-align:center;line-height:1}
+  .brow.gone{background:#eef0f3} .brow.gone .bn{color:#4b5563}
+  .lvl h3 b{font-size:22px} .okc{color:var(--ok)}
+  .cgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(78px,1fr));gap:6px}
+  .cbox{border:2px solid #f3b8b2;background:#fde8e6;border-radius:10px;padding:8px 4px;font-family:inherit;cursor:pointer;text-align:center;color:var(--ink)}
+  .cbox span{display:block;font-size:14px;font-weight:700}
+  .cbox b{display:block;font-size:22px;color:var(--bad)}
+  .cbox.done{background:#e9f7ef;border-color:#bfe5cd;cursor:default} .cbox.done b{color:var(--ok)}
+  .cbox.sel{outline:3px solid var(--bad)}
+  .names{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+  .names span{background:#fde8e6;border-radius:99px;padding:4px 10px;font-size:14px;font-weight:600}
   .mini{border:0;background:#eef0f4;border-radius:6px;padding:2px 7px;cursor:pointer;font-size:12px;margin-inline-start:4px}
   .mrow.bus{background:#e6f3f6} .mrow.self{background:#efe9fb} .mrow.par{background:#fdf0e1}
 </style>
@@ -182,7 +199,7 @@
 <body>
 <div class="top"><h1 id="title">🚌 פיזור בחירום</h1><div class="sub" id="sub"></div></div>
 <div class="wrap" id="app"></div>
-<footer>פיתוח: רני בן זאב · v1.0.1</footer>
+<footer>פיתוח: רני בן זאב · v1.1.0</footer>
 <div id="qrFull" class="qrfull"></div>
 
 <script>
@@ -701,84 +718,48 @@ function renderManage(){
   stopScanner();
   const {last, buses} = model();
   const rows = ROSTER.rows;
-  const left = rows.filter(s => last[s.id]);
-  const nBus = left.filter(s => last[s.id].kind === 'bus').length;
-  const selfL = left.filter(s => last[s.id].kind === 'self'), parL = left.filter(s => last[s.id].kind === 'parent');
   const present = rows.filter(s => !awayLabel(s) || last[s.id]);
+  const n = k => rows.filter(s => last[s.id] && last[s.id].kind === k).length;
   const waiting = rows.filter(s => !last[s.id] && !awayLabel(s));
-  const away = rows.filter(s => !last[s.id] && awayLabel(s));
-  const nm = s => `${esc(s.n)} <span class="grey">· ${esc(s.c)}</span>`;
-  const det = (key, sum, inner, cls = '') => `<details class="${cls}" data-k="${esc(key)}"${OPEN.has(key) ? ' open' : ''}>${sum}${inner}</details>`;
 
-  const busCards = buses.length ? buses.map(x => {
-    const list = [...x.ids].map(id => byId[id]).filter(Boolean).sort((a, b) => byHe(a.c, b.c) || byHe(a.n, b.n));
-    return det('bus:' + x.no + '|' + x.town, `<summary><span><span class="bn">🚌 ${esc(x.no)} · ${esc(x.town)}</span><br>
-        <span class="bt">${x.departed ? '🚍 יצא ב-' + hhmm(x.departed) : '⏳ בטעינה'}${x.escorts.size ? ' · ' + esc([...x.escorts].join(', ')) : ''}${x.last ? ' · עדכון ' + hhmm(x.last) : ''}${x.vias.has('QR') ? ' · QR' : ''}</span></span>
-        <span class="cnt">${list.length}<span class="bt"> עלו</span></span></summary>`,
-      `<div class="inner">${list.map(s => `<div class="mrow bus"><span>${nm(s)}</span><span class="sub">${hhmm(last[s.id].at)}</span></div>`).join('') || '<p class="muted">עדיין לא עלו</p>'}</div>`,
-      'bcard' + (x.departed ? ' gone' : ''));
-  }).join('') : '<p class="muted">עדיין לא נפתחו אוטובוסים</p>';
-
-  const exitList = (list, cls) => list.sort((a, b) => last[b.id].at.localeCompare(last[a.id].at)).map(s => {
-    const r = last[s.id];
-    return `<div class="mrow ${cls}"><span>${nm(s)}${r.taker ? `<br><span class="grey" style="font-size:13px">👪 ${esc(r.taker)}${r.town ? ' · ' + esc(r.town) : ''}</span>` : ''}</span><span class="sub">${hhmm(r.at)}</span></div>`;
-  }).join('') || '<p class="muted">אין</p>';
+  const busRows = buses.length ? buses.map(x => `<div class="brow${x.departed ? ' gone' : ''}">
+      <span class="bn">🚌 ${esc(x.no)} · ${esc(x.town)}</span>
+      <span class="bs">${x.departed ? '🚍 יצא ' + hhmm(x.departed) : '⏳ בטעינה'}</span>
+      <b class="bc">${x.ids.size}</b></div>`).join('') : '<p class="muted" style="margin:0">עדיין אין אוטובוסים</p>';
 
   const lvl = Object.keys(LEVELS).map(L => {
     const all = rows.filter(s => levelOf(s.c) === L); if(!all.length) return '';
     const w = waiting.filter(s => levelOf(s.c) === L);
-    const classes = [...new Set(all.map(s => s.c))].sort(byHe).map(c => {
-      const cAll = all.filter(s => s.c === c), cw = w.filter(s => s.c === c);
-      return det('cls:' + c, `<summary><span>${esc(c)}</span><span>${cw.length ? `<span class="miss">${cw.length} עוד לא יצאו</span>` : '<span style="color:var(--ok)">✓ כולם יצאו</span>'} <span class="tag">· יצאו ${cAll.filter(x => last[x.id]).length}/${cAll.filter(x => last[x.id] || !awayLabel(x)).length}</span></span></summary>`,
-        cw.sort((a, b) => byHe(a.n, b.n)).map(s => `<div class="mrow no"><span>❗ ${esc(s.n)}</span><span class="sub">עוד לא יצא/ה</span></div>`).join(''));
-    }).join('');
-    return `<div class="lvl"><h3><span>${esc(LEVELS[L])}</span><span>${w.length ? `<span class="miss">${w.length}</span>` : '<span style="color:var(--ok)">✓ 0</span>'}</span></h3>${classes}</div>`;
+    const classes = [...new Set(all.map(s => s.c))].sort(byHe);
+    return `<div class="lvl"><h3><span>${esc(LEVELS[L])}</span><b class="${w.length ? 'miss' : 'okc'}">${w.length}</b></h3>
+      <div class="cgrid">${classes.map(c => { const k = w.filter(s => s.c === c).length;
+        return `<button class="cbox${k ? '' : ' done'}${SEL === c ? ' sel' : ''}" data-c="${esc(c)}"${k ? '' : ' disabled'}><span>${esc(c)}</span><b>${k || '✓'}</b></button>`; }).join('')}</div>
+      ${SEL && levelOf(SEL) === L ? `<div class="names">${w.filter(s => s.c === SEL).sort((a, b) => byHe(a.n, b.n)).map(s => `<span>${esc(s.n)}</span>`).join('')}</div>` : ''}</div>`;
   }).join('');
 
   app.innerHTML = `
     <div class="stat5" id="stat">
       <div><b>${present.length}</b>🏫 בבית הספר</div>
-      <div><b style="color:var(--bus)">${nBus}</b>🚌 באוטובוסים</div>
-      <div><b style="color:var(--self)">${selfL.length}</b>🚶 עצמאית</div>
-      <div><b style="color:var(--par)">${parL.length}</b>👪 עם הורים</div>
+      <div><b style="color:var(--bus)">${n('bus')}</b>🚌 באוטובוסים</div>
+      <div><b style="color:var(--self)">${n('self')}</b>🚶 עצמאית</div>
+      <div><b style="color:var(--par)">${n('parent')}</b>👪 עם הורים</div>
       <div><b style="color:var(--bad)">${waiting.length}</b>⏳ עוד לא יצאו</div>
     </div>
-    <p class="muted" style="margin:8px 2px"><span class="live"></span>מתעדכן לבד · מ-${dayTime(since())} · "בבית הספר" = לפי קריאת השמות של הבוקר${away.length ? ` (${away.length} לא הגיעו / יצאו קודם)` : ''}</p>
-
-    <div class="box"><h2>🚌 אוטובוסים: ${buses.length}${buses.length ? ` <span class="tag">(${buses.filter(x => x.departed).length} כבר יצאו)</span>` : ""}</h2>${busCards}</div>
-
-    <div class="box"><h2>🚪 יציאה מהשער</h2>
-      ${det('self', `<summary><span>🚶 יצאו עצמאית</span><span>${selfL.length}</span></summary>`, exitList(selfL, 'self'))}
-      ${det('par', `<summary><span>👪 יצאו עם הורים</span><span>${parL.length}</span></summary>`, exitList(parL, 'par'))}
-    </div>
-
-    <div class="box"><h2>⏳ מי עוד לא יצא · ${waiting.length}</h2>
-      <input id="mgq" placeholder="חיפוש תלמיד…" style="margin-top:0"><div id="mgHits"></div>
-      ${lvl}
-      ${away.length ? det('away', `<summary><span>🟡 לא הגיעו הבוקר / יצאו קודם</span><span>${away.length}</span></summary>`,
-        away.sort((a, b) => byHe(a.c, b.c) || byHe(a.n, b.n)).map(s => `<div class="mrow away"><span>${nm(s)}</span><span class="sub">${esc(awayLabel(s))}</span></div>`).join('')) : ''}
-    </div>
-
-    <div class="box"><h2>📷 בלי אינטרנט בשטח</h2>
-      <p class="muted">ניגשים לאחראי האוטובוס / לשומר, והוא מציג "QR נתוני…".</p>
-      <button class="btn" id="camBtn" style="background:#2f4f8f">📷 סריקת QR מהשטח</button>
-      <div id="reader"></div><div class="result" id="res"></div></div>
-
-    <div class="row2">
-      <button class="btn sec small" id="ref">🔄 רענון</button>
-      <button class="btn sec small" id="newEv">אירוע חדש</button>
-      <button class="btn sec small" id="upd">עדכון רשימת תלמידים</button>
-      <button class="btn sec small" id="home">← דף ראשי</button>
-    </div>`;
-  app.querySelectorAll('details[data-k]').forEach(d => d.ontoggle = () => { d.open ? OPEN.add(d.dataset.k) : OPEN.delete(d.dataset.k); ls.set('pzm_open', [...OPEN]); });
-  $('mgq').oninput = e => {
-    const q = e.target.value.trim();
-    $('mgHits').innerHTML = q.length < 2 ? '' : (rows.filter(s => s.n.includes(q)).slice(0, 12).map(s => {
-      const r = last[s.id];
-      const sub = r ? `${KIND[r.kind].ic} ${r.kind === 'bus' ? 'אוטובוס ' + esc(r.no) + ' · ' + esc(r.town) : KIND[r.kind].l}${r.taker ? ' · ' + esc(r.taker) : ''} · ${hhmm(r.at)}` : awayLabel(s) ? '🟡 ' + esc(awayLabel(s)) : '❗ עוד לא יצא/ה';
-      return `<div class="mrow ${r ? (r.kind === 'parent' ? 'par' : r.kind) : awayLabel(s) ? 'away' : 'no'}"><span>${nm(s)}</span><span class="sub">${sub}</span></div>`;
-    }).join('') || '<p class="muted">לא נמצא</p>');
-  };
+    <div class="box"><h2><span class="live"></span>🚌 אוטובוסים</h2>${busRows}</div>
+    <div class="box"><h2>⏳ עוד לא יצאו — לפי כיתות</h2>${lvl}</div>
+    <details class="more"><summary>עוד…</summary>
+      <div class="box"><p class="muted" style="margin-top:0">בלי אינטרנט בשטח: סורקים את ה-QR שאחראי האוטובוס / השומר מציג.</p>
+        <button class="btn" id="camBtn" style="background:#2f4f8f">📷 סריקת QR מהשטח</button>
+        <div id="reader"></div><div class="result" id="res"></div></div>
+      <div class="row2">
+        <button class="btn sec small" id="newEv">אירוע חדש</button>
+        <button class="btn sec small" id="upd">עדכון רשימת תלמידים</button>
+        <button class="btn sec small" id="ref">🔄 רענון</button>
+        <button class="btn sec small" id="home">← דף ראשי</button>
+      </div>
+    </details>`;
+  app.querySelectorAll('.cbox[data-c]').forEach(b => b.onclick = () => { SEL = SEL === b.dataset.c ? '' : b.dataset.c; renderManage(); });
+  const more = app.querySelector('details.more'); more.open = MORE; more.ontoggle = () => { MORE = more.open; };
   window._camStart = () => startScanner(onSummaryScan);
   $('camBtn').onclick = window._camStart;
   $('ref').onclick = () => loadServer(true);
@@ -793,6 +774,7 @@ function renderManage(){
   };
   renderSub();
 }
+let SEL = '', MORE = false;
 function onSummaryScan(text){
   const m = /^GMPZ1\|(bus|self|parent)\|([^|]*)\|([^|]*)\|(\d+)\|(\d+\/\d+)\|(.*)$/.exec(String(text).trim());
   if(!m){ beep(false); toast('<div class="big">זה לא QR של הפיזור</div><div>בטלפון בשטח: "🔳 QR נתוני…"</div>', 'bad'); return; }
