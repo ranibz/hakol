@@ -1,8 +1,11 @@
 <!DOCTYPE html>
-<!-- גרסה: v1.4.0 | תאריך: 2026-11-09 | פיזור בחירום — סריקת QR לפי תפקידים · eshi/emergency/pizur-scan.html
+<!-- גרסה: v1.5.0 | תאריך: 2026-11-10 | פיזור בחירום — סריקת QR לפי תפקידים · eshi/emergency/pizur-scan.html
   לפי "נוהל פינוי בית הספר בחירום" (pinui.html). אותו דאטאבייס (skfriefqnoxfzmamcokd), אותו כרטיס תלמיד
   (QR של student-card.html?scan=TOKEN) ואותו קוד מקלטים כמו shelter-scan.html — טלפון שכבר הוגדר לסריקת
   מקלטים לא צריך הגדרה נוספת (רשימת התלמידים והקוד משותפים: sh_pin / sh_roster).
+  v1.5.0 · טופס האוטובוס: "שם המורה" ראשון, עם רשימת המורים (105, מהמידעון — שם ויישוב, בלי טלפונים) מהשרת
+    (pizur_staff_list, דורש HAKOL-pizur-v3.sql). בחירת שם ממלאת את הישוב לפי מקום המגורים (אפשר לשנות; ד.נ — לא ממולא).
+    הרשימה נשמרת בטלפון ועובדת גם בלי אינטרנט.
   v1.4.0 · (1) תפקיד רביעי: 📋 מחנך — קריאת שמות בכיתת האם. בוחרים כיתה, ולחיצה על שם = "נמצא בכיתה" (או סריקת כרטיס).
     נשלח כ-kind=class (דורש HAKOL-pizur-v2.sql). במסך המנהלת, בכל כיתה: "📋 X בכיתה", ובשמות ✅ נמצא / ❓ לא נמצא.
     (2) במסך המנהלת כפתור גלוי "🔄 איפוס — ספירה חדשה מעכשיו".
@@ -31,14 +34,14 @@
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="app-version" content="1.4.0">
+<meta name="app-version" content="1.5.0">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <script>
 /* עדכון אוטומטי: דפדפן שפתח עותק ישן מהזיכרון בודק מול האתר אם יש גרסה חדשה, ואם כן טוען אותה פעם אחת. */
 (function(){
-  var V = '1.4.0', u = location.pathname;
+  var V = '1.5.0', u = location.pathname;
   if(navigator.onLine === false || !window.fetch) return;
   fetch(u + '?vcheck=' + Date.now(), {cache: 'no-store'})
     .then(function(r){ return r.ok ? r.text() : ''; })
@@ -214,7 +217,7 @@
 <body>
 <div class="top"><h1 id="title">🚌 פיזור בחירום</h1><div class="sub" id="sub"></div></div>
 <div class="wrap" id="app"></div>
-<footer>פיתוח: רני בן זאב · v1.4.0</footer>
+<footer>פיתוח: רני בן זאב · v1.5.0</footer>
 <div id="qrFull" class="qrfull"></div>
 
 <script>
@@ -295,8 +298,15 @@ async function refreshRoster(pin){
   if(!rows || !rows.length) throw new Error('empty');
   ROSTER = {at: new Date().toISOString(), rows: rows.map(r => ({id:r.student_id, t:r.token, n:r.name, c:r.class, a:!!r.absent, st:r.status || ''}))};
   ls.set('sh_roster', ROSTER); indexRoster();
+  loadStaff(pin);
   return ROSTER.rows.length;
 }
+/* v1.5.0 — רשימת המורים (שם + יישוב מגורים, מהמידעון) לטופס האוטובוס. נשמרת בטלפון, עובדת גם בלי אינטרנט. */
+const staff = () => ls.get('pz_staff', []);
+async function loadStaff(pin){
+  try{ const r = await rpc('pizur_staff_list', {p_pin: pin}, 10000); if(r && r.length) ls.set('pz_staff', r.map(x => ({n: x.name, t: x.town || ''}))); }catch(e){}
+}
+const realTown = t => t && !/^ד\.?נ[ .]/.test(t) && t !== '—' ? t : '';
 
 let online = navigator.onLine !== false;
 function setOnline(v){ online = v; renderSub(); }
@@ -431,10 +441,12 @@ function renderBusForm(){
   app.innerHTML = `
     <div class="box form">
       <h2>לפני הסריקה — פרטי האוטובוס</h2>
+      <label>שם המורה<input id="bEsc" list="staffL" value="${esc(ls.get('pz_escort') || '')}" placeholder="התחילו להקליד את שמכם" autocomplete="off"></label>
+      <datalist id="staffL">${staff().map(x => `<option value="${esc(x.n)}">${x.t ? esc(x.t) : ''}</option>`).join('')}</datalist>
       <label>מספר אוטובוס<input id="bNo" inputmode="numeric" placeholder="למשל 3" value=""></label>
       <label>לאיזה ישוב<input id="bTown" list="towns" placeholder="שם הישוב"></label>
-      <datalist id="towns">${TOWNS.map(t => `<option value="${esc(t)}">`).join('')}</datalist>
-      <label>שם המורה<input id="bEsc" value="${esc(ls.get('pz_escort') || '')}" placeholder="השם שלך"></label>
+      <div class="muted" id="townHint" style="font-size:13px;margin-top:4px"></div>
+      <datalist id="towns">${[...new Set([...TOWNS, ...staff().map(x => realTown(x.t)).filter(Boolean)])].map(t => `<option value="${esc(t)}">`).join('')}</datalist>
       <button class="btn huge" id="open" style="background:var(--bus)">📷 פתיחת סריקה</button>
       <div class="err" id="err"></div>
     </div>
@@ -442,7 +454,18 @@ function renderBusForm(){
     <button class="linkBtn" id="home">← החלפת תפקיד</button>`;
   $('home').onclick = renderHome;
   if($('backBus')) $('backBus').onclick = renderBus;
-  $('bNo').focus();
+  /* בחירת שם מהרשימה ממלאת את יישוב המגורים של המורה — אפשר לשנות */
+  let autoTown = '';
+  const fillTown = () => {
+    const m = staff().find(x => x.n === $('bEsc').value.trim()), t = m ? realTown(m.t) : '';
+    const mine = !$('bTown').value.trim() || $('bTown').value.trim() === autoTown;
+    if(t && mine){ $('bTown').value = t; autoTown = t; $('townHint').textContent = 'מולא לפי יישוב המגורים של ' + m.n + ' — אפשר לשנות'; }
+    else if(!t && mine && autoTown){ $('bTown').value = ''; autoTown = ''; $('townHint').textContent = ''; }
+  };
+  $('bEsc').oninput = fillTown; $('bEsc').onchange = fillTown;
+  if($('bEsc').value) fillTown();
+  ($('bEsc').value ? $('bNo') : $('bEsc')).focus();
+  if(!staff().length && ls.get('sh_pin')) loadStaff(ls.get('sh_pin')).then(() => { if($('staffL') && staff().length) renderBusForm(); });
   $('open').onclick = () => {
     const no = $('bNo').value.trim(), town = $('bTown').value.trim(), escort = $('bEsc').value.trim();
     if(!no){ $('err').textContent = 'חסר מספר אוטובוס'; return; }
