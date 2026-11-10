@@ -1,5 +1,7 @@
 <!DOCTYPE html>
-<!-- eshi/emergency/pinui-update.html · v1.0.0 · 09/11/2026 · ranibz/hakol
+<!-- eshi/emergency/pinui-update.html · v1.1.0 · 10/11/2026 · ranibz/hakol
+     v1.1.0 · שיבוץ מורים לפי יישוב: בכל שורת קו "👥 מורים" — היישובים שבשם הקו כלחצנים, לחיצה = כל המורים שגרים
+       ביישוב, לחיצה על מורה = שיבוץ (מלווה 1/2 + מגורי מורה). מורה שכבר משובץ מסומן. דורש HAKOL-pinui-staff.sql.
      טופס עדכון "נוהל פינוי בית הספר בחירום". ממלאים כאן, והתיק (pinui.html) מתמלא מזה.
      v1.0.0 · כל פרקי התיק לפי pinui-schema.js: פרטי צוות צל"ח, דרכי הפעולה (כל שורה — סעיף),
        ומלווי ההסעות: אזורים (הוספה / שינוי שם / הזזה / מחיקה), ולכל אזור טבלת קווים
@@ -11,7 +13,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="app-version" content="1.0.0">
+<meta name="app-version" content="1.1.0">
 <meta name="robots" content="noindex">
 <title>עדכון נוהל פינוי בית הספר בחירום</title>
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
@@ -63,6 +65,18 @@ table.ed th input{width:100%;border:1px solid #c8d0db;border-radius:5px;padding:
 .imc .th img{width:100%;height:100%;object-fit:cover}
 .imc input,.imc select{width:100%;margin-top:5px;padding:6px;border:1px solid var(--line);border-radius:6px}
 .imc .row{display:flex;gap:5px;margin-top:5px}
+.pickov{position:fixed;inset:0;z-index:50;background:rgba(15,23,42,.45);display:flex;align-items:flex-start;justify-content:center;padding:40px 12px;overflow:auto}
+.pickbox{background:#fff;border-radius:16px;max-width:560px;width:100%;padding:14px 16px;box-shadow:0 10px 30px rgba(0,0,0,.25)}
+.pkh{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;font-size:17px}
+.pkchips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.pkc{border:1.5px solid var(--line);background:#fff;border-radius:99px;padding:6px 12px;font:inherit;font-weight:700;cursor:pointer}
+.pkc small{color:var(--muted);font-weight:600}
+.pkc.on{background:var(--navy);color:#fff;border-color:var(--navy)} .pkc.on small{color:#dfe6ef}
+.pkc.all{border-style:dashed;color:var(--muted)}
+.pklist{display:flex;flex-direction:column;gap:6px}
+.pkt{display:flex;justify-content:space-between;gap:8px;align-items:center;border:1.5px solid var(--line);background:#f7f9fb;border-radius:10px;padding:10px 12px;font:inherit;font-weight:700;cursor:pointer;text-align:right}
+.pkt small{font-weight:600;color:var(--muted)} .pkt.used{background:#fff7e6;border-color:#f1d29b}
+.pickb{white-space:nowrap}
 .area{border:1px solid var(--line);border-radius:12px;padding:10px;margin-top:10px;background:#fafbfc}
 .ahead{display:flex;gap:6px;align-items:flex-end;margin-bottom:6px}
 .toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#14202e;color:#fff;padding:10px 18px;border-radius:99px;opacity:0;transition:.2s;pointer-events:none;z-index:9}
@@ -77,7 +91,7 @@ footer{text-align:center;color:var(--muted);font-size:12px;margin:20px 0}
 </div></div>
 <div class="wrap" id="app"></div>
 <div class="toast" id="toast"></div>
-<footer>פיתוח: רני בן זאב · v1.0.0</footer>
+<footer>פיתוח: רני בן זאב · v1.1.0</footer>
 
 <script>
 const $ = id => document.getElementById(id);
@@ -142,12 +156,12 @@ function eAreas(){
   return areas.map((a, ai) => { const rows = a.rows ||= [];
     return `<div class="area"><div class="ahead"><label class="f" style="flex:1;margin:0"><span>שם האזור</span>${inp(`areas.${ai}.name`, a.name)}</label>
       <button class="mini" data-amv="${ai}|-1" ${ai === 0 ? 'disabled' : ''} title="הזזה למעלה">▲</button><button class="mini" data-amv="${ai}|1" ${ai === areas.length - 1 ? 'disabled' : ''} title="הזזה למטה">▼</button><button class="mini del" data-arm="${ai}" title="מחיקת האזור">✕ אזור</button></div>
-      <div class="tw"><table class="ed"><thead><tr><th style="width:36px">מס'</th>${PN_LINE_COLS.map(c => `<th>${esc(c.l)}</th>`).join('')}<th></th></tr></thead><tbody>
+      <div class="tw"><table class="ed"><thead><tr><th style="width:36px">מס'</th>${PN_LINE_COLS.map(c => `<th>${esc(c.l)}</th>`).join('')}<th>שיבוץ</th><th></th></tr></thead><tbody>
       ${rows.map((r, i) => `<tr><td style="text-align:center;font-weight:700">${i + 1}</td>${PN_LINE_COLS.map(c =>
-        `<td><input data-p="areas.${ai}.rows.${i}.${c.k}" value="${esc(val(r[c.k]))}"${c.k === 'line' ? ' style="min-width:280px"' : ''}></td>`).join('')}${rowOps(`areas.${ai}.rows`, i, rows.length)}</tr>`).join('')}
+        `<td><input data-p="areas.${ai}.rows.${i}.${c.k}" value="${esc(val(r[c.k]))}"${c.k === 'line' ? ' style="min-width:280px"' : ''}></td>`).join('')}<td><button class="mini pickb" data-pick="${ai}|${i}" title="מורים שגרים ביישובי הקו">👥 מורים</button></td>${rowOps(`areas.${ai}.rows`, i, rows.length)}</tr>`).join('')}
       </tbody></table></div><button class="add" data-radd="${ai}">＋ הוספת קו</button></div>`; }).join('') +
     `<button class="add" data-aradd="1" style="margin-top:12px">＋ הוספת אזור</button>
-     <div class="hint">המספור בטבלה מחושב לבד לפי הסדר.</div>`;
+     <div class="hint">המספור בטבלה מחושב לבד לפי הסדר. "👥 מורים" — המורים שגרים ביישובי הקו, ולחיצה על מורה משבצת אותו.</div>`;
 }
 function ePart(p){
   let h = `<div class="part">${p.t ? `<h3>${p.n ? `<span class="n">${esc(p.n)}</span>` : ''}${esc(p.t)}</h3>` : ''}`;
@@ -200,9 +214,67 @@ $('app').addEventListener('click', e => {
   else if(d.aradd){ (DATA.areas ||= []).push({name: '', rows: [{}]}); }
   else if(d.arm){ const a = DATA.areas[+d.arm]; if(!confirm(`למחוק את האזור "${a.name || ''}" וכל הקווים שלו?`)) return; DATA.areas.splice(+d.arm, 1); }
   else if(d.amv){ const [i, st] = d.amv.split('|'); const a = DATA.areas, x = +i, y = x + (+st); [a[x], a[y]] = [a[y], a[x]]; }
+  else if(d.pick){ e.preventDefault(); const [ai, i] = d.pick.split('|').map(Number); openPick(ai, i); return; }
   else changed = false;
   if(changed){ e.preventDefault(); dirty(); render(); }
 });
+
+/* ---------- v1.1.0 — שיבוץ מורים לפי יישוב ----------
+   רשימת המורים (שם + יישוב מגורים, מהמידעון) מגיעה מהשרת (pn_staff, רק עם קוד עריכה).
+   לחיצה על "👥 מורים" בשורת קו: היישובים שמופיעים בשם הקו (ובשם האזור) כלחצנים; לחיצה על יישוב —
+   כל המורים שגרים בו; לחיצה על מורה — נכנס ל"מלווה 1" (או 2 אם 1 תפוס) ויישוב המגורים ל"מגורי מורה". */
+let STAFF = null;
+async function loadStaff(){
+  if(STAFF) return STAFF;
+  try{ STAFF = ((await pnRpc('pn_staff', {p_code: CODE})) || []).map(x => ({n: x.name, t: x.town || ''})); }
+  catch(e){ STAFF = []; }
+  return STAFF;
+}
+const tnorm = x => String(x || '').replace(/^ד\.?נ\.?\s*/, '').replace(/[׳'"`״]/g, '').replace(/וו/g, 'ו').replace(/יי/g, 'י').replace(/[-–]/g, ' ').replace(/\s+/g, ' ').trim();
+function assignedMap(){
+  const m = {};
+  (DATA.areas || []).forEach((a, ai) => (a.rows || []).forEach((r, i) => ['esc1', 'esc2'].forEach(k => {
+    const v = val(r[k]).trim(); if(v) (m[v] ||= []).push(`${a.name || 'אזור'} ${i + 1}`); })));
+  return m;
+}
+async function openPick(ai, i){
+  const st = await loadStaff();
+  if(!st.length){ alert('רשימת המורים לא נטענה. צריך להריץ את HAKOL-pinui-staff.sql (אחרי HAKOL-pizur-v3.sql).'); return; }
+  const a = DATA.areas[ai], r = a.rows[i];
+  const towns = [...new Set(st.map(x => x.t).filter(Boolean))].sort((x, y) => x.localeCompare(y, 'he'));
+  const hay = ' ' + tnorm((r.line || '') + ' ' + (a.name || '')) + ' ';
+  const hits = towns.filter(t => { const n = tnorm(t); return n.length > 1 && hay.includes(n); });
+  let cur = hits[0] || '', showAll = !hits.length;
+  const box = document.createElement('div'); box.className = 'pickov';
+  const draw = () => {
+    const am = assignedMap();
+    const chips = (showAll ? towns : hits);
+    const list = cur ? st.filter(x => x.t === cur).sort((x, y) => x.n.localeCompare(y.n, 'he')) : [];
+    box.innerHTML = `<div class="pickbox">
+      <div class="pkh"><b>שיבוץ · ${esc(a.name || '')} · קו ${i + 1}</b><button class="mini" data-x="1">✕</button></div>
+      <div class="hint" style="margin:0 0 8px">${esc(val(r.line)) || 'קו בלי שם'}</div>
+      ${hits.length ? '' : '<div class="hint" style="margin:0 0 6px">לא נמצא יישוב משם הקו — בחרו מהרשימה.</div>'}
+      <div class="pkchips">${chips.map(t => `<button class="pkc${t === cur ? ' on' : ''}" data-t="${esc(t)}">${esc(t)} <small>${st.filter(x => x.t === t).length}</small></button>`).join('')}
+        ${hits.length ? `<button class="pkc all" data-all="1">${showAll ? 'רק יישובי הקו' : 'כל היישובים…'}</button>` : ''}</div>
+      <div class="pklist">${cur ? (list.map(x => { const used = am[x.n];
+          return `<button class="pkt${used ? ' used' : ''}" data-n="${esc(x.n)}"><span>${esc(x.n)}</span><small>${used ? '⚠️ כבר משובץ: ' + esc(used.join(', ')) : esc(x.t)}</small></button>`; }).join('') || '<p class="hint">אין מורים ביישוב הזה</p>')
+        : '<p class="hint">בחרו יישוב</p>'}</div>
+      <div class="hint" style="margin-top:8px">לחיצה על מורה ← מלווה 1 (אם תפוס — מלווה 2), ויישוב המגורים ← מגורי מורה.</div></div>`;
+  };
+  box.onclick = e => {
+    if(e.target === box || e.target.closest('[data-x]')){ box.remove(); return; }
+    const c = e.target.closest('[data-t]'); if(c){ cur = c.dataset.t; draw(); return; }
+    if(e.target.closest('[data-all]')){ showAll = !showAll; draw(); return; }
+    const t = e.target.closest('[data-n]'); if(!t) return;
+    const name = t.dataset.n, who = st.find(x => x.n === name);
+    const k = !val(r.esc1).trim() ? 'esc1' : !val(r.esc2).trim() ? 'esc2' : null;
+    const slot = k || (confirm('שני המלווים כבר מלאים. להחליף את מלווה 1?') ? 'esc1' : null);
+    if(!slot) return;
+    r[slot] = name; if(slot === 'esc1' || !val(r.home).trim()) r.home = who && who.t ? who.t.replace(/^ד\.?נ\.?\s*/, '') : val(r.home);
+    box.remove(); dirty(); render(); toast(`✓ ${name} שובץ/ה ל${slot === 'esc1' ? 'מלווה 1' : 'מלווה 2'}`);
+  };
+  draw(); document.body.appendChild(box);
+}
 
 async function save(){
   const b = $('save'); b.textContent = '⏳ שומר…';
