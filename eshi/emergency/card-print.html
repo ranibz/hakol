@@ -1,7 +1,12 @@
 <!DOCTYPE html>
 <!--
   כרטיס תלמיד פיזי — הדפסה בגודל כרטיס אשראי
-  v1.1.0 | 12.11.2026 | פיתוח: רני בן זאב
+  v1.1.1 | 12.11.2026 | פיתוח: רני בן זאב
+  - v1.1.1: ⚠ בהדפסה אמיתית ה-QR לא הופיע וההדפסה של כל בית הספר נכשלה. qrcodejs מצייר canvas ותמונה
+    שנוצרת אחר כך ברקע; בתצוגת ההדפסה לא הספיקה להיטען, ו-971 קנבסים גדולים הכבידו על הדפדפן.
+    עכשיו כל QR הופך מיד לתמונה קטנה (PNG בגודל 200px) והקנבס נמחק; כפתור ההדפסה נפתח רק כשכל
+    הקודים מוכנים, עם מונה. QR שנכשל מסומן על הכרטיס ולא עוצר את השאר. ספריית ה-QR נטענת גם מ-jsDelivr
+    אם cdnjs לא זמין. ההנחיה: "שמירה כ-PDF" ולא "Microsoft Print to PDF", ושכבה-שכבה.
   - v1.1.0: מותאם ללמינציה של דף שלם: 8 כרטיסים בדף (2×4) עם רווח של 10–12 מ"מ בין כרטיס לכרטיס,
     כך שאחרי החיתוך נשאר ניילון סגור סביב כל כרטיס (כ-5 מ"מ לכל צד). קו חיתוך רציף כהה סביב כל כרטיס,
     ופינות ישרות — קל לחתוך בקו ישר.
@@ -20,6 +25,7 @@
 <title>כרטיס תלמיד · הדפסה</title>
 <link rel="icon" href="card-icon-192.png">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>window.QRCode || document.write('<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"><\/script>');</script>
 <style>
   :root{--bg:#f2f4f8;--card:#fff;--ink:#1c2333;--muted:#6b7385;--line:#e3e8f2;--brand:#1f4fa3;--brand2:#163a7a;--ok:#14975a}
   *{box-sizing:border-box}
@@ -83,7 +89,7 @@
 <body>
 <div class="wrap">
   <header class="noprint">
-    <h1>🪪 כרטיס תלמיד פיזי <span class="badge">v1.1.0</span></h1>
+    <h1>🪪 כרטיס תלמיד פיזי <span class="badge">v1.1.1</span></h1>
     <p>הדפסת כרטיסים בגודל כרטיס אשראי, עם אותו QR של הכרטיס בטלפון — השומר, סריקת המקלטים והפיזור קוראים אותו בלי שינוי.</p>
   </header>
 
@@ -110,7 +116,8 @@
     <div class="sum" id="sum"></div>
     <button class="btn" id="print" disabled>🖨 הדפסה</button>
     <div class="warn">
-      <b>בחלון ההדפסה:</b> גודל נייר <b>A4</b> · שוליים <b>ללא</b> (Margins: None) · קנה מידה <b>100%</b> (לא "התאמה לדף") ·
+      <b>בחלון ההדפסה:</b> יעד <b>"שמירה כ-PDF"</b> (Save as PDF) או המדפסת עצמה — לא "Microsoft Print to PDF" · מומלץ שכבה-שכבה ·
+      גודל נייר <b>A4</b> · שוליים <b>ללא</b> (Margins: None) · קנה מידה <b>100%</b> (לא "התאמה לדף") ·
       להפעיל <b>"גרפיקות רקע"</b> (Background graphics), כדי שהפס הכחול יודפס.<br>
       למינציה: מכניסים את הדף <b>כולו</b> לניילון, ואחר כך חותכים <b>באמצע הרווח</b> בין הכרטיסים — לא על הקו —
       כך שנשארים כ-5 מ"מ של ניילון סגור סביב כל כרטיס. לבדיקה — להניח כרטיס אשראי על הדף הראשון.
@@ -118,7 +125,7 @@
   </div>
 
   <div id="sheets"></div>
-  <footer class="noprint muted" style="text-align:center;margin:20px 0">פיתוח: רני בן זאב · v1.1.0</footer>
+  <footer class="noprint muted" style="text-align:center;margin:20px 0">פיתוח: רני בן זאב · v1.1.1</footer>
 </div>
 
 <script>
@@ -204,11 +211,33 @@ function render(){
   for(let i = 0; i < ok.length; i += PER) pages.push(ok.slice(i, i + PER));
   $('sheets').className = $('cut').checked ? '' : 'nocut';
   $('sheets').innerHTML = pages.map((pg, p) => `<div class="sheet">${pg.map((r, j) => cardHTML(r, p * PER + j)).join('')}</div>`).join('');
-  ok.forEach((r, i) => {
-    const el = $('qr' + i); if(!el || !window.QRCode) return;
-    new QRCode(el, {text: scanUrl(r.token), width: 300, height: 300, correctLevel: QRCode.CorrectLevel.M});
-  });
+  /* v1.1.1 — כל QR נהיה תמונה קטנה מיד (בלי canvas שנשאר בדף), במנות כדי שהדף לא ייתקע */
+  const run = ++RUN;
+  if(!window.QRCode){ $('sum').insertAdjacentHTML('beforeend', '<div class="err">ספריית ה-QR לא נטענה — רעננו את הדף.</div>'); $('print').disabled = true; return; }
+  $('print').disabled = true;
+  let i = 0, bad = 0;
+  const step = () => {
+    if(run !== RUN) return;
+    const end = Math.min(ok.length, i + 40);
+    for(; i < end; i++){
+      const el = $('qr' + i); if(!el) continue;
+      try{
+        const tmp = document.createElement('div');
+        new QRCode(tmp, {text: scanUrl(ok[i].token), width: 200, height: 200, correctLevel: QRCode.CorrectLevel.M});
+        const c = tmp.querySelector('canvas'), im = tmp.querySelector('img');
+        const src = c ? c.toDataURL('image/png') : (im && im.src);
+        if(!src) throw new Error('no image');
+        el.innerHTML = '<img alt="" src="' + src + '">';
+      }catch(e){ bad++; el.innerHTML = '<b style="font-size:2.5mm;color:#b91c1c">QR נכשל</b>'; }
+    }
+    $('print').textContent = i < ok.length ? `⏳ מכין קודים… ${i}/${ok.length}` : '🖨 הדפסה';
+    if(i < ok.length) setTimeout(step, 0);
+    else{ $('print').disabled = false;
+      if(bad) $('sum').insertAdjacentHTML('beforeend', `<div class="err">${bad} קודים נכשלו — מסומנים על הכרטיסים.</div>`); }
+  };
+  step();
 }
+let RUN = 0;
 $('print').onclick = () => window.print();
 
 (function(){ let p = null; try{ p = sessionStorage.getItem('gm_cp_pin'); }catch(e){}
