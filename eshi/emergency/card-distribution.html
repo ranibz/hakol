@@ -1,7 +1,9 @@
 <!DOCTYPE html>
 <!--
   חלוקת כרטיסי תלמיד — קישור כיתתי, בדיקת מחנך ותמונת שכבה
-  v1.2.1 | 12.11.2026 | פיתוח: רני בן זאב
+  v1.2.2 | 12.11.2026 | פיתוח: רני בן זאב
+  - v1.2.2: מסך המנהלת, "לפי שכבות" — כל שכבה היא אקורדיון, סגור כברירת מחדל: בכותרת השכבה כמה
+    התקינו מתוך כמה ופס התקדמות, ולחיצה פותחת את הכיתות שלה. שכבה פתוחה נשארת פתוחה ברענון ובמעבר מיון.
   - v1.2.1: ליד כל כיתה (במסך המנהלת ובמסך רכז השכבה): "🔗 קישור למחנך" (העתקה) ו"וואטסאפ" —
     קישור ?tab=tch&class=<כיתה>, שנפתח ישר על מצב הכיתה במסך המחנך.
   - v1.2.0: לשונית רביעית 🏫 מנהלת (?tab=mgr) — כל בית הספר במסך אחד: סך הכול (התקינו · הפעילו ·
@@ -35,7 +37,7 @@
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="app-version" content="1.2.1">
+<meta name="app-version" content="1.2.2">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
@@ -108,6 +110,14 @@
   .legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-left:4px;vertical-align:middle}
   .note{background:#fff8e6;border-radius:12px;padding:10px 12px;font-size:14px;color:#7a5a00;line-height:1.5;margin-bottom:12px}
   .muted{color:var(--muted)}
+  .gacc{border:1.5px solid var(--line);border-radius:14px;margin-top:10px;padding:0 10px 10px;background:#fff}
+  .gacc summary{list-style:none;cursor:pointer;padding:12px 2px 2px;display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 10px}
+  .gacc summary::-webkit-details-marker{display:none}
+  .gacc .gt{font-size:18px;font-weight:800}
+  .gacc .gs{font-size:14px;color:var(--muted);font-weight:600;flex:1}
+  .gacc .gch{transition:transform .2s;color:var(--muted)}
+  .gacc[open] .gch{transform:rotate(180deg)}
+  .gacc summary .bar{flex-basis:100%;margin:4px 0 0}
   .tl{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
   .mini{font:inherit;font-size:13px;font-weight:700;padding:5px 11px;border-radius:99px;border:1.5px solid var(--line);
     background:#fff;color:var(--ink,#1c2333);cursor:pointer;text-decoration:none}
@@ -122,7 +132,7 @@
 <div class="wrap">
   <header>
     <div class="sc">🎓 בית חינוך גליל מערבי</div>
-    <h1><span id="hTitle">חלוקת כרטיסי תלמיד</span> <span class="badge" id="ver">v1.2.1</span></h1>
+    <h1><span id="hTitle">חלוקת כרטיסי תלמיד</span> <span class="badge" id="ver">v1.2.2</span></h1>
     <p id="hSub">קישור לכל כיתה לשליחה בקבוצת הוואטסאפ, ומעקב מי הפעיל ומי התקין את הכרטיס.</p>
   </header>
 
@@ -191,7 +201,7 @@
   </section>
 
   <div class="toast" id="toast"></div>
-  <footer>פיתוח: רני בן זאב · v1.2.1</footer>
+  <footer>פיתוח: רני בן זאב · v1.2.2</footer>
 </div>
 
 <script>
@@ -366,6 +376,7 @@ document.addEventListener('click', e => {
 
 // ===== 🏫 מנהלת — כל בית הספר =====
 let MGR_ROWS = null, MGR_SORT = 'grade';
+const MGR_OPEN = new Set();   /* שכבות פתוחות באקורדיון */
 const pct = (a, n) => n ? Math.round(a / n * 100) : 0;
 function mgrClassHTML(c, rows){
   const k = counts(rows);
@@ -392,9 +403,11 @@ function drawMgr(){
       const cs = Object.keys(by).filter(c => gradeOf(c) === g).sort(sortClasses);
       if(!cs.length) return '';
       const k = counts(cs.flatMap(c => by[c]));
-      return `<h3 style="margin:18px 0 6px;display:flex;justify-content:space-between;align-items:baseline">
-          <span>שכבה ${esc(g)}</span><span style="font-size:14px" class="muted">התקינו ${HAS_STATUS ? k.inst : '—'} מתוך ${k.n} · ${pct(HAS_STATUS ? k.inst : k.act, k.n)}%</span></h3>
-        ${cs.map(c => mgrClassHTML(c, by[c])).join('')}`;
+      return `<details class="gacc" data-g="${esc(g)}"${MGR_OPEN.has(g) ? ' open' : ''}>
+        <summary><span class="gt">שכבה ${esc(g)}</span>
+          <span class="gs">📲 ${HAS_STATUS ? k.inst : '—'}/${k.n} · ${pct(HAS_STATUS ? k.inst : k.act, k.n)}% · ${cs.length} כיתות</span>
+          <span class="gch">▾</span>${bar(k)}</summary>
+        ${cs.map(c => mgrClassHTML(c, by[c])).join('')}</details>`;
     }).join('');
   }
   out.innerHTML = head + body + `<button class="btn sec" id="mgrRef" style="margin-top:12px">🔄 רענון</button>`;
@@ -411,6 +424,8 @@ async function showMgr(){
   drawMgr();
 }
 $('mgrOut').onclick = e => { const c = e.target.closest('.cls'); if(c) c.classList.toggle('open'); };
+$('mgrOut').addEventListener('toggle', e => { const d = e.target;
+  if(d.classList && d.classList.contains('gacc')){ if(d.open) MGR_OPEN.add(d.dataset.g); else MGR_OPEN.delete(d.dataset.g); } }, true);
 $('mgrSort').onclick = e => { const b = e.target.closest('.chip'); if(!b) return;
   MGR_SORT = b.dataset.s; document.querySelectorAll('#mgrSort .chip').forEach(x => x.classList.toggle('on', x === b)); drawMgr(); };
 
