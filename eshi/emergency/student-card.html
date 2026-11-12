@@ -1,7 +1,8 @@
 <!DOCTYPE html>
 <!--
   כרטיס תלמיד דיגיטלי + קליטת מאחרים בשער
-  v0.8.0 | 12.11.2026 | פיתוח: רני בן זאב
+  v0.8.1 | 12.11.2026 | פיתוח: רני בן זאב
+  - v0.8.1: סורק כיתת אם — בלי רשימת "מאחרים היום" של כל בית הספר; המחנך רואה את הכיתה שלו בנוכחות.
   - v0.8.0: ?mode=class — סורק כיתת אם למחנכים, בלי קוד שומר: נפתח ישר על הסריקה. נרשם דרך
     register_card_scan (HAKOL-card-scan.sql) — כמו register_late, אבל רק עם קוד כרטיס מה-QR ובלי קוד;
     source='class'. בלי חיפוש לפי שם (רישום ידני נשאר אצל השומר, עם הקוד).
@@ -57,7 +58,7 @@
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="app-version" content="0.8.0">
+<meta name="app-version" content="0.8.1">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
@@ -65,7 +66,7 @@
 /* עדכון אוטומטי (v0.7.3): דפדפן שפתח עותק ישן מהזיכרון — למשל לחיצה על קישור בוואטסאפ בטלפון —
    בודק מול האתר אם יש גרסה חדשה יותר, ואם כן טוען אותה מחדש פעם אחת. */
 (function(){
-  var V = '0.8.0', u = location.pathname;
+  var V = '0.8.1', u = location.pathname;
   if(navigator.onLine === false || !window.fetch) return;
   fetch(u + '?vcheck=' + Date.now(), {cache: 'no-store'})
     .then(function(r){ return r.ok ? r.text() : ''; })
@@ -134,7 +135,7 @@
 </head>
 <body>
 <div class="wrap" id="app"></div>
-<footer>פיתוח: רני בן זאב · v0.8.0</footer>
+<footer>פיתוח: רני בן זאב · v0.8.1</footer>
 
 <script>
 // ===== חיבור =====
@@ -194,7 +195,7 @@ function tokenFromText(text){
 
 function renderHome(){
   app.innerHTML = `
-    <h1>כרטיס תלמיד <span class="badge">v0.8.0</span></h1>
+    <h1>כרטיס תלמיד <span class="badge">v0.8.1</span></h1>
     <p class="muted">${SCHOOL}</p>
     ${IS_APP ? `<div class="tip">עדיין לא הופעל כרטיס בטלפון הזה.<br>פתחו את קישור הכיתה שהמחנך שלח בקבוצה, או:</div>
       <a class="btn" href="late-entry.html?tab=stu">הפעלת הכרטיס שלי</a>` : ''}
@@ -400,14 +401,14 @@ function renderPin(next){
 let scanner = null, busy = false, logTimer = null, searchTimer = null;
 function renderGuard(){
   app.innerHTML = `
-    <h1>${CLASS_MODE ? '📷 סורק כיתת אם' : '🛡️ קליטת מאחרים'} <span class="badge">v0.8.0</span></h1>
+    <h1>${CLASS_MODE ? '📷 סורק כיתת אם' : '🛡️ קליטת מאחרים'} <span class="badge">v0.8.1</span></h1>
     <p class="muted">${CLASS_MODE ? 'סורקים את כרטיס התלמיד — נרשם נוכח, עם שעת ההגעה' : 'סרקו את כרטיס התלמיד — במצלמה הרגילה או כאן'}</p>
     <button class="btn" id="startBtn">הפעלת מצלמה</button>
     <div id="reader"></div>
     <div class="result" id="result"></div>
     <input id="search" placeholder="תלמיד בלי טלפון? חיפוש לפי שם…"${CLASS_MODE ? ' hidden' : ''}>
     <div class="list" id="searchRes"></div>
-    <div class="log" id="log"><div class="row"><span class="muted">טוען…</span></div></div>`;
+    ${CLASS_MODE ? '' : '<div class="log" id="log"><div class="row"><span class="muted">טוען…</span></div></div>'}`;
   document.getElementById('startBtn').onclick = startScanner;
   document.getElementById('search').oninput = e => {
     clearTimeout(searchTimer);
@@ -420,8 +421,8 @@ function renderGuard(){
     register({p_student_id: a.dataset.id});
     document.getElementById('search').value=''; document.getElementById('searchRes').innerHTML='';
   };
-  drawLog();
-  clearInterval(logTimer); logTimer = setInterval(drawLog, 15000);
+  clearInterval(logTimer);
+  if(!CLASS_MODE){ drawLog(); logTimer = setInterval(drawLog, 15000); }   /* v0.8.1 — במחנך אין רשימת "מאחרים היום" */
 }
 
 async function searchStudents(q){
@@ -497,7 +498,7 @@ async function register(target){
   if(r.duplicate){ showResult('dup', r.name, `כבר נרשם היום ב-${hhmm(r.arrived_at)}`); return; }
   if(navigator.vibrate) navigator.vibrate(150);
   showResult('ok', r.name, `כיתה ${r.class} · נרשם/ה באיחור ${hhmm(r.arrived_at)}`);
-  drawLog();
+  if(!CLASS_MODE) drawLog();
 }
 
 function showResult(kind, big, mid){
