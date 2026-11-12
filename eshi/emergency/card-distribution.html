@@ -1,7 +1,9 @@
 <!DOCTYPE html>
 <!--
   חלוקת כרטיסי תלמיד — קישור כיתתי, בדיקת מחנך ותמונת שכבה
-  v1.2.0 | 12.11.2026 | פיתוח: רני בן זאב
+  v1.2.1 | 12.11.2026 | פיתוח: רני בן זאב
+  - v1.2.1: ליד כל כיתה (במסך המנהלת ובמסך רכז השכבה): "🔗 קישור למחנך" (העתקה) ו"וואטסאפ" —
+    קישור ?tab=tch&class=<כיתה>, שנפתח ישר על מצב הכיתה במסך המחנך.
   - v1.2.0: לשונית רביעית 🏫 מנהלת (?tab=mgr) — כל בית הספר במסך אחד: סך הכול (התקינו · הפעילו ·
     תלמידים), ולכל שכבה שורת סיכום וכל הכיתות שלה — "התקינו X מתוך N" עם פס התקדמות. לחיצה על כיתה
     פותחת את מצב כל תלמיד. מיון: לפי שכבות, או "הכי פחות מותקן קודם" כדי לראות במי לטפל.
@@ -33,7 +35,7 @@
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="app-version" content="1.2.0">
+<meta name="app-version" content="1.2.1">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
@@ -106,6 +108,11 @@
   .legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-left:4px;vertical-align:middle}
   .note{background:#fff8e6;border-radius:12px;padding:10px 12px;font-size:14px;color:#7a5a00;line-height:1.5;margin-bottom:12px}
   .muted{color:var(--muted)}
+  .tl{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+  .mini{font:inherit;font-size:13px;font-weight:700;padding:5px 11px;border-radius:99px;border:1.5px solid var(--line);
+    background:#fff;color:var(--ink,#1c2333);cursor:pointer;text-decoration:none}
+  .mini:hover{border-color:var(--c,#1f4fa3)}
+  .mini.wa{border-color:#25d366;color:#128c4a}
   .toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#1c2333;color:#fff;padding:10px 18px;border-radius:99px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none}
   .toast.on{opacity:1}
   footer{text-align:center;color:var(--muted);font-size:12px;margin:24px 0 8px}
@@ -115,7 +122,7 @@
 <div class="wrap">
   <header>
     <div class="sc">🎓 בית חינוך גליל מערבי</div>
-    <h1><span id="hTitle">חלוקת כרטיסי תלמיד</span> <span class="badge" id="ver">v1.2.0</span></h1>
+    <h1><span id="hTitle">חלוקת כרטיסי תלמיד</span> <span class="badge" id="ver">v1.2.1</span></h1>
     <p id="hSub">קישור לכל כיתה לשליחה בקבוצת הוואטסאפ, ומעקב מי הפעיל ומי התקין את הכרטיס.</p>
   </header>
 
@@ -184,7 +191,7 @@
   </section>
 
   <div class="toast" id="toast"></div>
-  <footer>פיתוח: רני בן זאב · v1.2.0</footer>
+  <footer>פיתוח: רני בן זאב · v1.2.1</footer>
 </div>
 
 <script>
@@ -336,12 +343,26 @@ async function showGrade(g){
     ${list.map(c => { const k = counts(by[c]); return `<div class="cls" data-c="${esc(c)}">
       <div class="top"><span>כיתה ${esc(c)}</span><span>${k.act} מתוך ${k.n}</span></div>
       <div class="sub">הפעילו ${k.act}${HAS_STATUS ? ` · התקינו ${k.inst}` : ''} · ${k.wait === 0 ? 'כולם הפעילו ✓' : k.wait === 1 ? 'ממתין אחד' : k.wait + ' ממתינים'} · לחצו לרשימה</div>
-      ${bar(k)}<div class="names">${namesHTML(by[c])}</div></div>`; }).join('')}
+      ${bar(k)}${tchBtns(c)}<div class="names">${namesHTML(by[c])}</div></div>`; }).join('')}
     <button class="btn sec" id="grdRef" style="margin-top:12px">🔄 רענון</button>`;
   $('grdRef').onclick = () => showGrade(g);
 }
 $('grdChips').onclick = e => { const b = e.target.closest('.chip'); if(b) showGrade(b.dataset.g); };
 $('grdOut').onclick = e => { const c = e.target.closest('.cls'); if(c) c.classList.toggle('open'); };
+
+// ===== קישור למחנך של כיתה (v1.2.1) =====
+const tchLink = c => PAGE_URL + '?tab=tch&class=' + encodeURIComponent(c);
+function tchBtns(c){
+  const u = tchLink(c), msg = `כרטיסי תלמיד — מצב כיתה ${c}: מי הפעיל ומי התקין, ותזכורת מוכנה לקבוצת הכיתה:\n${u}`;
+  return `<div class="tl"><button class="mini" data-cp="${esc(u)}">🔗 קישור למחנך</button>
+    <a class="mini wa" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(msg)}">וואטסאפ</a></div>`;
+}
+/* הכפתורים יושבים בתוך שורת הכיתה — לא פותחים/סוגרים אותה */
+document.addEventListener('click', e => {
+  const cp = e.target.closest('.tl [data-cp]');
+  if(cp){ e.stopPropagation(); copy(cp.dataset.cp); return; }
+  if(e.target.closest('.tl a')) e.stopPropagation();
+}, true);
 
 // ===== 🏫 מנהלת — כל בית הספר =====
 let MGR_ROWS = null, MGR_SORT = 'grade';
@@ -351,7 +372,7 @@ function mgrClassHTML(c, rows){
   return `<div class="cls" data-c="${esc(c)}">
     <div class="top"><span>כיתה ${esc(c)}</span><span>${HAS_STATUS ? `📲 ${k.inst}/${k.n}` : `✓ ${k.act}/${k.n}`} <small class="muted">(${pct(HAS_STATUS ? k.inst : k.act, k.n)}%)</small></span></div>
     <div class="sub">התקינו ${HAS_STATUS ? k.inst : '—'} · הפעילו ${k.act} · ${k.wait === 0 ? 'כולם הפעילו ✓' : k.wait === 1 ? 'ממתין אחד' : k.wait + ' ממתינים'} · לחצו למצב התלמידים</div>
-    ${bar(k)}<div class="names">${namesHTML(rows)}</div></div>`;
+    ${bar(k)}${tchBtns(c)}<div class="names">${namesHTML(rows)}</div></div>`;
 }
 function drawMgr(){
   const out = $('mgrOut'), rows = MGR_ROWS || [];
