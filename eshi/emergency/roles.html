@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<!-- eshi/emergency/roles.html · v1.0.0 · 12/11/2026 · ranibz/hakol (מערכת החירום של גליל מערבי)
+     התפקידים שלי בחירום — ריכוז כל בעלי התפקידים מכל תיקי החירום, לפי מורה ולפי תפקיד.
+     v1.0.0 · שלוש לשוניות:
+       👤 התפקידים שלי — מקלידים שם, ורואים את כל התפקידים בכל תרחיש (ירי טילים, פינוי ופיזור, צל"ח, ביטחון),
+          עם המשימות של כל תפקיד, השותף לתפקיד, ומה כל מורה עושה בירי טילים (מדרכי הפעולה בתיק הביטחון).
+          "אני מחנך/ת" מוסיף את דרכי הפעולה של המחנכים בפינוי. ?name=... פותח ישר על שם.
+       📋 לפי תפקידים — כל התפקידים בכל התיקים, עם השמות; תפקיד בלי שם מסומן ⚠️.
+       👥 כל המורים — כמה תפקידים יש לכל מורה (לאיזון עומסים), ושמות בתיקים שלא נמצאו ברשימת המורים.
+     · מקורות (נקראים מהשרת, לא נשמרים בקובץ): נוהל הפינוי (pn_data), תיק הביטחון (bt_data), תיק הצל"ח (tz_entries),
+       רשימת המורים (pizur_staff). רק שמות ותפקידים — בלי טלפונים, כתובות ומקום מגורים. דורש HAKOL-roles.sql (em_roles).
+     · התאמת שמות: בתיקים כתוב לפעמים רק שם פרטי ("אמיל") או שם ואות ("דורית ס"). התאמה כזו מסומנת "לוודא".
+     · כניסה פעם אחת בקוד מקלטים / קוד נוהל הפינוי. הנתונים נשמרים בטלפון ועובדים גם בלי אינטרנט.
+     פיתוח: רני בן זאב -->
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="app-version" content="1.0.0">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#1b2d45">
+<title>התפקידים שלי בחירום</title>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#eef1f4;--ink:#14202e;--muted:#5d6b7c;--line:#d5dce5;--card:#fff;--warn:#b45309;--bad:#b91c1c;--ok:#15803d;
+  --missile:#c2410c;--pizur:#1d4ed8;--tz:#1d4f9a;--sec:#8a1c1c;--all:#475569}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:Heebo,system-ui,sans-serif}
+header{background:linear-gradient(160deg,#1b2d45,#0f1b2b);color:#fff;padding:18px 16px 0}
+header .in{max-width:820px;margin:0 auto}
+header .sc{font-size:13px;opacity:.85}
+header h1{margin:4px 0 2px;font-size:25px}
+header p{margin:0 0 12px;opacity:.88;font-size:14px}
+.tabs{display:flex;gap:4px;overflow-x:auto}
+.tabs button{flex:1;white-space:nowrap;border:0;background:rgba(255,255,255,.12);color:#fff;font:inherit;font-weight:700;font-size:14px;padding:11px 6px;border-radius:12px 12px 0 0;cursor:pointer}
+.tabs button.on{background:var(--bg);color:var(--ink)}
+main{max-width:820px;margin:0 auto;padding:14px 16px 30px}
+.box{background:var(--card);border-radius:16px;border:1px solid var(--line);padding:16px;margin-bottom:12px}
+label.big{display:block;font-weight:800;font-size:16px;margin-bottom:6px}
+input[type=text],input[type=password],input[type=search]{width:100%;font:inherit;font-size:18px;padding:13px 14px;border-radius:12px;border:2px solid var(--line);background:#fff}
+input:focus{outline:none;border-color:#1d4ed8}
+.btn{display:inline-block;border:0;border-radius:12px;padding:12px 16px;font:inherit;font-weight:800;font-size:16px;background:#1b2d45;color:#fff;cursor:pointer;text-decoration:none}
+.btn.w{width:100%;margin-top:10px}
+.btn.sec{background:#e5e9f0;color:var(--ink)}
+.chk{display:flex;align-items:center;gap:8px;margin-top:10px;font-weight:700;font-size:15px}
+.chk input{width:20px;height:20px}
+.muted{color:var(--muted)} .err{color:var(--bad);font-weight:700;min-height:20px;margin-top:8px}
+.sum{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0 4px}
+.sum span{background:#fff;border:1px solid var(--line);border-radius:999px;padding:5px 11px;font-size:13.5px;font-weight:700}
+.sc{border-inline-start:6px solid var(--c);}
+.sch{display:flex;align-items:center;gap:8px;margin:0 0 8px;font-size:19px}
+.sch .n{margin-inline-start:auto;font-size:13px;color:var(--muted);font-weight:700}
+.role{border-top:1px solid var(--line);padding:11px 0 4px}
+.role:first-of-type{border-top:0;padding-top:2px}
+.role b.t{font-size:17px;display:block}
+.role .d{font-size:14.5px;color:var(--muted);margin-top:2px;line-height:1.5}
+.role .src{font-size:12.5px;margin-top:4px} .role .src a{color:#1d4ed8;font-weight:700;text-decoration:none}
+.tag{display:inline-block;font-size:12px;font-weight:800;border-radius:6px;padding:1px 7px;margin-inline-start:6px;vertical-align:2px}
+.tag.weak{background:#fff3d6;color:var(--warn)} .tag.gen{background:#e9edf3;color:var(--all)}
+details.du{margin-top:6px} details.du summary{cursor:pointer;font-weight:700;color:var(--c);font-size:14px}
+details.du ol,details.du ul{margin:6px 0 2px;padding-inline-start:20px;font-size:14.5px;line-height:1.6}
+details.du .h{font-weight:800;margin-top:6px;list-style:none;margin-inline-start:-20px}
+.acts{margin:6px 0 0;padding:0;list-style:none;font-size:14.5px;line-height:1.55}
+.acts li{padding:6px 10px;background:#f6f7fa;border-radius:9px;margin-top:5px}
+.acts li b{color:var(--c)}
+.empty{text-align:center;padding:22px 10px;color:var(--muted)}
+.row{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:start;padding:9px 0;border-top:1px solid var(--line)}
+.row:first-child{border-top:0}
+.row .who{font-size:14.5px;text-align:left;font-weight:700}
+.row .who .miss{color:var(--bad)}
+.tlist{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:6px}
+.tlist button{display:flex;justify-content:space-between;align-items:center;gap:6px;border:1px solid var(--line);background:#fff;border-radius:10px;padding:9px 11px;font:inherit;font-size:14.5px;cursor:pointer;text-align:right;color:var(--ink)}
+.tlist button b{background:#e9edf3;border-radius:8px;min-width:28px;text-align:center;padding:1px 6px}
+.tlist button.z b{background:#fde8e8;color:var(--bad)} .tlist button.h b{background:#dbeafe;color:#1d4ed8}
+.filt{display:flex;gap:6px;flex-wrap:wrap;margin:10px 0}
+.filt button{border:1px solid var(--line);background:#fff;border-radius:999px;padding:6px 12px;font:inherit;font-weight:700;font-size:14px;cursor:pointer}
+.filt button.on{background:#1b2d45;color:#fff;border-color:#1b2d45}
+footer{text-align:center;color:var(--muted);font-size:12px;margin:10px 0 24px}
+@media print{header .tabs,.noprint{display:none} body{background:#fff}}
+</style>
+</head>
+<body>
+<header><div class="in">
+  <div class="sc">🎓 בית חינוך גליל מערבי · תיקי חירום</div>
+  <h1>🧭 התפקידים שלי בחירום</h1>
+  <p>כל התפקידים מכל תיקי החירום — מקלידים שם ורואים הכול, בכל תרחיש.</p>
+  <nav class="tabs" id="tabs"></nav>
+</div></header>
+<main id="app"></main>
+<footer><span id="upd"></span> · <a href="tikim.html">תיקי חירום וביטחון</a> · פיתוח: רני בן זאב · v1.0.0</footer>
+<script>
+/* תיאורי התפקידים בצל"ח — מתוך tzalach.html (תיק הצל"ח של שפ"י) */
+const PAIR = ['ראשי/ת','ממלא/ת מקום בעת הצורך'];
+const ROLES = [
+ {k:'head', t:'ראש הצל"ח', sub:'מנהל המוסד החינוכי', L:PAIR, d:[
+  'הגדרת האירוע כאירוע חירום והחלטה על דרך ניהולו ומיקום המטה המנהל.','כינוס וניהול ישיבות הצל"ח.','קבלת תמונת מצב והפיכתה למידע זמין.','ריכוז מידע מעודכן באופן שוטף והצגתו, תוך כדי הפרכת שמועות.','פיקוח ומעקב אחר ביצוע החלטות והנחיות הצל"ח.','כינוס מורי המוסד החינוכי, מתן מידע, הנחיות וסדר יום מעודכן.','עבודה רציפה תוך שיתוף פעולה עם כל הגורמים המעורבים.','דיווח למשרד החינוך – למפקח הכולל של המוסד החינוכי ולמפקחת על הייעוץ.','דיווח לרשויות המקומיות – ראש מחלקת חינוך.','השגת עזרה מקצועית נוספת בהתאם לצורך וקבלת החלטות באשר לכניסת גורמי סיוע חיצוניים למוסד החינוכי.','קביעת ישיבות עדכון, סיכום והפקת לקחים.','אישור כל דפי המידע טרם הפצתם לתלמידים, למורים ולהורים.','הכרזה על סיום האירוע וחזרה לשגרה.','הגדרת משימות מתמשכות במקביל לחזרה לשגרה.','ישיבת בקרה והפקת לקחים ומעקב אחר מימושם בהתאם ללו"ז.','וידוא עבודת המוסד החינוכי בהתאם להנחיות הדוברות במשרד החינוך וברשות המקומית, ותכנון הפעולות בהתאם.']},
+ {k:'deputy', t:'סגן ראש הצל"ח', sub:'סגן המנהל', L:PAIR, d:[
+  'סיוע לראש הצל"ח בניהול האירוע.','מילוי מקום ראש הצל"ח בעת הצורך.','אחריות על התפעול של המוסד החינוכי – הפעלת מערכת שעות בהתאם להחלטת הצל"ח וזימון מורים בהתאם.','הפניה של מורים מתנדבים והפעלתם בתיאום עם המנהל, הצל"ח והגורמים המעורבים.','איש קשר לצוות עזרה ראשונה.','עבודה משותפת עם צוות החינוך החברתי.']},
+ {k:'counsel_head', t:'מרכז צוות הייעוץ', L:PAIR, d:[
+  'עבודה רצופה עם ראש הצל"ח וסגנו וקיום היוועצויות לפי הצורך.','ריכוז צוות הייעוץ.','הכוונת צוות הייעוץ לטיפול נכון באוכלוסייה הזקוקה לייעוץ: תלמידים, הורים ומורים.','הכוונה והדרכת מורים בהתערבות חינוכית ברמת הכיתה וברמת הפרט.','הכוונה מערכתית להתערבויות חינוכיות וטיפוליות בהתאם לזיהוי מעגלי הפְּגִיעוּת.','מעקב אחר התמודדות הצוות ואחר ההתערבות בכיתות, תוך מתן תמיכה וסיוע.','דיווח לממונים מקצועיים.','ריכוז הצוות הטיפולי בסוף היום לקבלת תמונת מצב ולתכנון התערבויות להמשך.','מעקב אחרי תלמידים ואנשי צוות שנפגעו ואיתור תלמידים מוכרים שמגלים קושי בעקבות האירוע.','בניית ערוצי תקשורת עם ההורים והקהילה.','מתן תמיכה מתמשכת לצוות החינוכי והמנהלי.','בחינת צרכים ייחודיים של הורים/ ותלמידים עם זכאות לשרותי חינוך מיוחדים וגיבוש מענים מותאמים לצרכים אלו.']},
+ {k:'parents', t:'איש קשר להורי המוסד החינוכי', sub:'רכז + צוות', L:PAIR, d:[
+  'ריכוז המידע הרלוונטי להורי התלמידים והעברתו ע"פ הנחיות הצל"ח.','סיוע באיתור וגיוס מתנדבים מקרב ההורים והבוגרים.']},
+ {k:'secretary', t:'מזכיר הצוות', sub:'מזכיר הצל"ח – מזכירת בית הספר', L:PAIR, d:[
+  'קבלת מידע ראשוני והפנייתו לראש הצל"ח.','קריאה לצוות חירום הראשוני בהתאם להנחיות ראש הצל"ח.','עדכון או קריאה לצוות חירום מורחב בהתאם להנחיות ראש הצל"ח.','עריכת מעקב אחרי התקשורת של המוסד החינוכי+ מענה, רישום וניתוב כל השיחות לבעלי התפקידים כדי לאפשר מענה מתאים.','רישום פרוטוקול האירוע.','עדכון שוטף של תיק הצל"ח על כל מרכיביו.']},
+ {k:'secretary2', t:'מזכירת הצל"ח', L:PAIR, d:[]},
+ {k:'external', t:'איש קשר עם גורמי חוץ', L:PAIR, d:[
+  'קשר עם גורמי חוץ – צבא, משטרה, פיקוד העורף, מכבי אש, מד"א, ביה"ח, רשויות (מועצה) קב"ט.','הכוונת האנשים החיצוניים המעורבים באירוע והלוקחים חלק בניהולו ובהתמודדות עמו על פי הנחיות הצל"ח.','הכוונת נציגי תקשורת למקום שהוקצה להם מראש והכנת שילוט.','ריכוז מתן מענים לצרכים מנהלתיים הקשורים לאירוע (הסעות, מזון וכד\').']},
+ {k:'counselor', t:'יועץ חינוכי', sub:'יועצ/ת', L:PAIR, d:[
+  'שותף בצוות החינוכי-טיפולי, בתיאום עם מרכז הצוות.','ריכוז הזיהוי של מעגלי הפְּגִיעוּת ברמת הקבוצה וברמת הפרט וטיפול בהם לפי הנדרש.','הדרכה ראשונית למורים ולמחנכים לפני המפגש עם התלמידים והדרכות המשך עד סיום האירוע ולאחריו.','ליווי הצוות החינוכי והמנהלי על פי צרכיו באופן מתמשך.','הפעלת מערך עבודה עם כיתות בהתאם לתוכניות מגירה מתאימות.','שיחות עם הורים.','מעקב והפנייה לפי הצורך.']},
+ {k:'psych', t:'פסיכולוג המוסד החינוכי מטעם השפ"ח*', sub:'פסיכולוג/ית', L:PAIR,
+  fn:'* רמת השירות (הפסיכולוגי והחינוכי) שתינתן ע"י הפסיכולוג המוסד החינוכי נתונה לשיקול דעתו של מנהל השפ"ח, בהתאם למדיניות אגף פסיכולוגיה בשפ"י ובכפוף למשאבי השפ"ח.', d:[
+  'שותף לצוות הצל"ח בשגרה ובחרום.','משמש גורם היוועצות לראש הצל"ח במצבי שגרה וחירום.','משמש גורם מנחה ומייעץ בכל הנוגע לבריאות נפש של ילדים ורווחה נפשית של הורים וצוותי חינוך במצבי טראומה ומשבר.',
+  '#בשגרה:','שותף בצוות החינוכי-טיפולי של בית הספר.','מסייע לראש הצל"ח, בשיתוף גורמים רלוונטיים, בגיבוש. תכנית ההכשרה השנתית לצוות הצל"ח ושותף להנחיה.',
+  '#בחירום:','סיוע במיפוי מעגלי הפְּגִיעוּת, בדגש על בריאות נפשית ורגישויות וצרכים רגשיים של הורים וצוות חינוכי.','ביצוע הערכות פסיכולוגיות של צרכים נפשיים, כולל מצבי טראומה, בהתאם לשיקול הדעת של הפסיכולוג.','גיבוש מענים טיפוליים והתערבויות מערכתיות ופרטניות בהתאם למעגלי הפגיעות באוכלוסיות השונות.','שותף ביישום התכנית החינוכית טיפולית שגובשה בהתאם למיפוי שבוצע ובהתאם לצרכי האוכלוסייה הזקוקה להתערבות (תלמידים, הורים ומורים):','סיוע בהכוונה והדרכת מורים בהתערבות חינוכית ברמת הכיתה וברמת הפרט.','השתתפות בצוות החינוכי -טיפולי בסוף היום לקבלת תמונת מצב בעקבות ההתערבויות שבוצעו במהלך היום ולצורך תכנון התערבויות להמשך.',
+  '#עם החזרה לשגרה:','סיוע לצוות הצל"ח בהיבטים פסיכולוגיים של המעקב אחר צרכי תלמידים, הורים וצוותי חינוך לאורך זמן.','סיוע בבניית מענים מגוונים להורים ולקהילה (ניסוח מכתבים, הרצאה , סדנה, קו חם ועוד).','סיוע בהגדרת צרכי התמיכה והליווי צוות החינוכי והמנהלי לאורך זמן']},
+ {k:'social', t:'רכז/ת חברתי', L:PAIR, d:[
+  'ריכוז העברת מידע, הודעות ועדכונים מחדר המצב לכיתות / מקלטים ונקודות הכינוס','ריכוז העברת תמונת המצב בנקודות השונות לחדר המצב.','כינוס מועצת תלמידים והפעלת תלמידים מתנדבים (ובכללם תלמידים עם זכאות לשרותי חינוך מיוחדים), במידה שהוחלט על כך.','כינוס מועצת תלמידים והפעלת תלמידים מתנדבים, במידה שהוחלט על כך.','הנהגת צוות החינוך החברתי לסייע בהפעלת סדר יום מותאם לאירוע, ובהתחשב בהתאמות והנגשות לתלמידים עם זכאות לשרותי חינוך מיוחדים.']},
+ {k:'security', t:'רכז בטחון', L:PAIR, d:[
+  'הכנת ציוד נדרש לעת חרום בהתאם להחלטות הצל"ח וחוזרי מנכ"ל, ובהתחשב בהתאמות והנגשות לתלמידים עם זכאות לשרותי חינוך מיוחדים ..','אחריות על ציוד כללי במוסד החינוכי, תקינותו וריענונו. מערכת כריזה, גדרות.','אחראי על תרגול התלמידים והצוותים על פי הנחיות משרד החינוך.','הכשרת המקלטים ואחזקתם השוטפת.','הכנת רשימה שמית של תלמידים המיועדים לכל מקלט + שילוט ברור, מונגש ומתאים בכל מקלט.']},
+ {k:'firstaid', t:'מגישי עזרה ראשונה', L:['מגיש/ה','מגיש/ה','מגיש/ה'], d:[
+  'אחריות על ציוד עזרה ראשונה במוסד החינוכי, תקינותו וריענונו.','מתן עזרה ראשונה בעת הצורך, עד הגעת צוותי חירום רפואיים.','העברת מידע רפואי רלוונטי לצוותי החירום בעת הגעתם.']},
+ {k:'media', t:'איש קשר עם התקשורת', L:PAIR, d:[]},
+ {k:'supervisor', t:'מפקח', L:['מפקח/ת'], d:[]},
+ {k:'other', t:'אחר', L:PAIR, d:[]}
+];
+/* ===== חיבור ===== */
+const SB_URL = 'https://skfriefqnoxfzmamcokd.supabase.co', SB_KEY = 'sb_publishable_Qx7EDPbdyYE9iv7uMQBKhQ_Aeojd_Q0';
+async function rpc(fn, body){
+  const r = await fetch(`${SB_URL}/rest/v1/rpc/${fn}`, {method:'POST',
+    headers:{apikey:SB_KEY, Authorization:'Bearer ' + SB_KEY, 'Content-Type':'application/json'}, body:JSON.stringify(body)});
+  const t = await r.text();
+  if(!r.ok){ let m = t; try{ m = JSON.parse(t).message || t; }catch(e){} throw new Error(m); }
+  return t ? JSON.parse(t) : null;
+}
+const ls = {
+  get(k, d = null){ try{ const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); }catch(e){ return d; } },
+  set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)); }catch(e){} },
+  del(k){ try{ localStorage.removeItem(k); }catch(e){} }
+};
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const byHe = (a, b) => String(a).localeCompare(String(b), 'he');
+const params = new URLSearchParams(location.search);
+
+/* ===== תרחישים ===== */
+const SC = {
+  missile: {ic:'🚀', t:'ירי טילים · מרחבים מוגנים', c:'--missile'},
+  pizur:   {ic:'🚌', t:'פינוי ופיזור תלמידים',       c:'--pizur'},
+  tz:      {ic:'🧭', t:'צל"ח — צוות לשעת חירום',     c:'--tz'},
+  sec:     {ic:'🛡️', t:'ביטחון — בעלי תפקידים חיוניים', c:'--sec'}
+};
+const SRC = {
+  pn: ['נוהל הפינוי', 'pinui.html'], bt: ['תיק הביטחון', 'bitachon.html'], tz: ['תיק הצל"ח', 'tzalach.html']
+};
+
+/* ===== התאמת שמות =====
+   שם בתיק: "לירון כצנלסון", "דורית ס", "אמיל", "אחראי יעקב או ממונה מטעמו", "רגב + סיגל".
+   שם המורה: "כצנלסון לירון". כל מילה בחלק מהשם בתיק צריכה לפתוח מילה בשם המורה. */
+const nTok = x => String(x || '').replace(/[.'"׳״()\-]/g, ' ').split(/\s+/).filter(Boolean);
+const STOP = new Set(['או','ממונה','מטעמו','מטעמה','מ"מ','ממ','ו','גם','צוות','כל','המורים','מורה','מורים','התורן','תורן','אחר','עם','של']);
+function parts(raw){
+  return String(raw || '').split(/[,+/;|\n]|\s+או\s+|\s+ו(?=[א-ת]{2,}\s|$)/).map(s => s.trim()).filter(Boolean);
+}
+/* 0 = לא, 1 = התאמה חלקית (רק שם פרטי / אות), 2 = שם מלא */
+function matchLevel(name, raw){
+  const a = nTok(name); if(!a.length) return 0;
+  let best = 0;
+  for(const p of parts(raw)){
+    const b = nTok(p).filter(t => !STOP.has(t)); if(!b.length) continue;
+    if(!b.every(t => a.some(w => w.startsWith(t)))) continue;
+    const full = b.filter(t => t.length > 1 && a.includes(t)).length >= Math.min(2, a.length);
+    best = Math.max(best, full ? 2 : 1);
+    if(best === 2) break;
+  }
+  return best;
+}
+
+/* ===== בניית רשימת התפקידים מכל התיקים ===== */
+let DATA = ls.get('em_roles_data'), ITEMS = [], GENERIC = [];
+function txtList(a){ return (Array.isArray(a) ? a : []).map(x => typeof x === 'string' ? x : (x?.t || x?.text || '')).filter(Boolean); }
+function actsFor(bt, test){
+  const out = [];
+  [['lesson', 'בזמן שיעור'], ['break', 'בהפסקה']].forEach(([k, when]) => {
+    const cols = bt?.[k + 'Cols'] || [], rows = bt?.[k + 'Acts'] || [];
+    cols.forEach((c, j) => { if(!test(c)) return;
+      rows.forEach(r => { const v = r?.vals?.[j]; const s = typeof v === 'string' ? v : (v?.t || v?.text || '');
+        if(s && s.trim()) out.push({when, col:c, stage:r.stage || '', text:s}); }); });
+  });
+  return out;
+}
+function build(){
+  ITEMS = []; GENERIC = [];
+  if(!DATA) return;
+  const {pn = {}, bt = {}, tz = []} = DATA;
+  const add = o => ITEMS.push(o);
+  /* נוהל הפינוי */
+  (pn.areas || []).forEach(a => (a.rows || []).forEach(r => {
+    const e = [r.esc1, r.esc2].map(x => (x || '').trim());
+    e.forEach((who, i) => add({sc:'pizur', src:'pn', ch:'#ch-3', title:`מלווה הסעה — ${a.name} · ${r.line}`, group:`מלווי הסעות · ${a.name}`,
+      key:`${a.name}|${r.line}`, slot:i ? 'מלווה 2' : 'מלווה 1', who, partner:e[1 - i], duties:txtList(pn.actEscorts), dutyT:'מה עושה מלווה הסעה', opt:i === 1}));
+  }));
+  const hq = pn.hq || {};
+  [['transport', 'אחראי הסעות', txtList(pn.actTzalach), 'דרכי הפעולה — צוות צל"ח (במקביל)'],
+   ['guardStaff', 'איש צוות ליד השומר', txtList(pn.actGuard), 'דרכי הפעולה — שומר']].forEach(([k, t, d, dt]) =>
+    add({sc:'pizur', src:'pn', ch:'#ch-1', title:t, group:'חדר המצב והשער', key:k, who:hq[k] || '', duties:d, dutyT:dt}));
+  /* תיק הביטחון */
+  (bt.shelterResp || []).forEach(r => {
+    add({sc:'missile', src:'bt', ch:'#ch-6', title:`אחראי מרחב מוגן — ${r.place || ''}`, group:'אחראי מרחבים מוגנים ומקלטים', key:r.place, slot:'אחראי', who:r.resp || '', partner:r.deputy});
+    if((r.deputy || '').trim()) add({sc:'missile', src:'bt', ch:'#ch-6', title:`ממלא מקום / מסייע — ${r.place || ''}`, group:'אחראי מרחבים מוגנים ומקלטים', key:r.place, slot:'ממלא מקום', who:r.deputy, partner:r.resp});
+  });
+  (bt.rolesIn || []).forEach(r => add({sc:'sec', src:'bt', ch:'#ch-1', title:r.role || 'בעל תפקיד', group:'בעלי תפקידים חיוניים במוסד', key:r.role, who:r.name || ''}));
+  (bt.tzRoles || []).forEach(r => add({sc:'tz', src:'bt', ch:'#ch-6', title:r.role || 'תפקיד בצל"ח', group:'צוות צל"ח בעת חירום (תיק הביטחון)', key:r.role, who:r.name || '', detail:r.task}));
+  /* תיק הצל"ח */
+  const TZ = {}; (tz || []).forEach(e => TZ[e.k] = e.p || []);
+  ROLES.forEach(r => r.L.forEach((lb, i) => {
+    const p = (TZ[r.k] || []).find(x => x.i === i);
+    add({sc:'tz', src:'tz', ch:'', title:r.t + (r.L.length > 1 ? ` — ${lb}` : ''), group:'בעלי התפקידים בצל"ח (תיק הצל"ח)', key:r.k, slot:lb,
+      who:p?.name || '', partner:(TZ[r.k] || []).filter(x => x.i !== i).map(x => x.name).join(', '), duties:r.d, dutyT:'תיאור התפקיד', sub:r.sub,
+      opt:i > 0 || ['other', 'secretary2', 'media'].includes(r.k)});
+  }));
+  /* כל מורה — דרכי פעולה בירי טילים */
+  GENERIC = actsFor(bt, c => /מורה|מחנכ/.test(c));
+}
+
+/* ===== מצב ===== */
+let TAB = params.get('tab') || ls.get('em_tab') || 'me', NAME = params.get('name') || ls.get('em_name') || '', HOME = !!ls.get('em_home'), FILT = 'all', Q = '';
+const staff = () => [...new Set((DATA?.staff || []).filter(Boolean))].sort(byHe);
+function mine(name){
+  if(!name.trim()) return [];
+  return ITEMS.filter(x => x.who).map(x => ({...x, lvl:matchLevel(name, x.who)})).filter(x => x.lvl);
+}
+
+function drawTabs(){
+  $('tabs').innerHTML = [['me', '👤 שלי'], ['roles', '📋 לפי תפקידים'], ['all', '👥 כל המורים']]
+    .map(([k, t]) => `<button class="${TAB === k ? 'on' : ''}" data-t="${k}">${t}</button>`).join('');
+  $('tabs').querySelectorAll('[data-t]').forEach(b => b.onclick = () => { TAB = b.dataset.t; ls.set('em_tab', TAB); draw(); });
+}
+function draw(){
+  drawTabs();
+  $('upd').textContent = DATA?.at ? 'נתונים מ-' + new Date(DATA.at).toLocaleString('he-IL', {day:'numeric', month:'numeric', hour:'2-digit', minute:'2-digit'}) : '';
+  if(!DATA) return drawLogin();
+  if(TAB === 'roles') return drawRoles();
+  if(TAB === 'all') return drawAll();
+  drawMe();
+}
+
+function drawLogin(err = ''){
+  $('tabs').innerHTML = '';
+  $('app').innerHTML = `<div class="box">
+    <label class="big" for="code">כניסה — פעם אחת בטלפון</label>
+    <p class="muted" style="margin:0 0 10px">קוד המקלטים, או קוד הצפייה של נוהל הפינוי.</p>
+    <input id="code" type="password" autocomplete="off">
+    <button class="btn w" id="go">כניסה</button><div class="err" id="err">${esc(err)}</div></div>`;
+  $('code').focus();
+  const go = async () => { const c = $('code').value.trim(); if(!c) return; $('err').textContent = 'טוען…';
+    try{ await load(c); }catch(e){ $('err').textContent = /קוד|code/i.test(e.message) ? 'קוד שגוי' : /em_roles|function/i.test(e.message) ? 'חסרה הפונקציה בשרת (HAKOL-roles.sql)' : 'אין חיבור לשרת'; } };
+  $('go').onclick = go; $('code').onkeydown = e => { if(e.key === 'Enter') go(); };
+}
+async function load(code){
+  const r = await rpc('em_roles', {p_code: code});
+  DATA = r; ls.set('em_roles_data', r); ls.set('em_code', code); build(); draw();
+}
+async function refresh(){ const c = ls.get('em_code'); if(!c) return; try{ await load(c); }catch(e){} }
+
+/* ---- 👤 התפקידים שלי ---- */
+function dutiesHTML(x){
+  const d = (x.duties || []).filter(Boolean); if(!d.length) return '';
+  return `<details class="du"><summary>📋 ${esc(x.dutyT || 'משימות')} ▾</summary><ol>${d.map(s => s.startsWith('#')
+    ? `<li class="h">${esc(s.slice(1))}</li>` : `<li>${esc(s)}</li>`).join('')}</ol></details>`;
+}
+const srcHTML = x => `<div class="src">📁 <a href="${SRC[x.src][1]}${x.ch || ''}">${esc(SRC[x.src][0])}</a></div>`;
+function drawMe(){
+  const st = staff();
+  const names = [...new Set([...st, ...ITEMS.flatMap(x => parts(x.who))])].sort(byHe);
+  $('app').innerHTML = `<div class="box noprint">
+      <label class="big" for="nm">השם שלי</label>
+      <input id="nm" type="search" list="nmL" value="${esc(NAME)}" placeholder="התחילו להקליד שם ושם משפחה" autocomplete="off">
+      <datalist id="nmL">${names.map(n => `<option value="${esc(n)}">`).join('')}</datalist>
+      <label class="chk"><input type="checkbox" id="home"${HOME ? ' checked' : ''}> אני מחנך/ת כיתה</label>
+    </div><div id="res"></div>`;
+  const upd = () => { NAME = $('nm').value; ls.set('em_name', NAME.trim()); drawRes(); };
+  $('nm').oninput = upd;
+  $('home').onchange = () => { HOME = $('home').checked; ls.set('em_home', HOME); drawRes(); };
+  drawRes();
+}
+function drawRes(){
+  const el = $('res'), name = NAME.trim();
+  if(!name){ el.innerHTML = '<div class="empty">✍️ הקלידו את השם — ויופיעו כל התפקידים שלכם בכל תיקי החירום.</div>'; return; }
+  const M = mine(name);
+  const mineCols = M.map(x => x.title.split(' — ')[0]);
+  const myActs = actsFor(DATA.bt, c => !/מורה|מחנכ/.test(c) && mineCols.some(t => t && (c.includes(t) || t.includes(c))));
+  const by = {}; M.forEach(x => (by[x.sc] ||= []).push(x));
+  const weak = M.some(x => x.lvl === 1);
+  let h = `<div class="sum">${M.length ? Object.keys(SC).filter(k => by[k]).map(k => `<span>${SC[k].ic} ${by[k].length}</span>`).join('') : ''}
+    <span>${M.length ? `סה"כ ${M.length} תפקידים` : 'אין תפקיד מוגדר על השם הזה בתיקים'}</span></div>`;
+  if(weak) h += `<p class="muted" style="font-size:13.5px;margin:2px 0 10px">⚠️ "לוודא" = בתיק כתוב רק שם פרטי או שם ואות — ייתכן שזה מורה אחר עם אותו שם.</p>`;
+  Object.keys(SC).forEach(k => {
+    const L = by[k] || [];
+    const gen = k === 'missile' ? GENERIC : [], own = k === 'missile' ? myActs : [];
+    const pinT = k === 'pizur' && HOME ? txtList(DATA.pn?.actTeachers) : [];
+    if(!L.length && !gen.length && !own.length && !pinT.length) return;
+    h += `<div class="box sc" style="--c:var(${SC[k].c})"><h2 class="sch">${SC[k].ic} ${SC[k].t}<span class="n">${L.length ? L.length + ' תפקידים' : 'כל מורה'}</span></h2>`;
+    L.forEach(x => { h += `<div class="role"><b class="t">${esc(x.title)}${x.lvl === 1 ? '<span class="tag weak">לוודא</span>' : ''}</b>
+      ${x.sub ? `<div class="d">${esc(x.sub)}</div>` : ''}${x.detail ? `<div class="d">📌 ${esc(x.detail)}</div>` : ''}
+      ${x.partner && x.partner.trim() ? `<div class="d">🤝 יחד עם: ${esc(x.partner)}</div>` : ''}
+      <div class="d">בתיק כתוב: "${esc(x.who)}"</div>${dutiesHTML(x)}${srcHTML(x)}</div>`; });
+    if(own.length) h += `<div class="role"><b class="t">דרכי הפעולה בתפקיד שלי</b>${actsHTML(own)}${srcHTML({src:'bt', ch:'#ch-6'})}</div>`;
+    if(gen.length) h += `<div class="role"><b class="t">כל מורה — מה עושים<span class="tag gen">כל הצוות</span></b>${actsHTML(gen)}${srcHTML({src:'bt', ch:'#ch-6'})}</div>`;
+    if(pinT.length) h += `<div class="role"><b class="t">מחנך/ת — דרכי פעולה בפינוי<span class="tag gen">כל המחנכים</span></b>
+      <ol class="acts" style="list-style:decimal;padding-inline-start:20px">${pinT.map(s => `<li>${esc(s)}</li>`).join('')}</ol>${srcHTML({src:'pn', ch:'#ch-2'})}</div>`;
+    h += '</div>';
+  });
+  h += `<div class="noprint" style="display:flex;gap:8px;flex-wrap:wrap">
+    <button class="btn sec" onclick="print()">🖨️ הדפסה</button>
+    <button class="btn sec" id="share">🔗 קישור לשם הזה</button></div>`;
+  el.innerHTML = h;
+  $('share').onclick = async () => { const u = location.origin + location.pathname + '?name=' + encodeURIComponent(name);
+    try{ if(navigator.share) await navigator.share({title:'התפקידים שלי בחירום', url:u}); else { await navigator.clipboard.writeText(u); alert('הקישור הועתק'); } }catch(e){} };
+}
+function actsHTML(a){
+  return `<ul class="acts">${a.map(x => `<li><b>${esc(x.when)}${x.stage ? ' · ' + esc(x.stage) : ''}</b>${a.some(y => y.col !== x.col) ? ` <small class="muted">(${esc(x.col)})</small>` : ''}<br>${esc(x.text)}</li>`).join('')}</ul>`;
+}
+
+/* ---- 📋 לפי תפקידים ---- */
+function drawRoles(){
+  const miss = ITEMS.filter(x => !x.who.trim() && !x.opt).length;
+  $('app').innerHTML = `<div class="box noprint"><input id="q" type="search" placeholder="חיפוש תפקיד או שם…" value="${esc(Q)}">
+    <div class="filt">${[['all', 'הכול'], ...Object.entries(SC).map(([k, v]) => [k, v.ic + ' ' + v.t.split(' ')[0] + (k === 'tz' ? '' : '')]), ['miss', `⚠️ חסר שם (${miss})`]]
+      .map(([k, t]) => `<button class="${FILT === k ? 'on' : ''}" data-f="${k}">${esc(t)}</button>`).join('')}</div></div><div id="rl"></div>`;
+  $('q').oninput = e => { Q = e.target.value; drawRL(); };
+  $('app').querySelectorAll('[data-f]').forEach(b => b.onclick = () => { FILT = b.dataset.f; drawRoles(); });
+  drawRL();
+}
+function drawRL(){
+  const q = Q.trim();
+  let L = ITEMS.filter(x => FILT === 'all' || FILT === 'miss' ? true : x.sc === FILT);
+  if(FILT === 'miss') L = L.filter(x => !x.who.trim() && !x.opt);
+  if(q) L = L.filter(x => (x.title + ' ' + x.group).includes(q) || (x.who && matchLevel(q, x.who)) || x.who.includes(q));
+  /* קיבוץ: תרחיש → קבוצה → תפקיד (שורה אחת לכל תפקיד, עם כל השמות) */
+  const out = {};
+  L.forEach(x => { const g = ((out[x.sc] ||= {})[x.group] ||= {}); const k = x.src + '|' + x.key + '|' + (x.src === 'pn' && x.slot ? '' : x.slot || '') + '|' + x.title.split(' — ')[0];
+    (g[k] ||= {t: x.src === 'pn' && x.slot ? x.title : x.title, src:x.src, ch:x.ch, rows:[]}).rows.push(x); });
+  let h = '';
+  Object.keys(SC).forEach(k => { if(!out[k]) return;
+    h += `<div class="box sc" style="--c:var(${SC[k].c})"><h2 class="sch">${SC[k].ic} ${SC[k].t}</h2>`;
+    Object.entries(out[k]).forEach(([g, roles]) => {
+      h += `<div class="muted" style="font-weight:800;margin:10px 0 2px">${esc(g)} · <a href="${SRC[Object.values(roles)[0].src][1]}${Object.values(roles)[0].ch || ''}" style="color:#1d4ed8;text-decoration:none">${esc(SRC[Object.values(roles)[0].src][0])}</a></div>`;
+      Object.values(roles).forEach(r => {
+        const t = r.rows.length > 1 || r.src === 'pn' ? r.t.replace(/^מלווה הסעה — [^·]+· /, '') : r.t;
+        h += `<div class="row"><span>${esc(t)}</span><span class="who">${r.rows.map(x => x.who.trim()
+          ? `<span>${r.rows.length > 1 && x.slot ? `<small class="muted">${esc(x.slot)}: </small>` : ''}${esc(x.who)}</span>`
+          : x.opt ? '' : `<span class="miss">⚠️ ${x.slot ? esc(x.slot) + ' — ' : ''}חסר</span>`).filter(Boolean).join('<br>') || '<span class="muted">—</span>'}</span></div>`;
+      });
+    });
+    h += '</div>';
+  });
+  $('rl').innerHTML = h || '<div class="empty">לא נמצא</div>';
+}
+
+/* ---- 👥 כל המורים ---- */
+function drawAll(){
+  const st = staff(), cnt = st.map(n => ({n, c:mine(n).filter(x => x.lvl === 2).length, w:mine(n).filter(x => x.lvl === 1).length}));
+  const named = ITEMS.filter(x => x.who.trim());
+  const orphan = [...new Set(named.flatMap(x => parts(x.who)).filter(p => nTok(p).filter(t => !STOP.has(t)).length && !st.some(n => matchLevel(n, p))))].sort(byHe);
+  const sorted = cnt.sort((a, b) => (b.c + b.w) - (a.c + a.w) || byHe(a.n, b.n));
+  const zero = sorted.filter(x => !x.c && !x.w).length;
+  $('app').innerHTML = `<div class="box"><h2 style="margin:0 0 4px;font-size:19px">👥 ${st.length} מורים · ${st.length - zero} עם תפקיד · ${zero} בלי</h2>
+      <p class="muted" style="margin:0 0 10px;font-size:13.5px">המספר = כמה תפקידים לכל מורה בכל התיקים (בכחול — כולל התאמה לפי שם פרטי בלבד). לחיצה = כל התפקידים שלו.</p>
+      <div class="tlist">${sorted.map(x => `<button data-n="${esc(x.n)}" class="${!x.c && !x.w ? 'z' : x.w ? 'h' : ''}"><span>${esc(x.n)}</span><b>${x.c + x.w}</b></button>`).join('')}</div></div>
+    ${orphan.length ? `<div class="box"><h2 style="margin:0 0 4px;font-size:18px">❓ שמות בתיקים שלא נמצאו ברשימת המורים (${orphan.length})</h2>
+      <p class="muted" style="margin:0 0 8px;font-size:13.5px">כדאי לכתוב בתיק שם מלא כמו ברשימת המורים, כדי שהמורה ימצא את התפקיד שלו.</p>
+      <div class="tlist">${orphan.map(p => `<button data-n="${esc(p)}"><span>${esc(p)}</span><b>${named.filter(x => parts(x.who).includes(p)).length}</b></button>`).join('')}</div></div>` : ''}`;
+  $('app').querySelectorAll('[data-n]').forEach(b => b.onclick = () => { NAME = b.dataset.n; ls.set('em_name', NAME); TAB = 'me'; draw(); scrollTo(0, 0); });
+}
+
+build(); draw();
+if(DATA) refresh();
+</script>
+</body>
+</html>
