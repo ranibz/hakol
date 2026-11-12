@@ -1,7 +1,10 @@
 <!DOCTYPE html>
 <!--
   כרטיס תלמיד דיגיטלי + קליטת מאחרים בשער
-  v0.7.4 | 12.11.2026 | פיתוח: רני בן זאב
+  v0.7.5 | 12.11.2026 | פיתוח: רני בן זאב
+  - v0.7.5: סמסונג בלחיצה אחת: כפתור "📲 התקנה" פותח את הכרטיס בכרום עם &inst=1, ושם כפתור ההתקנה
+    מוצג למעלה, בולט, עם "לחצו התקנה". אין כרום בטלפון — חוזרים לאותו דף עם &inst=sc, ומוצגת
+    רק הוראת קיצור הדרך של סמסונג. בלי הסברים על דפדפנים.
   - v0.7.4: ⚠ בדפדפן של סמסונג (Samsung Internet) "התקנה" יוצרת אפליקציה שגוגל חוסמת
     ("אפליקציה לא בטוחה נחסמה" — Play Protect, כי היא נבנית לגרסת אנדרואיד ישנה). בסמסונג לא
     מוצג כפתור ההתקנה: במקומו כפתור "פתיחה בכרום" (intent עם אותה כתובת, כולל ?card=), ושם
@@ -51,7 +54,7 @@
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="app-version" content="0.7.4">
+<meta name="app-version" content="0.7.5">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
@@ -122,11 +125,13 @@
   .inst p{margin:0;color:var(--muted);font-size:14px;line-height:1.7}
   .offline{text-align:center;font-size:12px;opacity:.85;margin-top:6px}
   footer{text-align:center;color:var(--muted);font-size:12px;margin:24px 0 8px}
+  .inst.hot{border:3px solid #16a34a;box-shadow:0 0 0 6px rgba(22,163,74,.15);animation:instPulse 1.4s ease-in-out 3}
+  @keyframes instPulse{50%{box-shadow:0 0 0 12px rgba(22,163,74,.05)}}
 </style>
 </head>
 <body>
 <div class="wrap" id="app"></div>
-<footer>פיתוח: רני בן זאב · v0.7.4</footer>
+<footer>פיתוח: רני בן זאב · v0.7.5</footer>
 
 <script>
 // ===== חיבור =====
@@ -185,7 +190,7 @@ function tokenFromText(text){
 
 function renderHome(){
   app.innerHTML = `
-    <h1>כרטיס תלמיד <span class="badge">v0.7.4</span></h1>
+    <h1>כרטיס תלמיד <span class="badge">v0.7.5</span></h1>
     <p class="muted">${SCHOOL}</p>
     ${IS_APP ? `<div class="tip">עדיין לא הופעל כרטיס בטלפון הזה.<br>פתחו את קישור הכיתה שהמחנך שלח בקבוצה, או:</div>
       <a class="btn" href="late-entry.html?tab=stu">הפעלת הכרטיס שלי</a>` : ''}
@@ -247,22 +252,30 @@ function drawInstall(done){
   const el = document.getElementById('inst'); if(!el) return;
   if(IS_APP){ el.innerHTML = ''; return; }
   if(done){ el.innerHTML = `<div class="inst"><h3>✓ הותקן</h3><p>מעכשיו פותחים את "כרטיס תלמיד" מהאייקון בטלפון.</p></div>`; return; }
-  /* v0.7.4 — Samsung Internet: ההתקנה נחסמת ע"י Play Protect. מעבירים לכרום. */
-  if(/SamsungBrowser/i.test(navigator.userAgent)){
-    const u = location.host + location.pathname + location.search;
-    const intent = 'intent://' + u + '#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url=' +
-                   encodeURIComponent('https://play.google.com/store/apps/details?id=com.android.chrome') + ';end';
+  /* v0.7.4/5 — Samsung Internet: ההתקנה שלו נחסמת ע"י Play Protect. כפתור אחד שמעביר לכרום. */
+  const SAMSUNG = /SamsungBrowser/i.test(navigator.userAgent);
+  if(SAMSUNG && params.get('inst') === 'sc'){
+    el.innerHTML = `<div class="inst hot"><h3>📲 אייקון לכרטיס</h3>
+      <p>לחצו <b>☰</b> למטה ← <b>"הוסף דף אל"</b> ← <b>"מסך הבית"</b>.</p></div>`;
+    return;
+  }
+  if(SAMSUNG){
+    const base = location.origin + location.pathname, qs = new URLSearchParams(location.search);
+    qs.delete('v'); qs.set('inst', '1');
+    const back = new URLSearchParams(qs); back.set('inst', 'sc');
+    const intent = 'intent://' + location.host + location.pathname + '?' + qs + '#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url=' +
+                   encodeURIComponent(base + '?' + back) + ';end';
     el.innerHTML = `<div class="inst"><h3>📲 התקנת כרטיס התלמיד</h3>
-      <p>בדפדפן של סמסונג ההתקנה נחסמת ("אפליקציה לא בטוחה נחסמה"). מתקינים דרך <b>Chrome</b>:</p>
-      <a class="btn" href="${intent}">פתיחה ב-Chrome</a>
-      <p style="margin-top:8px">שם לוחצים <b>"התקנה"</b> (או <b>⋮</b> ← <b>"הוספה למסך הבית"</b> ← <b>"התקנה"</b>).<br>
-      אין Chrome? בדפדפן הזה: <b>☰</b> למטה ← <b>"הוסף דף אל"</b> ← <b>"מסך הבית"</b> — קיצור דרך שלא נחסם.</p></div>`;
+      <p>אייקון בטלפון שנפתח ישר לכרטיס — גם בלי אינטרנט.</p>
+      <a class="btn" href="${intent}">התקנה</a></div>`;
     return;
   }
   if(installEvt){
-    el.innerHTML = `<div class="inst"><h3>📲 התקנת כרטיס התלמיד</h3>
+    const hot = params.get('inst') === '1';
+    el.innerHTML = `<div class="inst${hot ? ' hot' : ''}"><h3>📲 ${hot ? 'עוד לחיצה אחת — "התקנה"' : 'התקנת כרטיס התלמיד'}</h3>
       <p>אייקון בטלפון שנפתח ישר לכרטיס — גם בלי אינטרנט.</p>
       <button class="btn" id="instBtn">התקנה</button></div>`;
+    if(hot) setTimeout(() => el.scrollIntoView({behavior:'smooth', block:'center'}), 300);
     document.getElementById('instBtn').onclick = async () => {
       installEvt.prompt();
       try{ const c = await installEvt.userChoice; if(c && c.outcome === 'accepted'){ installEvt = null; drawInstall(true); return; } }catch(e){}
@@ -383,7 +396,7 @@ function renderPin(next){
 let scanner = null, busy = false, logTimer = null, searchTimer = null;
 function renderGuard(){
   app.innerHTML = `
-    <h1>🛡️ קליטת מאחרים <span class="badge">v0.7.4</span></h1>
+    <h1>🛡️ קליטת מאחרים <span class="badge">v0.7.5</span></h1>
     <p class="muted">סרקו את כרטיס התלמיד — במצלמה הרגילה או כאן</p>
     <button class="btn" id="startBtn">הפעלת מצלמה</button>
     <div id="reader"></div>
