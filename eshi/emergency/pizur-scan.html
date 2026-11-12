@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- v1.7.1 | 12.11.2026 | כשהקווים מתיק הפינוי לא נטענים — הודעה במסך למה (חסרה pizur_lines / קוד / חיבור). -->
 <!-- v1.7.0 | 12.11.2026 | מסך המנהלת בשני אקורדיונים: (1) 🚌 אוטובוסים — כל קווי תיק הפינוי מוצגים מההתחלה
   (ישובים + מלווים), ומספר האוטובוס, כמה עלו ו"יצא" מתווספים כשהמלווה פותח אותו; יצאו מהשער בסוף. (2) 🏫 לפי כיתות אם.
   הקופסה הנפרדת "קווים לפי תיק הפינוי" אוחדה לתוך האוטובוסים. -->
@@ -41,14 +42,14 @@
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="app-version" content="1.7.0">
+<meta name="app-version" content="1.7.1">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <script>
 /* עדכון אוטומטי: דפדפן שפתח עותק ישן מהזיכרון בודק מול האתר אם יש גרסה חדשה, ואם כן טוען אותה פעם אחת. */
 (function(){
-  var V = '1.7.0', u = location.pathname;
+  var V = '1.7.1', u = location.pathname;
   if(navigator.onLine === false || !window.fetch) return;
   fetch(u + '?vcheck=' + Date.now(), {cache: 'no-store'})
     .then(function(r){ return r.ok ? r.text() : ''; })
@@ -207,6 +208,7 @@
   details.acc summary::after{content:"▾";font-size:18px;color:var(--muted);transition:transform .2s} details.acc[open] summary::after{transform:rotate(180deg)}
   details.acc summary b{font-size:15px;margin-inline-start:auto} details.acc summary b.miss{color:var(--bad)} details.acc summary b.okc{color:#1e8e3e}
   .brow .bno{display:inline-block;min-width:54px} .acc .brow .bn small{display:block;color:var(--muted);font-size:13px;margin-top:2px} .brow .bn em{color:var(--bad);font-style:normal}
+  .lerr{background:#fff3d6;color:#7a4a00;border-radius:10px;padding:9px 12px;font-size:14px;font-weight:700;margin:8px 0 0}
   .brow.wait{background:#fdecec;cursor:default} .brow.wait .bn{color:#7f1d1d} .brow.wait .bno{color:var(--muted)}
   .lar{margin:12px 0 2px;font-size:15px;color:var(--muted)}
   .lrow{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;padding:8px 10px;border-radius:10px;background:#fdecec;margin-top:5px;font-size:15px}
@@ -240,7 +242,7 @@
 <body>
 <div class="top"><h1 id="title">🚌 פיזור בחירום</h1><div class="sub" id="sub"></div></div>
 <div class="wrap" id="app"></div>
-<footer>פיתוח: רני בן זאב · v1.7.0</footer>
+<footer>פיתוח: רני בן זאב · v1.7.1</footer>
 <div id="qrFull" class="qrfull"></div>
 
 <script>
@@ -330,10 +332,12 @@ async function loadStaff(pin){
   try{ const r = await rpc('pizur_staff_list', {p_pin: pin}, 10000); if(r && r.length) ls.set('pz_staff', r.map(x => ({n: x.name, t: x.town || ''}))); }catch(e){}
 }
 /* v1.6.0 — הקווים ומלוויהם מתיק הפינוי (pinui-update.html). נשמרים בטלפון. */
-let _L = null;
+let _L = null, LINES_ERR = '';
 const lines = () => _L || (_L = ls.get('pz_lines', []));   // אותו מערך בכל קריאה (indexOf)
 async function loadLines(pin){
-  try{ const r = await rpc('pizur_lines', {p_pin: pin}, 10000); if(Array.isArray(r)){ _L = r.filter(x => x && x.line); ls.set('pz_lines', _L); } }catch(e){}
+  try{ const r = await rpc('pizur_lines', {p_pin: pin}, 10000); LINES_ERR = '';
+    if(Array.isArray(r)){ _L = r.filter(x => x && x.line); ls.set('pz_lines', _L); if(!_L.length) LINES_ERR = 'empty'; } }
+  catch(e){ LINES_ERR = /pizur_lines|function|schema cache|404/i.test(String(e.message || e)) ? 'nofn' : 'net'; }
 }
 const lineLabel = l => l.area ? `${l.area} · ${l.line}` : l.line;
 const nTok = x => String(x || '').replace(/[.'"׳״,()\-]/g, ' ').split(/\s+/).filter(Boolean);
@@ -971,8 +975,10 @@ function busBody(buses, names){
       <span class="bn"><span class="bno">🚌 ${esc(x.no)}</span> ${esc(title)}${sub ? `<small>${sub}</small>` : ''}</span>
       <span class="bs">${x.departed ? '🚍 יצא ' + hhmm(x.departed) : '⏳ בטעינה'}</span>
       <b class="bc">${x.ids.size}</b></button>${open ? names([...x.ids].map(id => byId[id]).filter(Boolean)) : ''}`; };
-  if(!L.length) return buses.length ? buses.map(x => row(x, '· ' + x.town, x.escorts.size ? esc([...x.escorts].join(', ')) : '')).join('')
-    : '<p class="muted" style="margin:8px 0 0">עדיין אין אוטובוסים</p>';
+  const why = {nofn:'⚠️ הקווים מתיק הפינוי לא נטענו — חסרה בשרת הפונקציה pizur_lines (צריך להריץ את HAKOL-pizur-lines.sql).',
+    empty:'⚠️ הקווים מתיק הפינוי לא נטענו — הקוד לא מתאים, או שאין קווים בתיק.', net:'⚠️ הקווים מתיק הפינוי לא נטענו — אין חיבור לשרת.'}[LINES_ERR];
+  if(!L.length) return (why ? `<p class="lerr">${why}</p>` : '') + (buses.length ? buses.map(x => row(x, '· ' + x.town, x.escorts.size ? esc([...x.escorts].join(', ')) : '')).join('')
+    : '<p class="muted" style="margin:8px 0 0">עדיין אין אוטובוסים</p>');
   const byTown = {}; buses.forEach(x => (byTown[x.town] ||= []).push(x));
   const used = new Set(), areas = [...new Set(L.map(l => l.area || ''))];
   let h = `<p class="muted" style="margin:6px 0 4px">לפי תיק הפינוי · מספר האוטובוס מופיע כשהמלווה פותח אותו · שם באדום = נפתח ע״י מורה אחר מהמתוכנן</p>`;
