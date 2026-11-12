@@ -1,7 +1,10 @@
 <!DOCTYPE html>
 <!--
   כרטיס תלמיד דיגיטלי + קליטת מאחרים בשער
-  v0.7.5 | 12.11.2026 | פיתוח: רני בן זאב
+  v0.8.0 | 12.11.2026 | פיתוח: רני בן זאב
+  - v0.8.0: ?mode=class — סורק כיתת אם למחנכים, בלי קוד שומר: נפתח ישר על הסריקה. נרשם דרך
+    register_card_scan (HAKOL-card-scan.sql) — כמו register_late, אבל רק עם קוד כרטיס מה-QR ובלי קוד;
+    source='class'. בלי חיפוש לפי שם (רישום ידני נשאר אצל השומר, עם הקוד).
   - v0.7.5: סמסונג בלחיצה אחת: כפתור "📲 התקנה" פותח את הכרטיס בכרום עם &inst=1, ושם כפתור ההתקנה
     מוצג למעלה, בולט, עם "לחצו התקנה". אין כרום בטלפון — חוזרים לאותו דף עם &inst=sc, ומוצגת
     רק הוראת קיצור הדרך של סמסונג. בלי הסברים על דפדפנים.
@@ -54,7 +57,7 @@
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="app-version" content="0.7.5">
+<meta name="app-version" content="0.8.0">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
@@ -62,7 +65,7 @@
 /* עדכון אוטומטי (v0.7.3): דפדפן שפתח עותק ישן מהזיכרון — למשל לחיצה על קישור בוואטסאפ בטלפון —
    בודק מול האתר אם יש גרסה חדשה יותר, ואם כן טוען אותה מחדש פעם אחת. */
 (function(){
-  var V = '0.7.3', u = location.pathname;
+  var V = '0.8.0', u = location.pathname;
   if(navigator.onLine === false || !window.fetch) return;
   fetch(u + '?vcheck=' + Date.now(), {cache: 'no-store'})
     .then(function(r){ return r.ok ? r.text() : ''; })
@@ -131,7 +134,7 @@
 </head>
 <body>
 <div class="wrap" id="app"></div>
-<footer>פיתוח: רני בן זאב · v0.7.5</footer>
+<footer>פיתוח: רני בן זאב · v0.8.0</footer>
 
 <script>
 // ===== חיבור =====
@@ -160,6 +163,7 @@ async function sbGet(path){
 // ===== עזרים =====
 const app = document.getElementById('app');
 const params = new URLSearchParams(location.search);
+const CLASS_MODE = params.get('mode') === 'class';   /* v0.8.0 — סורק כיתת אם, בלי קוד */
 const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const hhmm = d => new Date(d).toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit',timeZone:'Asia/Jerusalem'});
 const today = () => new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Jerusalem'}).format(new Date());
@@ -190,7 +194,7 @@ function tokenFromText(text){
 
 function renderHome(){
   app.innerHTML = `
-    <h1>כרטיס תלמיד <span class="badge">v0.7.5</span></h1>
+    <h1>כרטיס תלמיד <span class="badge">v0.8.0</span></h1>
     <p class="muted">${SCHOOL}</p>
     ${IS_APP ? `<div class="tip">עדיין לא הופעל כרטיס בטלפון הזה.<br>פתחו את קישור הכיתה שהמחנך שלח בקבוצה, או:</div>
       <a class="btn" href="late-entry.html?tab=stu">הפעלת הכרטיס שלי</a>` : ''}
@@ -396,12 +400,12 @@ function renderPin(next){
 let scanner = null, busy = false, logTimer = null, searchTimer = null;
 function renderGuard(){
   app.innerHTML = `
-    <h1>🛡️ קליטת מאחרים <span class="badge">v0.7.5</span></h1>
-    <p class="muted">סרקו את כרטיס התלמיד — במצלמה הרגילה או כאן</p>
+    <h1>${CLASS_MODE ? '📷 סורק כיתת אם' : '🛡️ קליטת מאחרים'} <span class="badge">v0.8.0</span></h1>
+    <p class="muted">${CLASS_MODE ? 'סורקים את כרטיס התלמיד — נרשם נוכח, עם שעת ההגעה' : 'סרקו את כרטיס התלמיד — במצלמה הרגילה או כאן'}</p>
     <button class="btn" id="startBtn">הפעלת מצלמה</button>
     <div id="reader"></div>
     <div class="result" id="result"></div>
-    <input id="search" placeholder="תלמיד בלי טלפון? חיפוש לפי שם…">
+    <input id="search" placeholder="תלמיד בלי טלפון? חיפוש לפי שם…"${CLASS_MODE ? ' hidden' : ''}>
     <div class="list" id="searchRes"></div>
     <div class="log" id="log"><div class="row"><span class="muted">טוען…</span></div></div>`;
   document.getElementById('startBtn').onclick = startScanner;
@@ -479,7 +483,9 @@ async function onScan(text){
 async function register(target){
   showResult('dup','רושם…','');
   let r;
-  try{ r = await rpc('register_late', {p_pin: ls.get(PIN_KEY), p_device: deviceId(), ...target}); }
+  try{ r = CLASS_MODE
+        ? await rpc('register_card_scan', {p_token: target.p_token, p_device: 'class-' + deviceId()})
+        : await rpc('register_late', {p_pin: ls.get(PIN_KEY), p_device: deviceId(), ...target}); }
   catch(e){ showResult('bad','אין חיבור','הרישום לא נשמר — נסו שוב'); return; }
   if(!r.ok && r.error === 'bad_pin'){
     ls.del(PIN_KEY);
@@ -524,6 +530,7 @@ async function drawLog(){
 if (params.get('card')) renderCard(params.get('card'));
 else if (params.get('claim')) renderClaim(params.get('claim'));
 else if (params.get('scan')) handleScanLink(params.get('scan'));
+else if (params.get('mode') === 'class') renderGuard();
 else if (params.get('mode') === 'guard') ls.get(PIN_KEY) ? renderGuard() : renderPin(()=>renderGuard());
 else if (ls.get(CARD_KEY)) renderCard(ls.get(CARD_KEY));
 else renderHome();
