@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<!--
+  סורק — אפליקציה אחת לכל הצוות. בוחרים תפקיד פעם אחת, והטלפון נשאר עליו.
+  v1.0.0 | 12.11.2026 | פיתוח: רני בן זאב
+  - v1.0.0: מסך פתיחה עם "התפקיד שלי" — כפתור אחד גדול שפותח את הסורק של התפקיד. מתחת, תמיד גלויים,
+    הסורקים של אירועי חירום (מקלט, נקודת כינוס, פיזור), כי בחירום כל איש צוות עשוי לקבל תפקיד אחר.
+    התפקידים והדפים שהם פותחים (כולם באותה תיקייה, בלי שינוי בלוגיקה שלהם):
+      🛡️ שומר בשער            → guard-scan.html  (יציאה עם אישור / כניסה באיחור)
+      🚀 מקלט — ירי טילים     → shelter-scan.html?event=missiles
+      🌍 נקודת כינוס — רעידה   → shelter-scan.html?event=quake
+      🚌 מלווה אוטובוס בפיזור  → pizur-scan.html?role=bus
+      🏫 מחנך בפיזור           → pizur-scan.html?role=class
+      🚪 שער בפיזור            → pizur-scan.html?role=guard
+      📚 מורה בשיעור           → RanLMS (סריקת מאחרים בתוך השיעור — נפתח בדפדפן, דורש כניסת מורה)
+    כל דף נפתח עם ?app=1, ומציג כפתור צף "⌂ סורק" שחוזר לכאן (גם באייפון, שבו אין כפתור "חזור").
+    התפקיד נשמר בטלפון (gm_app_role). "החלפת תפקיד" בתחתית.
+    אפליקציה במסך הבית: scan-app-manifest.json (scope: התיקייה, כדי שכל הסורקים ייפתחו בתוך האפליקציה)
+    ו-scan-app-sw.js. בסמסונג — התקנה דרך Chrome; באייפון — שיתוף ← הוסף למסך הבית.
+-->
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#10213f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="סורק">
+<link rel="manifest" href="scan-app-manifest.json">
+<link rel="icon" href="card-icon-192.png">
+<link rel="apple-touch-icon" href="card-icon-192.png">
+<title>סורק · גליל מערבי</title>
+<style>
+  :root{--bg:#f3f5f9;--card:#fff;--ink:#14213d;--muted:#67708a;--line:#e1e6ef;--navy:#10213f;
+        --gate:#0f9f6e;--shelter:#c2410c;--quake:#7c3aed;--bus:#1d4ed8;--cls:#b45309;--pgate:#0e7490;--lms:#be185d}
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",Arial,sans-serif}
+  .wrap{max-width:560px;margin:0 auto;padding:max(14px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) calc(24px + env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left))}
+  header{background:var(--navy);color:#fff;border-radius:20px;padding:18px 18px 16px;display:flex;gap:12px;align-items:center}
+  header img{width:46px;height:46px;border-radius:12px;background:#fff;padding:3px}
+  header h1{margin:0;font-size:22px} header p{margin:2px 0 0;font-size:13px;opacity:.85}
+  h2{font-size:14px;color:var(--muted);margin:20px 4px 8px;letter-spacing:.02em;font-weight:700}
+  .mine{display:flex;align-items:center;gap:14px;width:100%;border:0;border-radius:20px;padding:22px 18px;color:#fff;
+    font:inherit;text-align:right;cursor:pointer;box-shadow:0 8px 22px rgba(16,33,63,.18);text-decoration:none}
+  .mine .ic{font-size:44px;line-height:1}
+  .mine b{display:block;font-size:24px} .mine small{display:block;font-size:14px;opacity:.9;margin-top:3px}
+  .mine .go{margin-inline-start:auto;font-size:28px;opacity:.9}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .r{display:flex;flex-direction:column;gap:4px;background:var(--card);border:2px solid var(--line);border-radius:16px;
+    padding:14px 12px;text-decoration:none;color:var(--ink);font:inherit;text-align:right;cursor:pointer;min-height:96px}
+  .r .ic{font-size:26px} .r b{font-size:16px} .r small{font-size:12.5px;color:var(--muted);line-height:1.35}
+  .r.on{border-color:var(--c);box-shadow:0 0 0 3px color-mix(in srgb, var(--c) 22%, transparent)}
+  .r:focus-visible,.mine:focus-visible,.lnk:focus-visible{outline:3px solid var(--bus);outline-offset:2px}
+  .pick .r{position:relative}
+  .pick .r::after{content:"בחירה";position:absolute;top:10px;left:10px;font-size:11px;font-weight:800;color:var(--c)}
+  .note{background:#fff8e6;border-radius:14px;padding:12px 14px;font-size:14px;color:#7a5a00;line-height:1.55;margin-top:12px}
+  .inst{margin-top:14px;padding:12px 14px;border-radius:14px;background:var(--card);border:2px dashed var(--line);display:flex;gap:10px;align-items:center;justify-content:space-between;font-size:14.5px;line-height:1.45}
+  .inst[hidden]{display:none}
+  .inst a,.inst button{font:inherit;font-weight:800;background:var(--navy);color:#fff;border:0;border-radius:10px;padding:9px 14px;text-decoration:none;white-space:nowrap;cursor:pointer}
+  .foot{display:flex;justify-content:space-between;align-items:center;margin-top:18px;font-size:13px;color:var(--muted)}
+  .lnk{background:none;border:0;font:inherit;color:var(--bus);font-weight:700;cursor:pointer;padding:6px 0}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header><img src="card-icon-192.png" alt=""><div><h1>סורק</h1><p>בית חינוך גליל מערבי · כרטיס תלמיד אחד, סורק לכל תפקיד</p></div></header>
+  <main id="app"></main>
+  <div id="inst" class="inst" hidden></div>
+  <div class="foot"><button class="lnk" id="change" type="button" hidden>⇄ החלפת תפקיד</button><span>v1.0.0</span></div>
+</div>
+
+<script>
+const ROLES = [
+  {k:'gate',    ic:'🛡️', t:'שומר בשער',          s:'יציאה עם אישור · כניסה באיחור',        href:'guard-scan.html',                   c:'--gate'},
+  {k:'shelter', ic:'🚀', t:'מקלט',                s:'ירי טילים — מי נמצא במקלט',            href:'shelter-scan.html?event=missiles',  c:'--shelter', emg:1},
+  {k:'quake',   ic:'🌍', t:'נקודת כינוס',         s:'רעידת אדמה — מי הגיע לנקודה',          href:'shelter-scan.html?event=quake',     c:'--quake',   emg:1},
+  {k:'bus',     ic:'🚌', t:'מלווה אוטובוס',       s:'פיזור — מי עלה לאוטובוס',              href:'pizur-scan.html?role=bus',          c:'--bus',     emg:1},
+  {k:'class',   ic:'🏫', t:'מחנך בפיזור',         s:'קריאת שמות בכיתת האם',                 href:'pizur-scan.html?role=class',        c:'--cls',     emg:1},
+  {k:'pgate',   ic:'🚪', t:'שער בפיזור',          s:'יוצאים עצמאית או עם הורים',            href:'pizur-scan.html?role=guard',        c:'--pgate',   emg:1},
+  {k:'lms',     ic:'📚', t:'מורה בשיעור',         s:'מאחרים לשיעור — ב-RanLMS',             href:'https://lms.ranibz.co.il/app/teacher-central.html', c:'--lms', ext:1}
+];
+const KEY = 'gm_app_role';
+const $ = id => document.getElementById(id);
+const get = () => { try{ return localStorage.getItem(KEY) || ''; }catch(e){ return ''; } };
+const put = v => { try{ v ? localStorage.setItem(KEY, v) : localStorage.removeItem(KEY); }catch(e){} };
+const url = r => r.ext ? r.href : r.href + (r.href.includes('?') ? '&' : '?') + 'app=1';
+const tile = (r, extra = '') => `<a class="r${extra}" style="--c:var(${r.c})" href="${url(r)}"${r.ext ? ' target="_blank" rel="noopener"' : ''}>
+  <span class="ic">${r.ic}</span><b>${r.t}</b><small>${r.s}</small></a>`;
+
+function draw(){
+  const mine = ROLES.find(r => r.k === get());
+  $('change').hidden = !mine;
+  if(!mine){
+    $('app').innerHTML = `<h2>מה התפקיד שלך? (פעם אחת — הטלפון יזכור)</h2>
+      <div class="grid pick">${ROLES.map(r => `<button class="r" type="button" style="--c:var(${r.c})" data-k="${r.k}">
+        <span class="ic">${r.ic}</span><b>${r.t}</b><small>${r.s}</small></button>`).join('')}</div>
+      <div class="note">התפקיד הוא מה שהסורק עושה. הכרטיס של התלמיד אחד — אותו QR בכל מקום.</div>`;
+    $('app').querySelectorAll('[data-k]').forEach(b => b.onclick = () => { put(b.dataset.k); draw(); });
+    return;
+  }
+  const emg = ROLES.filter(r => r.emg && r.k !== mine.k);
+  $('app').innerHTML = `<h2>התפקיד שלי</h2>
+    <a class="mine" style="background:var(${mine.c})" href="${url(mine)}"${mine.ext ? ' target="_blank" rel="noopener"' : ''}>
+      <span class="ic">${mine.ic}</span><span><b>${mine.t}</b><small>${mine.s}</small></span><span class="go">←</span></a>
+    <h2>🚨 בחירום — אם קיבלת תפקיד אחר</h2>
+    <div class="grid">${emg.map(r => tile(r)).join('')}</div>`;
+}
+$('change').onclick = () => { put(''); draw(); };
+draw();
+
+/* ===== אפליקציה במסך הבית ===== */
+if('serviceWorker' in navigator) navigator.serviceWorker.register('scan-app-sw.js', {scope: './scan-app.html'}).catch(() => {});
+const STANDALONE = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+let instEvt = null;
+function drawInst(){
+  const el = $('inst'); if(STANDALONE){ el.hidden = true; return; }
+  const ua = navigator.userAgent;
+  if(/SamsungBrowser/i.test(ua)){
+    const intent = 'intent://' + location.host + location.pathname + '#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url=' +
+      encodeURIComponent('https://play.google.com/store/apps/details?id=com.android.chrome') + ';end';
+    el.innerHTML = '<span>📲 התקנה במסך הבית — דרך Chrome</span><a href="' + intent + '">פתיחה ב-Chrome</a>'; el.hidden = false; return;
+  }
+  if(/iPhone|iPad|iPod/i.test(ua)){ el.innerHTML = '<span>📲 למסך הבית: <b>שיתוף ⬆︎</b> ← <b>"הוסף למסך הבית"</b></span>'; el.hidden = false; return; }
+  if(instEvt){
+    el.innerHTML = '<span>📲 להתקין את הסורק כאפליקציה?</span><button type="button" id="instBtn">התקנה</button>'; el.hidden = false;
+    $('instBtn').onclick = async () => { instEvt.prompt(); try{ await instEvt.userChoice; }catch(e){} instEvt = null; drawInst(); };
+    return;
+  }
+  el.innerHTML = '<span>📲 למסך הבית: <b>⋮</b> ← <b>"הוספה למסך הבית"</b> ← <b>"התקנה"</b></span>'; el.hidden = false;
+}
+addEventListener('beforeinstallprompt', e => { e.preventDefault(); instEvt = e; drawInst(); });
+addEventListener('appinstalled', () => { $('inst').innerHTML = '<span>✓ הותקן — פותחים מהאייקון "סורק"</span>'; });
+drawInst();
+</script>
+</body>
+</html>
