@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- v1.8.1 | 12.11.2026 | קוד שהוחלף: במקום "אין חיבור" — הודעה אדומה "הקוד לא מתקבל" עם שדה להקלדת הקוד החדש (במסך המנהלת ובטלפונים בשטח). -->
 <!-- v1.8.0 | 12.11.2026 | טופס האוטובוס: שדה אחד לקו (במקום קו + ישוב); "ישוב אחר" פותח הקלדה. זיהוי המורה תוך כדי הקלדה ("עינ" ← הקו של עינת פינטו). -->
 <!-- v1.7.2 | 12.11.2026 | הקווים נטענים עם כל קוד שיש בטלפון (מנהלת / מקלטים / קוד נוהל הפינוי); אם אף אחד לא פותח — שדה "קוד נוהל הפינוי" במסך. -->
 <!-- v1.7.1 | 12.11.2026 | כשהקווים מתיק הפינוי לא נטענים — הודעה במסך למה (חסרה pizur_lines / קוד / חיבור). -->
@@ -44,14 +45,14 @@
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="app-version" content="1.8.0">
+<meta name="app-version" content="1.8.1">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <script>
 /* עדכון אוטומטי: דפדפן שפתח עותק ישן מהזיכרון בודק מול האתר אם יש גרסה חדשה, ואם כן טוען אותה פעם אחת. */
 (function(){
-  var V = '1.8.0', u = location.pathname;
+  var V = '1.8.1', u = location.pathname;
   if(navigator.onLine === false || !window.fetch) return;
   fetch(u + '?vcheck=' + Date.now(), {cache: 'no-store'})
     .then(function(r){ return r.ok ? r.text() : ''; })
@@ -247,7 +248,7 @@
 <body>
 <div class="top"><h1 id="title">🚌 פיזור בחירום</h1><div class="sub" id="sub"></div></div>
 <div class="wrap" id="app"></div>
-<footer>פיתוח: רני בן זאב · v1.8.0</footer>
+<footer>פיתוח: רני בן זאב · v1.8.1</footer>
 <div id="qrFull" class="qrfull"></div>
 
 <script>
@@ -407,8 +408,15 @@ function renderSub(){
   const el = $('sub'); if(!el) return;
   const net = online ? '<span class="pill on">מחובר</span>' : '<span class="pill off">📴 אין חיבור</span>';
   const p = pending().length + pendingBuses().length;
-  el.innerHTML = `${net}${!MANAGE && p ? `<span class="pill off">${p} ממתינות לשליחה</span>` : ''}${MANAGE && ROSTER ? `<span>רשימה מ-${dayTime(ROSTER.at)}</span>` : ''}`;
+  el.innerHTML = `${BADPIN || MGBAD ? '<span class="pill off">🔒 קוד לא מתקבל</span>' : net}${!MANAGE && p ? `<span class="pill off">${p} ממתינות לשליחה</span>` : ''}${MANAGE && ROSTER ? `<span>רשימה מ-${dayTime(ROSTER.at)}</span>` : ''}`;
   const b = $('netBanner'); if(!b) return;
+  if(BADPIN){
+    b.className = 'net off';
+    b.innerHTML = `<b>🔒 הקוד שבטלפון לא מתקבל בשרת</b><br>כנראה קוד המקלטים הוחלף. הרישומים נשמרים בטלפון, אבל <b>לא נשלחים להנהלה</b> עד שמקלידים את הקוד החדש.
+      <button class="btn" id="rePin" style="background:#1c2230;margin-top:8px">🔑 הקלדת קוד המקלטים</button>`;
+    $('rePin').onclick = () => { const r = role(); renderSetup(() => { BADPIN = false; sync(); go(r); }); };
+    return;
+  }
   if(!online){
     b.className = 'net off';
     b.innerHTML = `<b>📴 אין אינטרנט</b><br>הסריקות נשמרות בטלפון ויישלחו לבד כשהרשת תחזור.
@@ -777,6 +785,7 @@ async function updRoster(){
 
 // --- סנכרון לשרת ---
 let syncing = false;
+let BADPIN = false, MGBAD = false;
 async function sync(){
   if(syncing || MANAGE) return;
   const pin = ls.get('sh_pin'); if(!pin) return;
@@ -792,7 +801,7 @@ async function sync(){
       const buses = pb.map(b => ({id: b.id, bus_no: b.no, settlement: b.town, escort: b.escort || null, opened_at: b.opened,
         departed_at: b.departed, session_started: b.session, device: deviceId()}));
       const res = await rpc('pizur_sync', {p_pin: pin, p_rows: rows, p_buses: buses});
-      if(res === -1) throw new Error('pin');
+      if(res === -1){ BADPIN = true; throw new Error('pin'); }
       const done = new Set(rows.map(r => r.id)), bdone = new Set(buses.map(b => b.id + '|' + b.departed_at));
       SCANS.forEach(s => { if(done.has(s.id)) s.synced = true; });
       BUSES.forEach(b => { if(bdone.has(b.id + '|' + b.departed)) b.synced = true; });
@@ -800,8 +809,8 @@ async function sync(){
       SCANS = SCANS.filter(s => !s.synced || Date.parse(s.at) > old);
       BUSES = BUSES.filter(b => !b.synced || Date.parse(b.opened) > old || b.id === ls.get('pz_bus'));
       saveScans(); saveBuses();
-    } else await rpc('check_shelter_pin', {p_pin: pin}, 5000);
-    setOnline(true);
+    } else if(await rpc('check_shelter_pin', {p_pin: pin}, 5000) === false){ BADPIN = true; throw new Error('pin'); }
+    BADPIN = false; setOnline(true);
     if($('list')) renderList();
   }catch(e){ setOnline(false); }
   finally{ syncing = false; }
@@ -883,9 +892,9 @@ async function loadServer(force = false){
     const r = await rpc('pizur_status', {p_pass: mgPass(), p_since: since()});
     const data = {scans: r?.scans || [], buses: r?.buses || []};
     const changed = JSON.stringify(data) !== JSON.stringify(SERVER);
-    SERVER = data; ls.set('pzm_server', SERVER); setOnline(true);
+    SERVER = data; ls.set('pzm_server', SERVER); MGBAD = false; setOnline(true);
     if(!changed && !force) return;
-  }catch(e){ setOnline(false); if(!force) return; }
+  }catch(e){ const bad = /קוד/.test(String(e.message || e)); const was = MGBAD; MGBAD = bad; setOnline(false); if(!force && was === bad) return; }
   if(!scanner) renderManage();
 }
 
@@ -931,7 +940,12 @@ function renderManage(){
       ${SEL && levelOf(SEL) === L ? `<div class="names">${w.filter(s => s.c === SEL).sort((a, b) => (roll[a.id] ? 1 : 0) - (roll[b.id] ? 1 : 0) || byHe(a.n, b.n)).map(s => `<span class="${roll[s.id] ? 'inc' : ''}">${roll[s.id] ? '✅ ' : '❓ '}${esc(s.n)}</span>`).join('')}</div>` : ''}</div>`;
   }).join('');
 
-  app.innerHTML = `
+  const mgBad = MGBAD ? `<div class="box" style="background:#fdecec;border:2px solid var(--bad)">
+      <h2 style="color:var(--bad);margin-top:0">🔒 הסיסמה של מסך המנהלת לא מתקבלת</h2>
+      <p style="margin:4px 0 8px">לכן המסך לא מקבל את האוטובוסים והסריקות מהשטח (כנראה הקוד הוחלף). הקלידו את <b>קוד המקלטים</b> או את סיסמת המנהל:</p>
+      <span class="lcode"><input id="mgCode" type="password" placeholder="קוד מקלטים / סיסמת מנהל"><button type="button" id="mgGo">כניסה</button></span>
+      <div class="err" id="mgErr"></div></div>` : '';
+  app.innerHTML = `${mgBad}
     <div class="stat5" id="stat" style="grid-template-columns:repeat(4,1fr)">
       <div><b>${present.length}</b>🏫 בבית הספר</div>
       <div><b style="color:var(--bus)">${busL.length}</b>🚌 באוטובוסים</div>
@@ -961,6 +975,9 @@ function renderManage(){
   app.querySelectorAll('details.acc').forEach(d => { const k = d.dataset.a; d.open = ACC[k]; d.ontoggle = () => { ACC[k] = d.open; ls.set('pzm_acc', ACC); }; });
   app.querySelectorAll('.cbox[data-c]').forEach(b => b.onclick = () => { SEL = SEL === b.dataset.c ? '' : b.dataset.c; renderManage(); });
   const more = app.querySelector('details.more'); more.open = MORE; more.ontoggle = () => { MORE = more.open; };
+  if($('mgGo')) $('mgGo').onclick = async () => { const c = $('mgCode').value.trim(); if(!c) return; $('mgErr').textContent = 'בודק…';
+    try{ await refreshRoster(c); ls.set('mg_pass', c); MGBAD = false; setOnline(true); loadServer(true); }
+    catch(e){ $('mgErr').textContent = String(e.message).includes('empty') ? 'קוד שגוי' : 'אין חיבור לשרת'; } };
   if($('lnGo')) $('lnGo').onclick = async () => { const c = $('lnCode').value.trim(); if(!c) return;
     $('lnGo').disabled = true; ls.set('pz_lines_code', c);
     if(await loadLines(c)) renderManage(); else { $('lnGo').disabled = false; $('lnCode').value = ''; $('lnCode').placeholder = 'קוד שגוי — נסו שוב'; ls.del('pz_lines_code'); } };
