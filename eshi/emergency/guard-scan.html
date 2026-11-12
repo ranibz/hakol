@@ -1,7 +1,10 @@
 <!DOCTYPE html>
 <!--
   סורק שער — האפליקציה של השומר. רק סורק, בלי רשימות ובלי תפריטים.
-  v1.0.0 | 12.11.2026 | פיתוח: רני בן זאב
+  v1.1.0 | 12.11.2026 | פיתוח: רני בן זאב
+  - v1.1.0: אפליקציה במסך הבית: service worker (guard-sw.js) כדי שכרום יציע התקנה ושהאפליקציה תיפתח גם
+    כשהרשת חלשה. כפתור "📲 התקנה במסך הבית" כשהדפדפן מציע התקנה; בסמסונג — פתיחה בכרום (ההתקנה שם
+    נחסמת ע"י Play Protect); באייפון — הוראה "שיתוף ← הוסף למסך הבית". באפליקציה המותקנת הכפתור לא מופיע.
   - v1.0.0: מסך אחד: המצלמה פתוחה כל הזמן, וכל סריקה צובעת את כל המסך:
       🟢 ירוק  — יש היום בקשת שחרור ממתינה → יוצא. מסומן "שוחרר" (כמו "אשר יציאה" במסך השומר).
       🔵 כחול  — התלמיד לא סומן נוכח היום → נכנס באיחור (register_late, כמו קליטת המאחרים).
@@ -38,6 +41,9 @@
   .hint{position:absolute;bottom:14px;left:0;right:0;text-align:center;color:var(--muted);font-size:15px;pointer-events:none}
   .start{font:inherit;font-size:22px;font-weight:800;background:var(--ok);color:#fff;border:0;border-radius:18px;padding:22px 34px;cursor:pointer}
   .foot{text-align:center;padding:10px;font-size:13px}
+  .inst{margin:0 14px;padding:12px 14px;border-radius:14px;background:#1e293b;display:flex;gap:10px;align-items:center;justify-content:space-between;font-size:15px;line-height:1.45}
+  .inst[hidden]{display:none}
+  .inst a,.inst button{font:inherit;font-weight:800;background:#e2e8f0;color:#0b1220;border:0;border-radius:10px;padding:9px 14px;text-decoration:none;white-space:nowrap;cursor:pointer}
   .foot a{color:var(--muted)}
   /* תוצאה — כל המסך */
   #res{position:fixed;inset:0;z-index:10;display:flex;flex-direction:column;align-items:center;justify-content:center;
@@ -61,7 +67,8 @@
     <div id="reader"></div>
     <div class="hint" id="hint" hidden>מכוונים לכרטיס התלמיד</div>
   </div>
-  <div class="foot"><a href="gate-guard.html">בעיה בסורק? מסך השומר המלא ←</a> · v1.0.0</div>
+  <div id="inst" class="inst" hidden></div>
+  <div class="foot"><a href="gate-guard.html">בעיה בסורק? מסך השומר המלא ←</a> · v1.1.0</div>
   <div id="res" hidden></div>
 
 <script>
@@ -201,6 +208,32 @@ async function undo(id){
     show('wait', '↶', '<div class="big">בוטל</div><div class="sb">השחרור חזר לממתין.</div>', 3000);
   }catch(e){ show('no', '📶', '<div class="big">הביטול נכשל</div>', 4000); }
 }
+
+/* ===== אפליקציה במסך הבית ===== */
+if('serviceWorker' in navigator) navigator.serviceWorker.register('guard-sw.js', {scope: './guard-scan.html'}).catch(() => {});
+const STANDALONE = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+let instEvt = null;
+function drawInst(){
+  const el = $('inst'); if(STANDALONE){ el.hidden = true; return; }
+  const ua = navigator.userAgent;
+  if(/SamsungBrowser/i.test(ua)){
+    const intent = 'intent://' + location.host + location.pathname + '#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url=' +
+      encodeURIComponent('https://play.google.com/store/apps/details?id=com.android.chrome') + ';end';
+    el.innerHTML = '<span>📲 התקנה במסך הבית — דרך Chrome</span><a href="' + intent + '">פתיחה ב-Chrome</a>'; el.hidden = false; return;
+  }
+  if(/iPhone|iPad|iPod/i.test(ua)){
+    el.innerHTML = '<span>📲 למסך הבית: <b>שיתוף ⬆︎</b> ← <b>"הוסף למסך הבית"</b></span>'; el.hidden = false; return;
+  }
+  if(instEvt){
+    el.innerHTML = '<span>📲 להתקין את הסורק כאפליקציה?</span><button type="button" id="instBtn">התקנה</button>'; el.hidden = false;
+    $('instBtn').onclick = async () => { instEvt.prompt(); try{ await instEvt.userChoice; }catch(e){} instEvt = null; drawInst(); };
+    return;
+  }
+  el.innerHTML = '<span>📲 למסך הבית: <b>⋮</b> ← <b>"הוספה למסך הבית"</b> ← <b>"התקנה"</b></span>'; el.hidden = false;
+}
+addEventListener('beforeinstallprompt', e => { e.preventDefault(); instEvt = e; drawInst(); });
+addEventListener('appinstalled', () => { $('inst').innerHTML = '<span>✓ הותקן — פותחים מהאייקון "סורק שער"</span>'; });
+drawInst();
 
 /* אם כבר ניתנה הרשאה למצלמה — הסורק נפתח לבד */
 (async () => { try{ const p = await navigator.permissions.query({name:'camera'}); if(p.state === 'granted') start(); }catch(e){} })();
