@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- v1.8.0 | 12.11.2026 | טופס האוטובוס: שדה אחד לקו (במקום קו + ישוב); "ישוב אחר" פותח הקלדה. זיהוי המורה תוך כדי הקלדה ("עינ" ← הקו של עינת פינטו). -->
 <!-- v1.7.2 | 12.11.2026 | הקווים נטענים עם כל קוד שיש בטלפון (מנהלת / מקלטים / קוד נוהל הפינוי); אם אף אחד לא פותח — שדה "קוד נוהל הפינוי" במסך. -->
 <!-- v1.7.1 | 12.11.2026 | כשהקווים מתיק הפינוי לא נטענים — הודעה במסך למה (חסרה pizur_lines / קוד / חיבור). -->
 <!-- v1.7.0 | 12.11.2026 | מסך המנהלת בשני אקורדיונים: (1) 🚌 אוטובוסים — כל קווי תיק הפינוי מוצגים מההתחלה
@@ -43,14 +44,14 @@
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="app-version" content="1.7.2">
+<meta name="app-version" content="1.8.0">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <script>
 /* עדכון אוטומטי: דפדפן שפתח עותק ישן מהזיכרון בודק מול האתר אם יש גרסה חדשה, ואם כן טוען אותה פעם אחת. */
 (function(){
-  var V = '1.7.2', u = location.pathname;
+  var V = '1.8.0', u = location.pathname;
   if(navigator.onLine === false || !window.fetch) return;
   fetch(u + '?vcheck=' + Date.now(), {cache: 'no-store'})
     .then(function(r){ return r.ok ? r.text() : ''; })
@@ -174,6 +175,7 @@
   .seg button.on.self{background:var(--self);border-color:var(--self);color:#fff}
   .seg button.on.par{background:var(--par);border-color:var(--par);color:#fff}
   .result.self{background:var(--self)} .result.par{background:var(--par)}
+  .form label[hidden]{display:none}
   .form label{display:block;font-weight:700;margin-top:10px;font-size:15px}
   .form input{margin-top:4px}
   .busHead{background:var(--bus);color:#fff;border-radius:16px;padding:14px 16px;display:flex;justify-content:space-between;align-items:center;gap:10px}
@@ -245,7 +247,7 @@
 <body>
 <div class="top"><h1 id="title">🚌 פיזור בחירום</h1><div class="sub" id="sub"></div></div>
 <div class="wrap" id="app"></div>
-<footer>פיתוח: רני בן זאב · v1.7.2</footer>
+<footer>פיתוח: רני בן זאב · v1.8.0</footer>
 <div id="qrFull" class="qrfull"></div>
 
 <script>
@@ -486,20 +488,21 @@ function go(r){
 function renderBusForm(){
   stopScanner();
   $('title').textContent = '🚌 אחראי אוטובוס';
-  const last = curBus();
+  const last = curBus(), L = lines(), hasL = L.length > 0;
   app.innerHTML = `
     <div class="box form">
       <h2>לפני הסריקה — פרטי האוטובוס</h2>
       <label>שם המורה<input id="bEsc" list="staffL" value="${esc(ls.get('pz_escort') || '')}" placeholder="התחילו להקליד את שמכם" autocomplete="off"></label>
-      <datalist id="staffL">${staff().map(x => `<option value="${esc(x.n)}">${x.t ? esc(x.t) : ''}</option>`).join('')}</datalist>
+      <datalist id="staffL">${staff().map(x => `<option value="${esc(x.n)}">`).join('')}</datalist>
       <div id="myLines"></div>
-      ${lines().length ? `<label>הקו (מתיק הפינוי)<select id="bLine"><option value="">— בחירת קו —</option>${
-        [...new Set(lines().map(l => l.area || ''))].map(a => `<optgroup label="${esc(a || 'קווים')}">${lines().map((l, i) => (l.area || '') === a
-          ? `<option value="${i}">${esc(l.line)}${[l.esc1, l.esc2].filter(Boolean).length ? ' — ' + esc([l.esc1, l.esc2].filter(Boolean).join(', ')) : ''}</option>` : '').join('')}</optgroup>`).join('')}</select></label>` : ''}
-      <label>מספר אוטובוס<input id="bNo" inputmode="numeric" placeholder="למשל 3" value=""></label>
-      <label>לאיזה ישוב / קו<input id="bTown" list="towns" placeholder="שם הישוב"></label>
+      ${hasL ? `<label>הקו<select id="bLine"><option value="">— בחירת קו —</option>${
+        [...new Set(L.map(l => l.area || ''))].map(a => `<optgroup label="${esc(a || 'קווים')}">${L.map((l, i) => (l.area || '') === a
+          ? `<option value="${i}">${esc(l.line)}${[l.esc1, l.esc2].filter(Boolean).length ? ' — ' + esc([l.esc1, l.esc2].filter(Boolean).join(', ')) : ''}</option>` : '').join('')}</optgroup>`).join('')}
+        <option value="other">✏️ ישוב אחר — לא מתיק הפינוי</option></select></label>` : ''}
+      <label id="townL"${hasL ? ' hidden' : ''}>לאיזה ישוב<input id="bTown" list="towns" placeholder="שם הישוב"></label>
+      <datalist id="towns">${TOWNS.map(t => `<option value="${esc(t)}">`).join('')}</datalist>
       <div class="muted" id="townHint" style="font-size:13px;margin-top:4px"></div>
-      <datalist id="towns">${[...new Set([...TOWNS, ...staff().map(x => realTown(x.t)).filter(Boolean)])].map(t => `<option value="${esc(t)}">`).join('')}</datalist>
+      <label>מספר אוטובוס<input id="bNo" inputmode="numeric" placeholder="למשל 3" value=""></label>
       <button class="btn huge" id="open" style="background:var(--bus)">📷 פתיחת סריקה</button>
       <div class="err" id="err"></div>
     </div>
@@ -507,42 +510,46 @@ function renderBusForm(){
     <button class="linkBtn" id="home">← החלפת תפקיד</button>`;
   $('home').onclick = renderHome;
   if($('backBus')) $('backBus').onclick = renderBus;
-  /* בחירת שם מהרשימה ממלאת את יישוב המגורים של המורה — אפשר לשנות */
-  let autoTown = '';
-  const fillTown = () => {
-    const m = staff().find(x => x.n === $('bEsc').value.trim()), t = m ? realTown(m.t) : '';
-    const mine = !$('bTown').value.trim() || $('bTown').value.trim() === autoTown;
-    if(t && mine){ $('bTown').value = t; autoTown = t; $('townHint').textContent = 'מולא לפי יישוב המגורים של ' + m.n + ' — אפשר לשנות'; }
-    else if(!t && mine && autoTown){ $('bTown').value = ''; autoTown = ''; $('townHint').textContent = ''; }
-  };
-  /* v1.6.0 — הקו לפי תיק הפינוי */
-  let lineSet = '';
-  const setLine = l => { const t = lineLabel(l); $('bTown').value = t; autoTown = t; lineSet = t;
-    if($('bLine')) $('bLine').value = String(lines().indexOf(l));
-    $('townHint').textContent = 'הקו לפי תיק הפינוי · מלווים: ' + [l.esc1, l.esc2].filter(Boolean).join(', '); drawMine(); };
+  /* v1.8.0 — שדה אחד לקו. בוחרים קו מתיק הפינוי (הישובים כבר בשם הקו); "ישוב אחר" פותח שדה הקלדה. */
+  let picked = null;   // הקו שנבחר
+  const setLine = l => { picked = l; $('bTown').value = lineLabel(l); $('townL').hidden = true;
+    if($('bLine')) $('bLine').value = String(L.indexOf(l));
+    $('townHint').textContent = [l.esc1, l.esc2].filter(Boolean).length ? 'מלווים לפי תיק הפינוי: ' + [l.esc1, l.esc2].filter(Boolean).join(' + ') : '';
+    drawMine(); };
+  /* תוך כדי הקלדה: הקווים שהמלווים שלהם מתאימים למה שהוקלד ("עינ" ← עינת פינטו) */
+  const loose = (typed, e) => { const t = nTok(typed), w = nTok(e);
+    return t.length > 0 && w.length > 0 && t.every(x => w.some(y => y.startsWith(x) || (y.length > 1 && x.startsWith(y)))); };
+  const cands = name => name.replace(/\s/g, '').length < 2 ? [] : L.filter(l => [l.esc1, l.esc2].some(e => e && loose(name, e)));
   const drawMine = () => {
-    const el = $('myLines'), name = $('bEsc').value.trim(), mine = linesOf(name);
-    if(!el) return;
-    if(!lines().length || !name){ el.innerHTML = ''; return; }
-    el.innerHTML = mine.length ? `<div class="mineL"><b>🗺️ לפי תיק הפינוי, ${mine.length > 1 ? 'הקווים שלך' : 'הקו שלך'}:</b>${mine.map(l =>
-      `<button type="button" class="lineBtn${$('bTown').value === lineLabel(l) ? ' on' : ''}" data-i="${lines().indexOf(l)}">${esc(lineLabel(l))}<small>${esc([l.esc1, l.esc2].filter(Boolean).join(' + '))}</small></button>`).join('')}</div>`
-      : `<div class="mineL none">לא נמצא קו על השם הזה בתיק הפינוי — בחרו קו מהרשימה למטה, או הקלידו ישוב.</div>`;
-    el.querySelectorAll('[data-i]').forEach(b => b.onclick = () => setLine(lines()[+b.dataset.i]));
+    const el = $('myLines'), name = $('bEsc').value.trim(); if(!el) return;
+    if(!hasL || !name){ el.innerHTML = ''; return; }
+    const m = cands(name), done = staff().some(x => x.n === name) || nTok(name).length > 1;
+    el.innerHTML = m.length ? `<div class="mineL"><b>🗺️ ${m.length > 1 ? 'הקווים' : 'הקו'} לפי תיק הפינוי — לחצו לבחירה:</b>${m.slice(0, 6).map(l =>
+      `<button type="button" class="lineBtn${picked === l ? ' on' : ''}" data-i="${L.indexOf(l)}">${esc(lineLabel(l))}<small>${esc([l.esc1, l.esc2].filter(Boolean).join(' + '))}</small></button>`).join('')}</div>`
+      : done ? `<div class="mineL none">לא נמצא קו על השם הזה בתיק הפינוי — בחרו את הקו מהרשימה למטה.</div>` : '';
+    el.querySelectorAll('[data-i]').forEach(b => b.onclick = () => { const l = L[+b.dataset.i], n = $('bEsc').value.trim();
+      /* הוקלד רק חלק מהשם ("עינ") — משלימים לשם שבתיק */
+      if(!staff().some(x => x.n === n)){ const e = [l.esc1, l.esc2].find(e => e && loose(n, e)); if(e && nTok(e).length >= nTok(n).length) $('bEsc').value = e; }
+      setLine(l); });
   };
-  const onEsc = () => { if(!lineSet) fillTown(); const m = linesOf($('bEsc').value.trim());
-    if(m.length === 1 && (!$('bTown').value.trim() || $('bTown').value.trim() === autoTown)) setLine(m[0]); else drawMine(); };
-  $('bEsc').oninput = onEsc; $('bEsc').onchange = onEsc;
-  if($('bLine')) $('bLine').onchange = () => { const l = lines()[+$('bLine').value]; if(!l) return;
+  const onEsc = () => { const m = cands($('bEsc').value.trim()), strict = linesOf($('bEsc').value.trim());
+    if(!picked && strict.length === 1 && m.length === 1) return setLine(strict[0]);
+    drawMine(); };
+  /* רק input (גם בחירה מהרשימה מפעילה input). change בעת יציאה מהשדה היה מצייר מחדש את הכפתורים לפני שהלחיצה נקלטת */
+  $('bEsc').oninput = onEsc;
+  if($('bLine')) $('bLine').onchange = () => { const v = $('bLine').value;
+    if(v === 'other'){ picked = null; $('bTown').value = ''; $('townL').hidden = false; $('townHint').textContent = ''; $('bTown').focus(); drawMine(); return; }
+    const l = L[+v]; if(!l){ picked = null; $('bTown').value = ''; drawMine(); return; }
     setLine(l); if(!$('bEsc').value.trim() && l.esc1){ $('bEsc').value = l.esc1; drawMine(); } };
   if($('bEsc').value) onEsc();
-  if(!lines().length && ls.get('sh_pin')) loadLines(ls.get('sh_pin')).then(() => { if($('bEsc') && lines().length && !$('bNo').value) renderBusForm(); });
+  if(!hasL && ls.get('sh_pin')) loadLines(ls.get('sh_pin')).then(ok => { if(ok && $('bEsc') && !$('bNo').value) renderBusForm(); });
   ($('bEsc').value ? $('bNo') : $('bEsc')).focus();
   if(!staff().length && ls.get('sh_pin')) loadStaff(ls.get('sh_pin')).then(() => { if($('staffL') && staff().length) renderBusForm(); });
   $('open').onclick = () => {
     const no = $('bNo').value.trim(), town = $('bTown').value.trim(), escort = $('bEsc').value.trim();
-    if(!no){ $('err').textContent = 'חסר מספר אוטובוס'; return; }
-    if(!town){ $('err').textContent = 'חסר ישוב'; return; }
     if(!escort){ $('err').textContent = 'חסר שם המורה'; return; }
+    if(!town){ $('err').textContent = hasL ? 'בחרו קו' : 'חסר ישוב'; return; }
+    if(!no){ $('err').textContent = 'חסר מספר אוטובוס'; return; }
     ls.set('pz_escort', escort);
     const b = {id: uid(), no, town, escort, opened: new Date().toISOString(), departed: null, session: session(), synced: false};
     BUSES.push(b); saveBuses(); ls.set('pz_bus', b.id);
