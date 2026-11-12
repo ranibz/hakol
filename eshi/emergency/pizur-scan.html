@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- v1.7.2 | 12.11.2026 | הקווים נטענים עם כל קוד שיש בטלפון (מנהלת / מקלטים / קוד נוהל הפינוי); אם אף אחד לא פותח — שדה "קוד נוהל הפינוי" במסך. -->
 <!-- v1.7.1 | 12.11.2026 | כשהקווים מתיק הפינוי לא נטענים — הודעה במסך למה (חסרה pizur_lines / קוד / חיבור). -->
 <!-- v1.7.0 | 12.11.2026 | מסך המנהלת בשני אקורדיונים: (1) 🚌 אוטובוסים — כל קווי תיק הפינוי מוצגים מההתחלה
   (ישובים + מלווים), ומספר האוטובוס, כמה עלו ו"יצא" מתווספים כשהמלווה פותח אותו; יצאו מהשער בסוף. (2) 🏫 לפי כיתות אם.
@@ -42,14 +43,14 @@
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="app-version" content="1.7.1">
+<meta name="app-version" content="1.7.2">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <script>
 /* עדכון אוטומטי: דפדפן שפתח עותק ישן מהזיכרון בודק מול האתר אם יש גרסה חדשה, ואם כן טוען אותה פעם אחת. */
 (function(){
-  var V = '1.7.1', u = location.pathname;
+  var V = '1.7.2', u = location.pathname;
   if(navigator.onLine === false || !window.fetch) return;
   fetch(u + '?vcheck=' + Date.now(), {cache: 'no-store'})
     .then(function(r){ return r.ok ? r.text() : ''; })
@@ -209,6 +210,8 @@
   details.acc summary b{font-size:15px;margin-inline-start:auto} details.acc summary b.miss{color:var(--bad)} details.acc summary b.okc{color:#1e8e3e}
   .brow .bno{display:inline-block;min-width:54px} .acc .brow .bn small{display:block;color:var(--muted);font-size:13px;margin-top:2px} .brow .bn em{color:var(--bad);font-style:normal}
   .lerr{background:#fff3d6;color:#7a4a00;border-radius:10px;padding:9px 12px;font-size:14px;font-weight:700;margin:8px 0 0}
+  .lcode{display:flex;gap:6px;margin-top:8px} .lcode input{flex:1;font:inherit;font-size:16px;padding:9px 10px;border-radius:9px;border:2px solid #e8c77a}
+  .lcode button{font:inherit;font-weight:800;border:0;border-radius:9px;padding:9px 14px;background:#0f4c5c;color:#fff;cursor:pointer}
   .brow.wait{background:#fdecec;cursor:default} .brow.wait .bn{color:#7f1d1d} .brow.wait .bno{color:var(--muted)}
   .lar{margin:12px 0 2px;font-size:15px;color:var(--muted)}
   .lrow{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;padding:8px 10px;border-radius:10px;background:#fdecec;margin-top:5px;font-size:15px}
@@ -242,7 +245,7 @@
 <body>
 <div class="top"><h1 id="title">🚌 פיזור בחירום</h1><div class="sub" id="sub"></div></div>
 <div class="wrap" id="app"></div>
-<footer>פיתוח: רני בן זאב · v1.7.1</footer>
+<footer>פיתוח: רני בן זאב · v1.7.2</footer>
 <div id="qrFull" class="qrfull"></div>
 
 <script>
@@ -334,10 +337,18 @@ async function loadStaff(pin){
 /* v1.6.0 — הקווים ומלוויהם מתיק הפינוי (pinui-update.html). נשמרים בטלפון. */
 let _L = null, LINES_ERR = '';
 const lines = () => _L || (_L = ls.get('pz_lines', []));   // אותו מערך בכל קריאה (indexOf)
+/* v1.7.2 — מנסים כמה קודים: הקוד שהתקבל, קוד נוהל הפינוי שהוזן במסך (pz_lines_code), קוד המקלטים וסיסמת המנהל.
+   תשובה ריקה לא מוחקת קווים שכבר נשמרו בטלפון. */
 async function loadLines(pin){
-  try{ const r = await rpc('pizur_lines', {p_pin: pin}, 10000); LINES_ERR = '';
-    if(Array.isArray(r)){ _L = r.filter(x => x && x.line); ls.set('pz_lines', _L); if(!_L.length) LINES_ERR = 'empty'; } }
-  catch(e){ LINES_ERR = /pizur_lines|function|schema cache|404/i.test(String(e.message || e)) ? 'nofn' : 'net'; }
+  const codes = [...new Set([pin, ls.get('pz_lines_code'), ls.get('sh_pin'), ls.get('mg_pass')].filter(Boolean))];
+  let err = 'empty';
+  for(const c of codes){
+    try{ const r = await rpc('pizur_lines', {p_pin: c}, 10000);
+      const L = Array.isArray(r) ? r.filter(x => x && x.line) : [];
+      if(L.length){ _L = L; ls.set('pz_lines', _L); LINES_ERR = ''; return true; } }
+    catch(e){ err = /pizur_lines|function|schema cache|404/i.test(String(e.message || e)) ? 'nofn' : 'net'; if(err === 'nofn') break; }
+  }
+  LINES_ERR = lines().length ? '' : err; return false;
 }
 const lineLabel = l => l.area ? `${l.area} · ${l.line}` : l.line;
 const nTok = x => String(x || '').replace(/[.'"׳״,()\-]/g, ' ').split(/\s+/).filter(Boolean);
@@ -943,6 +954,9 @@ function renderManage(){
   app.querySelectorAll('details.acc').forEach(d => { const k = d.dataset.a; d.open = ACC[k]; d.ontoggle = () => { ACC[k] = d.open; ls.set('pzm_acc', ACC); }; });
   app.querySelectorAll('.cbox[data-c]').forEach(b => b.onclick = () => { SEL = SEL === b.dataset.c ? '' : b.dataset.c; renderManage(); });
   const more = app.querySelector('details.more'); more.open = MORE; more.ontoggle = () => { MORE = more.open; };
+  if($('lnGo')) $('lnGo').onclick = async () => { const c = $('lnCode').value.trim(); if(!c) return;
+    $('lnGo').disabled = true; ls.set('pz_lines_code', c);
+    if(await loadLines(c)) renderManage(); else { $('lnGo').disabled = false; $('lnCode').value = ''; $('lnCode').placeholder = 'קוד שגוי — נסו שוב'; ls.del('pz_lines_code'); } };
   window._camStart = () => startScanner(onSummaryScan);
   $('camBtn').onclick = window._camStart;
   $('ref').onclick = () => loadServer(true);
@@ -976,7 +990,8 @@ function busBody(buses, names){
       <span class="bs">${x.departed ? '🚍 יצא ' + hhmm(x.departed) : '⏳ בטעינה'}</span>
       <b class="bc">${x.ids.size}</b></button>${open ? names([...x.ids].map(id => byId[id]).filter(Boolean)) : ''}`; };
   const why = {nofn:'⚠️ הקווים מתיק הפינוי לא נטענו — חסרה בשרת הפונקציה pizur_lines (צריך להריץ את HAKOL-pizur-lines.sql).',
-    empty:'⚠️ הקווים מתיק הפינוי לא נטענו — הקוד לא מתאים, או שאין קווים בתיק.', net:'⚠️ הקווים מתיק הפינוי לא נטענו — אין חיבור לשרת.'}[LINES_ERR];
+    empty:`⚠️ הקווים מתיק הפינוי לא נטענו — הסיסמה של מסך המנהלת לא פותחת את תיק הפינוי.<br>הקלידו פעם אחת את <b>קוד נוהל הפינוי</b>:
+      <span class="lcode"><input id="lnCode" type="password" placeholder="קוד נוהל הפינוי"><button type="button" id="lnGo">טעינת הקווים</button></span>`, net:'⚠️ הקווים מתיק הפינוי לא נטענו — אין חיבור לשרת.'}[LINES_ERR];
   if(!L.length) return (why ? `<p class="lerr">${why}</p>` : '') + (buses.length ? buses.map(x => row(x, '· ' + x.town, x.escorts.size ? esc([...x.escorts].join(', ')) : '')).join('')
     : '<p class="muted" style="margin:8px 0 0">עדיין אין אוטובוסים</p>');
   const byTown = {}; buses.forEach(x => (byTown[x.town] ||= []).push(x));
