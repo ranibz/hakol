@@ -1181,7 +1181,7 @@ async function gsClose() {
     if (gsScanner) { try { await gsScanner.stop(); } catch (e) {} gsScanner = null; }
     document.getElementById('gsReader').innerHTML = '';
     document.getElementById('gsOverlay').hidden = true;
-    loadGateScreen();
+    if (typeof loadGateScreen === 'function') loadGateScreen(); else if (typeof loadData === 'function') loadData();
 }
 async function gsCheck(text) {
     const tok = gsToken(text);
@@ -1198,8 +1198,8 @@ async function gsCheck(text) {
         const who = `<div class="gs-name">${gsEsc(st.name)}</div><div class="gs-sub">כיתה ${gsEsc(st.class || '')}</div>`;
         if (pend) {
             await api(`student_releases?id=eq.${pend.id}`, { method: 'PATCH',
-                body: JSON.stringify({ status: 'released', released_by_device: currentDeviceName }) });
-            logActivity('release_complete', `שוחרר (סריקת כרטיס): ${st.name}`).catch(() => {});
+                body: JSON.stringify({ status: 'released', ...(typeof currentDeviceName !== 'undefined' ? { released_by_device: currentDeviceName } : {}) }) });
+            if (typeof logActivity === 'function') logActivity('release_complete', `שוחרר (סריקת כרטיס): ${st.name}`).catch(() => {});
             gsBuzz(true);
             gsShow('ok', `<div class="gs-big">✅ מאושר לצאת</div>${who}
                 <div class="gs-sub">סיבה: ${gsEsc(pend.release_reason || '—')} · אושר ב-${gsHM(pend.released_at)}${pend.released_by ? ' · ' + gsEsc(pend.released_by) : ''}</div>
