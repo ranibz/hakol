@@ -1,4 +1,9 @@
 <!DOCTYPE html>
+<!-- גרסה: v13 | תאריך: 2026-11-12 | 📷 סריקת כרטיס תלמיד במסך השער: השומר סורק את ה-QR של כרטיס התלמיד
+     (בטלפון או המודפס). ירוק מלא — יש היום בקשת שחרור ממתינה: מוצגים השם, הכיתה והסיבה, והשחרור
+     מסומן מיד "שוחרר" (עם "↶ ביטול" אם התלמיד לא יצא). כתום — האישור של היום כבר נוצל (מוצגת השעה).
+     אדום — אין אישור יציאה היום, או כרטיס לא מזוהה. הכרטיס מתורגם לתלמיד בשרת (gate_card, דורש
+     HAKOL-gate-card.sql); הבקשות נקראות מ-student_releases כמו ברשימה. הרשימה הידנית נשארת כמו שהיא. -->
 <!-- גרסה: v12 | תאריך: 2026-11-12 | נוסף כרטיס "כרטיסי תלמיד" במסך הראשי — פותח בלשונית חדשה את
      דף המחנכים (late-entry.html?tab=tch): נוכחות יומית, מי הפעיל ומי התקין את הכרטיס, סריקת
      כרטיסים והקישור לכיתה. כך מחנך שנכנס תמיד דרך מערכת השער מגיע לשם בלי קישור נוסף. -->
@@ -482,7 +487,26 @@
             border-color: var(--danger);
             background: var(--danger);
         }
-    </style>
+    
+/* v13 — סריקת כרטיס בשער */
+.gscan-btn{display:block;width:100%;margin:0 0 16px;padding:18px;border:0;border-radius:16px;background:var(--success);
+  color:#fff;font:inherit;font-size:1.25rem;font-weight:800;cursor:pointer;box-shadow:0 6px 20px rgba(0,0,0,.25)}
+.gs-ov{position:fixed;inset:0;z-index:5000;background:#0b1220;display:flex;flex-direction:column}
+.gs-ov[hidden]{display:none}
+.gs-top{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;color:#fff;font-size:1.1rem}
+.gs-top button{background:#334155;color:#fff;border:0;border-radius:10px;padding:8px 14px;font:inherit;cursor:pointer}
+.gs-reader{width:100%;max-width:460px;margin:0 auto}
+.gs-res{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;
+  padding:18px;color:#fff;transition:background .2s}
+.gs-res.idle{background:#0b1220;color:#94a3b8}
+.gs-res.ok{background:#16a34a} .gs-res.used{background:#d97706} .gs-res.no{background:#dc2626} .gs-res.wait{background:#334155}
+.gs-big{font-size:2.1rem;font-weight:900;line-height:1.2}
+.gs-name{font-size:1.7rem;font-weight:800;margin-top:10px}
+.gs-sub{font-size:1.05rem;opacity:.95;margin-top:6px;line-height:1.5}
+.gs-res button{margin-top:14px;background:rgba(0,0,0,.25);color:#fff;border:2px solid rgba(255,255,255,.6);border-radius:12px;
+  padding:10px 18px;font:inherit;font-weight:700;cursor:pointer}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 </head>
 <body>
     <div class="header">
@@ -544,6 +568,8 @@
                 <h2>🚪 מסך שער</h2>
             </div>
             
+            <button class="gscan-btn" onclick="gsOpen()">📷 סריקת כרטיס תלמיד</button>
+
             <div class="guard-split">
                 <!-- צד ימין - שחרור תלמידים -->
                 <div class="guard-panel">
@@ -574,6 +600,13 @@
                     <div class="label">אורחים בפנים</div>
                 </div>
             </div>
+        </div>
+
+        <!-- v13 — סריקת כרטיס בשער -->
+        <div id="gsOverlay" class="gs-ov" hidden>
+            <div class="gs-top"><b>📷 סריקת כרטיס תלמיד</b><button onclick="gsClose()">✕ סגירה</button></div>
+            <div id="gsReader" class="gs-reader"></div>
+            <div id="gsResult" class="gs-res idle"><div class="gs-big">מכוונים את המצלמה ל-QR שבכרטיס</div></div>
         </div>
 
         <!-- מסך שחרור תלמיד -->
@@ -1101,6 +1134,98 @@ async function loadGateScreen() {
             }).join('');
         }
     } catch (e) { console.error(e); }
+}
+
+/* ========== v13 — סריקת כרטיס תלמיד בשער ========== */
+let gsScanner = null, gsLast = '', gsLastAt = 0, gsTimer = null, gsBusy = false;
+function gsToken(text){
+    text = String(text || '').trim();
+    if (text.startsWith('GMCARD:')) return text.slice(7);
+    try { return new URL(text).searchParams.get('scan'); } catch (e) { return null; }
+}
+async function gsRpc(fn, body) {
+    const r = await fetch(SURL + '/rest/v1/rpc/' + fn, { method: 'POST',
+        headers: { 'apikey': SKEY, 'Authorization': 'Bearer ' + SKEY, 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const t = await r.text();
+    if (!r.ok) throw new Error(t);
+    return t ? JSON.parse(t) : null;
+}
+const gsEsc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const gsHM = d => new Date(d).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+function gsShow(cls, html, ms) {
+    const el = document.getElementById('gsResult');
+    el.className = 'gs-res ' + cls; el.innerHTML = html;
+    clearTimeout(gsTimer);
+    if (ms) gsTimer = setTimeout(() => gsShow('idle', '<div class="gs-big">מכוונים את המצלמה ל-QR שבכרטיס</div>'), ms);
+}
+function gsBuzz(ok) {
+    try { navigator.vibrate && navigator.vibrate(ok ? 120 : [90, 70, 90, 70, 90]); } catch (e) {}
+    try { const a = new (window.AudioContext || window.webkitAudioContext)(), o = a.createOscillator(), g = a.createGain();
+        o.frequency.value = ok ? 880 : 220; o.type = ok ? 'sine' : 'square'; g.gain.value = .15;
+        o.connect(g); g.connect(a.destination); o.start(); o.stop(a.currentTime + (ok ? .18 : .5)); } catch (e) {}
+}
+async function gsOpen() {
+    document.getElementById('gsOverlay').hidden = false;
+    gsShow('idle', '<div class="gs-big">מכוונים את המצלמה ל-QR שבכרטיס</div>');
+    if (typeof Html5Qrcode === 'undefined') { gsShow('no', '<div class="gs-big">רכיב הסריקה לא נטען</div><div class="gs-sub">בדקו אינטרנט ורעננו את הדף.</div>'); return; }
+    try {
+        gsScanner = new Html5Qrcode('gsReader');
+        await gsScanner.start({ facingMode: 'environment' }, { fps: 10, qrbox: { width: 230, height: 230 } }, text => {
+            const now = Date.now();
+            if (gsBusy || (text === gsLast && now - gsLastAt < 4000)) return;
+            gsLast = text; gsLastAt = now; gsCheck(text);
+        });
+    } catch (e) { gsShow('no', '<div class="gs-big">אין גישה למצלמה</div><div class="gs-sub">' + gsEsc(e) + '</div>'); }
+}
+async function gsClose() {
+    if (gsScanner) { try { await gsScanner.stop(); } catch (e) {} gsScanner = null; }
+    document.getElementById('gsReader').innerHTML = '';
+    document.getElementById('gsOverlay').hidden = true;
+    loadGateScreen();
+}
+async function gsCheck(text) {
+    const tok = gsToken(text);
+    if (!tok) { gsBuzz(false); gsShow('no', '<div class="gs-big">⛔ זה לא כרטיס תלמיד</div>', 4000); return; }
+    gsBusy = true;
+    gsShow('wait', '<div class="gs-big">בודק…</div>');
+    try {
+        const rows = await gsRpc('gate_card', { p_token: tok });
+        const st = (rows || [])[0];
+        if (!st) { gsBuzz(false); gsShow('no', '<div class="gs-big">⛔ כרטיס לא מזוהה</div><div class="gs-sub">ייתכן שהכרטיס הוחלף. לבדוק עם המזכירות.</div>', 6000); return; }
+        const today = new Date().toISOString().split('T')[0];
+        const rel = await api(`student_releases?student_id=eq.${encodeURIComponent(st.student_id)}&released_at=gte.${today}T00:00:00&order=released_at.desc`);
+        const pend = (rel || []).find(r => r.status === 'pending'), done = (rel || []).find(r => r.status === 'released');
+        const who = `<div class="gs-name">${gsEsc(st.name)}</div><div class="gs-sub">כיתה ${gsEsc(st.class || '')}</div>`;
+        if (pend) {
+            await api(`student_releases?id=eq.${pend.id}`, { method: 'PATCH',
+                body: JSON.stringify({ status: 'released', released_by_device: currentDeviceName }) });
+            logActivity('release_complete', `שוחרר (סריקת כרטיס): ${st.name}`).catch(() => {});
+            gsBuzz(true);
+            gsShow('ok', `<div class="gs-big">✅ מאושר לצאת</div>${who}
+                <div class="gs-sub">סיבה: ${gsEsc(pend.release_reason || '—')} · אושר ב-${gsHM(pend.released_at)}${pend.released_by ? ' · ' + gsEsc(pend.released_by) : ''}</div>
+                <div class="gs-sub">סומן "שוחרר" ✓</div>
+                <button onclick="gsUndo('${pend.id}', this)">↶ ביטול — התלמיד לא יצא</button>`, 9000);
+        } else if (done) {
+            gsBuzz(false);
+            gsShow('used', `<div class="gs-big">⚠️ האישור כבר נוצל</div>${who}
+                <div class="gs-sub">יצא היום ב-${gsHM(done.updated_at || done.released_at)} · סיבה: ${gsEsc(done.release_reason || '—')}</div>
+                <div class="gs-sub">יציאה נוספת — רק באישור חדש מהמחנך או מהמזכירות.</div>`, 8000);
+        } else {
+            gsBuzz(false);
+            gsShow('no', `<div class="gs-big">⛔ אין אישור יציאה</div>${who}
+                <div class="gs-sub">אין היום בקשת שחרור לתלמיד הזה.</div>`, 7000);
+        }
+    } catch (e) {
+        gsBuzz(false);
+        gsShow('no', '<div class="gs-big">שגיאת חיבור</div><div class="gs-sub">' + gsEsc(String(e.message || e).slice(0, 120)) + '</div>', 6000);
+    } finally { gsBusy = false; }
+}
+async function gsUndo(id, btn) {
+    try {
+        btn.disabled = true;
+        await api(`student_releases?id=eq.${id}`, { method: 'PATCH', body: JSON.stringify({ status: 'pending' }) });
+        gsShow('wait', '<div class="gs-big">↶ בוטל</div><div class="gs-sub">הבקשה חזרה לממתינה.</div>', 3000);
+    } catch (e) { btn.disabled = false; toast('שגיאה בביטול', 'error'); }
 }
 
 async function completeRelease(id, studentName) {
