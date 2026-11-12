@@ -1,4 +1,7 @@
 <!DOCTYPE html>
+<!-- v1.7.0 | 12.11.2026 | מסך המנהלת בשני אקורדיונים: (1) 🚌 אוטובוסים — כל קווי תיק הפינוי מוצגים מההתחלה
+  (ישובים + מלווים), ומספר האוטובוס, כמה עלו ו"יצא" מתווספים כשהמלווה פותח אותו; יצאו מהשער בסוף. (2) 🏫 לפי כיתות אם.
+  הקופסה הנפרדת "קווים לפי תיק הפינוי" אוחדה לתוך האוטובוסים. -->
 <!-- v1.6.0 | 12.11.2026 | אחריות מורים לקווים — מתוך תיק הפינוי (pn_data → pizur_lines, דורש HAKOL-pizur-lines.sql).
   טופס האוטובוס: בוחרים את הקו מהרשימה (לפי אזורים, עם שמות המלווים), או מקלידים שם מורה ומופיעים "הקווים שלך".
   במסך המנהלת: "🗺️ קווים לפי תיק הפינוי" — לכל קו המלווים שהוגדרו, ואם נפתח אוטובוס, מי פתח ומתי. קו שלא נפתח — באדום. -->
@@ -38,14 +41,14 @@
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="app-version" content="1.6.0">
+<meta name="app-version" content="1.7.0">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <script>
 /* עדכון אוטומטי: דפדפן שפתח עותק ישן מהזיכרון בודק מול האתר אם יש גרסה חדשה, ואם כן טוען אותה פעם אחת. */
 (function(){
-  var V = '1.6.0', u = location.pathname;
+  var V = '1.7.0', u = location.pathname;
   if(navigator.onLine === false || !window.fetch) return;
   fetch(u + '?vcheck=' + Date.now(), {cache: 'no-store'})
     .then(function(r){ return r.ok ? r.text() : ''; })
@@ -199,8 +202,12 @@
   .lineBtn{display:block;width:100%;margin-top:6px;padding:10px 12px;border-radius:10px;border:2px solid #b7dfc4;background:#fff;font:inherit;font-weight:800;text-align:right;cursor:pointer;color:var(--ink)}
   .lineBtn small{display:block;font-weight:600;color:var(--muted);font-size:13px} .lineBtn.on{border-color:#1e8e3e;background:#dff3e5}
   .form select{width:100%;font:inherit;font-size:17px;padding:12px;border-radius:12px;border:2px solid #d7dde8;margin-top:4px;background:#fff}
-  details.lines summary{display:flex;justify-content:space-between;align-items:center;font-size:18px;font-weight:800;cursor:pointer;list-style:none}
-  details.lines summary b{font-size:22px} details.lines summary b.miss{color:var(--bad)} details.lines summary b.okc{color:#1e8e3e}
+  details.acc summary{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:19px;font-weight:800;cursor:pointer;list-style:none}
+  details.acc summary::-webkit-details-marker{display:none}
+  details.acc summary::after{content:"▾";font-size:18px;color:var(--muted);transition:transform .2s} details.acc[open] summary::after{transform:rotate(180deg)}
+  details.acc summary b{font-size:15px;margin-inline-start:auto} details.acc summary b.miss{color:var(--bad)} details.acc summary b.okc{color:#1e8e3e}
+  .brow .bno{display:inline-block;min-width:54px} .acc .brow .bn small{display:block;color:var(--muted);font-size:13px;margin-top:2px} .brow .bn em{color:var(--bad);font-style:normal}
+  .brow.wait{background:#fdecec;cursor:default} .brow.wait .bn{color:#7f1d1d} .brow.wait .bno{color:var(--muted)}
   .lar{margin:12px 0 2px;font-size:15px;color:var(--muted)}
   .lrow{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;padding:8px 10px;border-radius:10px;background:#fdecec;margin-top:5px;font-size:15px}
   .lrow.ok{background:#e6f3f6} .lrow.gone{background:#eef0f3}
@@ -233,7 +240,7 @@
 <body>
 <div class="top"><h1 id="title">🚌 פיזור בחירום</h1><div class="sub" id="sub"></div></div>
 <div class="wrap" id="app"></div>
-<footer>פיתוח: רני בן זאב · v1.6.0</footer>
+<footer>פיתוח: רני בן זאב · v1.7.0</footer>
 <div id="qrFull" class="qrfull"></div>
 
 <script>
@@ -891,12 +898,6 @@ function renderManage(){
   const waiting = rows.filter(s => !last[s.id] && !awayLabel(s));
 
   const names = list => `<div class="names">${list.sort((a, b) => byHe(a.c, b.c) || byHe(a.n, b.n)).map(s => `<span>${esc(s.n)} <small>${esc(s.c)}</small></span>`).join('')}</div>`;
-  const busRows = buses.length ? buses.map(x => { const k = 'bus:' + x.no + '|' + x.town, open = OPENK === k;
-    return `<button class="brow${x.departed ? ' gone' : ''}${open ? ' sel' : ''}" data-k="${esc(k)}"${x.ids.size ? '' : ' disabled'}>
-      <span class="bn">🚌 ${esc(x.no)} · ${esc(x.town)}${x.escorts.size ? `<small> · ${esc([...x.escorts].join(', '))}</small>` : ''}</span>
-      <span class="bs">${x.departed ? '🚍 יצא ' + hhmm(x.departed) : '⏳ בטעינה'}</span>
-      <b class="bc">${x.ids.size}</b></button>${open ? names([...x.ids].map(id => byId[id]).filter(Boolean)) : ''}`; }).join('')
-    : '<p class="muted" style="margin:0">עדיין אין אוטובוסים</p>';
 
   const lvl = Object.keys(LEVELS).map(L => {
     const all = rows.filter(s => levelOf(s.c) === L); if(!all.length) return '';
@@ -915,12 +916,13 @@ function renderManage(){
       <div><b style="color:var(--self)">${gateL.length}</b>🚪 יצאו מהשער</div>
       <div><b style="color:var(--bad)">${waiting.length}</b>⏳ עוד לא יצאו</div>
     </div>
-    <div class="box"><h2><span class="live"></span>🚌 אוטובוסים</h2>${busRows}
+    <details class="box acc" data-a="bus"><summary><span><span class="live"></span>🚌 אוטובוסים</span>${busSum(buses)}</summary>
+      ${busBody(buses, names)}
       <button class="brow gate${OPENK === 'gate' ? ' sel' : ''}" data-k="gate"${gateL.length ? '' : ' disabled'} style="margin-top:12px">
         <span class="bn">🚪 יצאו מהשער</span><span class="bs">עצמאית / עם הורים</span><b class="bc">${gateL.length}</b></button>
-      ${OPENK === 'gate' ? names(gateL) : ''}</div>
-    ${lineBox(buses)}
-    <div class="box"><h2>⏳ עוד לא יצאו — לפי כיתות</h2><p class="muted" style="margin:-4px 0 6px">✅ = נמצא בקריאת השמות בכיתה · ❓ = לא נמצא</p>${lvl}</div>
+      ${OPENK === 'gate' ? names(gateL) : ''}</details>
+    <details class="box acc" data-a="cls"><summary><span>🏫 לפי כיתות אם</span><b class="${waiting.length ? 'miss' : 'okc'}">${waiting.length ? waiting.length + ' עוד לא יצאו' : '✓ כולם יצאו'}</b></summary>
+      <p class="muted" style="margin:6px 0 6px">✅ = נמצא בקריאת השמות בכיתה · ❓ = לא נמצא · לחיצה על כיתה = השמות</p>${lvl}</details>
     <button class="btn sec" id="resetMg" style="margin-top:6px">🔄 איפוס — ספירה חדשה מעכשיו</button>
     <details class="more"><summary>עוד…</summary>
       <div class="box"><p class="muted" style="margin-top:0">בלי אינטרנט בשטח: סורקים את ה-QR שאחראי האוטובוס / השומר מציג.</p>
@@ -934,7 +936,7 @@ function renderManage(){
       </div>
     </details>`;
   app.querySelectorAll('.brow[data-k]').forEach(b => b.onclick = () => { OPENK = OPENK === b.dataset.k ? '' : b.dataset.k; renderManage(); });
-  const lb = app.querySelector('details.lines'); if(lb){ lb.open = LINES_OPEN; lb.ontoggle = () => { LINES_OPEN = lb.open; }; }
+  app.querySelectorAll('details.acc').forEach(d => { const k = d.dataset.a; d.open = ACC[k]; d.ontoggle = () => { ACC[k] = d.open; ls.set('pzm_acc', ACC); }; });
   app.querySelectorAll('.cbox[data-c]').forEach(b => b.onclick = () => { SEL = SEL === b.dataset.c ? '' : b.dataset.c; renderManage(); });
   const more = app.querySelector('details.more'); more.open = MORE; more.ontoggle = () => { MORE = more.open; };
   window._camStart = () => startScanner(onSummaryScan);
@@ -952,23 +954,42 @@ function renderManage(){
   };
   renderSub();
 }
-let SEL = '', MORE = false, OPENK = '', LINES_OPEN = false;
-/* v1.6.0 — כל קו בתיק הפינוי: מי אחראי, והאם נפתח אוטובוס (לפי הקו שנבחר בטופס האוטובוס) */
-function lineBox(buses){
-  const L = lines(); if(!L.length) return '';
+let SEL = '', MORE = false, OPENK = '', ACC = ls.get('pzm_acc', {bus: true, cls: false});
+/* v1.7.0 — אקורדיון האוטובוסים: כל קווי תיק הפינוי מוצגים מההתחלה (ישובים + מלווים). כשהמלווה פותח את
+   האוטובוס בטופס — מופיעים מספר האוטובוס, כמה עלו, ו"יצא". אוטובוס שנפתח בלי קו מהתיק — תחת "אוטובוסים נוספים". */
+function busSum(buses){
+  const L = lines(), up = buses.reduce((n, x) => n + x.ids.size, 0);
+  if(!L.length) return `<b class="okc" style="color:var(--bus)">${buses.length} · ${up} עלו</b>`;
   const byTown = {}; buses.forEach(x => (byTown[x.town] ||= []).push(x));
   const open = L.filter(l => byTown[lineLabel(l)]).length;
-  const areas = [...new Set(L.map(l => l.area || ''))];
-  return `<details class="box lines"><summary><span>🗺️ קווים לפי תיק הפינוי</span><b class="${open < L.length ? 'miss' : 'okc'}">${open}/${L.length}</b></summary>
-    <p class="muted" style="margin:4px 0 6px">✓ נפתח אוטובוס · ⏳ עוד לא נפתח · שם באדום = נפתח ע״י מורה אחר מהמתוכנן</p>
-    ${areas.map(a => `<h3 class="lar">${esc(a)}</h3>${L.filter(l => (l.area || '') === a).map(l => {
-      const bs = byTown[lineLabel(l)] || [], planned = [l.esc1, l.esc2].filter(Boolean);
-      const who = [...new Set(bs.flatMap(x => [...x.escorts]))];
-      const other = who.filter(w => !planned.some(e => escMatch(w, e)));
-      return `<div class="lrow${bs.length ? (bs.every(x => x.departed) ? ' gone' : ' ok') : ''}">
-        <span class="ln">${esc(l.line)}<small>${planned.length ? '👤 ' + esc(planned.join(' + ')) : '⚠️ אין מלווה בתיק'}${other.length ? ` · <em>פתח: ${esc(other.join(', '))}</em>` : ''}</small></span>
-        <span class="ls">${bs.length ? bs.map(x => `🚌 ${esc(x.no)} · ${x.departed ? 'יצא ' + hhmm(x.departed) : x.ids.size + ' עלו'}`).join('<br>') : '⏳ לא נפתח'}</span></div>`; }).join('')}`).join('')}
-  </details>`;
+  return `<b class="${open < L.length ? 'miss' : 'okc'}">${open}/${L.length} נפתחו · ${up} עלו</b>`;
+}
+function busBody(buses, names){
+  const L = lines();
+  const row = (x, title, sub) => { const k = 'bus:' + x.no + '|' + x.town, open = OPENK === k;
+    return `<button class="brow${x.departed ? ' gone' : ''}${open ? ' sel' : ''}" data-k="${esc(k)}"${x.ids.size ? '' : ' disabled'}>
+      <span class="bn"><span class="bno">🚌 ${esc(x.no)}</span> ${esc(title)}${sub ? `<small>${sub}</small>` : ''}</span>
+      <span class="bs">${x.departed ? '🚍 יצא ' + hhmm(x.departed) : '⏳ בטעינה'}</span>
+      <b class="bc">${x.ids.size}</b></button>${open ? names([...x.ids].map(id => byId[id]).filter(Boolean)) : ''}`; };
+  if(!L.length) return buses.length ? buses.map(x => row(x, '· ' + x.town, x.escorts.size ? esc([...x.escorts].join(', ')) : '')).join('')
+    : '<p class="muted" style="margin:8px 0 0">עדיין אין אוטובוסים</p>';
+  const byTown = {}; buses.forEach(x => (byTown[x.town] ||= []).push(x));
+  const used = new Set(), areas = [...new Set(L.map(l => l.area || ''))];
+  let h = `<p class="muted" style="margin:6px 0 4px">לפי תיק הפינוי · מספר האוטובוס מופיע כשהמלווה פותח אותו · שם באדום = נפתח ע״י מורה אחר מהמתוכנן</p>`;
+  areas.forEach(a => {
+    h += `<h3 class="lar">${esc(a)}</h3>`;
+    L.filter(l => (l.area || '') === a).forEach(l => {
+      const lab = lineLabel(l), bs = byTown[lab] || [], planned = [l.esc1, l.esc2].filter(Boolean);
+      used.add(lab);
+      const plan = planned.length ? '👤 ' + esc(planned.join(' + ')) : '⚠️ אין מלווה בתיק';
+      if(!bs.length){ h += `<div class="brow wait"><span class="bn"><span class="bno">🚌 —</span> ${esc(l.line)}<small>${plan}</small></span><span class="bs">⏳ לא נפתח</span><b class="bc"></b></div>`; return; }
+      bs.forEach(x => { const other = [...x.escorts].filter(w => !planned.some(e => escMatch(w, e)));
+        h += row(x, l.line, plan + (other.length ? ` · <em>פתח: ${esc(other.join(', '))}</em>` : '')); });
+    });
+  });
+  const extra = buses.filter(x => !used.has(x.town));
+  if(extra.length) h += `<h3 class="lar">אוטובוסים נוספים</h3>` + extra.map(x => row(x, x.town, x.escorts.size ? '👤 ' + esc([...x.escorts].join(', ')) : '')).join('');
+  return h;
 }
 function onSummaryScan(text){
   const m = /^GMPZ1\|(bus|self|parent|class)\|([^|]*)\|([^|]*)\|(\d+)\|(\d+\/\d+)\|(.*)$/.exec(String(text).trim());
