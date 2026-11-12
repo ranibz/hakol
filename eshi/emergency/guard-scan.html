@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<!--
+  סורק שער — האפליקציה של השומר. רק סורק, בלי רשימות ובלי תפריטים.
+  v1.0.0 | 12.11.2026 | פיתוח: רני בן זאב
+  - v1.0.0: מסך אחד: המצלמה פתוחה כל הזמן, וכל סריקה צובעת את כל המסך:
+      🟢 ירוק  — יש היום בקשת שחרור ממתינה → יוצא. מסומן "שוחרר" (כמו "אשר יציאה" במסך השומר).
+      🔵 כחול  — התלמיד לא סומן נוכח היום → נכנס באיחור (register_late, כמו קליטת המאחרים).
+      🔴 אדום  — בבית הספר בלי אישור יציאה, או כרטיס לא מזוהה.
+      🟠 כתום  — כבר יצא היום עם האישור. כפתור "↩ חזר לבית הספר" לרישום כניסה.
+    הלוגיקה זהה ל-gate-guard v10 / gate-system v14, ולכן המחנך, מצבת וכיתת האם מתעדכנים בדיוק כמו קודם.
+    קוד השומר (check_guard_pin) נשאל פעם אחת ונשמר בטלפון — אותו מפתח של קליטת המאחרים (gm_guard_pin).
+    מתקינים במסך הבית (guard-scan-manifest.json). המסך לא נכבה בזמן שהסורק פתוח (wake lock).
+    גיבוי: קישור קטן "מסך השומר המלא" (gate-guard.html) — שם השחרור הידני והרשימות.
+    דורש בשרת: gate_card (HAKOL-gate-card.sql), register_late, check_guard_pin.
+-->
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b1220">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="סורק שער">
+<link rel="manifest" href="guard-scan-manifest.json">
+<link rel="icon" href="card-icon-192.png">
+<link rel="apple-touch-icon" href="card-icon-192.png">
+<title>סורק שער</title>
+<script src="https://cdn.jsdelivr.net/npm/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<style>
+  :root{--bg:#0b1220;--fg:#e2e8f0;--muted:#94a3b8;--ok:#16a34a;--in:#2563eb;--no:#dc2626;--used:#d97706}
+  *{box-sizing:border-box}
+  html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,-apple-system,"Segoe UI",Arial,sans-serif}
+  body{display:flex;flex-direction:column;padding:env(safe-area-inset-top,0) env(safe-area-inset-right,0) env(safe-area-inset-bottom,0) env(safe-area-inset-left,0)}
+  .top{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;font-size:15px}
+  .top b{font-size:17px} .top span{color:var(--muted);font-variant-numeric:tabular-nums}
+  #cam{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;min-height:0;padding:0 12px}
+  #reader{width:100%;max-width:520px}
+  #reader video{border-radius:14px}
+  .hint{position:absolute;bottom:14px;left:0;right:0;text-align:center;color:var(--muted);font-size:15px;pointer-events:none}
+  .start{font:inherit;font-size:22px;font-weight:800;background:var(--ok);color:#fff;border:0;border-radius:18px;padding:22px 34px;cursor:pointer}
+  .foot{text-align:center;padding:10px;font-size:13px}
+  .foot a{color:var(--muted)}
+  /* תוצאה — כל המסך */
+  #res{position:fixed;inset:0;z-index:10;display:flex;flex-direction:column;align-items:center;justify-content:center;
+    text-align:center;padding:24px;color:#fff;gap:10px}
+  #res[hidden]{display:none}
+  #res.ok{background:var(--ok)} #res.in{background:var(--in)} #res.no{background:var(--no)} #res.used{background:var(--used)} #res.wait{background:#334155}
+  #res .ic{font-size:72px;line-height:1}
+  #res .big{font-size:40px;font-weight:900;line-height:1.15}
+  #res .nm{font-size:32px;font-weight:800;margin-top:6px}
+  #res .sb{font-size:19px;opacity:.95;line-height:1.5;max-width:30ch}
+  #res button,#res input{font:inherit;font-size:20px;border-radius:14px;padding:14px 20px}
+  #res button{background:rgba(0,0,0,.25);color:#fff;border:2px solid rgba(255,255,255,.7);font-weight:800;cursor:pointer;margin-top:8px}
+  #res input{border:0;text-align:center;width:200px;color:#111}
+  #res .tap{position:absolute;bottom:calc(18px + env(safe-area-inset-bottom,0));font-size:15px;opacity:.8}
+</style>
+</head>
+<body>
+  <div class="top"><b>🛡️ סורק שער</b><span id="clock"></span></div>
+  <div id="cam">
+    <button class="start" id="go" type="button">📷 הפעלת סורק</button>
+    <div id="reader"></div>
+    <div class="hint" id="hint" hidden>מכוונים לכרטיס התלמיד</div>
+  </div>
+  <div class="foot"><a href="gate-guard.html">בעיה בסורק? מסך השומר המלא ←</a> · v1.0.0</div>
+  <div id="res" hidden></div>
+
+<script>
+const SURL = 'https://skfriefqnoxfzmamcokd.supabase.co';
+const SKEY = 'sb_publishable_Qx7EDPbdyYE9iv7uMQBKhQ_Aeojd_Q0';
+const PIN_KEY = 'gm_guard_pin', DEV = 'guard-scan';
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const hm = d => new Date(d).toLocaleTimeString('he-IL', {hour:'2-digit', minute:'2-digit'});
+const today = () => new Intl.DateTimeFormat('en-CA', {timeZone:'Asia/Jerusalem'}).format(new Date());
+const H = {apikey: SKEY, Authorization: 'Bearer ' + SKEY, 'Content-Type': 'application/json'};
+async function api(path, o = {}){
+  const r = await fetch(`${SURL}/rest/v1/${path}`, {method: o.method || 'GET', body: o.body, headers: H});
+  const t = await r.text(); if(!r.ok) throw new Error(t); return t ? JSON.parse(t) : null;
+}
+async function rpc(fn, body){ return api('rpc/' + fn, {method:'POST', body: JSON.stringify(body)}); }
+const getPin = () => { try{ const v = localStorage.getItem(PIN_KEY); return v ? JSON.parse(v) : ''; }catch(e){ return ''; } };
+const setPin = v => { try{ v ? localStorage.setItem(PIN_KEY, JSON.stringify(v)) : localStorage.removeItem(PIN_KEY); }catch(e){} };
+
+setInterval(() => $('clock').textContent = new Date().toLocaleTimeString('he-IL', {hour:'2-digit', minute:'2-digit'}), 1000);
+
+/* ===== תוצאה על כל המסך ===== */
+let resT = null, busy = false, last = '', lastAt = 0;
+function show(cls, ic, html, ms){
+  const r = $('res'); r.className = cls; r.hidden = false;
+  r.innerHTML = `<div class="ic">${ic}</div>${html}${ms ? '<div class="tap">נגיעה במסך — לסריקה הבאה</div>' : ''}`;
+  clearTimeout(resT); if(ms) resT = setTimeout(hide, ms);
+}
+function hide(){ $('res').hidden = true; busy = false; }
+$('res').addEventListener('click', e => { if(!e.target.closest('button,input')) hide(); });
+function buzz(ok){
+  try{ navigator.vibrate && navigator.vibrate(ok ? 150 : [100,80,100,80,100]); }catch(e){}
+  try{ const a = new (window.AudioContext || window.webkitAudioContext)(), o = a.createOscillator(), g = a.createGain();
+    o.frequency.value = ok ? 880 : 220; o.type = ok ? 'sine' : 'square'; g.gain.value = .2;
+    o.connect(g); g.connect(a.destination); o.start(); o.stop(a.currentTime + (ok ? .2 : .55)); }catch(e){}
+}
+
+/* ===== מצלמה ===== */
+let scanner = null, wake = null;
+async function start(){
+  $('go').disabled = true; $('go').textContent = 'מפעיל…';
+  if(typeof Html5Qrcode === 'undefined'){ $('go').disabled = false; $('go').textContent = '📷 הפעלת סורק';
+    show('no', '⚠️', '<div class="big">הסורק לא נטען</div><div class="sb">בדקו אינטרנט ונסו שוב.</div>', 5000); return; }
+  try{
+    scanner = new Html5Qrcode('reader');
+    await scanner.start({facingMode:'environment'}, {fps:10, qrbox:{width:250, height:250}}, onScan);
+    $('go').hidden = true; $('hint').hidden = false;
+    try{ wake = await navigator.wakeLock.request('screen'); }catch(e){}
+  }catch(e){
+    $('go').disabled = false; $('go').textContent = '📷 הפעלת סורק';
+    const denied = /NotAllowed|Permission/i.test(String(e && (e.name || e.message) || e));
+    show('no', '📷', `<div class="big">${denied ? 'אין הרשאה למצלמה' : 'המצלמה לא נפתחה'}</div><div class="sb">${denied ? 'יש לאשר גישה למצלמה בהגדרות הדפדפן.' : 'נסו שוב.'}</div>`, 6000);
+  }
+}
+$('go').onclick = start;
+document.addEventListener('visibilitychange', async () => {
+  if(document.visibilityState === 'visible' && scanner){ try{ wake = await navigator.wakeLock.request('screen'); }catch(e){} }
+});
+
+function tokenOf(t){
+  t = String(t || '').trim();
+  if(t.startsWith('GMCARD:')) return t.slice(7);
+  try{ return new URL(t).searchParams.get('scan'); }catch(e){ return null; }
+}
+function onScan(text){
+  const now = Date.now();
+  if(busy || !$('res').hidden || (text === last && now - lastAt < 5000)) return;
+  last = text; lastAt = now; check(text);
+}
+
+/* ===== ההחלטה: יציאה / כניסה / אין אישור ===== */
+async function check(text){
+  busy = true;
+  const tok = tokenOf(text);
+  if(!tok){ buzz(false); show('no', '⛔', '<div class="big">זה לא כרטיס תלמיד</div>', 4000); return; }
+  show('wait', '⏳', '<div class="big">בודק…</div>');
+  try{
+    const st = ((await rpc('gate_card', {p_token: tok})) || [])[0];
+    if(!st){ buzz(false); show('no', '⛔', '<div class="big">כרטיס לא מזוהה</div><div class="sb">להפנות את התלמיד למזכירות.</div>', 6000); return; }
+    const sid = encodeURIComponent(st.student_id), d = today();
+    const [rel, att, late] = await Promise.all([
+      api(`student_releases?student_id=eq.${sid}&released_at=gte.${d}T00:00:00&order=released_at.desc`),
+      api(`daily_attendance?select=status&student_id=eq.${sid}`).catch(() => []),
+      api(`late_arrivals?select=arrived_at&student_id=eq.${sid}&arrival_date=eq.${d}&order=arrived_at.desc`).catch(() => [])
+    ]);
+    const pend = (rel || []).find(r => r.status === 'pending'), done = (rel || []).find(r => r.status === 'released');
+    const a = ((att || [])[0] || {}).status || '', lateAt = ((late || [])[0] || {}).arrived_at;
+    const who = `<div class="nm">${esc(st.name)}</div><div class="sb">כיתה ${esc(st.class || '')}</div>`;
+    if(pend){
+      await api(`student_releases?id=eq.${pend.id}`, {method:'PATCH', body: JSON.stringify({status:'released'})});
+      buzz(true);
+      show('ok', '🚪', `<div class="big">מאושר לצאת</div>${who}
+        <div class="sb">${esc(pend.release_reason || '')} · אושר ב-${hm(pend.released_at)}</div>
+        <button type="button" onclick="undo('${pend.id}')">↶ ביטול — לא יצא</button>`, 8000);
+    }else if(done && !(lateAt && Date.parse(lateAt) > Date.parse(done.updated_at || done.released_at))){
+      buzz(false);
+      show('used', '⚠️', `<div class="big">האישור כבר נוצל</div>${who}
+        <div class="sb">יצא היום ב-${hm(done.updated_at || done.released_at)}</div>
+        <button type="button" onclick="enter('${esc(tok)}')">↩ חזר לבית הספר</button>`, 10000);
+    }else if(a === 'present' || lateAt){
+      buzz(false);
+      show('no', '⛔', `<div class="big">אין אישור יציאה</div>${who}`, 6000);
+    }else{
+      await enter(tok, st);
+    }
+  }catch(e){
+    buzz(false); show('no', '📶', '<div class="big">אין חיבור</div><div class="sb">נסו שוב, או השתמשו במסך השומר המלא.</div>', 6000);
+  }
+}
+async function enter(tok, st){
+  const pin = getPin();
+  if(!pin){
+    clearTimeout(resT);
+    show('wait', '🔑', `<div class="big">קוד שומר</div><div class="sb">פעם אחת בטלפון הזה</div>
+      <input id="pin" type="password" inputmode="numeric" autocomplete="off">
+      <button type="button" onclick="savePin('${esc(tok)}')">שמירה והמשך</button>`);
+    setTimeout(() => { const i = $('pin'); if(i) i.focus(); }, 50);
+    return;
+  }
+  let r;
+  try{ r = await rpc('register_late', {p_pin: pin, p_device: DEV, p_token: tok}); }
+  catch(e){ buzz(false); show('no', '📶', '<div class="big">אין חיבור</div><div class="sb">הכניסה לא נרשמה — נסו שוב.</div>', 6000); return; }
+  if(r && r.error === 'bad_pin'){ setPin(''); buzz(false); show('no', '🔑', '<div class="big">קוד השומר הוחלף</div><div class="sb">סרקו שוב והקלידו את הקוד החדש.</div>', 6000); return; }
+  if(!r || !r.ok){ buzz(false); show('no', '⛔', '<div class="big">כרטיס לא תקף</div><div class="sb">להפנות למזכירות.</div>', 6000); return; }
+  buzz(true);
+  show('in', '🏫', `<div class="big">נכנס${r.duplicate ? '' : ' — באיחור'}</div>
+    <div class="nm">${esc(r.name || (st && st.name) || '')}</div><div class="sb">כיתה ${esc(r.class || (st && st.class) || '')} · ${hm(r.arrived_at)}</div>`, 6000);
+}
+async function savePin(tok){
+  const v = (($('pin') || {}).value || '').trim(); if(!v) return;
+  try{ if(!(await rpc('check_guard_pin', {p_pin: v}))){ show('no', '🔑', '<div class="big">קוד שגוי</div>', 4000); return; } }
+  catch(e){ show('no', '📶', '<div class="big">אין חיבור</div>', 4000); return; }
+  setPin(v); enter(tok);
+}
+async function undo(id){
+  try{ await api(`student_releases?id=eq.${id}`, {method:'PATCH', body: JSON.stringify({status:'pending'})});
+    show('wait', '↶', '<div class="big">בוטל</div><div class="sb">השחרור חזר לממתין.</div>', 3000);
+  }catch(e){ show('no', '📶', '<div class="big">הביטול נכשל</div>', 4000); }
+}
+
+/* אם כבר ניתנה הרשאה למצלמה — הסורק נפתח לבד */
+(async () => { try{ const p = await navigator.permissions.query({name:'camera'}); if(p.state === 'granted') start(); }catch(e){} })();
+</script>
+</body>
+</html>
