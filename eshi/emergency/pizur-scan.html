@@ -1,4 +1,7 @@
 <!DOCTYPE html>
+<!-- v1.6.0 | 12.11.2026 | אחריות מורים לקווים — מתוך תיק הפינוי (pn_data → pizur_lines, דורש HAKOL-pizur-lines.sql).
+  טופס האוטובוס: בוחרים את הקו מהרשימה (לפי אזורים, עם שמות המלווים), או מקלידים שם מורה ומופיעים "הקווים שלך".
+  במסך המנהלת: "🗺️ קווים לפי תיק הפינוי" — לכל קו המלווים שהוגדרו, ואם נפתח אוטובוס, מי פתח ומתי. קו שלא נפתח — באדום. -->
 <!-- v1.5.1 | 12.11.2026 | נפתח מאפליקציית הסורק (?app=1) — כפתור צף "⌂ סורק" לחזרה. -->
 <!-- גרסה: v1.5.0 | תאריך: 2026-11-10 | פיזור בחירום — סריקת QR לפי תפקידים · eshi/emergency/pizur-scan.html
   לפי "נוהל פינוי בית הספר בחירום" (pinui.html). אותו דאטאבייס (skfriefqnoxfzmamcokd), אותו כרטיס תלמיד
@@ -35,14 +38,14 @@
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="app-version" content="1.5.0">
+<meta name="app-version" content="1.6.0">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
 <script>
 /* עדכון אוטומטי: דפדפן שפתח עותק ישן מהזיכרון בודק מול האתר אם יש גרסה חדשה, ואם כן טוען אותה פעם אחת. */
 (function(){
-  var V = '1.5.0', u = location.pathname;
+  var V = '1.6.0', u = location.pathname;
   if(navigator.onLine === false || !window.fetch) return;
   fetch(u + '?vcheck=' + Date.now(), {cache: 'no-store'})
     .then(function(r){ return r.ok ? r.text() : ''; })
@@ -191,6 +194,18 @@
   .lvl h3{margin:0 0 6px;font-size:17px;display:flex;justify-content:space-between}
   .live{display:inline-block;width:9px;height:9px;border-radius:50%;background:#22c55e;margin-inline-end:6px;animation:pl 1.6s infinite}
   @keyframes pl{50%{opacity:.25}}
+  .mineL{margin-top:10px;background:#eaf6ee;border-radius:12px;padding:10px 12px;font-size:15px}
+  .mineL.none{background:#fff6e0;color:#7a5a00;font-size:14px}
+  .lineBtn{display:block;width:100%;margin-top:6px;padding:10px 12px;border-radius:10px;border:2px solid #b7dfc4;background:#fff;font:inherit;font-weight:800;text-align:right;cursor:pointer;color:var(--ink)}
+  .lineBtn small{display:block;font-weight:600;color:var(--muted);font-size:13px} .lineBtn.on{border-color:#1e8e3e;background:#dff3e5}
+  .form select{width:100%;font:inherit;font-size:17px;padding:12px;border-radius:12px;border:2px solid #d7dde8;margin-top:4px;background:#fff}
+  details.lines summary{display:flex;justify-content:space-between;align-items:center;font-size:18px;font-weight:800;cursor:pointer;list-style:none}
+  details.lines summary b{font-size:22px} details.lines summary b.miss{color:var(--bad)} details.lines summary b.okc{color:#1e8e3e}
+  .lar{margin:12px 0 2px;font-size:15px;color:var(--muted)}
+  .lrow{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;padding:8px 10px;border-radius:10px;background:#fdecec;margin-top:5px;font-size:15px}
+  .lrow.ok{background:#e6f3f6} .lrow.gone{background:#eef0f3}
+  .lrow .ln{font-weight:800} .lrow .ln small{display:block;font-weight:600;color:var(--muted);font-size:13px} .lrow em{color:var(--bad);font-style:normal}
+  .lrow .ls{font-size:13px;font-weight:700;white-space:nowrap;text-align:left}
   .brow{width:100%;display:grid;grid-template-columns:1fr auto 52px;gap:10px;align-items:center;padding:10px 12px;border-radius:12px;background:#e6f3f6;margin-top:6px;border:2px solid transparent;font-family:inherit;text-align:right;cursor:pointer;color:var(--ink)}
   .brow:disabled{cursor:default} .brow.sel{border-color:var(--bus)} .brow .bn small{font-size:14px;font-weight:600;color:var(--ink)}
   .brow.gate{background:#efe9fb} .brow.gate .bn{color:var(--self)} .brow.gate.sel{border-color:var(--self)}
@@ -218,7 +233,7 @@
 <body>
 <div class="top"><h1 id="title">🚌 פיזור בחירום</h1><div class="sub" id="sub"></div></div>
 <div class="wrap" id="app"></div>
-<footer>פיתוח: רני בן זאב · v1.5.0</footer>
+<footer>פיתוח: רני בן זאב · v1.6.0</footer>
 <div id="qrFull" class="qrfull"></div>
 
 <script>
@@ -299,7 +314,7 @@ async function refreshRoster(pin){
   if(!rows || !rows.length) throw new Error('empty');
   ROSTER = {at: new Date().toISOString(), rows: rows.map(r => ({id:r.student_id, t:r.token, n:r.name, c:r.class, a:!!r.absent, st:r.status || ''}))};
   ls.set('sh_roster', ROSTER); indexRoster();
-  loadStaff(pin);
+  loadStaff(pin); loadLines(pin);
   return ROSTER.rows.length;
 }
 /* v1.5.0 — רשימת המורים (שם + יישוב מגורים, מהמידעון) לטופס האוטובוס. נשמרת בטלפון, עובדת גם בלי אינטרנט. */
@@ -307,6 +322,17 @@ const staff = () => ls.get('pz_staff', []);
 async function loadStaff(pin){
   try{ const r = await rpc('pizur_staff_list', {p_pin: pin}, 10000); if(r && r.length) ls.set('pz_staff', r.map(x => ({n: x.name, t: x.town || ''}))); }catch(e){}
 }
+/* v1.6.0 — הקווים ומלוויהם מתיק הפינוי (pinui-update.html). נשמרים בטלפון. */
+let _L = null;
+const lines = () => _L || (_L = ls.get('pz_lines', []));   // אותו מערך בכל קריאה (indexOf)
+async function loadLines(pin){
+  try{ const r = await rpc('pizur_lines', {p_pin: pin}, 10000); if(Array.isArray(r)){ _L = r.filter(x => x && x.line); ls.set('pz_lines', _L); } }catch(e){}
+}
+const lineLabel = l => l.area ? `${l.area} · ${l.line}` : l.line;
+const nTok = x => String(x || '').replace(/[.'"׳״,()\-]/g, ' ').split(/\s+/).filter(Boolean);
+/* "לירון כצנלסון" / "דורית ס" / "אמיל" מול "כצנלסון לירון" ברשימת המורים — כל מילה בשם הקו פותחת מילה בשם המורה */
+const escMatch = (name, e) => { const a = nTok(name), b = nTok(e); return b.length > 0 && b.every(t => a.some(w => w.startsWith(t))); };
+const linesOf = name => name ? lines().filter(l => [l.esc1, l.esc2].some(e => e && escMatch(name, e))) : [];
 const realTown = t => t && !/^ד\.?נ[ .]/.test(t) && t !== '—' ? t : '';
 
 let online = navigator.onLine !== false;
@@ -444,8 +470,12 @@ function renderBusForm(){
       <h2>לפני הסריקה — פרטי האוטובוס</h2>
       <label>שם המורה<input id="bEsc" list="staffL" value="${esc(ls.get('pz_escort') || '')}" placeholder="התחילו להקליד את שמכם" autocomplete="off"></label>
       <datalist id="staffL">${staff().map(x => `<option value="${esc(x.n)}">${x.t ? esc(x.t) : ''}</option>`).join('')}</datalist>
+      <div id="myLines"></div>
+      ${lines().length ? `<label>הקו (מתיק הפינוי)<select id="bLine"><option value="">— בחירת קו —</option>${
+        [...new Set(lines().map(l => l.area || ''))].map(a => `<optgroup label="${esc(a || 'קווים')}">${lines().map((l, i) => (l.area || '') === a
+          ? `<option value="${i}">${esc(l.line)}${[l.esc1, l.esc2].filter(Boolean).length ? ' — ' + esc([l.esc1, l.esc2].filter(Boolean).join(', ')) : ''}</option>` : '').join('')}</optgroup>`).join('')}</select></label>` : ''}
       <label>מספר אוטובוס<input id="bNo" inputmode="numeric" placeholder="למשל 3" value=""></label>
-      <label>לאיזה ישוב<input id="bTown" list="towns" placeholder="שם הישוב"></label>
+      <label>לאיזה ישוב / קו<input id="bTown" list="towns" placeholder="שם הישוב"></label>
       <div class="muted" id="townHint" style="font-size:13px;margin-top:4px"></div>
       <datalist id="towns">${[...new Set([...TOWNS, ...staff().map(x => realTown(x.t)).filter(Boolean)])].map(t => `<option value="${esc(t)}">`).join('')}</datalist>
       <button class="btn huge" id="open" style="background:var(--bus)">📷 פתיחת סריקה</button>
@@ -463,8 +493,27 @@ function renderBusForm(){
     if(t && mine){ $('bTown').value = t; autoTown = t; $('townHint').textContent = 'מולא לפי יישוב המגורים של ' + m.n + ' — אפשר לשנות'; }
     else if(!t && mine && autoTown){ $('bTown').value = ''; autoTown = ''; $('townHint').textContent = ''; }
   };
-  $('bEsc').oninput = fillTown; $('bEsc').onchange = fillTown;
-  if($('bEsc').value) fillTown();
+  /* v1.6.0 — הקו לפי תיק הפינוי */
+  let lineSet = '';
+  const setLine = l => { const t = lineLabel(l); $('bTown').value = t; autoTown = t; lineSet = t;
+    if($('bLine')) $('bLine').value = String(lines().indexOf(l));
+    $('townHint').textContent = 'הקו לפי תיק הפינוי · מלווים: ' + [l.esc1, l.esc2].filter(Boolean).join(', '); drawMine(); };
+  const drawMine = () => {
+    const el = $('myLines'), name = $('bEsc').value.trim(), mine = linesOf(name);
+    if(!el) return;
+    if(!lines().length || !name){ el.innerHTML = ''; return; }
+    el.innerHTML = mine.length ? `<div class="mineL"><b>🗺️ לפי תיק הפינוי, ${mine.length > 1 ? 'הקווים שלך' : 'הקו שלך'}:</b>${mine.map(l =>
+      `<button type="button" class="lineBtn${$('bTown').value === lineLabel(l) ? ' on' : ''}" data-i="${lines().indexOf(l)}">${esc(lineLabel(l))}<small>${esc([l.esc1, l.esc2].filter(Boolean).join(' + '))}</small></button>`).join('')}</div>`
+      : `<div class="mineL none">לא נמצא קו על השם הזה בתיק הפינוי — בחרו קו מהרשימה למטה, או הקלידו ישוב.</div>`;
+    el.querySelectorAll('[data-i]').forEach(b => b.onclick = () => setLine(lines()[+b.dataset.i]));
+  };
+  const onEsc = () => { if(!lineSet) fillTown(); const m = linesOf($('bEsc').value.trim());
+    if(m.length === 1 && (!$('bTown').value.trim() || $('bTown').value.trim() === autoTown)) setLine(m[0]); else drawMine(); };
+  $('bEsc').oninput = onEsc; $('bEsc').onchange = onEsc;
+  if($('bLine')) $('bLine').onchange = () => { const l = lines()[+$('bLine').value]; if(!l) return;
+    setLine(l); if(!$('bEsc').value.trim() && l.esc1){ $('bEsc').value = l.esc1; drawMine(); } };
+  if($('bEsc').value) onEsc();
+  if(!lines().length && ls.get('sh_pin')) loadLines(ls.get('sh_pin')).then(() => { if($('bEsc') && lines().length && !$('bNo').value) renderBusForm(); });
   ($('bEsc').value ? $('bNo') : $('bEsc')).focus();
   if(!staff().length && ls.get('sh_pin')) loadStaff(ls.get('sh_pin')).then(() => { if($('staffL') && staff().length) renderBusForm(); });
   $('open').onclick = () => {
@@ -780,6 +829,7 @@ function manageRoute(){
   $('title').textContent = '📊 פיזור בחירום — מסך מנהלת';
   if(!mgPass() || !ROSTER) return renderManageSetup();
   renderManage(); loadServer(true);
+  loadLines(mgPass()).then(() => { if(!scanner) renderManage(); });
 }
 function renderManageSetup(){
   app.innerHTML = `
@@ -869,6 +919,7 @@ function renderManage(){
       <button class="brow gate${OPENK === 'gate' ? ' sel' : ''}" data-k="gate"${gateL.length ? '' : ' disabled'} style="margin-top:12px">
         <span class="bn">🚪 יצאו מהשער</span><span class="bs">עצמאית / עם הורים</span><b class="bc">${gateL.length}</b></button>
       ${OPENK === 'gate' ? names(gateL) : ''}</div>
+    ${lineBox(buses)}
     <div class="box"><h2>⏳ עוד לא יצאו — לפי כיתות</h2><p class="muted" style="margin:-4px 0 6px">✅ = נמצא בקריאת השמות בכיתה · ❓ = לא נמצא</p>${lvl}</div>
     <button class="btn sec" id="resetMg" style="margin-top:6px">🔄 איפוס — ספירה חדשה מעכשיו</button>
     <details class="more"><summary>עוד…</summary>
@@ -883,6 +934,7 @@ function renderManage(){
       </div>
     </details>`;
   app.querySelectorAll('.brow[data-k]').forEach(b => b.onclick = () => { OPENK = OPENK === b.dataset.k ? '' : b.dataset.k; renderManage(); });
+  const lb = app.querySelector('details.lines'); if(lb){ lb.open = LINES_OPEN; lb.ontoggle = () => { LINES_OPEN = lb.open; }; }
   app.querySelectorAll('.cbox[data-c]').forEach(b => b.onclick = () => { SEL = SEL === b.dataset.c ? '' : b.dataset.c; renderManage(); });
   const more = app.querySelector('details.more'); more.open = MORE; more.ontoggle = () => { MORE = more.open; };
   window._camStart = () => startScanner(onSummaryScan);
@@ -900,7 +952,24 @@ function renderManage(){
   };
   renderSub();
 }
-let SEL = '', MORE = false, OPENK = '';
+let SEL = '', MORE = false, OPENK = '', LINES_OPEN = false;
+/* v1.6.0 — כל קו בתיק הפינוי: מי אחראי, והאם נפתח אוטובוס (לפי הקו שנבחר בטופס האוטובוס) */
+function lineBox(buses){
+  const L = lines(); if(!L.length) return '';
+  const byTown = {}; buses.forEach(x => (byTown[x.town] ||= []).push(x));
+  const open = L.filter(l => byTown[lineLabel(l)]).length;
+  const areas = [...new Set(L.map(l => l.area || ''))];
+  return `<details class="box lines"><summary><span>🗺️ קווים לפי תיק הפינוי</span><b class="${open < L.length ? 'miss' : 'okc'}">${open}/${L.length}</b></summary>
+    <p class="muted" style="margin:4px 0 6px">✓ נפתח אוטובוס · ⏳ עוד לא נפתח · שם באדום = נפתח ע״י מורה אחר מהמתוכנן</p>
+    ${areas.map(a => `<h3 class="lar">${esc(a)}</h3>${L.filter(l => (l.area || '') === a).map(l => {
+      const bs = byTown[lineLabel(l)] || [], planned = [l.esc1, l.esc2].filter(Boolean);
+      const who = [...new Set(bs.flatMap(x => [...x.escorts]))];
+      const other = who.filter(w => !planned.some(e => escMatch(w, e)));
+      return `<div class="lrow${bs.length ? (bs.every(x => x.departed) ? ' gone' : ' ok') : ''}">
+        <span class="ln">${esc(l.line)}<small>${planned.length ? '👤 ' + esc(planned.join(' + ')) : '⚠️ אין מלווה בתיק'}${other.length ? ` · <em>פתח: ${esc(other.join(', '))}</em>` : ''}</small></span>
+        <span class="ls">${bs.length ? bs.map(x => `🚌 ${esc(x.no)} · ${x.departed ? 'יצא ' + hhmm(x.departed) : x.ids.size + ' עלו'}`).join('<br>') : '⏳ לא נפתח'}</span></div>`; }).join('')}`).join('')}
+  </details>`;
+}
 function onSummaryScan(text){
   const m = /^GMPZ1\|(bus|self|parent|class)\|([^|]*)\|([^|]*)\|(\d+)\|(\d+\/\d+)\|(.*)$/.exec(String(text).trim());
   if(!m){ beep(false); toast('<div class="big">זה לא QR של הפיזור</div><div>בטלפון בשטח: "🔳 QR נתוני…"</div>', 'bad'); return; }
