@@ -1,7 +1,11 @@
 <!DOCTYPE html>
 <!--
   חלוקת כרטיסי תלמיד — קישור כיתתי, בדיקת מחנך ותמונת שכבה
-  v1.1.0 | 08.11.2026 | פיתוח: רני בן זאב
+  v1.2.0 | 12.11.2026 | פיתוח: רני בן זאב
+  - v1.2.0: לשונית רביעית 🏫 מנהלת (?tab=mgr) — כל בית הספר במסך אחד: סך הכול (התקינו · הפעילו ·
+    תלמידים), ולכל שכבה שורת סיכום וכל הכיתות שלה — "התקינו X מתוך N" עם פס התקדמות. לחיצה על כיתה
+    פותחת את מצב כל תלמיד. מיון: לפי שכבות, או "הכי פחות מותקן קודם" כדי לראות במי לטפל.
+    בשורת ההסבר: מה ההבדל בין "הפעיל" ל"התקין".
   - v1.1.0: כל קהל עם כתובת משלו. קישור עם ?tab= מציג רק את החלק של אותו קהל — בלי שורת הלשוניות
     ועם כותרת משלו:  ?tab=dist (שליחה לתלמידים) · ?tab=tch (מחנך) · ?tab=grd (רכז שכבה).
     הדף בלי פרמטר הוא המסך המלא, עם הלשוניות ואזור "📤 קישורים לשליחה" — קישור נפרד לכל קהל
@@ -29,7 +33,7 @@
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="app-version" content="1.1.0">
+<meta name="app-version" content="1.2.0">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
@@ -55,7 +59,7 @@
 <title>חלוקת כרטיסי תלמיד v1.0.2</title>
 <style>
   :root{--bg:#f2f4f8;--card:#fff;--ink:#1c2333;--muted:#6b7385;--line:#e3e8f2;
-        --dist:#1f4fa3;--tch:#d98a00;--grd:#7d3cb5;--ok:#14975a;--half:#5b8def;--wait:#c9ced8;}
+        --dist:#1f4fa3;--tch:#d98a00;--grd:#7d3cb5;--mgr:#b4232c;--ok:#14975a;--half:#5b8def;--wait:#c9ced8;}
   *{box-sizing:border-box}
   body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Arial,sans-serif;background:var(--bg);color:var(--ink)}
   .wrap{max-width:640px;margin:0 auto;padding:16px}
@@ -111,7 +115,7 @@
 <div class="wrap">
   <header>
     <div class="sc">🎓 בית חינוך גליל מערבי</div>
-    <h1><span id="hTitle">חלוקת כרטיסי תלמיד</span> <span class="badge" id="ver">v1.1.0</span></h1>
+    <h1><span id="hTitle">חלוקת כרטיסי תלמיד</span> <span class="badge" id="ver">v1.2.0</span></h1>
     <p id="hSub">קישור לכל כיתה לשליחה בקבוצת הוואטסאפ, ומעקב מי הפעיל ומי התקין את הכרטיס.</p>
   </header>
 
@@ -119,6 +123,7 @@
     <button class="tab" data-p="dist" style="--c:var(--dist)"><span class="ic">🔗</span>חלוקה</button>
     <button class="tab" data-p="tch" style="--c:var(--tch)"><span class="ic">📋</span>מחנך</button>
     <button class="tab" data-p="grd" style="--c:var(--grd)"><span class="ic">📊</span>רכז שכבה</button>
+    <button class="tab" data-p="mgr" style="--c:var(--mgr)"><span class="ic">🏫</span>מנהלת</button>
   </nav>
 
   <!-- קישורים לשליחה — רק במסך המלא (בלי ?tab=) -->
@@ -162,8 +167,24 @@
     <div class="box" id="grdOut" style="display:none"></div>
   </section>
 
+  <!-- מנהלת — כל בית הספר -->
+  <section class="panel" id="p-mgr" style="--c:var(--mgr)">
+    <div class="box">
+      <h2>🏫 כל בית הספר</h2>
+      <p>כל הכיתות לפי שכבות: כמה התקינו את הכרטיס מתוך כמה. לחיצה על כיתה פותחת את מצב כל תלמיד.</p>
+      <div class="note" style="margin:8px 0 0">✓ <b>הפעיל</b> — התלמיד פתח את הקישור של הכיתה ובחר את שמו. הכרטיס שמור אצלו בדפדפן.<br>
+        📲 <b>התקין</b> — התלמיד גם הוסיף את הכרטיס למסך הבית ופתח אותו משם, כמו אפליקציה.
+        זה המצב שאנחנו רוצים: הכרטיס נפתח בלחיצה אחת, גם בלי אינטרנט.</div>
+      <div class="chips" id="mgrSort" style="margin-top:10px">
+        <button class="chip on" data-s="grade">לפי שכבות</button>
+        <button class="chip" data-s="low">הכי פחות מותקן קודם</button>
+      </div>
+    </div>
+    <div class="box" id="mgrOut"><p class="muted">טוען…</p></div>
+  </section>
+
   <div class="toast" id="toast"></div>
-  <footer>פיתוח: רני בן זאב · v1.1.0</footer>
+  <footer>פיתוח: רני בן זאב · v1.2.0</footer>
 </div>
 
 <script>
@@ -322,11 +343,62 @@ async function showGrade(g){
 $('grdChips').onclick = e => { const b = e.target.closest('.chip'); if(b) showGrade(b.dataset.g); };
 $('grdOut').onclick = e => { const c = e.target.closest('.cls'); if(c) c.classList.toggle('open'); };
 
+// ===== 🏫 מנהלת — כל בית הספר =====
+let MGR_ROWS = null, MGR_SORT = 'grade';
+const pct = (a, n) => n ? Math.round(a / n * 100) : 0;
+function mgrClassHTML(c, rows){
+  const k = counts(rows);
+  return `<div class="cls" data-c="${esc(c)}">
+    <div class="top"><span>כיתה ${esc(c)}</span><span>${HAS_STATUS ? `📲 ${k.inst}/${k.n}` : `✓ ${k.act}/${k.n}`} <small class="muted">(${pct(HAS_STATUS ? k.inst : k.act, k.n)}%)</small></span></div>
+    <div class="sub">התקינו ${HAS_STATUS ? k.inst : '—'} · הפעילו ${k.act} · ${k.wait === 0 ? 'כולם הפעילו ✓' : k.wait === 1 ? 'ממתין אחד' : k.wait + ' ממתינים'} · לחצו למצב התלמידים</div>
+    ${bar(k)}<div class="names">${namesHTML(rows)}</div></div>`;
+}
+function drawMgr(){
+  const out = $('mgrOut'), rows = MGR_ROWS || [];
+  const by = {}; rows.forEach(r => (by[r.class] = by[r.class] || []).push(r));
+  const all = counts(rows);
+  const head = `<div class="stats">
+      <div class="stat"><b style="color:var(--ok)">${HAS_STATUS ? all.inst : '—'}</b><span>התקינו</span></div>
+      <div class="stat"><b style="color:#1f4fa3">${all.act}</b><span>הפעילו</span></div>
+      <div class="stat"><b>${all.n}</b><span>תלמידים</span></div>
+    </div>${bar(all)}${LEGEND}`;
+  let body;
+  if(MGR_SORT === 'low'){
+    const key = c => { const k = counts(by[c]); return (HAS_STATUS ? k.inst : k.act) / (k.n || 1); };
+    body = Object.keys(by).sort((a, b) => key(a) - key(b) || sortClasses(a, b)).map(c => mgrClassHTML(c, by[c])).join('');
+  }else{
+    body = GRADES.map(g => {
+      const cs = Object.keys(by).filter(c => gradeOf(c) === g).sort(sortClasses);
+      if(!cs.length) return '';
+      const k = counts(cs.flatMap(c => by[c]));
+      return `<h3 style="margin:18px 0 6px;display:flex;justify-content:space-between;align-items:baseline">
+          <span>שכבה ${esc(g)}</span><span style="font-size:14px" class="muted">התקינו ${HAS_STATUS ? k.inst : '—'} מתוך ${k.n} · ${pct(HAS_STATUS ? k.inst : k.act, k.n)}%</span></h3>
+        ${cs.map(c => mgrClassHTML(c, by[c])).join('')}`;
+    }).join('');
+  }
+  out.innerHTML = head + body + `<button class="btn sec" id="mgrRef" style="margin-top:12px">🔄 רענון</button>`;
+  $('mgrRef').onclick = () => { MGR_ROWS = null; showMgr(); };
+}
+async function showMgr(){
+  if(MGR_ROWS){ drawMgr(); return; }
+  if(!CLASSES.length) return;
+  $('mgrOut').innerHTML = `<p class="muted">טוען ${CLASSES.length} כיתות…</p>`;
+  try{
+    const parts = await Promise.all(GRADES.map(g => statusFor({grade: g})));
+    MGR_ROWS = parts.flat();
+  }catch(e){ $('mgrOut').innerHTML = '<p class="muted">אין חיבור — נסו שוב.</p>'; return; }
+  drawMgr();
+}
+$('mgrOut').onclick = e => { const c = e.target.closest('.cls'); if(c) c.classList.toggle('open'); };
+$('mgrSort').onclick = e => { const b = e.target.closest('.chip'); if(!b) return;
+  MGR_SORT = b.dataset.s; document.querySelectorAll('#mgrSort .chip').forEach(x => x.classList.toggle('on', x === b)); drawMgr(); };
+
 // ===== לשוניות =====
 function showTab(p){
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('on', t.dataset.p === p));
   document.querySelectorAll('.panel').forEach(x => x.classList.toggle('on', x.id === 'p-' + p));
   try{ localStorage.setItem(TAB_KEY, p); }catch(e){}
+  if(p === 'mgr' && CLASSES.length) showMgr();
 }
 $('tabs').onclick = e => { const t = e.target.closest('.tab'); if(t) showTab(t.dataset.p); };
 
@@ -335,7 +407,8 @@ const TCH_KEY = 'gm_cards_tch_class';
 const AUD = {
   dist: {t:'שליחת כרטיס התלמיד לתלמידים', s:'לוחצים על כיתה ומקבלים קישור והודעה מוכנה לקבוצת הוואטסאפ של הכיתה.', ic:'🔗', who:'שליחה לתלמידים'},
   tch:  {t:'כרטיסי תלמיד · מחנך', s:'מי בכיתה שלכם הפעיל ומי התקין את הכרטיס, תזכורת מוכנה, ופתיחת סריקה.', ic:'📋', who:'מחנכים'},
-  grd:  {t:'כרטיסי תלמיד · רכז שכבה', s:'כל כיתה בשכבה: כמה הפעילו וכמה התקינו, ורשימת השמות.', ic:'📊', who:'רכזי שכבה'}
+  grd:  {t:'כרטיסי תלמיד · רכז שכבה', s:'כל כיתה בשכבה: כמה הפעילו וכמה התקינו, ורשימת השמות.', ic:'📊', who:'רכזי שכבה'},
+  mgr:  {t:'כרטיסי תלמיד · מנהלת', s:'כל בית הספר: בכל כיתה כמה התקינו את הכרטיס, ומצב כל תלמיד בלחיצה.', ic:'🏫', who:'מנהלת בית הספר'}
 };
 const WANT = q.get('tab');
 const SOLO = Object.keys(AUD).includes(WANT);
@@ -362,7 +435,7 @@ function drawShare(){
     showTab(want);
   }else{
     let saved = null; try{ saved = localStorage.getItem(TAB_KEY); }catch(e){}
-    showTab(['dist','tch','grd'].includes(saved) ? saved : 'dist');
+    showTab(['dist','tch','grd','mgr'].includes(saved) ? saved : 'dist');
     $('shareBox').style.display = 'block'; drawShare();
   }
   try{
@@ -386,6 +459,7 @@ function drawShare(){
     $('tchClass').value = lastTch; showTch(lastTch);
   }
   if(qg && GRADES.includes(qg)) showGrade(qg);
+  if(want === 'mgr' || (!SOLO && document.querySelector('.tab.on[data-p="mgr"]'))) showMgr();
 })();
 </script>
 </body>
