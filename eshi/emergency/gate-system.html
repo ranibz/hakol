@@ -1,4 +1,6 @@
 <!DOCTYPE html>
+<!-- גרסה: v14 | תאריך: 2026-11-12 | סורק אחד לשער: יציאה (🟢) וכניסה באיחור (🔵 register_late) באותה סריקה,
+     כמו מסך השומר v10. תלמיד נוכח בלי אישור → 🔴; יצא וחוזר → 🟠 עם "↩ חזר לבית הספר". -->
 <!-- גרסה: v13 | תאריך: 2026-11-12 | 📷 סריקת כרטיס תלמיד במסך השער: השומר סורק את ה-QR של כרטיס התלמיד
      (בטלפון או המודפס). ירוק מלא — יש היום בקשת שחרור ממתינה: מוצגים השם, הכיתה והסיבה, והשחרור
      מסומן מיד "שוחרר" (עם "↶ ביטול" אם התלמיד לא יצא). כתום — האישור של היום כבר נוצל (מוצגת השעה).
@@ -499,7 +501,7 @@
 .gs-res{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;
   padding:18px;color:#fff;transition:background .2s}
 .gs-res.idle{background:#0b1220;color:#94a3b8}
-.gs-res.ok{background:#16a34a} .gs-res.used{background:#d97706} .gs-res.no{background:#dc2626} .gs-res.wait{background:#334155}
+.gs-res.ok{background:#16a34a} .gs-res.in{background:#2563eb} .gs-res.used{background:#d97706} .gs-res.no{background:#dc2626} .gs-res.wait{background:#334155}
 .gs-big{font-size:2.1rem;font-weight:900;line-height:1.2}
 .gs-name{font-size:1.7rem;font-weight:800;margin-top:10px}
 .gs-sub{font-size:1.05rem;opacity:.95;margin-top:6px;line-height:1.5}
@@ -1184,6 +1186,12 @@ async function gsClose() {
     if (typeof loadGateScreen === 'function') loadGateScreen(); else if (typeof loadData === 'function') loadData();
 }
 async function gsCheck(text) {
+    /* v14 / v10 — סורק אחד לשער: יציאה וכניסה באיחור.
+       1. יש היום בקשת שחרור ממתינה  → 🟢 יציאה (status='released', כמו "אשר יציאה").
+       2. כבר יצא היום                → 🟠 "האישור כבר נוצל" + כפתור "↩ חזר לבית הספר".
+       3. לא סומן נוכח היום (חסר / אין רישום) → 🔵 כניסה: register_late — כמו קליטת המאחרים
+          (late_arrivals + daily_attendance=present), והמחנך רואה "נכנס בשער" עם השעה.
+       4. נוכח בבית הספר, בלי אישור   → 🔴 "אין אישור יציאה". */
     const tok = gsToken(text);
     if (!tok) { gsBuzz(false); gsShow('no', '<div class="gs-big">⛔ זה לא כרטיס תלמיד</div>', 4000); return; }
     gsBusy = true;
@@ -1192,33 +1200,76 @@ async function gsCheck(text) {
         const rows = await gsRpc('gate_card', { p_token: tok });
         const st = (rows || [])[0];
         if (!st) { gsBuzz(false); gsShow('no', '<div class="gs-big">⛔ כרטיס לא מזוהה</div><div class="gs-sub">ייתכן שהכרטיס הוחלף. לבדוק עם המזכירות.</div>', 6000); return; }
-        const today = new Date().toISOString().split('T')[0];
-        const rel = await api(`student_releases?student_id=eq.${encodeURIComponent(st.student_id)}&released_at=gte.${today}T00:00:00&order=released_at.desc`);
+        const today = gsToday();
+        const sid = encodeURIComponent(st.student_id);
+        const [rel, att, late] = await Promise.all([
+            api(`student_releases?student_id=eq.${sid}&released_at=gte.${today}T00:00:00&order=released_at.desc`),
+            api(`daily_attendance?select=status&student_id=eq.${sid}`).catch(() => []),
+            api(`late_arrivals?select=arrived_at&student_id=eq.${sid}&arrival_date=eq.${today}&order=arrived_at.desc`).catch(() => [])
+        ]);
         const pend = (rel || []).find(r => r.status === 'pending'), done = (rel || []).find(r => r.status === 'released');
+        const a = ((att || [])[0] || {}).status || '', lateAt = ((late || [])[0] || {}).arrived_at;
         const who = `<div class="gs-name">${gsEsc(st.name)}</div><div class="gs-sub">כיתה ${gsEsc(st.class || '')}</div>`;
         if (pend) {
             await api(`student_releases?id=eq.${pend.id}`, { method: 'PATCH',
                 body: JSON.stringify({ status: 'released', ...(typeof currentDeviceName !== 'undefined' ? { released_by_device: currentDeviceName } : {}) }) });
             if (typeof logActivity === 'function') logActivity('release_complete', `שוחרר (סריקת כרטיס): ${st.name}`).catch(() => {});
             gsBuzz(true);
-            gsShow('ok', `<div class="gs-big">✅ מאושר לצאת</div>${who}
+            gsShow('ok', `<div class="gs-big">🚪 מאושר לצאת</div>${who}
                 <div class="gs-sub">סיבה: ${gsEsc(pend.release_reason || '—')} · אושר ב-${gsHM(pend.released_at)}${pend.released_by ? ' · ' + gsEsc(pend.released_by) : ''}</div>
                 <div class="gs-sub">סומן "שוחרר" ✓</div>
                 <button onclick="gsUndo('${pend.id}', this)">↶ ביטול — התלמיד לא יצא</button>`, 9000);
-        } else if (done) {
+        } else if (done && !(lateAt && Date.parse(lateAt) > Date.parse(done.updated_at || done.released_at))) {
             gsBuzz(false);
             gsShow('used', `<div class="gs-big">⚠️ האישור כבר נוצל</div>${who}
                 <div class="gs-sub">יצא היום ב-${gsHM(done.updated_at || done.released_at)} · סיבה: ${gsEsc(done.release_reason || '—')}</div>
-                <div class="gs-sub">יציאה נוספת — רק באישור חדש מהמחנך או מהמזכירות.</div>`, 8000);
-        } else {
+                <div class="gs-sub">יוצא שוב? רק באישור חדש מהמחנך או מהמזכירות.</div>
+                <button onclick="gsEnter('${gsEsc(tok)}', this)">↩ חזר לבית הספר — רישום כניסה</button>`, 12000);
+        } else if (a === 'present' || lateAt) {
             gsBuzz(false);
             gsShow('no', `<div class="gs-big">⛔ אין אישור יציאה</div>${who}
-                <div class="gs-sub">אין היום בקשת שחרור לתלמיד הזה.</div>`, 7000);
+                <div class="gs-sub">התלמיד בבית הספר${lateAt ? ' (נכנס היום ב-' + gsHM(lateAt) + ')' : ''}, ואין לו היום בקשת שחרור.</div>`, 7000);
+        } else {
+            await gsEnter(tok, null, st);
         }
     } catch (e) {
         gsBuzz(false);
         gsShow('no', '<div class="gs-big">שגיאת חיבור</div><div class="gs-sub">' + gsEsc(String(e.message || e).slice(0, 120)) + '</div>', 6000);
     } finally { gsBusy = false; }
+}
+const gsToday = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem' }).format(new Date());
+/* כניסה באיחור — אותה פונקציה של קליטת המאחרים (register_late), עם קוד השומר */
+const GS_PIN = 'gm_guard_pin';
+async function gsEnter(tok, btn, st) {
+    let pin = ''; try { pin = localStorage.getItem(GS_PIN) || ''; } catch (e) {}
+    try { pin = JSON.parse(pin); } catch (e) {}
+    if (!pin) {
+        gsShow('wait', `<div class="gs-big">🔑 קוד שומר</div><div class="gs-sub">פעם אחת במחשב הזה — לרישום מאחרים.</div>
+            <input id="gsPin" type="password" inputmode="numeric" style="font:inherit;font-size:1.3rem;padding:8px;border-radius:10px;border:0;margin-top:8px;width:180px;text-align:center">
+            <button onclick="gsSavePin('${gsEsc(tok)}')">שמירה והמשך</button>`);
+        clearTimeout(gsTimer);
+        setTimeout(() => { const i = document.getElementById('gsPin'); if (i) i.focus(); }, 50);
+        return;
+    }
+    if (btn) btn.disabled = true;
+    let r;
+    try { r = await gsRpc('register_late', { p_pin: pin, p_device: (typeof currentDeviceName !== 'undefined' ? currentDeviceName : 'gate-guard'), p_token: tok }); }
+    catch (e) { gsBuzz(false); gsShow('no', '<div class="gs-big">אין חיבור</div><div class="gs-sub">הכניסה לא נרשמה — נסו שוב</div>', 6000); return; }
+    if (r && r.error === 'bad_pin') { try { localStorage.removeItem(GS_PIN); } catch (e) {} gsBuzz(false);
+        gsShow('no', '<div class="gs-big">קוד השומר שגוי או הוחלף</div><div class="gs-sub">סרקו שוב והקלידו את הקוד.</div>', 6000); return; }
+    if (!r || !r.ok) { gsBuzz(false); gsShow('no', '<div class="gs-big">⛔ כרטיס לא תקף</div><div class="gs-sub">הפנו את התלמיד למזכירות</div>', 6000); return; }
+    gsBuzz(true);
+    gsShow('in', `<div class="gs-big">🏫 נכנס — נרשם${r.duplicate ? '' : ' באיחור'}</div>
+        <div class="gs-name">${gsEsc(r.name || (st && st.name) || '')}</div><div class="gs-sub">כיתה ${gsEsc(r.class || (st && st.class) || '')}</div>
+        <div class="gs-sub">${r.duplicate ? 'כבר נרשם היום ב-' : 'שעת כניסה '}${gsHM(r.arrived_at)} · המחנך רואה "נכנס בשער"</div>`, 7000);
+}
+async function gsSavePin(tok) {
+    const v = (document.getElementById('gsPin') || {}).value || '';
+    if (!v.trim()) return;
+    try { if (!(await gsRpc('check_guard_pin', { p_pin: v.trim() }))) { gsShow('no', '<div class="gs-big">קוד שגוי</div>', 4000); return; } }
+    catch (e) { gsShow('no', '<div class="gs-big">אין חיבור</div>', 4000); return; }
+    try { localStorage.setItem(GS_PIN, JSON.stringify(v.trim())); } catch (e) {}
+    gsEnter(tok);
 }
 async function gsUndo(id, btn) {
     try {
