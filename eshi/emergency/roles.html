@@ -9,13 +9,16 @@
        👥 כל המורים — כמה תפקידים יש לכל מורה (לאיזון עומסים), ושמות בתיקים שלא נמצאו ברשימת המורים.
      · מקורות (נקראים מהשרת, לא נשמרים בקובץ): נוהל הפינוי (pn_data), תיק הביטחון (bt_data), תיק הצל"ח (tz_entries),
        רשימת המורים (pizur_staff). רק שמות ותפקידים — בלי טלפונים, כתובות ומקום מגורים. דורש HAKOL-roles.sql (em_roles).
+     v1.1.0 · 17/11/2026 · תרחיש חמישי: 🏫 מתקן קולט — טבלת איוש הצוות מתיק המתקן הקולט (kolet.html, פרק 8) והאחראי למתקן
+       ברגיעה, עם הגדרת התפקיד מהתיק (פרק 7). תקן מינימום (עד 150 מפונים) שלא שובץ מסומן ⚠️; שאר המקומות — רשות.
+       נקרא מ-kl_roles (HAKOL-kolet-roles.sql) עם אותו קוד; בלי הפונקציה — הדף עובד כרגיל בלי המתקן הקולט.
      · התאמת שמות: בתיקים כתוב לפעמים רק שם פרטי ("אמיל") או שם ואות ("דורית ס"). התאמה כזו מסומנת "לוודא".
      · כניסה פעם אחת בקוד מקלטים / קוד נוהל הפינוי. הנתונים נשמרים בטלפון ועובדים גם בלי אינטרנט.
      פיתוח: רני בן זאב -->
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
-<meta name="app-version" content="1.0.0">
+<meta name="app-version" content="1.1.0">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex">
 <meta name="theme-color" content="#1b2d45">
@@ -23,7 +26,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
 <style>
 :root{--bg:#eef1f4;--ink:#14202e;--muted:#5d6b7c;--line:#d5dce5;--card:#fff;--warn:#b45309;--bad:#b91c1c;--ok:#15803d;
-  --missile:#c2410c;--pizur:#1d4ed8;--tz:#1d4f9a;--sec:#8a1c1c;--all:#475569}
+  --missile:#c2410c;--pizur:#1d4ed8;--tz:#1d4f9a;--sec:#8a1c1c;--kl:#0f766e;--all:#475569}
 *{box-sizing:border-box}
 html,body{margin:0;background:var(--bg);color:var(--ink);font-family:Heebo,system-ui,sans-serif}
 header{background:linear-gradient(160deg,#1b2d45,#0f1b2b);color:#fff;padding:18px 16px 0}
@@ -87,7 +90,8 @@ footer{text-align:center;color:var(--muted);font-size:12px;margin:10px 0 24px}
   <nav class="tabs" id="tabs"></nav>
 </div></header>
 <main id="app"></main>
-<footer><span id="upd"></span> · <a href="tikim.html">תיקי חירום וביטחון</a> · פיתוח: רני בן זאב · v1.0.0</footer>
+<footer><span id="upd"></span> · <a href="tikim.html">תיקי חירום וביטחון</a> · פיתוח: רני בן זאב · v1.1.0</footer>
+<script src="kolet-schema.js"></script>
 <script>
 /* תיאורי התפקידים בצל"ח — מתוך tzalach.html (תיק הצל"ח של שפ"י) */
 const PAIR = ['ראשי/ת','ממלא/ת מקום בעת הצורך'];
@@ -147,10 +151,11 @@ const SC = {
   missile: {ic:'🚀', t:'ירי טילים · מרחבים מוגנים', c:'--missile'},
   pizur:   {ic:'🚌', t:'פינוי ופיזור תלמידים',       c:'--pizur'},
   tz:      {ic:'🧭', t:'צל"ח — צוות לשעת חירום',     c:'--tz'},
-  sec:     {ic:'🛡️', t:'ביטחון — בעלי תפקידים חיוניים', c:'--sec'}
+  sec:     {ic:'🛡️', t:'ביטחון — בעלי תפקידים חיוניים', c:'--sec'},
+  kl:      {ic:'🏫', t:'מתקן קולט — קליטת מפונים',    c:'--kl'}
 };
 const SRC = {
-  pn: ['נוהל הפינוי', 'pinui.html'], bt: ['תיק הביטחון', 'bitachon.html'], tz: ['תיק הצל"ח', 'tzalach.html']
+  pn: ['נוהל הפינוי', 'pinui.html'], bt: ['תיק הביטחון', 'bitachon.html'], tz: ['תיק הצל"ח', 'tzalach.html'], kl: ['תיק המתקן הקולט', 'kolet.html']
 };
 
 /* ===== התאמת שמות =====
@@ -218,6 +223,29 @@ function build(){
       who:p?.name || '', partner:(TZ[r.k] || []).filter(x => x.i !== i).map(x => x.name).join(', '), duties:r.d, dutyT:'תיאור התפקיד', sub:r.sub,
       opt:i > 0 || ['other', 'secretary2', 'media'].includes(r.k)});
   }));
+  /* תיק המתקן הקולט — טבלת האיוש (פרק 8) והגדרות התפקידים (פרק 7) */
+  const kl = DATA.kl;
+  if(kl && window.KL_SCHEMA){
+    const ch = n => KL_SCHEMA.find(c => c.n === n) || {parts:[]};
+    const defs = (ch('7').parts.find(p => p.type === 'roles') || {items:[]}).items;
+    const staffDef = (ch('8').parts.find(p => p.k === 'staff') || {}).def || [];
+    const rows = Array.isArray(kl.staff) && kl.staff.length ? kl.staff : staffDef;
+    /* תפקיד בטבלה → הגדרת התפקיד, ותקן מינימום (מתקן עד 150 מפונים) */
+    const MAP = [[/^אחראי\/?ת?$/, 'מנהל מתקן הקליטה', 1], [/סגן/, 'סגן מנהל מתקן הקליטה', 1], [/פקיד/, 'פקיד/ת רישום וקבלה', 2],
+      [/מידע/, 'אחראי מידע לציבור', 1], [/גננת|מטפל/, 'מטפל באוכלוסייה', 1], [/סדרן|קולט/, 'קולט סדרן', 2],
+      [/ציוד/, 'אחראי ציוד ותחזוקה', 1], [/מזון/, 'מגיש מזון', 2]];
+    const seen = {};
+    rows.forEach(r => {
+      const role = (r.role || '').trim() || 'צוות המתקן';
+      const m = MAP.find(([re]) => re.test(role)), def = m && defs.find(d => d.h === m[1]);
+      const n = (seen[role] = (seen[role] || 0) + 1);
+      add({sc:'kl', src:'kl', ch:'#ch-8', title:`${role} — מתקן הקליטה`, group:'צוות מתקן הקליטה (טבלת האיוש)', key:role,
+        slot:n > 1 || rows.filter(x => (x.role || '').trim() === role).length > 1 ? `${role} ${n}` : '', who:r.name || '',
+        duties:def ? def.li : [], dutyT:def ? 'תפקיד ' + def.h : '', opt:!m || n > m[2]});
+    });
+    add({sc:'kl', src:'kl', ch:'#ch-1', title:'אחראי למתקן ברגיעה', group:'המתקן', key:'resp', who:kl.resp || '',
+      duties:['אחראי להכנת מתקן הקליטה ברגיעה ברמת הצוות וברמת המתקן.'], dutyT:'בשגרה'});
+  }
   /* כל מורה — דרכי פעולה בירי טילים */
   GENERIC = actsFor(bt, c => /מורה|מחנכ/.test(c));
 }
@@ -258,6 +286,8 @@ function drawLogin(err = ''){
 }
 async function load(code){
   const r = await rpc('em_roles', {p_code: code});
+  /* v1.1.0 — המתקן הקולט, עם אותו קוד. אם הפונקציה עוד לא בשרת — ממשיכים בלי. */
+  try{ r.kl = await rpc('kl_roles', {p_code: code}); }catch(e){ r.kl = DATA?.kl || null; }
   DATA = r; ls.set('em_roles_data', r); ls.set('em_code', code); build(); draw();
 }
 async function refresh(){ const c = ls.get('em_code'); if(!c) return; try{ await load(c); }catch(e){} }
@@ -287,7 +317,7 @@ function drawRes(){
   const el = $('res'), name = NAME.trim();
   if(!name){ el.innerHTML = '<div class="empty">✍️ הקלידו את השם — ויופיעו כל התפקידים שלכם בכל תיקי החירום.</div>'; return; }
   const M = mine(name);
-  const mineCols = M.map(x => x.title.split(' — ')[0]);
+  const mineCols = M.filter(x => x.sc !== 'kl').map(x => x.title.split(' — ')[0]);
   const myActs = actsFor(DATA.bt, c => !/מורה|מחנכ/.test(c) && mineCols.some(t => t && (c.includes(t) || t.includes(c))));
   const by = {}; M.forEach(x => (by[x.sc] ||= []).push(x));
   const weak = M.some(x => x.lvl === 1);
@@ -338,7 +368,7 @@ function drawRL(){
   if(q) L = L.filter(x => (x.title + ' ' + x.group).includes(q) || (x.who && matchLevel(q, x.who)) || x.who.includes(q));
   /* קיבוץ: תרחיש → קבוצה → תפקיד (שורה אחת לכל תפקיד, עם כל השמות) */
   const out = {};
-  L.forEach(x => { const g = ((out[x.sc] ||= {})[x.group] ||= {}); const k = x.src + '|' + x.key + '|' + (x.src === 'pn' && x.slot ? '' : x.slot || '') + '|' + x.title.split(' — ')[0];
+  L.forEach(x => { const g = ((out[x.sc] ||= {})[x.group] ||= {}); const k = x.src + '|' + x.key + '|' + ((x.src === 'pn' || x.src === 'kl') && x.slot ? '' : x.slot || '') + '|' + x.title.split(' — ')[0];
     (g[k] ||= {t: x.src === 'pn' && x.slot ? x.title : x.title, src:x.src, ch:x.ch, rows:[]}).rows.push(x); });
   let h = '';
   Object.keys(SC).forEach(k => { if(!out[k]) return;

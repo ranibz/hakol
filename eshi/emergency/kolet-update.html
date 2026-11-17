@@ -9,13 +9,15 @@
          "- " בתחילת שורה = תת-סעיף, {fac.name} וכו' = מתמלא מהשדות. "↺ נוסח מקורי" מחזיר את הנוסח של התיק.
        · פרקים קבועים (תקן כ"א, הגדרת תפקידים, הטפסים) — מוצגים כמו שהם בתיק.
        · שמירה לשרת (kl_put) רק עם קוד עריכה שנבדק בשרת. אזהרה ביציאה עם שינויים שלא נשמרו. החלפת קודים.
+     v1.1.0 · 17/11/2026 · בטבלת האיוש (פרק 8) ובאחראי למתקן — השלמת שמות מרשימת המורים (pn_staff, כשקוד העריכה
+       של התיק זהה לקוד העריכה של נוהל הפינוי), כדי שהשמות יתאימו לדף "התפקידים שלי בחירום" (roles.html).
      · Supabase: skfriefqnoxfzmamcokd — דורש HAKOL-kolet.sql.
      פיתוח: רני בן זאב -->
 <html lang="he" dir="rtl">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="app-version" content="1.0.0">
+<meta name="app-version" content="1.1.0">
 <meta name="robots" content="noindex">
 <title>עדכון תיק מתקן קולט</title>
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
@@ -75,7 +77,7 @@ footer{text-align:center;color:var(--muted);font-size:12px;margin:20px 0}
 </div></div>
 <div class="wrap" id="app"></div>
 <div class="toast" id="toast"></div>
-<footer>פיתוח: רני בן זאב · v1.0.0</footer>
+<footer>פיתוח: רני בן זאב · v1.1.0</footer>
 
 <script>
 const $ = id => document.getElementById(id);
@@ -107,7 +109,7 @@ async function load(code){
     CODE = code; DATA = r.data || {};
     ss.set(CODE_KEY, code);
     $('st').textContent = r.updated_at ? 'נשמר לאחרונה: ' + new Date(r.updated_at).toLocaleString('he-IL') : '';
-    render(); dirty(false);
+    render(); dirty(false); loadStaff();
   }catch(e){ ss.del(CODE_KEY); gate(/קוד/.test(e.message) ? 'קוד שגוי' : 'אין חיבור לשרת'); }
 }
 
@@ -120,7 +122,7 @@ function inp(path, value, {ltr, multi, ph} = {}){
 }
 function eFields(p){
   const o = DATA[p.k] ||= {};
-  return `<div class="fgrid">${p.fields.map(([k, l, ltr, multi]) => `<label class="f"${multi ? ' style="grid-column:1/-1"' : ''}><span>${esc(l)}</span>${inp(`${p.k}.${k}`, o[k], {ltr, multi})}</label>`).join('')}</div>`;
+  return `<div class="fgrid">${p.fields.map(([k, l, ltr, multi]) => `<label class="f"${multi ? ' style="grid-column:1/-1"' : ''}><span>${esc(l)}</span>${inp(`${p.k}.${k}`, o[k], {ltr, multi}).replace(p.k === 'resp' && k === 'name' ? '<input ' : '\u0000', '<input list="klStaff" autocomplete="off" ')}</label>`).join('')}</div>`;
 }
 function rowOps(k, i, n){
   return `<td class="ops"><button class="mini" data-mv="${k}|${i}|-1" ${i === 0 ? 'disabled' : ''}>▲</button><button class="mini" data-mv="${k}|${i}|1" ${i === n - 1 ? 'disabled' : ''}>▼</button><button class="mini del" data-rm="${k}|${i}">✕</button></td>`;
@@ -131,7 +133,7 @@ function eTable(p){
   const rows = DATA[p.k];
   return `<div class="tw"><table class="ed"${p.wide ? ' style="min-width:1100px"' : ''}><thead><tr>${p.num ? '<th>מס"ד</th>' : ''}${p.cols.map(c => `<th>${esc(c.l)}</th>`).join('')}<th></th></tr></thead><tbody>
     ${rows.map((r, i) => `<tr>${p.num ? `<td class="n">${i + 1}</td>` : ''}${p.cols.map(c =>
-      `<td><input class="${c.ltr ? 'ltr' : ''}" data-p="${p.k}.${i}.${c.k}" value="${esc(val(r[c.k]))}"></td>`).join('')}${rowOps(p.k, i, rows.length)}</tr>`).join('')}
+      `<td><input class="${c.ltr ? 'ltr' : ''}" data-p="${p.k}.${i}.${c.k}" value="${esc(val(r[c.k]))}"${p.k === 'staff' && c.k === 'name' ? ' list="klStaff" autocomplete="off"' : ''}></td>`).join('')}${rowOps(p.k, i, rows.length)}</tr>`).join('')}
     </tbody></table></div><button class="add" data-add="${p.k}">＋ הוספת שורה</button>`;
 }
 const isDef = p => DATA[p.k] === undefined;
@@ -172,11 +174,23 @@ function render(){
        <p class="hint">קוד צפייה — פותח את התיק לקריאה ולהדפסה. קוד עריכה — פותח גם את הטופס הזה. השארת שדה ריק = הקוד לא משתנה.</p>
        <label class="f"><span>קוד צפייה חדש</span><input class="i" id="cView" autocomplete="off"></label>
        <label class="f"><span>קוד עריכה חדש</span><input class="i" id="cEdit" autocomplete="off"></label>
-       <button class="add" id="cSave">שמירת קודים</button></div></details>`;
+       <button class="add" id="cSave">שמירת קודים</button></div></details>
+    <datalist id="klStaff">${STAFF.map(n => `<option value="${esc(n)}">`).join('')}</datalist>`;
   dirty(DIRTY);
   $('save').onclick = save;
   $('out').onclick = () => { if(DIRTY && !confirm('יש שינויים שלא נשמרו. לצאת בכל זאת?')) return; DIRTY = false; ss.del(CODE_KEY); location.reload(); };
   $('cSave').onclick = setCodes;
+}
+
+/* ---------- v1.1.0 — רשימת המורים להשלמת שמות ----------
+   שם מלא כמו ברשימת המורים = המורה ימצא את התפקיד שלו בדף "התפקידים שלי בחירום". */
+let STAFF = [];
+async function loadStaff(){
+  try{
+    const r = await klRpc('pn_staff', {p_code: CODE});
+    STAFF = [...new Set((r || []).map(x => (x.name || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'he'));
+    const dl = $('klStaff'); if(dl) dl.innerHTML = STAFF.map(n => `<option value="${esc(n)}">`).join('');
+  }catch(e){}
 }
 
 /* ---------- עדכון הנתונים מהשדות ---------- */
