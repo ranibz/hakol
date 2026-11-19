@@ -1,5 +1,7 @@
 <!DOCTYPE html>
-<!-- גרסה: v73.1 | תאריך: 2026-11-19 | תיקון: סיכום הנוכחות קפץ אחרי כמה שניות לרשימת הכיתות של המחנך —
+<!-- גרסה: v73.2 | תאריך: 2026-11-19 | תזכורת למחנכים: התאמת כיתה בלי תלות ברווח ("ז 1" = "ז1"), והפנייה בהודעה
+     בשם המלא כפי שנרשם (ברשימות בית הספר שם המשפחה ראשון) (PATCH).
+     v73.1 | תאריך: 2026-11-19 | תיקון: סיכום הנוכחות קפץ אחרי כמה שניות לרשימת הכיתות של המחנך —
      הרענון האוטומטי צייר את מסך המחנך גם כשפתוח הסיכום. עכשיו רק כשהתפקיד הוא מחנך (PATCH).
      v73 | תאריך: 2026-11-19 | ⏰ תזכורת למחנכים שלא מילאו נוכחות (MINOR):
      · בסיכום הנוכחות היומית (?page=summary) — כרטיס "לא מילאו נוכחות": אחרי שעת היעד (ברירת מחדל 08:30,
@@ -1454,6 +1456,8 @@ const REM = { teachers: null, loadedAt: 0, deadline: null, force: false, editing
 const remTodayKey = () => 'att_remind_sent_' + new Date().toLocaleDateString('en-CA');
 function remSent(){ try { return JSON.parse(localStorage.getItem(remTodayKey()) || '{}'); } catch(e) { return {}; } }
 function remMarkSent(cls){ const m = remSent(); m[cls] = new Date().toTimeString().slice(0,5); try { localStorage.setItem(remTodayKey(), JSON.stringify(m)); } catch(e) {} }
+const remKey = c => normClass(c).replace(/\s+/g, '');   /* v73.2 — "ז 1" ו-"ז1" הם אותה כיתה */
+const remT = cls => (REM.teachers || {})[remKey(cls)];
 const remEsc = t => String(t == null ? '' : t).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function remPhone(p){
     let d = String(p || '').replace(/\D/g, '');
@@ -1466,7 +1470,7 @@ async function remLoad(force){
     if (!force && REM.teachers && Date.now() - REM.loadedAt < 60000) return;
     try {
         const rows = await api('class_teachers?select=class_name,teacher_name,phone');
-        REM.teachers = {}; (rows || []).forEach(r => REM.teachers[normClass ? normClass(r.class_name) : r.class_name] = r);
+        REM.teachers = {}; (rows || []).forEach(r => REM.teachers[remKey(r.class_name)] = r);
         REM.missing = false;
     } catch (e) { REM.teachers = {}; REM.missing = true; }
     if (REM.deadline === null) {
@@ -1494,13 +1498,13 @@ function remClasses(){
 function remMsg(c, t){
     const base = location.origin + location.pathname;
     const link = base + '?page=attendance&role=teacher&class=' + encodeURIComponent(c.cls);
-    const hi = t && t.teacher_name ? 'בוקר טוב ' + t.teacher_name.split(' ')[0] + ' 👋' : 'בוקר טוב 👋';
+    const hi = t && t.teacher_name ? 'בוקר טוב ' + t.teacher_name + ' 👋' : 'בוקר טוב 👋';
     const what = c.state === 'none' ? 'נוכחות כיתה ' + c.cls + ' עדיין לא מולאה היום.'
                                    : 'בנוכחות כיתה ' + c.cls + ' סומנו עד עכשיו ' + c.marked + ' מתוך ' + c.total + ' תלמידים.';
     return hi + '\n' + what + '\nלמילוי, הכיתה נפתחת ישר מהקישור:\n' + link + '\nתודה!';
 }
 function remWa(c){
-    const t = REM.teachers[c.cls], ph = remPhone(t && t.phone);
+    const t = remT(c.cls), ph = remPhone(t && t.phone);
     if (!ph) return null;
     return 'https://wa.me/' + ph + '?text=' + encodeURIComponent(remMsg(c, t));
 }
@@ -1539,7 +1543,7 @@ async function renderRemindCard(){
           ${bar}
           ${next ? `<button class="rbtn main" onclick="remSend('${remEsc(next.cls)}')">📤 שליחה ברצף · הבאה: ${remEsc(next.cls)}</button>` : ''}
           <div style="margin-top:8px">${late.map(c => {
-              const t = REM.teachers[c.cls] || {}, url = remWa(c), was = sent[c.cls];
+              const t = remT(c.cls) || {}, url = remWa(c), was = sent[c.cls];
               return `<div class="rrow"><span class="rc">${remEsc(c.cls)}</span>
                 <span class="rt">${t.teacher_name ? remEsc(t.teacher_name) : '<span style="color:#b2bec3">אין מחנך רשום</span>'}
                   <small><span class="rbadge ${c.state}">${c.state === 'none' ? '🔴 לא התחיל' : '🟡 ' + c.marked + '/' + c.total}</span></small></span>
@@ -1569,13 +1573,15 @@ async function remEditTeachers(focusCls){
     await remLoad(true);
     if (REM.missing) { renderRemindCard(); return; }
     REM.editing = true;
-    const classes = [...new Set([...remClasses().map(c => c.cls), ...Object.keys(REM.teachers)])];
+    const seen = new Set(), classes = [];
+    [...remClasses().map(c => c.cls), ...Object.values(REM.teachers).map(t => t.class_name)].forEach(c => {
+        const k = remKey(c); if (!seen.has(k)) { seen.add(k); classes.push(c); } });
     card.className = 'remind-card wait';
     card.innerHTML = `<h3>👩‍🏫 מחנכים וטלפונים</h3>
       <div class="sub">שם וטלפון לכל כיתה. אפשר גם להדביק מאקסל שלוש עמודות: כיתה · שם המחנך · טלפון.</div>
       <textarea id="remPaste" rows="3" placeholder="הדבקה מאקסל (לא חובה)" style="width:100%;padding:8px;border:1px solid #dfe6e9;border-radius:8px;font-family:inherit"></textarea>
       <button class="rbtn ghost" onclick="remApplyPaste()" style="margin-top:6px">⬇️ מילוי מההדבקה</button>
-      <table class="tedit"><tbody>${classes.map(cls => { const t = REM.teachers[cls] || {};
+      <table class="tedit"><tbody>${classes.map(cls => { const t = remT(cls) || {};
         return `<tr data-cls="${remEsc(cls)}"><td>${remEsc(cls)}</td>
           <td><input data-f="n" placeholder="שם המחנך" value="${remEsc(t.teacher_name || '')}"></td>
           <td><input data-f="p" placeholder="05X-XXXXXXX" inputmode="tel" dir="ltr" value="${remEsc(t.phone || '')}"></td></tr>`; }).join('')}</tbody></table>
@@ -1587,8 +1593,8 @@ function remApplyPaste(){
     const lines = document.getElementById('remPaste').value.split(/\r?\n/).map(l => l.split(/\t|,|;/).map(x => x.trim())).filter(x => x[0]);
     let n = 0;
     lines.forEach(([cls, name, phone]) => {
-        const key = normClass ? normClass(cls) : cls;
-        let row = document.querySelector('#remindCard tr[data-cls="' + CSS.escape(key) + '"]');
+        const k = remKey(cls);
+        let row = [...document.querySelectorAll('#remindCard tr[data-cls]')].find(tr => remKey(tr.dataset.cls) === k);
         if (!row) return;
         if (name) row.querySelector('[data-f=n]').value = name;
         if (phone) row.querySelector('[data-f=p]').value = phone;
@@ -1598,9 +1604,9 @@ function remApplyPaste(){
 }
 async function remSaveTeachers(){
     const rows = [...document.querySelectorAll('#remindCard tr[data-cls]')].map(tr => ({
-        class_name: tr.dataset.cls, teacher_name: tr.querySelector('[data-f=n]').value.trim() || null,
+        class_name: (remT(tr.dataset.cls) || {}).class_name || tr.dataset.cls, teacher_name: tr.querySelector('[data-f=n]').value.trim() || null,
         phone: tr.querySelector('[data-f=p]').value.trim() || null, updated_at: new Date().toISOString() }))
-        .filter(r => r.teacher_name || r.phone || REM.teachers[r.class_name]);
+        .filter(r => r.teacher_name || r.phone || remT(r.class_name));
     const bad = rows.filter(r => r.phone && !remPhone(r.phone));
     if (bad.length) { toast('טלפון לא תקין בכיתה ' + bad[0].class_name, 'err'); return; }
     try {
