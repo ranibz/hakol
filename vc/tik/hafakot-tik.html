@@ -1,5 +1,6 @@
 <!DOCTYPE html>
-<!-- תיק הפקה דיגיטלי - מגמת וידאוקאסט | lessons/hafakot-tik.html · v1.0.0 · 2026-10-07 · RanLMS
+<!-- תיק הפקה דיגיטלי - מגמת וידאוקאסט | lessons/hafakot-tik.html · v1.0.1 · 2026-10-07 · RanLMS
+     v1.0.1 · אבטחה: כניסת תלמיד — הסיסמה נבדקת בשרת של RanLMS (auth.js), הרשימה בלי סיסמאות (PATCH).
      תיק הפקה · וידאוקאסט, בנוי מחדש בתוך RanLMS.
 
      הזהות מגיעה מ-RanLMS: ?code= הוא קוד הכיתה, התלמיד נבחר מ-lms_students
@@ -130,6 +131,7 @@
                      border-radius: 8px; font-family: inherit; font-size: 1rem; font-weight: 700; cursor: pointer; }
         .login-error { color: var(--danger); font-size: .85rem; margin-top: 10px; display: none; }
 </style>
+<script src="https://lms.ranibz.co.il/app/auth.js?v=1.0.0"></script>
 </head>
 <body>
 
@@ -968,7 +970,7 @@
             if (!cls || !cls.length) { gate('<p>קוד הכיתה אינו מוכר. בקשו מהמורה קישור מעודכן.</p>'); return; }
             CLASS = cls[0];
             document.getElementById('ctx-class').textContent = CLASS.name || '';
-            ROSTER = await sb('lms_students?select=id,full_name,pw&class_id=eq.' +
+            ROSTER = await sb('lms_students?select=id,full_name&class_id=eq.' +
                 encodeURIComponent(CLASS.id) + '&active=is.true&order=full_name.asc') || [];
             PAIRS = await sb('lms_hafakot_pairs?select=*&class_id=eq.' +
                 encodeURIComponent(CLASS.id) + '&order=updated_at.desc') || [];
@@ -997,7 +999,9 @@
         const err = document.getElementById('g-err');
         const cand = ROSTER.find(s => s.id === id);
         if (!cand) { err.textContent = 'נא לבחור שם.'; err.style.display = 'block'; return; }
-        if (String(cand.pw || '1234') !== pw) { err.textContent = 'סיסמה שגויה.'; err.style.display = 'block'; return; }
+        /* אבטחה: הסיסמה נבדקת בשרת של RanLMS (lms.ranibz.co.il/app/auth.js) ולא נשלפת לדפדפן */
+        const __chk = await RLAuth.studentCheck(CLASS.id, cand.full_name, pw);
+        if (__chk.status !== 'ok') { err.textContent = RLAuth.message(__chk.status); err.style.display = 'block'; return; }
         ME = cand;
         PAIR = PAIRS.find(p => p.student_a === ME.id || p.student_b === ME.id) || null;
         if (!PAIR) {
